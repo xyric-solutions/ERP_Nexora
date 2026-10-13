@@ -2523,7 +2523,7 @@
           },
           "new_password": {
             "type": "string",
-            "minLength": 12,
+            "minLength": 8,
             "maxLength": 128
           }
         },
@@ -5102,7 +5102,7 @@
                 "properties": {
                   "one_time_password": {
                     "type": "string",
-                    "minLength": 12,
+                    "minLength": 8,
                     "maxLength": 128
                   }
                 },

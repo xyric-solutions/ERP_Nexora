@@ -15,7 +15,7 @@ export const passwordHashParameters = {
 } as const;
 
 export const passwordPolicy = {
-  minimumLength: 12,
+  minimumLength: 8,
   maximumLength: 128,
   maximumBytes: 512,
   historyDepth: 5,

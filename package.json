@@ -39,6 +39,7 @@
     "auth:backfill-user-company-access": "npm run auth:backfill-user-company-access --workspace @nexora/db",
     "uat:provision-c4-auth": "tsx scripts/provision-c4-uat-auth.ts",
     "uat:provision-user-management": "tsx scripts/provision-user-management-uat.ts",
+    "uat:provision-shoaib-admin": "tsx scripts/provision-shoaib-admin.ts",
     "api:generate": "npm run api:generate --workspace @nexora/contracts",
     "api:check": "npm run api:check --workspace @nexora/contracts",
     "catalogue:generate": "node scripts/generate-prototype-manifest.mjs",

@@ -137,10 +137,10 @@ export default function LoginPage() {
                 value={newPassword}
                 onChange={(event) => setNewPassword(event.target.value)}
                 autoComplete="new-password"
-                minLength={12}
+                minLength={8}
                 required
               />
-              <small>Use at least 12 characters.</small>
+              <small>Use at least 8 characters.</small>
             </label>
             <label>
               Confirm new password
@@ -149,7 +149,7 @@ export default function LoginPage() {
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 autoComplete="new-password"
-                minLength={12}
+                minLength={8}
                 required
               />
             </label>
@@ -158,7 +158,7 @@ export default function LoginPage() {
                 {error}
               </p>
             ) : null}
-            <button disabled={submitting || newPassword.length < 12 || newPassword !== confirmPassword}>
+            <button disabled={submitting || newPassword.length < 8 || newPassword !== confirmPassword}>
               {submitting ? "Updating..." : "Set password and continue"}
             </button>
             <button type="button" className={styles.secondary} disabled={submitting} onClick={cancelPasswordChange}>

@@ -13,8 +13,8 @@ if (process.env.NEXORA_ENVIRONMENT !== "uat" || process.env.NEXORA_UAT_CONFIRM !
   throw new Error(`Set NEXORA_ENVIRONMENT=uat and NEXORA_UAT_CONFIRM=${sourceTestTenantId}`);
 }
 if (!databaseUrl) throw new Error("DATABASE_URL is required");
-if (!password || password.length < 12) {
-  throw new Error("NEXORA_UAT_PASSWORD must contain at least 12 characters");
+if (!password || password.length < 8) {
+  throw new Error("NEXORA_UAT_PASSWORD must contain at least 8 characters");
 }
 if (!loginDirectorySecret) throw new Error("AUTH_LOGIN_DIRECTORY_SECRET is required");
 

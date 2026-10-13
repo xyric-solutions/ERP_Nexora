@@ -76,10 +76,10 @@ describe("governed user administration contracts", () => {
     expect(
       changeInitialPasswordRequestSchema.safeParse({
         ticket,
-        new_password: "a-secure-new-password",
+        new_password: "Admin.12",
       }).success,
     ).toBe(true);
-    expect(changeInitialPasswordRequestSchema.safeParse({ ticket, new_password: "short" }).success).toBe(false);
+    expect(changeInitialPasswordRequestSchema.safeParse({ ticket, new_password: "1234567" }).success).toBe(false);
   });
 
   it("permits one-time credential delivery only on a non-replayed response", () => {

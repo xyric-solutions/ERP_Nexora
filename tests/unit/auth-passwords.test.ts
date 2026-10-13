@@ -27,7 +27,8 @@ describe("password security", () => {
   });
 
   it("rejects weak, oversized, identifier-derived, and null-containing passwords", () => {
-    expect(() => validatePassword("short")).toThrow(PasswordPolicyError);
+    expect(() => validatePassword("1234567")).toThrow(PasswordPolicyError);
+    expect(() => validatePassword("Admin.12")).not.toThrow();
     expect(() => validatePassword("person@example.com-secure", "person@example.com")).toThrow(PasswordPolicyError);
     expect(() => validatePassword(`valid-password\0value`)).toThrow(PasswordPolicyError);
     expect(() => validatePassword("x".repeat(129))).toThrow(PasswordPolicyError);

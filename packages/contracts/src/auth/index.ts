@@ -79,7 +79,7 @@ export const cancelTenantSelectionRequestSchema = z.object({
 
 export const changeInitialPasswordRequestSchema = z.object({
   ticket: z.string().min(43).max(43),
-  new_password: z.string().min(12).max(128),
+  new_password: z.string().min(8).max(128),
 });
 
 export type BootstrapAdministratorRequest = z.infer<typeof bootstrapAdministratorRequestSchema>;

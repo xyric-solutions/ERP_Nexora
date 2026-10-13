@@ -203,7 +203,7 @@ export const securityUserAdministrationResultSchema = z.discriminatedUnion("cred
     replayed: z.literal(false),
     credential_delivery_available: z.literal(true),
     credential_delivery: z.strictObject({
-      one_time_password: z.string().min(12).max(128),
+      one_time_password: z.string().min(8).max(128),
     }),
   }),
   z.strictObject({
