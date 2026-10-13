@@ -1,0 +1,45 @@
+NEXORA HR-01 VERIFICATION EVIDENCE
+Date: 2026-09-25 Asia/Karachi
+Status: READY FOR REVIEW; NOT PRODUCTION READY
+
+IMPLEMENTED
+- PostgreSQL HR schema with composite tenant keys, company/branch/department and typed-master constraints, effective-date exclusion, append-only history, forced RLS, forward/idempotent/preservation-safe rollback migration.
+- Employee/master/assignment domain services using the existing numbering sequence, durable idempotency table and tenant hash-chain audit in one transaction.
+- Protected contextual-company HR APIs, action-specific permissions, separate private-profile permission, field-change evidence with sensitive values hashed, and safe errors.
+- Live responsive /hr employee register and HR master workspace with search/filter/create/submit/approve actions. Attendance, Leave, Payroll and HR-02 were not implemented.
+
+DETERMINISTIC RESULTS
+- python scripts/verify.py unit integration contract security e2e migration
+  PASS: 605 tests.
+- python scripts/verify_postgres_hr.py
+  PASS: 2 disposable PostgreSQL 18 tests covering forward/idempotent/rollback, forced RLS, tenant/company/branch isolation, masking, lifecycle SoD, overlap, manager cycle, concurrent numbering, audit and idempotency.
+- python scripts/verify_postgres_platform.py
+  PASS: 12 existing PostgreSQL Platform regression tests.
+- web: npm run api:check-drift
+  PASS: generated schema matches canonical OpenAPI.
+- web: npm run lint
+  PASS.
+- web: npm run test
+  PASS: 51 files / 152 tests.
+- web: npm run test:a11y
+  PASS: 12 files / 15 tests.
+- web: npm run build
+  PASS: Next.js 16.3.6, 47 static routes including /hr.
+- python -m pip check
+  PASS: no broken requirements.
+- web: npm audit --omit=dev --audit-level=high
+  PASS: 0 vulnerabilities.
+- git diff --check
+  PASS.
+
+FINAL REVIEW
+- Security: no new critical/high defect; protected-by-default, server-side company scope, forced RLS, private-field permission and non-reversible audit values verified.
+- Integrity: database constraints reject hierarchy/type/reference/overlap violations; numbering and command writes are transactional and concurrent-safe.
+- Scalability: paginated indexed reads and pooled transactions are used; no N+1 employee list query. General shared rate limiting remains inherited S1.5-F06.
+- Maintainability: isolated HR package reuses Platform boundaries and canonical API/UI patterns; no duplicate company/branch/department, Party, workflow or audit-chain implementation.
+
+BLOCKERS / LIMITATIONS
+- Q-003/S1.5-F05: managed identity plus PostgreSQL authorization adapter absent.
+- HR01-F02: configurable Workflow/approval persistence remains legacy embedded database-only in production composition.
+- HR01-F03: employee satellite tables are schema-only pending permission-separated API/UI policy.
+- Q-004/Q-006 and S1.5-F03/F06/F07 remain external/platform production-promotion blockers.

@@ -1,0 +1,54 @@
+Nexora S1.1 verification evidence
+Date: 2026-07-28
+Runtime: Python 3.11.9, in-process ASGI 3 boundary
+
+Deterministic checks
+1. python -m compileall -q app tests scripts
+   PASS
+2. python -m json.tool contracts\openapi-v1.json | Out-Null
+   PASS
+3. python scripts\verify.py unit integration contract security migration
+   PASS: 36 tests
+   - unit: 14
+   - integration: 9
+   - contract: 5
+   - security: 7
+   - migration: 1
+
+Manual QA-01 Product Verification review
+- Changed behavior: versioned routes, canonical errors, trusted context
+  interface, idempotent POST, cursor list, ETag/304, rate limits, correlation,
+  and structured logs.
+- Positive/negative paths: direct tests cover health, create/list, malformed
+  auth/tenant/query/body/media type, 404, 409, 413, 415, 422, 429, and safe 500.
+- Runtime-equivalent proof: requests exercised at the ASGI HTTP event boundary.
+- Result: PASS; no blocking finding.
+
+Manual SEC-01 Auth RBAC Privacy Review
+- Actors exercised: anonymous, valid static-test identity, invalid identity,
+  tenant-less identity, cross-tenant identity, and unconfigured default app.
+- Data boundary: resources, idempotency records, and rate-limit buckets are
+  tenant scoped; protected routes deny by default.
+- Sensitive data: completion records contain no bearer token, idempotency key,
+  or request body.
+- Result: PASS; no critical/major access-control finding.
+
+Hard-gate result
+- Route, error, auth, tenant, idempotency, correlation, contract, behavior,
+  migration, credential, and evidence gates: PASS.
+- Pilot-load performance: NOT RUN and not claimed; deferred to configured load
+  profile.
+- Node method portability: SKIPPED under W-001 because Node is unavailable.
+- Exact GPT-5.6 variant/effort/surface provenance: unavailable from this runtime;
+  system reports a GPT-5-based Codex session and observed delegation is single.
+  Recorded under W-002.
+
+Residual production risks
+- No production ASGI server, managed identity provider, durable distributed
+  idempotency store, or distributed rate limiter is configured in S1.1.
+- Those are explicit later-segment decisions; the public contract and adapters
+  are stable/tested scaffolds, not production deployment claims.
+
+Review decision: CLOSED WITH WAIVERS W-001 and W-002
+Rubric: B / 90 (functional S1.1 gates pass; method/runtime provenance waivers
+prevent a clean top-grade closeout).

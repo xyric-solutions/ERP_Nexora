@@ -1,0 +1,28 @@
+{
+  "name": "@nexora/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js"
+    },
+    "./jobs": {
+      "types": "./src/jobs/index.ts",
+      "import": "./dist/jobs/index.js"
+    },
+    "./openapi": {
+      "types": "./src/openapi-c4.ts",
+      "import": "./dist/openapi-c4.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "api:generate": "tsx src/generate-client-c4.ts",
+    "api:check": "tsx src/generate-client-c4.ts --check"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  }
+}

@@ -1,0 +1,68 @@
+module_id,group_id,group_label,page_id,page_label,archetype,catalogue_status,current_renderer,audit_status,production_module
+hr,organisation,Organisation & Masters,org-structure,Organisation Structure,list,prototype,HrOrgStructure,DEDICATED_MOCK,M03 Organisation
+hr,organisation,Organisation & Masters,designations,Designations,list,prototype,HrMasterScreen,DEDICATED_MOCK,M03 Organisation
+hr,organisation,Organisation & Masters,job-grades,Job Grades,list,prototype,HrMasterScreen,DEDICATED_MOCK,M03 Organisation
+hr,organisation,Organisation & Masters,cost-centres,Cost Centres,list,prototype,HrMasterScreen,DEDICATED_MOCK,M03 Organisation
+hr,organisation,Organisation & Masters,work-locations,Work Locations,list,prototype,HrMasterScreen,DEDICATED_MOCK,M03 Organisation
+hr,organisation,Organisation & Masters,employment-types,Employment Types,list,prototype,HrMasterScreen,DEDICATED_MOCK,M03 Organisation
+hr,organisation,Organisation & Masters,employee-categories,Employee Categories,list,prototype,HrMasterScreen,DEDICATED_MOCK,M03 Organisation
+hr,people,People,hr-dashboard,HR Dashboard,dashboard,prototype,HrReportingWorkspace,DEDICATED_MOCK,M17 Reporting & Compliance
+hr,people,People,finance-payroll-dashboard,Finance / Payroll Dashboard,dashboard,prototype,HrReportingWorkspace,DEDICATED_MOCK,M17 Reporting & Compliance
+hr,people,People,employees,Employee Directory,list,prototype,ListView (generic fallback),GENERIC_FALLBACK,M04 Employee Core
+hr,people,People,add-employee,Add Employee,form,prototype,ListView (generic fallback),GENERIC_FALLBACK,M04 Employee Core
+hr,people,People,employee-record,Employee Record,detail,prototype,ListView (generic fallback),GENERIC_FALLBACK,M04 Employee Core
+hr,people,People,positions-org,Positions & Organisation,list,prototype,ListView (generic fallback),GENERIC_FALLBACK,M04 Employee Core
+hr,recruitment,Recruitment,manpower-requisitions,Manpower Requisitions,approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,M05 Manpower Planning
+hr,recruitment,Recruitment,job-openings,Job Openings,list,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
+hr,recruitment,Recruitment,candidates,Candidate Directory,list,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
+hr,recruitment,Recruitment,recruitment-pipeline,Recruitment Pipeline,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
+hr,recruitment,Recruitment,interviews,Interviews & Evaluations,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
+hr,recruitment,Recruitment,offers,Offer Management,approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
+hr,recruitment,Recruitment,create-employee-from-offer,Create Employee from Offer,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
+hr,attendance-shifts,Attendance & Shifts,shifts,Shifts & Rules,settings,prototype,HrAttendanceScreen,DEDICATED_MOCK,M11 Time & Attendance
+hr,attendance-shifts,Attendance & Shifts,shift-assignments,Shift Assignments,list,prototype,HrAttendanceScreen,DEDICATED_MOCK,M11 Time & Attendance
+hr,attendance-shifts,Attendance & Shifts,daily-attendance,Daily Attendance,list,prototype,HrAttendanceScreen,DEDICATED_MOCK,M11 Time & Attendance
+hr,attendance-shifts,Attendance & Shifts,monthly-attendance,Monthly Attendance,list,prototype,HrAttendanceScreen,DEDICATED_MOCK,M11 Time & Attendance
+hr,attendance-shifts,Attendance & Shifts,attendance-corrections,Attendance Corrections,approval,prototype,HrAttendanceScreen,DEDICATED_MOCK,M11 Time & Attendance
+hr,attendance-shifts,Attendance & Shifts,overtime,Overtime,approval,prototype,HrAttendanceScreen,DEDICATED_MOCK,M11 Time & Attendance
+hr,attendance-shifts,Attendance & Shifts,attendance-period,Attendance Period Close,workflow,prototype,HrAttendanceScreen,DEDICATED_MOCK,M11 Time & Attendance
+hr,attendance-shifts,Attendance & Shifts,attendance-payroll-inputs,Attendance → Payroll Inputs,report,prototype,HrAttendanceScreen,DEDICATED_MOCK,M11 Time & Attendance
+hr,time-leave,Time & Leave,leave-types,Leave Types,settings,prototype,HrAttendanceScreen,DEDICATED_MOCK,M12 Leave
+hr,time-leave,Time & Leave,leave-balances,Leave Balances,list,prototype,HrAttendanceScreen,DEDICATED_MOCK,M12 Leave
+hr,time-leave,Time & Leave,attendance,Attendance,list,prototype,ListView (generic fallback),GENERIC_FALLBACK,M11 Time & Attendance
+hr,time-leave,Time & Leave,leave-requests,Leave Requests,list,prototype,ListView (generic fallback),GENERIC_FALLBACK,M12 Leave
+hr,time-leave,Time & Leave,leave-request,Add Leave Request,form,prototype,ListView (generic fallback),GENERIC_FALLBACK,M12 Leave
+hr,time-leave,Time & Leave,leave-approval,Leave Approval,approval,prototype,ListView (generic fallback),GENERIC_FALLBACK,M12 Leave
+hr,payroll,Payroll,payroll-setup,Pay Components,settings,prototype,HrPayrollScreen,DEDICATED_MOCK,M13 Payroll & Statutory
+hr,payroll,Payroll,salary-structures,Salary Structures,list,prototype,HrPayrollScreen,DEDICATED_MOCK,M13 Payroll & Statutory
+hr,payroll,Payroll,salary-revisions,Salary Revisions,approval,prototype,HrPayrollScreen,DEDICATED_MOCK,M13 Payroll & Statutory
+hr,payroll,Payroll,payroll-inputs,Payroll Inputs,form,prototype,ListView (generic fallback),GENERIC_FALLBACK,M13 Payroll & Statutory
+hr,payroll,Payroll,payroll-runs,Payroll Runs,list,prototype,HrPayrollScreen,DEDICATED_MOCK,M13 Payroll & Statutory
+hr,payroll,Payroll,payroll-validation,Payroll Review & Approval,approval,prototype,HrPayrollScreen,DEDICATED_MOCK,M13 Payroll & Statutory
+hr,payroll,Payroll,employee-loans,Loans & Advances,list,prototype,HrPayrollScreen,DEDICATED_MOCK,M13 Payroll & Statutory
+hr,payroll,Payroll,payroll-journal,Payroll Journal,report,prototype,HrPayrollScreen,DEDICATED_MOCK,M15 Payments & Finance
+hr,payroll,Payroll,payment-batch,Payment Batch,workflow,prototype,HrPayrollScreen,DEDICATED_MOCK,M15 Payments & Finance
+hr,payroll,Payroll,payslips,Payslips & Payment Handoff,workflow,prototype,HrPayrollScreen,DEDICATED_MOCK,M13 Payroll & Statutory
+hr,performance,Performance Management,performance-cycles,Performance Cycles,settings,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
+hr,performance,Performance Management,goals-kpis,Goals & KPIs,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
+hr,performance,Performance Management,performance-reviews,Performance Reviews,approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
+hr,performance,Performance Management,performance-outcomes,Performance Outcomes,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
+hr,learning,Learning & Development,training-programs,Training Programmes,settings,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
+hr,learning,Learning & Development,training-requests,Training Requests,approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
+hr,learning,Learning & Development,training-sessions,Training Sessions,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
+hr,learning,Learning & Development,training-completions,Completion & Certificates,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
+hr,employee-lifecycle,Employee Lifecycle,onboarding,Onboarding,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,"M07 Hire, Onboard & Probation"
+hr,employee-lifecycle,Employee Lifecycle,probation-reviews,Probation Reviews,approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,"M07 Hire, Onboard & Probation"
+hr,employee-lifecycle,Employee Lifecycle,employee-movements,"Transfers, Promotions & Movements",approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,M09 Move & Reward
+hr,employee-lifecycle,Employee Lifecycle,resignations,Resignations,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M10 Separation & Settlement
+hr,employee-lifecycle,Employee Lifecycle,terminations,Termination Cases,approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,M10 Separation & Settlement
+hr,employee-lifecycle,Employee Lifecycle,clearance,Exit Clearance,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M10 Separation & Settlement
+hr,employee-lifecycle,Employee Lifecycle,final-settlements,Final Settlements,approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,M10 Separation & Settlement
+hr,employee-lifecycle,Employee Lifecycle,offboarding,Offboarding Control Centre,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M10 Separation & Settlement
+hr,benefits-self-service,Benefits & Self-service,loans-benefits,"Loans, Benefits & Gratuity",list,prototype,ListView (generic fallback),GENERIC_FALLBACK,M14 Benefits & Loans
+hr,benefits-self-service,Benefits & Self-service,statutory-deductions,Statutory Deductions,settings,prototype,ListView (generic fallback),GENERIC_FALLBACK,M14 Benefits & Loans
+hr,benefits-self-service,Benefits & Self-service,employee-self-service,Employee Self-service,dashboard,prototype,ListView (generic fallback),GENERIC_FALLBACK,M16 Self-service
+hr,benefits-self-service,Benefits & Self-service,hr-report-centre,HR & Payroll Report Centre,report,prototype,HrReportingWorkspace,DEDICATED_MOCK,M17 Reporting & Compliance
+hr,hr-compliance,"Reporting, Compliance & Audit",hr-compliance-configuration,Compliance Configuration,settings,prototype,HrReportingWorkspace,DEDICATED_MOCK,M17 Reporting & Compliance
+hr,hr-compliance,"Reporting, Compliance & Audit",hr-report-audit-log,Report Audit Log,report,prototype,HrReportingWorkspace,DEDICATED_MOCK,M02 Workflow & Audit
+hr,hr-compliance,"Reporting, Compliance & Audit",hr-export-centre,Secure Export Centre,workflow,prototype,HrReportingWorkspace,DEDICATED_MOCK,M17 Reporting & Compliance

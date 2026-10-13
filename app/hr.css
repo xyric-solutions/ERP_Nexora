@@ -1,0 +1,96 @@
+/* Core HR foundation screens: organisation structure, masters, employee master. */
+
+.nx-hr-notice { margin: 0; padding: 11px 14px; max-width: 110ch; border: 1px solid var(--nx-border); border-left: 3px solid var(--nx-brand); border-radius: var(--nx-radius-sm); background: var(--nx-surface-soft); color: var(--nx-text-muted); font-size: 12px; line-height: 1.55; }
+
+.nx-hr-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 11px; }
+.nx-hr-fields > div { padding: 10px 13px; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-sm); background: var(--nx-surface); }
+.nx-hr-fields span { display: block; color: var(--nx-text-muted); font-size: 11px; }
+.nx-hr-fields strong { display: block; margin-top: 3px; color: var(--nx-text-strong); font-size: 13px; font-weight: 600; }
+
+.nx-hr-record { min-width: 0; display: grid; gap: 14px; }
+.nx-hr-record__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+.nx-hr-record__head h2 { margin: 5px 0 0; color: var(--nx-text-strong); font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.nx-hr-record__head p { max-width: 80ch; margin: 5px 0 0; color: var(--nx-text-muted); font-size: 12px; line-height: 1.55; }
+
+.nx-hr-structure { display: grid; grid-template-columns: minmax(280px, .85fr) minmax(0, 1.6fr); gap: 14px; align-items: start; }
+
+.nx-hr-tree { padding: 10px 0; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-md); background: var(--nx-surface); box-shadow: var(--nx-shadow-xs); }
+.nx-hr-tree ul { margin: 0; padding: 0; list-style: none; }
+.nx-hr-tree button { width: 100%; padding: 8px 12px; display: grid; grid-template-columns: 94px minmax(0, 1fr) auto; align-items: center; gap: 8px; border: 0; background: none; color: var(--nx-text); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.nx-hr-tree button:hover { background: var(--nx-surface-soft); }
+.nx-hr-tree button.active { background: var(--nx-brand-soft); box-shadow: inset 3px 0 var(--nx-brand); }
+.nx-hr-tree__type { color: var(--nx-text-subtle); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.nx-hr-tree__name { min-width: 0; overflow: hidden; color: var(--nx-text-strong); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+
+.nx-hr-unit { min-width: 0; display: grid; gap: 13px; padding: 15px 16px; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-md); background: var(--nx-surface); box-shadow: var(--nx-shadow-xs); }
+.nx-hr-unit > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.nx-hr-unit h2 { margin: 4px 0 0; color: var(--nx-text-strong); font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
+
+@media (max-width: 1100px) {
+  .nx-hr-structure { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Phase 2 — attendance, shifts and leave. */
+
+.nx-att-legend { margin: 0; padding: 0; display: flex; gap: 14px; flex-wrap: wrap; list-style: none; }
+.nx-att-legend li { display: flex; align-items: center; gap: 6px; color: var(--nx-text-muted); font-size: 11px; }
+
+.nx-att-cell { width: 20px; height: 20px; display: inline-grid; place-items: center; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-sm); font-size: 11px; font-weight: 700; font-style: normal; }
+.nx-att-cell--present { border-color: #b8e5d4; background: var(--nx-success-soft); color: #087453; }
+.nx-att-cell--absent { border-color: #efc0c5; background: var(--nx-danger-soft); color: #a8323c; }
+.nx-att-cell--half { border-color: #efd5a6; background: var(--nx-warning-soft); color: #9a5707; }
+.nx-att-cell--off { border-color: var(--nx-border-strong); background: var(--nx-surface-soft); color: var(--nx-text-subtle); }
+.nx-att-cell--holiday { border-color: #d4cdf7; background: var(--nx-purple-soft); color: #5b3fa8; }
+.nx-att-cell--leave { border-color: #bfd8f3; background: var(--nx-info-soft); color: #1d5f9e; }
+.nx-att-cell--unpaid { border-color: #efc0c5; background: var(--nx-danger-soft); color: #a8323c; }
+.nx-att-cell--duty { border-color: #bfd8f3; background: var(--nx-info-soft); color: #1d5f9e; }
+.nx-att-cell--missing { border-color: #efd5a6; background: var(--nx-warning-soft); color: #9a5707; }
+
+.nx-att-chip { display: inline-block; padding: 2px 9px; border: 1px solid var(--nx-border); border-radius: 99px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.nx-att-chip--present { border-color: #b8e5d4; background: var(--nx-success-soft); color: #087453; }
+.nx-att-chip--absent,.nx-att-chip--unpaid { border-color: #efc0c5; background: var(--nx-danger-soft); color: #a8323c; }
+.nx-att-chip--half,.nx-att-chip--missing { border-color: #efd5a6; background: var(--nx-warning-soft); color: #9a5707; }
+.nx-att-chip--off { border-color: var(--nx-border-strong); background: var(--nx-surface-soft); color: var(--nx-text-muted); }
+.nx-att-chip--holiday { border-color: #d4cdf7; background: var(--nx-purple-soft); color: #5b3fa8; }
+.nx-att-chip--leave,.nx-att-chip--duty { border-color: #bfd8f3; background: var(--nx-info-soft); color: #1d5f9e; }
+
+.nx-att-grid-wrap { overflow-x: auto; }
+.nx-att-grid th,.nx-att-grid td { padding: 6px 7px; }
+.nx-att-grid__day { width: 26px; text-align: center; font-variant-numeric: tabular-nums; }
+.nx-att-grid__name { position: sticky; left: 0; z-index: 1; min-width: 190px; text-align: left; background: var(--nx-surface); }
+.nx-att-grid thead .nx-att-grid__name { background: var(--nx-surface-soft); }
+.nx-att-grid__name small { display: block; color: var(--nx-text-muted); font-size: 11px; }
+
+.nx-att-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* The month-end close has five steps; the shared strip assumes four. */
+.nx-recon__steps.nx-att-steps { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1100px) {
+  .nx-recon__steps.nx-att-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Phase 3 — payroll. */
+
+.nx-pay-formula { padding: 1px 5px; border-radius: var(--nx-radius-sm); background: var(--nx-surface-soft); color: var(--nx-text); font-family: var(--font-geist-mono), ui-monospace, monospace; font-size: 11px; }
+.nx-recon__steps.nx-pay-steps { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+.nx-recon__steps.nx-pay-steps small { display: none; }
+.nx-hr-structure-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 13px; align-items: start; }
+
+.nx-payslip { display: grid; gap: 15px; padding: 18px 20px; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-md); background: var(--nx-surface); box-shadow: var(--nx-shadow-xs); }
+.nx-payslip > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--nx-border); padding-bottom: 13px; }
+.nx-payslip h2 { margin: 5px 0 0; color: var(--nx-text-strong); font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.nx-payslip header p { margin: 5px 0 0; color: var(--nx-text-muted); font-size: 12px; }
+.nx-payslip__columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(430px, 1fr)); gap: 14px; align-items: start; }
+.nx-payslip__columns > * { min-width: 0; overflow-x: auto; }
+/* The shared register table is 840px wide by design; a payslip's three-column
+   earnings and deductions tables are not registers and must fit their track. */
+.nx-payslip__columns .nx-data-table { width: 100%; min-width: 0; }
+.nx-payslip__columns small { color: var(--nx-text-muted); font-size: 11px; }
+.nx-payslip__net { padding: 14px 16px; display: grid; gap: 2px; border: 1px solid var(--nx-border-strong); border-radius: var(--nx-radius-sm); background: var(--nx-surface-soft); }
+.nx-payslip__net span { color: var(--nx-text-muted); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.nx-payslip__net strong { color: var(--nx-text-strong); font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.025em; }
+.nx-payslip__net small { color: var(--nx-text-muted); font-size: 11px; }
+
+@media (max-width: 1100px) {
+  .nx-recon__steps.nx-pay-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

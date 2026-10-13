@@ -1,0 +1,140 @@
+NEXORA ROLE-BASED DASHBOARD SYSTEM - DELIVERY EVIDENCE
+Date: 2026-09-04
+Scope: /dashboard frontend composition only; existing APIs are read-only inputs
+
+OWNER REQUEST
+- Implement professional, responsive ERP dashboards for CEO, CFO, Finance
+  Manager, Accountant, Sales Manager, Sales Executive, Purchase Manager,
+  Procurement Officer, Inventory Manager, Warehouse, Production Manager,
+  Project Manager, HR Manager, Admin, CRM, AR, AP, Tax, and Auditor.
+- Use real existing API data where available, enforce RBAC, expose filters and
+  drill-downs, and never present invented values as working functionality.
+- Preserve accounting logic, schema, Demo records, and unrelated modules.
+
+IMPLEMENTED
+- Exactly 19 dashboard presentation profiles with deterministic multi-role
+  priority and aliases for all nine currently seeded Demo roles.
+- Backend login and Demo recovery now persist issued role names, user identity,
+  and expiry alongside existing permissions. A Demo-only compatibility path
+  recognizes the backend-issued demo.* actor name in already-open sessions.
+- Role selection affects presentation only. Each query is independently
+  enabled by the exact existing backend permission, and every query key carries
+  tenant/company/date context appropriate to its source.
+- Role layouts define four contextual KPIs, primary/supporting analytics,
+  relevant tasks/exceptions, recent activity, and unavailable source domains.
+- Shared accessible charts: line/area time series, vertical/stacked/horizontal
+  bars, donut, waterfall, funnel, gauge/progress, treemap, scatter, heatmap,
+  and sparklines. Charts include tooltips, legends where useful, keyboard-safe
+  actions, no-animation test stability, screen-reader data tables, and empty,
+  loading, restricted, error, and unavailable states.
+- Global dashboard controls: date range, company, assigned-role view,
+  warehouse, disabled Branch/Department controls with honest missing-directory
+  labels, refresh, print, and KPI CSV export.
+- Drill-down links target existing authorized routes only. No dashboard action
+  posts, approves, reverses, mutates, or invents a source transaction.
+
+DATA TRUTH
+- Live when permitted: Finance dashboard metrics, P&L trends, cash flow,
+  budget variance, journals, accounts, general-ledger context, audit activity;
+  Procurement documents/vendors; Inventory items/bins/stock movements; Setup
+  drafts.
+- AR/AP widgets use only the exact seeded control-account codes and are labeled
+  general-ledger context, not customer/supplier ageing.
+- Tax widgets use tax-tagged ledger context and do not claim filing data.
+- Procurement documents expose no timestamps, so pipeline/status analytics are
+  live while activity text explicitly says the timestamp is not exposed.
+- Audit events expose no company field, so their panel is labeled tenant-wide.
+- No current HTTP directory exists for branches/departments; those filters are
+  visible but disabled and explanatory.
+- No governed Sales, CRM, HR, Project, Production, AR/AP open-item/ageing, or
+  Tax filing/report source API exists. Those role pages retain useful permitted
+  context and explicit No source API cards; no dummy operational amount is
+  shown as live.
+- The current Demo seed contains nine roles, so nine role experiences can be
+  exercised through existing accounts. All 19 profiles are ready for future
+  backend role assignment; this slice did not add or change Demo users/roles.
+
+PRIMARY IMPLEMENTATION FILES
+- web/src/app/(shell)/dashboard/page.tsx
+- web/src/components/dashboard/analytics-charts.tsx
+- web/src/components/dashboard/role-dashboard.tsx
+- web/src/components/dashboard/role-dashboard-ui.tsx
+- web/src/components/dashboard/role-dashboard-widgets.tsx
+- web/src/features/dashboard/analytics.ts
+- web/src/features/dashboard/date-range.ts
+- web/src/features/dashboard/role-dashboard-kpis.ts
+- web/src/features/dashboard/role-dashboard-work.ts
+- web/src/features/dashboard/role-layouts.ts
+- web/src/features/dashboard/role-registry.ts
+- web/src/features/dashboard/use-role-dashboard-data.ts
+- web/src/lib/session/session-provider.tsx
+- web/src/app/login/page.tsx
+- web/src/components/shell/require-session.tsx
+- web/package.json and web/package-lock.json (Recharts 3.10.1)
+- Corresponding focused functional, boundary, integration, and accessibility
+  test files alongside these components/features.
+
+VERIFICATION
+- Dashboard consolidated suite:
+  .\node_modules\.bin\vitest.cmd run [nine dashboard test files]
+  Result: PASS, 9 files / 42 tests.
+- Legacy open-Demo-session focused rerun:
+  .\node_modules\.bin\vitest.cmd run
+  src/components/dashboard/role-dashboard.test.tsx
+  Result: PASS, 1 file / 4 tests; dashboard total is now 43 assertions.
+- TypeScript:
+  .\node_modules\.bin\tsc.cmd --noEmit --pretty false
+  Result: PASS, zero type errors.
+- ESLint:
+  npm.cmd run lint
+  Result: PASS, zero warnings and zero errors.
+- OpenAPI generated-client drift:
+  npm.cmd run api:check-drift
+  Result: PASS; generated client matches contracts/openapi-v1.json.
+- Production build:
+  npm.cmd run build
+  Result: PASS; Next.js 16.3.0 compiled and generated 47/47 routes, including
+  /dashboard.
+- Dedicated accessibility:
+  npm.cmd run test:a11y
+  Result: PASS, 11 files / 14 tests, zero reported axe violations.
+- Backend regression:
+  python scripts/verify.py unit integration contract security e2e migration
+  Result: PASS, 483 tests (179 unit, 228 integration, 5 contract, 13 security,
+  5 E2E, 53 migration).
+- Demo integrity:
+  python scripts/demo_environment.py verify
+  Result: PASS; exact Demo marker and only Demo tenant; seed v3; audit/event/
+  procurement evidence intact; all journals balanced; Trial Balance and
+  Balance Sheet variance zero; cash flow reconciles. No reset or reseed ran.
+- Live local smoke with the existing Demo API/UI:
+  /dashboard HTTP 200; demo.admin login returned backend roles and 44
+  permissions; company-scoped metrics/P&L, 18 journals, 4 procurement
+  documents, and 1 stock movement returned; demo.sales received HTTP 403 for a
+  Finance metrics request. Temporary processes were stopped and no listeners
+  were left on ports 3000/8000.
+
+KNOWN, NON-DASHBOARD TEST MISMATCH
+- Full frontend: 46 files passed, 1 failed; 141 tests passed, 1 failed.
+- Sole failure:
+  web/src/app/(shell)/platform/setup-drafts/page.test.tsx
+  "shows inline error and retry on failed load".
+- The existing API provider signs an established session out when an
+  authenticated API returns 401, so RequirePermission unmounts the page. The
+  old unrelated test expects the Setup Drafts page to remain mounted with an
+  inline Retry action. The same result reproduced in isolation. This dashboard
+  slice did not change Setup Drafts or the production 401 policy, and the owner
+  explicitly prohibited unrelated-module modifications.
+
+VISUAL AUTOMATION LIMIT
+- The required in-app browser bridge was attempted twice. Its Node bridge
+  failed before browser setup with Windows sandbox ACL error
+  "helper_unknown_error: apply deny-read ACLs". No external browser framework
+  was substituted and no visual-browser pass is claimed. Component rendering,
+  accessible semantics, production build, real HTTP, and real API/RBAC smoke
+  are verified as listed above.
+
+PRESERVATION
+- No backend endpoint, accounting/posting rule, database schema, migration,
+  Demo seed record, Demo user/role, Finance transaction, or unrelated module
+  was modified for the dashboard delivery.

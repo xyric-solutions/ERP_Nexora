@@ -1,0 +1,78 @@
+HR-PRAC-01 - PostgreSQL Demo HR/Payroll practice readiness verification
+Date: 2026-10-01
+Baseline: 8b349ff04cb1deea9b711cdda301b770eab35161
+Status: CLOSED WITH WAIVERS
+
+DELIVERED
+- Production-only Demo RBAC gives demo.hr the bounded existing HR/Payroll
+  permission catalog. Legacy Demo configuration was not changed.
+- PostgreSQL deterministically owns a locked September attendance period/input,
+  active Payroll policy/component/structure, approved salary authority and an
+  open September Payroll period.
+- The verifier queries PostgreSQL for every practice prerequisite and retains
+  the country-neutral/statutory fail-closed boundary.
+- Finance journal create/post reauthorization now passes company_id to the
+  existing repository security gate, preserving company-scoped policies.
+- The untouched initial practice seed is reconciled from 6000 to 5000 only
+  while its period is open/run 0 with no results or proposals. Finance approval
+  thresholds were not changed or bypassed.
+
+FOCUSED TESTS
+- python -m unittest tests.unit.test_production_demo_environment
+  tests.unit.test_hr_payroll tests.integration.test_hr_payroll_api
+  PASS 24.
+- python scripts/verify.py security
+  PASS 13.
+- python scripts/verify.py integration
+  PASS 268, skipped 4. This broader focused gate was required because the
+  Finance authorization signature is shared across integration test doubles.
+- python scripts/verify_postgres_hr.py
+  PASS 36.
+- python scripts/verify_postgres_finance.py
+  PASS 7, including company-scoped Payroll adapter posting.
+- Full 704-test canonical suite intentionally not rerun per owner direction.
+
+CANDIDATE PROOF
+- PostgreSQL 127.0.0.1:55434 connected to nexora_demo_v2 as
+  nexora_demo_app.
+- Redis 127.0.0.1:56379 replied +PONG.
+- Legacy PostgreSQL 5432/55432 and Redis 6379 rejection remains covered by the
+  focused production-Demo unit tests before any connect attempt.
+- Seed after reconciliation: seeded=false, updated=true; database verifier
+  passed all nine practice-state checks.
+- Immediate verify passed. Seed replay: seeded=false, updated=false; immediate
+  verify passed again.
+- Live login/read smoke passed for readiness, company access, Employee
+  Directory, Employment Context and Payroll lists. demo.viewer Payroll and
+  cross-company HR requests returned 403.
+- Candidate API was restarted onto the final code at port 8001;
+  `/health/ready` returned 200 with PostgreSQL and Redis ready. An initial
+  operator probe used nonexistent `/ready` and correctly returned route-not-found.
+- Employment Context resolves salary authority but remains blocked on only
+  jurisdiction_context_incomplete; no salary/gross/net/tax value is returned.
+
+ROLLBACK-ONLY PRACTICE EXERCISE
+- Real PostgreSQL services reached calculated -> under_review -> approved ->
+  posting_ready -> posted.
+- The production Finance adapter created and posted the external journal and
+  confirmed its entry number.
+- The enclosing transaction was intentionally rolled back. Final candidate
+  state is open, run_number=0, results=0, journal proposals=0.
+
+DIAGNOSTIC FAILURES RESOLVED
+- A direct standalone integration-suite invocation lacked its managed test DSN;
+  the repository-managed integration command above is the valid gate.
+- The first managed integration run found the permissive test command gate did
+  not accept the protocol's company_id keyword. The helper was corrected and
+  the complete 268-test integration gate passed.
+- The first posting exercise correctly stopped at Finance approval because the
+  original practice amount exceeded the threshold. The deterministic untouched
+  Demo seed was reconciled; no production approval control was weakened.
+
+WAIVERS / DEFERRED
+- X-002: exact runtime model/effort provenance is unavailable.
+- D02-A-W01: browser visual review remains deferred to D02-D.
+- Q-007/Q-010: no real statutory pack, legal rule or production localization
+  claim is activated.
+- Employee Workspace Back/Forward and documentation polish remain P1.
+- D02-B was not started.

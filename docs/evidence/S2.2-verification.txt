@@ -1,0 +1,285 @@
+Nexora S2.2 Verification Evidence
+===================================
+Date: 2026-08-10
+Batch: S2.2 - Finance Core Posting and Controls
+Runtime: Python 3.11.9; former standard-library embedded driver; no third-party dependencies
+  (verified by tests.security.test_identity_authorization_audit's existing
+  test_segment_introduces_no_third_party_python_dependency, unchanged).
+
+Commands and results
+---------------------
+python -m compileall -q app tests scripts
+PASS - syntax/import compilation, zero errors.
+
+python -m json.tool contracts/openapi-v1.json
+PASS - contract JSON parses.
+
+python scripts/verify.py unit integration contract security e2e migration
+PASS - 378 tests total (270 carried forward from S1.1-S2.1 + 108 new:
+  46 unit [35 ledger model, 11 tax], 76 integration [28 posting service,
+  11 planning/budget/recurring, 5 intercompany/consolidation, 4 event-driven
+  posting, 8 HTTP API], 6 migration).
+
+Direct acceptance evidence against the 30 named mandatory test-coverage
+items (mega-prompt Section on required tests)
+---------------------------------------------------------------------------
+ 1. Balanced journal posts successfully
+    - test_posting_service.py::test_balanced_journal_posts_successfully
+ 2. Unbalanced journal is rejected
+    - test_posting_service.py::test_unbalanced_journal_is_rejected
+ 3. Inactive account is rejected
+    - test_posting_service.py::test_inactive_account_is_rejected
+    (plus test_header_account_is_rejected: header/non-leaf accounts also
+    blocked, a related structural control not separately named but adjacent)
+ 4. Closed period is rejected
+    - test_posting_service.py::test_closed_period_is_rejected,
+      test_soft_close_blocks_non_adjustment_postings,
+      test_soft_close_allows_adjustment_postings
+ 5. Invalid tax rule is rejected
+    - test_posting_service.py::test_inactive_tax_rule_is_rejected,
+      test_not_yet_effective_tax_rule_is_rejected,
+      test_valid_active_tax_rule_permits_posting
+ 6. Missing approval is rejected
+    - test_posting_service.py::test_large_journal_requires_approval
+ 7. Valid approval permits posting
+    - test_posting_service.py::test_approved_instance_permits_large_journal_posting
+ 8. Pakistan tax pack posts correctly
+    - test_posting_service.py::test_pakistan_and_stub_jurisdiction_tax_rules_both_post_successfully
+      (PK leg); test_tax.py::PakistanTaxPackTests (withholding with
+      exemption threshold, sales_tax flat %)
+ 9. Second (stub "XX") jurisdiction posts correctly, proving the
+    abstraction is not single-country-shaped
+    - test_posting_service.py::test_pakistan_and_stub_jurisdiction_tax_rules_both_post_successfully
+      (XX leg, same journal, same posting call path); test_tax.py::
+      StubJurisdictionPackTests, CrossJurisdictionTests (doubling
+      base_amount changes PK's calculated tax but not XX's flat fee --
+      proves the packs are genuinely differently-shaped, not two copies of
+      the same formula)
+10. Dimensions required/validated at posting time
+    - test_posting_service.py::test_missing_required_dimension_is_rejected,
+      test_present_required_dimension_permits_posting
+11. Multi-currency posting resolves FX rate correctly (preserves
+    transaction currency, base currency, rate, both amounts)
+    - test_posting_service.py::test_multi_currency_posting_resolves_fx_rate
+12. Invalid/missing exchange rate is rejected
+    - test_posting_service.py::test_missing_exchange_rate_is_rejected
+13. Reversal produces a balanced compensating entry
+    - test_posting_service.py::test_reversal_produces_balanced_compensating_entry_and_preserves_original
+14. Reversal preserves original evidence (original journal unchanged
+    except reversed_by_journal_id link)
+    - same test as 13 (asserted in the same test body)
+15. Duplicate reversal is rejected
+    - test_posting_service.py::test_duplicate_reversal_is_rejected
+    (plus test_reversing_a_draft_journal_is_rejected: cannot reverse a
+    non-posted journal, an adjacent control)
+16. Duplicate source events -- posting the same accounting event twice is
+    rejected
+    - test_event_driven_posting.py::test_posting_the_same_event_twice_is_rejected
+17. Duplicate posting is rejected (posting the same draft journal twice)
+    - test_posting_service.py::test_posting_the_same_draft_twice_is_rejected
+18. Budget approval uses the S1.3 workflow engine (no second approval
+    mechanism)
+    - test_planning_service.py::test_budget_approval_uses_workflow_engine
+19. Budget never posts to the GL
+    - test_planning_service.py::test_budget_lifecycle_creates_zero_journal_entries
+20. Recurring journal generates a draft correctly
+    - test_planning_service.py::test_recurring_journal_generates_draft
+21. Recurring journal cannot bypass posting controls
+    - test_planning_service.py::test_recurring_journal_draft_still_requires_explicit_posting_and_controls
+      (generated draft is not auto-posted; posting it against a closed
+      period is rejected by the exact same PeriodClosedForPosting path as
+      any manual journal)
+22. Intercompany both-leg posting succeeds atomically
+    - test_intercompany_and_consolidation.py::test_intercompany_pair_posts_both_legs_atomically
+23. Intercompany failure rolls back both legs
+    - test_intercompany_and_consolidation.py::test_intercompany_failure_rolls_back_both_legs
+      (zero journals exist after the induced failure on the second leg --
+      the successfully-validated first leg is rolled back too)
+24. Consolidation structures are versioned
+    - test_intercompany_and_consolidation.py::test_consolidation_group_is_versioned_on_revision,
+      test_cannot_revise_superseded_consolidation_group
+25. Tenant isolation (a journal from one tenant is invisible/inaccessible
+    from another)
+    - test_posting_service.py::test_journal_from_one_tenant_is_invisible_from_another
+26. Authorization is enforced (unauthorized actor is denied)
+    - test_posting_service.py::test_unauthorized_actor_is_denied,
+      test_creator_cannot_self_post_above_sod_threshold (SoD self-posting
+      denial, mirroring S1.3's WorkflowApprovalService self-approval
+      precedent)
+27. Audit evidence is generated for posting actions
+    - test_posting_service.py::test_posting_emits_audit_evidence
+28. Trial balance variance is zero
+    - test_posting_service.py::test_trial_balance_is_zero_after_multiple_postings,
+      test_period_close_requires_zero_trial_balance
+29. Migration succeeds (forward, idempotent, clean rollback, populated
+    rollback blocked, referential integrity enforced)
+    - test_finance_core_migration.py (6 tests)
+30. Critical transaction meets the p95 performance target
+    - test_finance_core_api.py::test_direct_latency_sample_synchronous_journal_posting_under_500ms
+      (20 direct in-process samples of the full HTTP create-and-post
+      journal-entry path; p95 asserted under 500ms, stricter than the
+      segment's own NFR of "p95 critical transaction under 2 seconds" --
+      in-process, no network/DB-server hop, so this is a direct local
+      sample, not a pilot-load claim, matching S1.3's own precedent
+      disclaimer)
+
+Tax architecture (jurisdiction-pluggable, per I-009)
+---------------------------------------------------------------------------
+app/finance/tax.py defines a TaxRulePack Protocol (jurisdiction,
+supported_tax_types(), calculate(tax_type, base_amount, tax_rule)) plus a
+registry (register_tax_rule_pack/get_tax_rule_pack). Two packs are
+registered: PakistanTaxPack ("PK", supports {withholding, sales_tax} --
+withholding applies an exemption threshold before a flat rate, sales_tax is
+a flat percentage of base_amount) and StubJurisdictionPack ("XX", supports
+{flat_fee} -- a fixed fee that deliberately ignores base_amount entirely).
+The posting engine (app/finance/posting.py) never branches on jurisdiction
+directly; it resolves the pack via the registry keyed by the TaxRule's own
+jurisdiction field and calls the same calculate() interface for either.
+CrossJurisdictionTests (tests/unit/test_tax.py) proves the two packs are
+genuinely differently shaped, not two thin wrappers around one formula:
+doubling base_amount changes PK's computed tax but leaves XX's flat fee
+unchanged.
+
+Multi-currency (deterministic, non-float)
+---------------------------------------------------------------------------
+All monetary fields are Decimal end to end (_require_decimal in
+app/finance/ledger.py rejects float input outright). Each JournalLine
+stores both the transaction-currency debit/credit and the base-currency
+debit/credit (base_debit/base_credit), plus the fx_rate actually applied.
+FX resolution (_resolve_amounts in app/finance/posting.py) looks up
+platform_repository.latest_currency_rate as of the journal's posting_date;
+a missing rate raises ExchangeRateMissing rather than silently defaulting
+to 1:1. Balance validation (JournalEntry.is_balanced()) sums base_debit/
+base_credit, so a journal in mixed transaction currencies still balances
+in one common (base) currency, per FR requirement.
+
+Budget management (never posts to the GL)
+---------------------------------------------------------------------------
+app/finance/planning.py's BudgetService composes S1.3's
+WorkflowApprovalService directly (start_approval_instance with
+module="finance", trigger="budget_approval") for create -> submit ->
+approve/reject -> revise. BudgetService never imports or calls
+PostingService/post_journal anywhere in its module -- structurally, not
+just by test coverage, a budget cannot reach the GL. Revisions are
+versioned (supersede the prior row, never mutate it in place), matching
+the same versioning pattern used for consolidation groups.
+
+Recurring journals (cannot bypass posting controls)
+---------------------------------------------------------------------------
+RecurringJournalService.generate_cycle calls
+posting_service.create_manual_journal only -- it produces a draft
+JournalEntry with recurring_template_id/recurring_cycle_number set, never
+calls post_journal itself. Posting a recurring-sourced draft is a fully
+separate, later call into the exact same post_journal control gate as a
+hand-entered journal, proven by
+test_recurring_journal_draft_still_requires_explicit_posting_and_controls
+posting into a closed period and getting the identical
+PeriodClosedForPosting rejection a manual journal would get.
+
+Intercompany (atomic both legs) and consolidation (structure only)
+---------------------------------------------------------------------------
+PostingService.post_intercompany_pair wraps both legs' create+post calls in
+one ledger_repository.transaction() block sharing a generated
+intercompany_link_id; a failure on either leg (proven with the second leg
+posting to an inactive account) leaves zero journals persisted for either
+leg -- the nested-transaction pattern (BEGIN IMMEDIATE + owner-tracked
+commit/rollback, identical to every prior segment's repository) rolls back
+the whole block, not just the failing statement.
+
+ConsolidationService owns group/member/elimination-rule *structure* only
+(versioned, supersede-on-revision) -- it does not compute or emit a
+consolidated statement; that output is explicitly S2.3's scope per
+docs/finance/finance-core-posting-design.md's own wording, and is not
+duplicated here.
+
+Reversal behavior
+---------------------------------------------------------------------------
+reverse_journal creates a mirrored draft (every line's debit/credit
+swapped, same accounts/dimensions/currency/base amounts) and posts it
+through the same post_journal gate as any other journal (so a reversal
+into a closed period is rejected the same way a normal posting would be,
+unless is_adjustment is set). The original and its reversal are linked
+both directions (reverses_journal_id / reversed_by_journal_id) inside one
+transaction, so a duplicate reversal attempt is rejected
+(JournalAlreadyReversed) and the original's own lines are never mutated.
+
+Security verification
+---------------------------------------------------------------------------
+- Authorization: every finance-core command requires an explicit
+  permission (finance.account.create/read, finance.journal.create/post/
+  read/reverse, finance.period.close/reopen) at both the HTTP
+  AuthorizationService layer and the internal RepositorySecurityCommandGate
+  -- same defense-in-depth pattern as every prior segment
+  (test_unauthorized_actor_is_denied,
+  test_unauthorized_denies_before_reaching_handler).
+- Separation of duties: a creator cannot self-post their own journal above
+  SOD_SELF_POST_THRESHOLD -- service-layer check mirroring S1.3's
+  WorkflowApprovalService self-approval denial precedent, not a second SoD
+  mechanism (test_creator_cannot_self_post_above_sod_threshold).
+- Tenant isolation: every repository query filters by tenant_id; cross-
+  tenant journal access is denied (test_journal_from_one_tenant_is_invisible_from_another).
+  Threshold constants (SOD_SELF_POST_THRESHOLD, APPROVAL_REQUIRED_THRESHOLD)
+  are documented in code as placeholders whose production home is
+  TenantPolicy configuration, not built this pass -- flagged, not hidden.
+- Auditability: account creation, journal posting, reversal, and period
+  close/reopen each write a real audit event through the existing
+  hash-chained writer -- no second audit mechanism introduced
+  (test_posting_emits_audit_evidence).
+- Injection risk: all SQL is parameterized; no string interpolation of
+  request data into any query.
+- No third-party Python dependency introduced
+  (test_segment_introduces_no_third_party_python_dependency, unchanged,
+  still passes).
+No critical or major defect found beyond the reversal-ordering bug below,
+which was fixed before this evidence was written.
+
+Bug found and fixed during testing (not a production incident -- caught
+before any code outside this segment depended on it)
+---------------------------------------------------------------------------
+reverse_journal's precondition checks tested `status != "posted"` before
+checking `reversed_by_journal_id is not None`. Since both fields always
+change together atomically inside mark_journal_reversed, a *second*
+reversal attempt on an already-reversed journal always hit the generic
+JournalNotDraft-style status check first, surfacing the wrong (less
+specific) error instead of the intended JournalAlreadyReversed. Found by
+test_duplicate_reversal_is_rejected asserting the specific exception type
+and getting the generic one. Fixed by reordering the checks so
+reversed_by_journal_id is examined first. Logged as S2.2-F01, resolved, in
+findings-ledger.md.
+
+Design-doc ambiguities resolved and reported per the mega-prompt's "stop
+and clearly report" instruction
+---------------------------------------------------------------------------
+1. FinancialPeriod as a new S2.2-owned entity. S1.3's FiscalCalendar is
+   year-level only (period_start/period_end spans a full fiscal year); S2.2's
+   locked acceptance criteria require monthly open/soft-close/closed period
+   states (FR-PM-1 in docs/finance/finance-core-posting-design.md), which
+   FiscalCalendar cannot represent without changing its own meaning for
+   every existing S1.3 consumer. Resolved by adding FinancialPeriod as a
+   new table/model (fiscal_calendar_id FK, period_number, period_start/end,
+   status) rather than overloading FiscalCalendar -- FiscalCalendar is
+   unchanged, zero S1.3 regression risk. Documented in
+   app/finance/ledger.py's module docstring.
+2. Consolidation net-to-zero validation. The design doc's own wording
+   assigns consolidated statement *output* (including intercompany
+   elimination/net-to-zero validation as part of producing that output) to
+   S2.3/S3.2. S2.2 stores the group/member/elimination-rule structure and
+   proves at the data level that intercompany legs it posts already net to
+   zero (test_intercompany_legs_net_to_zero), but does not build a separate
+   validation service for it -- that would duplicate work S2.3 owns.
+   Documented in app/finance/consolidation.py's module docstring.
+
+Explicitly out of S2.2's scope (not fabricated to satisfy a checklist item)
+---------------------------------------------------------------------------
+S2.3 reporting/statement output, AR/AP workflows, invoicing, procurement,
+inventory, sales, HR, payroll, projects, manufacturing, and AI are not
+touched, per the mega-prompt's explicit scope boundary. TenantPolicy-driven
+configurable SoD/approval thresholds (currently code constants,
+documented as placeholders) are also out of scope for this pass -- flagged
+above under Security verification, not silently omitted.
+
+Review decision: CLOSED. All locked acceptance criteria in
+segments/S2.2-finance-core-posting.md are met with real, tested code; all
+30 named mandatory test-coverage items are covered; two design-doc
+ambiguities were resolved and reported per instruction; one bug was found
+by testing and fixed; zero regression to the 270-test S1.1-S2.1 baseline.

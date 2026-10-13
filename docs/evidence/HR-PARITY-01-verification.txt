@@ -1,0 +1,69 @@
+HR-PARITY-01 Organisation & Masters verification
+Date: 2026-10-06 PKT
+Status: PARTIAL (production implementation complete; owner real-data and visual acceptance pending)
+
+IMPLEMENTED
+- Seven approved routes exist: Organisation Structure, Designations, Job Grades,
+  Cost Centres, Work Locations, Employment Types, Employee Categories.
+- UI reads/writes through generated typed API clients and real PostgreSQL authorities.
+- Organization create-child/update/activate/deactivate is company-authorized,
+  idempotent, transactional and audited.
+- Organization head assign/change/clear uses an effective-dated relationship to
+  the existing Platform organization unit and HR employee authorities. PostgreSQL
+  enforces tenant/company/effective-employment validity, non-overlap, immutable
+  history, forced RLS and rollback preservation.
+- Master create/update/activate/deactivate, persisted search/filter, usage counts,
+  referenced-history protection, never-used-record delete and audit/history views
+  are operational. Delete has a dedicated permission and fails closed on a race or
+  any current/historical foreign-key reference.
+- Tenant FORCE RLS, company authorization and anonymous/cross-company/permission
+  denial are covered. Demo role-policy upgrade uses immutable version 6.
+
+Automated evidence
+- python scripts/verify.py unit integration contract security migration
+  PASS: 781 tests; 4 optional Redis tests skipped because NEXORA_TEST_REDIS_DSN is absent.
+- python scripts/verify_postgres_hr.py
+  PASS: 47 tests, including organization-head history/RLS and unused-master deletion.
+- python -m unittest tests.unit.test_production_demo_environment
+  PASS: 12 tests.
+- npm.cmd test
+  PASS: 228 tests in 75 files.
+- npm.cmd run test:a11y
+  PASS: 26 tests in 21 files.
+- npm.cmd run lint
+  PASS.
+- npm.cmd exec tsc -- --noEmit
+  PASS.
+- npm.cmd run api:check-drift
+  PASS: generated client matches contracts/openapi-v1.json.
+- npm.cmd run build and npm.cmd run build:demo
+  PASS: 61 pages generated; all seven HR routes included.
+
+Live production-composed Demo evidence
+- HR migration 0022 applied to nexora_demo_v2 without rewriting prior evidence.
+- python scripts/production_demo_environment.py seed
+  PASS: idempotent role-policy v6 state; sealed Payroll history preserved.
+- python scripts/production_demo_environment.py verify
+  PASS: forced RLS and audit chain verified.
+- Authenticated HTTP smoke at http://127.0.0.1:8001
+  PASS: platform health, demo.admin login and 9 company organization units.
+- Frontend HTTP smoke at http://localhost:3001/hr/organization
+  PASS: 200 from the rebuilt production Demo frontend.
+
+PARTIAL / remaining acceptance evidence
+- The in-app Browser visual/interactive acceptance could not run because browser
+  initialization failed with `Cannot redefine property: process`. This matches
+  accepted finding D02-A-F02. Automated component interaction, accessibility,
+  production builds and live HTTP/API smoke passed, but visual acceptance is not claimed.
+- The owner will provide realistic test data. HR-PARITY-01 remains PARTIAL until
+  those records complete the seven-screen workflow through the running UI and any
+  acceptance findings are resolved.
+
+NOT IMPLEMENTED in this slice
+- People/Employee Master parity and later Salary, Attendance, Leave, Overtime,
+  Payroll, Payslip and Finance-integration slices were intentionally not started.
+
+Exact next step
+- Enter the owner's test data through Organisation & Masters at
+  http://localhost:3001, record acceptance evidence, then start HR-PARITY-02
+  Employee Master without redesigning the approved prototype.

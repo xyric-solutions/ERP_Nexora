@@ -1,0 +1,68 @@
+NEXORA ERP — ACCOUNTING & FINANCE MATURITY WIREFRAME EVIDENCE
+Date: 2026-08-18
+Scope: documentation-only assessment and ASCII wireframes
+
+OWNER DIRECTION
+- Use the supplied ERP dashboard picture as a visual-density and hierarchy
+  reference.
+- Stop breadth-first design.
+- Mature Accounting & Finance first.
+- Begin Operations only after Finance review and acceptance.
+- Inspect and document before implementation.
+
+DELIVERABLES
+- docs/wireframes/finance/current-demo-assessment.md
+- docs/product/nexora-demo-action-matrix.md
+- docs/wireframes/finance/navigation-and-workflows.md
+- docs/wireframes/finance/FIN-WF-01-dashboard-and-navigation.md
+- docs/wireframes/finance/FIN-WF-02-chart-of-accounts.md
+- docs/wireframes/finance/FIN-WF-03-journals.md
+- docs/wireframes/finance/FIN-WF-04-ledger-and-statements.md
+- docs/wireframes/finance/FIN-WF-05-planning-close-recurring.md
+- docs/wireframes/finance/FIN-WF-06-controls-consolidation-audit.md
+
+STRUCTURAL VERIFICATION
+- Required 12-column Demo Action Matrix header: PASS
+- Finance action rows: 47
+- Rows with wrong column count: 0
+- Rows outside the four governed capability states: 0
+- Finance wireframe batches: 6
+- Screen counts: 2, 4, 5, 6, 5, 6 (total 28)
+- Unbalanced Markdown code fences: 0
+- Missing required Finance hierarchy/accounting terms: 0
+- TOTAL DEBIT = TOTAL CREDIT requirement present: PASS
+
+DEMO VERIFICATION
+Command: python scripts/demo_environment.py verify
+Result: PASS
+- environment marker: NEXORA_DEMO_ENVIRONMENT_ONLY
+- tenant: nexora-demo only
+- seed version: 2
+- accounts: 52
+- nominal accounts: 27
+- journals: 17
+- all journals balanced: true
+- periods: 12
+- approved budgets: 3
+- budget variance rows: 3
+- recurring templates: 1
+- bank accounts: 2
+- tax rules: 2
+- accounting events: 2
+- audit events: 67
+- Trial Balance variance: 0
+- Balance Sheet variance: 0
+- Cash Flow reconciles: true
+- Accounting Event trace verified: true
+- procurement-to-ledger trace verified: true
+- audit chain verified: true
+
+SCOPE CONTROL
+- No frontend, backend, API contract, schema, migration, seed, automated test,
+  or Demo database file was edited by this review.
+- Operations was not designed or implemented in this batch.
+- The earlier 35-area inventory remains a coverage reference, but its
+  breadth-first execution order is explicitly superseded.
+- Application implementation remains blocked until owner approval of the
+  Accounting & Finance package.
+

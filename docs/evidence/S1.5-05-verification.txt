@@ -1,0 +1,40 @@
+Nexora S1.5-05 Platform Administration Frontend Verification
+Date: 2026-09-25 Asia/Karachi
+Status: PASS WITH WAIVERS
+
+Scope
+- Live tenant and organization administration at /organization.
+- Live fiscal calendar, accounting period, currency/rate, module, policy, numbering, and allocation administration at /settings.
+- Live immutable Platform administration audit feed at /audit-log.
+- Generated OpenAPI client only; exact client-side permissions; server remains authoritative.
+- Honest loading, empty, permission, canonical error/correlation, retry, validation, pagination, and success states.
+- No fake records, unsupported edit/delete controls, or frontend-owned business truth.
+
+Commands and results
+1. npm run lint
+   PASS.
+2. npm run api:check-drift
+   PASS: src/lib/api/schema.d.ts matches contracts/openapi-v1.json.
+3. npm run test
+   PASS: 50 files, 150 tests.
+4. npm run test:a11y
+   PASS: 12 files, 15 tests; no detectable violations.
+5. npm run build
+   PASS: TypeScript and Next.js 16 production build; 47/47 routes generated.
+6. python scripts/verify.py unit integration contract security e2e migration
+   PASS: 593 tests.
+7. python scripts/verify_postgres_platform.py
+   PASS: 12 tests against disposable loopback-only PostgreSQL 18.
+
+Focused evidence
+- Client tests prove tenant/correlation/auth headers, cursor parameters, exact decimal rate strings, idempotency headers, allocation body scope, and supported audit filters.
+- Organization integration proves live contract-shaped rendering and permission-hidden create actions.
+- Organization accessibility test passes in the permission-safe state.
+- The stale setup-drafts retry test was corrected to use 503. A 401 intentionally expires the established session and therefore cannot remain as an inline retry state.
+- Create dialogs retain values after server failure and expose canonical code, correlation ID, and safe details.
+
+Waivers / blockers not hidden by this pass
+- Q-003 and S1.5-F05: no selected managed identity provider/session policy or PostgreSQL authorization-policy adapter.
+- S1.5-F03: setup activation remains outside production composition until Platform, Workflow, and Security audit share one PostgreSQL transaction.
+- Q-004/Q-006: cloud, KMS/vault, archive/SIEM, retention, backup/restore, and HA controls remain owner decisions and cannot be claimed.
+- X-002: exact runtime model route metadata was not exposed.

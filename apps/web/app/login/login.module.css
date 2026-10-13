@@ -1,0 +1,143 @@
+.shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background: radial-gradient(circle at top left, #e8f1f8, transparent 40%), #f4f6f8;
+}
+.card {
+  width: min(430px, 100%);
+  background: #fff;
+  border: 1px solid #dce3e9;
+  border-radius: 18px;
+  padding: 32px;
+  box-shadow: 0 24px 70px rgba(15, 42, 64, 0.12);
+}
+.brand {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 38px;
+}
+.brand > span {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  background: #123b56;
+  color: #fff;
+  font-weight: 800;
+}
+.brand div {
+  display: grid;
+}
+.brand small {
+  color: #667684;
+  margin-top: 2px;
+}
+.card header p {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #3f7293;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0 0 9px;
+}
+.card h1 {
+  font-family: var(--font-nx-serif);
+  font-size: 36px;
+  color: #172b3a;
+  margin: 0 0 8px;
+}
+.card header > span {
+  color: #667684;
+}
+.card form {
+  display: grid;
+  gap: 17px;
+  margin-top: 28px;
+}
+.selection {
+  display: grid;
+  gap: 16px;
+  margin-top: 28px;
+}
+.selection h2 {
+  margin: 0;
+  color: #172b3a;
+  font-size: 23px;
+}
+.formHeading {
+  display: grid;
+  gap: 8px;
+}
+.formHeading h2,
+.formHeading p {
+  margin: 0;
+}
+.formHeading h2 {
+  color: #172b3a;
+  font-size: 23px;
+}
+.formHeading p,
+.card label small {
+  color: #667684;
+  font-weight: 400;
+}
+.selection p {
+  margin: 0;
+  color: #667684;
+}
+.selection small {
+  color: #667684;
+}
+.choices {
+  display: grid;
+  gap: 10px;
+}
+.card label {
+  display: grid;
+  gap: 7px;
+  color: #344a59;
+  font-size: 13px;
+  font-weight: 650;
+}
+.card input {
+  height: 44px;
+  border: 1px solid #cbd6de;
+  border-radius: 9px;
+  padding: 0 12px;
+  background: #fbfcfd;
+}
+.card button {
+  height: 46px;
+  border: 0;
+  border-radius: 9px;
+  background: #173f5a;
+  color: #fff;
+  font-weight: 750;
+}
+.card button:disabled {
+  opacity: 0.62;
+}
+.card button.secondary {
+  border: 1px solid #cbd6de;
+  background: #fff;
+  color: #173f5a;
+}
+.error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff0f0;
+  color: #9d2727;
+  font-size: 13px;
+}
+.card footer {
+  border-top: 1px solid #e5eaee;
+  margin-top: 26px;
+  padding-top: 18px;
+  color: #667684;
+  font-size: 12px;
+}

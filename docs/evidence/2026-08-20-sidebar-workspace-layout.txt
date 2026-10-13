@@ -1,0 +1,70 @@
+NEXORA ERP NAV-03.1 - SIDEBAR / WORKSPACE LAYOUT CORRECTION
+Date: 2026-08-20
+Scope: shared frontend shell only
+
+OUTCOME
+=======
+
+Corrected the desktop shell so the sidebar reserves exactly the same width as
+its fixed visible panel. The working screen now consumes only the remaining
+width and owns horizontal overflow for wide tables/forms. No transaction,
+Finance backend, database, API, authentication or RBAC behavior changed.
+
+ROOT CAUSE
+==========
+
+The application-specific sidebar width was previously passed to the fixed
+Sidebar panel. The sibling gap that reserves desktop layout space inherited the
+SidebarProvider default instead. A 21rem visible panel beside a 16rem reserved
+gap therefore covered 5rem of the workspace.
+
+IMPLEMENTATION
+==============
+
+- Moved the desktop width contract to SidebarProvider:
+  clamp(16rem, 19vw, 18rem).
+- Added min-w-0 to SidebarInset and the workspace content boundary.
+- Added overflow-x-auto to the workspace boundary so wide module content
+  scrolls within its own column.
+- Added the existing SidebarRail as a desktop edge collapse control.
+- Replaced the nested workspace main landmark with a div; SidebarInset remains
+  the single main landmark.
+- Added an authenticated shell regression using a 1600px-wide child.
+
+VERIFICATION
+============
+
+PASS - focused shell/sidebar behavior
+  Result: 2 files, 5 tests passed.
+
+PASS - focused sidebar accessibility
+  Result: 1 file, 2 tests passed; zero reported axe violations.
+
+PASS - TypeScript
+  Command: npm.cmd exec tsc -- --noEmit
+  Result: exit 0.
+
+PASS - production build
+  Command: npm.cmd run build
+  Result: compiled, TypeScript completed, 45/45 static pages generated.
+
+PASS - Demo integrity
+  Command: python scripts/demo_environment.py verify
+  Result: isolated tenant nexora-demo; 17 balanced journals; Trial Balance and
+  Balance Sheet variance 0; Accounting Event, procurement-to-ledger and audit
+  chain traces verified.
+
+PASS - live local Demo reachability
+  GET http://127.0.0.1:3000/dashboard
+  Result: HTTP 200 with Dashboard response.
+
+TOOLING NOTE
+============
+
+The four-file ESLint command was attempted twice and timed out without emitting
+a diagnostic. This is recorded as a tooling timeout, not as a lint pass.
+The full backend verification command was also attempted; all 175 unit tests
+passed and integration execution had begun before the environment timeout.
+It is not represented as a complete backend regression pass. No backend file
+was changed by NAV-03.1, and the previously recorded NAV-03 backend baseline is
+469/469.

@@ -1,0 +1,148 @@
+HR-EMP-02C — Effective Assignments, Organization, Jobs, Designations and Localization Integration
+Verification date: 2026-09-29 Asia/Karachi
+Status: CLOSED WITH WAIVERS
+
+IMPLEMENTED
+- Existing employee_assignment is the effective operational-placement authority;
+  no competing Employee, relationship, assignment, work-location or jurisdiction
+  model was introduced.
+- Operational segments require an effective employed/temporarily-inactive
+  hr_employment_relationship for the same Employee and legal employer.
+- Assignment changes close the preceding authoritative segment and append a new
+  immutable segment. Explicit as_of reads reconstruct deterministic boundaries.
+- Job is a separate hr_master_record type from designation and job_grade.
+- employee_assignment_org_unit stores normalized business-unit, division,
+  branch, department and warehouse placement against the existing arbitrary,
+  acyclic organization_unit hierarchy.
+- Existing branch_id and department_id remain validated compatibility
+  projections. Legacy HR-01 assignment commands remain available only as
+  explicit legacy_compatibility evidence; no relationship is inferred.
+- Manager validation is effective-dated, legal-employer scoped, self-safe and
+  cycle-safe. An operational manager must have an effective operational
+  assignment in the same legal employer.
+- Work location remains explicit. The existing HR-LOC resolver consumes the
+  new authoritative segment; cross-country resolution stays fail-closed and
+  missing/unapproved localization remains readiness evidence, never compliance.
+- Existing assignment GET/POST APIs now support as_of/relationship filters,
+  effective change commands and change-specific contextual RBAC.
+- The existing HR workspace adds a focused Assignments tab for current/as-of
+  placement, relationship selection, controlled changes, localization blockers
+  and immutable history.
+
+DATABASE AND MIGRATION
+- Forward: app/hr/postgres/migrations/0012_effective_assignments.forward.sql
+- Rollback: app/hr/postgres/migrations/0012_effective_assignments.rollback.sql
+- employee_assignment adds employment_relationship_id, job_id,
+  assignment_status, source_reference and updated_at; branch/department become
+  nullable compatibility projections.
+- New table: employee_assignment_org_unit.
+- New/updated constraints: relationship assignment scope uniqueness; typed
+  relationship/job/organization FKs; assignment status/source/reason/authority
+  shape checks; authoritative-period GiST exclusion; organization-type check;
+  relationship-period and effective-state validation; company ancestry,
+  projection consistency, manager and immutable-history triggers.
+- Indexes: relationship/effective, job/effective, company/status/effective and
+  organization-unit lookup.
+- employee_assignment_org_unit uses FORCE ROW LEVEL SECURITY with the existing
+  transaction-local tenant context. Its history cannot be updated or deleted.
+- Legacy branch/department placements are deterministically backfilled and an
+  insert trigger keeps raw legacy consumers synchronized.
+- Clean rollback restores the prior reason/uniqueness/exclusion/trigger shape.
+  Rollback refuses once job masters, operational assignments, new statuses or
+  non-legacy organization placements exist.
+
+RBAC
+- hr.employee_assignment.read
+- hr.employee_assignment.create
+- hr.employee_assignment.change
+- hr.employee_assignment.transfer
+- hr.employee_assignment.manager_change
+- hr.employee_assignment.work_location_change
+- hr.employee_assignment.organization_change
+- Existing company-context authorization and requested-field policy remain
+  authoritative; no client-side permission is trusted by the backend.
+
+API
+- GET /api/v1/hr/assignments accepts company_id, employee_id, optional as_of
+  and optional relationship_id.
+- POST /api/v1/hr/assignments remains the sole assignment command endpoint and
+  applies change-specific permission checks, idempotency and atomic audit.
+- No Payroll, Attendance, Finance, compensation or jurisdiction endpoint was
+  added or redesigned.
+
+VERIFIED
+- Operational assignment creation, relationship/legal-employer period/state
+  checks, append-only transfers, overlap protection and exact boundary dates.
+- Arbitrary company → business unit → division → department placement and
+  database cycle protection; no fixed organization hierarchy was introduced.
+- Independent job/designation/grade changes and historical reconstruction.
+- Manager self/cycle/inactive rejection and same-employer/effective validation.
+- Explicit work-location resolution through HR-LOC; same-country jurisdiction
+  support and cross-country fail-closed behavior remain green in Platform and
+  HR-LOC PostgreSQL regression.
+- Immutable segment/organization evidence, audit, idempotency, tenant/company
+  isolation, forced RLS and safe rollback behavior.
+- Existing HR, HR-LOC, Attendance, Payroll, Finance, Platform, Security and
+  Workflow behavior.
+- Country neutrality: no real-country rule, tax/social formula, address,
+  currency, locale, IP/device detector, AI legal inference, statutory bypass,
+  cross-border execution or production activation bypass was added.
+
+EXACT VERIFICATION RESULTS
+- python scripts/verify.py unit integration contract security e2e migration
+  — PASS: 686 tests (291 unit, 263 integration, 5 contract, 13 security,
+  5 e2e, 109 migration).
+- python scripts/verify_postgres_platform.py — PASS: 24 tests.
+- python scripts/verify_postgres_hr.py — PASS: 26 tests.
+- python scripts/verify_postgres_workflow.py — PASS: 4 tests.
+- python scripts/verify_postgres_security.py — PASS: 3 tests.
+- python scripts/verify_postgres_finance.py — PASS: 7 tests.
+- web npm test — PASS: 66 files / 178 tests.
+- web npm run test:a11y — PASS: 19 files / 22 tests.
+- web npx tsc --noEmit — PASS.
+- web npm run lint — PASS.
+- web npm run api:generate and npm run api:check-drift — PASS.
+- web npm run build — PASS: Next.js production build, 53 routes.
+- python -m compileall -q app tests scripts — PASS.
+- python -m pip check — PASS: no broken requirements.
+- web npm audit --omit=dev — PASS: zero vulnerabilities.
+- docker compose config --quiet — PASS.
+- node framework/verify/portability-check.mjs . — PASS.
+- git diff --check and explicit security/country-neutrality scans — PASS.
+
+COMPATIBILITY
+- employee.status semantics remain unchanged and are not the assignment or
+  employment-lifecycle authority.
+- company_id, branch_id and department_id remain available to existing
+  Attendance/Payroll/HR consumers. Normalized placements are the new source for
+  02C-aware commands and cannot drift from branch/department projections.
+- Existing data upgrades without guessed relationships; prior assignments are
+  classified as legacy_compatibility and remain queryable.
+- Attendance and Payroll were regression-tested but not cut over. The mandatory
+  future EmploymentContextProvider boundary remains pending its approved slice.
+
+WAIVED
+- X-002: actual runtime model/variant/effort/surface metadata is unavailable.
+- Manual browser visual walkthrough was not run; focused component/a11y tests
+  and the production build passed.
+- Legacy relationship conversion remains a future reviewed policy; no legal
+  relationship was inferred from employee.status or assignment history.
+- The focused 02C dialog uses validated organization-unit identifiers because
+  no company-scoped HR organization-picker contract exists yet. Full Employee
+  UI redesign remains HR-EMP-02F.
+
+BLOCKED BY EXTERNAL GATE
+- Q-007 real statutory packs.
+- Q-010 real jurisdiction/reference activation.
+- Q-004 sensitive statutory identifier vault/KMS and remaining operational
+  encryption/archive controls.
+- Future cross-border legal-employment/payroll model; cross-country execution
+  remains fail-closed with cross_border_employment_model_required.
+
+NOT STARTED
+- HR-EMP-02D through HR-EMP-02G.
+- EmploymentContextProvider consumer cutover, Attendance/Leave redesign,
+  Payroll calculation, compensation changes, statutory/country rules, custom
+  fields, document storage and cross-border employment.
+
+No statutory-compliance or full-production-readiness claim is made.

@@ -1,0 +1,49 @@
+Nexora S1.5-02 - Platform persistence ports and Psycopg adapter
+Date: 2026-09-25 (Asia/Karachi)
+Status: closed with waivers
+
+Implemented
+-----------
+- Structural PlatformRepository port covering all current Platform behavior.
+- Core consumers (API composition, authentication, posting, operations, and
+  setup service) now type against the port rather than legacy embedded database.
+- Tenant-bound PostgresPlatformRepository using Psycopg transactions/savepoints.
+- Transaction-local RLS context on every PostgreSQL repository operation.
+- Safe domain error mapping for uniqueness, references, fiscal overlap, and
+  unsupported currency behavior.
+- Exact Decimal/date, JSONB, and UTC timestamp conversion.
+- Full outer-transaction rollback when a nested repository operation fails.
+- Corrected setup_draft.field_errors JSONB constraint from object to array,
+  matching the existing SetupDraft domain contract.
+
+Verification
+------------
+- `python scripts/verify_postgres_platform.py`
+  PASS: 10/10 against disposable PostgreSQL 18.
+  Includes all S1.5-01 migration/RLS tests plus repository-port conformance,
+  aggregate round trips, exact rates, overlap mapping, tenant-binding denial,
+  and nested outer-transaction rollback.
+- `python scripts/verify.py unit integration contract security e2e migration`
+  PASS: 585/585 (one new legacy embedded database port-conformance regression).
+- `python -m compileall -q app tests/postgres`
+  PASS.
+- `git diff --check`
+  PASS with only Windows line-ending notices.
+
+Security review
+---------------
+- The PostgreSQL adapter is constructed for one trusted tenant and rejects a
+  mismatched method tenant before issuing SQL.
+- Each method sets tenant context locally inside a transaction; pooled/session
+  context cannot persist after commit/rollback.
+- Non-owner RLS and cross-tenant database checks remain in the S1.5-01 suite.
+- Database diagnostics are chained internally but safe Platform domain messages
+  remain the application-facing errors.
+
+Residual boundary
+-----------------
+- SetupDraftService still coordinates Platform, Security audit, and Workflow.
+  Only Platform has a PostgreSQL adapter in this slice, so no production
+  composition may claim cross-domain atomic setup activation yet. S1.5-03 may
+  compose only behavior whose dependencies share a valid unit of work; the
+  full activation path must wait for the required production adapters.

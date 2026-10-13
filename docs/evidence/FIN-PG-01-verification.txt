@@ -1,0 +1,55 @@
+FIN-PG-01 verification evidence
+Date: 2026-09-25 Asia/Karachi
+Status: READY FOR REVIEW (full ERP NOT PRODUCTION READY)
+
+Implemented evidence
+- Forced-RLS PostgreSQL Finance migration with exact numerics, composite tenant
+  references, posting constraints, immutable posted evidence and safe rollback.
+- Tenant-bound event, ledger, planning, consolidation and reporting repositories.
+- Pool-backed production Finance composition with event-loop offloading and safe
+  unavailable responses.
+- Atomic payroll-to-PostingService adapter on the HR transaction, including
+  idempotent source posting and controlled reversal.
+
+Executed checks
+- python scripts/verify_postgres_finance.py
+  PASS: 7 PostgreSQL Finance tests.
+- python scripts/verify.py unit integration contract security e2e migration
+  PASS: 632 canonical backend tests.
+- python scripts/verify_postgres_platform.py
+  PASS: 12 Platform PostgreSQL tests.
+- python scripts/verify_postgres_security.py
+  PASS: 3 Security PostgreSQL tests.
+- python scripts/verify_postgres_workflow.py
+  PASS: 4 Workflow PostgreSQL tests.
+- python scripts/verify_postgres_hr.py
+  PASS: 4 HR PostgreSQL tests.
+- python -m compileall -q app tests/postgres scripts
+  PASS.
+- python -m pip check
+  PASS: no broken requirements.
+- python -m pip_audit . --strict --progress-spinner off
+  PASS: no known vulnerabilities found.
+- web lint, API drift, tests, accessibility tests and production build
+  PASS: 160 frontend tests, 17 accessibility tests, 50 generated routes.
+- npm audit --omit=dev --audit-level=high
+  PASS: 0 vulnerabilities.
+- docker build -t nexora-api:fin-pg-01 .
+  PASS; configured image user is 10001:10001 and Finance CLI help runs.
+
+Security/data-integrity review
+- Forced RLS and transaction-local tenant context prevent manipulated-ID tenant
+  crossover at the persistence boundary.
+- Posting, reversal, account/period controls, RBAC, segregation of duties and
+  audit remain centralized in PostingService.
+- FIN-PG-01-F01 was fixed: payroll/accounting-event control-account journals can
+  be reversed only through their controlled source authority.
+
+Remaining blockers/waivers
+- HR-ID-01 employee identity binding and self-service authorization.
+- S1.5-F06 Redis-backed distributed controls.
+- S1.5-F07 provider-neutral metrics/tracing and operational evidence.
+- HR03-F03/F04 statutory payroll and bank execution owner/provider decisions.
+- Q-003/Q-004/Q-006 managed identity, key/archive/retention and cloud operations.
+- Bank reconciliation PostgreSQL persistence remains in its owning Finance slice.
+- X-002: exact runtime variant/effort/surface metadata was unavailable.

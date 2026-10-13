@@ -1,0 +1,106 @@
+NEXORA ERP MASTER MENU, SUB-MENU & RESPONSIVE SIDEBAR
+Date: 2026-08-20
+Batch: NAV-03
+Scope: navigation configuration, sidebar UX and shell header only
+
+IMPLEMENTED
+- Exact 34-module main-menu labels and ordering from the owner brief.
+- Complete required submenu/action vocabulary in one centralized tree.
+- Materialized id, label, route, icon, parent, module, permission, status,
+  order, company applicability and child metadata for every item.
+- Implemented / Partial / Coming Soon / Not Yet Implemented status contract.
+- Existing routes only; unavailable items have no route and remain disabled.
+- Service/trading/manufacturing filtering and priority from one master menu.
+- Recursive exact-permission filtering; backend authorization unchanged.
+- Scrollable expanded desktop sidebar with active/ancestor state.
+- Collapsed desktop icon rail with accessible nested flyout.
+- Mobile Sheet remains scrollable and closes after a real navigation.
+- ERP header exposes current company and real Notifications/Profile/
+  Preferences/Logout; unsupported Search/Help/Security/Switch Company are
+  disabled rather than fabricated.
+- Running Demo frontend bundle confirmed updated over HTTP on port 3000.
+
+FILES CHANGED
+- web/src/components/shell/nav-config.ts
+- web/src/components/shell/app-sidebar.tsx
+- web/src/components/shell/breadcrumbs.tsx
+- web/src/components/shell/topbar.tsx
+- web/src/components/shell/user-menu.tsx
+- web/src/components/shell/nav-config.test.ts
+- web/src/components/shell/approved-navigation.test.ts
+- web/src/components/shell/app-sidebar.test.tsx
+- web/src/components/shell/topbar.test.tsx (new)
+- docs/product/nexora-master-menu-responsive-sidebar.md (new)
+- docs/product navigation index/status records
+- _progress.md and plans/next-session-handoff.md
+- this evidence file
+
+EXPLICITLY UNCHANGED
+- app/finance and every Finance transaction/posting/reporting service
+- database schemas and migrations
+- API implementation and contracts
+- authentication and backend RBAC
+- Demo database, seed and credentials
+- S2.2/S2.3 backend tests
+- every existing route/page implementation
+
+BEFORE
+- NAV-02 evidence: 52 functional frontend checks across 16 files, 12 a11y
+  checks across 11 files, 45-route build, API drift clean, 469 backend tests,
+  and Demo integrity verification.
+- The first in-session pre-change full-suite attempt timed out under local
+  runner contention before producing a result; no file had been edited.
+
+AFTER VERIFICATION
+1. TypeScript
+   cd web; npm exec tsc -- --noEmit
+   PASS: zero type errors.
+
+2. Focused navigation/sidebar/header
+   cd web; npm exec vitest -- run nav-config.test.ts
+     approved-navigation.test.ts app-sidebar.test.tsx topbar.test.tsx
+   PASS: 17/17 across 4 files.
+
+3. Functional frontend regression (a11y uses its dedicated configuration)
+   cd web; npm exec vitest -- run --exclude "**/*.a11y.test.tsx"
+   PASS: 55/55 across 17 files (52 carried forward + 3 navigation tests).
+
+4. Accessibility
+   cd web; npm exec vitest -- run --config vitest.a11y.config.ts
+     --pool=threads --maxWorkers=1 --fileParallelism=false
+   PASS: 13/13 across 11 files; zero reported axe violations, including the
+   expanded sidebar and keyboard-opened collapsed flyout.
+
+5. Lint and TypeScript/build
+   cd web; npm run lint
+   PASS: zero reported lint issues.
+   cd web; npm run build
+   PASS: Next.js 16.3.0 production build and all 45 existing routes.
+
+6. API drift
+   cd web; npm run api:check-drift
+   PASS: generated schema matches contracts/openapi-v1.json.
+
+7. Backend regression
+   python scripts/verify.py unit integration contract security e2e migration
+   PASS: 469/469.
+
+8. Demo integrity
+   python scripts/demo_environment.py verify
+   PASS: only nexora-demo; 17 balanced journals; Trial Balance variance 0;
+   Balance Sheet variance 0; accounting-event, procurement-to-ledger,
+   cash-flow and audit-chain checks verified.
+
+9. Live Demo bundle
+   GET http://127.0.0.1:3000/dashboard plus served-script inspection
+   PASS: HTTP 200 and updated Not Yet Implemented/company-type/navigation
+   markers found in the served Next.js bundle.
+
+RISKS / REMAINING ISSUES
+- Company type is not yet returned by the authenticated tenant/company API.
+  The master menu supports it, but defaults to the full honest product map
+  unless NEXT_PUBLIC_NEXORA_COMPANY_TYPE is configured.
+- Search, Help, Security self-service and Switch Company remain disabled until
+  real backend functionality exists.
+- Coming Soon and Not Yet Implemented modules intentionally contain no fake
+  records, CRUD screens or routes.

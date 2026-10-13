@@ -1,0 +1,67 @@
+HR-PROD-00 — Authenticated route integrity verification
+Date: 2026-10-05
+Scope: Slice 0 only; frontend shell/company-context composition and permission alignment
+
+SOURCE REVIEW
+- Live web/app/tests won implementation ties.
+- No schema, migration, HR business authority, RLS, localization date, or Demo data changed.
+
+FRONTEND
+1. Focused route/permission tests
+   Command: npm test -- --run src/app/(shell)/layout.test.tsx src/app/(shell)/route-company-context.test.tsx src/lib/session/permissions.test.ts src/components/shell/nav-config.test.ts src/features/hr/hr-payroll-workspace.test.tsx
+   Result: PASS — 5 files, 27 tests.
+
+2. Complete frontend tests
+   Command: npm test
+   Result: PASS — 71 files, 209 tests.
+
+3. ESLint
+   Command: npm run lint
+   Result: PASS — no findings.
+
+4. Production build / TypeScript
+   Command: npm run build
+   Result: PASS — Next.js 16.3.6 compiled, TypeScript passed, 54 pages generated.
+   Confirmed routes include /hr/payroll, /hr/attendance, /hr/leave,
+   /hr/identity, /hr/localization, /organization/localization,
+   /hr/employees, and /finance.
+
+BACKEND / SECURITY / POSTGRESQL
+5. Managed integration gate
+   Command: python scripts/verify.py integration
+   Result: PASS — 268 tests, 4 skipped.
+
+6. Security gate
+   Command: python scripts/verify.py security
+   Result: PASS — 13 tests.
+
+7. PostgreSQL HR/RLS gate
+   Command: python scripts/verify_postgres_hr.py
+   Result: PASS — 36 tests.
+   Evidence includes forced RLS, tenant/company isolation, Payroll,
+   Attendance/Leave, localization, Employment Context, identity, and payslips.
+
+8. Candidate Demo database verification
+   Command: python scripts/production_demo_environment.py verify
+   Result: PASS — application role nexora_demo_app; forced RLS and audit chain
+   verified; tenant nexora-demo; company nexora-demo-company.
+
+9. Candidate route reachability
+   Command: HTTP GET http://127.0.0.1:3001/hr/payroll
+   Result: HTTP 200.
+
+10. Forgeflow portability and handoff integrity
+    Command: node framework/verify/portability-check.mjs .
+    Result: PASS — 66 required files present; placeholders clean; handoff paths current.
+
+NOTES
+- A first standalone unittest command ran 34 tests: 30 HR API tests passed and
+  4 authentication tests errored because NEXORA_DATABASE_DSN was not supplied.
+  The same authentication tests subsequently passed through the repository's
+  managed integration gate above. This was an invocation-environment error,
+  not an assertion failure.
+- Fresh in-app Browser verification could not start because the existing
+  Browser runtime returned `Cannot redefine property: process` (D02-A-F02).
+  Actual shell/route composition is covered by the new route integration tests;
+  this evidence makes no visual-review claim.
+- git diff --check: PASS.

@@ -1,0 +1,74 @@
+Nexora S1.2 Verification Evidence
+=================================
+Date: 2026-07-29 Asia/Karachi
+Batch: S1.2 - Identity, Authorization, Security, and Audit Baseline
+Runtime: Python 3.11.9; former standard-library embedded driver; no third-party dependencies
+
+Commands and results
+--------------------
+python -m compileall -q app tests scripts
+PASS - syntax/import compilation
+
+python -m json.tool contracts/openapi-v1.json
+PASS - canonical OpenAPI JSON parses
+
+python scripts/verify.py unit integration contract security e2e migration
+PASS - 66 tests
+  unit: 29
+  integration: 14
+  contract: 5
+  security: 13
+  e2e: 1
+  migration: 4
+
+Direct acceptance evidence
+--------------------------
+- UserAccount, versioned RolePolicy, tenant-composite role assignment, and
+  AuditEvent legacy embedded database data paths pass integration tests.
+- Exact role permission, tenant mismatch, field allow/deny, own/company
+  record scope, static conflicting-role SoD, and dynamic distinct-actor SoD
+  paths pass.
+- HTTP and security-command authorization defaults reject all.
+- Provider-rejected/expired, MFA-insufficient, and cross-tenant identity
+  mapping paths deny.
+- Cross-tenant role assignment fails at the foreign-key boundary.
+- Security user/policy/assignment creates and platform resource creates append
+  actor/tenant/correlation/source/before-hash/after-hash audit evidence.
+- Idempotent API replay appends no duplicate resource/audit side effect.
+- Simulated audit failure returns a safe 500 and leaves no resource visible.
+- Audit update/delete SQL statements fail; tenant hash chains validate.
+- Migration forward and repeat-apply pass; clean rollback passes; populated
+  rollback is blocked and preserves data.
+- pyproject dependency inventory remains empty.
+
+Manual review
+-------------
+QA-01 Product Verification: PASS WITH WAIVERS
+- Acceptance is tied to direct positive, denial, integrity, failure, replay,
+  and rollback behavior checks.
+- No browser/client changed, so browser, visual, mobile, and accessibility
+  execution is not applicable to S1.2.
+- Pilot-load/performance profiling was not run and no performance claim is
+  made.
+
+SEC-01 Auth RBAC Privacy Review: PASS WITH WAIVERS
+- Actors/trust zones and managed-provider responsibilities are documented.
+- Identity, HTTP authorization, non-HTTP command authorization, tenant/record/
+  field/SoD boundaries, sensitive log/audit fields, and immutability were
+  reviewed.
+- Resolved S1.2-F01 by adding mandatory reject-all/repository-backed admin
+  command authorization.
+- Current critical/major access-control findings: 0 open.
+
+Waivers and production residuals
+--------------------------------
+W-001: Node is unavailable; affects Forgeflow method portability only.
+W-002: exact runtime variant/ID/reasoning/surface metadata is unavailable;
+       GPT-5 family and single-agent execution are observed.
+Q-003: production managed OIDC/SAML/session/service identity is not selected.
+Q-004: production relational/audit store, encryption, archive/SIEM, restricted
+       credentials, retention, backup, and HA model is not selected.
+
+Neither waiver affects the deterministic S1.2 behavior gates. Q-003 and Q-004
+block production identity/persistence claims, not this executable reference
+baseline.

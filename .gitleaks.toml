@@ -1,0 +1,10 @@
+title = "Nexora HR Payroll secret scanning"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Exclude reproducible dependency, build, coverage, and browser-test output"
+paths = [
+  '''(^|/)(node_modules|\.next|coverage|dist|playwright-report|test-results)(/|$)''',
+]

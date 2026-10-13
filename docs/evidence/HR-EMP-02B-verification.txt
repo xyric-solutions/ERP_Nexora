@@ -1,0 +1,121 @@
+HR-EMP-02B — Employment Relationships and Lifecycle
+Verification date: 2026-09-29 Asia/Karachi
+Status: CLOSED WITH WAIVERS
+
+IMPLEMENTED
+- Existing hr_employment_relationship remains the legal-employment authority.
+- HR migration 0011 adds normalized lifecycle policy, state, transition,
+  maker-checker request, and append-only employment-event evidence.
+- Canonical lifecycle classes: pre_employment, employed,
+  temporarily_inactive, ended. Tenant policy labels remain configurable.
+- Controlled events: hire, probation, confirmation, suspension, resume,
+  resignation, termination, and rehire.
+- Rehire retains Employee identity, creates a new relationship/history, and
+  leaves the previous ended relationship immutable.
+- Historical state uses explicit as_of reconstruction. Future-dated events do
+  not change current state prematurely.
+- Termination closes the relationship and applicable effective assignment while
+  preserving Employee, Attendance, Payroll, Finance and HR-LOC evidence.
+- Existing PostgreSQL Workflow provides optional maker-checker approval and
+  enforces requester/approver separation.
+- Protected APIs, granular contextual RBAC, durable idempotency, atomic audit,
+  forced RLS, tenant/company isolation and focused lifecycle/history UI.
+
+DATABASE AND MIGRATION
+- Forward: app/hr/postgres/migrations/0011_employment_lifecycle.forward.sql
+- Rollback: app/hr/postgres/migrations/0011_employment_lifecycle.rollback.sql
+- New tables: hr_employment_lifecycle_policy,
+  hr_employment_lifecycle_state, hr_employment_lifecycle_transition,
+  hr_employment_lifecycle_request, hr_employment_event.
+- hr_employment_relationship adds lifecycle_policy_id, approval_state and
+  rehire_of_relationship_id.
+- Enforced: typed FKs, effective ranges, no overlapping active policies or
+  pending requests, approved-transition/state consistency, event sequencing,
+  rehire lineage/non-overlap, immutable approved definitions/events, forced RLS
+  and populated rollback protection.
+- Migration apply/replay/clean database/existing upgrade/clean rollback and
+  populated rollback denial passed through canonical and HR PostgreSQL suites.
+
+RBAC
+- hr.employment_relationship.read/create/change
+- hr.employment_lifecycle.action/approve/terminate/rehire
+- hr.employment_lifecycle_policy.read/manage/approve
+- hr.employment_history.read
+
+API
+- GET/POST /api/v1/hr/employment_lifecycle_policies
+- POST /api/v1/hr/employment_lifecycle_policy_actions
+- GET/POST /api/v1/hr/employment_relationships
+- GET /api/v1/hr/employment_history
+- POST /api/v1/hr/employment_lifecycle_actions
+
+VERIFIED
+- Relationship creation, legal-employer validation, invalid ranges and overlap.
+- Policy approval/activation, lifecycle activation and invalid-transition denial.
+- Hire, probation, confirmation, suspension, resume, resignation, termination,
+  future-dated changes and historical reconstruction.
+- Rehire keeps one Employee identity, creates a new relationship/history, and
+  preserves the prior ended relationship.
+- Corrections append authorized evidence and link to the corrected event.
+- Locked Attendance/backdated change denial; sealed Payroll evidence remains
+  unchanged.
+- Tenant/company isolation, PostgreSQL RLS, RBAC, maker-checker self-approval
+  denial, idempotency, audit, immutability and rollback protection.
+- Existing HR, Attendance, Payroll, HR-LOC, Finance and Platform regression.
+- Country-neutrality: no statutory rule, tax/social formula, implicit
+  jurisdiction inference, AI legal inference, or cross-border execution added.
+
+EXACT VERIFICATION RESULTS
+- python scripts/verify.py unit integration contract security e2e migration
+  PASS: 685 tests (including 109 migration tests).
+- python scripts/verify_postgres_platform.py — PASS: 24 tests.
+- python scripts/verify_postgres_hr.py — PASS: 25 tests.
+- python scripts/verify_postgres_workflow.py — PASS: 4 tests.
+- python scripts/verify_postgres_security.py — PASS: 3 tests.
+- python scripts/verify_postgres_finance.py — PASS: 7 tests.
+- python -m unittest tests.unit.test_hr_employment -v — PASS: 2 tests.
+- web npm test — PASS: 64 files / 175 tests.
+- web npm run test:a11y — PASS: 18 files / 21 tests.
+- web npx tsc --noEmit — PASS.
+- web npm run lint — PASS.
+- web npm run api:check-drift — PASS.
+- web npm run build — PASS: Next.js production build, 53 pages.
+- python -m compileall -q app tests — PASS.
+- python -m pip check — PASS: no broken requirements.
+- web npm audit --omit=dev --audit-level=high — PASS: 0 vulnerabilities.
+- docker compose config --quiet — PASS.
+- node framework/verify/portability-check.mjs . — PASS: 66 required files.
+- git diff --check and explicit scope/neutrality scans — PASS.
+
+COMPATIBILITY
+- employee.status remains an unchanged compatibility projection and is not the
+  new lifecycle authority.
+- Existing Attendance and Payroll consumer semantics are unchanged.
+- HR-LOC jurisdiction resolution, compensation authority and Finance posting
+  behavior are unchanged.
+- Employee profile approval does not activate employment; termination does not
+  delete/deactivate Employee identity.
+
+WAIVED
+- X-002: actual runtime model/variant/effort/surface metadata is unavailable.
+- Manual browser visual walkthrough was not run; focused component/a11y tests
+  and the production build passed.
+- Legacy Employee-to-relationship conversion remains an explicit future policy;
+  no relationship was guessed or backfilled.
+- EmploymentContextProvider consumer cutover remains a later approved slice.
+
+BLOCKED BY EXTERNAL GATE
+- Q-007 real statutory packs.
+- Q-010 real jurisdiction/reference activation.
+- Q-004 sensitive statutory identifier vault/KMS and remaining operational
+  encryption/archive controls.
+- Future cross-border legal-employment/payroll model; cross-country execution
+  remains fail-closed.
+
+NOT STARTED
+- HR-EMP-02C through HR-EMP-02G.
+- Assignment/organization placement redesign, compensation, Payroll/Attendance
+  redesign, statutory rules, custom fields, document storage and cross-border
+  employment.
+
+No statutory-compliance or full-production-readiness claim is made.

@@ -1,0 +1,108 @@
+HR-LOC-01D — Company Setup, APIs, RBAC, and Audit
+Verification date: 2026-09-28 Asia/Karachi
+Baseline commit: 2ac76449887dd4fa150392c50532ff2d2198cbb8
+Status: CLOSED WITH WAIVERS
+
+Scope delivered
+---------------
+- Country-neutral, effective-dated company legal profile, statutory
+  registration, payroll configuration, and localization activation services.
+- Read-only country, jurisdiction, legal-entity, localization-pack, and pack-
+  version catalogs.
+- Company-scoped HTTP APIs with exact permissions, idempotent commands,
+  transactional immutable Security audit evidence, and PostgreSQL RLS.
+- Setup-draft support for all four company-localization sections in the same
+  transaction as company creation.
+- Explicit localization context separating jurisdiction identification, pack
+  availability, approved/active pack state, and statutory compliance. This
+  slice always reports statutory_compliance_status=not_assessed.
+- Existing companies retain legacy_unlocalized behavior; newly created
+  companies retain localization_required behavior from HR-LOC-01A.
+
+Database and migration result
+-----------------------------
+- No new migration was required. HR-LOC-01D reuses the effective-dated,
+  constrained, forced-RLS Platform localization schema delivered by 01A and
+  controlled localization_import_release evidence delivered by 01C.
+- Existing migration forward/idempotency/clean rollback/reapply and populated
+  rollback-refusal coverage passed in the canonical migration suite and both
+  live PostgreSQL suites.
+
+Security and policy result
+--------------------------
+- Catalog reads require platform.localization.read.
+- Company reads/manages use the approved company-scoped permissions.
+- Localization creation/action uses platform.localization.activate.
+- HTTP authorization and the service command gate both carry company_id;
+  tenant isolation is additionally enforced by forced RLS and composite
+  tenant/company references.
+- Registration secret_reference may be persisted as an external secret handle
+  but is never returned in API/setup snapshots or audit state.
+- Production active transition is blocked by code policy with no environment
+  switch. The test-only policy is explicit in-process and is used solely with
+  synthetic XX fixtures.
+- Active transition also requires compatible approved/active pack evidence,
+  a controlled importer release, complete effective dependencies, an approved
+  legal profile, and an active payroll configuration.
+- Selecting a country/jurisdiction never creates a compliance claim and never
+  causes inferred jurisdiction selection.
+
+Defect found and corrected during verification
+----------------------------------------------
+- The first full run exposed a demo-runtime compatibility defect: the new
+  repository rejected the established autocommit connection and changed the
+  shared row factory to dict_row. The constructor now supports the established
+  explicit transaction boundary and preserves POSTGRES_ROW_FACTORY. The
+  affected end-to-end test then passed 5/5, followed by a clean full run.
+
+Verification commands and final results
+---------------------------------------
+- python scripts/verify.py unit integration contract security e2e migration
+  PASS: 663 total (278 unit, 256 integration, 5 contract, 13 security,
+  5 end-to-end, 106 migration).
+- python scripts/verify_postgres_platform.py
+  PASS: 21/21 against disposable PostgreSQL, including the 3 new 01D tests.
+- python scripts/verify_postgres_hr.py
+  PASS: 17/17 against disposable PostgreSQL.
+- npm run api:check-drift (web/)
+  PASS: generated TypeScript schema matches contracts/openapi-v1.json.
+- npm run lint (web/)
+  PASS.
+- npm run test (web/)
+  PASS: 57 files, 163 tests.
+- npm run test:a11y (web/)
+  PASS: 15 files, 18 tests.
+- npm run build (web/)
+  PASS: Next.js production build, 51 static routes.
+- python -m compileall -q app scripts tests
+  PASS.
+- python -m pip check
+  PASS: no broken requirements.
+- docker compose config --quiet
+  PASS.
+- node framework/verify/portability-check.mjs .
+  PASS: 66 required files; placeholders and handoff clean.
+- git diff --check
+  PASS (line-ending conversion notices only).
+- Country-name scan of the new 01D runtime/tests/docs
+  PASS: no real jurisdiction was added. Existing unrelated Finance Pakistan
+  tax references remain untouched and are outside this approved slice.
+- SQLite/sqlite3/aiosqlite scan of app, README, docs, environment example,
+  Compose, and pyproject
+  PASS: only a historical verification statement in 01C evidence matched.
+- git diff -- app/hr/payroll.py app/finance
+  PASS: no changes.
+
+UI result
+---------
+- No page or component was added. UI implementation remains explicitly scoped
+  to HR-LOC-01G. Only generated API client types changed in web/.
+
+Remaining waivers / gates
+-------------------------
+- Q-010: no approved real reference bundle; production localization activation
+  remains blocked.
+- Q-007: no approved real statutory pack; statutory compliance is not claimed.
+- Q-004: full registration identifiers require the approved vault/KMS boundary.
+- Q-003/Q-006: managed identity and managed operational proof remain external.
+- HR-LOC-01E and later slices were not started.

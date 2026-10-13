@@ -1,0 +1,138 @@
+HR-LOC-01C — Controlled Localization Pack Validator/Importer
+Verification date: 2026-09-28 Asia/Karachi
+Result: PASS — closed with external waivers; HR-LOC-01D remains unopened
+
+Scope verified
+- Strict, non-executing manifest/source/rule/vector directory parser.
+- Canonical SHA-256 source, content, file, rule, vector, and artifact hashes.
+- Database-aware dry-run and serializable, advisory-locked, transactional import.
+- Dedicated registered PostgreSQL publisher boundary and immutable release report.
+- Production HR PostgreSQL migration 7 after Platform v3 and HR v6.
+- Synthetic XX national/subnational fixtures only; no real-country statutory data.
+- No HTTP API, company setup/activation, resolver, payroll-core, Finance, contract,
+  frontend, or AI execution-path change.
+
+Focused behavior evidence
+- python -m unittest tests.unit.test_hr_localization_manifest
+  tests.unit.test_hr_localization_models -v
+  PASS: 8/8 (5 importer/manifest + 3 carried HR localization values).
+- python scripts/verify_postgres_hr.py
+  PASS: 17/17 live PostgreSQL tests.
+  Proved migration ordering/idempotency; synthetic national then exact
+  subnational dependency import; dry-run no-write; artifact-hash idempotency;
+  country/jurisdiction reference rejection; missing dependency rejection;
+  pack/rule overlap rejection without explicit supersession; approved
+  correction import with exact supersession; publisher insert-only scope;
+  denial of tenant reads and reference-catalog writes; runtime rejection after
+  privilege expansion; owner-only publisher registration; immutable approved
+  rule/release evidence; incomplete direct-write release rejection; atomic
+  failure rollback; clean rollback/reapply; and populated rollback refusal.
+- python scripts/verify_postgres_platform.py
+  PASS: 18/18 live PostgreSQL tests.
+- python -m app.hr.localization.cli validate
+  tests/fixtures/localization/synthetic-national/1.0.0
+  PASS: canonical fixture validated, 1 rule and 3 vectors.
+- python -m pip install --no-deps -e .
+  PASS: editable wheel built and installed.
+- Explicit generated console-script path .../nexora-localization-pack.exe validate
+  tests/fixtures/localization/synthetic-region/1.0.0
+  PASS: CLI entry point validated the dependent fixture. The first bare command
+  invocation failed only because the user-level Python Scripts directory is not
+  on this shell's PATH; no application or packaging defect remained.
+
+Canonical regression evidence
+- python scripts/verify.py unit integration contract security e2e migration
+  PASS: 656 total (275 unit, 252 integration, 5 contract, 13 security,
+  5 e2e, 106 migration).
+- python -m compileall -q app tests
+  PASS.
+- python -m pip check
+  PASS: no broken requirements.
+- docker compose config --quiet
+  PASS.
+- git diff --check
+  PASS; informational Windows line-ending notices only.
+- node framework/verify/portability-check.mjs .
+  PASS: 66 required files, placeholders clean, handoff paths current.
+
+Frontend regression evidence
+- cd web && npm run api:check-drift
+  PASS: generated client schema matches contracts/openapi-v1.json.
+- cd web && npm run lint
+  PASS.
+- cd web && npm run test
+  PASS: 163/163 across 57 files.
+- cd web && npm run test:a11y
+  PASS: 18/18 across 15 files.
+- cd web && npm run build
+  PASS: Next.js 16.3.6 production build, 51 static routes.
+
+Validation controls
+- Exact schema and file inventory; UTF-8; duplicate-key, symlink, size, depth,
+  unexpected-file, float/non-finite, unsafe text, and unknown-field rejection.
+- System publisher scope only; `approved` lifecycle intent only; reviewer and
+  approver separation; UTC approval timeline; valid legal effective ranges.
+- Controlled country/jurisdiction lookup; exact approved immutable parent
+  versions; same-country ancestor stacking; legal-range coverage; cycle and
+  duplicate rejection.
+- Allow-listed rule types and stacking operations; typed deterministic
+  configuration; declarative applicability; AST-limited arithmetic formula;
+  no Python/module/script/callable/import/eval/exec content.
+- Every rule cites a declared authoritative source and carries positive,
+  boundary, and non-applicable reviewed vectors.
+- Approved effective overlaps require explicit same-identity pack and rule
+  supersession chains.
+- Synthetic artifacts import only in `test`. Production-classified artifacts
+  remain closed unless the explicit deployment gate is enabled after governance
+  approval; no production artifact ships.
+
+Security/RBAC/privacy review
+- Actors: migration owner registers/revokes; dedicated publisher validates and
+  inserts controlled global evidence; ordinary application/tenant roles have no
+  publisher path. There is no anonymous/user HTTP surface.
+- Publisher registration rejects superuser, owner, role-creator, database-
+  creator, replication, RLS-bypass, inherited-role, schema-create, or unrelated
+  table privileges. Every dry-run/import rechecks privilege scope.
+- Publisher can select controlled global catalogs and insert pack/rule/vector/
+  release rows only. It cannot read tenant HR/payroll tables, update/delete
+  approved evidence, manage its own registration, or mutate country,
+  jurisdiction, or legal-entity reference catalogs even if mistakenly granted
+  direct table access.
+- Immutable release evidence records database-derived publisher identity and
+  hashes/counts, not DSNs, source documents, tenant data, payroll data, or
+  request bodies. CLI/database errors do not print credentials.
+- Application runtime receives no publisher DSN. `.env.example` and operator
+  docs state this separation explicitly.
+
+Migration/rollback result
+- HR registry latest version is 7 (`localization_pack_importer`).
+- Migration 7 requires HR v6 and Platform v3; it adds
+  `localization_publisher_principal` and `localization_import_release`, replaces
+  the catalog mutation guard with a controlled-table publisher allow-list, and
+  adds owner/immutability/completeness triggers.
+- Empty migration 7 rolls back and the complete HR chain reapplies cleanly.
+  Registered publisher configuration blocks rollback until revoked. Any
+  published immutable release blocks destructive rollback permanently; a
+  reviewed forward supersession is required.
+
+Scope and country-neutrality scans
+- Named real-country/jurisdiction scan over 01C runtime, migration, and fixtures:
+  PASS with no matches.
+- `app/hr/payroll.py`, API routes/contracts, and frontend diff: empty.
+- SQLite/sqlite3 scan over app, README, docs, environment, Compose, Dockerfile,
+  and Python project configuration: PASS with no matches.
+
+Residual waivers/blockers
+- Q-007/HR03-F03 remains open: no real statutory pack may be published until
+  payroll/legal owners approve jurisdiction, sources, ownership, and vectors.
+- Q-010 remains open: the importer cannot write reference catalogs and no active
+  company-country/setup path is introduced.
+- Q-003/Q-004/Q-006 remain external managed identity, secret/archive, HA,
+  recovery, and provider-operation gates.
+- X-002 remains: exact runtime model variant/ID/effort/mode/surface was not
+  exposed. Execution was single-agent; no worker or fallback was used.
+
+Closeout decision
+- HR-LOC-01C is complete for its approved bounded scope and closed with waivers.
+- This is not a country-compliance or full-production-readiness claim.
+- Do not start HR-LOC-01D until the owner explicitly approves it.

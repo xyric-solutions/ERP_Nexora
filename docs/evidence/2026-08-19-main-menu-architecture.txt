@@ -1,0 +1,84 @@
+NEXORA ERP MAIN MENU ARCHITECTURE - VERIFICATION EVIDENCE
+Date: 2026-08-19
+Scope: navigation configuration, sidebar rendering, breadcrumbs, permissions,
+status labels, documentation, and existing-page fragment targets only.
+
+ASSESSMENT
+- Previous sidebar: five coarse groups, one level, flat Finance list.
+- Previous maturity language: live / structural / coming_soon, including the
+  customer-facing implementation label "shell".
+- Previous permission shape: one exact required permission per leaf.
+- Baseline preserved: S2.1-S2.3 Finance; current S3.1 Procurement/Inventory;
+  Demo tenant isolation; all API contracts and posting rules.
+
+IMPLEMENTED NAVIGATION CONTRACT
+- 34 required top-level modules in the supplied order.
+- Recursive sub-menu and sub-sub-menu renderer.
+- Implemented / Prototype / Coming Soon status vocabulary.
+- Unavailable functions are disabled and never linked to invented routes.
+- Existing routes reused; Procurement/Inventory fragments target existing
+  live overview sections.
+- Module and descendant permissions filter independently.
+- Breadcrumbs derive labels recursively from the same source.
+
+VERIFICATION
+1. Focused navigation configuration
+   Result: PASS - 4/4 tests. Exact module order, unique IDs, existing-route-only
+   links, and Finance permission boundary verified.
+
+2. Focused sidebar behavior
+   Result: PASS - 3/3 tests. Protected module hiding, exact Finance descendant
+   filtering, and Setup Draft visibility verified.
+
+3. Sidebar accessibility
+   Result: PASS - 1/1; zero axe violations.
+
+4. TypeScript and targeted lint
+   Result: PASS - zero type errors, lint errors, or warnings.
+
+5. Full frontend regression
+   Command: cd web; npm test
+   Result: PASS - 56/56 tests across 25 files.
+
+6. Accessibility regression
+   Command: cd web; npm run test:a11y
+   Final result: PASS - 12/12 tests across 11 files; zero violations, including
+   the new sidebar-specific check.
+
+7. Generated API drift
+   Command: cd web; npm run api:check-drift
+   Result: PASS - generated schema matches contracts/openapi-v1.json.
+
+8. Production build
+   Command: cd web; npm run build
+   Result: PASS - TypeScript and all 45 static routes. The first sandboxed
+   attempt could not fetch existing Google Fonts; the identical build passed
+   with approved network access. No font code changed.
+
+9. Full backend regression
+   Command: python scripts/verify.py unit integration contract security e2e migration
+   Result: PASS - 469/469 tests.
+
+10. Demo Company integrity
+    Command: python scripts/demo_environment.py verify
+    Result: PASS - exact demo marker and tenant only; 17 journals all balanced;
+    Trial Balance variance 0; Balance Sheet variance 0; Accounting Event,
+    procurement-to-ledger, cash-flow, audit and isolation checks verified.
+
+HARNESS NOTE
+- A full `npm test` pass completed at 56/56 before the sidebar accessibility
+  file was added; that file then passed both separately and in the dedicated
+  12/12 accessibility gate.
+- A final default-suite rerun encountered the generic suite's shorter timeout
+  in the pre-existing Finance accessibility test and the command later timed
+  out. The dedicated accessibility configuration, which is the repository's
+  documented accessibility gate, passed that surface and all others. No
+  accessibility assertion or navigation assertion failed.
+
+SCOPE CONFIRMATION
+- Finance backend changed: NO.
+- API contract changed: NO.
+- Database/schema/migration changed: NO.
+- Business transaction implementation added: NO.
+- Demo seed/data changed: NO.
+- Existing product UI shell reused: YES.

@@ -1,0 +1,226 @@
+HR-EMP-02D — Employee Profile, Private Data, Contacts, Emergency Contacts and Document References
+Verification date: 2026-09-30
+Status: CLOSED WITH WAIVERS
+
+IMPLEMENTED
+- Existing `employee` remains the canonical identity; no competing employee
+  master, relationship, assignment, contact, or document authority was
+  introduced. Employee profile approval does not imply active employment.
+- `hr_employee_profile_version` (new) is a typed, effective-dated, append-only
+  history of identity fields (name parts, work/personal email, phone, date of
+  birth); `employee` remains the current-state projection consumed unchanged
+  by existing Attendance/Payroll joins.
+- `employee_contact` (existed as a 1-row address table) is reshaped into a
+  typed, multi-row, effective-dated contact log (email/phone/address ×
+  work/personal/other), with a database trigger keeping
+  `employee.work_email/personal_email/phone` in sync as a read projection and
+  a guard trigger blocking direct writes to those columns outside that path.
+- `employee_emergency_contact` and `employee_document` (existed as static
+  rows) are reshaped into append-only, effective-dated (emergency contact) and
+  metadata-only, immutable (document) records respectively. Document binary
+  storage/download remains unavailable by design; `storage_key` is legacy
+  reference-only and never accepted or returned by 02D APIs.
+- Raw `national_id` ingestion is removed from employee create/update entirely
+  (Q-004 fail-closed); a new read-only `employee_sensitive_metadata` endpoint
+  returns only masked bank/tax/national-identifier values plus
+  `"write_status":"blocked_by_q004"`. No vault/KMS was implemented or claimed.
+- The existing HR workspace gains a focused Profile tab (history, contacts,
+  emergency contacts, documents, permission-gated sensitive metadata) reusing
+  established Nexora UI conventions; no HR module redesign.
+
+DATABASE AND MIGRATION
+- Forward: app/hr/postgres/migrations/0013_employee_profile_satellites.forward.sql
+- Rollback: app/hr/postgres/migrations/0013_employee_profile_satellites.rollback.sql
+- New table `hr_employee_profile_version` with a GiST exclusion constraint
+  (partial on `supersedes_version_id IS NULL`) preventing overlapping open
+  segments per employee, immutable-history trigger, and forced RLS.
+- `employee_contact` gains `id`, `channel`, `contact_usage`, `is_primary`,
+  `status`, `effective_from/to`, provenance columns, a unique partial index on
+  the current primary per channel/usage, and an immutable-history trigger.
+- `employee_emergency_contact` gains `email`, `priority`, `status`,
+  `effective_from/to`, `supersedes_contact_id`, provenance columns, a unique
+  partial index on current priority, and an immutable-history trigger.
+- `employee_document` gains `issuing_authority`, `verification_status`,
+  `notes`, `status`, `supersedes_document_id`, provenance columns; `storage_key`
+  becomes nullable; mutation is rejected outright (append-only).
+- Existing rows are captured as explicit `migration:0013-*`-tagged evidence
+  during the forward migration (current-state snapshot), never guessed.
+- Rollback refuses once any non-migration-tagged evidence exists in any of the
+  four affected tables (populated-rollback protection), matching the existing
+  02A-02C rollback-guard pattern.
+
+DEFECTS FOUND AND FIXED (all confirmed by real disposable-PostgreSQL tests,
+not review alone; all pre-existed in the inherited uncommitted work, none were
+introduced by this session's own additions)
+- `employee_action`'s "update"/"update_private" branches raised
+  `UnboundLocalError` on `workflow_result` (a pre-existing defect in the
+  already-closed 02A-02C code, never exercised by 02C's own test suite; newly
+  reachable because 02D wires profile-version history into this exact path).
+  Fixed by initializing `workflow_result = None` before the action branch
+  instead of only inside the submit/approve/reject/change_status branch.
+- Migration 0013's `guard_employee_contact_projection` trigger used
+  `current_setting(...,true)<>'on'`, which evaluates to SQL `NULL` (not
+  `TRUE`) whenever the session variable was never set — making the guard a
+  silent no-op for any session that never went through the internal sync
+  path, i.e. any real external write. A direct `UPDATE employee SET
+  work_email=...` bypass succeeded instead of being blocked. Fixed with
+  `COALESCE(current_setting(...,true),'off')<>'on'`.
+- `close_contact`/`close_emergency_contact` set the closed record's
+  `effective_to` to the same date the new segment starts (not the day
+  before, unlike the correct pattern already used by `close_profile_version`),
+  and the "as-of" list queries additionally filtered on live `status`. Combined,
+  a historical `as_of` lookup for a date safely before a supersession could
+  never find the record that was actually active then. Fixed by closing on
+  `next_effective_from::date-1` and removing the `status='active'` filter from
+  the as-of date-range clause.
+- `_append_profile_version`'s same-day-revision branch intentionally never
+  closes the original ("root") row, relying on `supersedes_version_id` to
+  exclude later revisions from the exclusion constraint. The next
+  *different-day* append closed whichever row `get_profile_version` picked as
+  "current" (the highest revision), not that still-open root row, leaving an
+  unbounded-forward date range that collided with the next segment —
+  reproducible on the ordinary sequence "create employee -> add a contact same
+  day -> make a dated change later." Fixed by adding
+  `get_open_root_profile_version` and closing that row specifically.
+- `tests/postgres/test_hr_foundation.py` still submitted raw `national_id` in
+  its shared `_employee_payload()` fixture; updated to match the intentional
+  Q-004 removal (masked identifier now asserted `None` on creation).
+
+RBAC
+- hr.employee_profile_history.read
+- hr.employee_contact.read / hr.employee_contact.manage
+- hr.employee_emergency_contact.read / hr.employee_emergency_contact.manage
+- hr.employee_document.read / hr.employee_document.manage
+- hr.employee_sensitive_metadata.read
+- Every mutation remains a direct, RBAC-gated, atomically audited, idempotent
+  command (no maker-checker) — the same governance model already established
+  for ordinary employee profile edits (`employee_action` "update"/
+  "update_private"); only employment status/lifecycle transitions route
+  through Workflow in this codebase. No new Workflow integration was added or
+  needed for 02D.
+- Added to the demo `ALL_PERMISSIONS` catalog (`app/demo/config.py`) so
+  `demo.admin` can exercise 02D end-to-end. `demo.hr` was left untouched: it
+  already lacks the base HR-02 employee/assignment permissions from 02A-02C
+  (a pre-existing gap, not introduced by 02D); wiring HR-02 permissions into
+  the granular `demo.hr` role is out of this slice's scope.
+
+API
+- GET /api/v1/hr/employee_profile_history
+- GET/POST /api/v1/hr/employee_contacts
+- GET/POST /api/v1/hr/employee_emergency_contacts
+- GET/POST /api/v1/hr/employee_documents
+- GET /api/v1/hr/employee_sensitive_metadata (Cache-Control: private, no-store)
+- All eight routes are registered in `contracts/openapi-v1.json` with exact
+  permission/security/parameter shape; `web/src/lib/api/schema.d.ts`
+  regenerated and verified byte-identical to the contract.
+- No Payroll, Attendance, Finance, compensation, or jurisdiction endpoint was
+  added or redesigned.
+
+FRONTEND
+- New `web/src/features/hr/employee-profile-panel.tsx` (Profile tab in the
+  existing HR workspace): profile history, contacts, emergency contacts,
+  documents, and a permission-gated masked sensitive-metadata view. Reuses
+  existing `DataTable`/`StatusBadge`/`Dialog`/`Tabs` primitives and the
+  TanStack Query + permission-gating conventions from `assignment-panel.tsx`.
+- Loading, empty, error (company/employee not selected, restricted-access),
+  and permission-aware create-action states are covered.
+- Stale `national_id` field removed from `CreateEmployee` and the employee
+  creation form.
+
+VERIFIED
+- Profile-version history: creation on employee create, append on
+  update/update_private, same-day revision handling, as-of reconstruction
+  before/after a boundary, immutability (UPDATE/DELETE rejected), cross-company
+  isolation.
+- Contacts: channel/usage/value/country-code validation, primary-contact
+  projection onto `employee`, projection-bypass rejection, supersession
+  (channel/usage mismatch, missing target, correct history boundary),
+  as-of correctness before and after supersession, tenant isolation.
+- Emergency contacts: validation (priority range, email shape), priority
+  ordering, supersession and as-of correctness, immutability.
+- Documents: metadata validation (date ordering, verification status),
+  metadata-only storage (`external_file_linked` false, no binary path),
+  append-only immutability, audit trail.
+- Sensitive metadata: masked-only output, no raw bank/tax/national identifier
+  ever returned, `write_status: blocked_by_q004`, cross-company isolation.
+- RBAC: every route demands its own dedicated permission plus field-level
+  scoping (integration tests); company-scope denial happens before any
+  service call; generic anonymous/tenantless-denial and no-secret-logging
+  suites cover the new routes automatically via the shared route registry.
+- Clean-database migration apply -> rollback -> reapply round-trip; populated
+  rollback correctly refused; forced RLS confirmed on all four affected
+  tables.
+- Existing HR, HR-LOC, Attendance, Payroll, Finance, Platform, Security and
+  Workflow PostgreSQL suites remain green (unchanged behavior).
+- Country neutrality: no real-country rule, tax/social formula, address,
+  currency, locale, IP/device detector, AI legal inference, statutory bypass,
+  or cross-border execution was added.
+
+EXACT VERIFICATION RESULTS
+- python scripts/verify.py unit integration contract security e2e migration
+  — PASS: 688 tests (291 unit, 265 integration, 5 contract, 13 security,
+  5 e2e, 109 migration) [+2 integration tests vs. the 02C baseline of 263:
+  new HR API RBAC tests for the profile-satellite routes].
+- python scripts/verify_postgres_platform.py — PASS: 24 tests.
+- python scripts/verify_postgres_hr.py — PASS: 31 tests (+5 new
+  `test_hr_employee_profile_satellites` tests vs. the 02C baseline of 26).
+- python scripts/verify_postgres_workflow.py — PASS: 4 tests.
+- python scripts/verify_postgres_security.py — PASS: 3 tests.
+- python scripts/verify_postgres_finance.py — PASS: 7 tests.
+- web npm test — PASS: 68 files / 183 tests (+5 vs. the 02C baseline of 178).
+- web npm run test:a11y — PASS: 20 files / 24 tests (+2 vs. the 02C baseline
+  of 22).
+- web npx tsc --noEmit — PASS.
+- web npm run lint — PASS.
+- web npm run api:generate and node scripts/check-api-drift.mjs — PASS.
+- web npm run build — PASS: Next.js production build, 53 routes.
+- python -m compileall -q app tests scripts — PASS.
+- python -m pip check — PASS: no broken requirements.
+- web npm audit --omit=dev — PASS: zero vulnerabilities.
+- docker compose config --quiet — PASS.
+- node framework/verify/portability-check.mjs . — PASS.
+- git diff --check and explicit security/country-neutrality scans — PASS.
+
+DIFF SCOPE (Phase 3I review)
+14 files modified, 7 files added (1,153 insertions / 28 deletions), all
+within HR-EMP-02D or necessary shared infrastructure (migration, repository,
+service, API routes, OpenAPI contract + generated client schema, demo
+permission catalog, frontend panel/types/permissions, and tests). No changes
+to 02A/02B/02C business logic beyond the two shared-code bug fixes documented
+above (`employee_action`, `_append_profile_version`'s helper is new-in-02D
+code). No debug artifacts, TODOs, or secrets found in the diff.
+
+COMPATIBILITY
+- `employee.first_name/middle_name/last_name/employee_number/status` remain
+  the live columns Attendance and Payroll join against directly; neither was
+  repointed at `hr_employee_profile_version` or `employee_contact`.
+  `employee_action`'s "update" path still writes through `hr.update_employee`
+  on `employee` before appending a profile-version snapshot.
+- `employee_bank_account` and `employee_tax_profile` (existing since
+  migration 0001) are exposed read-only, masked, via the new sensitive
+  metadata endpoint; no new bank/tax table was created.
+- `employee_dependent` is untouched (correctly out of 02D scope).
+
+WAIVED
+- X-002: exact runtime model/variant/effort/surface metadata is unavailable.
+- Manual browser visual walkthrough was not run; focused component/a11y tests
+  and the production build passed.
+- `demo.hr`'s missing base HR-02 permissions (pre-existing gap from 02A-02C,
+  not introduced or fixed here — see RBAC section above).
+
+BLOCKED BY EXTERNAL GATE
+- Q-004: sensitive statutory identifier vault/KMS and remaining operational
+  encryption/archive controls (raw national ID/tax/bank writes stay
+  unavailable; only masked reads exist).
+- Secure document binary storage/download (metadata-only by design pending a
+  governed storage decision).
+- Q-007/Q-010: real statutory packs and reference activation (unaffected by
+  this slice).
+
+NOT STARTED
+- HR-EMP-02E through HR-EMP-02G.
+- EmploymentContextProvider consumer cutover, Attendance/Leave redesign,
+  Payroll calculation changes, compensation changes, statutory/country rules,
+  custom fields, real document storage, and cross-border employment.
+
+No statutory-compliance or full-production-readiness claim is made.

@@ -1,0 +1,101 @@
+Nexora Demo Environment - Verification Evidence
+Date: 2026-08-17
+
+Scope
+-----
+Post-S2.3 extension implementing the dedicated "Nexora Demo Company"
+environment requested in section 21. This is not a new segment and does not
+change the next planned segment (S3.1).
+
+Isolation and credential controls
+---------------------------------
+- Demo database: the former local demo database
+- Credential manifest: var/demo/credentials.json
+- Both paths are ignored by Git; no access tokens are stored in source.
+- Reset requires the exact NEXORA_DEMO_ENVIRONMENT_ONLY marker, tenant ID,
+  company ID, and seed version before removing any database.
+- The reset isolation test proves that an unmarked customer-like legacy embedded database
+  database is refused and remains unchanged.
+- Seed builds and verifies a temporary sibling database before atomically
+  replacing the demo database. Re-running seed verifies the existing seed
+  instead of duplicating it.
+
+Seed verification
+-----------------
+Command: python scripts/demo_environment.py verify
+Result: PASS
+
+- environment: demo
+- tenant: nexora-demo (the only tenant in the database)
+- company: nexora-demo-company / Nexora Demo Company
+- organization units: 10
+- users / roles: 9 / 9
+- fiscal periods: 12
+- accounts / nominal accounts: 50 / 26
+- parties: 6
+- bank/cash accounts: 2
+- tax rules: 2
+- approved budgets: 3
+- recurring templates: 1
+- accounting events: 1
+- journals: 16
+- audit events: 47
+- all journals balanced: true
+- Trial Balance variance: 0
+- Balance Sheet variance: 0
+- Profit & Loss net profit: 120
+- Cash Flow reconciles: true
+- Budget vs Actual rows: 3
+- AccountingEvent -> PostingEngine -> Journal -> GL/report trace: verified
+- Audit chain: verified
+
+Current-scope truth
+-------------------
+Implemented and seeded: platform master data, demo identity/RBAC/audit,
+finance core, finance reporting, budgets, recurring journals, tax accounting,
+and finance-only scenario representations.
+
+Explicitly reported as not_yet_implemented: Sales, Purchasing, Inventory,
+AR/AP Aging, Inventory Valuation, Sales/Purchase/Tax reports, Projects,
+Employees/HR, Fixed Assets, CRM, AI, Integrations, and Notifications. No fake
+workflow, report, dashboard number, or separate demo frontend was introduced.
+
+Automated verification
+----------------------
+- python -m compileall -q app tests scripts
+  PASS
+- python -m unittest tests.e2e.test_demo_environment -v
+  PASS: 2/2 (real API smoke plus destructive-reset isolation)
+- python scripts/verify.py unit integration contract security e2e migration
+  PASS: 450 tests
+- cd web && npm run build
+  PASS: production build, TypeScript, 45 static routes. The first sandboxed
+  attempt could not download the repository's existing Google fonts; the
+  approved network-enabled rerun passed.
+- cd web && npm run lint
+  PASS: 0 errors; one pre-existing React Hook Form/Compiler warning.
+- cd web && npx tsc --noEmit
+  PASS: 0 type errors.
+- cd web && npm run test
+  PASS: 51 tests across 24 files. Two earlier aggregate attempts each reached
+  50/51 but timed out in different finance-report tests at the 5-second
+  default; both affected files passed together after the suite-level timeout
+  was raised to 15 seconds, with all assertions unchanged. Final full run is
+  green.
+- cd web && npm run test:a11y
+  PASS: 11 tests across 10 files; 0 detected axe violations.
+- cd web && npm run api:check-drift
+  PASS: src/lib/api/schema.d.ts matches contracts/openapi-v1.json.
+
+Operational entrypoints
+-----------------------
+- Reset: python scripts/demo_environment.py reset
+- Seed: python scripts/demo_environment.py seed
+- Verify: python scripts/demo_environment.py verify
+- List users/roles without tokens: python scripts/demo_environment.py credentials
+- API: python scripts/demo_server.py
+- Real UI in demo mode: cd web && npm run dev:demo
+
+The real Nexora backend and frontend are used. Demo mode only selects the
+isolated company/database, defaults demo identifiers, and shows a persistent
+DEMO ENVIRONMENT warning banner.

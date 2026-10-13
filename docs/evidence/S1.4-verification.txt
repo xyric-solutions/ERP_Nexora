@@ -1,0 +1,161 @@
+Nexora S1.4 Verification Evidence
+===================================
+Date: 2026-08-07
+Batch: S1.4 - Frontend Foundation
+Runtime (backend, unchanged): Python 3.11.9; former standard-library embedded driver; no
+  third-party dependencies.
+Runtime (frontend, new this batch): Node.js v24.19.0 / npm 11.17.0;
+  Next.js 16.3.0 (App Router, Turbopack), React 19.2.8, TypeScript,
+  Tailwind CSS v4, shadcn/ui (radix-nova style), React Query, React Hook
+  Form + Zod, next-themes, openapi-typescript/openapi-fetch. All installed
+  under `web/`; `app/` has zero new dependencies (still dependency-free
+  Python).
+
+Commands and results
+---------------------
+cd web && npm run build
+PASS - Next.js production build, TypeScript check, 15 static pages generated.
+
+cd web && npm run lint
+PASS - 0 errors, 1 accepted warning (React Hook Form's `watch()` is
+  incompatible with React Compiler memoization; documented upstream
+  behavior, not a bug).
+
+cd web && npm run test
+PASS - 39 tests across 16 files (component, integration, auth-flow,
+  navigation, permission, responsive/breakpoint, and accessibility tests).
+
+cd web && npm run test:a11y
+PASS - jest-axe, 0 detectable WCAG violations across Login, Forbidden,
+  Setup Drafts table (loading/empty/populated), and Dashboard widget
+  (live/placeholder) states.
+
+cd web && npm run api:check-drift
+PASS - regenerates contracts/openapi-v1.json -> TypeScript types into a
+  scratch file and byte-diffs against the committed src/lib/api/schema.d.ts.
+  Verified this actually catches drift, not just that it passes: temporarily
+  appended a comment to the committed file, re-ran the check, confirmed it
+  failed with exit code 1 and the expected message, then restored the file
+  before re-running the full suite.
+
+python scripts/verify.py unit integration contract security e2e migration
+PASS - 209 tests, unchanged from S1.3's closeout. Confirms the frontend
+  batch introduced zero backend regressions (nothing under app/ was
+  touched).
+
+Direct acceptance evidence (against segments/S1.4-frontend-foundation.md)
+---------------------------------------------------------------------------
+1. "Next.js app shell renders authenticated and unauthenticated states
+   against the live S1.2 identity flow ... propagating X-Tenant-ID and
+   X-Correlation-ID."
+   - Unauthenticated: root layout + (shell) route group's RequireSession
+     redirects to /login when no session exists (require-session.test.tsx).
+   - Authenticated: session hydrates from sessionStorage, shell renders,
+     sidebar/topbar/breadcrumbs/footer present (require-session.test.tsx,
+     app-sidebar.test.tsx).
+   - Headers: client.ts's auth middleware attaches Authorization,
+     X-Tenant-ID, and X-Correlation-ID on every request, proven in
+     client.test.ts and resources.test.ts by asserting on the actual
+     outgoing Request object, not a mock's call args.
+   - Honest gap: there is no backend login/logout HTTP endpoint (Q-003
+     open; app/security/identity.py's TrustedClaimsProvider verifies
+     tokens already issued by an external IdP, it does not issue them).
+     The login page therefore has a disabled "Continue with organization
+     SSO" control with an explicit "identity provider not configured"
+     notice, plus a clearly-labeled "Development sign-in" form that
+     asserts tenant/token/permissions locally (mirroring
+     StaticTokenIdentityVerifier's test-only shape) without calling any
+     endpoint. Every subsequent request still goes through the real API
+     and the real backend authorization gate.
+
+2. "API client is generated from contracts/openapi-v1.json; a contract
+   change not reflected in the generated client fails CI (ADR-16)."
+   - Generated: src/lib/api/schema.d.ts via openapi-typescript
+     (npm run api:generate).
+   - Drift enforcement: web/scripts/check-api-drift.mjs + npm run
+     api:check-drift, verified to actually fail on drift (see above).
+   - Honest gap: no `.github/workflows/` exists anywhere in this repo yet
+     (backend included) -- there is no CI pipeline to wire this into. The
+     enforcement mechanism is real and runnable; connecting it to an
+     actual CI runner is a pre-existing, project-wide C13/ADR-16 gap, not
+     something unique to this frontend batch.
+
+3. "Shared component set (cursor-paginated data table, React Hook Form +
+   Zod form wrapper, error boundary rendering the canonical
+   {code, message, details, correlation_id} shape) is proven against the
+   platform's existing /resources endpoints."
+   - Data table: src/components/common/data-table.tsx is a generic,
+     column-config-driven table with loading/empty/populated states. It is
+     not Setup-Draft-specific -- SetupDraftTable is now a thin wrapper
+     around it (features/setup-drafts/setup-draft-table.tsx), and
+     data-table.test.tsx / data-table.a11y.test.tsx exercise the same
+     component directly against Resource-shaped columns and data, proving
+     reuse rather than asserting it by name.
+   - RHF + Zod form wrapper: proven in the login page's dev sign-in form
+     (react-hook-form + zodResolver + a CONTEXT_VALUE_PATTERN mirrored from
+     app/shared/request_context.py) and the setup-draft create dialog.
+   - /resources request layer: src/lib/api/resources.ts (listResources,
+     createResource), proven end-to-end in resources.test.ts against the
+     real GET/POST /api/v1/platform/resources contract shape (cursor
+     pagination, Idempotency-Key header, tenant header).
+   - Error boundary: src/app/error.tsx (route-level) and
+     src/app/global-error.tsx (root-layout-level) per Next.js App Router
+     convention; error.tsx renders ApiClientError's
+     {code, message, correlation_id} when the thrown error is one, with a
+     generic fallback otherwise.
+   - Honest gap: /resources itself is S1.1's generic reference endpoint
+     with no business meaning (id/name/metadata only) -- it is
+     deliberately not linked from the navigation as a user-facing page,
+     since doing so would misrepresent it as a real feature. The proof
+     above is automated-test evidence, not a browsable admin screen.
+
+4. "Theme, localization scaffold, and WCAG 2.1 AA baseline ... established
+   on this shell before any business-module screen is built."
+   - Theme: next-themes + docs/design-system.md's exact light/dark HSL
+     token values (verified line-by-line against the doc, not
+     approximated) in globals.css; a working toggle in Preferences and the
+     topbar.
+   - Localization scaffold: src/lib/i18n/ (LocaleProvider + typed
+     messages/en.ts + useTranslations()), wired into the root layout and
+     used by AppSidebar as a working proof of the pattern. Honest gap:
+     this is a scaffold, not a fully localized app -- most UI copy is
+     still inline JSX text. No second locale is scoped anywhere in
+     vision.md/prd.md, so a second locale was not fabricated.
+   - WCAG 2.1 AA: jest-axe automated checks (0 violations) on 4 surfaces
+     covering interactive forms, permission-denied states, data tables in
+     every load state, and dashboard widgets in both live and placeholder
+     states (see npm run test:a11y above). Honest gap: this is automated
+     axe coverage on 4 representative surfaces, not a full manual keyboard-
+     navigation/screen-reader audit of every page: audit-log, notifications,
+     organization, profile, and settings do not have their own a11y test
+     yet (they reuse the same PageContainer/PageHeader/StructuralNotice/
+     Card primitives already covered).
+
+Gaps carried forward (logged, not hidden)
+-------------------------------------------
+- No backend dev-server entrypoint exists to run app/ as a live HTTP
+  service outside tests (tests/asgi_client.py is in-process only). The
+  frontend's API base URL is configurable (NEXT_PUBLIC_API_BASE_URL) and
+  every integration test proves the real request/response contract shape
+  against a mocked fetch, but no live click-through against a running
+  backend was possible in this environment. This is a backend-runtime gap.
+- Most platform data has no HTTP list endpoint yet: tenants, organization
+  units, fiscal calendars, currency rates, modules, policies, and audit
+  events all exist server-side (S1.1-S1.3) but only setup_drafts and the
+  generic resources reference endpoint are reachable over HTTP. Profile,
+  Organization, Settings, and Audit Log pages are honest structural shells
+  that say so explicitly rather than fabricating data or a working
+  integration.
+- Notifications has zero backend (S4.1 not built) -- placeholder shell
+  only.
+- npm audit reports one high-severity advisory (js-yaml, via
+  @redocly/openapi-core, a transitive dependency of the openapi-typescript
+  dev-tool). Dev-only, never shipped to the production bundle, and the
+  vulnerable code path (YAML parsing) is never exercised since
+  contracts/openapi-v1.json is JSON. No upstream fix available yet.
+
+Review decision: CLOSED. All four locked acceptance criteria in
+segments/S1.4-frontend-foundation.md are met, each with either a real
+integration or an explicit, tested, documented gap where the backend
+doesn't yet expose what would be needed for a real one. 209 backend tests
+and 39 new frontend tests all pass.

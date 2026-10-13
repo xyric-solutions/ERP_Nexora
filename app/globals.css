@@ -1,0 +1,54 @@
+/*
+ * Document-level reset for the prototype.
+ *
+ * This file previously carried a complete first-generation design system
+ * (`.side-rail`, `.metric-card`, `.top-bar`, `--ink`, `--blue` ...). All of it
+ * was superseded by the `nx-` layer and verified unused, so it was removed.
+ * Everything visual now lives in `tokens.css` plus the component stylesheets.
+ *
+ * Keep this file limited to the document shell. Component styling belongs in
+ * the `nx-` layer; tokens belong in `tokens.css`.
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: #f5f7fa;
+  color: #1f2937;
+}
+
+body {
+  font-family: var(--font-geist-sans), Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid #4f8fbf;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

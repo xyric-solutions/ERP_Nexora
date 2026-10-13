@@ -1,0 +1,53 @@
+NEXORA HR-02 VERIFICATION EVIDENCE
+Date: 2026-09-25 Asia/Karachi
+Status: READY FOR REVIEW; NOT PRODUCTION READY
+
+IMPLEMENTED
+- PostgreSQL HR-02 migration for shifts/breaks/rotations/assignments, holidays, immutable punches, leave policies/requests/ledger, attendance corrections, overtime rules/requests, attendance periods and immutable payroll-input snapshots.
+- Deterministic attendance derivation for fixed/flexible/rotating and overnight shifts, breaks, grace, thresholds, holidays/weekends, approved leave, corrections, official duty and approved overtime.
+- Controlled request and period lifecycles with requester/manager/HR segregation of duties, rejection reasons, cancellation controls, negative/capped paid-leave balance protection, evidence-document enforcement and locked-period source protection.
+- 26 protected operations on 17 /api/v1/hr paths with contextual company authorization, durable idempotency, tenant hash-chain audit, safe errors, pagination and server-side validation.
+- Live responsive /hr/attendance and /hr/leave workspaces for attendance, corrections, overtime, leave, period close/payroll-input review, shifts, assignments, calendars and policy configuration.
+- HR-02 stops at immutable days/minutes payroll inputs. It does not calculate salaries, rates, tax, gross/net amounts, journals or payments.
+
+DETERMINISTIC RESULTS
+- python scripts/verify.py unit integration contract security migration e2e
+  PASS: 615 tests.
+- python scripts/verify_postgres_hr.py
+  PASS: 3 disposable PostgreSQL tests, including HR-01 regression and HR-02 migration/RLS/immutability/approval/balance/evidence/period-lock/snapshot behavior.
+- python scripts/verify_postgres_platform.py
+  PASS: 12 disposable PostgreSQL Platform regression tests.
+- python -m compileall -q app
+  PASS.
+- web: npx tsc --noEmit
+  PASS.
+- web: npm run lint
+  PASS.
+- web: npm run test
+  PASS: 53 files / 157 tests.
+- web: npm run test:a11y
+  PASS: 13 files / 16 tests.
+- web: npm run api:check-drift
+  PASS: generated schema matches contracts/openapi-v1.json.
+- web: npm run build
+  PASS: Next.js production build, 49 static routes including /hr/attendance and /hr/leave.
+- git diff --check
+  PASS.
+- python -m pip check; uvx pip-audit . --strict
+  PASS: no broken requirements and no known Python dependency vulnerabilities.
+- web: npm audit --omit=dev --audit-level=high
+  PASS: 0 production dependency vulnerabilities.
+- node framework/verify/portability-check.mjs
+  PASS: 66 required files present, placeholders clean and handoff paths current.
+
+FINAL REVIEW
+- Security: protected-by-default routes, contextual company authorization, transaction-local forced RLS, distinct approval actors and safe API failures are verified. Frontend permission visibility is convenience only; server checks remain authoritative.
+- Integrity: composite tenant keys, company/date scope triggers, exclusion constraints, exact numeric leave days, immutable source evidence, transactional period lock/snapshot generation and deterministic content hashing are enforced.
+- Scalability: company/date indexes and bounded pagination are used; period derivation is intentionally transactional and may later move to an idempotent background worker for very large companies without changing the snapshot contract.
+- Maintainability: HR-02 reuses HR-01 employee assignments, Platform organization/RBAC/audit/idempotency and existing API/UI/test conventions. It does not duplicate tenant/company/auth/workflow tables.
+
+BLOCKERS / LIMITATIONS
+- Q-003/S1.5-F05: managed identity and PostgreSQL authorization persistence are absent; production defaults correctly fail closed.
+- HR01-F02: the shared configurable Workflow engine remains legacy embedded database-only. HR-02 has explicit audited PostgreSQL transitions but cannot claim production-ready configurable approval matrices.
+- HR02-F01: restricted leave policies depend on employee gender and managed employee-document operations. The current employee model has no gender field and HR-01 document records have no permission-separated management API/UI, so gender-restricted policies are denied rather than guessed and evidence is accepted only by an existing employee document ID.
+- Q-004/Q-006 and S1.5-F03/F06/F07 remain external/platform production-promotion blockers.

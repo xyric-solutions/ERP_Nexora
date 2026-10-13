@@ -1,0 +1,61 @@
+HR-PROD-04 PAYROLL COMPLETION VERIFICATION
+Date: 2026-10-05 PKT
+Result: PASS WITH KNOWN LIMITATIONS
+
+IMPLEMENTED AUTHORITY CHAIN
+- Existing Slice 1 preflight remains mandatory.
+- Existing Slice 2 salary segments remain calculation evidence.
+- Existing Slice 3 locked payroll inputs remain immutable time evidence.
+- Existing payroll period state machine owns calculate, review, approval, preparation and posting.
+- Existing shared-transaction Finance adapter owns journal posting.
+- hr_payslip_release is an immutable publication boundary; hr_payroll_result remains payslip content authority.
+- Reports are read-only projections over current-run Payroll evidence and the linked Finance journal.
+
+COMMAND EVIDENCE
+- python -m unittest tests.unit.test_production_demo_environment tests.unit.test_hr_payroll tests.unit.test_hr_payroll_time_input tests.integration.test_hr_payroll_api -v
+  PASS: 40 tests.
+- python scripts/verify.py contract security migration
+  PASS: 139 tests (17 contract, 13 security, 109 migration).
+- python scripts/verify_postgres_hr.py
+  PASS: 40 PostgreSQL HR tests, including migration 0016, FORCE RLS, lifecycle failures, atomic Finance posting, explicit release, own-payslip privacy and historical evidence.
+- python scripts/verify_postgres_finance.py
+  PASS: 7 PostgreSQL Finance tests.
+- npm run api:check-drift
+  PASS: generated TypeScript schema matches contracts/openapi-v1.json.
+- npm test
+  PASS: 216 tests in 71 files.
+- npx tsc --noEmit
+  PASS.
+- npm run lint
+  PASS.
+- npm run test:a11y
+  PASS: 26 tests in 21 files.
+- npm run build
+  PASS: Next.js production build; 54 routes generated.
+- python scripts/production_demo_environment.py seed
+  PASS: idempotent RBAC policy upgrade; existing business authorities reused.
+- python scripts/production_demo_environment.py verify
+  PASS: PostgreSQL candidate, audit chain, database-authoritative Demo RBAC, FORCE RLS, company scope, Employment Context and payroll practice prerequisites.
+
+SECURITY AND FAILURE EVIDENCE
+- Distinct report and payslip-release permissions are enforced before service access.
+- Company and tenant scope are enforced by contextual authorization and FORCE RLS.
+- Employee self-service derives identity from the authenticated binding and returns only explicitly released own payslips.
+- Creator self-approval, invalid state transitions, blocked/incomplete inputs, duplicate preparation/posting/release and cross-company access fail closed.
+- Finance posting uses the caller's PostgreSQL connection; injected posting failure rolls back both Finance and Payroll state.
+- Release rows are database-validated against the posted current run, immutable, audited and idempotent through the existing command boundary.
+
+DEMO/HISTORICAL INVARIANT
+- HR schema migration: 16 payroll_completion.
+- September Demo payroll: posted, run 1.
+- September current result: one row; gross/net 4666.6700; deductions 0.0000; original calculation hash retained.
+- Payroll proposal: posted and still linked to the original Finance journal.
+- JE-2026-09-00001: posted and unchanged.
+- No payslip was auto-released by migration or posting.
+
+KNOWN LIMITATIONS / WAIVERS
+- The current pay-component authority has earning/deduction kind but no allowance classification. Payroll Register reports exact earning lines and returns allowance_classification=not_available_in_pay_component_authority instead of guessing.
+- HR-PROD-03-F01 partial/multi-day Leave allocation remains fail-closed.
+- HR-PROD-03-F02 overtime remains authoritative quantity only; no monetary multiplier/basis was invented.
+- Q-007/Q-010 statutory/localization activation remains fail-closed.
+- HR03-F04 bank/payment export remains out of scope.

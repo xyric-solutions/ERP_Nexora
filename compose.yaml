@@ -1,0 +1,142 @@
+name: nexora
+services:
+  postgres:
+    image: postgres:18.1-alpine
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: nexora_bootstrap
+      POSTGRES_PASSWORD: ${POSTGRES_BOOTSTRAP_PASSWORD:?set POSTGRES_BOOTSTRAP_PASSWORD}
+      POSTGRES_MIGRATION_PASSWORD: ${POSTGRES_MIGRATION_PASSWORD:?set POSTGRES_MIGRATION_PASSWORD}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?set POSTGRES_APP_PASSWORD}
+    ports: ["127.0.0.1:${POSTGRES_EXPOSE_PORT:-55435}:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql"]
+    configs:
+      - source: postgres-role-provisioning
+        target: /docker-entrypoint-initdb.d/001-provision-roles.sh
+        mode: 0555
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexora_bootstrap -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:8.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["127.0.0.1:${REDIS_EXPOSE_PORT:-56380}:6379"]
+    volumes: ["redis-data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  minio:
+    image: ghcr.io/coollabsio/minio:RELEASE.2025-10-15T17-29-55Z@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}
+    ports:
+      - "127.0.0.1:${MINIO_API_EXPOSE_PORT:-59000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_EXPOSE_PORT:-59001}:9001"
+    volumes: ["minio-data:/data"]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  minio-init:
+    image: ghcr.io/coollabsio/minio:RELEASE.2025-10-15T17-29-55Z@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    depends_on:
+      minio: { condition: service_healthy }
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mc mb --ignore-existing local/nexora-private
+        mc anonymous set none local/nexora-private
+  migration:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: api
+    command: ["node", "packages/db/dist/migrate-source-cli.js"]
+    environment:
+      DATABASE_URL: ${DATABASE_MIGRATION_URL:?set DATABASE_MIGRATION_URL}
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: api
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      API_HOST: ${API_HOST:-0.0.0.0}
+      API_PORT: 4000
+      API_ALLOWED_ORIGINS: ${API_ALLOWED_ORIGINS:-http://localhost:3000}
+      API_TRUST_PROXY_HOPS: ${API_TRUST_PROXY_HOPS:-0}
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      DATABASE_AUTO_MIGRATE: "false"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      AUTH_THROTTLE_SECRET: ${AUTH_THROTTLE_SECRET:?set AUTH_THROTTLE_SECRET}
+      AUTH_LOGIN_DIRECTORY_SECRET: ${AUTH_LOGIN_DIRECTORY_SECRET:?set AUTH_LOGIN_DIRECTORY_SECRET}
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:?set AUTH_SESSION_SECRET}
+      AUTH_SESSION_IDLE_MINUTES: ${AUTH_SESSION_IDLE_MINUTES:-30}
+      AUTH_SESSION_ABSOLUTE_HOURS: ${AUTH_SESSION_ABSOLUTE_HOURS:-8}
+      METRICS_BEARER_TOKEN: ${METRICS_BEARER_TOKEN:?set METRICS_BEARER_TOKEN}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      migration: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+    ports: ["127.0.0.1:${API_EXPOSE_PORT:-4000}:4000"]
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/v1/health/ready').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: worker
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      migration: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "apps/worker/dist/healthcheck.js"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: web
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4000}
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4000}
+    depends_on:
+      api: { condition: service_healthy }
+    ports: ["127.0.0.1:${WEB_EXPOSE_PORT:-3000}:3000"]
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+
+configs:
+  postgres-role-provisioning:
+    file: ./docker/postgres/001-provision-roles.sh

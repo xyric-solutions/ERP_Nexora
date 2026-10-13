@@ -1,0 +1,42 @@
+Nexora ERP - Phase 1 application-shell UI refresh
+Date: 2026-08-25
+
+Authorized scope
+- Application shell, sidebar, header, responsive workspace behavior, and shared
+  design primitives only.
+- Routes, authorization, permission filtering, backend contracts, accounting
+  behavior, and honest capability-status labels were preserved.
+
+Implemented
+- Added documented dark-navy sidebar tokens for the light application theme.
+- Refined the brand block, workspace navigation hierarchy, active states,
+  status-label contrast, and current-workspace context in the sidebar.
+- Made the command header sticky and responsive while keeping unavailable
+  company switching, search, and help controls visibly disabled.
+- Added a separated working canvas, stronger page-title hierarchy, responsive
+  action wrapping, resting-card elevation, and a current product footer.
+- Raised shared buttons, inputs, and select triggers to 44px touch targets on
+  mobile while retaining compact ERP density at the desktop breakpoint.
+- Corrected stale dashboard copy that described Procurement and Inventory as
+  unshipped even though both have implemented core surfaces.
+
+Verification
+- `git diff --check`: PASS.
+- Next.js development compilation: PASS; current shell/dashboard modules
+  compiled without a runtime error.
+- `GET http://127.0.0.1:3000/login`: HTTP 200.
+- `GET http://127.0.0.1:3000/dashboard`: HTTP 200.
+- Real demo `POST /api/v1/auth/login`: HTTP 200 for the documented demo admin.
+- Vitest focused shell tests: NOT RUN TO COMPLETION. Both fork and thread pools
+  timed out while starting their isolated worker on this Windows session; no
+  test file was executed and no application assertion failed.
+- TypeScript no-emit check: NOT RUN TO COMPLETION. The command exceeded the
+  five-minute environment timeout without emitting a diagnostic.
+- Browser visual inspection: unavailable because no in-app or extension browser
+  instance was connected. HTTP and server-rendered output were used for the
+  runtime smoke check.
+
+Handoff
+- Stop for owner review of the Phase 1 shell.
+- Do not begin later page/workflow redesign phases until the owner accepts the
+  visual direction or supplies bounded corrections.

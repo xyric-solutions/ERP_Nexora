@@ -1,0 +1,73 @@
+HR-PROD-03 - Attendance, Leave and Overtime to Payroll
+Date: 2026-10-05 PKT
+Status: CLOSED WITH WAIVERS
+
+Scope
+- Slice 3 only. No Leave accrual/carry-forward, new OT multiplier policy,
+  statutory pack, payslip release/report, bank export, Demo expansion, D02-B,
+  unrelated ERP work or UI redesign.
+- Existing Attendance, Leave, Overtime, Employment Context, compensation,
+  Payroll preflight, salary segmentation, RBAC/RLS/audit/idempotency and
+  Finance authorities were reused.
+
+Implementation evidence
+- HR migration 0015 extends immutable FORCE-RLS hr_payroll_input with versioned
+  money-free daily source evidence, present/absent projections and evidence
+  shape constraints. Clean rollback is supported before use; v2 evidence
+  refuses destructive rollback.
+- Attendance lock uses overlapping legal-employment relationships exactly once,
+  resolves existing daily derivation/approved correction/approved Leave/approved
+  OT authorities, and hashes ordered employee evidence. Later update/delete of
+  locked source records is rejected.
+- Payroll preflight reconstructs summary/hash, validates Leave/OT evidence and
+  blocks malformed/missing/ambiguous candidates. Calculation remains gated by
+  Slice 1 and date-allocates v2 evidence to Slice 2 salary segments.
+- Existing hr.attendance.payroll_input.read protects the typed company/period
+  API and minimal Payroll workspace table. No raw daily evidence is exposed.
+
+Verification
+- python scripts/verify.py unit integration contract security migration
+  PASS 724 (315 unit, 273 integration with 4 skips, 14 contract, 13 security,
+  109 migration).
+- python scripts/verify_postgres_hr.py
+  PASS 40/40 against disposable PostgreSQL/Redis. Includes migration replay and
+  rollback, FORCE RLS, tenant/company isolation, approved/rejected OT,
+  paid/unpaid Leave, approved correction, immutable lock/source evidence,
+  v2 preflight/hash, Slice 2 salary revision interaction and historical gates.
+- npm test
+  PASS 212/212 in 71 files.
+- npm run lint; npx tsc --noEmit; npm run api:check-drift; npm run build
+  PASS. Next.js production build compiled 54 routes/pages.
+- Production Demo migration/seed/verify
+  PASS at HR migration 15; audit_chain_verified=true; forced_rls_verified=true.
+- Historical invariant
+  PASS: September Payroll state=posted, run_number=1; proposal=posted;
+  Finance journal status=posted; external_entry_number=JE-2026-09-00001.
+
+Observed/resolved verification events
+- First PostgreSQL run exposed two test-harness normalization mistakes (string
+  dates and tuple row conversion); corrected without changing domain policy,
+  then 40/40 passed.
+- First Demo seed after permission addition correctly rejected an already-used
+  v2 role-policy ID; RBAC was versioned to v3 and seed/verify then passed.
+
+Security review
+- API requires authenticated company context and exact existing permission.
+- Unauthorized company access is denied before the service is called.
+- Raw employee daily evidence is not returned through the API.
+- FORCE RLS, immutable evidence, audit chain, idempotent lock action and
+  maker-checker behavior passed. No permission was weakened.
+
+Waivers / known limitations
+- HR-PROD-03-F01: ambiguous partial/multi-day Leave cannot lock until an
+  authoritative per-date allocation policy exists.
+- HR-PROD-03-F02: approved OT quantity and applicable rule evidence reach
+  Payroll, but no money is calculated until an approved compensation basis and
+  rounding policy exist.
+- D02-A-F02: no new Browser visual claim; automated UI/a11y/build evidence is
+  current and the pre-existing tooling limitation remains outside Slice 3.
+
+Routing
+- Single Codex orchestrator; no worker/subagent or fallback used.
+- Runtime exposes GPT-5 family but not exact variant/effort/surface (X-002).
+- Root synthesis owner: active Codex orchestrator.

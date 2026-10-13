@@ -1,0 +1,82 @@
+S1.5-06 PRODUCTION VERIFICATION AND CLOSEOUT EVIDENCE
+Date: 2026-09-25 Asia/Karachi
+Status: CLOSED WITH BLOCKERS; PLATFORM CORE REMAINS PARTIAL / PRODUCTION NO-GO
+
+DELIVERED
+- GitHub Actions gates on pull requests and main pushes, least-privilege read
+  permissions, Ubuntu 24.04, concurrency cancellation, and official actions
+  pinned to immutable commit SHAs.
+- Multi-stage API and web OCI images, non-root UID/GID 10001, no embedded
+  secrets or local state, API live/readiness checks, and Next standalone output.
+- Explicit nexora-platform-migrate status/apply/rollback operator command;
+  rollback requires an empty-schema acknowledgement.
+- Provider-neutral deployment, migration, rollback, secret, probe, and
+  observability handoff in docs/production-deployment-runbook.md.
+- Next.js patched from 16.3.0 to 16.3.6; matching eslint-config-next; resolved
+  npm graph reports zero vulnerabilities.
+
+DEFINITIVE VERIFICATION
+- python scripts/verify.py unit integration contract security migration
+  PASS: 592 tests.
+- python scripts/verify.py e2e
+  PASS: 5 tests.
+- Total backend regression: 597 tests across all six canonical suites.
+- python scripts/verify_postgres_platform.py
+  PASS: 12 tests against disposable PostgreSQL 18, including migration
+  serialization/rollback, forced RLS, cross-tenant denial, exact numerics,
+  API atomicity/audit/idempotency, numbering concurrency, repository parity,
+  and production runtime lifecycle/readiness.
+- npm run lint
+  PASS.
+- npm run api:check-drift
+  PASS: generated TypeScript schema matches canonical OpenAPI.
+- npm test
+  PASS: 150 tests in 50 files.
+- npm run test:a11y
+  PASS: 15 tests in 12 files.
+- npm run build
+  PASS: Next.js 16.3.6 production build, TypeScript, 47 routes.
+- uvx pip-audit . --progress-spinner off --strict
+  PASS: no known vulnerabilities.
+- python -m pip check
+  PASS: no broken requirements.
+- npm audit --audit-level=high
+  PASS: zero vulnerabilities, including development tooling.
+- node framework/verify/portability-check.mjs
+  PASS: 66 required files, clean placeholders, current handoff paths.
+- git diff --check
+  PASS: no whitespace errors; Git emitted Windows line-ending notices only.
+
+CONTAINER EVIDENCE
+- docker build --tag nexora-api:s15 .
+  PASS.
+- docker build --file web/Dockerfile --build-arg
+  NEXT_PUBLIC_API_BASE_URL=http://api:8000 --tag nexora-web:s15 web
+  PASS; 47-route production build.
+- Isolated disposable PostgreSQL/API/web smoke
+  PASS: migration='Platform migration apply: changed'; API liveness='ok';
+  API readiness='ready'; /api/v1/platform/health='ok'; /login HTTP 200.
+- Image users
+  PASS: API=10001:10001; web=10001:10001.
+- Disposable smoke resources were removed in the finally block.
+
+READINESS ADJUDICATION
+- Platform Core status: PARTIAL, not PRODUCTION READY.
+- Production promotion: NO-GO.
+- Q-003 / S1.5-F05: managed OIDC/SAML provider, session/revocation policy,
+  service identity, and PostgreSQL authorization policy adapter are not selected
+  or proven; production defaults correctly reject all real-user access.
+- S1.5-F03: setup activation cannot be enabled until Platform, Workflow, and
+  immutable Security audit writes use one PostgreSQL transaction.
+- Q-004/Q-006: cloud, KMS/encryption, managed database/HA, backup/restore,
+  secrets vault, restricted audit archive/SIEM, and retention controls are not
+  selected or operationally proven.
+- Redis multi-replica rate-limit/general idempotency and OpenTelemetry metrics/
+  traces remain later platform operations work; no horizontal-scale claim is made.
+
+COMMAND CORRECTIONS
+- An initial combined audit invocation ran pip-audit from web/ and correctly
+  returned 'no supported project file'; it was rerun from the repository root
+  and passed. This was a command working-directory error, not a product failure.
+- An initial frontend chain used a nonexistent check:client-drift alias; the
+  repository's canonical api:check-drift command was then run and passed.

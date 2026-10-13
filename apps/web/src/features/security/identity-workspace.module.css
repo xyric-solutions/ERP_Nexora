@@ -1,0 +1,523 @@
+.shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  background: #f3f6f8;
+  color: #203442;
+}
+.rail {
+  background: #102f43;
+  color: #cbd9e2;
+  padding: 24px 16px;
+}
+.logo {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #fff;
+  color: #123b56;
+  font-weight: 850;
+  font-size: 21px;
+  margin: 0 8px 34px;
+}
+.rail nav {
+  display: grid;
+  gap: 6px;
+}
+.rail a {
+  color: #b9ccd8;
+  text-decoration: none;
+  padding: 11px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.rail .active {
+  background: #1f4c68;
+  color: #fff;
+}
+.workspace {
+  min-width: 0;
+}
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 25px 32px 20px;
+  background: #fff;
+  border-bottom: 1px solid #dfe6eb;
+}
+.topbar p,
+.panel header p {
+  margin: 0 0 5px;
+  color: #608096;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 11px;
+  font-weight: 750;
+}
+.topbar h1 {
+  font-family: var(--font-nx-serif);
+  margin: 0;
+  color: #162d3c;
+  font-size: 30px;
+}
+.user {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.user > span {
+  display: grid;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 650;
+}
+.user small {
+  color: #71828e;
+  margin-top: 3px;
+}
+.actions button,
+.user button,
+.inline button {
+  background: #fff;
+  border: 1px solid #cbd6dd;
+  border-radius: 7px;
+  padding: 8px 12px;
+  color: #294556;
+}
+.summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  padding: 22px 32px;
+}
+.summary article {
+  background: #fff;
+  border: 1px solid #dfe6eb;
+  border-radius: 10px;
+  padding: 17px;
+}
+.summary span {
+  display: block;
+  color: #738491;
+  font-size: 12px;
+  margin-bottom: 7px;
+}
+.summary strong {
+  color: #1c3a4e;
+  font-size: 15px;
+}
+.tabs {
+  display: flex;
+  padding: 0 32px;
+  border-bottom: 1px solid #d7e0e6;
+}
+.tabs button {
+  padding: 13px 18px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: #617685;
+}
+.tabs button[aria-current="page"] {
+  border-color: #2875a3;
+  color: #174a69;
+  font-weight: 750;
+}
+.panel {
+  margin: 24px 32px 40px;
+  background: #fff;
+  border: 1px solid #dbe3e8;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.subsections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 14px 22px;
+  background: #f8fafb;
+  border-bottom: 1px solid #e5eaee;
+}
+.subsections button,
+.contextBar button {
+  border: 1px solid #cbd6dd;
+  border-radius: 7px;
+  padding: 8px 12px;
+  background: #fff;
+  color: #294556;
+}
+.subsections button[aria-current="page"] {
+  background: #17577b;
+  color: #fff;
+  border-color: #17577b;
+}
+.contextBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 22px;
+  border-bottom: 1px solid #e5eaee;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.panel > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 22px;
+  border-bottom: 1px solid #e5eaee;
+}
+.panel h2 {
+  margin: 0;
+  color: #203b4c;
+  font-size: 19px;
+}
+.actions,
+.inline {
+  display: flex;
+  gap: 8px;
+}
+.actions select {
+  border: 1px solid #cbd6dd;
+  border-radius: 7px;
+  padding: 7px;
+}
+.primary {
+  background: #17577b !important;
+  color: #fff !important;
+  border-color: #17577b !important;
+}
+.notice {
+  margin: 16px 20px;
+  padding: 11px 13px;
+  background: #eef6fa;
+  border-radius: 7px;
+  color: #275c79;
+}
+.credential {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 16px 20px;
+  padding: 15px;
+  border: 1px solid #e0c98d;
+  border-radius: 8px;
+  background: #fff8e7;
+  color: #5e4717;
+}
+.credential p {
+  margin: 5px 0 10px;
+  font-size: 13px;
+}
+.credential code {
+  display: inline-block;
+  padding: 7px 9px;
+  border-radius: 5px;
+  background: #fff;
+  font-size: 14px;
+  user-select: all;
+}
+.credential button {
+  align-self: flex-start;
+  border: 1px solid #d3bd80;
+  border-radius: 7px;
+  padding: 8px 11px;
+  background: #fff;
+  color: #5e4717;
+}
+.state {
+  padding: 34px;
+  text-align: center;
+  color: #758590;
+}
+.tableWrap {
+  overflow: auto;
+}
+.tableWrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.tableWrap th {
+  background: #f6f8fa;
+  color: #567080;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+  padding: 11px 14px;
+}
+.tableWrap td {
+  padding: 12px 14px;
+  border-top: 1px solid #edf0f2;
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tableWrap td button {
+  border: 1px solid #c4d1d9;
+  background: #fff;
+  border-radius: 6px;
+  padding: 6px 9px;
+}
+.form {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 18px 22px;
+  background: #f8fafb;
+  border-bottom: 1px solid #e5eaee;
+}
+.form label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #506876;
+  font-weight: 650;
+}
+.form input {
+  height: 38px;
+  border: 1px solid #cbd6dd;
+  border-radius: 7px;
+  padding: 0 10px;
+  background: #fff;
+}
+.form .wide {
+  grid-column: span 2;
+}
+.form button {
+  align-self: end;
+  height: 38px;
+  border: 0;
+  border-radius: 7px;
+}
+.loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: #607684;
+}
+.actionSelect {
+  min-height: 34px;
+  min-width: 150px;
+  padding: 6px 9px;
+  border: 1px solid #c4d1d9;
+  border-radius: 6px;
+  background: #fff;
+  color: #294556;
+}
+.bulkBar,
+.historyToggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 22px;
+  flex-wrap: wrap;
+  color: #506876;
+  font-size: 13px;
+}
+.bulkBar {
+  background: #eef6fa;
+  border-bottom: 1px solid #d7e7ef;
+}
+.bulkBar button,
+.confirmation button,
+.recordDetails button,
+.roleForm button {
+  border: 1px solid #c4d1d9;
+  border-radius: 7px;
+  padding: 8px 13px;
+  background: #fff;
+  color: #294556;
+  cursor: pointer;
+}
+.confirmation,
+.recordDetails,
+.roleForm {
+  padding: 20px 22px;
+  border-bottom: 1px solid #dfe6eb;
+  background: #f8fafb;
+}
+.confirmation {
+  background: #fff9ed;
+}
+.confirmation label,
+.roleFields label,
+.permissionSearch {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+  margin-bottom: 12px;
+  color: #506876;
+}
+.confirmation input,
+.roleFields input,
+.permissionSearch input {
+  min-height: 38px;
+  border: 1px solid #cbd6dd;
+  border-radius: 7px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #203442;
+}
+.confirmation > div,
+.roleForm footer {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+.recordDetails header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.recordDetails dl {
+  display: grid;
+  gap: 12px;
+}
+.recordDetails dt {
+  color: #617685;
+  text-transform: capitalize;
+  font-size: 12px;
+}
+.recordDetails dd {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.roleForm header h3 {
+  margin: 0;
+  font-size: 20px;
+}
+.roleForm header p,
+.formHelp {
+  font-size: 12px;
+  color: #617685;
+}
+.roleFields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.roleFields input[readonly] {
+  background: #f0f4f6;
+  color: #567080;
+}
+.permissionPicker {
+  border: 1px solid #dbe3e8;
+  border-radius: 8px;
+  background: #fff;
+  padding: 16px;
+  margin: 16px 0;
+}
+.permissionPicker legend {
+  font-weight: 750;
+  padding: 0 8px;
+  color: #203b4c;
+}
+.permissionPicker legend span {
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: 10px;
+  color: #617685;
+}
+.permissionGroup {
+  border-top: 1px solid #e5eaee;
+}
+.permissionGroup summary {
+  cursor: pointer;
+  padding: 14px 8px;
+  color: #17577b;
+  text-transform: capitalize;
+}
+.permissionGroup summary span {
+  float: right;
+  font-size: 12px;
+  color: #738491;
+}
+.groupSelection,
+.permissionItems label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 16px;
+  font-size: 13px;
+}
+.groupSelection {
+  background: #f6f8fa;
+  color: #506876;
+}
+.permissionItems {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding-bottom: 10px;
+}
+.permissionItems small {
+  display: block;
+  margin-top: 4px;
+  color: #738491;
+  overflow-wrap: anywhere;
+}
+.permissionItems input,
+.groupSelection input,
+.historyToggle input,
+.tableWrap input {
+  accent-color: #17577b;
+  width: 16px;
+  height: 16px;
+}
+.actionSelect:focus-visible,
+.roleForm input:focus-visible,
+.confirmation input:focus-visible,
+.permissionGroup summary:focus-visible {
+  outline: 2px solid #2875a3;
+  outline-offset: 3px;
+}
+.roleForm button:disabled,
+.confirmation button:disabled,
+.bulkBar button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+@media (max-width: 800px) {
+  .roleFields,
+  .permissionItems {
+    grid-template-columns: 1fr;
+  }
+  .shell {
+    grid-template-columns: 1fr;
+  }
+  .rail {
+    display: none;
+  }
+  .summary {
+    grid-template-columns: 1fr;
+  }
+  .topbar,
+  .panel > header {
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .panel {
+    margin: 18px;
+  }
+  .tabs {
+    padding: 0 14px;
+    overflow: auto;
+  }
+  .form {
+    grid-template-columns: 1fr;
+  }
+  .form .wide {
+    grid-column: auto;
+  }
+  .user > span {
+    display: none;
+  }
+}

@@ -1,0 +1,225 @@
+Nexora "Real Accounting Depth" Hardening Pass Verification Evidence
+=====================================================================
+Date: 2026-08-13
+Scope: post-S2.3 hardening pass, NOT a new numbered segment. S2.2 and S2.3
+  remain `closed`; the next recommended slice is still S3.1, unchanged.
+Runtime: Python 3.11.9; former standard-library embedded driver; no third-party backend
+  dependency (verified by tests.security.test_identity_authorization_audit's
+  existing test_segment_introduces_no_third_party_python_dependency,
+  unchanged). Frontend: Next.js 16.3.0 / React 19.2.8, existing S1.4 stack,
+  no new frontend dependency introduced.
+
+Baseline confirmed before any change
+-------------------------------------
+python scripts/verify.py unit integration contract security e2e migration
+PASS - 435 tests (S2.3's closing total), confirmed unchanged before Phase 1
+  began.
+
+Phase 1 -- Backend control-account enforcement (FR-OFS-2, migration 0010)
+---------------------------------------------------------------------------
+python scripts/verify.py unit integration contract security e2e migration
+PASS - 444 tests total (435 baseline + 9 new: 2 unit [Account model flags],
+  1 integration [ControlAccountPostingBlocked rejection in post_journal],
+  6 migration [migration 0010 forward/idempotent/rollback/populated-block/
+  retroactive-default-backfill]).
+
+Regression found and fixed mid-phase: adding 3 NOT-NULL columns via
+migration 0010 broke every test whose setUp only applied migration 0008
+(finance_core) without the new migration 0009-successor -- 93 failures
+surfaced as generic 500s on account creation. Fixed by adding
+apply_finance_account_controls(self.connection) after every existing
+apply_finance_core(self.connection) call across 7 integration test files,
+2 specific tests in a migration test file, and scripts/dev_server.py.
+Re-verified 444/444 after the fix.
+
+Phase 2 -- Recurring Journal HTTP routes (app/finance/planning.py exposure)
+------------------------------------------------------------------------------
+python scripts/verify.py unit integration contract security e2e migration
+PASS - 448 tests total (444 + 4 new: tests/integration/
+  test_recurring_journal_api.py -- full lifecycle create-template/generate-
+  cycle/list, 404 on unknown template, 503 on unconfigured instance, 403 on
+  unauthorized). No new engine: both new routes wrap the existing, unchanged
+  RecurringJournalService.
+
+python -m json.tool contracts/openapi-v1.json
+PASS - contract JSON parses after adding 2 recurring-journal paths / 5
+  schemas.
+
+python -m unittest tests.contract.test_openapi_contract
+PASS - 5/5, contract stays internally consistent.
+
+Phase 3 -- Seeded demo Chart of Accounts and transactions
+-------------------------------------------------------------
+scripts/dev_server.py's _seed() extended (idempotent, unchanged guard: only
+seeds if the dev tenant doesn't already exist) to build a full Category ->
+Section -> Nominal hierarchy for "Xyric Technologies (Pvt.) Ltd." (95
+accounts: 42 header, 53 leaf) plus 6 departments and 6 demo parties
+(customers/suppliers), then post a realistic multi-month transaction set
+through the real, unchanged PostingService.
+
+Smoke test (isolated DB, not the shared former local development database):
+- 95 accounts created (42 header + 53 leaf), matching COA_TREE exactly.
+- 6 accounts correctly flagged non-postable (Suspense, Rounding, Clearing,
+  Opening Balance/Migration, reserved Inventory Control, Billable Hours
+  memo) -- AR/AP deliberately NOT flagged (see findings-ledger.md X-006).
+- 28 journals posted, total debit == total credit == 91800 (globally
+  balanced).
+- Attempted a manual post to the Suspense account: correctly raised
+  ControlAccountPostingBlocked.
+- balance_sheet(): assets=7200, liabilities=0, total_equity=7200,
+  variance=0 (balanced, positive company position).
+- profit_and_loss(): revenue=24300, operating_expenses=21900,
+  net_profit=2400 (healthy, non-fabricated -- every figure traced to a
+  real posted journal).
+
+All seed amounts kept at or below PostingService.APPROVAL_REQUIRED_THRESHOLD
+($5,000) per-transaction, since the seed's single dev actor both creates
+and posts every draft and post_journal correctly requires an approval
+instance above that threshold (a real control, not bypassed).
+
+Live dev-server confirmation:
+Old python.exe dev-server process (PID 5840, stale seed data) stopped with
+user approval; the former local development database deleted; scripts/dev_server.py restarted.
+GET /api/v1/finance/accounts?company_id=dev-co over real HTTP returned the
+new 95-account hierarchy (codes 10, 10-01, 10-01-00100, ... confirmed).
+
+Phase 4 -- Frontend Chart of Accounts tree
+-----------------------------------------------
+New: web/src/features/finance-ledger/account-tree.tsx (search, expand/
+  collapse, System/Control/Reconciliation badges, ARIA tree/treeitem/group
+  roles), account-detail-sheet.tsx (Sheet-based detail panel, "View in
+  General Ledger" deep link). Extended create-account-dialog.tsx with a
+  parent_id picker (header accounts only) and the 3 new posting-control
+  checkboxes. web/src/lib/api/schema.d.ts regenerated from the updated
+  OpenAPI contract to carry the 3 new Account fields end-to-end.
+
+cd web && npx tsc --noEmit -p tsconfig.json
+PASS - zero type errors.
+
+cd web && npm run lint
+PASS (0 errors) after fixing one real jsx-a11y/role-has-required-aria-props
+  warning (treeitem missing aria-selected) self-caught before commit.
+
+cd web && npm run build
+PASS - Next.js production build, all 43 routes generated statically.
+
+cd web && npm run test
+PASS - 23 files, 49 tests (up from 43/18 across the whole pass to this
+  point counted cumulatively by Phase 8's final run below).
+
+cd web && npm run api:check-drift
+PASS - schema.d.ts matches contracts/openapi-v1.json.
+
+Phase 5 -- Journal module expansion
+----------------------------------------
+New: account-combobox.tsx (searchable, grouped-by-section account picker
+  built on existing Popover/Input/Button primitives -- no new dependency,
+  per web/AGENTS.md's "stack is locked" rule), create-recurring-template-
+  dialog.tsx, generate-cycle-dialog.tsx, finance/period-closing/page.tsx,
+  finance/recurring-journals/page.tsx. journals/page.tsx renamed to
+  "Journal Register" with a status filter (fully backend-wired) and a
+  period-id filter (free-text, matching CompanyIdField's established "no
+  directory endpoint yet" precedent -- see findings-ledger.md X-007).
+  create-journal-dialog.tsx gained a live BALANCED/NOT BALANCED pill.
+
+cd web && npx tsc --noEmit -p tsconfig.json
+PASS - zero type errors.
+
+cd web && npm run lint
+PASS (0 errors) after fixing 2 no-unused-vars warnings self-caught before
+  the final run.
+
+cd web && npm run build
+PASS - 45 static routes (up from 43 -- new /finance/period-closing and
+  /finance/recurring-journals).
+
+cd web && npm run test
+PASS - 23 files, 49 tests.
+
+Phase 6 -- General Ledger reshape
+--------------------------------------
+general-ledger/page.tsx rewritten to combine report_trial_balance's per-
+account opening_balance/closing_balance with gl_drilldown's line-level
+detail into an Opening + Debits - Credits = Closing format, with a
+computed running Balance column (client-side, using the same debit-normal/
+credit-normal sign convention as app/finance/reporting.py's
+_signed_balance). Account picker upgraded from a raw text id field to the
+new searchable AccountCombobox.
+
+cd web && npm run lint
+FAIL then PASS - React Compiler correctly flagged mutating an outer `let`
+  inside a useMemo's .map() callback (immutability violation); rewritten
+  with .reduce() instead of an outer-scope accumulator; re-verified clean.
+
+cd web && npx tsc --noEmit -p tsconfig.json
+PASS - zero type errors.
+
+cd web && npm run build
+PASS - 45 static routes, unchanged route count (no new page this phase).
+
+cd web && npm run test
+PASS - 23 files, 49 tests.
+
+Phase 7 -- Nav polish
+--------------------------
+Folded into Phase 5 (tightly coupled to the Journal Register rename).
+nav-config.ts: "Journal Entries" renamed to "Journal Register"; "Recurring
+Journals" and "Period Closing" added in position; Sales/Purchase/
+Inventory/HR/Assets/AI sections left untouched. finance/page.tsx's
+duplicate quick-links list updated to match for consistency.
+
+Phase 8 -- Final consolidated verification
+------------------------------------------------
+python scripts/verify.py unit integration contract security e2e migration
+PASS - 448 tests total (435 baseline + 13 new), zero regression.
+
+cd web && npm run api:check-drift
+PASS - schema.d.ts matches contracts/openapi-v1.json.
+
+cd web && npm run test:a11y
+Pre-existing tooling quirk, not a regression: this vitest version's glob-
+  filter argument ("**/*.a11y.test.tsx") returns "No test files found" in
+  this environment via both bash and PowerShell invocation, unrelated to
+  any change made this pass (never touched vitest.config.ts or this npm
+  script). Equivalent coverage already confirmed: every .a11y.test.tsx file
+  runs and passes as part of the default `npm run test` include pattern,
+  observed directly in every Phase 4/5/6 full-suite run (49/49 passing,
+  file list includes e.g. finance/accounts/page.a11y.test.tsx).
+
+cd web && npm run test
+PASS - 23 files, 49 tests (up from 18 files / 43 tests at S2.3's close).
+  One pre-existing flaky test found (login/page.test.tsx's dev-sign-in
+  case, unrelated to any file touched this pass) -- isolated and re-run
+  standalone 3 times, consistently timed out at the 5000ms default even
+  outside any system-load window, diagnosed as the same root cause already
+  fixed for that page's .a11y.test.tsx sibling (24 KNOWN_PERMISSIONS
+  checkboxes rendered + simulated per-character typing across 3 fields).
+  Applied the identical, already-established fix: explicit it(..., 15000)
+  timeout. Re-verified passing.
+
+cd web && npm run build
+PASS - 45 static routes.
+
+cd web && npx tsc --noEmit -p tsconfig.json
+PASS - zero type errors.
+
+cd web && npm run lint
+PASS (1 pre-existing accepted warning, unrelated -- React Hook Form's
+  watch() vs. React Compiler memoization on the login page, documented
+  upstream behavior, unchanged since S1.4's close).
+
+Live dev-server smoke check (real HTTP, not in-process test client)
+-----------------------------------------------------------------------
+- GET /api/v1/finance/accounts?company_id=dev-co -> 200, 95-account
+  hierarchy served.
+- GET /api/v1/finance/recurring_journal_templates?company_id=dev-co -> 200.
+- Manual post attempt to acct-99-01-00100 (Suspense) -> correctly rejected
+  with ControlAccountPostingBlocked / FINANCE_ACCOUNT_CONTROL_POSTING_BLOCKED.
+
+Known limitation, disclosed
+--------------------------------
+No browser-automation tool was available in this environment. Frontend
+verification is build + type-check + lint + full Vitest suite (including
+jest-axe accessibility assertions) + live-API confirmation via curl, not a
+literal browser walkthrough of the UI. This is stated explicitly rather
+than implied as a full manual QA pass.

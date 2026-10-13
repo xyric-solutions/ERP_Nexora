@@ -1,0 +1,68 @@
+DB-PG-ALL PostgreSQL-only migration verification
+Date: 2026-09-28 Asia/Karachi
+Orchestrator: Codex, single-agent; exact runtime model metadata unavailable (X-002)
+
+RESULT: PASS WITH EXTERNAL WAIVERS
+
+Implementation evidence
+- Local development, Demo, tests, and production use PostgreSQL/Psycopg.
+- Local and Demo connection settings are environment DSNs.
+- Root compose.yaml provisions PostgreSQL 18 and a separate demo database.
+- Local/reference repositories, SQL migrations, reset/seed behavior, tests,
+  and catalog inspection use PostgreSQL semantics.
+- Production Platform, Security, Workflow, Finance, and HR forced-RLS adapters
+  remain live and verified.
+- No retired embedded-database driver or product-name reference remains in the
+  repository-wide case-insensitive audit.
+
+Verification
+- python scripts/verify.py unit
+  PASS: 261 tests
+- python scripts/verify.py integration
+  PASS: 252 tests; 4 existing conditional skips
+- python scripts/verify.py contract
+  PASS: 5 tests
+- python scripts/verify.py security
+  PASS: 13 tests
+- python scripts/verify.py e2e
+  PASS: 5 tests against disposable PostgreSQL
+- python scripts/verify.py migration
+  PASS: 102 tests against disposable PostgreSQL
+- python scripts/verify_postgres_platform.py
+  PASS: 12 live PostgreSQL tests
+- python scripts/verify_postgres_security.py
+  PASS: 3 live PostgreSQL tests
+- python scripts/verify_postgres_workflow.py
+  PASS: 4 live PostgreSQL tests
+- python scripts/verify_postgres_finance.py
+  PASS: 7 live PostgreSQL tests
+- python scripts/verify_postgres_hr.py
+  PASS: 6 live PostgreSQL tests
+- python -m compileall -q app scripts tests
+  PASS
+- python -m pip check
+  PASS: no broken requirements
+- docker compose config --quiet
+  PASS
+- npm run api:check-drift; npm run lint; npm run build (web/)
+  PASS: contract drift clean, lint clean, TypeScript/build clean, 51 routes
+- git diff --check
+  PASS; Windows line-ending notices only
+- node framework/verify/portability-check.mjs .
+  PASS: 66 required files, placeholders clean, handoff paths current
+- rg repository-wide case-insensitive retired-database terms and
+  database-specific syntax/configuration
+  PASS: zero retired database/driver matches; no executable legacy syntax
+
+Compatibility defects found and resolved
+- PostgreSQL trigger RAISE exceptions are asserted as Psycopg database errors.
+- Finance rollback order now drops journal_line before its referenced tax rule.
+- Migration tests inspect information_schema/pg_catalog instead of local-file
+  database metadata commands.
+- Demo reset/upgrade tests use isolated PostgreSQL schemas rather than copied
+  database files.
+
+Waivers outside this batch
+- Q-003/Q-004/Q-006 and related managed identity, KMS, backup/restore, HA,
+  provider, SIEM and incident evidence remain owner/provider responsibilities.
+- Exact runtime model/effort/surface metadata is unavailable (X-002).

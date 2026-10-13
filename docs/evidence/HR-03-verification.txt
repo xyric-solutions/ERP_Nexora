@@ -1,0 +1,61 @@
+HR-03 Payroll verification
+Date: 2026-09-25 Asia/Karachi
+Status: READY FOR REVIEW; NOT PRODUCTION READY
+
+Implementation evidence
+- PostgreSQL migration 0003: 15 normalized payroll tables, exact numeric amounts, effective salary exclusion,
+  company foreign keys, forced tenant RLS, immutable result/journal lines, preservation-safe rollback.
+- Domain: Decimal-only calculations, allow-listed AST formulas (no eval), one-time proration, validation warnings,
+  controlled lifecycle, no balancing plugs.
+- Workflow: maker-checker salary/adjustment/loan/payroll/payment controls; version-preserving salary revisions;
+  immutable rerun history; approved adjustments and loan instalments consumed once.
+- Accounting: balanced immutable proposal. Production post fails closed because no PostgreSQL Finance adapter exists.
+- Payments: posted-payroll prerequisite, separate release/confirm actors, external reference required per payment.
+- API/security: identity required, contextual company permissions, field-aware command checks, tenant RLS,
+  durable idempotency/audit, no-store payroll reads, safe errors. Self-service payslip route intentionally absent
+  until a user-to-employee identity link exists.
+- Frontend: live /hr/payroll setup, salary, adjustments/loans, run/review, results, journal hand-off and payment UI.
+
+Exact gates run
+- python scripts/verify.py unit integration contract security migration e2e
+  PASS: 626 tests across all selected suites.
+- python scripts/verify_postgres_hr.py
+  PASS: 4 tests against disposable PostgreSQL (HR-01, HR-02, HR-03; forward/RLS/rollback included).
+- python scripts/verify_postgres_platform.py
+  PASS: 12 tests against disposable PostgreSQL.
+- npm test
+  PASS: 55 files, 160 tests.
+- npm run test:a11y
+  PASS: 14 files, 17 tests; no detected violations.
+- npm run lint
+  PASS: zero warnings/errors.
+- npm run api:check-drift
+  PASS: generated schema matches contracts/openapi-v1.json.
+- npm run build
+  PASS: Next.js production build, 50 static routes including /hr/payroll.
+- git diff --check
+  PASS (line-ending notices only; no whitespace errors).
+
+Security/privacy review
+| Boundary | Control | Evidence |
+|---|---|---|
+| unauthenticated | all payroll routes protected | API anonymous test returns 401 |
+| tenant | transaction-local forced RLS | live PostgreSQL cross-tenant empty result |
+| company | contextual authorization + company FKs/triggers | denial-before-service API test; PG scope checks |
+| salary fields | separate setup/salary/result/payment permissions | API permission assertions; no-store responses |
+| formulas | allow-listed parser, bounded nodes, Decimal | injection/member/list/conditional/divide-zero tests |
+| approvals | distinct actors | salary, payroll review/approve, payment release/confirm tests |
+| accounting | debit=credit; no plug; adapter confirmation required | unit and live PG journal tests; 503 fail-closed API test |
+| payment | posted source and external reference per payment | live PG full lifecycle test |
+| payslip privacy | route withheld without identity mapping | HR03-F02 |
+
+Known blockers
+- HR03-F01: no production PostgreSQL Finance posting adapter.
+- HR03-F02: no user-to-employee identity binding for employee-own payslips.
+- HR03-F03: no approved jurisdiction statutory pack; formulas are configuration infrastructure only.
+- HR03-F04: masked bank metadata cannot produce a real payment instruction.
+- Inherited production identity/workflow/operations blockers remain open.
+
+Review conclusion
+No change-caused critical/high defect is known. HR-03 is READY FOR REVIEW but cannot truthfully be marked
+PRODUCTION READY until the blockers above are implemented and their production gates pass.

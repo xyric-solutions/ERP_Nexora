@@ -1,0 +1,97 @@
+HR-LOC-01B — HR Localization Schema and Immutable Evidence
+Verification date: 2026-09-28 Asia/Karachi
+Result: PASS — closed with external waivers; HR-LOC-01C remains unopened
+
+Scope verified
+- Country-neutral HR localization domain values only.
+- Production HR PostgreSQL migration 6, requiring Platform migration 3.
+- Work-location profiles, scoped employee jurisdiction overrides, statutory
+  rule/version/vector catalogs, and immutable payroll snapshot references.
+- No API, service, resolver, importer, payroll-core, contract, or UI change.
+- No real country, subdivision, legal rule, rate, formula, calendar, or seed.
+
+Focused behavior evidence
+- python -m unittest tests.unit.test_hr_localization_models -v
+  PASS: 3/3.
+- python scripts/verify_postgres_hr.py
+  PASS: 9/9 live PostgreSQL tests.
+  Proved migration-6 ordering and transaction rollback when Platform v3 is
+  absent; forward idempotency; clean rollback/reapply; forced RLS; tenant read
+  isolation; tenant/company/master/assignment/result/legal-profile references;
+  work-location and override non-overlap; override SoD; publisher-only global
+  writes; approved rule/vector immutability; unsealed snapshot rejection;
+  atomic sealing; sealed snapshot/child immutability; and populated rollback
+  refusal.
+- python scripts/verify_postgres_platform.py
+  PASS: 18/18 live PostgreSQL tests.
+
+Canonical regression evidence
+- python scripts/verify.py unit integration contract security e2e migration
+  PASS: 651 total (270 unit, 252 integration, 5 contract, 13 security,
+  5 e2e, 106 migration).
+- python -m compileall -q app scripts tests
+  PASS.
+- python -m pip check
+  PASS: no broken requirements.
+- docker compose config --quiet
+  PASS.
+- git diff --check
+  PASS; informational Windows line-ending notices only.
+- node framework/verify/portability-check.mjs .
+  PASS: 66 required files, placeholders clean, handoff paths current.
+
+Frontend regression evidence required by the master plan
+- cd web && npm run api:check-drift
+  PASS: generated schema matches contracts/openapi-v1.json.
+- cd web && npm run lint
+  PASS.
+- cd web && npm run test
+  PASS: 163/163 across 57 files.
+- cd web && npm run test:a11y
+  PASS: 18/18 across 15 files.
+- cd web && npm run build
+  PASS: Next.js 16.3.6 production build, 51 static routes.
+
+Manual security/RBAC/privacy review
+- Ordinary application roles cannot insert/update/delete global statutory-rule
+  tables; controlled table owners remain the only schema-level publisher path.
+- Five tenant-owned tables have ENABLE + FORCE RLS with tenant-scoped USING and
+  WITH CHECK policies.
+- Company context is bound by organization-unit, work-location master,
+  employee-assignment, payroll-result, and legal-profile references/triggers.
+- Approved rule content and reviewed vectors are immutable. Snapshot creation
+  is transactionally assembled in building state and must seal before commit;
+  a sealed header and its normalized references reject insert/update/delete.
+- Snapshot payloads store canonical context evidence and hashes, not raw
+  registration identifiers or payroll request bodies. The 01F service remains
+  responsible for its approved field allow-list before it gains a write path.
+- No route, permission, session, log, external provider call, or secret changed.
+
+Migration/rollback result
+- HR registry latest version is 6 (`payroll_localization`).
+- Forward requires HR v5 and Platform v3 and is applied under the existing
+  advisory-lock/transaction runner.
+- Empty migration 6 rolls back and reapplies cleanly as part of the complete HR
+  chain. Any 01B profile, override, rule, vector, snapshot, or snapshot child
+  blocks destructive rollback. A failed guard restores FORCE RLS transactionally.
+
+Country-neutrality scan
+- Runtime scan of app/hr/localization and HR migration 6 for named real-country
+  terms returned no matches.
+- Synthetic XX/XXX test data exists only in tests and represents no law.
+
+Residual waivers/blockers
+- Q-003/Q-004/Q-006: managed identity, KMS/archive/retention, HA/recovery, and
+  cloud operational proof remain external production gates.
+- Q-007/HR03-F03: real statutory rules require payroll/legal source and vector
+  approval in a separate country-pack slice.
+- Q-010: active country/subnational/legal-entity reference release remains
+  required before HR-LOC-01D company setup.
+- HR-LOC-01C must implement the dedicated publisher/import boundary, canonical
+  artifact validation, required source/vector checks, and transactional import.
+- X-002: exact runtime model variant/ID/effort/mode/surface was not exposed.
+
+Closeout decision
+- HR-LOC-01B is complete for its approved bounded scope and closed with waivers.
+- This is not a statutory-compliance or full-production-readiness claim.
+- Do not start HR-LOC-01C without explicit owner approval.

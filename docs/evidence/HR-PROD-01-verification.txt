@@ -1,0 +1,49 @@
+HR-PROD-01 - Payroll Eligibility and Preflight verification
+Date: 2026-10-05 PKT
+Scope: Owner-approved Slice 1 only
+
+Architecture
+- Computed read projection; no table, migration, duplicate authority, or partial-run policy.
+- Candidate population uses effective legal-employment relationships overlapping the Payroll period and legal employer, not employee.status.
+- Existing EmploymentContextProvider is reused inside the caller-owned Payroll transaction.
+- Existing salary, locked Attendance payroll-input, Leave/OT input fields, Localization resolver, Payroll period, RBAC, RLS, audit, and idempotency authorities remain authoritative.
+- Any blocked candidate prevents calculation before period state/results change.
+
+Final verification
+- python scripts/verify_postgres_hr.py
+  PASS: 37 PostgreSQL HR tests.
+- python -m unittest tests.unit.test_hr_payroll tests.unit.test_hr_employment_context tests.integration.test_hr_payroll_api tests.contract.test_hr_payroll_preflight_contract tests.contract.test_hr_employment_context_contract -v
+  PASS: 27 focused unit/API/contract tests.
+- python scripts/verify.py unit integration contract security
+  PASS: 602 tests; integration subgate ran 272 with 4 Redis-dependent skips; security 13 passed.
+- npm test
+  PASS: 210 tests in 71 files.
+- npm test -- --run src/features/hr/hr-payroll-workspace.test.tsx src/app/hr/payroll/page.test.tsx
+  PASS: 4 Payroll workspace tests in the matching discovered file.
+- npm run lint
+  PASS.
+- npm run api:check-drift
+  PASS: generated schema matches OpenAPI.
+- npm run build
+  PASS: production compile, TypeScript, and 54 routes/pages.
+- git diff --check
+  PASS.
+- python scripts/production_demo_environment.py verify
+  PASS: candidate PostgreSQL Demo, audit chain, and FORCE RLS verified.
+- Read-only production Demo preflight
+  PASS: September period, 1 candidate = 1 eligible + 0 blocked, ready true.
+- Read-only production Demo historical check
+  PASS: September period remains posted/run 1; Payroll journal proposal remains posted; Finance journal remains posted as JE-2026-09-00001.
+
+Security review
+- Authentication and contextual company authorization are mandatory on the new GET route.
+- Permission remains hr.payroll.period.read; calculation retains hr.payroll.period.manage/recalculate rules.
+- Company denial is tested before service access; other-company candidates are absent under PostgreSQL RLS.
+- Response is no-store; no salary amounts, statutory results, credentials, or cross-company data are exposed.
+- Existing maker-checker, audit, idempotency, Finance posting, and immutable September evidence are unchanged.
+
+Development-iteration record
+- Disposable-PostgreSQL fixture setup iterations exposed duplicate derived placement inserts, an invalid salary-without-assignment setup, and lifecycle event/status ordering enforced by database triggers. The fixtures were corrected to respect existing database authorities; the final 37-test gate passed.
+- One focused unittest command named a nonexistent module. The corrected 26-test command passed and is the reported gate.
+
+Result: PASS. Slice 1 closed. Slice 2 not started.

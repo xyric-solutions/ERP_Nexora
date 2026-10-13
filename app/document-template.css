@@ -1,0 +1,368 @@
+/*
+ * Printable business documents.
+ *
+ * These are set as documents, not as screens: paper surface, serif titles,
+ * ruled line table, tabular figures, and a totals ladder that reads down the
+ * right edge the way a commercial document should.
+ */
+
+.nx-document-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+}
+
+.nx-document-toolbar {
+  width: min(820px, 100%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 14px;
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-md);
+  background: var(--nx-surface-soft);
+  color: var(--nx-text-muted);
+  font-size: var(--nx-size-small);
+}
+
+.nx-document-toolbar > div {
+  display: flex;
+  gap: 8px;
+}
+
+.nx-document-toolbar button {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--nx-border-strong);
+  border-radius: var(--nx-radius-sm);
+  background: var(--nx-surface);
+  color: var(--nx-text-strong);
+  font-size: var(--nx-size-small);
+  font-weight: 600;
+}
+
+.nx-document-toolbar button:hover {
+  border-color: var(--nx-brand);
+  color: var(--nx-brand);
+}
+
+/* ---- The sheet ---------------------------------------------------------- */
+
+.nx-document {
+  width: min(820px, 100%);
+  padding: 44px 46px 34px;
+  border: 1px solid var(--nx-border);
+  background: var(--nx-surface);
+  box-shadow: var(--nx-shadow-sm);
+  color: var(--nx-text);
+  font-size: var(--nx-size-body);
+}
+
+.nx-document__letterhead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  padding-bottom: 18px;
+  border-bottom: 2px solid var(--nx-text-strong);
+}
+
+.nx-document__identity {
+  display: flex;
+  gap: 13px;
+}
+
+.nx-document__mark {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--nx-radius-sm);
+  background: var(--nx-sidebar);
+  color: #fff;
+  font-family: var(--nx-font-serif);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.nx-document__identity strong {
+  display: block;
+  font-family: var(--nx-font-serif);
+  font-size: var(--nx-size-subhead);
+  font-weight: 700;
+  color: var(--nx-text-strong);
+}
+
+.nx-document__identity span {
+  display: block;
+  margin-top: 3px;
+  color: var(--nx-text-muted);
+  font-size: var(--nx-size-micro);
+}
+
+.nx-document__stamp {
+  text-align: right;
+}
+
+.nx-document__title {
+  margin: 0;
+  font-family: var(--nx-font-serif);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--nx-text-strong);
+}
+
+.nx-document__badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--nx-warning);
+  border-radius: var(--nx-radius-pill);
+  color: var(--nx-warning);
+  font-size: var(--nx-size-micro);
+  font-weight: 600;
+  letter-spacing: var(--nx-tracking-caps);
+  text-transform: uppercase;
+}
+
+.nx-document__label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--nx-text-subtle);
+  font-size: var(--nx-size-micro);
+  font-weight: 600;
+  letter-spacing: var(--nx-tracking-caps);
+  text-transform: uppercase;
+}
+
+/* ---- Parties and meta --------------------------------------------------- */
+
+.nx-document__parties {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 30px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--nx-rule);
+}
+
+.nx-document__parties strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: var(--nx-size-subhead);
+  font-weight: 600;
+  color: var(--nx-text-strong);
+}
+
+.nx-document__parties > div > span {
+  display: block;
+  color: var(--nx-text-muted);
+  font-size: var(--nx-size-small);
+  line-height: 1.55;
+}
+
+.nx-document__meta {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 22px;
+}
+
+.nx-document__meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nx-document__meta dt {
+  color: var(--nx-text-subtle);
+  font-size: var(--nx-size-micro);
+  font-weight: 600;
+  letter-spacing: var(--nx-tracking-caps);
+  text-transform: uppercase;
+}
+
+.nx-document__meta dd {
+  margin: 0;
+  color: var(--nx-text-strong);
+  font-size: var(--nx-size-small);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Line table --------------------------------------------------------- */
+
+.nx-document__lines {
+  width: 100%;
+  margin-top: 20px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.nx-document__lines th {
+  padding: 8px 9px;
+  border-bottom: 1px solid var(--nx-text-strong);
+  color: var(--nx-text-strong);
+  font-size: var(--nx-size-micro);
+  font-weight: 600;
+  letter-spacing: var(--nx-tracking-caps);
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.nx-document__lines td {
+  padding: 10px 9px;
+  border-bottom: 1px solid var(--nx-rule);
+  font-size: var(--nx-size-small);
+  vertical-align: top;
+}
+
+.nx-document__lines td strong {
+  display: block;
+  color: var(--nx-text-strong);
+  font-weight: 600;
+}
+
+.nx-document__lines td small {
+  display: block;
+  margin-top: 2px;
+  color: var(--nx-text-muted);
+  font-size: var(--nx-size-micro);
+}
+
+.nx-document__col-index {
+  width: 34px;
+  color: var(--nx-text-subtle);
+}
+
+.nx-document__lines .nx-num {
+  text-align: right;
+}
+
+/* ---- Totals and closing ------------------------------------------------- */
+
+.nx-document__close {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.72fr);
+  gap: 34px;
+  padding-top: 18px;
+}
+
+.nx-document__words strong {
+  display: block;
+  font-family: var(--nx-font-serif);
+  font-size: var(--nx-size-subhead);
+  font-weight: 600;
+  color: var(--nx-text-strong);
+  line-height: 1.4;
+}
+
+.nx-document__terms {
+  margin: 14px 0 0;
+  color: var(--nx-text-muted);
+  font-size: var(--nx-size-micro);
+  line-height: 1.6;
+}
+
+.nx-document__totals {
+  margin: 0;
+}
+
+.nx-document__totals > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--nx-rule);
+}
+
+.nx-document__totals dt {
+  color: var(--nx-text-muted);
+  font-size: var(--nx-size-small);
+}
+
+.nx-document__totals dd {
+  margin: 0;
+  color: var(--nx-text-strong);
+  font-size: var(--nx-size-small);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.nx-document__totals-rule {
+  margin-top: 4px;
+  border-top: 2px solid var(--nx-text-strong);
+  border-bottom: 2px solid var(--nx-text-strong) !important;
+}
+
+.nx-document__totals-rule dt {
+  color: var(--nx-text-strong);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--nx-tracking-caps);
+  font-size: var(--nx-size-micro);
+}
+
+.nx-document__totals-rule dd {
+  font-family: var(--nx-font-serif);
+  font-size: var(--nx-size-title);
+  font-weight: 700;
+}
+
+.nx-document__foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 30px;
+  margin-top: 30px;
+  padding-top: 16px;
+  border-top: 1px solid var(--nx-rule);
+}
+
+.nx-document__bank span {
+  display: block;
+  color: var(--nx-text-muted);
+  font-size: var(--nx-size-micro);
+  line-height: 1.6;
+}
+
+.nx-document__signatures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-self: end;
+}
+
+.nx-document__signatures > div {
+  color: var(--nx-text-subtle);
+  font-size: var(--nx-size-micro);
+  text-align: center;
+}
+
+.nx-document__signatures i {
+  display: block;
+  margin-bottom: 6px;
+  border-top: 1px solid var(--nx-border-strong);
+}
+
+@media (max-width: 720px) {
+  .nx-document {
+    padding: 24px 18px 20px;
+  }
+
+  .nx-document__letterhead,
+  .nx-document__parties,
+  .nx-document__close,
+  .nx-document__foot {
+    grid-template-columns: minmax(0, 1fr);
+    flex-direction: column;
+  }
+
+  .nx-document__stamp {
+    text-align: left;
+  }
+}

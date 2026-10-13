@@ -1,0 +1,238 @@
+/*
+ * Period comparison panel.
+ *
+ * A ledger-style grid: hairline rules, tabular figures, one row per measure
+ * and one column per period. Colour is used only for direction of change,
+ * which is a status meaning, never for identity.
+ */
+
+.nx-period-compare {
+  margin-bottom: 14px;
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-md);
+  background: var(--nx-surface);
+}
+
+.nx-period-compare__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 16px 10px;
+}
+
+.nx-period-compare__head h2 {
+  margin: 2px 0 3px;
+  font-family: var(--nx-font-serif);
+  font-size: var(--nx-size-title);
+  font-weight: 600;
+  color: var(--nx-text-strong);
+}
+
+.nx-period-compare__head p {
+  margin: 0;
+  color: var(--nx-text-muted);
+  font-size: var(--nx-size-small);
+}
+
+.nx-period-compare__count {
+  flex: none;
+  padding: 3px 9px;
+  border: 1px solid var(--nx-border-strong);
+  border-radius: var(--nx-radius-pill);
+  color: var(--nx-text-muted);
+  font-size: var(--nx-size-micro);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.nx-period-compare__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.nx-period-compare__table th,
+.nx-period-compare__table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--nx-rule);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.nx-period-compare__table thead th {
+  border-bottom: 1px solid var(--nx-border-strong);
+  color: var(--nx-text-muted);
+  font-size: var(--nx-size-micro);
+  font-weight: 600;
+  letter-spacing: var(--nx-tracking-caps);
+  text-transform: uppercase;
+}
+
+.nx-period-compare__table thead th em {
+  color: var(--nx-status-warn);
+  font-style: normal;
+}
+
+.nx-period-compare__table tbody th {
+  font-size: var(--nx-size-small);
+  font-weight: 600;
+  color: var(--nx-text-strong);
+}
+
+.nx-period-compare__table tbody th button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.nx-period-compare__table tbody th button:hover {
+  color: var(--nx-brand);
+  text-decoration: underline;
+}
+
+.nx-period-compare__table tbody td {
+  font-size: var(--nx-size-small);
+  color: var(--nx-text);
+}
+
+.nx-period-compare__table tbody tr:hover td,
+.nx-period-compare__table tbody tr:hover th {
+  background: var(--nx-surface-hover);
+}
+
+/* Direction of change is a status meaning, so it takes the status tones. */
+.nx-period-compare__table td[data-direction="up"] { color: var(--nx-status-good); font-weight: 600; }
+.nx-period-compare__table td[data-direction="down"] { color: var(--nx-status-risk); font-weight: 600; }
+.nx-period-compare__table td[data-direction="flat"] { color: var(--nx-text-muted); }
+
+/* Inline shape: one bar per period, in the single default series colour -
+ * these are the same measure over time, not different measures. */
+.nx-period-compare__shape { width: 108px; }
+
+.nx-period-compare__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 22px;
+}
+
+.nx-period-compare__bars i {
+  flex: 1;
+  min-width: 3px;
+  border-radius: var(--nx-radius-xs) var(--nx-radius-xs) 0 0;
+  background: var(--nx-series-1);
+}
+
+.nx-period-compare__bars i[data-partial="true"] {
+  opacity: 0.5;
+}
+
+.nx-period-compare__notes {
+  padding: 11px 16px 14px;
+  border-top: 1px solid var(--nx-rule);
+}
+
+.nx-period-compare__notes p {
+  margin: 0 0 5px;
+  color: var(--nx-text-muted);
+  font-size: var(--nx-size-micro);
+  line-height: 1.55;
+}
+
+.nx-period-compare__notes p:last-child { margin-bottom: 0; }
+
+.nx-period-compare__provenance {
+  padding-top: 5px;
+  border-top: 1px dashed var(--nx-border);
+}
+
+/* KPI tile change direction, when a comparison is active. */
+.nx-role-kpi__meta[data-direction="up"] b { color: var(--nx-status-good); }
+.nx-role-kpi__meta[data-direction="down"] b { color: var(--nx-status-risk); }
+
+@media (max-width: 720px) {
+  .nx-period-compare__head { flex-direction: column; }
+  .nx-period-compare__shape { display: none; }
+}
+
+/* -- Snapshot period picker ----------------------------------------------
+ * Single-period charts (bridge, funnel, composition, balance, relationship,
+ * heatmap, attainment) show one period. This chooses which, and follows the
+ * latest period whenever the range changes.
+ */
+.nx-snapshot-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 11px 16px;
+  border: 1px solid var(--nx-border);
+  border-left: 3px solid var(--nx-series-1);
+  border-radius: var(--nx-radius-md);
+  background: var(--nx-surface);
+}
+
+.nx-snapshot-picker__copy strong {
+  display: block;
+  margin: 2px 0 2px;
+  font-family: var(--nx-font-serif);
+  font-size: var(--nx-size-subhead);
+  font-weight: 600;
+  color: var(--nx-text-strong);
+}
+
+.nx-snapshot-picker__copy small {
+  display: block;
+  max-width: 62ch;
+  color: var(--nx-text-muted);
+  font-size: var(--nx-size-micro);
+  line-height: 1.5;
+}
+
+.nx-snapshot-picker__periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.nx-snapshot-picker__periods button {
+  min-height: 28px;
+  padding: 0 11px;
+  border: 1px solid var(--nx-border-strong);
+  border-radius: var(--nx-radius-sm);
+  background: var(--nx-surface);
+  color: var(--nx-text);
+  font-size: var(--nx-size-small);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.nx-snapshot-picker__periods button:hover {
+  border-color: var(--nx-brand);
+  color: var(--nx-brand);
+}
+
+.nx-snapshot-picker__periods button[aria-pressed="true"] {
+  border-color: var(--nx-brand);
+  background: var(--nx-brand);
+  color: var(--nx-text-inverse);
+}
+
+.nx-snapshot-picker__periods button em {
+  color: var(--nx-status-warn);
+  font-style: normal;
+}
+
+.nx-snapshot-picker__periods button[aria-pressed="true"] em {
+  color: var(--nx-text-inverse);
+}
+
+@media (max-width: 720px) {
+  .nx-snapshot-picker { flex-direction: column; align-items: stretch; }
+}

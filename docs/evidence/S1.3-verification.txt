@@ -1,0 +1,262 @@
+Nexora S1.3 Verification Evidence (partial - item 1 of 3)
+===========================================================
+Date: 2026-08-06
+Batch: S1.3 - Tenant Configuration and Workflow Foundation (in progress)
+Runtime: Python 3.11.9; former standard-library embedded driver; no third-party dependencies
+Scope of this evidence: Tenant + OrganizationUnit only (item 1's first slice).
+Fiscal calendar, currency, warehouse, module, and policy setup (rest of
+item 1), the workflow definition engine (item 2), and the admin setup API
+(item 3) are NOT covered by this evidence and are NOT claimed as done.
+
+Commands and results
+---------------------
+python -m compileall -q app tests scripts
+PASS - syntax/import compilation, zero errors
+
+python scripts/verify.py unit integration contract security e2e migration
+PASS - 92 tests total (cumulative across S1.1+S1.2+this pass; see note below)
+
+Direct acceptance evidence (this pass's additions)
+---------------------------------------------------
+- Tenant and OrganizationUnit models validate id/name/plan/status/locale
+  and type/code/status/self-parent respectively (12 unit tests,
+  tests/unit/test_platform_models.py).
+- former PlatformRepository persists tenants and organization units,
+  rejects an org unit whose tenant does not exist, rejects an org unit
+  whose parent does not exist or is inactive, rejects duplicate tenant
+  ids and duplicate org-unit codes within one tenant, and allows the same
+  code across different tenants (10 integration tests,
+  tests/integration/test_platform_persistence.py).
+- Migration 0002_platform_foundation applies forward idempotently, rolls
+  back cleanly when empty, blocks destructive rollback when populated
+  (mirrors S1.2's 0001 pattern exactly), and bootstraps schema_migration
+  independently of whether 0001 has already run (4 migration tests,
+  tests/migration/test_platform_foundation_migration.py).
+
+Correction to prior reporting
+------------------------------
+Every reference to "102 tests" earlier in this engagement (including the
+production readiness assessment and the memo shared externally) was
+wrong: S1.1's "36 tests" and S1.2's "66 tests" were treated as additive
+(36+66=102) when S1.2's 66 was already the cumulative total including
+S1.1's carried-forward tests. The correct cumulative total immediately
+before this pass was 66, not 102. This pass adds 26 new tests (12 unit +
+10 integration + 4 migration), bringing the verified cumulative total to
+92. Caught by running the suite directly rather than computing from
+memory - the same discipline this project asks of every prior claim.
+
+No production, deployment, or security-boundary claims are made or
+implied by this evidence beyond what S1.1/S1.2's evidence already
+established. Tenant/org-unit data uses the same legacy embedded database reference adapter
+as S1.2 (Q-004 still open for production persistence).
+
+Review decision: IN PROGRESS - item 1 of 3 partially complete (Tenant +
+OrganizationUnit only). Not a batch closeout; segments/S1.3-tenant-workflow-foundation.md
+stays `in progress`, not `closed`.
+
+Update 2026-08-07 - Fiscal calendar and currency added
+--------------------------------------------------------
+Continuing item 1 of 3 (tenant configuration model). Verified session state
+first (compileall + full verify.py) before making any change; nothing was
+lost or corrupted between sessions.
+
+python -m compileall -q app tests scripts
+PASS
+
+python scripts/verify.py unit integration contract security e2e migration
+PASS - 116 tests total (92 carried forward + 24 new: 10 unit, 10 integration,
+4 migration)
+
+Direct acceptance evidence (this pass's additions)
+---------------------------------------------------
+- FiscalCalendar validates year range, ISO date shape, start-before-end,
+  and status enum (5 unit tests).
+- CurrencyRate validates uppercase 3-letter currency codes, source != target,
+  positive decimal rate (via Decimal, not float), and ISO date shape
+  (5 unit tests).
+- Repository rejects a fiscal calendar whose company does not exist, is not
+  a company-type organization unit, or is inactive; rejects an overlapping
+  period for the same company using an application-level interval query
+  inside an immediate transaction (legacy embedded database CHECK cannot express this); allows
+  non-overlapping periods (5 integration tests).
+- Currency rate creation is validated against an injected CurrencyCatalog;
+  the repository's secure default (no catalog supplied) accepts no currency
+  at all, matching the S1.3 research doc's "unconfigured cannot silently
+  accept a currency" requirement; a StaticCurrencyCatalog is provided for
+  tests/dev only, explicitly not an ISO 4217 completeness claim; a query
+  helper returns the latest rate as-of a given date (5 integration tests).
+- Migration 0003_fiscal_currency requires 0002 (platform foundation) to
+  already be applied -- verified by a dedicated test -- and otherwise
+  follows the same forward/idempotent/rollback/populated-block pattern as
+  0001 and 0002 (4 migration tests).
+
+No production, deployment, or security-boundary claims beyond what
+S1.1/S1.2/the prior S1.3 pass already established. Q-004 still open for
+production persistence.
+
+Review decision: STILL IN PROGRESS - item 1 of 3 now covers Tenant,
+OrganizationUnit, FiscalCalendar, and CurrencyRate. Warehouse setup needs no
+new code (already an OrganizationUnit type). Module and policy setup remain
+unbuilt. Not a batch closeout.
+
+Update 2026-08-07 (second pass) - Module and policy setup added
+------------------------------------------------------------------
+Completes item 1's remaining scope. Verified session state first
+(compileall + full verify.py) before making any change.
+
+python -m compileall -q app tests scripts
+PASS
+
+python scripts/verify.py unit integration contract security e2e migration
+PASS - 137 tests total (116 carried forward + 21 new: 8 unit, 9 integration,
+4 migration)
+
+Direct acceptance evidence (this pass's additions)
+---------------------------------------------------
+- TenantModule validates module_key against a known set (finance,
+  procurement, inventory, sales, crm, hr, manufacturing, projects,
+  reporting, integration, ai_assistant) and status enum; repository
+  requires the tenant to exist and rejects a duplicate module_key within
+  one tenant (3 unit + 4 integration tests).
+- TenantPolicy validates a lower-snake-case policy_key, a JSON-serializable
+  policy_value, positive version, and status enum. Repository requires the
+  tenant to exist; at most one `active` version per tenant/policy_key is
+  enforced by a partial unique index (`WHERE status = 'active'`), proven by
+  a test that a second active version conflicts while an inactive draft
+  version does not (5 unit + 5 integration tests).
+- Migration 0004_module_policy requires 0002 (platform foundation) already
+  applied, same guard pattern as 0003; forward/idempotent/rollback/
+  populated-block all verified (4 migration tests).
+- architecture.md's Data models table gained TenantModule and TenantPolicy
+  rows -- both were previously only prose in C3's responsibility text, not
+  tabled entities. Not a redesign: the components (C3) and PRD/vision
+  mapping are unchanged, this only fills a gap the table already implied.
+
+No production, deployment, or security-boundary claims beyond what's
+already established. Q-004 still open for production persistence.
+
+Review decision: S1.3 item 1 (tenant configuration model) is now COMPLETE:
+Tenant, OrganizationUnit, FiscalCalendar, CurrencyRate, Warehouse (via
+OrganizationUnit), Module, and Policy setup are all implemented and tested.
+Items 2 (workflow definition engine) and 3 (admin setup API) remain
+unbuilt. Segment stays `in progress`, not `closed` -- two of three items
+are still zero code.
+
+Update 2026-08-07 (third pass) - Workflow definition engine (item 2)
+------------------------------------------------------------------------
+python -m compileall -q app tests scripts
+PASS
+
+python scripts/verify.py unit integration contract security e2e migration
+PASS - 169 tests total (137 carried forward + 32 new: 17 unit,
+11 integration, 4 migration)
+
+Direct acceptance evidence
+---------------------------
+- WorkflowStep/WorkflowDefinition: entry_step_id must reference a defined
+  step; every next_step_id/exception_step_id must reference a defined step
+  or be null (terminal); duplicate step ids rejected; cycles rejected via
+  stdlib graphlib.TopologicalSorter over both next- and exception-edges,
+  including self-referencing steps and cycles that only exist through the
+  exception path, not just the happy path -- a diamond-shaped (non-cyclic)
+  graph is correctly allowed (9 unit tests).
+- ApprovalInstance.sla_status(now) derives on_track/due/breached from an
+  injected instant, never a wall-clock call inside domain logic; due_at
+  before started_at is rejected at construction; a decided instance
+  (approved/rejected) reports not_applicable rather than a stale status
+  (6 unit tests).
+- Repository: workflow definition creation requires the tenant to exist;
+  at most one `active` version per tenant/module/trigger, enforced by a
+  partial unique index, same pattern as S1.3's TenantPolicy; approval
+  instance creation requires an active definition, the matching version,
+  and that it starts at the definition's entry step (4 integration tests).
+- WorkflowApprovalService reuses S1.2's SecurityCommandAuthorizationGate
+  and audit writer directly -- no second authorization or audit mechanism.
+  Self-approval (actor == requester) is denied before the authorization
+  check even runs, so a misconfigured permission can never allow it. The
+  default reject-all gate denies even a correctly-permissioned approver
+  until a real gate is wired in, matching S1.2's secure-default discipline.
+  Approve/reject correctly advance to next_step_id/exception_step_id, or
+  complete the instance at a terminal (null) step; every decision writes
+  one audit event via the same former SecurityRepository.append_audit used
+  by S1.2 (7 integration tests).
+- Migration 0005_workflow_foundation requires 0002 (platform foundation)
+  first, same guard pattern as 0003/0004; forward/idempotent/rollback/
+  populated-block all verified (4 migration tests).
+
+No production, deployment, or security-boundary claims beyond what's
+already established. Q-004 still open for production persistence.
+
+Review decision: S1.3 item 2 (workflow definition engine) is COMPLETE.
+Item 3 (admin setup API, POST /api/v1/platform/setup-drafts) remains the
+only unbuilt piece of S1.3. Segment stays `in progress`.
+
+Update 2026-08-07 (fourth pass) - Admin setup API (item 3) - S1.3 CLOSED
+---------------------------------------------------------------------------
+python -m compileall -q app tests scripts
+PASS
+
+python -m json.tool contracts/openapi-v1.json
+PASS
+
+python scripts/verify.py unit integration contract security e2e migration
+PASS - 209 tests total (169 carried forward + 40 new: 13 unit,
+22 integration, 5 migration)
+
+Direct acceptance evidence
+---------------------------
+- SetupDraft (app/platform/setup.py) bundles tenant/organization_units/
+  fiscal_calendars/currency_rates/modules/policies/workflow_definitions
+  into one draft. validate_setup_payload() constructs the real domain
+  object for every item; invalid items never raise, they become
+  field_errors entries on the saved draft -- proven directly (draft is
+  still retrievable after a validation failure) and via the API
+  (POST returns 201 even with non-empty field_errors) (13 unit,
+  4 API-level tests).
+- SetupDraftService.create/decide/activate reuse S1.2's authorization gate
+  and audit writer exactly; activation coordinates platform + workflow
+  repositories inside one transaction (verified: a draft with two
+  conflicting-code org units approves cleanly, since structural validation
+  only checks shape, then fails at activation on the real uniqueness
+  constraint -- and BOTH org units are absent afterward, not just the
+  second one; the draft stays `approved`, never partially `activated`)
+  (12 integration tests).
+- Routes: POST/GET /api/v1/platform/setup_drafts, POST .../
+  setup_draft_decisions, POST .../setup_draft_activations. Named with
+  underscores, not the segment's own informal hyphenated note -- the
+  actual enforced route-shape regex in this codebase
+  (tests/contract/test_openapi_contract.py) only allows [a-z0-9_], caught
+  by running the contract suite, not assumed. contracts/openapi-v1.json
+  extended with 3 paths, 4 operations, 6 new schemas; all contract tests
+  pass unchanged.
+- Full HTTP-level proof via tests/integration/test_setup_draft_api.py:
+  successful create->approve->activate lifecycle; validation failure still
+  returns 201 with field_errors; approval blocked (409) while field_errors
+  are non-empty; duplicate request replays via Idempotency-Key (no double
+  creation); cross-tenant isolation on both list and decide; rollback on
+  activation failure (unsupported currency) leaves the draft `approved`
+  with zero side effects; unconfigured instance returns 503, not a crash;
+  unauthorized request denied (403) before reaching the handler; a direct
+  local latency sample (20 synchronous create commands) with p95 under
+  500ms, satisfying S1.3's own stated NFR without claiming pilot/production
+  load (10 API-level tests).
+- S1.3-F01 (minor, resolved): the three setup-draft command handlers did
+  not catch SecurityCommandDenied from the service's internal gate, so a
+  correct denial surfaced as a raw 500 (API_UNEXPECTED_FAILURE_REJECTED)
+  instead of 403. Found by test_unauthorized_denies_before_reaching_handler
+  failing with the wrong status during first implementation, not by manual
+  review. Fixed by catching SecurityCommandDenied in all three handlers.
+  See findings-ledger.md S1.3-F01.
+
+No production, deployment, or security-boundary claims beyond what's
+already established. Q-003/Q-004/Q-006 remain open for production
+identity/persistence/cloud-provider decisions -- none of them block this
+segment's local reference behavior.
+
+Review decision: CLOSED WITH WAIVERS W-001 and W-002 (both project-wide,
+carried forward unchanged from S1.1/S1.2, neither affects S1.3's
+deterministic behavior gates). All three S1.3 items (tenant configuration
+model, workflow definition engine, admin setup API) are complete. Zero
+open critical/major findings; S1.3-F01 resolved during this pass, not
+deferred. segments/S1.3-tenant-workflow-foundation.md status is now
+`closed with waivers`.

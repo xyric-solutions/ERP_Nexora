@@ -1,0 +1,157 @@
+HR-EMP-02A — Schema Preflight and Employment Relationship Foundation
+Verification date: 2026-09-29 Asia/Karachi
+Status: CLOSED WITH WAIVERS
+
+Scope implemented
+- Reused the existing HR-01 Employee, employee_assignment, hr_master_record,
+  organization_unit and work-location authorities.
+- Reused company_legal_profile and all HR-LOC jurisdiction resolution tables
+  and services without modification.
+- Confirmed `hr_salary_assignment` in HR production migration 0003 and the
+  existing Payroll repository/service as the HR-03 compensation authority.
+- Added `business_unit` and `division` to organization_unit without imposing a
+  fixed company/branch/division/department hierarchy.
+- Added the separate `hr_employment_relationship` legal-employment authority.
+- Added no relationship API, lifecycle action, consumer cutover, employee UI,
+  assignment redesign, compensation, Payroll, Attendance, Leave, country rule,
+  custom field or cross-border capability.
+
+Exact migrations
+- Production Platform:
+  `app/platform/postgres/migrations/0005_organization_unit_types.forward.sql`
+  and `.rollback.sql`.
+- Local/demo Platform:
+  `app/platform/migrations/0018_organization_unit_types.forward.sql` and
+  `.rollback.sql`; provisioning is wired into Demo and the dev server.
+- Production HR:
+  `app/hr/postgres/migrations/0010_employment_relationship_foundation.forward.sql`
+  and `.rollback.sql`.
+- No historical HR-LOC, HR, Platform, Attendance, Payroll or Finance migration
+  was modified in place.
+
+Database changes
+- organization_unit type constraint remains `organization_unit_type_check` and
+  now accepts company, business_unit, division, branch, department, warehouse.
+- `organization_unit_acyclic` invokes
+  `validate_organization_unit_acyclic()`. It takes a tenant-specific transaction
+  advisory lock and rejects self/cyclic parentage. Migration preflight rejects
+  a pre-existing cycle. Rollback refuses while business_unit/division rows exist.
+- New table `hr_employment_relationship` contains tenant/id, employee,
+  legal_employer, generated company type, relationship_number, controlled
+  status, effective range, creator and timestamps.
+- Named constraints:
+  `hr_employment_relationship_pkey`,
+  `uq_hr_employment_relationship_employer_id`,
+  `uq_hr_employment_relationship_number`,
+  `fk_hr_employment_relationship_tenant`,
+  `fk_hr_employment_relationship_employee`,
+  `fk_hr_employment_relationship_legal_employer`,
+  `hr_employment_relationship_id_length`,
+  `hr_employment_relationship_number_length`,
+  `hr_employment_relationship_created_by_length`,
+  `hr_employment_relationship_status_check`,
+  `hr_employment_relationship_effective_range`,
+  `hr_employment_relationship_ended_has_end`, and
+  `ex_hr_employment_relationship_non_draft_period`.
+- Named indexes:
+  `idx_hr_employment_relationship_employee_effective` and
+  `idx_hr_employment_relationship_employer_status_effective`, plus indexes from
+  the primary, unique and GiST exclusion constraints.
+- RLS is ENABLED and FORCED with policy
+  `hr_employment_relationship_tenant_isolation` using the established
+  transaction-local `nexora.tenant_id` context for USING and WITH CHECK.
+
+Compatibility and consumer result
+- No legacy relationship is guessed or backfilled. Existing Employee and
+  assignment rows survive upgrade and the new relationship table stays empty.
+- `employee.status`, `employee_assignment.company_id`, `branch_id`,
+  `department_id`, all existing assignment keys/constraints and all existing
+  consumer queries are unchanged.
+- Attendance, Payroll, identity and HR-LOC keep using their current authorities
+  in 02A. No hidden duplicate jurisdiction or compensation authority was added.
+- The future `EmploymentContextProvider` remains mandatory but is not
+  implemented prematurely in this schema-only slice.
+
+Security review
+- Relationship rows carry explicit typed legal-employer company scope and
+  tenant-composite Employee/company references.
+- Forced RLS denies reads and writes across tenants; legal-employer references
+  reject non-company organization units.
+- There is no new HTTP/service surface, so no new permission, maker-checker or
+  audit action is introduced in 02A. Future mutation APIs must add company-
+  scoped RBAC, idempotency and audit rather than exposing raw table writes.
+- Relationship rows store no new personal identifier, secret or free-text legal
+  evidence. Errors and logs were not changed.
+
+Migration verification
+- Fresh production Platform and HR schemas apply through versions 5 and 10.
+- Apply replay is idempotent.
+- Local/demo Platform 0018 applies, replays and cleanly rolls back.
+- Production HR clean rollback passes through the full chain.
+- Existing HR data upgrades with Employee/assignment history preserved and no
+  inferred relationship.
+- Populated business_unit/division and employment relationship state blocks
+  destructive rollback.
+- FK, legal-employer type, date/status, uniqueness, overlap and cycle controls
+  are exercised against PostgreSQL 18.
+
+Deterministic verification
+- `python scripts/verify.py unit integration contract security e2e migration`
+  PASS — 682 tests.
+- `python scripts/verify.py migration`
+  PASS — 109 tests.
+- `python scripts/verify_postgres_platform.py`
+  PASS — 24 tests.
+- `python scripts/verify_postgres_hr.py`
+  PASS — 22 tests, including HR-01, Attendance, Payroll, identity and HR-LOC.
+- `python scripts/verify_postgres_finance.py`
+  PASS — 7 tests.
+- `python scripts/verify_postgres_security.py`
+  PASS — 3 tests.
+- `npm test`
+  PASS — 172 tests in 62 files.
+- `npm run test:a11y`
+  PASS — 20 tests in 17 files.
+- `npm run lint`, `npx tsc --noEmit`, `npm run api:check-drift`
+  PASS.
+- `npm run build`
+  PASS — Next.js production build, 53 routes.
+- `python -m compileall -q app tests scripts`
+  PASS.
+- `python -m pip check`
+  PASS — no broken requirements.
+- `python -m pip_audit . --strict --progress-spinner off`
+  PASS — no known vulnerabilities in the Nexora project dependency graph.
+- `npm audit --omit=dev --audit-level=high`
+  PASS — zero production vulnerabilities.
+- `docker compose config --quiet`, `git diff --check`, and
+  `node framework/verify/portability-check.mjs`
+  PASS.
+
+Country/scope safety
+- No real-country statutory data, tax/social-security formula, jurisdiction
+  inference, AI legal path, localization bypass or cross-border execution was
+  added.
+- Q-007, Q-010, Q-004 and the existing cross-border fail-closed gate are
+  unchanged.
+
+Non-gate diagnostics
+- `ruff` is not installed or configured in the active Python environment; code
+  was validated by compileall and the full test suites.
+- An initial Web test invocation used unsupported Vitest option `--runInBand`;
+  the canonical `npm test` command was rerun and passed 172 tests.
+- An initial unscoped workstation-wide pip audit reported packages outside the
+  Nexora dependency graph; the required repository-scoped strict audit passed.
+
+Waivers / residual risk
+- X-002: exact actual runtime model/variant/effort/mode/surface metadata is not
+  exposed by the runtime.
+- HR-EMP-02B through 02G are NOT STARTED. In particular, no lifecycle/API/RBAC/
+  audit service and no EmploymentContextProvider consumer cutover exists yet.
+- Existing legacy employees intentionally have no relationship row until a
+  later approved, explicit data-conversion workflow is designed.
+
+Final decision
+- HR-EMP-02A is verified and CLOSED WITH WAIVERS.
+- No material conflict with Attendance, Payroll, HR-LOC or Finance was found.
+- Stop before HR-EMP-02B and wait for explicit owner approval.

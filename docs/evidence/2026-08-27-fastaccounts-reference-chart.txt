@@ -1,0 +1,145 @@
+Nexora ERP - FastAccounts reference Chart of Accounts
+Date: 2026-08-27
+
+Owner request
+- Use the four supplied FastAccounts PDF captures as the reference for
+  Section Management and Nominals.
+- Add the same codes, names, grouping, and useful listing behavior to the
+  Nexora Demo account.
+
+Source extraction
+- The three Chart of Account captures contain 223 nominal accounts across
+  pages 1-100, 101-200, and 201-223.
+- The Section Listing capture contains 78 sections under 14 account groups.
+- Source wording is preserved, including source spellings such as
+  "Reserch and Development Costs" and "Muncipal Corporation charges".
+- Account types are mapped from each group into Nexora's existing asset,
+  liability, equity, revenue, and expense classifications.
+
+Implementation
+- Added a deterministic reference register in
+  `app/demo/reference_chart_of_accounts.py`: 14 two-digit groups, 78
+  four-digit structural sections, and 223 six-digit nominal leaves.
+- Kept all 52 operational Demo accounts and their stable ids unchanged so
+  existing journals, reports, bank accounts, inventory controls, and drilldown
+  links remain valid.
+- Bumped the isolated Demo seed contract from version 2 to version 3. Existing
+  positively marked version-2 Demo databases upgrade additively and
+  idempotently; unmarked/customer databases remain rejected.
+- Added conflict checks: a reference code that already exists with different
+  name, type, parent, header, or control flags stops the upgrade instead of
+  overwriting data.
+- The focused Nominals page shows exactly the six-digit reference leaves; the
+  focused Section Management page shows exactly the four-digit reference
+  headers. The complete `/finance/accounts` view still exposes both the
+  operational and reference hierarchies.
+- Added grouped tables with code, name, parent, account type, posting state,
+  status, details, search, 100-row pagination, counts, and source group order.
+- Edit/delete/reorder controls were not fabricated because the current API has
+  no governed account-update or ordering command.
+- After owner feedback that the Demo still looked generic, refined the two
+  focused screens to the compact ERP listing pattern from the references:
+  Chart of Accounts context, page-specific add actions, dense grouped rows,
+  primary-colored table headers, Show 100 entries, right-aligned search,
+  simplified Nominal/Section columns, and source-style group counts. Demo mode
+  no longer repeats the raw company-id field because company context is already
+  shown in the application shell.
+- The creation dialog is now context-specific: Nominal Account requires a
+  section parent and uses a six-digit code pattern; Add Section requires an
+  account-group parent, defaults to a non-posting header, and uses a four-digit
+  code pattern. Parent selection inherits the correct account type.
+- After a later owner report that Sections and Nominals were not visible, found
+  four duplicate Demo server processes sharing port 8000 and leaving the API
+  unresponsive while the frontend routes still returned 200. Replaced them
+  with one clean Demo backend. Health and credential login recovered, and the
+  live paginated account API returned 367 accounts, including all 223 reference
+  nominals and 78 reference sections. The Chart of Accounts main menu now opens
+  its two focused links by default when the user has account-read permission.
+
+2026-08-31 exact screenshot alignment
+- Re-rendered and visually reviewed all four supplied captures at their native
+  screenshot dimensions: Nominals 1-100, 101-200, 201-223, and Sections 1-78.
+- Confirmed the canonical register contains every captured code/name: 14
+  account groups, 78 sections, and 223 nominals. Added a SHA-256 regression
+  lock for the complete ordered register, not only representative names.
+- Corrected the focused Nominals view to preserve the exact screenshot order
+  inside every section. Its 223-code source-order list is identical to the
+  backend canonical tuple and contains 223 unique values.
+- Aligned the focused listing structure to the captures while retaining Nexora
+  branding and design tokens: compact blue header, row checkboxes, source group
+  and section bands with counts, Nominals columns Code/Nominal Account/Action,
+  Sections columns Section/Code/Position/Action, right-side search, 100-row
+  Nominal pages, source-style entry totals, and numbered pagination.
+- Row selection is functional on the visible page. View remains the honest row
+  action, and Sections show their locked reference position; Edit and Up/Down
+  were not mislabeled or fabricated because no governed update/reorder API
+  exists. Creation labels now follow the captures: Nominal Account and Add New.
+
+Demo upgrade result
+- reference accounts added: 315
+- total accounts: 367 (52 operational + 315 reference)
+- reference groups: 14
+- reference sections: 78
+- reference nominals: 223
+- total posting nominals: 250 (27 operational + 223 reference)
+- Trial Balance variance: 0
+- Balance Sheet variance: 0
+- audit chain: verified
+- procurement-to-ledger trace: verified
+- inventory quantity/value: 20 / 900
+
+Verification
+- Reference-register unit tests: PASS, 3/3.
+- Demo E2E smoke and reset safety: PASS, 2/2.
+- Focused account functionality/accessibility: PASS, 6/6.
+- Frontend aggregate regression: PASS, 29 files / 75 tests, serial retry used
+  after one unrelated parallel worker timeout; the timed-out accessibility
+  test passed alone and in the serial aggregate.
+- Populated Nominals accessibility test: PASS.
+- Dedicated accessibility gate: PASS, 11 files / 14 tests.
+- Current sidebar functionality/accessibility after visibility repair: PASS,
+  2 files / 8 tests. The first run had one unrelated 15-second Windows worker
+  timeout; the same suite passed with a 30-second test timeout.
+- Exact ordered-register digest and hierarchy tests: PASS, 4/4.
+- Current account functionality: PASS, 4/4; current account accessibility:
+  PASS, 2/2 with zero reported violations.
+- Frontend aggregate coverage: PASS, 75/75. The serial aggregate executed 70
+  tests successfully while three unrelated Windows workers failed to start;
+  the five missed tests then passed in an isolated retry.
+- Targeted ESLint for all current changed frontend files: PASS. The repository-
+  wide ESLint command produced no findings before reaching its 180-second
+  command limit, so it is not represented as a completed full lint gate.
+- Current production build: PASS, 47 static routes. The sandboxed attempt could
+  not fetch the existing Google fonts; the approved network retry passed.
+- Current backend full verification: PASS, 473 tests across unit, integration,
+  contract, security, E2E, and migration.
+- Current live Demo: PASS. Health/login and both focused routes returned 200;
+  the paginated API returned 367 accounts, including 223 reference nominals
+  and 78 reference sections. Demo accounting/isolation verification passed.
+- TypeScript no-emit: PASS.
+- Next.js production build: PASS, 47 static routes.
+- Backend full verification: PASS, 472 tests across unit, integration,
+  contract, security, E2E, and migration.
+- Live Demo HTTP: backend health, `/login`, `/finance/accounts/nominals`, and
+  `/finance/accounts/sections` all returned 200.
+- Browser visual QA: NOT RUN. The browser-control runtime reported no connected
+  browser; this is not represented as a screenshot/visual pass.
+
+Runtime intake
+- loop_primitive: none
+- runtime_profile: codex-native
+- orchestrator_role: Codex
+- worker_backend: none
+- planned_model_family: gpt-5.6
+- planned_model_variant: terra
+- planned_api_reasoning_effort: medium
+- planned_reasoning_mode: standard
+- planned_delegation_mode: single
+- actual_model_family: GPT-5 family (runtime-exposed identity only)
+- actual_model_variant/reasoning/surface: not reported; existing finding X-002
+- routing_rationale: bounded reference-data, Demo upgrade, and focused UI batch
+- routing_fallback: stop on source ambiguity, seed conflict, accounting drift,
+  route regression, or failed verification
+- verify_command: frontend build/test/a11y plus full repository verification
+- evidence_path: this file
+- usage_guard: additive Demo reference chart; no production/customer mutation

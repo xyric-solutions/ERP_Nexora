@@ -1,0 +1,65 @@
+HR-PROD-05 LEAVE PRODUCTION COMPLETENESS VERIFICATION
+Date: 2026-10-05 PKT
+Result: PASS WITH KNOWN LIMITATIONS
+
+IMPLEMENTED AUTHORITY CHAIN
+- hr_leave_type remains the Leave type identity and compatibility projection.
+- Immutable hr_leave_policy_version rows are the effective-dated policy authority.
+- hr_leave_request plus the existing maker-checker request_action flow remains the request/approval authority.
+- Immutable hr_leave_transaction remains the sole balance ledger authority.
+- hr_leave_request_day is immutable per-date allocation evidence owned by the existing request authority, not a second Leave engine.
+- Attendance lock consumes approved request-day evidence and writes attendance_leave_overtime_v3 into the existing immutable hr_payroll_input boundary.
+
+COMMAND EVIDENCE
+- python -m unittest tests.unit.test_hr_attendance tests.integration.test_hr_attendance_api tests.contract.test_hr_leave_completeness_contract -v
+  PASS: 18 tests.
+- python scripts/verify.py unit integration contract security migration
+  PASS: 737 tests across all selected backend gates; integration includes 4 expected Redis skips when the optional test DSN is absent.
+- python scripts/verify_postgres_hr.py
+  PASS: 41 PostgreSQL HR tests, including forward/idempotent/clean rollback, policy revision, joiner/leaver accrual, replay, carry cap, expiry, daily allocation, locked Payroll evidence, tenant isolation and FORCE RLS.
+- python scripts/verify_postgres_finance.py
+  PASS: 7 PostgreSQL Finance tests.
+- npm test
+  PASS: 216 tests in 71 files.
+- npm test -- --run src/features/hr/hr-attendance-workspace.test.tsx src/features/hr/hr-payroll-workspace.test.tsx
+  PASS: 9 tests in 2 files after final UI changes.
+- npm run test:a11y
+  PASS: 26 tests in 21 files.
+- npx tsc --noEmit
+  PASS.
+- npm run lint -- --quiet
+  PASS.
+- npm run api:check-drift
+  PASS: generated TypeScript schema matches contracts/openapi-v1.json.
+- npm run build
+  PASS: Next.js production build; 54 routes generated.
+- python scripts/production_demo_environment.py seed
+  PASS: idempotent candidate bootstrap after HR migration 17.
+- python scripts/production_demo_environment.py verify
+  PASS: PostgreSQL candidate, audit chain, database-authoritative RBAC, company scope and FORCE RLS.
+- git diff --check
+  PASS; only repository-standard CRLF conversion warnings were emitted.
+- node framework/verify/portability-check.mjs .
+  PASS: all project-root checks passed after updating the handoff to the current required schema.
+
+SECURITY AND FAILURE EVIDENCE
+- All new routes authenticate and authorize exact existing Leave permissions before service access.
+- Company scope is checked at the API/service boundary and tenant scope is enforced by FORCE RLS.
+- Direct tenant-b reads return no policy, request-day or ledger evidence.
+- Both hr_leave_policy_version and hr_leave_request_day report relrowsecurity=true and relforcerowsecurity=true in disposable PostgreSQL and the candidate Demo.
+- Accrual and rollover use stable evidence/source keys and the existing transactional idempotency boundary.
+- Duplicate approval cannot duplicate usage; rejected/cancelled requests do not consume balance.
+- Policy and request-day evidence is immutable; migration rollback refuses to destroy populated production evidence.
+
+DEMO/HISTORICAL INVARIANT
+- HR schema migration: 17 leave_production_completeness.
+- September Demo payroll: posted, run 1.
+- Payroll proposal: posted and still linked to JE-2026-09-00001.
+- JE-2026-09-00001: posted and unchanged.
+- Candidate Demo audit chain and FORCE RLS verification pass.
+
+KNOWN LIMITATIONS / WAIVERS
+- on_completion accrual remains fail-closed because the existing system has no authoritative completion event; no event semantics were invented.
+- HR02-F01 remains: gender-restricted policy operation fails closed until an approved sensitive-demographic authority exists.
+- Existing historical Leave requests are backfilled only when their full-day range is unambiguous; ambiguous historical fractional requests remain fail-closed rather than receiving guessed allocations.
+- OT monetary calculation, statutory packs, bank/payment export, Demo expansion and unrelated modules remain out of scope.

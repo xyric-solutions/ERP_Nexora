@@ -1,0 +1,72 @@
+/*
+ * Global form legibility contract.
+ *
+ * This component layer loads after every module workspace. It does not define
+ * colours of its own: it guarantees that all form families consume the shared
+ * Nexora text and action tokens consistently in light and dark themes.
+ */
+
+.nx-prototype :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
+  color: var(--nx-text-strong);
+  background-color: var(--nx-surface);
+  caret-color: var(--nx-text-strong);
+  -webkit-text-fill-color: var(--nx-text-strong);
+  opacity: 1;
+}
+
+.nx-prototype :is(input, textarea)::placeholder {
+  color: var(--nx-text-muted);
+  -webkit-text-fill-color: var(--nx-text-muted);
+  opacity: 1;
+}
+
+.nx-prototype select option {
+  color: var(--nx-text-strong);
+  background: var(--nx-surface);
+}
+
+.nx-prototype :is(label, legend, .nx-field-label, .nx-field__label) {
+  color: var(--nx-text-strong);
+}
+
+.nx-prototype label > :is(span, strong):first-child {
+  color: var(--nx-text-strong);
+}
+
+.nx-prototype :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):disabled,
+.nx-prototype :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea)[readonly] {
+  color: var(--nx-text-muted);
+  background-color: var(--nx-surface-sunken);
+  -webkit-text-fill-color: var(--nx-text-muted);
+  opacity: 1;
+}
+
+.nx-prototype button:is(.nx-button-primary, .nx-button--primary, .nx-primary-button, .primary, .nx-batch__btn--approve) {
+  border-color: var(--nx-primary);
+  color: var(--nx-text-inverse);
+  background: var(--nx-primary);
+  -webkit-text-fill-color: var(--nx-text-inverse);
+}
+
+.nx-prototype button:is(.nx-button-primary, .nx-button--primary, .nx-primary-button, .primary, .nx-batch__btn--approve) :is(span, strong, b, i) {
+  color: inherit;
+  -webkit-text-fill-color: inherit;
+}
+
+.nx-prototype button:is(.nx-button-primary, .nx-button--primary, .nx-primary-button, .primary, .nx-batch__btn--approve):hover:not(:disabled) {
+  border-color: var(--nx-secondary);
+  color: var(--nx-text-inverse);
+  background: var(--nx-secondary);
+  -webkit-text-fill-color: var(--nx-text-inverse);
+}
+
+.nx-prototype button:is(.nx-button-primary, .nx-button--primary, .nx-primary-button, .primary, .nx-batch__btn--approve):disabled {
+  color: var(--nx-text-inverse);
+  -webkit-text-fill-color: var(--nx-text-inverse);
+  opacity: .58;
+}
+
+.nx-prototype :is(.nx-field-error, .nx-error-text, [role="alert"]) {
+  color: var(--nx-danger);
+}
+

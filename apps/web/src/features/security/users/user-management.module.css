@@ -1,0 +1,567 @@
+.root {
+  min-height: 420px;
+  color: #203442;
+}
+.bulkBar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  background: #eef6fa;
+  font-size: 13px;
+}
+.confirmation {
+  margin: 16px 20px;
+  padding: 18px;
+  background: #fff9ed;
+  border: 1px solid #e5d8b4;
+  border-radius: 8px;
+}
+.confirmation label {
+  display: grid;
+  gap: 7px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.confirmation > div {
+  display: flex;
+  gap: 8px;
+}
+.confirmation input,
+.confirmation button,
+.bulkBar button {
+  min-height: 36px;
+  border: 1px solid #cbd6dd;
+  border-radius: 7px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #294556;
+}
+.userTable input[type="checkbox"] {
+  accent-color: #17577b;
+  width: 16px;
+  height: 16px;
+}
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5eaee;
+  background: #f8fafb;
+}
+.toolbar form,
+.toolbar > div,
+.actionGrid,
+.roleAdd,
+.detailForm > div {
+  display: flex;
+  gap: 8px;
+}
+.toolbar form {
+  flex: 1;
+  flex-wrap: wrap;
+}
+.toolbar input {
+  min-width: 280px;
+}
+.toolbar input,
+.toolbar select,
+.toolbar button,
+.detail button,
+.detail input,
+.detail select,
+.wizard input,
+.wizard select,
+.wizard button {
+  min-height: 38px;
+  border: 1px solid #cbd6dd;
+  border-radius: 7px;
+  padding: 0 10px;
+  background: #fff;
+  color: #294556;
+}
+.toolbar button,
+.detail button,
+.wizard button {
+  cursor: pointer;
+  font-weight: 650;
+}
+.toolbar button:disabled,
+.detail button:disabled,
+.wizard button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.primary {
+  border-color: #17577b !important;
+  background: #17577b !important;
+  color: #fff !important;
+}
+.notice {
+  margin: 14px 20px 0;
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: #eef6fa;
+  color: #275c79;
+}
+.content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.content:has(.detail) {
+  grid-template-columns: minmax(420px, 1fr) minmax(380px, 0.85fr);
+}
+.list {
+  min-width: 0;
+}
+.userRow,
+.userSelected {
+  background: #fff;
+  color: inherit;
+}
+.userRow:hover,
+.userSelected {
+  background: #f1f7fa;
+}
+.userSelected {
+  box-shadow: inset 3px 0 #2875a3;
+}
+.tableScroll {
+  overflow-x: auto;
+}
+.userTable {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 12px;
+}
+.userTable thead th {
+  padding: 12px 16px;
+  background: #f8fafb;
+  border-bottom: 1px solid #dce4e9;
+  color: #506876;
+  font-weight: 750;
+}
+.userTable tbody th,
+.userTable td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #edf0f2;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+.userTable tbody th {
+  font-weight: 650;
+  min-width: 190px;
+}
+.userNameButton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #17577b;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.userNameButton:hover span:last-child {
+  text-decoration: underline;
+}
+.userNameButton:focus-visible,
+.root button:focus-visible,
+.root input:focus-visible,
+.root select:focus-visible {
+  outline: 2px solid #2875a3;
+  outline-offset: 3px;
+}
+.userNameButton:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+.userTable .pending {
+  display: inline-block;
+  margin: 6px 0 0 52px;
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #dceaf2;
+  color: #164c6c;
+  font-weight: 800;
+}
+.status,
+.pending,
+.linked,
+.notLinked {
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+.linked {
+  background: #e8f3f8;
+  color: #24617e;
+}
+.notLinked {
+  background: #f2f0ea;
+  color: #6d6248;
+}
+.active {
+  background: #e5f5ec;
+  color: #246540;
+}
+.locked {
+  background: #fff1db;
+  color: #8a5816;
+}
+.inactive {
+  background: #edf0f2;
+  color: #65727b;
+}
+.pending {
+  background: #e9eff9;
+  color: #3c5f91;
+}
+.state {
+  margin: 0;
+  padding: 38px 20px;
+  text-align: center;
+  color: #758590;
+}
+.wizard {
+  border-bottom: 1px solid #dce4e9;
+  background: #fbfcfd;
+}
+.wizard > header,
+.wizard > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+}
+.wizard > header span {
+  color: #608096;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 10px;
+  font-weight: 750;
+}
+.wizardHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wizard > header .draftState {
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: #e8f3f8;
+  color: #24617e;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.wizard h3,
+.detail h3,
+.detail h4 {
+  margin: 3px 0 0;
+}
+.steps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  margin: 0;
+  padding: 0 20px;
+  list-style: none;
+}
+.steps li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 8px;
+  border-bottom: 3px solid #dbe3e8;
+  color: #758590;
+  font-size: 12px;
+}
+.steps li[aria-current="step"] {
+  border-color: #2875a3;
+  color: #174a69;
+  font-weight: 750;
+}
+.steps b {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e8eef2;
+}
+.stepBody {
+  min-height: 185px;
+  padding: 24px 20px;
+}
+.accountTypeSection {
+  display: grid;
+  gap: 18px;
+}
+.formHelp {
+  margin: 0;
+  color: #536b79;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+}
+.formGrid label,
+.stackField,
+.detailForm label,
+.reasonField {
+  display: grid;
+  gap: 6px;
+  color: #506876;
+  font-size: 12px;
+  font-weight: 650;
+}
+.spanTwo {
+  grid-column: span 2;
+}
+.choiceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.choiceGrid legend {
+  grid-column: 1 / -1;
+  margin-bottom: 5px;
+  font-weight: 750;
+}
+.choiceGrid > p {
+  grid-column: 1 / -1;
+  margin: 0 0 4px;
+  color: #6d7f8a;
+}
+.choice,
+.choiceSelected {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #d6e0e6;
+  border-radius: 8px;
+  background: #fff;
+}
+.choiceSelected {
+  border-color: #4b88aa;
+  background: #f1f7fa;
+}
+.choice label,
+.choiceSelected label,
+.choiceGrid > label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.choice span,
+.choiceSelected span {
+  display: grid;
+}
+.choice small,
+.choiceSelected small {
+  color: #758590;
+}
+.defaultChoice {
+  font-size: 12px;
+}
+.review {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.review article {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #dce4e9;
+  border-radius: 8px;
+  background: #fff;
+}
+.review span,
+.review small {
+  color: #72838e;
+  font-size: 12px;
+}
+.review p {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  color: #536b79;
+}
+.detail {
+  border-left: 1px solid #dce4e9;
+  background: #fbfcfd;
+}
+.detail > header {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 18px;
+  border-bottom: 1px solid #e5eaee;
+}
+.detail > header span,
+.detail > header p {
+  color: #6d7f8a;
+  font-size: 12px;
+}
+.detail > header p {
+  margin: 4px 0 0;
+}
+.detail > header button {
+  min-width: 38px;
+  padding: 0;
+  font-size: 20px;
+}
+.detailMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-bottom: 1px solid #e5eaee;
+  color: #657985;
+  font-size: 12px;
+}
+.detailMeta strong {
+  color: #8a5816;
+}
+.accountDetails {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+.accountDetails div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.accountDetails dt {
+  color: #6d7f8a;
+  font-size: 11px;
+}
+.accountDetails dd {
+  margin: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.capitalize {
+  text-transform: capitalize;
+}
+.detailSection,
+.detailForm {
+  display: grid;
+  gap: 15px;
+  padding: 18px;
+  border-bottom: 1px solid #e5eaee;
+}
+.detailSection p {
+  margin: 3px 0 0;
+  color: #6d7f8a;
+  font-size: 12px;
+}
+.actionGrid {
+  flex-wrap: wrap;
+}
+.dangerSoft {
+  border-color: #e0b7b7 !important;
+  color: #942f2f !important;
+}
+.companyLine {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.companyLine label {
+  display: flex;
+  align-items: center;
+}
+.roleList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.roleList li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid #e5eaee;
+}
+.roleList span {
+  display: grid;
+}
+.roleList small {
+  color: #758590;
+}
+.roleAdd select {
+  flex: 1;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (max-width: 1050px) {
+  .content:has(.detail) {
+    grid-template-columns: 1fr;
+  }
+  .detail {
+    border-top: 1px solid #dce4e9;
+    border-left: 0;
+  }
+}
+@media (max-width: 720px) {
+  .toolbar,
+  .toolbar form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .toolbar input {
+    width: 100%;
+    min-width: 0;
+  }
+  .formGrid,
+  .choiceGrid,
+  .review,
+  .accountDetails {
+    grid-template-columns: 1fr;
+  }
+  .spanTwo,
+  .review p {
+    grid-column: auto;
+  }
+  .steps li {
+    justify-content: center;
+    font-size: 0;
+  }
+  .steps b {
+    font-size: 12px;
+  }
+}

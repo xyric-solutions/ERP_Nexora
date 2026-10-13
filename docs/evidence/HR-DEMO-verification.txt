@@ -1,0 +1,53 @@
+NEXORA HR/PAYROLL PRODUCTION DEMO VERIFICATION
+Verified: 2026-10-06 PKT
+Status: PASS - READY FOR OWNER MANUAL ACCEPTANCE
+
+ENVIRONMENT
+- PostgreSQL candidate: 127.0.0.1:55434 / nexora_demo_v2.
+- Redis candidate: 127.0.0.1:56379.
+- Tenant/company: nexora-demo / Nexora Demo Company.
+- Application role is non-superuser and all protected Demo authorities retain
+  PostgreSQL RLS/FORCE RLS.
+
+CONTROLLED SCENARIOS
+- Five synthetic employees cover monthly, hourly and contractual compensation,
+  a salary revision, a joiner and a leaver.
+- PKR salary components cover basic pay, allowance, deduction, monetary OT,
+  salary tax and employee/employer EOBI evidence.
+- Attendance, shift, approved leave/accrual, and normal/weekend/holiday OT are
+  connected through the existing production authorities.
+- Pakistan national TY2027 statutory context is activated from the reviewed,
+  provenance-hashed existing pack through the controlled publisher boundary.
+- October 2026 run 1 completes calculate, review, Payroll approval, Finance
+  approval, posting, payslip release, payment export and reconciliation.
+
+LIVE VERIFIED STATE
+- Employees: 5.
+- PKR salary assignments: 5.
+- Approved OT scenarios: 3.
+- Approved leave scenarios: 1.
+- Statutory snapshots: 1.
+- Released payslips: 1.
+- Reconciled payment exports: 1.
+- October Payroll: paid, run 1.
+- October Finance journal: JE-2026-10-00001, posted.
+- Demo FORCE RLS: pass.
+- Demo audit chain: pass.
+- Idempotent reseed/verify: pass.
+
+HISTORICAL CONTROL
+- September 2026 Payroll and JE-2026-09-00001 remain unchanged.
+- Exact aggregate fingerprint:
+  0bbc94075cd4a9b512ad40c81af0f3c6c1b62e0e93d4eaf3d91d2e76446e66af
+
+MANUAL ENTRY POINT
+- Frontend: http://localhost:3001/login
+- API: http://127.0.0.1:8001
+- Tenant: nexora-demo
+- Recommended login: demo.admin / NexoraDemo!2026
+- Role checks: demo.hr, demo.finance.manager, demo.accountant (same documented
+  development-only Demo password).
+- Active completed scenario: October 2026.
+- Protected historical scenario: September 2026.
+- Safe idempotent repair/reseed: python scripts/production_demo_environment.py seed
+- Verification: python scripts/production_demo_environment.py verify

@@ -1,0 +1,88 @@
+HR-EMP-02F-A VERIFICATION EVIDENCE
+Date: 2026-09-30
+Status: CLOSED WITH WAIVERS
+
+Scope delivered
+- Replaced the generic GET /api/v1/hr/employment_contexts success response
+  with the named EmploymentContext OpenAPI schema and named nested schemas.
+- Added a generated-type-backed getEmploymentContext frontend client with
+  required company/employee identifiers and strict calendar-valid YYYY-MM-DD.
+- Added hr.employment_context.read to the existing frontend permission catalog.
+- Investigated the existing Platform organization-unit read API and stopped
+  before adding a new API, as required.
+- Added no migration, UI, provider semantic change, Payroll/Attendance/Leave
+  migration, country rule, or alternate employment-context authority.
+
+Organization-picker decision
+The existing GET /api/v1/platform/organization_units endpoint cannot safely
+serve the future company-scoped HR picker. It is tenant-wide, has only id/type
+filters, and requires platform.organization_unit.read. Although it returns the
+needed hierarchy fields, it does not constrain results to a selected company
+and descendants. A future separately approved 02F-B slice needs the minimum
+read-only projection over the existing organization_unit authority: required
+company_id, optional type/status/search, selected company plus descendants,
+stable hierarchy fields, an HR read permission, contextual company
+authorization, and existing RLS. No new table or mutation is justified.
+
+Focused verification
+- python -m unittest tests.contract.test_hr_employment_context_contract
+  tests.contract.test_openapi_contract tests.unit.test_hr_employment_context
+  tests.integration.test_hr_api
+  PASS: 25 tests.
+- npm run test -- --run src/lib/api/hr.test.ts
+  src/lib/session/permissions.test.ts
+  PASS: 13 tests across 2 files.
+- python scripts/verify_postgres_hr.py
+  PASS: 36 tests against disposable PostgreSQL.
+
+Full regression
+- python scripts/verify.py unit integration contract security e2e migration
+  PASS: 699 tests: unit 295, integration 268, contract 9, security 13,
+  e2e 5, migration 109.
+- npm run test
+  PASS: 187 tests across 68 files.
+- npm run test:a11y
+  PASS: 24 tests across 20 files.
+- npm run api:check-drift
+  PASS.
+- npx tsc --noEmit
+  PASS.
+- npm run lint
+  PASS.
+- npm run build
+  PASS: Next.js production build and type validation, 53 routes.
+- git diff --check
+  PASS; only repository line-ending warnings were emitted.
+- node framework/verify/portability-check.mjs .
+  PASS: all project-root checks; 66 required files present.
+
+Security, determinism, and boundary evidence
+- Existing authorized, unauthorized, company-isolation, and tenant/RLS tests
+  pass in the focused API, 13-test security, and 36-test HR PostgreSQL suites.
+- The live provider response validates against the named OpenAPI schema.
+- Existing current/historical/future/termination/rehire, exact-cardinality,
+  ambiguous/cross-country fail-closed, deterministic response, and stable
+  context-hash tests remain green.
+- Reviewed 113 response-schema properties recursively. No salary amount,
+  gross/net pay, tax, deduction, contribution, payslip, or accounting-value
+  property is exposed. Existing money-free salary-authority evidence remains.
+- Country-neutrality scan found no new named-country or country-branch logic.
+- No migration exists in this diff; migration regression passed 109 tests.
+
+Verification note
+The first focused Python invocation was accidentally run from web/ and exited
+before discovery with ModuleNotFoundError for tests.*. The same command was
+immediately rerun from the repository root and passed all 25 tests. A test-only
+TypeScript matcher generic was also corrected after the initial typecheck;
+the final typecheck, lint, tests, API drift check, and build all pass. The first
+portability run found 28 missing handoff template fields; the handoff was
+corrected and the final portability run passes all checks.
+
+Waivers and gates
+- X-002: the runtime does not expose audit-grade exact model variant/effort/
+  surface metadata. Single-orchestrator execution is evidenced.
+- The company-scoped organization projection is intentionally not implemented;
+  it requires separate owner approval before 02F-B.
+- Existing HR-EMP-02E authority limitations and Q-004/Q-007/Q-010/cross-border
+  gates remain unchanged.
+- HR-EMP-02F-B, 02F-C, and 02F-D are NOT STARTED.

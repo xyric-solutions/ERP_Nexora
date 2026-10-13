@@ -1,0 +1,153 @@
+Nexora S2.1 Verification Evidence
+===================================
+Date: 2026-08-10
+Batch: S2.1 - Accounting Event Ledger
+Runtime: Python 3.11.9; former standard-library embedded driver; no third-party dependencies
+  (verified by tests.security.test_identity_authorization_audit's existing
+  test_segment_introduces_no_third_party_python_dependency, unchanged).
+
+Commands and results
+---------------------
+python -m compileall -q app tests scripts
+PASS - syntax/import compilation, zero errors.
+
+python -m json.tool contracts/openapi-v1.json
+PASS - contract JSON parses.
+
+python scripts/verify.py unit integration contract security e2e migration
+PASS - 270 tests total (209 carried forward from S1.1-S1.4 + 61 new: 24 unit,
+  20 integration [service], 12 integration [API], 5 migration).
+
+Direct acceptance evidence (against segments/S2.1-accounting-event-ledger.md)
+---------------------------------------------------------------------------
+1. "AccountingEvent stores source, event type, payload hash, idempotency
+   key, state, tenant, and audit reference."
+   - app/finance/models.py's AccountingEvent dataclass: id, tenant_id,
+     source_type, source_id, event_type, payload, idempotency_key, state,
+     retry_count, compensates_event_id, audit_ref, created_at, posted_at.
+     payload_hash is computed (never stored redundantly, always derived via
+     computed_payload_hash()/payload_hash()) -- 24 unit tests
+     (tests/unit/test_finance_models.py).
+
+2. "Duplicate events produce zero duplicate side effects; failed events are
+   visible and retryable by policy."
+   - Two independent duplicate-detection layers, both tested:
+     (a) exact idempotency-key replay (same key, same payload_hash ->
+         original event returned, no new row)
+     (b) same-source-document content match (same source_type/source_id/
+         event_type/payload_hash under a *different* regenerated key ->
+         also returned as a replay)
+   - Conflicting payload under a reused key is rejected
+     (FINANCE_EVENT_IDEMPOTENCY_CONFLICT / API_IDEMPOTENCY_KEY_REUSED
+     depending on which layer catches it first -- see design note below).
+   - Concurrent-insert race is handled at the database level
+     (UNIQUE(tenant_id, idempotency_key)); the repository's
+     FinanceIdempotencyKeyConflict -> service recovery path is exercised
+     directly in tests/integration/test_finance_service.py.
+   - failed events are visible via GET .../accounting_events?state=failed
+     and retryable via the bounded retry_event() service method (failed ->
+     retry -> validated, or -> dead once MAX_RETRY_COUNT=5 is exceeded).
+
+3. "Posted events require compensating events rather than destructive
+   mutation."
+   - Once state=posted, the event is terminal (TERMINAL_STATES); the
+     repository's update_state() raises FinanceEventImmutable on any
+     further transition attempt. Corrections are submitted as a new
+     AccountingEvent with compensates_event_id set, only accepted when the
+     original is already posted (AccountingEventCompensationInvalid
+     otherwise). test_compensating_event_against_posted_original_succeeds_without_mutating_it
+     asserts the original's snapshot is byte-identical before and after.
+
+4. Test expectation (unit, integration, contract, security, migration,
+   performance) -- all five levels covered; "performance" interpreted as
+   the O(1) idempotency-key lookup design (UNIQUE index), not a load test,
+   consistent with S1.1-S1.4's own "no pilot-load claim" disclaimer.
+
+5. NFR: "duplicate side effects = 0" -- proven by
+   test_duplicate_submission_same_key_same_payload_replays and
+   test_same_source_document_same_content_different_key_also_replays, both
+   asserting exactly one row exists after two submission attempts.
+   "controlled accounting events emit audit evidence" -- proven by
+   test_submission_and_posting_each_emit_audit_evidence against the real
+   hash-chained former SecurityRepository.append_audit, reused unchanged
+   from S1.2.
+
+Design clarification reported per the mega-prompt's "stop and clearly
+report" instruction for ambiguous design points
+---------------------------------------------------------------------------
+docs/finance/accounting-event-ledger-design.md states payload_hash is
+"computed over the canonicalized payload_json plus idempotency_key, so a
+byte-identical resubmission is caught even if the idempotency key itself is
+regenerated." Taken literally (hash = f(payload, idempotency_key)), this is
+self-contradictory: hashing the key into the hash would make a regenerated
+key produce a *different* hash, defeating the doc's own stated goal.
+Implemented payload_hash as content-only (sha256 of the canonicalized
+payload alone); idempotency_key is stored as its own separate column
+(matching the schema table, which already lists them as separate columns).
+This is what actually delivers the stated capability -- proven by
+test_hash_is_independent_of_idempotency_key and
+test_same_source_document_same_content_different_key_also_replays. No
+acceptance criterion, API contract, or business rule changed; this is a
+hash-composition implementation detail, not a scope change.
+
+Bug found and fixed during testing (not a production incident -- caught
+before any code outside this segment depended on it)
+---------------------------------------------------------------------------
+retry_event()'s bounded-retry logic initially stored the incremented
+retry_count (up to MAX_RETRY_COUNT + 1) when transitioning an event to
+`dead`, violating the same CHECK(retry_count <= 5) constraint the migration
+itself defines. Found by
+test_retry_exceeding_bound_lands_in_dead_and_becomes_immutable failing with
+a database integrity error. Fixed by capping the stored retry_count at
+MAX_RETRY_COUNT once the bound is exceeded (the exact attempt number beyond
+the bound isn't meaningful to persist, only that retries were exhausted).
+Logged as S2.1-F01, resolved, in findings-ledger.md.
+
+Explicitly out of S2.1's scope (not fabricated to satisfy a checklist item)
+---------------------------------------------------------------------------
+The mega-prompt's test-coverage list named "invalid fiscal period," "invalid
+currency," and "invalid organization" as cases to test. None of these are
+concepts AccountingEvent's locked schema owns (architecture.md's
+AccountingEvent entity: id, tenant_id, source_type, source_id, event_type,
+payload_hash, idempotency_key, state -- no fiscal_period_id, currency, or
+organization_unit_id field). A future event type's *payload* schema could
+require a currency code, but validating it against S1.3's real
+CurrencyRate/CurrencyCatalog, or a fiscal period against FiscalCalendar, is
+posting-time business logic that belongs to S2.2 ("S2.1 validates and
+stores; it does not decide account codes or amounts" -- design doc). Adding
+those checks here would blur the S2.1/S2.2 boundary the design doc is
+explicit about. Not tested because not owned, not silently skipped.
+
+Security self-review (mega-prompt's explicit review section)
+---------------------------------------------------------------------------
+- Authorization: every command requires finance.accounting_event.create/
+  read at both the HTTP AuthorizationService layer and the internal
+  RepositorySecurityCommandGate (same defense-in-depth pattern as
+  setup_drafts) -- test_unauthorized_actor_is_denied,
+  test_unauthorized_denies_before_reaching_handler.
+- Tenant isolation: every repository query filters by tenant_id;
+  UNIQUE(tenant_id, idempotency_key) prevents cross-tenant key collision --
+  test_event_created_in_one_tenant_is_invisible_from_another,
+  test_same_idempotency_key_is_independent_per_tenant,
+  test_cross_tenant_isolation_on_list.
+- Input validation: strict allowlist field validation at the HTTP boundary
+  (unknown fields rejected with 422); type/state validation in the domain
+  model's __post_init__.
+- Injection risk: all SQL is parameterized (no string interpolation of
+  request data into any query).
+- Auditability: every state transition (validated/rejected/posted/failed/
+  retried/dead-lettered) writes a real audit event through the existing
+  hash-chained writer -- no second audit mechanism introduced.
+- Concurrency: the database UNIQUE constraint is the actual safety
+  guarantee under concurrent writes, not an in-process lock; the repository
+  race-recovery path (catch FinanceIdempotencyKeyConflict, re-resolve) is
+  tested directly.
+No critical or major defect found beyond the retry_count bug above, which
+was fixed before this evidence was written.
+
+Review decision: CLOSED. All locked acceptance criteria in
+segments/S2.1-accounting-event-ledger.md are met with real, tested code;
+one implementation-detail ambiguity in the design doc was resolved and
+reported per instruction; one bug was found by testing and fixed; three
+test-list items were determined not applicable to S2.1's actual scope and
+explicitly documented as such rather than faked.

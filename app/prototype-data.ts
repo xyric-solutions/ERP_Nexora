@@ -1,0 +1,745 @@
+import type { CompanyMode } from "./mock-data";
+
+/**
+ * Complete navigation catalogue for the isolated Nexora ERP visual prototype.
+ * Nothing in this file is connected to Demo Account routes, APIs or data.
+ */
+
+export type PrototypePageArchetype =
+  | "dashboard"
+  | "list"
+  | "detail"
+  | "form"
+  | "approval"
+  | "workflow"
+  | "report"
+  | "settings";
+
+export type PrototypePageStatus = "prototype" | "coming-soon" | "not-implemented";
+export type PrototypeModuleCategory = "Command centre" | "Finance & trade" | "Operations & people" | "Platform & governance";
+
+export interface PrototypePage {
+  id: string;
+  label: string;
+  archetype: PrototypePageArchetype;
+  status: PrototypePageStatus;
+}
+
+export interface PrototypeMenuGroup {
+  id: string;
+  label: string;
+  pages: readonly PrototypePage[];
+}
+
+export interface PrototypeModule {
+  id: string;
+  code: string;
+  label: string;
+  shortLabel: string;
+  description: string;
+  category: PrototypeModuleCategory;
+  modes: readonly CompanyMode[];
+  groups: readonly PrototypeMenuGroup[];
+}
+
+const allModes = ["service", "trading", "manufacturing"] as const satisfies readonly CompanyMode[];
+const p = (id: string, label: string, archetype: PrototypePageArchetype = "list", status: PrototypePageStatus = "prototype"): PrototypePage => ({ id, label, archetype, status });
+const g = (id: string, label: string, pages: readonly PrototypePage[]): PrototypeMenuGroup => ({ id, label, pages });
+
+export const prototypeModules = [
+  {
+    id: "dashboard", code: "OV", label: "Dashboard / Overview", shortLabel: "Dashboard",
+    description: "Role-aware enterprise command centre for KPIs, exceptions, approvals and operational priorities.",
+    category: "Command centre", modes: allModes,
+    groups: [g("command-centres", "Command Centres", [
+      p("ceo-executive-dashboard", "CEO Executive Command Centre", "dashboard"),
+      p("cfo-dashboard", "CFO Dashboard", "dashboard"),
+      p("finance-manager-dashboard", "Finance Manager Dashboard", "dashboard"),
+      p("production-manager-dashboard", "Production Manager Dashboard", "dashboard"),
+      p("hr-manager-dashboard", "HR Manager Dashboard", "dashboard"),
+      p("purchasing-manager-dashboard", "Purchasing Manager Dashboard", "dashboard"),
+      p("sales-manager-dashboard", "Sales Manager Dashboard", "dashboard"),
+      p("accountant-workspace", "Accountant Workspace", "dashboard"),
+      p("sales-executive-dashboard", "Sales Executive Workspace", "dashboard"),
+      p("procurement-officer-dashboard", "Procurement Officer Workspace", "dashboard"),
+      p("inventory-manager-dashboard", "Inventory Manager Dashboard", "dashboard"),
+      p("warehouse-dashboard", "Warehouse Operations Dashboard", "dashboard"),
+      p("project-manager-dashboard", "Project Manager Dashboard", "dashboard"),
+      p("admin-dashboard", "Administrator Control Centre", "dashboard"),
+      p("crm-manager-dashboard", "CRM Manager Dashboard", "dashboard"),
+      p("ar-manager-dashboard", "Accounts Receivable Dashboard", "dashboard"),
+      p("ap-manager-dashboard", "Accounts Payable Dashboard", "dashboard"),
+      p("tax-manager-dashboard", "Tax Manager Dashboard", "dashboard"),
+      p("auditor-dashboard", "Auditor Assurance Dashboard", "dashboard"),
+      p("kpi-drilldown", "KPI Drill-down & Alerts", "detail"),
+    ])],
+  },
+  {
+    id: "banking", code: "BK", label: "Banking & Treasury", shortLabel: "Bank",
+    description: "Cash visibility, payments, receipts, transfers, reconciliation and treasury controls.",
+    category: "Finance & trade", modes: allModes,
+    groups: [
+      g("bank", "Bank", [p("account-balances", "Account Balances"), p("bank-payments", "Bank Payments"), p("bank-receipts", "Bank Receipts"), p("transfers", "Transfers"), p("bank-reconciliation", "Reconciliation", "workflow"), p("import-statement", "Import Statement", "form"), p("revaluation", "Revaluation", "form"), p("one-bill", "1Bill")]),
+      g("bank-entry", "Transaction Entry", [p("add-bank-payment", "Add Bank Payment", "form"), p("add-bank-receipt", "Add Bank Receipt", "form"), p("add-transfer", "Add Bank Transfer", "form"), p("add-bank-charge", "Add Bank Charge", "form"), p("add-bank-interest", "Add Bank Interest", "form"), p("issue-cheque", "Issue Cheque", "form"), p("receive-cheque", "Receive Cheque", "form"), p("add-deposit", "Add Bank Deposit", "form"), p("transaction-detail", "Bank Transaction Detail", "detail")]),
+      g("bank-accounts", "Bank Accounts", [p("bank-accounts", "Bank & Cash Accounts"), p("add-bank-account", "Bank Account Setup", "form"), p("bank-account-detail", "Bank Account Detail", "detail"), p("bank-statement", "Bank Statement", "report")]),
+      g("instruments", "Treasury & Instruments", [p("overview", "Treasury Overview", "dashboard"), p("cash-forecast", "Cash Forecast", "report"), p("statement-matching", "Statement Matching", "workflow"), p("bank-charges", "Bank Charges"), p("bank-interest", "Bank Interest"), p("cheques", "Cheques"), p("post-dated-cheques", "Post-dated Cheques"), p("deposit-slips", "Deposit Slips"), p("bank-guarantees", "Bank Guarantees"), p("letters-of-credit", "Letters of Credit"), p("treasury-reports", "Treasury Reports", "report")]),
+    ],
+  },
+  {
+    id: "sales", code: "SL", label: "Sales & Billing", shortLabel: "Sales",
+    description: "Quotation-to-cash workspace for orders, fulfilment, invoicing, adjustments and commercial reporting.",
+    category: "Finance & trade", modes: allModes,
+    groups: [
+      g("quotations", "Quotations", [p("quotations", "All Quotations"), p("add-quotation", "Add Quotation", "form"), p("quotation-detail", "Quotation Detail", "detail")]),
+      g("orders", "Sales Orders", [p("sales-orders", "All Sales Orders"), p("add-sales-order", "Add Sales Order", "form"), p("sales-order-detail", "Sales Order Detail", "detail"), p("pick-pack-delivery", "Pick, Pack & Delivery", "workflow")]),
+      g("invoices", "Invoices", [p("invoices", "All Invoices"), p("add-invoice", "Add Invoice", "form"), p("invoice-detail", "Invoice Detail", "detail"), p("credit-note", "Credit Note", "form"), p("debit-note", "Debit Note", "form"), p("batch-invoice", "Batch Invoice", "form"), p("proforma-invoice", "Proforma Invoice", "form")]),
+      g("sales-control", "Returns & Control", [p("sales-returns", "Sales Returns"), p("pricing", "Pricing & Discounts", "settings"), p("sales-approvals", "Sales Approvals", "approval"), p("sales-reports", "Sales Reports", "report")]),
+    ],
+  },
+  {
+    id: "revenue", code: "RV", label: "Revenue & Subscriptions", shortLabel: "Revenue",
+    description: "Combined contract revenue, recurring billing, usage, renewals and revenue recognition prototype.",
+    category: "Finance & trade", modes: ["service", "trading"],
+    groups: [
+      g("revenue-contracts", "Revenue Contracts", [p("revenue-contracts", "Contract Workspace"), p("add-revenue-contract", "Add Revenue Contract", "form"), p("performance-obligations", "Performance Obligations", "detail"), p("transaction-price", "Transaction Price Allocation", "form"), p("fulfilment-evidence", "Fulfilment Evidence", "detail")]),
+      g("recognition", "Recognition", [p("recognition-schedules", "Recognition Schedules"), p("recognition-run", "Recognition Run", "workflow"), p("recognition-exceptions", "Exceptions & Holds", "approval"), p("contract-modifications", "Contract Modifications", "form"), p("revenue-rollforward", "Revenue Roll-forward", "report")]),
+      g("subscriptions", "Subscriptions", [p("plans", "Plan Catalogue"), p("plan-editor", "Plan Editor", "form"), p("subscriptions", "Subscription Contracts"), p("subscription-detail", "Subscription Detail", "detail"), p("amend-subscription", "Amend, Pause or Cancel", "form"), p("usage-ingestion", "Usage Validation", "workflow")]),
+      g("recurring-billing", "Recurring Billing", [p("billing-schedules", "Billing Schedules"), p("billing-run", "Billing Run", "workflow"), p("dunning", "Dunning & Recovery", "workflow"), p("renewals", "Renewal & Churn Workspace"), p("subscription-analytics", "MRR, ARR & Cohorts", "report")]),
+    ],
+  },
+  {
+    id: "customers", code: "AR", label: "Customers / Accounts Receivable", shortLabel: "Customers",
+    description: "Customer master data, credit, open items, collections, statements and receivable control.",
+    category: "Finance & trade", modes: allModes,
+    groups: [
+      g("customer-master", "Customers", [p("customers", "Customer Directory"), p("add-customer", "Add Customer", "form"), p("customer-profile", "Customer Financial Profile", "detail"), p("credit-limit-review", "Credit Limit Review", "approval")]),
+      g("receivables", "Receivables", [p("open-items", "Open-item Ledger"), p("customer-receipts", "Customer Receipts"), p("add-customer-receipt", "Add Customer Receipt", "form"), p("receipt-allocation", "Receipt & Credit Allocation", "workflow"), p("refund-writeoff", "Refunds & Write-offs", "form")]),
+      g("collections", "Collections", [p("ar-ageing", "AR Ageing", "report"), p("collections-disputes", "Collections & Disputes"), p("customer-statements", "Customer Statements", "report"), p("ar-reconciliation", "AR to GL Reconciliation", "workflow")]),
+    ],
+  },
+  {
+    id: "purchases", code: "PR", label: "Purchases & Procurement", shortLabel: "Purchases",
+    description: "Request-to-pay sourcing, ordering, receiving, quality, matching and procurement analytics.",
+    category: "Finance & trade", modes: allModes,
+    groups: [
+      g("requisitions", "Purchase Requisitions", [p("purchase-requisitions", "All Requisitions"), p("add-requisition", "Add Requisition", "form"), p("requisition-detail", "Requisition Detail", "detail"), p("requisition-approval", "Requisition Approval", "approval"), p("budget-check", "Budget & Commitment Check", "workflow")]),
+      g("sourcing", "Sourcing", [p("rfqs", "Requests for Quotation"), p("add-rfq", "Add RFQ", "form"), p("supplier-quotations", "Supplier Quotations"), p("bid-comparison", "Bid Comparison", "report"), p("supplier-evaluation", "Supplier Evaluation", "approval"), p("award-recommendation", "Award Recommendation", "approval")]),
+      g("orders-receipts", "Orders & Receipts", [p("purchase-orders", "Purchase Orders"), p("add-purchase-order", "Add Purchase Order", "form"), p("purchase-order-detail", "Purchase Order Detail", "detail"), p("purchase-order-approval", "PO Approval", "approval"), p("gate-inward-pass", "Gate Inward Pass", "form"), p("goods-receipts", "Goods Receipts"), p("add-goods-receipt", "Add Goods Receipt", "form"), p("quality-handoff", "Quality Inspection Handoff", "workflow")]),
+      g("bills-match", "Bills & Match", [p("service-entry", "Service Entry", "form"), p("purchase-bills", "Purchase Bills"), p("add-purchase-bill", "Add Purchase Bill", "form"), p("three-way-match", "2 / 3-way Match", "workflow"), p("match-exceptions", "Match Exceptions", "approval"), p("supplier-returns", "Supplier Returns", "form"), p("procurement-reports", "Procurement Reports", "report")]),
+    ],
+  },
+  {
+    id: "suppliers", code: "AP", label: "Suppliers / Accounts Payable", shortLabel: "Suppliers",
+    description: "Supplier onboarding, payable controls, payment proposals, holds, statements and reconciliation.",
+    category: "Finance & trade", modes: allModes,
+    groups: [
+      g("supplier-master", "Suppliers", [p("suppliers", "Supplier Directory"), p("add-supplier", "Add Supplier", "form"), p("supplier-profile", "Supplier Financial Profile", "detail"), p("supplier-onboarding", "Onboarding & KYC", "workflow"), p("bank-verification", "Bank Detail Verification", "approval")]),
+      g("payables", "Payables", [p("payable-bills", "Payable Bills"), p("ap-open-items", "AP Open-item Ledger"), p("duplicate-bill-review", "Duplicate Bill Review", "approval"), p("supplier-advances", "Advances & Credits", "form"), p("holds-disputes", "Holds & Disputes")]),
+      g("payments", "Payments", [p("payment-proposals", "Payment Proposals"), p("payment-request", "Payment Request", "form"), p("payment-approval", "Payment Approval", "approval"), p("supplier-statements", "Supplier Statements", "report"), p("ap-ageing", "AP Ageing", "report"), p("ap-reconciliation", "AP to GL Reconciliation", "workflow")]),
+    ],
+  },
+  {
+    id: "inventory", code: "IN", label: "Inventory & Warehousing", shortLabel: "Inventory",
+    description: "Item, warehouse and stock control from receipt through reservation, movement, count and valuation.",
+    category: "Operations & people", modes: ["trading", "manufacturing"],
+    groups: [
+      g("masters", "Inventory Masters", [p("items", "Item Master"), p("add-item", "Add Item", "form"), p("item-detail", "Item Detail", "detail"), p("warehouses", "Warehouses, Locations & Bins"), p("warehouse-editor", "Warehouse Editor", "form")]),
+      g("stock-control", "Stock Control", [p("stock-position", "Stock Position", "dashboard"), p("stock-ledger", "Stock Ledger", "report"), p("reservations", "Reservations"), p("pick-tasks", "Pick Tasks"), p("pack-dispatch", "Pack & Dispatch", "workflow"), p("stock-issues", "Stock Issues", "form"), p("stock-transfers", "Stock Transfers", "form"), p("replenishment", "Replenishment")]),
+      g("counts-traceability", "Counts & Traceability", [p("cycle-counts", "Cycle Counts"), p("inventory-adjustments", "Inventory Adjustments", "approval"), p("batch-serial", "Batch, Serial & Expiry"), p("genealogy", "Movement Genealogy", "detail"), p("quarantine-recall", "Quarantine & Recall", "workflow")]),
+      g("valuation", "Valuation", [p("inventory-valuation", "Inventory Valuation", "report"), p("inventory-revaluation", "Inventory Revaluation", "form"), p("inventory-reports", "Inventory Reports", "report")]),
+    ],
+  },
+  {
+    id: "costing", code: "CS", label: "Costing & Landed Cost", shortLabel: "Costing",
+    description: "Cost policies, landed-cost allocations, standards, variances and reconciliation.",
+    category: "Finance & trade", modes: ["trading", "manufacturing"],
+    groups: [
+      g("landed-cost", "Landed Cost", [p("costing-overview", "Costing Overview", "dashboard"), p("cost-policies", "Cost Policies", "settings"), p("landed-cost-shipments", "Landed-cost Shipments"), p("charge-capture", "Charge Capture", "form"), p("allocation-preview", "Allocation Preview", "detail"), p("allocation-approval", "Allocation Approval & Posting", "approval")]),
+      g("item-costs", "Item Costs", [p("item-cost-history", "Item Cost History", "report"), p("standard-cost", "Standard Cost Versions"), p("standard-cost-editor", "Standard Cost Editor", "form"), p("cost-variance", "Cost Variance", "report"), p("cost-gl-reconciliation", "Cost to GL Reconciliation", "workflow"), p("costing-reports", "Costing Reports", "report")]),
+    ],
+  },
+  {
+    id: "finance", code: "FN", label: "Finance & Accounting", shortLabel: "Finance",
+    description: "Chart of Accounts, journals, ledgers, close, consolidation and statutory statements.",
+    category: "Finance & trade", modes: allModes,
+    groups: [
+      g("chart-of-accounts", "Chart of Accounts", [p("chart-of-accounts", "Chart of Accounts Overview"), p("nominals", "Nominals"), p("section-management", "Section Management"), p("nominal-detail", "Nominal Account Detail", "detail"), p("add-nominal", "Add Nominal", "form")]),
+      g("journals", "Journals", [p("journal-register", "Journal Register"), p("manual-journal", "Manual Journal", "form"), p("journal-detail", "Journal Detail", "detail"), p("journal-approval", "Journal Approval & Posting", "approval"), p("journal-reversal", "Journal Reversal", "form"), p("recurring-journals", "Recurring Journals")]),
+      g("ledgers-close", "Ledgers & Close", [p("accounting-events", "Accounting Event Ledger"), p("general-ledger", "General Ledger", "report"), p("fiscal-periods", "Fiscal Periods", "settings"), p("period-close", "Period-close Workbench", "workflow"), p("finance-revaluation", "FX Revaluation", "form")]),
+      g("group-reporting", "Group & Reporting", [p("intercompany", "Intercompany Transactions"), p("consolidation", "Consolidation Workbench", "workflow"), p("trial-balance", "Trial Balance", "report"), p("financial-statements", "Financial Statements", "report"), p("finance-drilldown", "Finance Drill-down", "detail"), p("finance-audit", "Finance Audit Trail", "report")]),
+    ],
+  },
+  {
+    id: "tax", code: "TX", label: "Taxation & Compliance", shortLabel: "Tax",
+    description: "Jurisdictions, rules, transaction tax, returns, e-invoicing and evidence controls.",
+    category: "Finance & trade", modes: allModes,
+    groups: [
+      g("setup", "Tax Setup", [p("tax-overview", "Tax Overview", "dashboard"), p("jurisdictions", "Jurisdictions & Registrations"), p("tax-rules", "Tax Rule Catalogue"), p("tax-code-editor", "Tax Code Editor", "form"), p("withholding-setup", "Withholding Setup", "settings")]),
+      g("transaction-tax", "Transaction Tax", [p("tax-preview", "Transaction Tax Preview", "detail"), p("tax-exceptions", "Tax Exception Queue", "approval"), p("einvoice-monitor", "E-invoice Monitor", "workflow")]),
+      g("returns", "Returns & Evidence", [p("tax-returns", "Return Workbench", "workflow"), p("tax-reconciliation", "Tax Reconciliation", "workflow"), p("tax-certificates", "Certificates & Evidence"), p("tax-reports", "Tax Reports", "report")]),
+    ],
+  },
+  {
+    id: "operations", code: "OP", label: "Operations", shortLabel: "Operations",
+    description: "Daily operating board, work orders, dispatch, completion, incidents and shift handovers.",
+    category: "Operations & people", modes: allModes,
+    groups: [
+      g("execution", "Execution", [p("operations-board", "Daily Operations Board", "dashboard"), p("work-orders", "Operational Work Orders"), p("add-work-order", "Add Work Order", "form"), p("dispatch-assignment", "Dispatch & Assignment", "workflow"), p("execution-checklist", "Execution Checklist", "form"), p("service-completion", "Completion & Acceptance", "approval")]),
+      g("control", "Control", [p("incidents", "Exceptions & Incidents"), p("incident-detail", "Incident Detail", "detail"), p("shift-handover", "Shift & Site Handover", "form"), p("operations-reports", "Operations Reports", "report")]),
+    ],
+  },
+  {
+    id: "fleet", code: "FL", label: "Fleet Management", shortLabel: "Fleet",
+    description: "Vehicle, driver, trip, fuel, maintenance, compliance, incident and whole-life cost control.",
+    category: "Operations & people", modes: allModes,
+    groups: [
+      g("fleet-command", "Fleet Command Centre", [p("fleet-overview", "Fleet Overview", "dashboard"), p("fleet-calendar", "Fleet Calendar", "dashboard")]),
+      g("fleet-masters", "Vehicles & Drivers", [p("vehicles", "Vehicle Register"), p("add-vehicle", "Add Vehicle", "form"), p("vehicle-detail", "Vehicle 360°", "detail"), p("vehicle-categories", "Vehicle Categories & Policies", "settings"), p("drivers", "Driver Register"), p("add-driver", "Add Driver", "form"), p("driver-detail", "Driver 360°", "detail")]),
+      g("fleet-dispatch", "Assignments & Dispatch", [p("vehicle-assignments", "Vehicle Assignments"), p("add-assignment", "Add Vehicle Assignment", "form"), p("dispatch-board", "Dispatch Board", "workflow"), p("trips", "Trip Register"), p("add-trip", "Add Trip", "form"), p("trip-detail", "Trip Detail", "detail"), p("route-planning", "Route Planning", "workflow")]),
+      g("fleet-fuel", "Fuel & Road Costs", [p("fuel-register", "Fuel Register"), p("add-fuel-entry", "Add Fuel Entry", "form"), p("fuel-card-management", "Fuel Cards"), p("fuel-reconciliation", "Fuel Reconciliation", "workflow"), p("tolls-fines", "Tolls, Fines & Other Costs"), p("add-road-cost", "Add Road Cost", "form")]),
+      g("fleet-maintenance", "Maintenance & Components", [p("maintenance-dashboard", "Maintenance Dashboard", "dashboard"), p("maintenance-plans", "Maintenance Plans"), p("add-maintenance-plan", "Add Maintenance Plan", "form"), p("service-work-orders", "Service Work Orders"), p("add-service-work-order", "Add Service Work Order", "form"), p("service-work-order-detail", "Service Work Order Detail", "detail"), p("tyres-batteries", "Tyres & Batteries"), p("spare-parts-usage", "Spare Parts Usage"), p("inspection-schedule", "Inspection Schedule", "workflow")]),
+      g("fleet-compliance", "Compliance & Incidents", [p("registration-insurance", "Registration, Insurance & Permits"), p("renewal-calendar", "Renewal Calendar", "workflow"), p("driver-licence-compliance", "Driver Licence Compliance"), p("accidents-incidents", "Accidents & Incidents"), p("add-incident", "Add Incident", "form"), p("incident-claim-detail", "Incident & Claim Detail", "detail"), p("claims", "Insurance Claims")]),
+      g("fleet-analysis", "Cost, Controls & Reports", [p("vehicle-costing", "Vehicle Whole-life Cost", "report"), p("utilisation-downtime", "Utilisation & Downtime", "report"), p("fuel-efficiency", "Fuel Efficiency", "report"), p("maintenance-cost-analysis", "Maintenance Cost Analysis", "report"), p("fleet-reports", "Fleet Reports", "report"), p("fleet-approvals", "Fleet Approvals", "approval"), p("fleet-settings", "Fleet Settings", "settings")]),
+    ],
+  },
+  {
+    id: "manufacturing", code: "MF", label: "Production / Manufacturing", shortLabel: "Manufacturing",
+    description: "BOM, routing, planning, MRP, production execution, capacity and production costing.",
+    category: "Operations & people", modes: ["manufacturing"],
+    groups: [
+      g("engineering", "Product Engineering", [p("manufacturing-overview", "Production Overview", "dashboard"), p("boms", "BOM Catalogue"), p("bom-editor", "BOM Editor", "form"), p("routings", "Routings"), p("routing-editor", "Routing Editor", "form"), p("work-centres", "Work Centres & Machines")]),
+      g("planning", "Planning", [p("demand-plan", "Demand Plan"), p("mrp-run", "MRP Run", "workflow"), p("material-requirements", "Material Requirements"), p("capacity-planner", "Capacity Planner", "dashboard")]),
+      g("production", "Production", [p("production-orders", "Production Orders"), p("add-production-order", "Add Production Order", "form"), p("production-order-detail", "Production Order Detail", "detail"), p("release-production-order", "Release Production Order", "approval"), p("material-issue", "Material Issue", "form"), p("wip-tracking", "WIP Tracking", "workflow"), p("production-completion", "Production Completion", "form")]),
+      g("exceptions", "Exceptions & Cost", [p("scrap-rework", "Scrap, By-product & Rework", "form"), p("subcontracting", "Subcontracting"), p("production-variance", "Production Cost & Variance", "report"), p("production-reports", "Production Reports", "report")]),
+    ],
+  },
+  {
+    id: "quality", code: "QM", label: "Quality Management", shortLabel: "Quality",
+    description: "Specifications, inspections, quarantine, non-conformance, CAPA and traceability.",
+    category: "Operations & people", modes: ["trading", "manufacturing"],
+    groups: [
+      g("quality-planning", "Quality Planning", [p("quality-dashboard", "Quality Dashboard", "dashboard"), p("quality-plans", "Quality Plans & Specifications"), p("quality-plan-editor", "Quality Plan Editor", "form")]),
+      g("inspection", "Inspection", [p("inspection-queue", "Inspection Queue"), p("inspection-execution", "Inspection Execution", "form"), p("quarantine-disposition", "Quarantine & Disposition", "approval"), p("quality-approvals", "Quality Approvals", "approval")]),
+      g("improvement", "Improvement", [p("non-conformance", "Non-conformance"), p("capa", "Corrective & Preventive Actions", "workflow"), p("supplier-quality", "Supplier Quality"), p("quality-traceability", "Traceability & Recall", "workflow"), p("quality-reports", "Quality Reports", "report")]),
+    ],
+  },
+  {
+    id: "crm", code: "CR", label: "CRM", shortLabel: "CRM",
+    description: "Accounts, leads, opportunities, activities, proposals, pipeline and forecasts.",
+    category: "Operations & people", modes: allModes,
+    groups: [
+      g("relationships", "Relationships", [p("crm-dashboard", "CRM Dashboard", "dashboard"), p("accounts-contacts", "Accounts & Contacts"), p("account-detail", "Account & Contact Detail", "detail")]),
+      g("pipeline", "Pipeline", [p("lead-inbox", "Lead Inbox"), p("lead-detail", "Lead Qualification", "detail"), p("opportunities", "Opportunity Pipeline", "workflow"), p("opportunity-detail", "Opportunity Workbench", "detail"), p("activities", "Activities & Timeline")]),
+      g("forecasting", "Handoff & Forecast", [p("proposal-handoff", "Proposal Handoff", "workflow"), p("sales-forecast", "Sales Forecast", "report"), p("crm-reports", "CRM Reports", "report")]),
+    ],
+  },
+  {
+    id: "projects", code: "PJ", label: "Projects & Professional Services", shortLabel: "Projects",
+    description: "Portfolio, contracts, WBS, budgets, delivery, billing, WIP and profitability.",
+    category: "Operations & people", modes: ["service", "trading"],
+    groups: [
+      g("portfolio", "Portfolio", [p("project-dashboard", "Project Dashboard", "dashboard"), p("projects", "Project Portfolio"), p("add-project", "Add Project", "form"), p("project-detail", "Project Detail", "detail"), p("project-setup", "Project Setup & Contract", "form")]),
+      g("planning-delivery", "Planning & Delivery", [p("wbs-milestones", "WBS & Milestones", "workflow"), p("project-budget", "Project Budget", "form"), p("delivery-board", "Delivery Board", "workflow"), p("project-status", "Project Status", "detail")]),
+      g("commercials", "Commercials", [p("time-expense-review", "Time & Expense Review", "approval"), p("project-billing", "Milestone & T&M Billing", "form"), p("revenue-wip", "Revenue & WIP", "report"), p("project-profitability", "Project Profitability", "report"), p("project-close", "Project Close", "workflow"), p("project-reports", "Project Reports", "report")]),
+    ],
+  },
+  {
+    id: "resources", code: "RS", label: "Resource Management & Utilisation", shortLabel: "Resources",
+    description: "Skills, availability, allocation, utilisation, bench and demand planning for service delivery.",
+    category: "Operations & people", modes: ["service"],
+    groups: [
+      g("resources", "Resources", [p("resource-dashboard", "Resource Dashboard", "dashboard"), p("resource-profiles", "Resource & Skill Profiles"), p("resource-profile", "Resource Profile", "detail"), p("capacity-calendar", "Capacity Calendar", "dashboard")]),
+      g("allocation", "Allocation", [p("allocation-planner", "Allocation Planner", "workflow"), p("allocation-requests", "Allocation Requests"), p("allocation-approval", "Allocation Approval", "approval")]),
+      g("utilisation", "Utilisation", [p("utilisation-bench", "Utilisation & Bench", "report"), p("demand-forecast", "Demand Forecast", "report"), p("timesheet-capacity", "Timesheet Capacity View", "report"), p("resource-reports", "Resource Reports", "report")]),
+    ],
+  },
+  {
+    id: "support", code: "HD", label: "Helpdesk / Support / AMC", shortLabel: "Support",
+    description: "Tickets, SLAs, knowledge, service entitlements, AMC renewals and support analytics.",
+    category: "Operations & people", modes: ["service", "trading"],
+    groups: [
+      g("service-desk", "Service Desk", [p("support-dashboard", "Support Dashboard", "dashboard"), p("ticket-queue", "Ticket Queue"), p("add-ticket", "Add Ticket", "form"), p("ticket-workbench", "Ticket Workbench", "detail"), p("sla-policies", "SLA & Priority Policies", "settings"), p("knowledge-search", "Knowledge Search")]),
+      g("contracts", "Contracts & Entitlements", [p("amc-contracts", "Support & AMC Contracts"), p("amc-contract-detail", "AMC Contract Detail", "detail"), p("entitlement-consumption", "Entitlement Consumption", "report"), p("renewal-escalation", "Renewal & Escalation", "workflow"), p("support-reports", "Support Reports", "report")]),
+    ],
+  },
+  {
+    id: "hr", code: "HR", label: "HR & Payroll", shortLabel: "HR & Payroll",
+    description: "Employee lifecycle, attendance, leave, payroll, benefits, statutory deductions and self-service.",
+    category: "Operations & people", modes: allModes,
+    groups: [
+      g("organisation", "Organisation & Masters", [p("org-structure", "Organisation Structure"), p("designations", "Designations"), p("job-grades", "Job Grades"), p("cost-centres", "Cost Centres"), p("work-locations", "Work Locations"), p("employment-types", "Employment Types"), p("employee-categories", "Employee Categories")]),
+      g("people", "People", [p("hr-dashboard", "HR Dashboard", "dashboard"), p("finance-payroll-dashboard", "Finance / Payroll Dashboard", "dashboard"), p("employees", "Employee Directory"), p("add-employee", "Add Employee", "form"), p("employee-record", "Employee Record", "detail"), p("positions-org", "Positions & Organisation")]),
+      g("recruitment", "Recruitment", [
+        p("manpower-requisitions", "Manpower Requisitions", "approval"), p("job-openings", "Job Openings"), p("candidates", "Candidate Directory"),
+        p("recruitment-pipeline", "Recruitment Pipeline", "workflow"), p("interviews", "Interviews & Evaluations", "workflow"), p("offers", "Offer Management", "approval"),
+        p("create-employee-from-offer", "Create Employee from Offer", "workflow"),
+      ]),
+      g("attendance-shifts", "Attendance & Shifts", [p("shifts", "Shifts & Rules", "settings"), p("shift-assignments", "Shift Assignments"), p("daily-attendance", "Daily Attendance"), p("monthly-attendance", "Monthly Attendance"), p("attendance-corrections", "Attendance Corrections", "approval"), p("overtime", "Overtime", "approval"), p("attendance-period", "Attendance Period Close", "workflow"), p("attendance-payroll-inputs", "Attendance → Payroll Inputs", "report")]),
+      g("time-leave", "Time & Leave", [p("leave-types", "Leave Types", "settings"), p("leave-balances", "Leave Balances"), p("attendance", "Attendance"), p("leave-requests", "Leave Requests"), p("leave-request", "Add Leave Request", "form"), p("leave-approval", "Leave Approval", "approval")]),
+      g("payroll", "Payroll", [p("payroll-setup", "Pay Components", "settings"), p("salary-structures", "Salary Structures"), p("salary-revisions", "Salary Revisions", "approval"), p("payroll-inputs", "Payroll Inputs", "form"), p("payroll-runs", "Payroll Runs"), p("payroll-validation", "Payroll Review & Approval", "approval"), p("employee-loans", "Loans & Advances"), p("payroll-journal", "Payroll Journal", "report"), p("payment-batch", "Payment Batch", "workflow"), p("payslips", "Payslips & Payment Handoff", "workflow")]),
+      g("performance", "Performance Management", [
+        p("performance-cycles", "Performance Cycles", "settings"), p("goals-kpis", "Goals & KPIs", "workflow"),
+        p("performance-reviews", "Performance Reviews", "approval"), p("performance-outcomes", "Performance Outcomes", "workflow"),
+      ]),
+      g("learning", "Learning & Development", [
+        p("training-programs", "Training Programmes", "settings"), p("training-requests", "Training Requests", "approval"),
+        p("training-sessions", "Training Sessions", "workflow"), p("training-completions", "Completion & Certificates", "workflow"),
+      ]),
+      g("employee-lifecycle", "Employee Lifecycle", [
+        p("onboarding", "Onboarding", "workflow"), p("probation-reviews", "Probation Reviews", "approval"),
+        p("employee-movements", "Transfers, Promotions & Movements", "approval"), p("resignations", "Resignations", "workflow"),
+        p("terminations", "Termination Cases", "approval"), p("clearance", "Exit Clearance", "workflow"),
+        p("final-settlements", "Final Settlements", "approval"), p("offboarding", "Offboarding Control Centre", "workflow"),
+      ]),
+      g("benefits-self-service", "Benefits & Self-service", [p("loans-benefits", "Loans, Benefits & Gratuity"), p("statutory-deductions", "Statutory Deductions", "settings"), p("employee-self-service", "Employee Self-service", "dashboard"), p("hr-report-centre", "HR & Payroll Report Centre", "report")]),
+      g("hr-compliance", "Reporting, Compliance & Audit", [p("hr-compliance-configuration", "Compliance Configuration", "settings"), p("hr-report-audit-log", "Report Audit Log", "report"), p("hr-export-centre", "Secure Export Centre", "workflow")]),
+    ],
+  },
+  {
+    id: "assets", code: "FA", label: "Fixed Assets & Leases", shortLabel: "Assets",
+    description: "Asset and lease lifecycle from acquisition and capitalisation through depreciation and disposal.",
+    category: "Finance & trade", modes: allModes,
+    groups: [
+      g("asset-register", "Asset Register", [p("assets-dashboard", "Assets Dashboard", "dashboard"), p("asset-classes", "Asset Classes & Policies", "settings"), p("assets", "Asset Register"), p("add-asset", "Add Asset", "form"), p("asset-detail", "Asset Detail", "detail"), p("asset-acquisition", "Acquisition & CWIP", "form"), p("capitalisation", "Capitalisation", "approval"), p("asset-transfer", "Transfer & Assignment", "form")]),
+      g("measurement", "Measurement", [p("depreciation-run", "Depreciation Run", "workflow"), p("asset-revaluation", "Revaluation & Impairment", "approval"), p("asset-disposal", "Asset Disposal", "form")]),
+      g("leases", "Leases", [p("lease-register", "Lease Register"), p("lease-detail", "Lease Detail", "detail"), p("lease-schedule", "Lease Schedule & Payments", "report"), p("asset-lease-reports", "Asset & Lease Reports", "report")]),
+    ],
+  },
+  {
+    id: "expenses", code: "EX", label: "Expense Management", shortLabel: "Expenses",
+    description: "Employee claims, receipts, mileage, corporate cards, advances, approvals and reimbursement.",
+    category: "Operations & people", modes: allModes,
+    groups: [
+      g("claims", "Claims", [p("expense-dashboard", "Expense Dashboard", "dashboard"), p("expense-policies", "Expense Policies & Categories", "settings"), p("expense-inbox", "Expense Inbox"), p("add-expense-claim", "Add Expense Claim", "form"), p("expense-detail", "Expense Claim Detail", "detail"), p("receipt-review", "Receipt Capture & OCR Review", "form"), p("mileage-perdiem", "Mileage & Per Diem", "form"), p("expense-approval", "Expense Approval", "approval")]),
+      g("settlement", "Settlement", [p("card-matching", "Corporate Card Matching", "workflow"), p("cash-advances", "Cash Advances & Settlement", "form"), p("reimbursement", "Reimbursement & Accounting", "workflow"), p("expense-reports", "Expense Reports", "report")]),
+    ],
+  },
+  {
+    id: "documents", code: "DM", label: "Document Management", shortLabel: "Documents",
+    description: "Enterprise content library with versioning, classification, sharing, retention and audit.",
+    category: "Platform & governance", modes: allModes,
+    groups: [
+      g("library", "Document Library", [p("document-dashboard", "Document Dashboard", "dashboard"), p("document-library", "Document Library"), p("upload-document", "Upload, Classify & Link", "form"), p("document-detail", "Document Detail & Versions", "detail"), p("templates", "Template Catalogue")]),
+      g("governance", "Governance", [p("access-share-review", "Access & Sharing Review", "approval"), p("retention-holds", "Retention & Legal Holds", "settings"), p("expiry-renewal", "Expiry & Renewal Queue"), p("document-audit", "Document Audit & Search", "report")]),
+    ],
+  },
+  {
+    id: "budget", code: "BP", label: "Budget & Planning", shortLabel: "Budget",
+    description: "Scenario planning, budget entry, forecasting, commitments and budget-to-actual analysis.",
+    category: "Finance & trade", modes: allModes,
+    groups: [
+      g("planning", "Planning", [p("planning-dashboard", "Planning Dashboard", "dashboard"), p("scenarios", "Planning Scenarios"), p("budget-models", "Budget Models"), p("budget-entry", "Dimensioned Budget Entry", "form"), p("budget-import", "Import & Spread", "form"), p("budget-approval", "Budget Workflow", "approval")]),
+      g("forecast-control", "Forecast & Control", [p("forecasts", "Forecast & Reforecast"), p("commitment-control", "Commitment Control", "workflow"), p("budget-availability", "Budget Availability", "report"), p("budget-actual", "Budget vs Actual", "report"), p("planning-reports", "Planning Reports", "report")]),
+    ],
+  },
+  {
+    id: "reports", code: "RA", label: "Reports & Analytics", shortLabel: "Reports",
+    description: "Cross-enterprise report catalogue, drill-down, saved views, schedules, dashboards and metric governance.",
+    category: "Command centre", modes: allModes,
+    groups: [
+      g("reporting", "Reporting", [p("analytics-dashboard", "Analytics Dashboard", "dashboard"), p("report-catalogue", "Report Catalogue"), p("report-runner", "Report Runner", "form"), p("report-viewer", "Report Viewer", "report"), p("drilldown-explorer", "Drill-down Explorer", "detail"), p("saved-views", "Saved Views & Exports")]),
+      g("executive-reports", "Executive Reports", [
+        p("executive-performance-report", "Enterprise Performance Summary", "report"),
+        p("executive-profitability-report", "Profitability by Business Unit", "report"),
+        p("executive-cash-risk-report", "Cash, Exposure & Risk Summary", "report"),
+        p("executive-kpi-variance-report", "Executive KPI Variance", "report"),
+      ]),
+      g("banking-reports", "Banking Reports", [
+        p("bank-account-activity-report", "Bank Account Activity", "report"),
+        p("bank-balance-report", "Bank & Cash Balance Summary", "report"),
+        p("bank-reconciliation-report", "Bank Reconciliation Status", "report"),
+        p("bank-unmatched-report", "Unmatched Statement Transactions", "report"),
+        p("cash-position-report", "Daily Cash Position", "report"),
+      ]),
+      g("sales-reports", "Sales Reports", [
+        p("sales-invoice-detail-report", "Invoice Details Report", "report"),
+        p("sales-order-status-report", "Sales Order Status & Fulfilment", "report"),
+        p("sales-product-performance-report", "Sales by Product & Category", "report"),
+        p("sales-customer-performance-report", "Sales by Customer & Territory", "report"),
+        p("sales-margin-report", "Sales Margin & Discount Analysis", "report"),
+        p("sales-tax-report", "Sales Tax Analysis", "report"),
+        p("sales-return-report", "Returns, Credit Notes & Adjustments", "report"),
+      ]),
+      g("revenue-reports", "Revenue Reports", [
+        p("revenue-recognition-report", "Revenue Recognition Schedule", "report"),
+        p("deferred-revenue-report", "Deferred & Unearned Revenue", "report"),
+        p("recurring-revenue-report", "Recurring Revenue Movement", "report"),
+        p("revenue-contract-report", "Contract Revenue & Obligations", "report"),
+      ]),
+      g("customer-reports", "Customer Reports", [
+        p("customer-statement-report", "Customer Statement", "report"),
+        p("customer-outstanding-report", "Customer Payments Outstanding", "report"),
+        p("customer-ageing-report", "Receivables Ageing by Customer", "report"),
+        p("customer-advance-report", "Customer Advance Payments", "report"),
+        p("customer-credit-report", "Credit Limit & Exposure", "report"),
+        p("customer-receipt-allocation-report", "Receipt Allocation & Unapplied Cash", "report"),
+      ]),
+      g("purchase-reports", "Purchase Reports", [
+        p("purchase-requisition-report", "Purchase Requisition Status", "report"),
+        p("rfq-comparison-report", "RFQ & Supplier Quotation Comparison", "report"),
+        p("purchase-order-detail-report", "Purchase Order Details", "report"),
+        p("purchase-receipt-report", "GRN & Pending Receipt Report", "report"),
+        p("purchase-bill-detail-report", "Purchase Bill Details", "report"),
+        p("purchase-price-variance-report", "Purchase Price Variance", "report"),
+        p("three-way-match-report", "Three-way Match Exceptions", "report"),
+      ]),
+      g("supplier-reports", "Supplier Reports", [
+        p("supplier-statement-report", "Supplier Statement", "report"),
+        p("supplier-outstanding-report", "Supplier Payments Outstanding", "report"),
+        p("supplier-ageing-report", "Payables Ageing by Supplier", "report"),
+        p("supplier-advance-report", "Supplier Advances & Deposits", "report"),
+        p("supplier-performance-report", "Supplier Delivery & Quality Performance", "report"),
+      ]),
+      g("inventory-reports", "Inventory Reports", [
+        p("inventory-stock-balance-report", "Stock Balance by Item & Warehouse", "report"),
+        p("inventory-valuation-report", "Inventory Valuation", "report"),
+        p("inventory-movement-report", "Stock Movement & Ledger", "report"),
+        p("inventory-ageing-report", "Inventory Ageing", "report"),
+        p("inventory-slow-moving-report", "Slow-moving & Dead Stock", "report"),
+        p("inventory-reorder-report", "Reorder, Shortage & Availability", "report"),
+        p("inventory-count-variance-report", "Stock Count Variance", "report"),
+      ]),
+      g("costing-reports", "Costing Reports", [
+        p("cost-centre-report", "Cost Centre Performance", "report"),
+        p("job-cost-report", "Job & Work Order Cost", "report"),
+        p("standard-actual-cost-report", "Standard vs Actual Cost", "report"),
+        p("overhead-absorption-report", "Overhead Absorption", "report"),
+        p("cost-variance-report", "Material, Labour & Overhead Variance", "report"),
+      ]),
+      g("finance-reports", "Finance Reports", [
+        p("general-ledger-detail-report", "General Ledger Detail", "report"),
+        p("trial-balance-report", "Trial Balance", "report"),
+        p("profit-loss-report", "Profit & Loss Statement", "report"),
+        p("balance-sheet-report", "Balance Sheet", "report"),
+        p("cash-flow-report", "Cash Flow Statement", "report"),
+        p("journal-register-report", "Journal Register & Posting Audit", "report"),
+        p("budget-actual-finance-report", "Budget vs Actual by Account", "report"),
+        p("financial-ratio-report", "Financial Ratios & Trends", "report"),
+      ]),
+      g("tax-reports", "Tax Reports", [
+        p("sales-tax-return-report", "Sales Tax Return Detail", "report"),
+        p("input-output-tax-report", "Input vs Output Tax Reconciliation", "report"),
+        p("withholding-tax-report", "Withholding Tax Register", "report"),
+        p("tax-liability-report", "Tax Liability & Payment Schedule", "report"),
+        p("tax-exception-report", "Tax Exceptions & Missing Evidence", "report"),
+      ]),
+      g("operations-reports", "Operations Reports", [
+        p("operations-throughput-report", "Operational Throughput", "report"),
+        p("operations-sla-report", "SLA & Turnaround Performance", "report"),
+        p("operations-exception-report", "Operational Exceptions", "report"),
+        p("operations-capacity-report", "Capacity & Workload", "report"),
+      ]),
+      g("manufacturing-reports", "Manufacturing Reports", [
+        p("production-output-report", "Production Output & Attainment", "report"),
+        p("production-plan-actual-report", "Production Plan vs Actual", "report"),
+        p("production-wip-report", "Work in Progress", "report"),
+        p("production-consumption-report", "Material Consumption", "report"),
+        p("production-efficiency-report", "Machine & Labour Efficiency", "report"),
+        p("production-scrap-report", "Scrap, Yield & Rework", "report"),
+        p("production-variance-report", "Production Cost Variance", "report"),
+      ]),
+      g("quality-reports", "Quality Reports", [
+        p("quality-inspection-report", "Inspection Results", "report"),
+        p("quality-nonconformance-report", "Non-conformance Analysis", "report"),
+        p("quality-capa-report", "CAPA Status & Effectiveness", "report"),
+        p("quality-supplier-defect-report", "Supplier Defect Analysis", "report"),
+        p("quality-customer-return-report", "Customer Return Quality Analysis", "report"),
+      ]),
+      g("crm-reports", "CRM Reports", [
+        p("crm-pipeline-report", "Opportunity Pipeline", "report"),
+        p("crm-conversion-report", "Lead & Opportunity Conversion", "report"),
+        p("crm-activity-report", "Sales Activity & Follow-up", "report"),
+        p("crm-forecast-report", "Weighted Sales Forecast", "report"),
+        p("crm-campaign-report", "Campaign Response & ROI", "report"),
+      ]),
+      g("project-reports", "Project Reports", [
+        p("project-profitability-report", "Project Profitability", "report"),
+        p("project-budget-actual-report", "Project Budget vs Actual", "report"),
+        p("project-wip-report", "Project WIP & Unbilled Revenue", "report"),
+        p("project-milestone-report", "Milestone & Delivery Status", "report"),
+        p("project-time-cost-report", "Project Time & Cost Detail", "report"),
+        p("project-revenue-leakage-report", "Revenue Leakage & Write-offs", "report"),
+      ]),
+      g("resource-reports", "Resource Reports", [
+        p("resource-utilisation-report", "Resource Utilisation", "report"),
+        p("resource-capacity-report", "Capacity & Demand", "report"),
+        p("resource-billability-report", "Billable vs Non-billable Time", "report"),
+        p("resource-bench-report", "Bench & Availability", "report"),
+        p("resource-skill-gap-report", "Skill Coverage & Gaps", "report"),
+      ]),
+      g("support-reports", "Support Reports", [
+        p("support-ticket-volume-report", "Ticket Volume & Backlog", "report"),
+        p("support-sla-report", "Support SLA Performance", "report"),
+        p("support-resolution-report", "Resolution Time & First-contact Rate", "report"),
+        p("support-customer-satisfaction-report", "Customer Satisfaction", "report"),
+      ]),
+      g("hr-reports", "HR Reports", [
+        p("employee-list-report", "Employee List", "report"),
+        p("employee-directory-report", "Employee Directory", "report"),
+        p("department-employees-report", "Department-wise Employees", "report"),
+        p("branch-employees-report", "Branch-wise Employees", "report"),
+        p("designation-employees-report", "Designation-wise Employees", "report"),
+        p("employee-status-report", "Employee Status Report", "report"),
+        p("new-joiners-report", "New Joiners", "report"),
+        p("employee-exits-report", "Exits", "report"),
+        p("employee-turnover-report", "Employee Turnover", "report"),
+        p("employee-history-report", "Employee History", "report"),
+        p("document-expiry-report", "Document Expiry", "report"),
+      ]),
+      g("attendance-reports", "Attendance Reports", [
+        p("daily-attendance-report", "Daily Attendance", "report"),
+        p("monthly-attendance-report", "Monthly Attendance", "report"),
+        p("absence-report", "Absence", "report"),
+        p("late-attendance-report", "Late", "report"),
+        p("early-departure-report", "Early Departure", "report"),
+        p("overtime-report", "Overtime", "report"),
+        p("missing-punch-report", "Missing Punch", "report"),
+        p("department-attendance-report", "Department Attendance", "report"),
+        p("employee-attendance-summary-report", "Employee Attendance Summary", "report"),
+      ]),
+      g("leave-reports", "Leave Reports", [
+        p("leave-balance-report", "Leave Balance", "report"),
+        p("leave-taken-report", "Leave Taken", "report"),
+        p("leave-pending-report", "Leave Pending", "report"),
+        p("leave-department-report", "Leave by Department", "report"),
+        p("leave-type-report", "Leave by Type", "report"),
+        p("leave-trend-report", "Leave Trend", "report"),
+      ]),
+      g("payroll-reports", "Payroll Reports", [
+        p("payroll-register-report", "Payroll Register", "report"),
+        p("salary-sheet-report", "Salary Sheet", "report"),
+        p("department-payroll-report", "Department Payroll", "report"),
+        p("branch-payroll-report", "Branch Payroll", "report"),
+        p("earnings-summary-report", "Earnings Summary", "report"),
+        p("deduction-summary-report", "Deduction Summary", "report"),
+        p("tax-summary-report", "Tax Summary", "report"),
+        p("overtime-payroll-report", "Overtime Payroll", "report"),
+        p("bonus-report", "Bonus Report", "report"),
+        p("loan-recovery-report", "Loan Recovery", "report"),
+        p("advance-recovery-report", "Advance Recovery", "report"),
+        p("payroll-variance-report", "Payroll Variance", "report"),
+        p("net-salary-report", "Net Salary Report", "report"),
+      ]),
+      g("payroll-accounting-reports", "Payroll Accounting Reports", [
+        p("payroll-general-ledger-report", "General Ledger", "report"),
+        p("salary-payable-report", "Salary Payable", "report"),
+        p("tax-payable-report", "Tax Payable", "report"),
+        p("employee-receivables-report", "Employee Receivables", "report"),
+        p("employer-contributions-report", "Employer Contributions", "report"),
+        p("cost-centre-expenses-report", "Cost Center Expenses", "report"),
+      ]),      g("asset-reports", "Asset Reports", [
+        p("asset-register-report", "Fixed Asset Register", "report"),
+        p("asset-depreciation-report", "Depreciation Schedule", "report"),
+        p("asset-movement-report", "Asset Movement & Custody", "report"),
+        p("asset-disposal-report", "Asset Disposal & Gain/Loss", "report"),
+        p("asset-maintenance-report", "Asset Maintenance & Downtime", "report"),
+      ]),
+      g("expense-reports", "Expense Reports", [
+        p("expense-claim-report", "Expense Claim Details", "report"),
+        p("expense-category-report", "Expenses by Category & Department", "report"),
+        p("expense-policy-report", "Policy Exceptions & Duplicate Claims", "report"),
+        p("expense-reimbursement-report", "Reimbursement Status", "report"),
+      ]),
+      g("document-reports", "Document Reports", [
+        p("document-register-report", "Document Register", "report"),
+        p("document-expiry-renewal-report", "Expiry & Renewal Schedule", "report"),
+        p("document-access-report", "Document Access & Sharing", "report"),
+        p("document-retention-report", "Retention & Legal Hold Status", "report"),
+      ]),
+      g("budget-reports", "Budget Reports", [
+        p("budget-consolidated-report", "Consolidated Budget", "report"),
+        p("budget-actual-report", "Budget vs Actual", "report"),
+        p("budget-commitment-report", "Budget Commitments & Availability", "report"),
+        p("budget-forecast-report", "Forecast & Reforecast Comparison", "report"),
+        p("budget-variance-report", "Budget Variance Commentary", "report"),
+      ]),
+      g("portal-reports", "Portal Reports", [
+        p("portal-usage-report", "Portal Usage & Adoption", "report"),
+        p("portal-request-report", "Self-service Requests & Status", "report"),
+        p("portal-exception-report", "Portal Access & Transaction Exceptions", "report"),
+      ]),
+      g("administration-reports", "Administration Reports", [
+        p("user-access-report", "User Access & Role Assignment", "report"),
+        p("licence-utilisation-report", "Licence & Module Utilisation", "report"),
+        p("administration-change-report", "Administration Change Log", "report"),
+        p("session-security-report", "Sessions & Security Events", "report"),
+      ]),
+      g("configuration-reports", "Configuration Reports", [
+        p("configuration-register-report", "Configuration Register", "report"),
+        p("number-series-report", "Number Series & Usage", "report"),
+        p("workflow-configuration-report", "Workflow & Approval Configuration", "report"),
+      ]),
+      g("approval-reports", "Approval Reports", [
+        p("approval-pending-report", "Pending Approvals by Age", "report"),
+        p("approval-turnaround-report", "Approval Turnaround Time", "report"),
+        p("approval-delegation-report", "Delegation & Escalation", "report"),
+        p("approval-decision-report", "Approval Decisions & Comments", "report"),
+      ]),
+      g("notification-reports", "Notification Reports", [
+        p("notification-delivery-report", "Notification Delivery Status", "report"),
+        p("notification-failure-report", "Failed & Retried Notifications", "report"),
+        p("notification-preference-report", "Channel & Preference Analysis", "report"),
+      ]),
+      g("integration-reports", "Integration Reports", [
+        p("integration-health-report", "Integration Health & Availability", "report"),
+        p("integration-volume-report", "Message Volume & Throughput", "report"),
+        p("integration-error-report", "Integration Errors & Retries", "report"),
+        p("integration-reconciliation-report", "Integration Reconciliation", "report"),
+      ]),
+      g("ai-reports", "AI Reports", [
+        p("ai-usage-report", "AI Usage & Adoption", "report"),
+        p("ai-recommendation-report", "Recommendation Outcomes", "report"),
+        p("ai-governance-report", "AI Governance & Human Review", "report"),
+      ]),
+      g("audit-reports", "Audit Reports", [
+        p("audit-transaction-report", "Transaction Audit Trail", "report"),
+        p("audit-master-data-report", "Master-data Change Audit", "report"),
+        p("audit-access-report", "Access & Permission Audit", "report"),
+        p("audit-control-report", "Control Testing & Exceptions", "report"),
+        p("audit-evidence-report", "Audit Evidence Completeness", "report"),
+      ]),
+      g("migration-reports", "Migration Reports", [
+        p("migration-progress-report", "Migration Progress & Readiness", "report"),
+        p("migration-validation-report", "Migration Validation Results", "report"),
+        p("migration-error-report", "Migration Errors & Corrections", "report"),
+        p("migration-reconciliation-report", "Legacy-to-Nexora Reconciliation", "report"),
+      ]),
+      g("mobile-reports", "Mobile Reports", [
+        p("mobile-usage-report", "Mobile Usage & Adoption", "report"),
+        p("mobile-sync-report", "Mobile Sync & Offline Queue", "report"),
+        p("mobile-device-report", "Device, Version & Security Status", "report"),
+      ]),
+      g("distribution", "Distribution", [p("report-schedules", "Schedules & Subscriptions"), p("dashboard-composer", "Dashboard Composer", "form"), p("metric-definitions", "Metric Definitions & Freshness", "settings"), p("reporting-admin", "Reporting Administration", "settings")]),
+    ],
+  },
+  {
+    id: "portals", code: "PT", label: "Portals", shortLabel: "Portals",
+    description: "Customer, supplier and employee self-service experiences using the same mock enterprise data.",
+    category: "Platform & governance", modes: allModes,
+    groups: [
+      g("customer-portal", "Customer Portal", [p("customer-portal-home", "Customer Portal Home", "dashboard"), p("customer-portal-invoices", "Invoices & Payments"), p("customer-portal-statements", "Statements & Disputes"), p("customer-portal-support", "Support & Projects")]),
+      g("supplier-portal", "Supplier Portal", [p("supplier-portal-home", "Supplier Portal Home", "dashboard"), p("supplier-portal-rfq", "RFQ & Quotation"), p("supplier-portal-orders", "PO & Receipt Visibility"), p("supplier-portal-payments", "Invoice & Payment Status")]),
+      g("employee-portal", "Employee Portal", [p("employee-portal-home", "Employee Portal Home", "dashboard"), p("employee-portal-leave", "Leave & Attendance"), p("employee-portal-expenses", "Expenses & Timesheets"), p("employee-portal-payslips", "Payslips & Documents")]),
+    ],
+  },
+  {
+    id: "administration", code: "AD", label: "Administration & Multi-Tenancy", shortLabel: "Administration",
+    description: "Tenants, companies, users, access, entitlements, module visibility and administration audit.",
+    category: "Platform & governance", modes: allModes,
+    groups: [
+      g("organisation", "Organisation", [p("admin-dashboard", "Administration Dashboard", "dashboard"), p("tenants", "Tenant Directory"), p("companies", "Companies & Organisation"), p("company-detail", "Company Detail", "detail")]),
+      g("identity-access", "Identity & Access", [p("users", "User Directory"), p("add-user", "Add User", "form"), p("user-detail", "User Detail & Access", "detail"), p("roles-permissions", "Role & Permission Designer", "settings"), p("company-role-assignments", "Company-role Assignments"), p("access-review", "Access Review", "approval"), p("delegation", "Delegation & Impersonation", "settings"), p("security-policies", "Security & Session Policies", "settings")]),
+      g("entitlements", "Entitlements", [p("editions", "Editions & Entitlements", "settings"), p("module-visibility", "Module Visibility", "settings"), p("prototype-environment", "Prototype Environment", "settings"), p("admin-audit", "Administration Audit", "report")]),
+    ],
+  },
+  {
+    id: "configuration", code: "CF", label: "System Configuration & Extensibility", shortLabel: "Configuration",
+    description: "Company setup, sequences, dimensions, custom fields, localisation, features and configurable views.",
+    category: "Platform & governance", modes: allModes,
+    groups: [
+      g("core-setup", "Core Setup", [p("configuration-home", "Configuration Home", "dashboard"), p("company-fiscal-currency", "Company, Fiscal & Currency", "settings"), p("numbering-sequences", "Numbering Sequences", "settings"), p("dimensions", "Dimensions", "settings"), p("custom-fields", "Custom Fields", "settings"), p("validation-rules", "Validation & Default Rules", "settings")]),
+      g("experience", "Experience & Features", [p("module-settings", "Module Settings", "settings"), p("localisation", "Localisation, Language & RTL", "settings"), p("feature-flags", "Feature Flags & Entitlements", "settings"), p("form-view-config", "Form & View Configuration", "settings"), p("configuration-versions", "Configuration Versions"), p("change-impact", "Change Impact & Audit", "report")]),
+    ],
+  },
+  {
+    id: "approvals", code: "WF", label: "Workflow / Approvals / SoD", shortLabel: "Approvals",
+    description: "Unified approval inbox, routing, thresholds, segregation of duties, escalation and workflow monitoring.",
+    category: "Platform & governance", modes: allModes,
+    groups: [
+      g("my-work", "My Work", [p("approval-dashboard", "Approval Dashboard", "dashboard"), p("my-approvals", "My Approvals"), p("approval-detail", "Approval Detail", "approval"), p("delegations", "Delegations & Out of Office", "settings")]),
+      g("design", "Workflow Design", [p("workflow-definitions", "Workflow Definitions"), p("approval-matrices", "Approval Matrix Editor", "form"), p("routing-simulation", "Threshold & Routing Simulation", "workflow"), p("sod-policies", "Segregation of Duties Policies", "settings")]),
+      g("monitoring", "Monitoring", [p("escalations", "Escalations"), p("workflow-monitor", "Workflow Monitor", "workflow"), p("failed-workflows", "Failed & Stuck Instances"), p("workflow-reports", "Workflow Audit & Reports", "report")]),
+    ],
+  },
+  {
+    id: "notifications", code: "NT", label: "Notifications", shortLabel: "Notifications",
+    description: "Actionable notification centre, preferences, templates, routing, channels and delivery monitoring.",
+    category: "Platform & governance", modes: allModes,
+    groups: [
+      g("inbox", "Inbox", [p("notification-centre", "Notification Centre", "dashboard"), p("notification-detail", "Notification Detail", "detail"), p("digests", "Digests & Inbox")]),
+      g("preferences", "Preferences", [p("notification-preferences", "User Preferences", "settings"), p("notification-templates", "Template Editor", "form"), p("event-routing", "Event & Routing Rules", "settings"), p("channel-setup", "Channel & Escalation Setup", "settings")]),
+      g("delivery", "Delivery", [p("delivery-log", "Delivery Log & Retry", "workflow"), p("notification-reports", "Notification Reports", "report")]),
+    ],
+  },
+  {
+    id: "integrations", code: "IG", label: "Integrations", shortLabel: "Integrations",
+    description: "Mock connection catalogue, API clients, webhooks, mappings, runs, retries and monitoring.",
+    category: "Platform & governance", modes: allModes,
+    groups: [
+      g("connections", "Connections", [p("integration-dashboard", "Integration Dashboard", "dashboard"), p("integration-catalogue", "Integration Catalogue"), p("connection-setup", "Connection Setup", "form"), p("api-clients", "API Clients & Scopes"), p("webhooks", "Webhook Subscriptions"), p("data-mapping", "Data Mapping", "form"), p("connection-test", "Connection Test", "workflow")]),
+      g("operations", "Integration Operations", [p("integration-runs", "Integration Runs"), p("message-detail", "Message & Event Detail", "detail"), p("retry-queue", "Error, Retry & Dead-letter Queue", "workflow"), p("credential-rotation", "Credential Rotation", "settings"), p("usage-limits", "Usage & Rate Limits", "report"), p("integration-audit", "Monitoring & Audit", "report")]),
+    ],
+  },
+  {
+    id: "ai", code: "AI", label: "AI Assistant", shortLabel: "AI Assistant",
+    description: "Human-controlled assistance, extraction, explanations, confidence, feedback and AI governance.",
+    category: "Platform & governance", modes: allModes,
+    groups: [
+      g("assistant", "Assistant", [p("ai-assistant", "Contextual Assistant", "dashboard"), p("suggestion-review", "Suggestion Review", "approval"), p("extraction-review", "Document Extraction Review", "approval"), p("explanations", "Explanation & Forecast", "report"), p("human-handoff", "Human Approval Handoff", "workflow")]),
+      g("governance", "AI Governance", [p("ai-automations", "Automation Catalogue", "list"), p("ai-policy", "Model & Policy Configuration", "settings"), p("source-confidence", "Source & Confidence Viewer", "detail"), p("ai-feedback", "Evaluation & Feedback", "form"), p("ai-audit", "AI Audit & Usage", "report")]),
+    ],
+  },
+  {
+    id: "audit", code: "AU", label: "Audit & Compliance", shortLabel: "Audit",
+    description: "Immutable-looking prototype evidence for transactions, sessions, permissions, approvals and controls.",
+    category: "Platform & governance", modes: allModes,
+    groups: [
+      g("audit", "Audit", [p("audit-dashboard", "Audit Dashboard", "dashboard"), p("audit-explorer", "Audit Explorer"), p("audit-event-detail", "Audit Event Detail", "detail"), p("transaction-history", "Transaction History", "report"), p("login-sessions", "Login & Session Audit", "report"), p("permission-audit", "Permission & Access Audit", "report"), p("master-data-changes", "Master-data Change Review", "approval")]),
+      g("compliance", "Compliance", [p("approval-evidence", "Approval Evidence", "detail"), p("evidence-packs", "Compliance Evidence Packs", "report"), p("audit-retention", "Retention & Legal Hold", "settings"), p("control-exceptions", "Control Exceptions & Alerts", "approval")]),
+    ],
+  },
+  {
+    id: "migration", code: "MG", label: "Data Migration & Cutover", shortLabel: "Migration",
+    description: "Visual cutover project, templates, mapping, validation, reconciliation, sign-off and hypercare.",
+    category: "Platform & governance", modes: allModes,
+    groups: [
+      g("migration", "Migration", [p("migration-dashboard", "Migration Dashboard", "dashboard"), p("migration-projects", "Migration Projects"), p("migration-project", "Migration Project Detail", "detail"), p("object-templates", "Object & Template Catalogue"), p("file-profile", "File Upload & Profile", "form"), p("field-mapping", "Field Mapping", "form"), p("validation-dry-run", "Validation & Dry Run", "workflow"), p("error-correction", "Error Correction")]),
+      g("cutover", "Cutover", [p("load-monitor", "Load Monitor", "workflow"), p("migration-reconciliation", "Migration Reconciliation", "report"), p("migration-signoff", "Migration Sign-off", "approval"), p("cutover-plan", "Cutover & Freeze Plan", "workflow", "coming-soon"), p("parallel-rollback", "Parallel Run & Rollback", "workflow", "coming-soon"), p("hypercare", "Hypercare Dashboard", "dashboard")]),
+    ],
+  },
+  {
+    id: "mobile", code: "MB", label: "Mobile", shortLabel: "Mobile",
+    description: "Responsive mobile workspace for approvals, stock, expenses, time, field service and offline review.",
+    category: "Platform & governance", modes: allModes,
+    groups: [
+      g("mobile-work", "Mobile Work", [p("mobile-home", "Mobile Home", "dashboard"), p("mobile-approvals", "Mobile Approvals", "approval"), p("barcode-scan", "Barcode & QR Scan", "form"), p("mobile-stock", "Receive, Move & Count Stock", "workflow"), p("mobile-expense", "Expense Capture", "form"), p("mobile-timesheet", "Timesheet", "form"), p("mobile-leave", "Leave & Attendance", "form"), p("field-service", "Field-service Task", "detail"), p("mobile-directory", "Customer & Supplier Lookup"), p("mobile-notifications", "Mobile Notifications")]),
+      g("offline-security", "Offline & Security", [p("offline-queue", "Offline Queue & Conflict", "workflow", "coming-soon"), p("mobile-security", "Mobile Security & Settings", "settings")]),
+    ],
+  },
+] as const satisfies readonly PrototypeModule[];
+
+export const PROTOTYPE_MODULE_COUNT = prototypeModules.length;
+
+export interface FlattenedPrototypePage extends PrototypePage {
+  moduleId: string;
+  moduleLabel: string;
+  moduleCode: string;
+  moduleDescription: string;
+  groupId: string;
+  groupLabel: string;
+}
+
+export const prototypePageIndex: readonly FlattenedPrototypePage[] = prototypeModules.flatMap((module) =>
+  module.groups.flatMap((group) => group.pages.map((page) => ({
+    ...page,
+    moduleId: module.id,
+    moduleLabel: module.label,
+    moduleCode: module.code,
+    moduleDescription: module.description,
+    groupId: group.id,
+    groupLabel: group.label,
+  }))),
+);
+
+export const PROTOTYPE_PAGE_COUNT = prototypePageIndex.length;
+
+export function findPrototypeModule(moduleId: string) {
+  return prototypeModules.find((module) => module.id === moduleId) ?? prototypeModules[0];
+}
+
+export function findPrototypePage(moduleId: string, pageId?: string) {
+  const selectedModule = findPrototypeModule(moduleId);
+  const page = selectedModule.groups.flatMap((group) => group.pages).find((item) => item.id === pageId) ?? selectedModule.groups[0].pages[0];
+  const group = selectedModule.groups.find((item) => item.pages.some((candidate) => candidate.id === page.id)) ?? selectedModule.groups[0];
+  return { module: selectedModule, group, page };
+}

@@ -1,0 +1,40 @@
+HR-ID-01 verification evidence
+Date: 2026-09-25 Asia/Karachi
+Status: READY FOR REVIEW (full ERP NOT PRODUCTION READY)
+
+Implemented
+- Forced-RLS effective-dated employee_user_binding with tenant Security/HR FKs,
+  non-overlap exclusions, immutable history and preservation-safe rollback.
+- Company-scoped, internally re-authorized, idempotent and audited management.
+- Own-payslip API derives employee identity from the authenticated actor and
+  returns only posted/paid/closed results with privacy-minimized fields.
+- Responsive Identity & Payslips UI with permission-separated administration
+  and employee views.
+
+Verification
+- python scripts/verify_postgres_hr.py: PASS 6.
+- python scripts/verify.py unit integration contract security e2e migration: PASS 632.
+- Platform PostgreSQL: PASS 12; Security: PASS 3; Workflow: PASS 4; Finance: PASS 7.
+- Frontend lint and generated-client drift: PASS.
+- Frontend component tests: PASS 163; accessibility: PASS 18.
+- Next.js production build: PASS, 51 routes including /hr/identity.
+- python -m compileall -q app tests/postgres scripts: PASS.
+- python -m pip check: PASS.
+- git diff --check: PASS; line-ending warnings only.
+
+Security/data-integrity review
+- No self-service request accepts employee_id; authenticated actor is resolved
+  through the current UTC-effective binding.
+- Concurrent overlapping user/employee bindings yield one success and one
+  conflict. Cross-company and cross-tenant access is denied or empty.
+- Only own-scoped payslip permission can use self-service; identity admins do
+  not inherit salary access, and employees do not inherit binding management.
+- Authorization occurs before idempotency replay; revoked admins are denied.
+- GL account IDs, salary assignment IDs, source hashes and other employees are
+  not returned by the self-service representation.
+
+Remaining boundaries
+- S1.5-F06 Redis shared controls and S1.5-F07 observability/operations.
+- HR01-F03/HR02-F01 governed satellite/document management.
+- HR03-F03/F04 statutory payroll and bank execution owner/provider decisions.
+- Q-003/Q-004/Q-006 managed identity and cloud operational selections.

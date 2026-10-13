@@ -1,0 +1,36 @@
+{
+  "name": "@nexora/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js"
+    },
+    "./migrations": {
+      "types": "./src/migrations.ts",
+      "import": "./dist/migrations.js"
+    },
+    "./schema": {
+      "types": "./src/schema/index.ts",
+      "import": "./dist/schema/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "db:migrate": "tsx src/migrate-source-cli.ts",
+    "db:migrate:source": "tsx src/migrate-source-cli.ts",
+    "db:migrate:test": "cross-env DATABASE_URL=postgresql://nexora@127.0.0.1:55433/nexora_source_test tsx src/migrate-source-cli.ts",
+    "auth:backfill-login-directory": "tsx src/backfill-login-directory-cli.ts",
+    "auth:backfill-user-company-access": "tsx src/backfill-user-company-access-cli.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.45.3",
+    "pg": "8.16.3"
+  },
+  "devDependencies": {
+    "@types/pg": "8.15.6",
+    "cross-env": "10.1.0"
+  }
+}

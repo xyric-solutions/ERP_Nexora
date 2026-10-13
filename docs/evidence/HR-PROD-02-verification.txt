@@ -1,0 +1,128 @@
+HR-PROD-02 - Salary Period Correctness Verification
+Date: 2026-10-05 PKT
+Status: CLOSED WITH KNOWN LIMITATIONS
+
+Scope
+-----
+- Slice 2 only: effective-dated salary resolution, segmented calculation,
+  immutable result evidence, existing result API/UI projection, and focused
+  verification.
+- Slice 1 eligibility/preflight remains mandatory.
+- Attendance/OT integration, Leave accrual, payslip release, reports,
+  statutory packs, Demo expansion, D02-B and visual redesign were not started.
+
+Authorities and calculation rule
+--------------------------------
+- Single salary authority: existing `hr_salary_assignment` rows.
+- Employment boundary: Slice 1 period-aware legal-employment candidates and
+  EmploymentContextProvider evidence.
+- Proration convention: existing component calculation rule
+  `amount x paid_days / calendar_days`.
+- Salary portions are inclusive intersections of payroll period, effective
+  employment, and approved/effective/superseded salary assignments.
+- Adjustments and loan instalments remain once-per-period authorities and are
+  applied once after the salary portions are aggregated.
+- No salary, employment, attendance, leave, localization, or calculation
+  authority was duplicated.
+
+Fail-closed rules
+-----------------
+- Missing salary: `SALARY_AUTHORITY_MISSING`.
+- Overlap: `SALARY_AUTHORITY_OVERLAPPING`.
+- Salary outside employment: `SALARY_AUTHORITY_OUTSIDE_EMPLOYMENT`.
+- Invalid structure/component/currency: existing salary-invalid blocker.
+- Non-proratable or attendance-dependent component across multiple rates:
+  `SALARY_COMPONENT_PERIOD_AMBIGUOUS`.
+- Multiple salary rates plus aggregate paid days below covered calendar days:
+  `SALARY_PERIOD_INPUT_AMBIGUOUS`.
+- No latest-row fallback or arbitrary overlap selection exists.
+
+Database change
+---------------
+- HR migration 0014 adds immutable, tenant-scoped
+  `hr_payroll_result_salary_segment` calculation evidence.
+- `hr_payroll_result.salary_assignment_id` becomes nullable only so a truthful
+  multi-authority result can point to its segment evidence. A deferred database
+  constraint requires at least two segment rows whenever that legacy single
+  assignment field is null.
+- The segment table has FORCE RLS, restrictive tenant policy, source/result
+  hashes, salary/structure/result foreign keys, and immutable update/delete
+  protection.
+- Forward replay, clean rollback, and populated rollback refusal passed.
+
+API/UI
+------
+- Existing Payroll result responses now include `salary_segments` containing
+  salary authority, structure, effective dates, paid/calendar days, currency,
+  immutable component basis/formula/proration values, calculated earnings and
+  deductions, and segment hash.
+- Historical single-salary results remain readable and are explicitly labelled
+  as historical snapshot evidence when no segment rows exist.
+- The existing Payroll workspace shows salary segments without a redesign.
+
+Focused verification
+--------------------
+- `python -m unittest tests.unit.test_hr_payroll tests.integration.test_hr_payroll_api tests.contract.test_hr_payroll_preflight_contract`
+  PASS: 25 tests.
+- `python scripts/verify_postgres_hr.py`
+  PASS: 39 tests.
+  Coverage includes full-period salary, first/last-day and mid-period revisions,
+  multiple revisions, joiner/leaver intervals, future-row exclusion, missing/
+  overlapping/outside-employment salary, preflight calculation denial, exact
+  candidate reconciliation, company/tenant isolation, RLS, immutable evidence,
+  idempotent replay, deferred parent/segment constraint, and migration rollback.
+- `npm test -- hr-payroll-workspace.test.tsx`
+  PASS: 5 focused tests after the final UI projection change.
+
+Final regression gates
+----------------------
+- `python scripts/verify.py unit integration contract security migration`
+  PASS: 717 tests.
+- `npm run api:check-drift`
+  PASS: generated TypeScript schema matches OpenAPI.
+- `npm run lint`
+  PASS.
+- `npm test`
+  PASS: 211 tests in 71 files.
+- `npm run build`
+  PASS: TypeScript and optimized Next.js build, 54 routes/pages.
+- `node framework/verify/portability-check.mjs`
+  PASS: 66 required files, no placeholders, current handoff paths.
+- An earlier parallel frontend run caused one unrelated Finance test timeout;
+  the suite was rerun serially and passed. No product defect was masked.
+
+Security/RLS review
+-------------------
+- Existing authenticated company scope and `hr.payroll.*` permissions remain
+  authoritative; no permission was widened.
+- PostgreSQL company and tenant isolation passed.
+- The new evidence table is FORCE RLS protected and immutable.
+- Unauthorized result access and cross-company data exposure remain denied.
+- Slice 1 preflight still runs inside the calculation transaction and a blocked
+  candidate cannot be calculated or silently omitted.
+
+Production PostgreSQL Demo verification
+---------------------------------------
+- `python scripts/production_demo_environment.py verify`: PASS.
+- Audit chain verified: true.
+- FORCE RLS verified: true.
+- HR schema migration 14: `payroll_salary_segments` applied.
+- September period: `posted`, run `1`.
+- Payroll proposal: `posted`, external entry `JE-2026-09-00001`.
+- Finance journal `JE-2026-09-00001`: `posted`.
+- September salary-segment rows: `0`; historical evidence was not rewritten.
+
+Known limitation / waiver
+-------------------------
+- HR-PROD-02-F02: current locked input contains aggregate paid days only. If
+  multiple salary rates apply and paid days are fewer than salary-covered days,
+  there is no authoritative evidence allocating unpaid days to a rate. Slice 2
+  deliberately fails closed instead of inventing that policy.
+- Existing Q-007/Q-010 statutory/localization and D02-A-F02 visual-review
+  findings are unchanged.
+
+Result
+------
+Slice 2 acceptance is met with the recorded fail-closed limitation. Salary is
+period-correct, segment evidence is reproducible and protected, September is
+unchanged, and Slice 3 remains unstarted pending explicit owner approval.

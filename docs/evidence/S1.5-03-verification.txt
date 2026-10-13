@@ -1,0 +1,59 @@
+S1.5-03 FastAPI Production Composition - Verification Evidence
+Date: 2026-09-25 Asia/Karachi
+Status: PASS WITH WAIVERS
+
+Scope
+- Fail-closed typed production environment configuration.
+- FastAPI application factory with lifecycle-owned Psycopg connection pool.
+- Process liveness and PostgreSQL readiness probes with sanitized responses.
+- Existing ASGI v1 API and canonical OpenAPI mounted without route changes.
+- Explicit reviewed FastAPI, Uvicorn, Psycopg, and Psycopg Pool dependencies.
+
+Commands and results
+
+1. python -m pip install -e .
+   PASS - editable package built and installed; FastAPI 0.141.1,
+   Uvicorn 0.54.0, Psycopg 3.3.6, and Psycopg Pool 3.3.3 installed.
+
+2. python -m unittest tests.unit.test_production_runtime -v
+   PASS - 4/4 configuration/startup-sanitization tests.
+
+3. python scripts/verify_postgres_platform.py
+   PASS - 11/11 tests against disposable PostgreSQL 18, including production
+   pool startup/shutdown, live readiness, degraded readiness, canonical
+   contract mount, and anonymous protected-route denial.
+
+4. python scripts/verify.py unit integration contract security e2e migration
+   PASS - 589/589 tests across all backend suites.
+
+5. python -m compileall -q app tests/unit/test_production_runtime.py tests/postgres/test_platform_core_migration.py
+   PASS - no syntax/bytecode errors.
+
+6. python -m pip check
+   PASS - no broken requirements.
+
+7. uvx pip-audit . --progress-spinner off --strict
+   PASS - no known vulnerabilities found in the resolved project dependency
+   graph at verification time.
+
+8. git diff --check
+   PASS - no whitespace errors; Git emitted Windows line-ending notices only.
+
+Security/contract review
+- DSN and cursor secret are required and redacted from settings repr.
+- Invalid configuration and startup failures use fixed safe messages.
+- Database startup is required before the application becomes ready.
+- Readiness returns only status/component and HTTP 503 after pool loss.
+- Production defaults retain reject-all identity and leave unsupported domain
+  repositories unconfigured; no production fallback to legacy embedded database was introduced.
+- FastAPI documentation/schema routes are disabled because the checked-in v1
+  contract remains authoritative during the incremental migration.
+
+Waivers and remaining blockers
+- X-002: exact runtime model variant/ID/effort/mode/surface unavailable.
+- S1.5-W01/Q-004/Q-006: cloud, KMS, HA, backup/restore, audit archive, and
+  retention controls remain unselected; no production-readiness claim.
+- Q-003: managed identity/session provider remains unselected; production
+  composition therefore retains secure reject-all authentication defaults.
+- S1.5-F03: cross-domain setup activation is not composed until Platform,
+  Workflow, and Security share a PostgreSQL unit of work.

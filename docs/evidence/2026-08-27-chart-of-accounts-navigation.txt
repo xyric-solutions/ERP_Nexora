@@ -1,0 +1,55 @@
+Nexora ERP - Chart of Accounts navigation correction
+Date: 2026-08-27
+
+Owner decision
+- Chart of Accounts is a top-level main menu, separate from Finance & Accounting.
+- Its only two current children are Nominals and Section Management.
+- The correction must be available in the Demo account and must use live data.
+- Long sidebar labels and their status badges must not overlap.
+
+Implementation
+- Promoted Chart of Accounts from the Finance hierarchy to a protected
+  top-level menu and removed the nested duplicate from Finance & Accounting.
+- Added `/finance/accounts/nominals`, filtered from the live account API to
+  non-header posting accounts.
+- Added `/finance/accounts/sections`, filtered from the same live account API
+  to structural header accounts.
+- Kept `/finance/accounts` as the complete Chart of Accounts view for existing
+  dashboard links and bookmarks.
+- Preserved `finance.account.read` navigation/page access and
+  `finance.account.create` action visibility. No API, database, Demo seed,
+  posting, journal, or permission behavior changed.
+- Replaced the absolutely positioned main-menu status badge with an inline,
+  fixed-width badge in the same flex row as a shrinkable/truncated label and
+  chevron. Long labels retain their complete value through the title/tooltip.
+
+Verification
+- Production build: PASS. Next.js compiled, TypeScript completed, and 47 static
+  routes were generated, including both new account routes.
+- Focused sidebar/navigation tests: PASS, 11/11.
+- Frontend tests: PASS, 29 files and 73 tests.
+- Backend verification: PASS, 469 tests across unit, integration, contract,
+  security, e2e, and migration.
+- TypeScript no-emit: PASS.
+- Live Demo route smoke after controlled frontend restart: `/login`,
+  `/finance/accounts/nominals`, and `/finance/accounts/sections` HTTP 200.
+- Browser visual QA: NOT RUN. The in-app Browser had no connected browser
+  session; this is not represented as a screenshot/visual pass.
+
+Runtime intake
+- loop_primitive: none
+- runtime_profile: codex-native
+- orchestrator_role: Codex
+- worker_backend: none
+- planned_model_family: gpt-5.6
+- planned_model_variant: terra
+- planned_api_reasoning_effort: medium
+- planned_reasoning_mode: standard
+- planned_delegation_mode: single
+- actual_model_family: GPT-5 family (runtime-exposed identity only)
+- actual_model_variant/reasoning/surface: not reported; existing finding X-002
+- routing_rationale: bounded, known-scope navigation and filtered-view change
+- routing_fallback: stop on route, permission, build, or test regression
+- verify_command: npm build/test plus full repository verification
+- evidence_path: this file
+- usage_guard: bounded to Chart of Accounts navigation and views

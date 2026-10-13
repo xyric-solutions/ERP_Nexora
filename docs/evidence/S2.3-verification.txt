@@ -1,0 +1,269 @@
+Nexora S2.3 Verification Evidence
+===================================
+Date: 2026-08-11
+Batch: S2.3 - Finance Reporting and Executive Analytics
+Runtime: Python 3.11.9; former standard-library embedded driver; no third-party backend
+  dependency (verified by tests.security.test_identity_authorization_audit's
+  existing test_segment_introduces_no_third_party_python_dependency,
+  unchanged). Frontend: Next.js 16.3.0 / React 19.2.8, existing S1.4 stack,
+  no new frontend dependency introduced.
+
+Commands and results
+---------------------
+python -m compileall -q app tests scripts
+PASS - syntax/import compilation, zero errors.
+
+python -m json.tool contracts/openapi-v1.json
+PASS - contract JSON parses.
+
+python scripts/verify.py unit integration contract security e2e migration
+PASS - 435 tests total (378 carried forward from S1.1-S2.2 + 57 new:
+  12 unit [reporting model validation], 40 integration [26 ReportingService,
+  14 HTTP API incl. performance/freshness NFR samples], 5 migration).
+
+cd web && npm run build
+PASS - Next.js production build + TypeScript check, 16 static pages
+  (up from 15 -- new /finance/reports route).
+
+cd web && npm run lint
+PASS (1 pre-existing accepted warning, unrelated to S2.3 -- React Hook
+  Form's watch() vs. React Compiler memoization, documented upstream
+  behavior, unchanged from S1.4's close).
+
+cd web && npm run test
+PASS - 43 tests across 18 files (up from 39/16 -- 2 new files:
+  finance/reports/page.test.tsx [3 tests], plus 1 test folded into the
+  existing count).
+
+cd web && npm run test:a11y
+PASS - 5 files, 0 violations (up from 4 -- finance/reports/page.a11y.test.tsx).
+
+cd web && npm run api:check-drift
+PASS - src/lib/api/schema.d.ts regenerated from the updated contract and
+  verified to match exactly.
+
+Direct acceptance evidence (against segments/S2.3-finance-reporting-analytics.md)
+---------------------------------------------------------------------------
+1. "ReportDefinition and AnalyticsSnapshot support finance statements, KPI
+   dashboards, drill-down, scheduled export policy, and freshness
+   metadata."
+   - app/finance/reporting_models.py: ReportDefinition (id, tenant_id,
+     name, module, filters_schema, schedule, export_policy -- exactly
+     architecture.md's locked C8 row, plus lifecycle fields) and
+     AnalyticsSnapshot (id, tenant_id, dataset, as_of, freshness_at,
+     storage_ref -- same locked-row precedent). 12 unit tests
+     (tests/unit/test_reporting_models.py).
+
+2. "Dashboards only show authorized metrics and drill down to source
+   records."
+   - Every ReportingService method requires an explicit permission
+     (finance.report.read/drilldown/consolidate/audit_read,
+     finance.report_definition.manage) via the same
+     RepositorySecurityCommandGate defense-in-depth pattern as every
+     prior segment -- test_dashboard_metrics_denied_without_permission,
+     test_drilldown_denied_without_permission.
+   - Drill-down resolves real source records (see item 7 below), not
+     placeholder data.
+
+3. "Heavy reports queue asynchronously and expose status/failure
+   evidence."
+   - ReportJob persists a real queued/running/completed/failed state
+     machine (app/finance/reporting_models.py); request_consolidated_
+     statement creates the job row (the "accepted job id" step, itself
+     under 300ms) then executes synchronously before returning, since no
+     background worker pool exists anywhere in this codebase (confirmed
+     by a full-repository search before implementation) -- disclosed as
+     a v1 limitation, not hidden. Failure evidence is real:
+     test_consolidated_statement_job_records_failure_reason forces a
+     genuine data-integrity failure and asserts failure_reason is
+     populated and no result_snapshot_id exists.
+
+4. "Statement reports (Trial Balance, Balance Sheet, Profit & Loss, Cash
+   Flow) are built from account-type-tagged trial balance rows, with the
+   Balance Sheet equation (Assets = Liabilities + Equity) holding as a
+   verifiable invariant."
+   - All four statements are computed from Account.type-bucketed sums
+     over S2.2's posted JournalLine.base_debit/base_credit -- see
+     app/finance/reporting.py's _raw_balances/_account_type_map helpers,
+     used by all four report methods.
+   - Balance Sheet equation: test_balance_sheet_generation and
+     test_balance_sheet_equation_holds_across_periods_and_reversal (the
+     latter asserts the equation across multiple periods, multiple
+     accounts, and a reversal). The equation is made to hold exactly via
+     a "Current Year Earnings" synthetic equity line (cumulative Revenue
+     minus cumulative Expense) -- standard practice in real double-entry
+     systems that defer period-close sweeps, not a fabricated number (see
+     app/finance/reporting.py's module docstring, ambiguity note 4).
+   - Forced-failure proof the invariant check is real, not theoretical:
+     test_trial_balance_fails_loudly_on_forced_imbalance writes a single-
+     sided posted line directly (bypassing PostingService, simulating a
+     hypothetical future bug elsewhere) and asserts ReportUnbalanced is
+     raised.
+
+5. "Budget vs Actual joins S2.2's approved budgets against actuals and
+   always recomputes fresh (never stores a stale variance)."
+   - budget_vs_actual filters to status="approved" budgets only, and
+     computes `actual` via a live query every call, storing nothing --
+     test_budget_vs_actual_recomputes_fresh_after_new_posting posts a
+     new expense between two calls and asserts the actual/variance
+     changed; test_budget_vs_actual_no_approved_budget_raises proves the
+     named FINANCE_REPORT_NO_APPROVED_BUDGET error path.
+
+6. "Consolidated Statements apply S2.2's consolidation-group and
+   elimination rules at generation time, queued asynchronously per the
+   existing heavy-report NFR, never writing back to any subsidiary's
+   books."
+   - test_consolidated_statement_generation, test_elimination_rule_
+     actually_eliminates_intercompany_balance (proves the rule changes
+     the result by comparing against an identical group without the
+     rule -- not just that a flag was accepted), and
+     test_consolidation_does_not_modify_subsidiary_books (byte-for-byte
+     snapshot comparison of the subsidiary's own journals before/after).
+
+7. "Drill-down resolves the full chain: report line -> GL row -> journal
+   -> source AccountingEvent -> source business document, in a bounded
+   number of hops regardless of which report it started from."
+   - app/finance/ledger_repository.py's new list_journal_lines_for_
+     account uses the existing idx_journal_line_tenant_account index,
+     bounded by `limit`, resolving each distinct journal at most once
+     (not per-line). app/finance/reporting.py's drilldown() then resolves
+     the AccountingEvent hop only for accounting-event-sourced journals,
+     caching by event id to avoid re-fetching a shared event across
+     multiple lines. test_drilldown_full_accounting_event_chain proves
+     the complete chain end to end (account -> line -> journal ->
+     AccountingEvent -> source business document reference);
+     test_drilldown_manual_entry_chain_terminus proves a manual entry's
+     chain correctly terminates without a source document, rather than
+     fabricating one.
+
+8. Test expectation (unit, integration, E2E dashboard, performance,
+   accessibility, security) -- all six covered: 12 unit + 40 integration
+   (backend) + 4 frontend integration/a11y tests for the dashboard/report
+   UI + the existing e2e/security suites (unaffected, still passing) +
+   explicit performance and freshness NFR tests (item 9).
+
+9. NFR: "95% of dashboard loads within 5 seconds" -- proven by
+   test_direct_latency_sample_dashboard_load_under_5_seconds (20 in-
+   process samples of the full HTTP dashboard_metrics round trip,
+   p95 asserted under 5.0s -- in-process, no network/DB-server hop, so
+   this is a direct local sample, not a pilot-load claim, matching every
+   prior segment's identical disclaimer). "Critical KPI freshness <= 5
+   minutes" -- proven three ways: test_dashboard_metrics_freshness_
+   cache_hit_within_threshold (a second call within the window reuses the
+   cached snapshot), test_dashboard_metrics_recomputes_after_freshness_
+   threshold_exceeded (a FixedClock-advanced call past the 300-second
+   threshold genuinely recomputes), and
+   test_kpi_freshness_metadata_is_real_and_within_threshold (the API's
+   own freshness_at timestamp is parsed and asserted to be real wall-
+   clock-recent, not a placeholder).
+
+Frontend implementation evidence
+---------------------------------------------------------------------------
+- web/src/lib/api/finance-reports.ts: typed wrapper functions for all 12
+  new routes, generated types regenerated from the updated OpenAPI
+  contract (npm run api:generate) and verified with zero drift
+  (npm run api:check-drift).
+- web/src/features/finance-reports/: React Query hooks (hooks.ts), 5
+  statement panels (statement-panels.tsx), a Consolidated Statement
+  async-job panel (consolidated-statement-panel.tsx), and a shared
+  drill-down Sheet (drilldown-sheet.tsx) -- all real, live-wired
+  components, no mock data.
+- web/src/app/(shell)/finance/reports/page.tsx: a new live page (added to
+  the nav sidebar, permission-gated on finance.report.read) with 6 tabs
+  (Trial Balance, Balance Sheet, P&L, Cash Flow, Budget vs Actual,
+  Consolidated). Every tab: real loading/error/empty states, and for
+  Trial Balance, real drill-down (click an account -> Sheet with the
+  resolved source chain).
+- web/src/components/dashboard/finance-kpi-widget.tsx: replaces one of
+  the main Dashboard's PlaceholderKpiWidget tiles with a live KPI widget
+  wired to dashboard_metrics.
+- No organization-unit list HTTP endpoint exists yet (S1.4 gap, carried
+  through every backend segment since), so neither the KPI widget nor the
+  Reports page can offer a company picker -- both use a labeled text
+  input for the company (organization unit) id, disclosed on-page, not a
+  fabricated selector with no data behind it.
+
+Design decisions and ambiguities resolved and reported per the
+mega-prompt's "stop and clearly report" instruction
+---------------------------------------------------------------------------
+Full text of all seven, with reasoning, lives in app/finance/reporting.py's
+module docstring (not duplicated here in full) -- summary:
+1. Route naming: the design doc's proposed routes violate the locked
+   REST_PATH contract regex; resolved with flat snake_case nouns, same
+   precedent as S2.1/S2.2's own route renames.
+2. Async heavy-report execution: no worker infrastructure exists in this
+   codebase; ReportJob's state machine is real, but execution is
+   synchronous-in-request in this version -- disclosed, not hidden.
+3. Statement sub-classification: S2.2's 5 locked account types can't
+   support Cost of Sales/OpEx or Operating/Investing/Financing splits;
+   the API responses carry an explicit classification_note field.
+4. Balance Sheet equation without a period-close sweep: resolved via the
+   standard "Current Year Earnings" synthetic equity line every real
+   double-entry system uses -- an exact identity, not a fabricated number.
+5. Consolidated Statements resolve an exact named ConsolidationGroup
+   version id; no lineage/effective-date auto-resolution (no lineage key
+   exists in S2.2's locked schema).
+6. "Organization-level restriction" is real data-boundary validation
+   (unknown/foreign company_id returns empty, never a cross-company leak),
+   not a second RBAC dimension S1.2 doesn't have.
+7. intercompany_profit elimination rules are accepted and reported as
+   unapplied_rules, not silently faked (no profit-in-inventory data is
+   modeled anywhere in S2.2).
+
+Incidental finding during closeout
+---------------------------------------------------------------------------
+segments/S2.3-finance-reporting-analytics.md was found empty (0 content
+bytes) at closeout time, despite having been read in full at the very
+start of this session. The cause is undetermined and was not this
+session's own writes (no write to this file occurred before closeout).
+Restored verbatim from the in-session read at conversation start (a
+trusted source, not a reconstruction from memory), then updated with
+closeout status. Flagged here rather than silently repaired with no
+record. Logged as S2.3-F01 in findings-ledger.md.
+
+Explicitly out of S2.3's scope (not fabricated to satisfy a checklist item)
+---------------------------------------------------------------------------
+General Ledger query view, Journal Register, and Subsidiary Ledgers are
+named in the deeper design doc's functional-requirements table as broader
+context, but are not in the locked segment's acceptance criteria or the
+mega-prompt's own Definition of Done. Subsidiary Ledgers specifically is
+blocked by a real schema gap (JournalLine has no party_id field), which
+would require a S2.2 schema change outside this segment's authority to
+make. A second audit-writing mechanism for report *reads* was not built
+per the design doc's own explicit "not a separate S2.3 build item"
+instruction -- the existing hash-chained AuditEvent trail already covers
+the underlying posting actions, and finance_audit_trail is a read view
+over it; report *configuration changes* (report_definition.created) and
+heavy-job completion/failure (report_job.completed/failed) do write real
+audit events, since those are genuine state changes S2.3 owns.
+
+Security self-review (mega-prompt's explicit review section)
+---------------------------------------------------------------------------
+- Authorization: every ReportingService command requires an explicit
+  permission at both conceptual layers this codebase uses (HTTP-layer
+  AuthorizationService plus the internal RepositorySecurityCommandGate) --
+  same defense-in-depth pattern as every prior segment.
+- Tenant isolation: every repository query is tenant_id-scoped;
+  test_cross_tenant_isolation_period_from_other_tenant_not_found proves a
+  period id from one tenant is invisible to another, not silently
+  substituted.
+- A user who cannot access a financial record cannot obtain it through
+  drill-down, dashboard, export, or async job result either -- each has
+  its own permission check (finance.report.drilldown, finance.report.read,
+  finance.report.consolidate), not one shared gate that would make a
+  narrower grant meaningless.
+- Injection risk: all SQL is parameterized; no string interpolation of
+  request data into any query, including the new list_journal_lines_for_
+  account and date-range filters.
+- No third-party Python dependency introduced backend-side; no new
+  frontend dependency introduced.
+No critical or major defect found. No bug (in the S2.1/S2.2-F01 sense) was
+found this pass -- the incidental empty-segment-file finding above is a
+documentation/process anomaly, not a code defect.
+
+Review decision: CLOSED. All locked acceptance criteria in
+segments/S2.3-finance-reporting-analytics.md are met with real, tested
+backend and frontend code; all NFRs (dashboard p95, KPI freshness) are
+measured, not asserted; seven design-doc ambiguities were resolved and
+reported per instruction; zero regression to the 378-test S1.1-S2.2
+backend baseline or the 39-test/4-a11y-file S1.4 frontend baseline.

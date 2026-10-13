@@ -1,0 +1,97 @@
+HR-EMP-02E - Employment Context and Consumer Boundary
+Verification date: 2026-09-30
+Status: CLOSED WITH WAIVERS
+
+IMPLEMENTED
+- Deterministic read-only EmploymentContextProvider.resolve(tenant_id, company_id,
+  employee_id, as_of) with mandatory day-granular as_of.
+- One tenant-scoped PostgreSQL transaction resolves Employee, employment
+  relationship/legal employer, lifecycle, authoritative relationship-bound
+  assignment, organization placement, job/designation/grade, employment type,
+  work location, the existing HR-LOC jurisdiction resolver, and money-free
+  salary-authority/readiness evidence.
+- Exact-cardinality resolution fails closed for zero/multiple relationships,
+  assignments and other required authorities. Legacy compatibility assignments
+  are excluded. Lifecycle chains are independently reconstructed and checked.
+- Payroll eligibility is always not_assessed. No salary, gross/net pay, tax,
+  deduction, statutory-contribution, payslip or accounting amount is returned.
+- Narrow GET /api/v1/hr/employment_contexts API with required company_id,
+  employee_id and YYYY-MM-DD as_of, dedicated RBAC, contextual company
+  authorization, RLS-backed reads, private/no-store caching and stable ETag.
+- No existing Payroll or Attendance consumer was migrated.
+- No schema change or migration was required.
+
+FOCUSED VERIFICATION
+- python -m unittest tests.unit.test_hr_employment_context
+  tests.integration.test_hr_api tests.contract.test_openapi_contract
+  tests.security.test_api_security
+  PASS: 28/28.
+- python scripts/verify_postgres_hr.py
+  PASS: 36/36 in 81.837 seconds. Includes HR-LOC, lifecycle, assignment,
+  profile, identity, Attendance (1), Payroll (2), and 5 new context scenarios.
+
+CANONICAL REGRESSION
+- python scripts/verify.py unit integration contract security e2e migration
+  PASS: 695/695.
+  unit 295; integration 268; contract 5; security 13; e2e 5; migration 109.
+- python scripts/verify_postgres_platform.py: PASS 24/24.
+- python scripts/verify_postgres_workflow.py: PASS 4/4.
+- python scripts/verify_postgres_security.py: PASS 3/3.
+- python scripts/verify_postgres_finance.py: PASS 7/7.
+
+FRONTEND / CONTRACT REGRESSION
+- npm test: PASS 68 files, 183 tests.
+- npm run test:a11y: PASS 20 files, 24 tests.
+- npm run lint: PASS.
+- npm run api:check-drift: PASS.
+- npm run build: PASS, 53 pages.
+
+SECURITY AND HISTORY EVIDENCE
+- Anonymous/tenantless requests remain denied by the shared security boundary.
+- The endpoint requires hr.employment_context.read and company-scoped access;
+  denial occurs before provider invocation.
+- Direct tenant-B PostgreSQL reads observed zero tenant-A relationships and
+  assignments under forced RLS.
+- Current, historical, future, terminated and rehired relationships resolve by
+  explicit as_of. Future evidence does not become current early.
+- Historical assignments, lifecycle, organization placement and work-location
+  jurisdiction reconstruct correctly. Ordinary organizational transfer retains
+  the relationship-owned legal employer; legal-employer change uses a distinct
+  relationship.
+- Missing/overlapping relationship, overlapping assignment, corrupt/conflicting
+  lifecycle and cross-country localization evidence fail closed.
+- Repeated equivalent resolutions produce identical canonical context hashes.
+- Serialized context was checked against a known stored salary amount and does
+  not expose that amount or salary/tax/pay calculation fields.
+- Synthetic XX/YY localization evidence only; no country branch or statutory
+  rule was added. HR-LOC remains the exclusive jurisdiction resolver.
+
+AUDIT / IDEMPOTENCY
+- This is a read-only endpoint. Mutation idempotency and mutation audit records
+  do not apply. Existing request telemetry records route/status/correlation
+  without logging authorization headers or response bodies. Stable source IDs
+  and context_hash provide evidence for downstream consumers' own audit trails.
+
+MIGRATION / ROLLBACK
+- No migration added or modified. Apply/rollback is not applicable to 02E.
+- Existing migration suite passed 109/109, including rollback protections.
+
+WAIVERS / EXTERNAL GATES
+- Organization/master display labels are current descriptive metadata because
+  those authorities are not historically versioned; stable IDs and immutable
+  assignment placements remain the historical authority.
+- Existing salary assignments are employee/company/date scoped rather than
+  employment-relationship linked. Only reference/readiness evidence is exposed;
+  Payroll must assess rehire eligibility under its own policy.
+- Existing Payroll, Attendance and Leave direct reads remain until separately
+  approved consumer migrations.
+- Q-004, Q-007, Q-010, real statutory packs, production cloud controls and a
+  future cross-border employment model remain external/not started.
+- Exact runtime route metadata remains unavailable under X-002.
+
+SCOPE REVIEW
+- git diff --check: PASS (line-ending notices only).
+- Migration diff: empty.
+- Country-neutrality review: PASS.
+- No HR-EMP-02F/02G, Payroll implementation, Attendance migration, statutory
+  pack, cross-border implementation, vault/KMS work or UI redesign was started.

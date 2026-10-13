@@ -1,0 +1,78 @@
+S1.5-04 Platform Administration API - Verification Evidence
+Date: 2026-09-25 Asia/Karachi
+Status: PASS WITH WAIVERS
+
+Scope
+- Tenant-scoped Platform administration for tenants, organization units,
+  fiscal calendars, accounting periods, currencies/rates, tenant modules,
+  versioned policies, numbering sequences, and number allocations.
+- Immutable administration audit read model.
+- PostgreSQL migration v2 for durable idempotency and audit controls.
+- Canonical OpenAPI and generated TypeScript client synchronization.
+
+Commands and results
+
+1. python scripts/verify_postgres_platform.py
+   PASS - 12/12 tests against disposable PostgreSQL 18 using a non-owner,
+   non-BYPASSRLS application role.
+
+   Covered: forward/idempotent/concurrent migration, rollback refusal, forced
+   RLS, cross-tenant API and FK denial, exact decimal rates, validation,
+   pagination/ETag, durable replay/conflict, same-key concurrent replay,
+   row-locked concurrent number allocation, versioned policies, hash-chain
+   recomputation, audit UPDATE rejection, permission denial, sanitized errors,
+   and rollback of business/idempotency data when audit INSERT is revoked.
+
+2. python scripts/verify.py unit integration contract security e2e migration
+   PASS - 593/593 tests across all backend suites.
+
+3. python -m unittest tests.unit.test_production_runtime tests.unit.test_platform_admin_models -v
+   PASS - 7/7 focused runtime/domain tests.
+
+4. python -m unittest tests.contract.test_openapi_contract -v
+   PASS - 5/5 canonical route/security/error/schema checks.
+
+5. npm run api:generate && npm run api:check-drift (web/)
+   PASS - generated TypeScript client matches contracts/openapi-v1.json.
+
+6. npm run build (web/)
+   PASS - Next.js production build, TypeScript, and all 47 static routes.
+
+7. uvx ruff check --select I,F,UP <S1.5 Python files>
+   PASS after two import-order/unused-import fixes; no remaining selected
+   static-analysis findings in the changed S1.5 Python surface.
+
+8. python -m compileall -q app tests/unit/test_platform_admin_models.py tests/postgres/test_platform_core_migration.py
+   PASS from repository root.
+
+9. python -m pip check
+   PASS - no broken requirements.
+
+10. git diff --check
+    PASS - no whitespace errors; Git emitted Windows line-ending notices only.
+
+Execution note
+- One compileall command was initially invoked from web/ with root-relative
+  paths and printed "Can't list" for those paths. It was immediately rerun
+  from the repository root with exit-code enforcement and passed; this was a
+  working-directory invocation error, not a code failure.
+
+Security/accounting-foundation review
+- All new routes are protected, permission-bound, tenant-context-bound, and
+  deny before persistence when identity/authorization is absent.
+- Client bodies cannot select tenant_id; PostgreSQL forced RLS and composite
+  tenant foreign keys independently enforce isolation.
+- Business write, audit chain append, and stored idempotent response share one
+  transaction. Audit failure proves full rollback.
+- Number allocation is exact integer state under SELECT ... FOR UPDATE;
+  concurrent calls and concurrent replay are deterministic.
+- Accounting periods are configuration only; this slice does not claim or
+  bypass a production Finance posting integration.
+
+Waivers and remaining blockers
+- X-002 runtime provenance remains unavailable.
+- Q-003 and S1.5-F05 block enabling production identity/authorization; secure
+  defaults remain reject-all.
+- S1.5-F03 blocks production setup activation until Workflow/Security share a
+  PostgreSQL unit of work.
+- Q-004/Q-006 block cloud/KMS/HA/backup/archive/retention readiness claims.

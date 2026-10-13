@@ -1,0 +1,108 @@
+HR-LOC-01E — Employee/Work-Location Resolution and Overrides
+Verification date: 2026-09-28 Asia/Karachi
+Baseline commit: 2e16d6f9ef66765550dca00838c1d07faacaae40
+Status: CLOSED WITH WAIVERS
+
+Scope delivered
+---------------
+- Generalized company-pack activation so an explicit same-country employee
+  work jurisdiction may differ from the company's registered jurisdiction.
+- Effective-dated work-location jurisdiction profiles and controlled,
+  scope-specific employee overrides using existing HR employees, assignments,
+  organization units, company legal profiles, and localization-pack evidence.
+- Deterministic resolution previews that segment requested periods at relevant
+  effective boundaries and return explainable jurisdiction/pack/rule evidence.
+- Protected company-scoped APIs for work-location profiles, overrides and
+  approval actions, statutory rule catalogs, and resolution previews.
+- No payroll calculation, UI workflow, real-country data/rules, AI inference,
+  or cross-border legal-employment model was added.
+
+Database and migration result
+-----------------------------
+- Platform production migration 0004 and local/demo migration 0017 replace the
+  old registered-jurisdiction equality rule with an exact-target, same-legal-
+  employer-country activation rule. Existing compatible activations remain
+  valid; cross-country activation is rejected.
+- HR production migration 0008 makes reviewed work-location jurisdiction
+  evidence immutable and deletion-proof, and allows lifecycle movement only
+  forward. It does not alter migration 0003 or any prior migration in place.
+- Forward application and idempotent reapplication pass. Rollbacks restore the
+  prior behavior only when doing so cannot discard generalized activation or
+  reviewed work-location evidence; otherwise they fail safely.
+
+Resolution order and historical behavior
+----------------------------------------
+1. Select exactly one effective employment assignment for the employee/date.
+2. Resolve its legal employer from the effective company legal profile.
+3. Resolve the assignment's explicit work-location profile.
+4. Apply only approved, effective employee overrides by statutory rule scope.
+5. Require every selected jurisdiction to remain in the legal employer country;
+   otherwise return cross_border_employment_model_required.
+6. Require one exact active company activation for each target jurisdiction.
+7. Build the valid national-to-leaf jurisdiction and pack-dependency stack.
+8. Select approved/active, effective rule versions and reject invalid explicit
+   replacement or ambiguous/conflicting evidence.
+9. Split multi-date requests at assignment, profile, override, activation,
+   dependency, pack and rule-version boundaries, preserving historical context.
+
+The resolver never falls back to registered office, currency, locale, time
+zone, address text, IP/device data, or AI. Missing or ambiguous evidence fails
+closed. Identification, pack availability, activation state, and compliance
+remain distinct; compliance is always reported as not_assessed by this slice.
+
+Security and audit result
+-------------------------
+- HTTP and application-service authorization both enforce exact tenant/company
+  scope and separate read, manage, approve, statutory-read, and preview rights.
+- The override requester cannot approve their own request. Only approved
+  override evidence influences resolution.
+- Forced PostgreSQL RLS and composite tenant/company references protect all
+  tenant data; global statutory catalogs remain publisher controlled.
+- Work-location changes, override lifecycle decisions, and resolution previews
+  write privacy-minimized immutable audit evidence in their transaction.
+- Reviewed work-location profiles and approved/rejected/revoked overrides are
+  immutable evidence; no production activation, Q-007, Q-010, or Q-004 control
+  was weakened.
+
+Verification commands and final results
+---------------------------------------
+- python scripts/verify.py unit integration contract security e2e migration
+  PASS: 672 total across unit, integration, contract, security, end-to-end,
+  and migration categories.
+- python scripts/verify_postgres_platform.py
+  PASS: 23/23 against disposable PostgreSQL.
+- python scripts/verify_postgres_hr.py
+  PASS: 18/18 against disposable PostgreSQL.
+- npm run api:check-drift; npm run lint; npm run test; npm run test:a11y;
+  npm run build (web/)
+  PASS: generated contract is current, 163 behavior tests, 18 accessibility
+  tests, and the 51-route production build.
+- python -m compileall -q app tests; python -m pip check;
+  docker compose config --quiet; git diff --check
+  PASS.
+- node framework/verify/portability-check.mjs .
+  PASS.
+- Country-specific runtime/rule scan
+  PASS: no real jurisdiction or statutory rule was added by 01E.
+- git diff -- app/hr/payroll.py app/finance
+  PASS: no payroll-core or Finance changes.
+
+Defect found and corrected during verification
+----------------------------------------------
+- Security review found that reviewed work-location profiles could still be
+  directly changed in the database. Forward HR migration 0008 now preserves
+  reviewed jurisdiction evidence as immutable and its rollback refuses when
+  restoring weaker behavior would discard that guarantee.
+- Final domain review found that a valid mid-period transfer was classified as
+  ambiguous merely because it produced multiple effective segments. Segment
+  summarization now returns `segmented` without a blocking error when every
+  segment resolves, while any unresolved segment still fails the period closed.
+
+Remaining waivers / gates
+-------------------------
+- Q-010 blocks real reference release and production localization activation.
+- Q-007 blocks real statutory packs and any statutory-compliance claim.
+- Q-004 blocks full sensitive registration identifiers pending vault/KMS proof.
+- Cross-border legal employment remains an explicit future architecture
+  extension and fails closed in 01E.
+- HR-LOC-01F and later slices remain closed pending explicit owner approval.

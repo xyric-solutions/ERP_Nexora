@@ -1,0 +1,95 @@
+HR-STAT-PK verification evidence
+Date: 2026-10-05 PKT
+Result: PASS (Phase A implementation and verification; commit recorded by the git object containing this evidence)
+
+Authority and implementation
+- Official FBR Income Tax Ordinance amended through 30 June 2026, SHA-256:
+  1b611d31c667107a65d3d47a97e163df2ee8ba403952930f527db11d40b32c8b
+- Official FBR Tax Year 2027 withholding rate card, SHA-256:
+  7f4142e746be5d94a78e84e09552afd901265e277f4f6f755bce31bdf3bbb41a
+- Official Pakistan Code EOBI Act, SHA-256:
+  f455a5a5e28b91e5748ae24b1e05bdc7a6cce07d706289f82626c91a6fa32259
+- Controlled production bundle artifact hash:
+  100a530b54859851c4d5a103a64fcde5a0f0b932b5e4c8a352e06219f7e2ab76
+- Controlled production bundle content hash:
+  456ad802154f668820c91a55bfcda954a3e76bb92d1e4fb63fc3a4cf3eda160e
+- Pakistan Tax Year 2027 salary withholding uses section 149 annual average-rate/YTD treatment.
+- Section 219 whole-rupee rounding is explicit (scale 0, half-up).
+- EOBI uses enacted employee/employer rates and an approved effective-dated company contribution base; no minimum wage is inferred.
+- Employee statutory inputs are effective-dated immutable versions with maker-checker approval and a single PostgreSQL-enforced supersession chain.
+- Provincial social security remains fail-closed unless assessed not applicable or supplied by a separately approved subnational pack.
+
+Database migrations
+- Platform production migration 0006: pakistan_reference_release (forward/rollback).
+- Platform local/demo migration 0019: pakistan_reference_release (forward/rollback).
+- HR migration 0019: pakistan_statutory_inputs (forward/rollback).
+- Candidate PostgreSQL Demo migrated successfully to Platform 6 / HR 19.
+- Rollback guards refuse removal after protected reference/evidence use.
+
+Verification commands and exact results
+1. python scripts/verify.py unit integration contract security migration
+   PASS: 756 tests total
+   - unit: 332 passed
+   - integration: 281 passed, 4 skipped (optional Redis environment)
+   - contract: 21 passed
+   - security: 13 passed
+   - migration: 109 passed
+
+2. python scripts/verify_postgres_hr.py
+   PASS: 45 passed in 117.516s
+   Covers HR migrations, statutory import/release, Payroll, maker-checker,
+   immutable snapshots, company/tenant isolation and FORCE RLS.
+
+3. python scripts/verify_postgres_platform.py
+   PASS: 24 passed in 22.139s
+   Covers controlled Pakistan reference release, read-only catalog, migration
+   rollback/replay, tenant isolation and localization activation controls.
+
+4. python scripts/verify_postgres_finance.py
+   PASS: 7 passed in 47.753s
+   Covers controlled Payroll posting, balancing, RLS and idempotency.
+
+5. python scripts/verify_postgres_hr.py tests.e2e.test_demo_environment
+   tests.e2e.test_demo_environment_upgrade tests.e2e.test_s1_2_denial_smoke
+   PASS: 5 passed in 38.184s against isolated PostgreSQL/Redis.
+
+6. npm test (web)
+   PASS: 219 passed across 71 files.
+
+7. npm run test:a11y (web)
+   PASS: 26 passed across 21 files.
+
+8. npx tsc --noEmit (web)
+   PASS.
+
+9. npm run lint (web)
+   PASS.
+
+10. npm run api:check-drift (web)
+    PASS: generated schema matches contracts/openapi-v1.json.
+
+11. npm run build (web)
+    PASS: Next.js 16.3.6 production build, 54 routes.
+
+12. python scripts/production_demo_environment.py verify
+    PASS: candidate database/Redis isolation, authenticated Demo authority,
+    audit chain, company scope and FORCE RLS verified.
+
+Historical invariants after candidate migration
+- September 2026 Payroll: posted, run 1.
+- Finance journal: JE-2026-09-00001, posted.
+- Historical fingerprint:
+  0bbc94075cd4a9b512ad40c81af0f3c6c1b62e0e93d4eaf3d91d2e76446e66af
+- Payroll input hash:
+  c02116e2cb10564c9059a94bee109f7a74d5b1e21413e5dd01e371418a0ae4f2
+- Payroll result hash:
+  763c032d9bb43a9f2bbad25a4d203865ba5e35ad108183589aaa6c4b43ced976
+- Existing salary, OT quantity and HR-OT-MON evidence was not rewritten.
+
+Known cross-phase prerequisite
+- The existing Finance engine correctly requires a Finance Workflow approval
+  for journals above its approval threshold and forbids creator self-posting.
+  Payroll's adapter does not yet expose that separate approval handoff. The
+  controlled Phase A end-to-end vector remains below the threshold and fully
+  reconciles. HR-BANK must close this prerequisite before governed payment can
+  claim end-to-end production readiness; no Finance control was bypassed.

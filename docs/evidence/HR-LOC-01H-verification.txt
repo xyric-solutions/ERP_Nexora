@@ -1,0 +1,181 @@
+HR-LOC-01H — Full Verification and Closeout
+Verification date: 2026-09-29 Asia/Karachi
+Baseline commit: 3372a55882a52fc226f5569e7f218d1dc94bdf4b
+Status: CLOSED WITH WAIVERS — READY FOR REVIEW
+Production/statutory claim: NONE
+
+IMPLEMENTED
+-----------
+- HR-LOC-01A through 01G remain the implementation. 01H adds no localization
+  feature, production API, schema, migration, real-country data/rule, AI-law
+  path, production activation bypass, or cross-border execution model.
+- Strengthened the existing synthetic PostgreSQL resolver test so it proves an
+  exact national + subnational dependency stack, a same-country work-location
+  transfer, historical lookup of the prior assignment/location, and a later
+  cross-country fail-closed result.
+- Reclassified the unchanged shadcn package from production to development
+  dependencies because it is consumed only during CSS/build tooling. Runtime
+  application code and package versions are unchanged; production npm audit is
+  now clean.
+
+VERIFIED — authoritative end-to-end flow
+----------------------------------------
+Company legal profile is read first. The effective employee assignment supplies
+the explicit work-location identity. The effective reviewed work-location
+profile supplies country/jurisdiction evidence. Only approved, assignment-
+scoped overrides may alter a rule scope. The resolver selects the exact active
+company activation, recursively resolves approved released pack dependencies,
+and selects effective deterministic rule versions. The statutory provider
+passes this normalized evidence to the country-neutral executor. Payroll adds
+normalized employee/employer lines and seals exact context, pack, rule, input,
+output and result evidence. Protected APIs and the UI read that authoritative
+evidence; they do not independently resolve law or mutate sealed snapshots.
+
+No duplicate hidden authority was found. app/hr/payroll.py contains no country
+or jurisdiction branch. Currency reaches ordinary Payroll validation but is not
+read by the localization resolver/provider as a jurisdiction detector. Address
+fields exist only as explicit profile data; the resolution path does not read
+address, locality, postal code, locale, language, time zone, IP, browser, device
+or AI output.
+
+VERIFIED — required scenario matrix (20/20 passed)
+--------------------------------------------------
+1. Valid company context — synthetic activation/setup PostgreSQL service test.
+2. Same-country alternate subnational jurisdiction — Platform activation and
+   HR resolver PostgreSQL tests.
+3. Employee work-location transfer — 2027 synthetic assignment/location
+   transfer resolves the new reviewed evidence.
+4. Historical jurisdiction — after that transfer is present, a 2026 lookup
+   still resolves assignment-a/work-profile-other.
+5. Approved override with maker-checker — self-approval is denied; independent
+   approval, audit and approved_override resolution pass.
+6. National + subnational stacking — importer dependency integrity and live
+   resolver stack [pack-version-national, pack-version-other] pass.
+7. Effective rule version selection — importer overlap/supersession and Payroll
+   pack/rule v1 versus v2 tests pass.
+8. Payroll uses resolved context — synthetic localized calculation returns
+   deterministic employee and employer statutory amounts.
+9. Immutable snapshot creation — calculation seals exact packs, rules and lines;
+   database mutation is rejected.
+10. Historical reproduction — reproduce_original stays pinned to v1 after v2
+    is approved and active.
+11. Corrected recalculation — separate permission/reason, v2 calculation and
+    prior result/source snapshot linkage pass.
+12. Missing/unapproved pack — production activation, missing dependency and
+    required-localization Payroll paths fail closed.
+13. Invalid/ambiguous context — incomplete/ambiguous period resolution and
+    overlap constraints fail closed.
+14. Cross-country employment — the later synthetic YY transfer returns exactly
+    cross_border_employment_model_required.
+15. Tenant/company isolation and RLS — cross-tenant/cross-company reads and
+    writes are denied in Platform, HR, Payroll and API tests.
+16. Unauthorized action — exact permissions, company scope and maker-checker
+    denials pass before service mutation.
+17. Immutable approved evidence — approved releases/rules/vectors, reviewed
+    locations and sealed snapshots reject mutation/deletion/appends.
+18. Audit/effective-date history — atomic audit references, inclusive dates,
+    overlap exclusion, transfer history and idempotent commands pass.
+19. UI/API consistency — generated-client drift, localization client/workspace,
+    permission, empty/error/loading and accessibility tests pass.
+20. HR/Payroll/Finance regression — canonical, all live PostgreSQL lanes and
+    controlled Payroll-to-Finance posting tests pass.
+
+VERIFIED — security, RLS and migration
+--------------------------------------
+- Forced RLS and tenant/company isolation pass for localization configuration,
+  work evidence, overrides, results and statutory snapshots.
+- Exact RBAC, company scope, maker-checker separation, publisher least privilege,
+  audit atomicity/immutability, and Redis/database idempotency pass.
+- Migration ordering, fresh apply, replay/idempotency, clean rollback and
+  populated-evidence rollback protection pass.
+- No 01H migration was added and git diff confirms no app or migration change.
+- Approved rule/release evidence and sealed Payroll snapshots remain immutable.
+
+VERIFIED — country neutrality and safety scans
+-----------------------------------------------
+- No Pakistan, province, UAE, US, UK, Canada, or other real-country literal/code
+  exists in executable localization implementation/UI paths.
+- No country-specific tax/social-security formula or country conditional exists
+  in Payroll/localization execution paths.
+- No OpenAI/Anthropic/LLM/machine-learning/legal-inference path exists in
+  localization resolution or statutory execution.
+- The resolver path contains no currency, address, locale, time-zone, IP,
+  browser or device detector.
+- Production activation remains hard-blocked by LocalizationActivationPolicy;
+  missing activation/coverage and cross-country employment remain fail-closed.
+- Synthetic XX/XXX localization data appears in test evidence only, not runtime
+  app/Web implementation.
+- Q-007, Q-010, Q-004 and cross-border gates have no bypass or environment
+  switch. Statutory compliance remains not_assessed.
+
+VERIFIED — complete command results
+-----------------------------------
+- python scripts/verify.py unit integration contract security e2e migration
+  PASS: 678 tests.
+- python scripts/verify_postgres_platform.py
+  PASS: 23/23.
+- python scripts/verify_postgres_security.py
+  PASS: 3/3.
+- python scripts/verify_postgres_workflow.py
+  PASS: 4/4.
+- python scripts/verify_postgres_finance.py
+  PASS: 7/7.
+- python scripts/verify_postgres_hr.py
+  PASS: 19/19, rerun after the final synthetic evidence enhancement.
+- python scripts/verify_redis_operations.py
+  PASS: 4/4.
+- npm run test (web/)
+  PASS: 62 files, 172 tests.
+- npm run test:a11y (web/)
+  PASS: 17 files, 20 tests, zero reported axe violations.
+- npm run api:check-drift; npm run lint; npx tsc --noEmit (web/)
+  PASS.
+- npm run build (web/)
+  PASS after the dependency classification change: Next.js 16.3.6, 53 routes.
+- python -m compileall -q app scripts tests; python -m pip check
+  PASS.
+- python -m pip_audit . --strict --progress-spinner off
+  PASS: no known Python vulnerabilities.
+- npm audit --omit=dev --audit-level=high
+  PASS: zero production vulnerabilities. The full development tree reports two
+  moderate transitive advisories in shadcn tooling; they are absent from the
+  production dependency tree/runtime image and retained as finding X-004.
+- docker compose config --quiet
+  PASS.
+- API and Web OCI builds
+  PASS; both runtime users are 10001:10001. The Web image builds all 53 routes.
+- node framework/verify/portability-check.mjs .
+  PASS: 66 required files, clean placeholders and current handoff paths.
+- git diff --check
+  PASS with only Git's expected Windows line-ending notices.
+
+WAIVED
+------
+- X-002: the harness does not expose exact actual model/variant/effort/surface
+  metadata. Execution was single-agent and no worker evidence is claimed.
+- Existing 01A–01G external production-operation waivers remain; 01H does not
+  convert successful country-neutral tests into a statutory-compliance claim.
+
+BLOCKED BY EXTERNAL GATE
+------------------------
+- Q-007 — no legally owned, approved real statutory pack exists.
+- Q-010 — no approved provenance-hashed real jurisdiction/reference release;
+  production localization activation remains blocked.
+- Q-004 — full sensitive statutory identifiers await approved vault/KMS,
+  encryption, retention and evidence controls.
+- Future cross-border employment/payroll model — legal-employer country and
+  employment/payroll country mismatch remains unsupported and fail-closed.
+- Q-003/Q-006 still block managed identity/cloud operational production claims.
+
+NOT STARTED
+-----------
+- Any real-country statutory pack, rate, formula, filing or compliance claim.
+- Cross-border legal-employment/payroll execution.
+- AI-assisted legal-rule discovery/maintenance or AI payroll calculation.
+- Any post-HR-LOC-01H localization feature.
+
+Final assessment
+----------------
+HR-LOC-01H satisfies its closeout criteria and HR-LOC-01 is CLOSED WITH WAIVERS,
+READY FOR REVIEW. The generic deterministic framework is verified; Nexora is
+not declared country-compliant or fully production-ready.

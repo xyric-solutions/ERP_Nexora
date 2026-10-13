@@ -1,0 +1,70 @@
+OPS-01 DISTRIBUTED CONTROLS AND OBSERVABILITY - VERIFICATION
+Date: 2026-09-25 Asia/Karachi
+Status: READY FOR REVIEW WITH EXTERNAL OPERATIONS WAIVERS
+
+IMPLEMENTED
+- Required Redis production configuration, application-lifetime async client,
+  fail-closed startup and PostgreSQL+Redis readiness.
+- HMAC-SHA256 Redis keys that do not disclose raw tenant, actor or
+  idempotency values.
+- Atomic Lua fixed-window rate limiting shared across replicas.
+- Lease/heartbeat Redis idempotency claims, fingerprint conflict detection,
+  bounded wait, response replay and uncertainty-safe post-effect behavior.
+- Dedicated-auth Prometheus metrics and provider-neutral OpenTelemetry server
+  tracing with bounded route labels and privacy-minimized attributes.
+- Production disables the legacy process-memory `/platform/resources`
+  scaffold; development/reference composition retains it for compatibility.
+- CI and disposable Redis/PostgreSQL production-composition verification.
+
+SECURITY AND DATA-INTEGRITY REVIEW
+- Remote plaintext redis:// configuration is rejected; rediss:// is required
+  outside localhost.
+- Redis outages return API_DISTRIBUTED_CONTROL_UNAVAILABLE without DSNs or
+  internal diagnostics.
+- Claims are released when the operation fails before returning, but are not
+  released after a returned operation if response persistence fails.
+- Redis coordinates transport retries only. Material ERP command services
+  retain durable PostgreSQL idempotency because Redis and PostgreSQL cannot
+  share one atomic transaction.
+- Metrics and spans exclude authorization, cookies, request/response bodies,
+  query strings, tenant IDs, actor IDs, correlation IDs and arbitrary paths.
+- No generic ERP resource write is allowed to masquerade as durable production
+  data in process memory.
+
+COMMANDS AND RESULTS
+- python -m unittest tests.unit.test_production_runtime tests.unit.test_telemetry -v
+  PASS: 7
+- python scripts/verify_redis_operations.py
+  PASS: 4 against disposable redis:7.4-alpine
+- python scripts/verify_postgres_platform.py
+  PASS: 12
+- python scripts/verify_postgres_security.py
+  PASS: 3
+- python scripts/verify_postgres_workflow.py
+  PASS: 4
+- python scripts/verify_postgres_finance.py
+  PASS: 7
+- python scripts/verify_postgres_hr.py
+  PASS: 6
+- python scripts/verify.py unit integration contract security e2e migration
+  PASS: 638
+- web: npm run lint; npm run api:check-drift; npm run test;
+  npm run test:a11y; npm run build
+  PASS: lint, drift, 163 tests, 18 accessibility tests, 51 static routes
+- python -m pip check
+  PASS: no broken requirements
+- python -m pip_audit . --strict --progress-spinner off
+  PASS: no known vulnerabilities
+- docker build --tag nexora-api:ops01 .
+  PASS
+- docker image inspect --format '{{.Config.User}}' nexora-api:ops01
+  PASS: 10001:10001
+- python -m compileall -q app tests scripts; git diff --check
+  PASS; only repository line-ending notices
+
+WAIVERS / NOT CLAIMED
+- Managed Redis/collector provisioning, HA, capacity, backup/restore,
+  dashboards, alert routing, retention, on-call ownership and failover drills
+  require Q-006/Q-004 deployment decisions and real environment evidence.
+- Managed identity, statutory payroll and bank execution remain separate
+  owner/provider/legal decisions.

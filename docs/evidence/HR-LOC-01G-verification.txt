@@ -1,0 +1,99 @@
+HR-LOC-01G — Guided Platform and HR Localization UI
+Verification date: 2026-09-29 Asia/Karachi
+Baseline commit: 6e8263b9a5486dfbd6d848e19583236f7ddaed2b
+Status: CLOSED WITH WAIVERS
+
+Scope delivered
+---------------
+- Added Administration > Localization setup at /organization/localization.
+- Added HR & Payroll > Localization at /hr/localization and linked payroll
+  periods to their read-only statutory evidence view.
+- Added a typed API adapter over the existing protected 01D-01F endpoints; no
+  OpenAPI/backend/schema/dependency change was required.
+- Added guided company setup through the canonical setup-draft workflow,
+  explicit readiness states, effective history and pack catalog visibility.
+- Added work-location mappings, controlled employee overrides, deterministic
+  non-mutating resolution preview, read-only rule evidence and immutable
+  statutory snapshot visibility.
+- Added a labelled keyboard-accessible searchable select without a dependency.
+- No real-country reference/statutory data, country branch, payroll calculation,
+  Finance change, AI-law inference, cross-border execution, or 01H work exists.
+
+Readiness and failure behavior
+------------------------------
+- Jurisdiction identification, pack availability, approved/active pack, and
+  statutory-compliance assessment are displayed as separate states.
+- Compliance remains "Not assessed"; selecting geography never produces a
+  compliant status.
+- Missing company scope, catalogs, configuration, approvals, effective evidence,
+  and snapshot evidence produce explicit empty/blocking states.
+- Resolution preview shows Legal employer -> Assignment -> Work location ->
+  Jurisdiction and server-returned decision/dependency evidence.
+- The UI does not fall back to registered office, currency, locale, address,
+  time zone, IP/device location, AI, or another rule set.
+- Cross-country execution remains fail-closed in the authoritative backend.
+
+Security, RBAC and audit result
+-------------------------------
+- Navigation, queries and actions use granular existing Platform/HR permissions.
+- Company setup writes only a setup draft; backend review/activation, Q-007 and
+  Q-010 remain authoritative.
+- Override management and approval remain distinct; same-maker approval is not
+  offered when current-user evidence is available and is always enforced by the
+  backend.
+- Registration input is masked-display-only. No plaintext statutory identifier
+  or secret is collected.
+- Payroll statutory snapshots expose no mutation control.
+- Tenant/company scope, PostgreSQL RLS, API RBAC, idempotency, audit and
+  immutable evidence were unchanged and passed canonical/live regressions.
+
+Files/categories changed
+------------------------
+- UI pages/navigation: the two localization routes, HR/Administration menu
+  entries and Payroll period deep-link.
+- Feature components: company workspace, HR workspace, readiness/status cards
+  and shared searchable select.
+- API/session: typed localization adapter, assignment listing helper and known
+  permission registry.
+- Setup workflow copy: localization sections and approval-boundary guidance.
+- Tests: client header/query behavior, navigation permissions, company/HR
+  behavior and both new pages' automated accessibility checks.
+- Documentation/governance: design note, segment, evidence, progress, master
+  plan, improvement ledger, memory and next-session handoff.
+- Database/migrations/backend/contracts/dependencies: no change.
+
+Verification commands and final results
+---------------------------------------
+- python scripts/verify.py unit integration contract security e2e migration
+  PASS: 678 total.
+- python scripts/verify_postgres_platform.py
+  PASS: 23/23, including localization activation, tenant scope and rollback.
+- python scripts/verify_postgres_hr.py
+  PASS: 19/19, including resolver, RLS, immutable snapshot and rollback/reapply.
+- npm run api:check-drift; npm run lint; npx tsc --noEmit (web/)
+  PASS.
+- npm run test (web/)
+  PASS: 62 files, 172 tests.
+- npm run test:a11y (web/)
+  PASS: 17 files, 20 tests, zero reported axe violations.
+- npm run build (web/)
+  PASS: Next.js 16.3.6 production build, 53 routes including both new pages.
+- python -m compileall -q app scripts tests; python -m pip check;
+  docker compose config --quiet; git diff --check
+  PASS; diff check reports only expected line-ending warnings.
+- node framework/verify/portability-check.mjs .
+  PASS: 66 required files, clean placeholders and current handoff paths.
+- Scoped real-country/country-condition scan
+  PASS: no real-country name or country-conditional Payroll logic in 01G paths;
+  only synthetic XX/XXX test evidence is present.
+
+Remaining waivers / gates
+-------------------------
+- Q-010 blocks real reference release and production localization activation.
+- Q-007 blocks real statutory packs and every compliance claim.
+- Q-004 blocks full sensitive registration identifiers pending vault/KMS proof.
+- Cross-border legal employment/payroll has no approved execution model and
+  continues to fail closed.
+- HR-LOC-01H remains closed pending explicit owner approval.
+- X-002: exact runtime model/variant/effort/surface is not exposed; single-agent
+  execution was used and no delegated worker evidence exists.

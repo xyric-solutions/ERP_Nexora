@@ -1,0 +1,89 @@
+Nexora S1.5-01 - PostgreSQL Platform Core foundation
+Date: 2026-09-25 (Asia/Karachi)
+Status: closed with waivers
+
+Scope
+-----
+- PostgreSQL Platform Core forward/rollback migration.
+- Forced row-level security for all tenant-owned Platform Core tables.
+- Transaction-local tenant context and non-owner application-role proof.
+- Exact numeric currency rates, accounting periods, currencies, and governed
+  numbering-sequence schema.
+- Migration serialization with a transaction-scoped advisory lock.
+- Installable Python package metadata and reviewed Psycopg 3 dependency.
+- No production entry-point switch, PostgreSQL repository adapter, public API,
+  or frontend change in this bounded slice.
+
+Deterministic verification
+--------------------------
+1. python -m pip install -e .
+   PASS after restricting setuptools discovery to app*.
+   Initial run failed because the prior pyproject attempted to discover every
+   top-level repository directory as a package; recorded as S1.5-F01.
+   Installed psycopg 3.3.6 / psycopg-binary 3.3.6.
+
+2. python scripts/verify_postgres_platform.py
+   PASS: 7 tests against disposable postgres:18-alpine.
+   Proved:
+   - atomic/idempotent forward migration and exact production column types;
+   - concurrent migration attempts serialize (one applies, one no-ops);
+   - missing tenant context defaults to deny;
+   - tenant context is transaction-local;
+   - cross-tenant tenant/company reads and writes are denied;
+   - company-only references and non-overlapping fiscal periods are enforced;
+   - numeric(38,18) rates round-trip as Decimal without loss;
+   - numbering-sequence uniqueness is enforced;
+   - clean rollback succeeds and populated rollback is refused/preserved.
+   - migrations and rollback run as a non-superuser schema owner; a refused
+     rollback transaction restores every FORCE RLS flag.
+
+3. python scripts/verify.py security
+   PASS: 13 tests.
+
+4. python scripts/verify.py unit integration contract security e2e migration
+   PASS: 584 tests across all six suites.
+
+5. python -m compileall -q app tests/postgres scripts/verify_postgres_platform.py
+   PASS (exit 0, no output).
+
+6. python -m pip check
+   PASS: No broken requirements found.
+
+7. git diff --check
+   PASS: no whitespace errors. Git emitted only the repository's Windows
+   LF-to-CRLF working-copy notices.
+
+8. node framework/verify/portability-check.mjs
+   PASS: all project-root checks passed (66 required files present,
+   placeholders clean, handoff paths current). Resolves X-003.
+
+Security review
+---------------
+- Runtime RLS proof uses a non-owner, non-superuser role without BYPASSRLS.
+- Every tenant-owned Platform Core table enables and forces RLS.
+- Policies use current_setting('nexora.tenant_id', true); missing context sees
+  no tenant rows and cannot create tenant-owned rows.
+- The context is set with set_config(..., true) inside a transaction, preventing
+  pooled-connection tenant leakage.
+- Composite tenant-aware foreign keys prevent cross-tenant references.
+- Migration SQL creates no login role, password, or deployment credential.
+- The disposable verifier generates an in-memory test password, binds only to
+  loopback, uses no persistent volume, and removes its random-named container.
+- The production dependency guard is now an exact allowlist containing only
+  psycopg[binary]>=3.3.6,<3.4.
+
+Waivers / residual risk
+-----------------------
+- Q-004/Q-006 still block production-readiness claims for encryption-at-rest,
+  protected audit archive/SIEM, retention, backup/restore, HA, cloud, and vault.
+- Exact Codex model ID/variant/effort/surface are not runtime-exposed (X-002).
+- PostgreSQL repository adapters, production FastAPI composition, Platform
+  administration APIs, frontend pages, and end-to-end production operations
+  remain S1.5-02 through S1.5-06.
+
+Sources reviewed
+----------------
+- PostgreSQL 18 row-security and configuration-setting documentation.
+- Psycopg 3 installation, transactions, multiple statements, and connection
+  documentation; pinned compatible minor line 3.3.x (installed 3.3.6).
+- FastAPI deployment documentation for the later S1.5 composition slice.

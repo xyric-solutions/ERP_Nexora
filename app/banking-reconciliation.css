@@ -1,0 +1,129 @@
+.nx-recon { min-width: 0; display: grid; gap: 15px; }
+.nx-recon__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+.nx-recon__head h1 { margin: 5px 0 0; color: var(--nx-text-strong); font-size: clamp(23px, 2.4vw, 32px); font-weight: 700; letter-spacing: -.035em; }
+.nx-recon__head p { max-width: 78ch; margin: 6px 0 0; color: var(--nx-text-muted); font-size: 13px; line-height: 1.55; }
+.nx-recon__steps { margin: 0; padding: 14px 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-md); background: var(--nx-surface); box-shadow: var(--nx-shadow-xs); list-style: none; }
+.nx-recon__steps li { position: relative; display: flex; align-items: center; gap: 10px; color: var(--nx-text-subtle); }
+.nx-recon__steps li:not(:last-child)::after { content: ""; position: absolute; right: 10px; left: 46px; bottom: -15px; height: 2px; background: var(--nx-border); transform: translateY(-23px); }
+.nx-recon__steps i { position: relative; z-index: 1; width: 28px; height: 28px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid var(--nx-border-strong); border-radius: 50%; background: var(--nx-surface); font-size: 11px; font-style: normal; font-weight: 700; }
+.nx-recon__steps span { position: relative; z-index: 1; min-width: 0; padding-right: 12px; background: var(--nx-surface); }
+.nx-recon__steps strong,.nx-recon__steps small { display: block; }
+.nx-recon__steps strong { color: var(--nx-text); font-size: 12px; }
+.nx-recon__steps small { margin-top: 2px; font-size: 11px; }
+.nx-recon__steps li.complete i { border-color: var(--nx-success); background: var(--nx-success); color: white; }
+.nx-recon__steps li.complete:not(:last-child)::after { background: var(--nx-success); }
+.nx-recon__steps li.current i { border-color: var(--nx-brand); box-shadow: 0 0 0 4px var(--nx-brand-soft); color: var(--nx-brand-strong); }
+.nx-recon__controls { padding: 12px 14px; display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-md); background: var(--nx-surface); }
+.nx-recon__controls label { min-width: 170px; display: grid; gap: 5px; }
+.nx-recon__controls label:first-child { min-width: min(330px, 100%); flex: 1 1 280px; }
+.nx-recon__controls label span { color: var(--nx-text-muted); font-size: 11px; font-weight: 600; }
+.nx-recon__controls select { width: 100%; padding: 8px 10px; border: 1px solid var(--nx-border-strong); border-radius: var(--nx-radius-sm); background: var(--nx-surface); color: var(--nx-text-strong); font: inherit; font-size: 12px; }
+.nx-recon__summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.nx-recon__summary article { padding: 13px 15px; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-md); background: var(--nx-surface); box-shadow: var(--nx-shadow-xs); }
+.nx-recon__summary article.warning { border-color: color-mix(in srgb, var(--nx-warning) 42%, var(--nx-border)); background: var(--nx-warning-soft); }
+.nx-recon__summary span,.nx-recon__summary small { display: block; color: var(--nx-text-muted); font-size: 11px; }
+.nx-recon__summary strong { display: block; margin: 4px 0 2px; color: var(--nx-text-strong); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.025em; }
+.nx-recon__summary article > i { height: 4px; margin-top: 8px; display: block; overflow: hidden; border-radius: 99px; background: var(--nx-border); }
+.nx-recon__summary article > i b { height: 100%; display: block; border-radius: inherit; background: var(--nx-brand); }
+.nx-recon__workspace { min-width: 0; display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(320px, .75fr); gap: 14px; align-items: start; }
+.nx-recon__statement,.nx-recon__match { min-width: 0; overflow: hidden; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-md); background: var(--nx-surface); box-shadow: var(--nx-shadow-xs); }
+.nx-recon__statement > header { padding: 13px 15px; display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--nx-border); background: var(--nx-surface-soft); }
+.nx-recon__statement header span,.nx-recon__match header > span,.nx-recon__candidate-head span { color: var(--nx-text-subtle); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.nx-recon__statement header h2,.nx-recon__match header h2 { margin: 3px 0 0; color: var(--nx-text-strong); font-size: 15px; }
+.nx-recon__statement header small { max-width: 28ch; color: var(--nx-text-muted); font-size: 11px; text-align: right; }
+.nx-recon__statement tbody tr { cursor: pointer; }
+.nx-recon__statement tbody tr.is-selected td { background: var(--nx-brand-soft); box-shadow: inset 3px 0 var(--nx-brand); }
+.nx-recon__match { position: sticky; top: 12px; }
+.nx-recon__match > header { padding: 15px; border-bottom: 1px solid var(--nx-border); background: var(--nx-brand-soft); }
+.nx-recon__match header > strong { display: block; margin-top: 10px; font-size: 24px; font-variant-numeric: tabular-nums; }
+.nx-recon__match header p { margin: 5px 0 0; color: var(--nx-text-muted); font-size: 11px; line-height: 1.45; }
+.nx-recon__candidate-head { padding: 11px 14px 7px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.nx-recon__candidate-head small { color: var(--nx-text-subtle); font-size: 11px; }
+.nx-recon__candidates { padding: 0 10px 8px; display: grid; gap: 7px; }
+.nx-recon__candidates label { padding: 10px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 9px; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-sm); cursor: pointer; }
+.nx-recon__candidates label:hover,.nx-recon__candidates label.is-selected { border-color: var(--nx-brand); background: var(--nx-brand-soft); }
+.nx-recon__candidates label > span { min-width: 0; }
+.nx-recon__candidates b { float: right; padding: 2px 5px; border-radius: 4px; background: var(--nx-success-soft); color: var(--nx-success); font-size: 11px; }
+.nx-recon__candidates strong,.nx-recon__candidates small,.nx-recon__candidates em { display: block; }
+.nx-recon__candidates strong { color: var(--nx-text-strong); font-size: 12px; }
+.nx-recon__candidates small,.nx-recon__candidates em { margin-top: 2px; color: var(--nx-text-muted); font-size: 11px; line-height: 1.4; }
+.nx-recon__candidates em { color: var(--nx-text-subtle); font-style: normal; }
+.nx-recon__candidates i { height: 3px; margin-top: 6px; display: block; overflow: hidden; border-radius: 99px; background: var(--nx-border); }
+.nx-recon__candidates u { height: 100%; display: block; background: var(--nx-success); text-decoration: none; }
+.nx-recon__candidates label > strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.nx-recon__match-actions { padding: 10px 14px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 7px; border-top: 1px solid var(--nx-border); }
+.nx-recon__match-actions .nx-button:first-child { grid-column: 1 / -1; }
+.nx-recon__match .nx-role-section-note { margin: 0 14px 14px; }
+.nx-pos { color: var(--nx-success) !important; }
+.nx-neg { color: var(--nx-danger) !important; }
+/* Register: the "Add New" panel that starts a reconciliation. */
+.nx-recon__method-note { padding: 12px 14px; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-sm); background: var(--nx-surface-soft); }
+.nx-recon__method-note p { margin: 0 0 7px; max-width: 78ch; color: var(--nx-text-muted); font-size: 12px; line-height: 1.55; }
+.nx-recon__method-note p:last-child { margin-bottom: 0; }
+.nx-recon__method-note strong { color: var(--nx-text-strong); }
+.nx-recon__error { margin: 12px 0 0; padding: 9px 12px; border: 1px solid var(--nx-danger); border-radius: var(--nx-radius-sm); background: var(--nx-danger-soft); color: var(--nx-text-strong); font-size: 12px; }
+.nx-recon__create-actions { margin-top: 14px; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.nx-recon__open-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Reconciliation worksheet: the manual-tick screen behind "+ Add New". */
+.nx-worksheet { min-width: 0; display: grid; gap: 14px; padding: 16px 18px 18px; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-md); background: var(--nx-surface); box-shadow: var(--nx-shadow-xs); }
+.nx-worksheet__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.nx-worksheet__head h2 { margin: 5px 0 0; color: var(--nx-text-strong); font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.nx-worksheet__head p { max-width: 82ch; margin: 5px 0 0; color: var(--nx-text-muted); font-size: 12px; line-height: 1.55; }
+.nx-worksheet__method { display: flex; gap: 0; overflow: hidden; border: 1px solid var(--nx-border-strong); border-radius: var(--nx-radius-sm); }
+.nx-worksheet__method button { padding: 7px 14px; border: 0; background: var(--nx-surface); color: var(--nx-text-muted); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.nx-worksheet__method button + button { border-left: 1px solid var(--nx-border); }
+.nx-worksheet__method button.active { background: var(--nx-brand); color: #fff; }
+.nx-worksheet__import p { max-width: 82ch; margin: 0 0 14px; color: var(--nx-text-muted); font-size: 12px; line-height: 1.6; }
+.nx-worksheet__controls { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; padding: 13px 14px; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-sm); background: var(--nx-surface-soft); }
+.nx-worksheet__controls label { min-width: 190px; display: grid; gap: 5px; flex: 1 1 190px; }
+.nx-worksheet__controls label:first-child { flex: 2 1 300px; }
+.nx-worksheet__controls span { color: var(--nx-text-muted); font-size: 11px; font-weight: 600; }
+.nx-worksheet__controls span b { color: var(--nx-danger); }
+.nx-worksheet__controls select,.nx-worksheet__controls input { width: 100%; padding: 8px 10px; border: 1px solid var(--nx-border-strong); border-radius: var(--nx-radius-sm); background: var(--nx-surface); color: var(--nx-text-strong); font: inherit; font-size: 12px; }
+.nx-worksheet__amount { text-align: right; font-variant-numeric: tabular-nums; }
+.nx-worksheet__equation { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
+.nx-worksheet__equation > div { flex: 1 1 150px; min-width: 130px; padding: 11px 13px; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-sm); background: var(--nx-surface); }
+.nx-worksheet__equation span,.nx-worksheet__equation small { display: block; color: var(--nx-text-muted); font-size: 11px; }
+.nx-worksheet__equation strong { display: block; margin: 3px 0 2px; color: var(--nx-text-strong); font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.nx-worksheet__equation i { display: grid; place-items: center; width: 22px; color: var(--nx-text-subtle); font-size: 15px; font-style: normal; font-weight: 700; }
+.nx-worksheet__equation > div.nx-worksheet__difference { border-color: color-mix(in srgb, var(--nx-warning) 45%, var(--nx-border)); background: var(--nx-warning-soft); }
+.nx-worksheet__equation > div.nx-worksheet__difference.is-nil { border-color: color-mix(in srgb, var(--nx-success) 45%, var(--nx-border)); background: var(--nx-success-soft); }
+.nx-worksheet__difference strong { font-size: 20px; }
+.nx-worksheet__toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--nx-text-muted); font-size: 11px; }
+.nx-worksheet__search { display: flex; align-items: center; gap: 7px; }
+.nx-worksheet__search input { width: min(300px, 60vw); padding: 7px 9px; border: 1px solid var(--nx-border-strong); border-radius: var(--nx-radius-sm); background: var(--nx-surface); color: var(--nx-text-strong); font: inherit; font-size: 12px; }
+.nx-worksheet__table tbody tr.is-ticked td { background: var(--nx-brand-soft); }
+.nx-worksheet__table tbody tr.is-adjustment td { background: var(--nx-warning-soft); font-style: italic; }
+.nx-worksheet__tick { width: 62px; text-align: center; }
+.nx-worksheet__tick label { display: inline-flex; align-items: center; gap: 6px; }
+.nx-worksheet__remove { border: 0; background: none; color: var(--nx-danger); font: inherit; cursor: pointer; }
+.nx-worksheet__adjust { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; padding: 13px 14px; border: 1px dashed var(--nx-border-strong); border-radius: var(--nx-radius-sm); background: var(--nx-surface-soft); }
+.nx-worksheet__adjust > div:first-child { flex: 1 1 280px; }
+.nx-worksheet__adjust strong { display: block; color: var(--nx-text-strong); font-size: 12px; }
+.nx-worksheet__adjust small { display: block; margin-top: 4px; max-width: 70ch; color: var(--nx-text-muted); font-size: 11px; line-height: 1.5; }
+.nx-worksheet__adjust label { min-width: 150px; display: grid; gap: 5px; }
+.nx-worksheet__adjust label span { color: var(--nx-text-muted); font-size: 11px; font-weight: 600; }
+.nx-worksheet__adjust select,.nx-worksheet__adjust input { padding: 7px 9px; border: 1px solid var(--nx-border-strong); border-radius: var(--nx-radius-sm); background: var(--nx-surface); color: var(--nx-text-strong); font: inherit; font-size: 12px; }
+.nx-worksheet__empty { margin: 0; padding: 26px; border: 1px dashed var(--nx-border-strong); border-radius: var(--nx-radius-sm); color: var(--nx-text-muted); font-size: 12px; text-align: center; }
+.nx-worksheet__actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding-top: 4px; border-top: 1px solid var(--nx-border); }
+.nx-worksheet__actions .nx-button:disabled { opacity: .5; cursor: not-allowed; }
+
+@media (max-width: 1100px) {
+  .nx-recon__summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nx-recon__workspace { grid-template-columns: minmax(0, 1fr); }
+  .nx-recon__match { position: static; }
+}
+@media (max-width: 720px) {
+  .nx-recon__steps { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .nx-recon__steps li::after { display: none; }
+  .nx-recon__summary { grid-template-columns: minmax(0, 1fr); }
+  .nx-recon__controls { align-items: stretch; }
+  .nx-recon__controls label { min-width: 0; width: 100%; }
+  .nx-recon__match-actions { grid-template-columns: minmax(0, 1fr); }
+  .nx-recon__match-actions .nx-button:first-child { grid-column: auto; }
+  .nx-worksheet__equation > div { flex-basis: 100%; }
+  .nx-worksheet__equation i { width: 100%; height: 16px; }
+  .nx-worksheet__controls label { min-width: 0; flex-basis: 100%; }
+  .nx-worksheet__actions { justify-content: stretch; }
+}

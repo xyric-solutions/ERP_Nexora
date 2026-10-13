@@ -1,0 +1,13 @@
+.next/
+.vinext/
+coverage/
+dist/
+node_modules/
+output/
+playwright-report/
+public/
+test-results/
+tmp/
+docs/parity/prototype-manifest.json
+openapi-v1.json
+apps/web/src/lib/api/generated.ts

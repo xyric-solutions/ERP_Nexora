@@ -1,0 +1,78 @@
+HR-LOC-01A — Platform localization schema and reference model
+Verification date: 2026-09-28 Asia/Karachi
+Status: CLOSED WITH WAIVERS
+
+Scope verified
+- Country-neutral domain values for country, jurisdiction, legal entity,
+  localization pack/version/dependency, company legal profile, masked statutory
+  registration, payroll configuration, activation, and localization control.
+- Production Platform PostgreSQL migration 0003 with forced RLS, effective-date
+  exclusions, publisher-managed catalogs, immutable approved pack evidence,
+  compatible activations, legacy backfill, new-company trigger, and guarded rollback.
+- Local/demo PostgreSQL migration 0016 with globally unique registry version,
+  package data, Demo provisioning, matching hierarchy/dependency/activation and
+  preservation behavior.
+- No API, frontend, payroll-engine, Finance-tax, or real country-law change.
+
+Deterministic verification
+- `python -m unittest tests.unit.test_platform_localization -v`
+  PASS — 6 tests.
+- `python scripts/verify_postgres_platform.py`
+  PASS — 18 tests against disposable PostgreSQL 18, including production
+  migration/idempotency/concurrency, forced RLS, cross-tenant denial,
+  publisher-only catalog mutation, hierarchy/dependency integrity, lifecycle
+  immutability, overlap rejection, legacy/new controls, and rollback.
+- `python scripts/verify.py unit integration contract security e2e migration`
+  PASS — 648 tests: 267 unit, 252 integration, 5 contract, 13 security,
+  5 e2e, and 106 migration.
+- `python scripts/verify_postgres_hr.py`
+  PASS — 6 live HR PostgreSQL tests.
+- `python -m compileall -q app scripts tests`
+  PASS.
+- `python -m pip check`
+  PASS — no broken requirements.
+- `docker compose config --quiet`
+  PASS.
+- `git diff --check`
+  PASS; Windows line-ending notices only.
+- `node framework/verify/portability-check.mjs .`
+  PASS after the HR-LOC-01A handoff was restored to the required Forgeflow shape.
+
+Manual security/privacy review
+- Application roles can read global catalogs but database triggers reject their
+  writes; tenant-owned rows use forced RLS and tenant/company-aware references.
+- Full registration identifiers have no plaintext column. Only a visibly masked
+  display value and optional external secret reference exist.
+- Approved pack content, dependencies, and stable pack identity cannot be
+  mutated through lifecycle downgrade; company localization controls cannot be
+  deleted or weakened.
+- Rollback removes only empty framework state and refuses business, pack, or
+  control evidence. Existing-company backfill is transactionally scoped and
+  restores FORCE RLS before commit.
+
+Reference provenance review
+- ISO states that ISO 3166 codes are maintained through its current Online
+  Browsing Platform and that the complete machine-readable collection is a
+  separately supplied product:
+  https://www.iso.org/iso-3166-country-codes.html
+- The public UN M49 overview exposes country/area alpha-2 and alpha-3 data but
+  does not define Nexora's subnational-required setup classification:
+  https://unstats.un.org/unsd/methodology/m49/overview
+- Result: no guessed country/subdivision/legal-entity rows were seeded. Q-010
+  owns a reviewed, provenance-hashed reference bundle before HR-LOC-01D.
+
+Unrun checks
+- Frontend lint/test/a11y/build and browser checks: not selected because this
+  slice changes no route, API contract, generated client, or UI behavior.
+- Real statutory vectors: intentionally out of scope and blocked by Q-007.
+
+Waivers / residual risk
+- X-002: exact runtime model variant/ID/effort/mode/surface unavailable.
+- Q-003/Q-004/Q-006: managed identity, KMS/archive, and cloud operational proof.
+- Q-007/HR03-F03: first real statutory jurisdiction and legal vectors.
+- Q-010/HR-LOC-01A-F01: approved active country/subnational/legal-entity
+  reference release before company localization setup APIs.
+
+Final decision
+- HR-LOC-01A is verified and closed with waivers.
+- HR-LOC-01B remains closed until explicit owner approval.

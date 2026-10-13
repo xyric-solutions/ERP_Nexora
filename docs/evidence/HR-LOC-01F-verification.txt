@@ -1,0 +1,134 @@
+HR-LOC-01F — Payroll Integration and Statutory Snapshots
+Verification date: 2026-09-28 Asia/Karachi
+Baseline commit: 9ec716ee3ef1ea58b6cf8fde7366f7600d251f75
+Status: CLOSED WITH WAIVERS
+
+Scope delivered
+---------------
+- Added country-neutral StatutoryRuleProvider and StatutoryRuleExecutor ports,
+  a PostgreSQL provider over the completed 01E resolver, and a deterministic
+  allow-listed Decimal executor. No country condition or AI/network inference
+  exists in the Payroll calculation path.
+- Integrated required localization into payroll calculation with normalized
+  employee and employer statutory lines. Legacy-unlocalized and periods before
+  localization_required.required_from retain generic Payroll behavior without
+  fabricated statutory evidence.
+- Added explicit original, reproduce_original, and corrected recalculation.
+  Reproduction copies the prior immutable result/snapshot; correction requires
+  a reason and separate hr.payroll.recalculate HTTP permission, resolves rules
+  effective for the original period, and links prior/source evidence.
+- Added a protected, no-store statutory-snapshot read API and generated client
+  contract. 01G UI was not started.
+- No real country/jurisdiction pack, statutory formula, cross-border execution,
+  Finance schema/service change, or unrelated module change was added.
+
+Database and migration result
+-----------------------------
+- HR production migration 0009 adds optional validated rule-output metadata,
+  neutral employer_contribution components/results, snapshot source/reason
+  evidence, and normalized hr_payroll_statutory_snapshot_line rows.
+- Snapshot lines use forced tenant RLS, composite tenant/result/company
+  references, ordered exact pack/rule/line evidence, and immutable sealing.
+- Released pack rule versions and test vectors can no longer receive a direct
+  post-release insert. The controlled importer can still assemble a complete
+  bundle before immutable release evidence is sealed; approved/released content
+  remains update/delete protected.
+- Clean forward, idempotent reapply, clean rollback/reapply, and populated
+  rollback refusal pass in disposable PostgreSQL. No prior migration was edited.
+
+Provider and Payroll behavior
+-----------------------------
+1. Determine whether localization is required for the payroll period from the
+   explicit company control; never from currency, locale, address or tenant region.
+2. Resolve the effective 01E legal-employer/assignment/work-location/override/
+   activation/dependency/rule evidence for each employee.
+3. Reject multiple effective segments until an approved allocation model exists.
+4. Reject unresolved, cross-border, unapproved, expired, dependency-invalid,
+   rule-missing, output-missing/unsupported, component-missing, or historical-evidence-
+   missing contexts rather than selecting a fallback.
+5. Evaluate only allow-listed deterministic rule shapes and merge normalized
+   applicable/non-applicable lines with ordinary Payroll output.
+6. Persist the payroll result and seal exact pack, rule, jurisdiction context,
+   input hash, result hashes and normalized lines in the same transaction.
+
+Historical proof
+----------------
+- A synthetic v1 pack produces employee deduction 50 and employer contribution
+  270 and seals its exact evidence.
+- A separately approved/released synthetic v2 changes those outputs to 75 and
+  540 for the same effective period.
+- reproduce_original after v2 activation remains byte/value-equivalent to the
+  v1 result and records v1 plus its source snapshot.
+- corrected recalculation consumes v2, records the correction reason, and links
+  the prior result/source snapshot. Neither prior result nor snapshot mutates.
+
+Security, RBAC and audit result
+-------------------------------
+- Snapshot reads require trusted tenant identity, hr.payroll.result.read, and
+  exact company scope; responses are no-store.
+- Corrected recalculation additionally requires hr.payroll.recalculate at the
+  HTTP authorization boundary. Existing command idempotency and immutable
+  period-action audit remain authoritative; audit output stores a reason hash,
+  while the governed snapshot stores correction evidence.
+- Forced RLS hides snapshots across tenants. Direct sealed-line mutation and
+  post-release rule-version insertion are rejected by PostgreSQL.
+- Publisher, approval, provenance, dependency, Q-007, Q-010, Q-004 and
+  cross-border gates were not weakened.
+
+Files/categories changed
+------------------------
+- Schema/migrations: app/hr/postgres/migrations.py and HR migration 0009.
+- Localization: ports.py, provider.py, executor.py, package exports, manifest,
+  importer/model output metadata, and PostgreSQL resolver projections.
+- Payroll: neutral component/result accounting, service orchestration, and
+  PostgreSQL result/snapshot persistence.
+- API/contracts: route/handler, OpenAPI snapshot, generated TypeScript schema,
+  and known permission registry.
+- Tests: executor, manifest, payroll/accounting, API RBAC/cache, and live
+  PostgreSQL failure/history/RLS/rollback cases.
+- Documentation/governance: 01F design, segment, master plan, progress,
+  traceability, memory, findings, improvements, evidence and next handoff.
+- UI: no screen/component change; UI remains HR-LOC-01G.
+
+Verification commands and final results
+---------------------------------------
+- python scripts/verify.py unit integration contract security e2e migration
+  PASS: 678 total across unit, integration, contract, security, end-to-end,
+  and migration categories.
+- python scripts/verify_postgres_platform.py
+  PASS: 23/23 against disposable PostgreSQL.
+- python scripts/verify_postgres_hr.py
+  PASS: 19/19 against disposable PostgreSQL, including migration rollback/
+  reapply, populated rollback refusal, historical v1/v2 behavior, RLS and
+  immutable evidence.
+- npm run api:check-drift; npm run lint; npm run test; npm run test:a11y;
+  npm run build (web/)
+  PASS: generated contract is current, lint clean, 163 behavior tests,
+  18 accessibility tests, and the 51-route production build.
+- python -m compileall -q app tests; python -m pip check;
+  docker compose config --quiet; git diff --check
+  PASS.
+- node framework/verify/portability-check.mjs .
+  PASS.
+- Country-conditional, real-country-rule, and AI/network execution scans
+  PASS.
+
+Defect found and corrected during verification
+----------------------------------------------
+- Security review found that existing immutability protected approved rule
+  updates/deletes but could allow a direct child insert after release. Migration
+  0009 now distinguishes controlled pre-release assembly from immutable
+  post-release content. The first overly broad trigger revision correctly failed
+  importer/resolver regression tests; it was narrowed to the release boundary,
+  and all final gates pass.
+
+Remaining waivers / gates
+-------------------------
+- Q-010 blocks real reference release and production localization activation.
+- Q-007 blocks real statutory packs and every statutory-compliance claim.
+- Q-004 blocks full sensitive registration identifiers pending vault/KMS proof.
+- The separately approved cross-border legal-employment/payroll model does not
+  exist and cross-country execution continues to fail closed.
+- HR-LOC-01G and HR-LOC-01H remain closed pending explicit owner approval.
+- X-002: exact runtime model/variant/effort/surface is not exposed; single-agent
+  execution was used and no delegated worker evidence exists.

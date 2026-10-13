@@ -1,0 +1,103 @@
+HR-EMP-02F-B-D02-A - PostgreSQL Demo Foundation verification
+Date: 2026-10-01
+Baseline: 1970447bb27dab4f649dc98360ca693e4a69279d
+Status: CLOSED WITH WAIVERS
+
+INFRASTRUCTURE
+- Compose project: nexora-demo-v2
+- PostgreSQL: postgres:18-alpine 18.6, 127.0.0.1:55434, database nexora_demo_v2
+- Redis: redis:8-alpine, 127.0.0.1:56379
+- Dedicated PostgreSQL and Redis named volumes
+- Existing 5432, 55432 and 6379 listeners remained separate and untouched
+- .env.demo-production.local ignored; no complete local secret is tracked
+
+ROLE / RLS PROOF
+- nexora_demo_migrator: schema/database owner, NOSUPERUSER, NOCREATEDB,
+  NOCREATEROLE, NOREPLICATION, NOBYPASSRLS
+- nexora_demo_app: not schema owner, NOSUPERUSER, NOCREATEDB, NOCREATEROLE,
+  NOREPLICATION, NOBYPASSRLS
+- 94/94 tenant-bearing tables had RLS enabled and FORCE RLS
+- Application role had controlled DML access and no migration ownership
+
+MIGRATIONS
+- Applied with production CLIs: Platform 0001-0005, Security 0001,
+  Workflow 0001, Finance 0001, HR 0001-0013
+- nexora_schema_migration: 21 expected rows
+- Replay: no changes
+- Empty isolated reverse rollback: PASS (one registry table intentionally remains)
+- Populated rollback refusal: Platform, Security, Workflow, Finance and HR PASS
+- Historical SQL migrations changed: none
+- D02-A fixed the Finance/Workflow non-bypass owner visibility defect in the
+  migration runners and added a live PostgreSQL regression.
+
+BOOTSTRAP / RUNTIME
+- First seed: seeded=true
+- Replay: seeded=false; all identifiers/counts/hash unchanged
+- organization_units=9, users=9, accounts=367, financial_periods=12,
+  journals=16, employees=1
+- create_production_application startup/readiness: PASS on 127.0.0.1:8001
+- Redis readiness: PASS
+- Valid Demo Admin login: 200
+- Invalid login: 401
+- Legacy static token on candidate: 401
+- Unauthorized Demo Viewer HR read: 403
+- Cross-company HR read: 403
+- Employment context: relationship, active lifecycle, authoritative assignment,
+  organization placement, work location and legal employer resolved
+- Employment context resolution_status=blocked, with legitimate blockers
+  jurisdiction_context_incomplete and salary_authority_missing
+- Stable context hash:
+  e023fb4ab987274a4b2bf5f8dd98acd3766f109da628b3518ff1725330f3a944
+- Cache-Control: private, no-store
+- salary/gross/net/tax/deduction/contribution/payslip terms in response: 0
+
+VERIFICATION
+- Focused production Demo unit: 5/5 PASS
+- Non-bypass migration-owner rollback regression: 1/1 PASS
+- Employee Workspace focused behavior/a11y: 10/10 PASS
+- Canonical backend: 704 PASS
+  - unit 300, integration 268, contract 9, security 13, e2e 5, migration 109
+- PostgreSQL: Platform 24, Security 3, Workflow 4, Finance 7, HR/HR-LOC 36 PASS
+- Redis integration: 4 PASS
+- Frontend full behavior/component: 197/197 in 70 files PASS
+- Frontend accessibility: 26/26 in 21 files PASS
+- API generated-client drift: PASS
+- TypeScript noEmit: PASS
+- ESLint: PASS, 0 warnings/errors
+- Production build: PASS, 54 routes including dynamic /hr/employees
+- Candidate frontend: http://localhost:3001 (200)
+- Candidate API: http://127.0.0.1:8001 (ready=200)
+- Candidate CORS preflight: 200, exact origin http://localhost:3001
+
+RESTORATION
+- Six preserved Employee Workspace/nav files matched preflight SHA-256 evidence
+  before bounded integration corrections.
+- Integration corrections: add /hr/employees to existing-route test and stabilize
+  permission-array hook dependency.
+- Preserved stash@{0}: unchanged.
+
+WAIVER D02-A-W01
+- In-app Browser initialization failed with `Cannot redefine property: process`.
+- No visual approval is claimed. HTTP/CORS/routes/build and automated a11y pass.
+- Mandatory visual review remains a D02-D gate and the live candidate URL is
+  available for owner review.
+
+BOUNDARIES
+- Legacy Demo on 3000/8000 and its database remain rollback/reference.
+- Procurement/Inventory/Operations parity is D02-B.
+- Broader HR Demo integration is D02-C.
+- No statutory pack, cross-border behavior, Payroll/Attendance/Leave change,
+  duplicate authority, or new schema migration was added.
+
+FAST P0 STABILIZATION - 2026-10-01
+- Startup accepts only PostgreSQL 127.0.0.1:55434 and Redis
+  127.0.0.1:56379; legacy 5432, 55432 and 6379 targets fail before connect.
+- Verification reads the exact Demo user IDs from PostgreSQL and validates all
+  nine users as active with one exact active company-scoped role/permission set.
+- Focused unit: 9 PASS; canonical security: 13 PASS; PostgreSQL Platform: 24
+  PASS (including row-shape-safe readiness); PostgreSQL HR: 36 PASS.
+- Candidate PostgreSQL/Redis connectivity, updated API startup/readiness,
+  idempotent bootstrap (`seeded=false`), login, company allow/deny, Employee
+  Directory, fail-closed Employment Context and post-flow readiness: PASS.
+- Full 704-test suite intentionally not rerun per owner direction. D02-B was
+  not started. Back/Forward behavior and documentation polish remain P1.

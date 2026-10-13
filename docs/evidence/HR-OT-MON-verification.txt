@@ -1,0 +1,118 @@
+HR-OT-MON — COMPENSATION-AWARE MONETARY OVERTIME VERIFICATION
+Date: 2026-10-05 PKT
+Status: COMPLETE
+Starting HEAD: ea43623ab26232011ee8989492165ca0855cba62
+
+SCOPE AND AUTHORITY
+- Existing hr_salary_assignment, salary structures/components and salary segments remain the compensation authority.
+- Existing approved hr_overtime_request and hr_overtime_rule remain quantity/operational authorities; the legacy operational multiplier is explicitly non-monetary.
+- HR migration 0018 adds company-controlled, effective-dated/versioned monetary policy choices and HR-selected effective employee/category arrangements.
+- Existing Payroll results/items, Finance PostingService, payslip release and reports remain the downstream authorities.
+- No statutory rule, implicit divisor, implicit multiplier, free-text formula or floating-point payroll calculation was introduced.
+
+DATABASE MIGRATION
+- app/hr/postgres/migrations/0018_compensation_aware_monetary_overtime.forward.sql
+- app/hr/postgres/migrations/0018_compensation_aware_monetary_overtime.rollback.sql
+- Forward/replay and clean rollback passed in disposable PostgreSQL.
+- Populated rollback refuses to delete compensation/policy/arrangement/OT evidence.
+- Effective-date exclusion constraints, tenant/company scope triggers, indexes, immutable evidence guards and RLS/FORCE RLS passed.
+- Candidate PostgreSQL Demo migrated from HR schema 17 to 18 without data rewrite.
+
+BEHAVIOR PROOF
+- Required compensation types: fixed, contractual, hourly.
+- Required bases: hourly, daily, weekly, monthly, annual, controlled custom.
+- Direct hourly and explicit ordinary-hours conversions use Decimal only.
+- Company defines allowed types/bases/components/multiplier/hours/rounding/earning component; HR selects only released choices.
+- Work-date resolution selects the exact approved request, operational rule, released monetary policy/option, released arrangement and salary segment.
+- Missing, inactive, overlapping, incompatible, currency-mismatched or unmapped authority returns stable fail-closed blocker codes.
+- Two approved OT dates on opposite sides of a salary revision produced hourly rates 5.0000 and 6.0000, monetary amounts 7.5000 and 9.0000, and a reconciled 16.5000 OT earning.
+- Immutable evidence stores operational/policy/arrangement/salary/component hashes and the full Decimal calculation inputs/results.
+
+COMMANDS AND RESULTS
+1. python -m unittest tests.unit.test_hr_overtime_monetary tests.integration.test_hr_payroll_api -v
+   PASS: 26 tests.
+
+2. python scripts/verify.py unit integration contract security migration
+   PASS: 747 tests.
+
+3. python scripts/verify.py security
+   PASS: 13 tests.
+
+4. python scripts/verify.py e2e
+   Initial exploratory run exposed a stale Demo seed-gate method signature after Finance company scoping.
+   The seed-only gate was brought into conformance with the existing SecurityCommandAuthorizationGate protocol; no permission was weakened.
+   Final PASS: 5 tests.
+
+5. python scripts/verify.py migration
+   PASS: 109 tests.
+
+6. python scripts/verify_postgres_hr.py
+   PASS: 43 PostgreSQL HR/RLS tests.
+
+7. python scripts/verify_postgres_finance.py
+   PASS: 7 PostgreSQL Finance tests.
+
+8. python scripts/verify_postgres_hr.py tests.postgres.test_hr_payroll.HrPayrollPostgresTests.test_locked_time_evidence_allocates_leave_and_overtime_across_salary_segments
+   PASS: 1 focused PostgreSQL end-to-end Payroll/Finance/payslip/report test.
+
+9. npm test (web/)
+   PASS: 218 tests in 71 files.
+
+10. npm run test:a11y (web/)
+    PASS: 26 tests in 21 files.
+
+11. npm run lint -- --quiet (web/)
+    PASS.
+
+12. npx tsc --noEmit (web/)
+    PASS.
+
+13. npm run api:check-drift (web/)
+    PASS: schema.d.ts matches contracts/openapi-v1.json.
+
+14. npm run build (web/)
+    PASS: Next.js production build; 54 routes generated.
+
+15. python scripts/production_demo_environment.py seed
+    PASS after explicit migration 0018; deterministic rerun reported seeded=false and updated=false.
+
+16. python scripts/production_demo_environment.py verify
+    PASS: candidate endpoint, application role, audit chain, RBAC/company scope and FORCE RLS verified.
+
+17. python scripts/verify_hr_ot_mon_history.py
+    PASS before and after migration/implementation:
+    fingerprint: 0bbc94075cd4a9b512ad40c81af0f3c6c1b62e0e93d4eaf3d91d2e76446e66af
+    input_hash: c02116e2cb10564c9059a94bee109f7a74d5b1e21413e5dd01e371418a0ae4f2
+    result_hash: 763c032d9bb43a9f2bbad25a4d203865ba5e35ad108183589aaa6c4b43ced976
+    September Payroll: posted, run 1
+    Finance journal: JE-2026-09-00001, posted
+
+18. python -m json.tool contracts/openapi-v1.json
+    PASS.
+
+19. node framework/verify/portability-check.mjs .
+    PASS: 66 required files, placeholders clean, handoff paths current.
+
+20. python scripts/verify.py unit integration contract security e2e migration
+    FINAL PASS: 752 tests against the completed worktree.
+
+SECURITY REVIEW
+- New routes are authenticated and tenant-aware and reuse exact existing Payroll setup/salary read/manage/approve permissions.
+- Company authorization occurs before sensitive policy, arrangement or compensation service access.
+- Employee compensation and monetary OT evidence are not exposed through broader Attendance permissions.
+- Policy and employee arrangement release retain maker-checker separation and auditable state changes.
+- PostgreSQL tenant RLS/FORCE RLS plus repository company predicates passed cross-tenant/company denial tests.
+- Evidence, released authorities and compensation assignments used by Payroll are update/delete protected.
+- No credentials, request bodies or sensitive authorization headers were added to logs.
+
+HISTORICAL AND SCOPE RESULT
+- September 2026 Payroll run 1 and JE-2026-09-00001 are unchanged.
+- Existing locked Payroll input and salary-segment hashes are unchanged.
+- Legacy non-monetary OT evidence was not backfilled or reinterpreted.
+- Pakistan statutory work, payment/bank export, Demo expansion and deferred browser UX were not started.
+- Browser visual acceptance remains assigned to the separately approved future HR-UX-ACCEPT phase; automated UI, accessibility and production-build gates are current.
+
+WAIVERS / BLOCKERS
+- HR-OT-MON waivers: none.
+- HR-OT-MON blockers: none.
+- Later production-readiness phases remain separate and unstarted.

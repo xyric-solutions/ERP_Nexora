@@ -1,0 +1,60 @@
+NEXORA S3.1 PROCUREMENT / INVENTORY CORE - VERIFICATION EVIDENCE
+Date: 2026-08-18
+Status: implementation in progress; implemented core verified, remaining closeout scope explicit
+
+IMPLEMENTED AND VERIFIED
+- Finance safeguards BP1-F01..04: reversal ledger visibility, immutable numbering,
+  original-FX reversal, and account-type immutability.
+- Migration 0012: tenant/company-scoped item, bin, procurement-document, and
+  append-only stock-ledger persistence.
+- Vendor, item, tracking mode, valuation method, and warehouse-bin masters.
+- Requisition -> purchase order -> approval -> receipt -> approval ->
+  AccountingEvent -> PostingService -> balanced Journal -> stock movement.
+- Receipt/invoice match tolerance result.
+- Manual posting remains blocked for system Inventory/GRNI control accounts;
+  the controlled AccountingEvent posting path is permitted.
+- Protected OpenAPI routes and generated frontend client.
+- Live Procurement and Inventory read workbenches in the normal Nexora UI.
+- Isolated Demo Company seed v2 and marker-guarded v1-to-v2 reset.
+
+COMMANDS / RESULTS
+1. python -m unittest tests.integration.test_posting_service tests.integration.test_reporting_service -v
+   PASS: 58 tests.
+
+2. python -m unittest tests.migration.test_operations_core_migration tests.integration.test_operations_service -v
+   PASS: 5 tests.
+
+3. python -m unittest tests.e2e.test_demo_environment -v
+   PASS: 2 tests.
+
+4. python scripts/verify.py unit integration contract security e2e migration
+   PASS: 469 tests (including receipt atomic rollback coverage).
+
+5. python scripts/demo_environment.py reset
+   PASS: removed only the database positively identified by the demo marker;
+   the running v1 demo server had to be stopped first because Windows held the
+   legacy embedded database file open.
+
+6. python scripts/demo_environment.py seed && python scripts/demo_environment.py verify
+   PASS: seed version 2; exactly tenant nexora-demo; 17 balanced journals;
+   Trial Balance and Balance Sheet variance 0; audit chain valid; 4 procurement
+   documents; 2 items; 2 bins; 1 immutable stock movement; on hand 20; value USD 900;
+   procurement-to-ledger trace verified.
+
+7. npm.cmd run api:generate && npm.cmd run api:check-drift (web/)
+   PASS: generated schema matches contracts/openapi-v1.json.
+
+8. .\node_modules\.bin\tsc.cmd --noEmit (web/)
+   PASS.
+
+ENVIRONMENT-LIMITED CHECKS
+- npm.cmd run build reached Next.js compilation but failed because the sandbox
+  could not fetch Inter and JetBrains Mono from fonts.googleapis.com.
+- Full and targeted ESLint commands exceeded the execution timeout without
+  emitting a lint finding.
+
+REMAINING S3.1 CLOSEOUT SCOPE (NOT CLAIMED AS IMPLEMENTED)
+- RFQ lifecycle.
+- Controlled stock adjustments, transfers, and cycle counts.
+- Handheld scan workflow and scan latency/accuracy evidence.
+- Representative Procurement/Inventory frontend accessibility tests.

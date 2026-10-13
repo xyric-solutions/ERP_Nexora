@@ -1,0 +1,6084 @@
+{
+  "schemaVersion": 1,
+  "source": "app/prototype-data.ts",
+  "counts": {
+    "modules": 35,
+    "groups": 146,
+    "pages": 792
+  },
+  "modules": [
+    {
+      "id": "dashboard",
+      "code": "OV",
+      "label": "Dashboard / Overview",
+      "category": "Command centre",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "command-centres",
+          "label": "Command Centres",
+          "pages": [
+            {
+              "id": "ceo-executive-dashboard",
+              "label": "CEO Executive Command Centre",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "cfo-dashboard",
+              "label": "CFO Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "finance-manager-dashboard",
+              "label": "Finance Manager Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "production-manager-dashboard",
+              "label": "Production Manager Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "hr-manager-dashboard",
+              "label": "HR Manager Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "purchasing-manager-dashboard",
+              "label": "Purchasing Manager Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "sales-manager-dashboard",
+              "label": "Sales Manager Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "accountant-workspace",
+              "label": "Accountant Workspace",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "sales-executive-dashboard",
+              "label": "Sales Executive Workspace",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "procurement-officer-dashboard",
+              "label": "Procurement Officer Workspace",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "inventory-manager-dashboard",
+              "label": "Inventory Manager Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "warehouse-dashboard",
+              "label": "Warehouse Operations Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "project-manager-dashboard",
+              "label": "Project Manager Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "admin-dashboard",
+              "label": "Administrator Control Centre",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "crm-manager-dashboard",
+              "label": "CRM Manager Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "ar-manager-dashboard",
+              "label": "Accounts Receivable Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "ap-manager-dashboard",
+              "label": "Accounts Payable Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "tax-manager-dashboard",
+              "label": "Tax Manager Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "auditor-dashboard",
+              "label": "Auditor Assurance Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "kpi-drilldown",
+              "label": "KPI Drill-down & Alerts",
+              "archetype": "detail",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "banking",
+      "code": "BK",
+      "label": "Banking & Treasury",
+      "category": "Finance & trade",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "bank",
+          "label": "Bank",
+          "pages": [
+            {
+              "id": "account-balances",
+              "label": "Account Balances",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "bank-payments",
+              "label": "Bank Payments",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "bank-receipts",
+              "label": "Bank Receipts",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "transfers",
+              "label": "Transfers",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "bank-reconciliation",
+              "label": "Reconciliation",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "import-statement",
+              "label": "Import Statement",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "revaluation",
+              "label": "Revaluation",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "one-bill",
+              "label": "1Bill",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "bank-entry",
+          "label": "Transaction Entry",
+          "pages": [
+            {
+              "id": "add-bank-payment",
+              "label": "Add Bank Payment",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "add-bank-receipt",
+              "label": "Add Bank Receipt",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "add-transfer",
+              "label": "Add Bank Transfer",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "add-bank-charge",
+              "label": "Add Bank Charge",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "add-bank-interest",
+              "label": "Add Bank Interest",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "issue-cheque",
+              "label": "Issue Cheque",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "receive-cheque",
+              "label": "Receive Cheque",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "add-deposit",
+              "label": "Add Bank Deposit",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "transaction-detail",
+              "label": "Bank Transaction Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "bank-accounts",
+          "label": "Bank Accounts",
+          "pages": [
+            {
+              "id": "bank-accounts",
+              "label": "Bank & Cash Accounts",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-bank-account",
+              "label": "Bank Account Setup",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "bank-account-detail",
+              "label": "Bank Account Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "bank-statement",
+              "label": "Bank Statement",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "instruments",
+          "label": "Treasury & Instruments",
+          "pages": [
+            {
+              "id": "overview",
+              "label": "Treasury Overview",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "cash-forecast",
+              "label": "Cash Forecast",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "statement-matching",
+              "label": "Statement Matching",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "bank-charges",
+              "label": "Bank Charges",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "bank-interest",
+              "label": "Bank Interest",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "cheques",
+              "label": "Cheques",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "post-dated-cheques",
+              "label": "Post-dated Cheques",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "deposit-slips",
+              "label": "Deposit Slips",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "bank-guarantees",
+              "label": "Bank Guarantees",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "letters-of-credit",
+              "label": "Letters of Credit",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "treasury-reports",
+              "label": "Treasury Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sales",
+      "code": "SL",
+      "label": "Sales & Billing",
+      "category": "Finance & trade",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "quotations",
+          "label": "Quotations",
+          "pages": [
+            {
+              "id": "quotations",
+              "label": "All Quotations",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-quotation",
+              "label": "Add Quotation",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "quotation-detail",
+              "label": "Quotation Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "orders",
+          "label": "Sales Orders",
+          "pages": [
+            {
+              "id": "sales-orders",
+              "label": "All Sales Orders",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-sales-order",
+              "label": "Add Sales Order",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "sales-order-detail",
+              "label": "Sales Order Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "pick-pack-delivery",
+              "label": "Pick, Pack & Delivery",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "invoices",
+          "label": "Invoices",
+          "pages": [
+            {
+              "id": "invoices",
+              "label": "All Invoices",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-invoice",
+              "label": "Add Invoice",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "invoice-detail",
+              "label": "Invoice Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "credit-note",
+              "label": "Credit Note",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "debit-note",
+              "label": "Debit Note",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "batch-invoice",
+              "label": "Batch Invoice",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "proforma-invoice",
+              "label": "Proforma Invoice",
+              "archetype": "form",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "sales-control",
+          "label": "Returns & Control",
+          "pages": [
+            {
+              "id": "sales-returns",
+              "label": "Sales Returns",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "pricing",
+              "label": "Pricing & Discounts",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "sales-approvals",
+              "label": "Sales Approvals",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "sales-reports",
+              "label": "Sales Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "revenue",
+      "code": "RV",
+      "label": "Revenue & Subscriptions",
+      "category": "Finance & trade",
+      "modes": [
+        "service",
+        "trading"
+      ],
+      "groups": [
+        {
+          "id": "revenue-contracts",
+          "label": "Revenue Contracts",
+          "pages": [
+            {
+              "id": "revenue-contracts",
+              "label": "Contract Workspace",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-revenue-contract",
+              "label": "Add Revenue Contract",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "performance-obligations",
+              "label": "Performance Obligations",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "transaction-price",
+              "label": "Transaction Price Allocation",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "fulfilment-evidence",
+              "label": "Fulfilment Evidence",
+              "archetype": "detail",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "recognition",
+          "label": "Recognition",
+          "pages": [
+            {
+              "id": "recognition-schedules",
+              "label": "Recognition Schedules",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "recognition-run",
+              "label": "Recognition Run",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "recognition-exceptions",
+              "label": "Exceptions & Holds",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "contract-modifications",
+              "label": "Contract Modifications",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "revenue-rollforward",
+              "label": "Revenue Roll-forward",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "subscriptions",
+          "label": "Subscriptions",
+          "pages": [
+            {
+              "id": "plans",
+              "label": "Plan Catalogue",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "plan-editor",
+              "label": "Plan Editor",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "subscriptions",
+              "label": "Subscription Contracts",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "subscription-detail",
+              "label": "Subscription Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "amend-subscription",
+              "label": "Amend, Pause or Cancel",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "usage-ingestion",
+              "label": "Usage Validation",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "recurring-billing",
+          "label": "Recurring Billing",
+          "pages": [
+            {
+              "id": "billing-schedules",
+              "label": "Billing Schedules",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "billing-run",
+              "label": "Billing Run",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "dunning",
+              "label": "Dunning & Recovery",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "renewals",
+              "label": "Renewal & Churn Workspace",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "subscription-analytics",
+              "label": "MRR, ARR & Cohorts",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "customers",
+      "code": "AR",
+      "label": "Customers / Accounts Receivable",
+      "category": "Finance & trade",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "customer-master",
+          "label": "Customers",
+          "pages": [
+            {
+              "id": "customers",
+              "label": "Customer Directory",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-customer",
+              "label": "Add Customer",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "customer-profile",
+              "label": "Customer Financial Profile",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "credit-limit-review",
+              "label": "Credit Limit Review",
+              "archetype": "approval",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "receivables",
+          "label": "Receivables",
+          "pages": [
+            {
+              "id": "open-items",
+              "label": "Open-item Ledger",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "customer-receipts",
+              "label": "Customer Receipts",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-customer-receipt",
+              "label": "Add Customer Receipt",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "receipt-allocation",
+              "label": "Receipt & Credit Allocation",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "refund-writeoff",
+              "label": "Refunds & Write-offs",
+              "archetype": "form",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "collections",
+          "label": "Collections",
+          "pages": [
+            {
+              "id": "ar-ageing",
+              "label": "AR Ageing",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "collections-disputes",
+              "label": "Collections & Disputes",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "customer-statements",
+              "label": "Customer Statements",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "ar-reconciliation",
+              "label": "AR to GL Reconciliation",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "purchases",
+      "code": "PR",
+      "label": "Purchases & Procurement",
+      "category": "Finance & trade",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "requisitions",
+          "label": "Purchase Requisitions",
+          "pages": [
+            {
+              "id": "purchase-requisitions",
+              "label": "All Requisitions",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-requisition",
+              "label": "Add Requisition",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "requisition-detail",
+              "label": "Requisition Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "requisition-approval",
+              "label": "Requisition Approval",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "budget-check",
+              "label": "Budget & Commitment Check",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "sourcing",
+          "label": "Sourcing",
+          "pages": [
+            {
+              "id": "rfqs",
+              "label": "Requests for Quotation",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-rfq",
+              "label": "Add RFQ",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "supplier-quotations",
+              "label": "Supplier Quotations",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "bid-comparison",
+              "label": "Bid Comparison",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "supplier-evaluation",
+              "label": "Supplier Evaluation",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "award-recommendation",
+              "label": "Award Recommendation",
+              "archetype": "approval",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "orders-receipts",
+          "label": "Orders & Receipts",
+          "pages": [
+            {
+              "id": "purchase-orders",
+              "label": "Purchase Orders",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-purchase-order",
+              "label": "Add Purchase Order",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "purchase-order-detail",
+              "label": "Purchase Order Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "purchase-order-approval",
+              "label": "PO Approval",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "gate-inward-pass",
+              "label": "Gate Inward Pass",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "goods-receipts",
+              "label": "Goods Receipts",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-goods-receipt",
+              "label": "Add Goods Receipt",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "quality-handoff",
+              "label": "Quality Inspection Handoff",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "bills-match",
+          "label": "Bills & Match",
+          "pages": [
+            {
+              "id": "service-entry",
+              "label": "Service Entry",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "purchase-bills",
+              "label": "Purchase Bills",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-purchase-bill",
+              "label": "Add Purchase Bill",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "three-way-match",
+              "label": "2 / 3-way Match",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "match-exceptions",
+              "label": "Match Exceptions",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "supplier-returns",
+              "label": "Supplier Returns",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "procurement-reports",
+              "label": "Procurement Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "suppliers",
+      "code": "AP",
+      "label": "Suppliers / Accounts Payable",
+      "category": "Finance & trade",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "supplier-master",
+          "label": "Suppliers",
+          "pages": [
+            {
+              "id": "suppliers",
+              "label": "Supplier Directory",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-supplier",
+              "label": "Add Supplier",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "supplier-profile",
+              "label": "Supplier Financial Profile",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "supplier-onboarding",
+              "label": "Onboarding & KYC",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "bank-verification",
+              "label": "Bank Detail Verification",
+              "archetype": "approval",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "payables",
+          "label": "Payables",
+          "pages": [
+            {
+              "id": "payable-bills",
+              "label": "Payable Bills",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "ap-open-items",
+              "label": "AP Open-item Ledger",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "duplicate-bill-review",
+              "label": "Duplicate Bill Review",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "supplier-advances",
+              "label": "Advances & Credits",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "holds-disputes",
+              "label": "Holds & Disputes",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "payments",
+          "label": "Payments",
+          "pages": [
+            {
+              "id": "payment-proposals",
+              "label": "Payment Proposals",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "payment-request",
+              "label": "Payment Request",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "payment-approval",
+              "label": "Payment Approval",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "supplier-statements",
+              "label": "Supplier Statements",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "ap-ageing",
+              "label": "AP Ageing",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "ap-reconciliation",
+              "label": "AP to GL Reconciliation",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "inventory",
+      "code": "IN",
+      "label": "Inventory & Warehousing",
+      "category": "Operations & people",
+      "modes": [
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "masters",
+          "label": "Inventory Masters",
+          "pages": [
+            {
+              "id": "items",
+              "label": "Item Master",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-item",
+              "label": "Add Item",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "item-detail",
+              "label": "Item Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "warehouses",
+              "label": "Warehouses, Locations & Bins",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "warehouse-editor",
+              "label": "Warehouse Editor",
+              "archetype": "form",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "stock-control",
+          "label": "Stock Control",
+          "pages": [
+            {
+              "id": "stock-position",
+              "label": "Stock Position",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "stock-ledger",
+              "label": "Stock Ledger",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "reservations",
+              "label": "Reservations",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "pick-tasks",
+              "label": "Pick Tasks",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "pack-dispatch",
+              "label": "Pack & Dispatch",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "stock-issues",
+              "label": "Stock Issues",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "stock-transfers",
+              "label": "Stock Transfers",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "replenishment",
+              "label": "Replenishment",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "counts-traceability",
+          "label": "Counts & Traceability",
+          "pages": [
+            {
+              "id": "cycle-counts",
+              "label": "Cycle Counts",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "inventory-adjustments",
+              "label": "Inventory Adjustments",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "batch-serial",
+              "label": "Batch, Serial & Expiry",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "genealogy",
+              "label": "Movement Genealogy",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "quarantine-recall",
+              "label": "Quarantine & Recall",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "valuation",
+          "label": "Valuation",
+          "pages": [
+            {
+              "id": "inventory-valuation",
+              "label": "Inventory Valuation",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "inventory-revaluation",
+              "label": "Inventory Revaluation",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "inventory-reports",
+              "label": "Inventory Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "costing",
+      "code": "CS",
+      "label": "Costing & Landed Cost",
+      "category": "Finance & trade",
+      "modes": [
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "landed-cost",
+          "label": "Landed Cost",
+          "pages": [
+            {
+              "id": "costing-overview",
+              "label": "Costing Overview",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "cost-policies",
+              "label": "Cost Policies",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "landed-cost-shipments",
+              "label": "Landed-cost Shipments",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "charge-capture",
+              "label": "Charge Capture",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "allocation-preview",
+              "label": "Allocation Preview",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "allocation-approval",
+              "label": "Allocation Approval & Posting",
+              "archetype": "approval",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "item-costs",
+          "label": "Item Costs",
+          "pages": [
+            {
+              "id": "item-cost-history",
+              "label": "Item Cost History",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "standard-cost",
+              "label": "Standard Cost Versions",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "standard-cost-editor",
+              "label": "Standard Cost Editor",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "cost-variance",
+              "label": "Cost Variance",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "cost-gl-reconciliation",
+              "label": "Cost to GL Reconciliation",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "costing-reports",
+              "label": "Costing Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "finance",
+      "code": "FN",
+      "label": "Finance & Accounting",
+      "category": "Finance & trade",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "chart-of-accounts",
+          "label": "Chart of Accounts",
+          "pages": [
+            {
+              "id": "chart-of-accounts",
+              "label": "Chart of Accounts Overview",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "nominals",
+              "label": "Nominals",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "section-management",
+              "label": "Section Management",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "nominal-detail",
+              "label": "Nominal Account Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "add-nominal",
+              "label": "Add Nominal",
+              "archetype": "form",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "journals",
+          "label": "Journals",
+          "pages": [
+            {
+              "id": "journal-register",
+              "label": "Journal Register",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "manual-journal",
+              "label": "Manual Journal",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "journal-detail",
+              "label": "Journal Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "journal-approval",
+              "label": "Journal Approval & Posting",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "journal-reversal",
+              "label": "Journal Reversal",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "recurring-journals",
+              "label": "Recurring Journals",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "ledgers-close",
+          "label": "Ledgers & Close",
+          "pages": [
+            {
+              "id": "accounting-events",
+              "label": "Accounting Event Ledger",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "general-ledger",
+              "label": "General Ledger",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "fiscal-periods",
+              "label": "Fiscal Periods",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "period-close",
+              "label": "Period-close Workbench",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "finance-revaluation",
+              "label": "FX Revaluation",
+              "archetype": "form",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "group-reporting",
+          "label": "Group & Reporting",
+          "pages": [
+            {
+              "id": "intercompany",
+              "label": "Intercompany Transactions",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "consolidation",
+              "label": "Consolidation Workbench",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "trial-balance",
+              "label": "Trial Balance",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "financial-statements",
+              "label": "Financial Statements",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "finance-drilldown",
+              "label": "Finance Drill-down",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "finance-audit",
+              "label": "Finance Audit Trail",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tax",
+      "code": "TX",
+      "label": "Taxation & Compliance",
+      "category": "Finance & trade",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "setup",
+          "label": "Tax Setup",
+          "pages": [
+            {
+              "id": "tax-overview",
+              "label": "Tax Overview",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "jurisdictions",
+              "label": "Jurisdictions & Registrations",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "tax-rules",
+              "label": "Tax Rule Catalogue",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "tax-code-editor",
+              "label": "Tax Code Editor",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "withholding-setup",
+              "label": "Withholding Setup",
+              "archetype": "settings",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "transaction-tax",
+          "label": "Transaction Tax",
+          "pages": [
+            {
+              "id": "tax-preview",
+              "label": "Transaction Tax Preview",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "tax-exceptions",
+              "label": "Tax Exception Queue",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "einvoice-monitor",
+              "label": "E-invoice Monitor",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "returns",
+          "label": "Returns & Evidence",
+          "pages": [
+            {
+              "id": "tax-returns",
+              "label": "Return Workbench",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "tax-reconciliation",
+              "label": "Tax Reconciliation",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "tax-certificates",
+              "label": "Certificates & Evidence",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "tax-reports",
+              "label": "Tax Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "operations",
+      "code": "OP",
+      "label": "Operations",
+      "category": "Operations & people",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "execution",
+          "label": "Execution",
+          "pages": [
+            {
+              "id": "operations-board",
+              "label": "Daily Operations Board",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "work-orders",
+              "label": "Operational Work Orders",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-work-order",
+              "label": "Add Work Order",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "dispatch-assignment",
+              "label": "Dispatch & Assignment",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "execution-checklist",
+              "label": "Execution Checklist",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "service-completion",
+              "label": "Completion & Acceptance",
+              "archetype": "approval",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "control",
+          "label": "Control",
+          "pages": [
+            {
+              "id": "incidents",
+              "label": "Exceptions & Incidents",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "incident-detail",
+              "label": "Incident Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "shift-handover",
+              "label": "Shift & Site Handover",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "operations-reports",
+              "label": "Operations Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fleet",
+      "code": "FL",
+      "label": "Fleet Management",
+      "category": "Operations & people",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "fleet-command",
+          "label": "Fleet Command Centre",
+          "pages": [
+            {
+              "id": "fleet-overview",
+              "label": "Fleet Overview",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "fleet-calendar",
+              "label": "Fleet Calendar",
+              "archetype": "dashboard",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "fleet-masters",
+          "label": "Vehicles & Drivers",
+          "pages": [
+            {
+              "id": "vehicles",
+              "label": "Vehicle Register",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-vehicle",
+              "label": "Add Vehicle",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "vehicle-detail",
+              "label": "Vehicle 360°",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "vehicle-categories",
+              "label": "Vehicle Categories & Policies",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "drivers",
+              "label": "Driver Register",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-driver",
+              "label": "Add Driver",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "driver-detail",
+              "label": "Driver 360°",
+              "archetype": "detail",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "fleet-dispatch",
+          "label": "Assignments & Dispatch",
+          "pages": [
+            {
+              "id": "vehicle-assignments",
+              "label": "Vehicle Assignments",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-assignment",
+              "label": "Add Vehicle Assignment",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "dispatch-board",
+              "label": "Dispatch Board",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "trips",
+              "label": "Trip Register",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-trip",
+              "label": "Add Trip",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "trip-detail",
+              "label": "Trip Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "route-planning",
+              "label": "Route Planning",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "fleet-fuel",
+          "label": "Fuel & Road Costs",
+          "pages": [
+            {
+              "id": "fuel-register",
+              "label": "Fuel Register",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-fuel-entry",
+              "label": "Add Fuel Entry",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "fuel-card-management",
+              "label": "Fuel Cards",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "fuel-reconciliation",
+              "label": "Fuel Reconciliation",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "tolls-fines",
+              "label": "Tolls, Fines & Other Costs",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-road-cost",
+              "label": "Add Road Cost",
+              "archetype": "form",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "fleet-maintenance",
+          "label": "Maintenance & Components",
+          "pages": [
+            {
+              "id": "maintenance-dashboard",
+              "label": "Maintenance Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "maintenance-plans",
+              "label": "Maintenance Plans",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-maintenance-plan",
+              "label": "Add Maintenance Plan",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "service-work-orders",
+              "label": "Service Work Orders",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-service-work-order",
+              "label": "Add Service Work Order",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "service-work-order-detail",
+              "label": "Service Work Order Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "tyres-batteries",
+              "label": "Tyres & Batteries",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "spare-parts-usage",
+              "label": "Spare Parts Usage",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "inspection-schedule",
+              "label": "Inspection Schedule",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "fleet-compliance",
+          "label": "Compliance & Incidents",
+          "pages": [
+            {
+              "id": "registration-insurance",
+              "label": "Registration, Insurance & Permits",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "renewal-calendar",
+              "label": "Renewal Calendar",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "driver-licence-compliance",
+              "label": "Driver Licence Compliance",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "accidents-incidents",
+              "label": "Accidents & Incidents",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-incident",
+              "label": "Add Incident",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "incident-claim-detail",
+              "label": "Incident & Claim Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "claims",
+              "label": "Insurance Claims",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "fleet-analysis",
+          "label": "Cost, Controls & Reports",
+          "pages": [
+            {
+              "id": "vehicle-costing",
+              "label": "Vehicle Whole-life Cost",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "utilisation-downtime",
+              "label": "Utilisation & Downtime",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "fuel-efficiency",
+              "label": "Fuel Efficiency",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "maintenance-cost-analysis",
+              "label": "Maintenance Cost Analysis",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "fleet-reports",
+              "label": "Fleet Reports",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "fleet-approvals",
+              "label": "Fleet Approvals",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "fleet-settings",
+              "label": "Fleet Settings",
+              "archetype": "settings",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "manufacturing",
+      "code": "MF",
+      "label": "Production / Manufacturing",
+      "category": "Operations & people",
+      "modes": [
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "engineering",
+          "label": "Product Engineering",
+          "pages": [
+            {
+              "id": "manufacturing-overview",
+              "label": "Production Overview",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "boms",
+              "label": "BOM Catalogue",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "bom-editor",
+              "label": "BOM Editor",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "routings",
+              "label": "Routings",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "routing-editor",
+              "label": "Routing Editor",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "work-centres",
+              "label": "Work Centres & Machines",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "planning",
+          "label": "Planning",
+          "pages": [
+            {
+              "id": "demand-plan",
+              "label": "Demand Plan",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "mrp-run",
+              "label": "MRP Run",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "material-requirements",
+              "label": "Material Requirements",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "capacity-planner",
+              "label": "Capacity Planner",
+              "archetype": "dashboard",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "production",
+          "label": "Production",
+          "pages": [
+            {
+              "id": "production-orders",
+              "label": "Production Orders",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-production-order",
+              "label": "Add Production Order",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "production-order-detail",
+              "label": "Production Order Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "release-production-order",
+              "label": "Release Production Order",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "material-issue",
+              "label": "Material Issue",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "wip-tracking",
+              "label": "WIP Tracking",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "production-completion",
+              "label": "Production Completion",
+              "archetype": "form",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "exceptions",
+          "label": "Exceptions & Cost",
+          "pages": [
+            {
+              "id": "scrap-rework",
+              "label": "Scrap, By-product & Rework",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "subcontracting",
+              "label": "Subcontracting",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "production-variance",
+              "label": "Production Cost & Variance",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "production-reports",
+              "label": "Production Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "quality",
+      "code": "QM",
+      "label": "Quality Management",
+      "category": "Operations & people",
+      "modes": [
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "quality-planning",
+          "label": "Quality Planning",
+          "pages": [
+            {
+              "id": "quality-dashboard",
+              "label": "Quality Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "quality-plans",
+              "label": "Quality Plans & Specifications",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "quality-plan-editor",
+              "label": "Quality Plan Editor",
+              "archetype": "form",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "inspection",
+          "label": "Inspection",
+          "pages": [
+            {
+              "id": "inspection-queue",
+              "label": "Inspection Queue",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "inspection-execution",
+              "label": "Inspection Execution",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "quarantine-disposition",
+              "label": "Quarantine & Disposition",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "quality-approvals",
+              "label": "Quality Approvals",
+              "archetype": "approval",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "improvement",
+          "label": "Improvement",
+          "pages": [
+            {
+              "id": "non-conformance",
+              "label": "Non-conformance",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "capa",
+              "label": "Corrective & Preventive Actions",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "supplier-quality",
+              "label": "Supplier Quality",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "quality-traceability",
+              "label": "Traceability & Recall",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "quality-reports",
+              "label": "Quality Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "crm",
+      "code": "CR",
+      "label": "CRM",
+      "category": "Operations & people",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "relationships",
+          "label": "Relationships",
+          "pages": [
+            {
+              "id": "crm-dashboard",
+              "label": "CRM Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "accounts-contacts",
+              "label": "Accounts & Contacts",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "account-detail",
+              "label": "Account & Contact Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "pipeline",
+          "label": "Pipeline",
+          "pages": [
+            {
+              "id": "lead-inbox",
+              "label": "Lead Inbox",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "lead-detail",
+              "label": "Lead Qualification",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "opportunities",
+              "label": "Opportunity Pipeline",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "opportunity-detail",
+              "label": "Opportunity Workbench",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "activities",
+              "label": "Activities & Timeline",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "forecasting",
+          "label": "Handoff & Forecast",
+          "pages": [
+            {
+              "id": "proposal-handoff",
+              "label": "Proposal Handoff",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "sales-forecast",
+              "label": "Sales Forecast",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "crm-reports",
+              "label": "CRM Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "projects",
+      "code": "PJ",
+      "label": "Projects & Professional Services",
+      "category": "Operations & people",
+      "modes": [
+        "service",
+        "trading"
+      ],
+      "groups": [
+        {
+          "id": "portfolio",
+          "label": "Portfolio",
+          "pages": [
+            {
+              "id": "project-dashboard",
+              "label": "Project Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "projects",
+              "label": "Project Portfolio",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-project",
+              "label": "Add Project",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "project-detail",
+              "label": "Project Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "project-setup",
+              "label": "Project Setup & Contract",
+              "archetype": "form",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "planning-delivery",
+          "label": "Planning & Delivery",
+          "pages": [
+            {
+              "id": "wbs-milestones",
+              "label": "WBS & Milestones",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "project-budget",
+              "label": "Project Budget",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "delivery-board",
+              "label": "Delivery Board",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "project-status",
+              "label": "Project Status",
+              "archetype": "detail",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "commercials",
+          "label": "Commercials",
+          "pages": [
+            {
+              "id": "time-expense-review",
+              "label": "Time & Expense Review",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "project-billing",
+              "label": "Milestone & T&M Billing",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "revenue-wip",
+              "label": "Revenue & WIP",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "project-profitability",
+              "label": "Project Profitability",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "project-close",
+              "label": "Project Close",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "project-reports",
+              "label": "Project Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "resources",
+      "code": "RS",
+      "label": "Resource Management & Utilisation",
+      "category": "Operations & people",
+      "modes": [
+        "service"
+      ],
+      "groups": [
+        {
+          "id": "resources",
+          "label": "Resources",
+          "pages": [
+            {
+              "id": "resource-dashboard",
+              "label": "Resource Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "resource-profiles",
+              "label": "Resource & Skill Profiles",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "resource-profile",
+              "label": "Resource Profile",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "capacity-calendar",
+              "label": "Capacity Calendar",
+              "archetype": "dashboard",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "allocation",
+          "label": "Allocation",
+          "pages": [
+            {
+              "id": "allocation-planner",
+              "label": "Allocation Planner",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "allocation-requests",
+              "label": "Allocation Requests",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "allocation-approval",
+              "label": "Allocation Approval",
+              "archetype": "approval",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "utilisation",
+          "label": "Utilisation",
+          "pages": [
+            {
+              "id": "utilisation-bench",
+              "label": "Utilisation & Bench",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "demand-forecast",
+              "label": "Demand Forecast",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "timesheet-capacity",
+              "label": "Timesheet Capacity View",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "resource-reports",
+              "label": "Resource Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "support",
+      "code": "HD",
+      "label": "Helpdesk / Support / AMC",
+      "category": "Operations & people",
+      "modes": [
+        "service",
+        "trading"
+      ],
+      "groups": [
+        {
+          "id": "service-desk",
+          "label": "Service Desk",
+          "pages": [
+            {
+              "id": "support-dashboard",
+              "label": "Support Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "ticket-queue",
+              "label": "Ticket Queue",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-ticket",
+              "label": "Add Ticket",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "ticket-workbench",
+              "label": "Ticket Workbench",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "sla-policies",
+              "label": "SLA & Priority Policies",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "knowledge-search",
+              "label": "Knowledge Search",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "contracts",
+          "label": "Contracts & Entitlements",
+          "pages": [
+            {
+              "id": "amc-contracts",
+              "label": "Support & AMC Contracts",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "amc-contract-detail",
+              "label": "AMC Contract Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "entitlement-consumption",
+              "label": "Entitlement Consumption",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "renewal-escalation",
+              "label": "Renewal & Escalation",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "support-reports",
+              "label": "Support Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hr",
+      "code": "HR",
+      "label": "HR & Payroll",
+      "category": "Operations & people",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "organisation",
+          "label": "Organisation & Masters",
+          "pages": [
+            {
+              "id": "org-structure",
+              "label": "Organisation Structure",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "designations",
+              "label": "Designations",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "job-grades",
+              "label": "Job Grades",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "cost-centres",
+              "label": "Cost Centres",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "work-locations",
+              "label": "Work Locations",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "employment-types",
+              "label": "Employment Types",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "employee-categories",
+              "label": "Employee Categories",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "people",
+          "label": "People",
+          "pages": [
+            {
+              "id": "hr-dashboard",
+              "label": "HR Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "finance-payroll-dashboard",
+              "label": "Finance / Payroll Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "employees",
+              "label": "Employee Directory",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-employee",
+              "label": "Add Employee",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "employee-record",
+              "label": "Employee Record",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "positions-org",
+              "label": "Positions & Organisation",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "recruitment",
+          "label": "Recruitment",
+          "pages": [
+            {
+              "id": "manpower-requisitions",
+              "label": "Manpower Requisitions",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "job-openings",
+              "label": "Job Openings",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "candidates",
+              "label": "Candidate Directory",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "recruitment-pipeline",
+              "label": "Recruitment Pipeline",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "interviews",
+              "label": "Interviews & Evaluations",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "offers",
+              "label": "Offer Management",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "create-employee-from-offer",
+              "label": "Create Employee from Offer",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "attendance-shifts",
+          "label": "Attendance & Shifts",
+          "pages": [
+            {
+              "id": "shifts",
+              "label": "Shifts & Rules",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "shift-assignments",
+              "label": "Shift Assignments",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "daily-attendance",
+              "label": "Daily Attendance",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "monthly-attendance",
+              "label": "Monthly Attendance",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "attendance-corrections",
+              "label": "Attendance Corrections",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "overtime",
+              "label": "Overtime",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "attendance-period",
+              "label": "Attendance Period Close",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "attendance-payroll-inputs",
+              "label": "Attendance → Payroll Inputs",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "time-leave",
+          "label": "Time & Leave",
+          "pages": [
+            {
+              "id": "leave-types",
+              "label": "Leave Types",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "leave-balances",
+              "label": "Leave Balances",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "attendance",
+              "label": "Attendance",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "leave-requests",
+              "label": "Leave Requests",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "leave-request",
+              "label": "Add Leave Request",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "leave-approval",
+              "label": "Leave Approval",
+              "archetype": "approval",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "payroll",
+          "label": "Payroll",
+          "pages": [
+            {
+              "id": "payroll-setup",
+              "label": "Pay Components",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "salary-structures",
+              "label": "Salary Structures",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "salary-revisions",
+              "label": "Salary Revisions",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "payroll-inputs",
+              "label": "Payroll Inputs",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "payroll-runs",
+              "label": "Payroll Runs",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "payroll-validation",
+              "label": "Payroll Review & Approval",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "employee-loans",
+              "label": "Loans & Advances",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "payroll-journal",
+              "label": "Payroll Journal",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "payment-batch",
+              "label": "Payment Batch",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "payslips",
+              "label": "Payslips & Payment Handoff",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "performance",
+          "label": "Performance Management",
+          "pages": [
+            {
+              "id": "performance-cycles",
+              "label": "Performance Cycles",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "goals-kpis",
+              "label": "Goals & KPIs",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "performance-reviews",
+              "label": "Performance Reviews",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "performance-outcomes",
+              "label": "Performance Outcomes",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "learning",
+          "label": "Learning & Development",
+          "pages": [
+            {
+              "id": "training-programs",
+              "label": "Training Programmes",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "training-requests",
+              "label": "Training Requests",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "training-sessions",
+              "label": "Training Sessions",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "training-completions",
+              "label": "Completion & Certificates",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "employee-lifecycle",
+          "label": "Employee Lifecycle",
+          "pages": [
+            {
+              "id": "onboarding",
+              "label": "Onboarding",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "probation-reviews",
+              "label": "Probation Reviews",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "employee-movements",
+              "label": "Transfers, Promotions & Movements",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "resignations",
+              "label": "Resignations",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "terminations",
+              "label": "Termination Cases",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "clearance",
+              "label": "Exit Clearance",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "final-settlements",
+              "label": "Final Settlements",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "offboarding",
+              "label": "Offboarding Control Centre",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "benefits-self-service",
+          "label": "Benefits & Self-service",
+          "pages": [
+            {
+              "id": "loans-benefits",
+              "label": "Loans, Benefits & Gratuity",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "statutory-deductions",
+              "label": "Statutory Deductions",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "employee-self-service",
+              "label": "Employee Self-service",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "hr-report-centre",
+              "label": "HR & Payroll Report Centre",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "hr-compliance",
+          "label": "Reporting, Compliance & Audit",
+          "pages": [
+            {
+              "id": "hr-compliance-configuration",
+              "label": "Compliance Configuration",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "hr-report-audit-log",
+              "label": "Report Audit Log",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "hr-export-centre",
+              "label": "Secure Export Centre",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "assets",
+      "code": "FA",
+      "label": "Fixed Assets & Leases",
+      "category": "Finance & trade",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "asset-register",
+          "label": "Asset Register",
+          "pages": [
+            {
+              "id": "assets-dashboard",
+              "label": "Assets Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "asset-classes",
+              "label": "Asset Classes & Policies",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "assets",
+              "label": "Asset Register",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-asset",
+              "label": "Add Asset",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "asset-detail",
+              "label": "Asset Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "asset-acquisition",
+              "label": "Acquisition & CWIP",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "capitalisation",
+              "label": "Capitalisation",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "asset-transfer",
+              "label": "Transfer & Assignment",
+              "archetype": "form",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "measurement",
+          "label": "Measurement",
+          "pages": [
+            {
+              "id": "depreciation-run",
+              "label": "Depreciation Run",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "asset-revaluation",
+              "label": "Revaluation & Impairment",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "asset-disposal",
+              "label": "Asset Disposal",
+              "archetype": "form",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "leases",
+          "label": "Leases",
+          "pages": [
+            {
+              "id": "lease-register",
+              "label": "Lease Register",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "lease-detail",
+              "label": "Lease Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "lease-schedule",
+              "label": "Lease Schedule & Payments",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "asset-lease-reports",
+              "label": "Asset & Lease Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "expenses",
+      "code": "EX",
+      "label": "Expense Management",
+      "category": "Operations & people",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "claims",
+          "label": "Claims",
+          "pages": [
+            {
+              "id": "expense-dashboard",
+              "label": "Expense Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "expense-policies",
+              "label": "Expense Policies & Categories",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "expense-inbox",
+              "label": "Expense Inbox",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-expense-claim",
+              "label": "Add Expense Claim",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "expense-detail",
+              "label": "Expense Claim Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "receipt-review",
+              "label": "Receipt Capture & OCR Review",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "mileage-perdiem",
+              "label": "Mileage & Per Diem",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "expense-approval",
+              "label": "Expense Approval",
+              "archetype": "approval",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "settlement",
+          "label": "Settlement",
+          "pages": [
+            {
+              "id": "card-matching",
+              "label": "Corporate Card Matching",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "cash-advances",
+              "label": "Cash Advances & Settlement",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "reimbursement",
+              "label": "Reimbursement & Accounting",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "expense-reports",
+              "label": "Expense Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "documents",
+      "code": "DM",
+      "label": "Document Management",
+      "category": "Platform & governance",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "library",
+          "label": "Document Library",
+          "pages": [
+            {
+              "id": "document-dashboard",
+              "label": "Document Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "document-library",
+              "label": "Document Library",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "upload-document",
+              "label": "Upload, Classify & Link",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "document-detail",
+              "label": "Document Detail & Versions",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "templates",
+              "label": "Template Catalogue",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "governance",
+          "label": "Governance",
+          "pages": [
+            {
+              "id": "access-share-review",
+              "label": "Access & Sharing Review",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "retention-holds",
+              "label": "Retention & Legal Holds",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "expiry-renewal",
+              "label": "Expiry & Renewal Queue",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "document-audit",
+              "label": "Document Audit & Search",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "budget",
+      "code": "BP",
+      "label": "Budget & Planning",
+      "category": "Finance & trade",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "planning",
+          "label": "Planning",
+          "pages": [
+            {
+              "id": "planning-dashboard",
+              "label": "Planning Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "scenarios",
+              "label": "Planning Scenarios",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "budget-models",
+              "label": "Budget Models",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "budget-entry",
+              "label": "Dimensioned Budget Entry",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "budget-import",
+              "label": "Import & Spread",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "budget-approval",
+              "label": "Budget Workflow",
+              "archetype": "approval",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "forecast-control",
+          "label": "Forecast & Control",
+          "pages": [
+            {
+              "id": "forecasts",
+              "label": "Forecast & Reforecast",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "commitment-control",
+              "label": "Commitment Control",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "budget-availability",
+              "label": "Budget Availability",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "budget-actual",
+              "label": "Budget vs Actual",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "planning-reports",
+              "label": "Planning Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reports",
+      "code": "RA",
+      "label": "Reports & Analytics",
+      "category": "Command centre",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "reporting",
+          "label": "Reporting",
+          "pages": [
+            {
+              "id": "analytics-dashboard",
+              "label": "Analytics Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "report-catalogue",
+              "label": "Report Catalogue",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "report-runner",
+              "label": "Report Runner",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "report-viewer",
+              "label": "Report Viewer",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "drilldown-explorer",
+              "label": "Drill-down Explorer",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "saved-views",
+              "label": "Saved Views & Exports",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "executive-reports",
+          "label": "Executive Reports",
+          "pages": [
+            {
+              "id": "executive-performance-report",
+              "label": "Enterprise Performance Summary",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "executive-profitability-report",
+              "label": "Profitability by Business Unit",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "executive-cash-risk-report",
+              "label": "Cash, Exposure & Risk Summary",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "executive-kpi-variance-report",
+              "label": "Executive KPI Variance",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "banking-reports",
+          "label": "Banking Reports",
+          "pages": [
+            {
+              "id": "bank-account-activity-report",
+              "label": "Bank Account Activity",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "bank-balance-report",
+              "label": "Bank & Cash Balance Summary",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "bank-reconciliation-report",
+              "label": "Bank Reconciliation Status",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "bank-unmatched-report",
+              "label": "Unmatched Statement Transactions",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "cash-position-report",
+              "label": "Daily Cash Position",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "sales-reports",
+          "label": "Sales Reports",
+          "pages": [
+            {
+              "id": "sales-invoice-detail-report",
+              "label": "Invoice Details Report",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "sales-order-status-report",
+              "label": "Sales Order Status & Fulfilment",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "sales-product-performance-report",
+              "label": "Sales by Product & Category",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "sales-customer-performance-report",
+              "label": "Sales by Customer & Territory",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "sales-margin-report",
+              "label": "Sales Margin & Discount Analysis",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "sales-tax-report",
+              "label": "Sales Tax Analysis",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "sales-return-report",
+              "label": "Returns, Credit Notes & Adjustments",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "revenue-reports",
+          "label": "Revenue Reports",
+          "pages": [
+            {
+              "id": "revenue-recognition-report",
+              "label": "Revenue Recognition Schedule",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "deferred-revenue-report",
+              "label": "Deferred & Unearned Revenue",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "recurring-revenue-report",
+              "label": "Recurring Revenue Movement",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "revenue-contract-report",
+              "label": "Contract Revenue & Obligations",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "customer-reports",
+          "label": "Customer Reports",
+          "pages": [
+            {
+              "id": "customer-statement-report",
+              "label": "Customer Statement",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "customer-outstanding-report",
+              "label": "Customer Payments Outstanding",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "customer-ageing-report",
+              "label": "Receivables Ageing by Customer",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "customer-advance-report",
+              "label": "Customer Advance Payments",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "customer-credit-report",
+              "label": "Credit Limit & Exposure",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "customer-receipt-allocation-report",
+              "label": "Receipt Allocation & Unapplied Cash",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "purchase-reports",
+          "label": "Purchase Reports",
+          "pages": [
+            {
+              "id": "purchase-requisition-report",
+              "label": "Purchase Requisition Status",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "rfq-comparison-report",
+              "label": "RFQ & Supplier Quotation Comparison",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "purchase-order-detail-report",
+              "label": "Purchase Order Details",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "purchase-receipt-report",
+              "label": "GRN & Pending Receipt Report",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "purchase-bill-detail-report",
+              "label": "Purchase Bill Details",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "purchase-price-variance-report",
+              "label": "Purchase Price Variance",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "three-way-match-report",
+              "label": "Three-way Match Exceptions",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "supplier-reports",
+          "label": "Supplier Reports",
+          "pages": [
+            {
+              "id": "supplier-statement-report",
+              "label": "Supplier Statement",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "supplier-outstanding-report",
+              "label": "Supplier Payments Outstanding",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "supplier-ageing-report",
+              "label": "Payables Ageing by Supplier",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "supplier-advance-report",
+              "label": "Supplier Advances & Deposits",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "supplier-performance-report",
+              "label": "Supplier Delivery & Quality Performance",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "inventory-reports",
+          "label": "Inventory Reports",
+          "pages": [
+            {
+              "id": "inventory-stock-balance-report",
+              "label": "Stock Balance by Item & Warehouse",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "inventory-valuation-report",
+              "label": "Inventory Valuation",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "inventory-movement-report",
+              "label": "Stock Movement & Ledger",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "inventory-ageing-report",
+              "label": "Inventory Ageing",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "inventory-slow-moving-report",
+              "label": "Slow-moving & Dead Stock",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "inventory-reorder-report",
+              "label": "Reorder, Shortage & Availability",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "inventory-count-variance-report",
+              "label": "Stock Count Variance",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "costing-reports",
+          "label": "Costing Reports",
+          "pages": [
+            {
+              "id": "cost-centre-report",
+              "label": "Cost Centre Performance",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "job-cost-report",
+              "label": "Job & Work Order Cost",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "standard-actual-cost-report",
+              "label": "Standard vs Actual Cost",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "overhead-absorption-report",
+              "label": "Overhead Absorption",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "cost-variance-report",
+              "label": "Material, Labour & Overhead Variance",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "finance-reports",
+          "label": "Finance Reports",
+          "pages": [
+            {
+              "id": "general-ledger-detail-report",
+              "label": "General Ledger Detail",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "trial-balance-report",
+              "label": "Trial Balance",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "profit-loss-report",
+              "label": "Profit & Loss Statement",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "balance-sheet-report",
+              "label": "Balance Sheet",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "cash-flow-report",
+              "label": "Cash Flow Statement",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "journal-register-report",
+              "label": "Journal Register & Posting Audit",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "budget-actual-finance-report",
+              "label": "Budget vs Actual by Account",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "financial-ratio-report",
+              "label": "Financial Ratios & Trends",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "tax-reports",
+          "label": "Tax Reports",
+          "pages": [
+            {
+              "id": "sales-tax-return-report",
+              "label": "Sales Tax Return Detail",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "input-output-tax-report",
+              "label": "Input vs Output Tax Reconciliation",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "withholding-tax-report",
+              "label": "Withholding Tax Register",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "tax-liability-report",
+              "label": "Tax Liability & Payment Schedule",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "tax-exception-report",
+              "label": "Tax Exceptions & Missing Evidence",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "operations-reports",
+          "label": "Operations Reports",
+          "pages": [
+            {
+              "id": "operations-throughput-report",
+              "label": "Operational Throughput",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "operations-sla-report",
+              "label": "SLA & Turnaround Performance",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "operations-exception-report",
+              "label": "Operational Exceptions",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "operations-capacity-report",
+              "label": "Capacity & Workload",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "manufacturing-reports",
+          "label": "Manufacturing Reports",
+          "pages": [
+            {
+              "id": "production-output-report",
+              "label": "Production Output & Attainment",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "production-plan-actual-report",
+              "label": "Production Plan vs Actual",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "production-wip-report",
+              "label": "Work in Progress",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "production-consumption-report",
+              "label": "Material Consumption",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "production-efficiency-report",
+              "label": "Machine & Labour Efficiency",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "production-scrap-report",
+              "label": "Scrap, Yield & Rework",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "production-variance-report",
+              "label": "Production Cost Variance",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "quality-reports",
+          "label": "Quality Reports",
+          "pages": [
+            {
+              "id": "quality-inspection-report",
+              "label": "Inspection Results",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "quality-nonconformance-report",
+              "label": "Non-conformance Analysis",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "quality-capa-report",
+              "label": "CAPA Status & Effectiveness",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "quality-supplier-defect-report",
+              "label": "Supplier Defect Analysis",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "quality-customer-return-report",
+              "label": "Customer Return Quality Analysis",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "crm-reports",
+          "label": "CRM Reports",
+          "pages": [
+            {
+              "id": "crm-pipeline-report",
+              "label": "Opportunity Pipeline",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "crm-conversion-report",
+              "label": "Lead & Opportunity Conversion",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "crm-activity-report",
+              "label": "Sales Activity & Follow-up",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "crm-forecast-report",
+              "label": "Weighted Sales Forecast",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "crm-campaign-report",
+              "label": "Campaign Response & ROI",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "project-reports",
+          "label": "Project Reports",
+          "pages": [
+            {
+              "id": "project-profitability-report",
+              "label": "Project Profitability",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "project-budget-actual-report",
+              "label": "Project Budget vs Actual",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "project-wip-report",
+              "label": "Project WIP & Unbilled Revenue",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "project-milestone-report",
+              "label": "Milestone & Delivery Status",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "project-time-cost-report",
+              "label": "Project Time & Cost Detail",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "project-revenue-leakage-report",
+              "label": "Revenue Leakage & Write-offs",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "resource-reports",
+          "label": "Resource Reports",
+          "pages": [
+            {
+              "id": "resource-utilisation-report",
+              "label": "Resource Utilisation",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "resource-capacity-report",
+              "label": "Capacity & Demand",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "resource-billability-report",
+              "label": "Billable vs Non-billable Time",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "resource-bench-report",
+              "label": "Bench & Availability",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "resource-skill-gap-report",
+              "label": "Skill Coverage & Gaps",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "support-reports",
+          "label": "Support Reports",
+          "pages": [
+            {
+              "id": "support-ticket-volume-report",
+              "label": "Ticket Volume & Backlog",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "support-sla-report",
+              "label": "Support SLA Performance",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "support-resolution-report",
+              "label": "Resolution Time & First-contact Rate",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "support-customer-satisfaction-report",
+              "label": "Customer Satisfaction",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "hr-reports",
+          "label": "HR Reports",
+          "pages": [
+            {
+              "id": "employee-list-report",
+              "label": "Employee List",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "employee-directory-report",
+              "label": "Employee Directory",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "department-employees-report",
+              "label": "Department-wise Employees",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "branch-employees-report",
+              "label": "Branch-wise Employees",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "designation-employees-report",
+              "label": "Designation-wise Employees",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "employee-status-report",
+              "label": "Employee Status Report",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "new-joiners-report",
+              "label": "New Joiners",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "employee-exits-report",
+              "label": "Exits",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "employee-turnover-report",
+              "label": "Employee Turnover",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "employee-history-report",
+              "label": "Employee History",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "document-expiry-report",
+              "label": "Document Expiry",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "attendance-reports",
+          "label": "Attendance Reports",
+          "pages": [
+            {
+              "id": "daily-attendance-report",
+              "label": "Daily Attendance",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "monthly-attendance-report",
+              "label": "Monthly Attendance",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "absence-report",
+              "label": "Absence",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "late-attendance-report",
+              "label": "Late",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "early-departure-report",
+              "label": "Early Departure",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "overtime-report",
+              "label": "Overtime",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "missing-punch-report",
+              "label": "Missing Punch",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "department-attendance-report",
+              "label": "Department Attendance",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "employee-attendance-summary-report",
+              "label": "Employee Attendance Summary",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "leave-reports",
+          "label": "Leave Reports",
+          "pages": [
+            {
+              "id": "leave-balance-report",
+              "label": "Leave Balance",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "leave-taken-report",
+              "label": "Leave Taken",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "leave-pending-report",
+              "label": "Leave Pending",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "leave-department-report",
+              "label": "Leave by Department",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "leave-type-report",
+              "label": "Leave by Type",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "leave-trend-report",
+              "label": "Leave Trend",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "payroll-reports",
+          "label": "Payroll Reports",
+          "pages": [
+            {
+              "id": "payroll-register-report",
+              "label": "Payroll Register",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "salary-sheet-report",
+              "label": "Salary Sheet",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "department-payroll-report",
+              "label": "Department Payroll",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "branch-payroll-report",
+              "label": "Branch Payroll",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "earnings-summary-report",
+              "label": "Earnings Summary",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "deduction-summary-report",
+              "label": "Deduction Summary",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "tax-summary-report",
+              "label": "Tax Summary",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "overtime-payroll-report",
+              "label": "Overtime Payroll",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "bonus-report",
+              "label": "Bonus Report",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "loan-recovery-report",
+              "label": "Loan Recovery",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "advance-recovery-report",
+              "label": "Advance Recovery",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "payroll-variance-report",
+              "label": "Payroll Variance",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "net-salary-report",
+              "label": "Net Salary Report",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "payroll-accounting-reports",
+          "label": "Payroll Accounting Reports",
+          "pages": [
+            {
+              "id": "payroll-general-ledger-report",
+              "label": "General Ledger",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "salary-payable-report",
+              "label": "Salary Payable",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "tax-payable-report",
+              "label": "Tax Payable",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "employee-receivables-report",
+              "label": "Employee Receivables",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "employer-contributions-report",
+              "label": "Employer Contributions",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "cost-centre-expenses-report",
+              "label": "Cost Center Expenses",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "asset-reports",
+          "label": "Asset Reports",
+          "pages": [
+            {
+              "id": "asset-register-report",
+              "label": "Fixed Asset Register",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "asset-depreciation-report",
+              "label": "Depreciation Schedule",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "asset-movement-report",
+              "label": "Asset Movement & Custody",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "asset-disposal-report",
+              "label": "Asset Disposal & Gain/Loss",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "asset-maintenance-report",
+              "label": "Asset Maintenance & Downtime",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "expense-reports",
+          "label": "Expense Reports",
+          "pages": [
+            {
+              "id": "expense-claim-report",
+              "label": "Expense Claim Details",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "expense-category-report",
+              "label": "Expenses by Category & Department",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "expense-policy-report",
+              "label": "Policy Exceptions & Duplicate Claims",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "expense-reimbursement-report",
+              "label": "Reimbursement Status",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "document-reports",
+          "label": "Document Reports",
+          "pages": [
+            {
+              "id": "document-register-report",
+              "label": "Document Register",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "document-expiry-renewal-report",
+              "label": "Expiry & Renewal Schedule",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "document-access-report",
+              "label": "Document Access & Sharing",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "document-retention-report",
+              "label": "Retention & Legal Hold Status",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "budget-reports",
+          "label": "Budget Reports",
+          "pages": [
+            {
+              "id": "budget-consolidated-report",
+              "label": "Consolidated Budget",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "budget-actual-report",
+              "label": "Budget vs Actual",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "budget-commitment-report",
+              "label": "Budget Commitments & Availability",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "budget-forecast-report",
+              "label": "Forecast & Reforecast Comparison",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "budget-variance-report",
+              "label": "Budget Variance Commentary",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "portal-reports",
+          "label": "Portal Reports",
+          "pages": [
+            {
+              "id": "portal-usage-report",
+              "label": "Portal Usage & Adoption",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "portal-request-report",
+              "label": "Self-service Requests & Status",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "portal-exception-report",
+              "label": "Portal Access & Transaction Exceptions",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "administration-reports",
+          "label": "Administration Reports",
+          "pages": [
+            {
+              "id": "user-access-report",
+              "label": "User Access & Role Assignment",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "licence-utilisation-report",
+              "label": "Licence & Module Utilisation",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "administration-change-report",
+              "label": "Administration Change Log",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "session-security-report",
+              "label": "Sessions & Security Events",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "configuration-reports",
+          "label": "Configuration Reports",
+          "pages": [
+            {
+              "id": "configuration-register-report",
+              "label": "Configuration Register",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "number-series-report",
+              "label": "Number Series & Usage",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "workflow-configuration-report",
+              "label": "Workflow & Approval Configuration",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "approval-reports",
+          "label": "Approval Reports",
+          "pages": [
+            {
+              "id": "approval-pending-report",
+              "label": "Pending Approvals by Age",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "approval-turnaround-report",
+              "label": "Approval Turnaround Time",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "approval-delegation-report",
+              "label": "Delegation & Escalation",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "approval-decision-report",
+              "label": "Approval Decisions & Comments",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "notification-reports",
+          "label": "Notification Reports",
+          "pages": [
+            {
+              "id": "notification-delivery-report",
+              "label": "Notification Delivery Status",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "notification-failure-report",
+              "label": "Failed & Retried Notifications",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "notification-preference-report",
+              "label": "Channel & Preference Analysis",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "integration-reports",
+          "label": "Integration Reports",
+          "pages": [
+            {
+              "id": "integration-health-report",
+              "label": "Integration Health & Availability",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "integration-volume-report",
+              "label": "Message Volume & Throughput",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "integration-error-report",
+              "label": "Integration Errors & Retries",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "integration-reconciliation-report",
+              "label": "Integration Reconciliation",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "ai-reports",
+          "label": "AI Reports",
+          "pages": [
+            {
+              "id": "ai-usage-report",
+              "label": "AI Usage & Adoption",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "ai-recommendation-report",
+              "label": "Recommendation Outcomes",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "ai-governance-report",
+              "label": "AI Governance & Human Review",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "audit-reports",
+          "label": "Audit Reports",
+          "pages": [
+            {
+              "id": "audit-transaction-report",
+              "label": "Transaction Audit Trail",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "audit-master-data-report",
+              "label": "Master-data Change Audit",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "audit-access-report",
+              "label": "Access & Permission Audit",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "audit-control-report",
+              "label": "Control Testing & Exceptions",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "audit-evidence-report",
+              "label": "Audit Evidence Completeness",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "migration-reports",
+          "label": "Migration Reports",
+          "pages": [
+            {
+              "id": "migration-progress-report",
+              "label": "Migration Progress & Readiness",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "migration-validation-report",
+              "label": "Migration Validation Results",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "migration-error-report",
+              "label": "Migration Errors & Corrections",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "migration-reconciliation-report",
+              "label": "Legacy-to-Nexora Reconciliation",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "mobile-reports",
+          "label": "Mobile Reports",
+          "pages": [
+            {
+              "id": "mobile-usage-report",
+              "label": "Mobile Usage & Adoption",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "mobile-sync-report",
+              "label": "Mobile Sync & Offline Queue",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "mobile-device-report",
+              "label": "Device, Version & Security Status",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "distribution",
+          "label": "Distribution",
+          "pages": [
+            {
+              "id": "report-schedules",
+              "label": "Schedules & Subscriptions",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "dashboard-composer",
+              "label": "Dashboard Composer",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "metric-definitions",
+              "label": "Metric Definitions & Freshness",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "reporting-admin",
+              "label": "Reporting Administration",
+              "archetype": "settings",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "portals",
+      "code": "PT",
+      "label": "Portals",
+      "category": "Platform & governance",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "customer-portal",
+          "label": "Customer Portal",
+          "pages": [
+            {
+              "id": "customer-portal-home",
+              "label": "Customer Portal Home",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "customer-portal-invoices",
+              "label": "Invoices & Payments",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "customer-portal-statements",
+              "label": "Statements & Disputes",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "customer-portal-support",
+              "label": "Support & Projects",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "supplier-portal",
+          "label": "Supplier Portal",
+          "pages": [
+            {
+              "id": "supplier-portal-home",
+              "label": "Supplier Portal Home",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "supplier-portal-rfq",
+              "label": "RFQ & Quotation",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "supplier-portal-orders",
+              "label": "PO & Receipt Visibility",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "supplier-portal-payments",
+              "label": "Invoice & Payment Status",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "employee-portal",
+          "label": "Employee Portal",
+          "pages": [
+            {
+              "id": "employee-portal-home",
+              "label": "Employee Portal Home",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "employee-portal-leave",
+              "label": "Leave & Attendance",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "employee-portal-expenses",
+              "label": "Expenses & Timesheets",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "employee-portal-payslips",
+              "label": "Payslips & Documents",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "administration",
+      "code": "AD",
+      "label": "Administration & Multi-Tenancy",
+      "category": "Platform & governance",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "organisation",
+          "label": "Organisation",
+          "pages": [
+            {
+              "id": "admin-dashboard",
+              "label": "Administration Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "tenants",
+              "label": "Tenant Directory",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "companies",
+              "label": "Companies & Organisation",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "company-detail",
+              "label": "Company Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "identity-access",
+          "label": "Identity & Access",
+          "pages": [
+            {
+              "id": "users",
+              "label": "User Directory",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "add-user",
+              "label": "Add User",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "user-detail",
+              "label": "User Detail & Access",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "roles-permissions",
+              "label": "Role & Permission Designer",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "company-role-assignments",
+              "label": "Company-role Assignments",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "access-review",
+              "label": "Access Review",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "delegation",
+              "label": "Delegation & Impersonation",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "security-policies",
+              "label": "Security & Session Policies",
+              "archetype": "settings",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "entitlements",
+          "label": "Entitlements",
+          "pages": [
+            {
+              "id": "editions",
+              "label": "Editions & Entitlements",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "module-visibility",
+              "label": "Module Visibility",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "prototype-environment",
+              "label": "Prototype Environment",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "admin-audit",
+              "label": "Administration Audit",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "configuration",
+      "code": "CF",
+      "label": "System Configuration & Extensibility",
+      "category": "Platform & governance",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "core-setup",
+          "label": "Core Setup",
+          "pages": [
+            {
+              "id": "configuration-home",
+              "label": "Configuration Home",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "company-fiscal-currency",
+              "label": "Company, Fiscal & Currency",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "numbering-sequences",
+              "label": "Numbering Sequences",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "dimensions",
+              "label": "Dimensions",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "custom-fields",
+              "label": "Custom Fields",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "validation-rules",
+              "label": "Validation & Default Rules",
+              "archetype": "settings",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "experience",
+          "label": "Experience & Features",
+          "pages": [
+            {
+              "id": "module-settings",
+              "label": "Module Settings",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "localisation",
+              "label": "Localisation, Language & RTL",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "feature-flags",
+              "label": "Feature Flags & Entitlements",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "form-view-config",
+              "label": "Form & View Configuration",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "configuration-versions",
+              "label": "Configuration Versions",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "change-impact",
+              "label": "Change Impact & Audit",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "approvals",
+      "code": "WF",
+      "label": "Workflow / Approvals / SoD",
+      "category": "Platform & governance",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "my-work",
+          "label": "My Work",
+          "pages": [
+            {
+              "id": "approval-dashboard",
+              "label": "Approval Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "my-approvals",
+              "label": "My Approvals",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "approval-detail",
+              "label": "Approval Detail",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "delegations",
+              "label": "Delegations & Out of Office",
+              "archetype": "settings",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "design",
+          "label": "Workflow Design",
+          "pages": [
+            {
+              "id": "workflow-definitions",
+              "label": "Workflow Definitions",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "approval-matrices",
+              "label": "Approval Matrix Editor",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "routing-simulation",
+              "label": "Threshold & Routing Simulation",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "sod-policies",
+              "label": "Segregation of Duties Policies",
+              "archetype": "settings",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "monitoring",
+          "label": "Monitoring",
+          "pages": [
+            {
+              "id": "escalations",
+              "label": "Escalations",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "workflow-monitor",
+              "label": "Workflow Monitor",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "failed-workflows",
+              "label": "Failed & Stuck Instances",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "workflow-reports",
+              "label": "Workflow Audit & Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "notifications",
+      "code": "NT",
+      "label": "Notifications",
+      "category": "Platform & governance",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "inbox",
+          "label": "Inbox",
+          "pages": [
+            {
+              "id": "notification-centre",
+              "label": "Notification Centre",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "notification-detail",
+              "label": "Notification Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "digests",
+              "label": "Digests & Inbox",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "preferences",
+          "label": "Preferences",
+          "pages": [
+            {
+              "id": "notification-preferences",
+              "label": "User Preferences",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "notification-templates",
+              "label": "Template Editor",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "event-routing",
+              "label": "Event & Routing Rules",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "channel-setup",
+              "label": "Channel & Escalation Setup",
+              "archetype": "settings",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "delivery",
+          "label": "Delivery",
+          "pages": [
+            {
+              "id": "delivery-log",
+              "label": "Delivery Log & Retry",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "notification-reports",
+              "label": "Notification Reports",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "integrations",
+      "code": "IG",
+      "label": "Integrations",
+      "category": "Platform & governance",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "connections",
+          "label": "Connections",
+          "pages": [
+            {
+              "id": "integration-dashboard",
+              "label": "Integration Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "integration-catalogue",
+              "label": "Integration Catalogue",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "connection-setup",
+              "label": "Connection Setup",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "api-clients",
+              "label": "API Clients & Scopes",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "webhooks",
+              "label": "Webhook Subscriptions",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "data-mapping",
+              "label": "Data Mapping",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "connection-test",
+              "label": "Connection Test",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "operations",
+          "label": "Integration Operations",
+          "pages": [
+            {
+              "id": "integration-runs",
+              "label": "Integration Runs",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "message-detail",
+              "label": "Message & Event Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "retry-queue",
+              "label": "Error, Retry & Dead-letter Queue",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "credential-rotation",
+              "label": "Credential Rotation",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "usage-limits",
+              "label": "Usage & Rate Limits",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "integration-audit",
+              "label": "Monitoring & Audit",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ai",
+      "code": "AI",
+      "label": "AI Assistant",
+      "category": "Platform & governance",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "assistant",
+          "label": "Assistant",
+          "pages": [
+            {
+              "id": "ai-assistant",
+              "label": "Contextual Assistant",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "suggestion-review",
+              "label": "Suggestion Review",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "extraction-review",
+              "label": "Document Extraction Review",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "explanations",
+              "label": "Explanation & Forecast",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "human-handoff",
+              "label": "Human Approval Handoff",
+              "archetype": "workflow",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "governance",
+          "label": "AI Governance",
+          "pages": [
+            {
+              "id": "ai-automations",
+              "label": "Automation Catalogue",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "ai-policy",
+              "label": "Model & Policy Configuration",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "source-confidence",
+              "label": "Source & Confidence Viewer",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "ai-feedback",
+              "label": "Evaluation & Feedback",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "ai-audit",
+              "label": "AI Audit & Usage",
+              "archetype": "report",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "audit",
+      "code": "AU",
+      "label": "Audit & Compliance",
+      "category": "Platform & governance",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "audit",
+          "label": "Audit",
+          "pages": [
+            {
+              "id": "audit-dashboard",
+              "label": "Audit Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "audit-explorer",
+              "label": "Audit Explorer",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "audit-event-detail",
+              "label": "Audit Event Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "transaction-history",
+              "label": "Transaction History",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "login-sessions",
+              "label": "Login & Session Audit",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "permission-audit",
+              "label": "Permission & Access Audit",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "master-data-changes",
+              "label": "Master-data Change Review",
+              "archetype": "approval",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "compliance",
+          "label": "Compliance",
+          "pages": [
+            {
+              "id": "approval-evidence",
+              "label": "Approval Evidence",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "evidence-packs",
+              "label": "Compliance Evidence Packs",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "audit-retention",
+              "label": "Retention & Legal Hold",
+              "archetype": "settings",
+              "status": "prototype"
+            },
+            {
+              "id": "control-exceptions",
+              "label": "Control Exceptions & Alerts",
+              "archetype": "approval",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "migration",
+      "code": "MG",
+      "label": "Data Migration & Cutover",
+      "category": "Platform & governance",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "migration",
+          "label": "Migration",
+          "pages": [
+            {
+              "id": "migration-dashboard",
+              "label": "Migration Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "migration-projects",
+              "label": "Migration Projects",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "migration-project",
+              "label": "Migration Project Detail",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "object-templates",
+              "label": "Object & Template Catalogue",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "file-profile",
+              "label": "File Upload & Profile",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "field-mapping",
+              "label": "Field Mapping",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "validation-dry-run",
+              "label": "Validation & Dry Run",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "error-correction",
+              "label": "Error Correction",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "cutover",
+          "label": "Cutover",
+          "pages": [
+            {
+              "id": "load-monitor",
+              "label": "Load Monitor",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "migration-reconciliation",
+              "label": "Migration Reconciliation",
+              "archetype": "report",
+              "status": "prototype"
+            },
+            {
+              "id": "migration-signoff",
+              "label": "Migration Sign-off",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "cutover-plan",
+              "label": "Cutover & Freeze Plan",
+              "archetype": "workflow",
+              "status": "coming-soon"
+            },
+            {
+              "id": "parallel-rollback",
+              "label": "Parallel Run & Rollback",
+              "archetype": "workflow",
+              "status": "coming-soon"
+            },
+            {
+              "id": "hypercare",
+              "label": "Hypercare Dashboard",
+              "archetype": "dashboard",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mobile",
+      "code": "MB",
+      "label": "Mobile",
+      "category": "Platform & governance",
+      "modes": [
+        "service",
+        "trading",
+        "manufacturing"
+      ],
+      "groups": [
+        {
+          "id": "mobile-work",
+          "label": "Mobile Work",
+          "pages": [
+            {
+              "id": "mobile-home",
+              "label": "Mobile Home",
+              "archetype": "dashboard",
+              "status": "prototype"
+            },
+            {
+              "id": "mobile-approvals",
+              "label": "Mobile Approvals",
+              "archetype": "approval",
+              "status": "prototype"
+            },
+            {
+              "id": "barcode-scan",
+              "label": "Barcode & QR Scan",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "mobile-stock",
+              "label": "Receive, Move & Count Stock",
+              "archetype": "workflow",
+              "status": "prototype"
+            },
+            {
+              "id": "mobile-expense",
+              "label": "Expense Capture",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "mobile-timesheet",
+              "label": "Timesheet",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "mobile-leave",
+              "label": "Leave & Attendance",
+              "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "field-service",
+              "label": "Field-service Task",
+              "archetype": "detail",
+              "status": "prototype"
+            },
+            {
+              "id": "mobile-directory",
+              "label": "Customer & Supplier Lookup",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "mobile-notifications",
+              "label": "Mobile Notifications",
+              "archetype": "list",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "offline-security",
+          "label": "Offline & Security",
+          "pages": [
+            {
+              "id": "offline-queue",
+              "label": "Offline Queue & Conflict",
+              "archetype": "workflow",
+              "status": "coming-soon"
+            },
+            {
+              "id": "mobile-security",
+              "label": "Mobile Security & Settings",
+              "archetype": "settings",
+              "status": "prototype"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

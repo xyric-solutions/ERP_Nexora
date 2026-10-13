@@ -1,0 +1,42 @@
+SEC-PG-01 PostgreSQL Security verification
+Date: 2026-09-25 Asia/Karachi
+Status: PASS WITH EXTERNAL WAIVERS; READY FOR REVIEW
+
+Implemented scope
+- PostgreSQL accounts, password credentials, versioned role policies, assignments, and immutable audit events.
+- Tenant-composite constraints, forced RLS, indexed lookups, advisory-serialized audit and role-assignment writes, and preservation-safe rollback.
+- Pool-backed production identity/session, credential login, and authorization composition.
+- Password authentication remains explicitly disabled by default and requires a separate session-signing secret.
+- Authentication and authorization decisions use consistent snapshots; blocking password/database work runs off the ASGI event loop.
+- Operator-safe migration CLI, deployment documentation, and CI PostgreSQL gate.
+
+Verification
+- python -m compileall -q app tests scripts: PASS
+- python scripts/verify.py unit integration contract security migration e2e: PASS, 629 tests
+- python scripts/verify_postgres_platform.py: PASS, 12 tests
+- python scripts/verify_postgres_security.py: PASS, 3 tests
+- python scripts/verify_postgres_hr.py: PASS, 4 tests
+- web/npm run lint: PASS
+- web/npm run api:check-drift: PASS
+- web/npm test: PASS, 160 tests
+- web/npm run test:a11y: PASS, 17 tests
+- web/npm run build: PASS, 50 routes
+- git diff --check: PASS (line-ending warnings only)
+- node framework/verify/portability-check.mjs: PASS
+- docker build --tag nexora-api:sec-pg-01 .: PASS
+
+Direct security/data evidence
+- anonymous, tampered-token, cross-tenant, inactive/locked-account and missing-permission paths deny;
+- production password login and PostgreSQL RBAC allow only the assigned tenant/permission;
+- forced RLS blocks cross-tenant access under a non-owner application role;
+- concurrent mutually exclusive role assignments serialize and one is denied;
+- concurrent audit appends produce a contiguous valid per-tenant hash chain;
+- audit UPDATE/DELETE and populated rollback are rejected;
+- secrets/passwords are absent from public payloads, configuration reprs, and request logs.
+
+Residual external blockers
+- Q-003: managed OIDC/SAML provider, issuer/audience/MFA mapping, centralized revocation/logout, key rotation, and service identity need an owner/provider decision.
+- Q-004/Q-006: KMS, restricted archive/SIEM, retention, cloud HA, backup/restore and failover need deployment-provider decisions and evidence.
+
+Review conclusion
+SEC-PG-01 closes the PostgreSQL Security persistence, first-party production session, and production RBAC code gaps. It is not a claim that managed SSO or operational cloud controls are complete.

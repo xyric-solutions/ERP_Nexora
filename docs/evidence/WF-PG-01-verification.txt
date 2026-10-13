@@ -1,0 +1,55 @@
+WF-PG-01 PostgreSQL Workflow verification
+Date: 2026-09-25 Asia/Karachi
+Status: READY FOR REVIEW with external Q-003/Q-004/Q-006 waivers
+
+Implemented evidence
+- Normalized PostgreSQL workflow_definition, approval_instance and approval_action tables.
+- Tenant-composite keys, forced RLS, constrained states, one pending source approval,
+  append-only action trigger and populated-data rollback refusal.
+- Tenant-bound repository with row-locked decisions and ordered action history.
+- Production setup composition shares one connection across Platform, Workflow
+  and Security; failed audit append rolls every domain write back.
+- Configured hr.employee_approval matrices drive multi-level employee submit,
+  approve and reject flows with company-scoped permission re-evaluation, step-role
+  enforcement, self-approval denial, rejection comments and atomic HR/audit state.
+- HR migration 4 removes an invalid status-history uniqueness constraint that
+  blocked legitimate same-day rejection while preserving immutable evidence.
+- Operator migration CLI, deployment order, package data and CI gate updated.
+
+Verification
+- python scripts/verify.py unit integration contract security e2e migration
+  PASS: 632 tests.
+- python scripts/verify_postgres_platform.py
+  PASS: 12 tests.
+- python scripts/verify_postgres_security.py
+  PASS: 3 tests.
+- python scripts/verify_postgres_workflow.py
+  PASS: 4 tests.
+- python scripts/verify_postgres_hr.py
+  PASS: 4 tests.
+- python -m compileall -q app tests/postgres scripts
+  PASS.
+- python -m pip check
+  PASS: no broken requirements.
+- git diff --check
+  PASS: no whitespace errors; Git emitted line-ending conversion warnings only.
+
+Security/data-integrity review
+- Cross-tenant repository use is denied before SQL and forced RLS is verified
+  under a non-owner application role.
+- Concurrent decisions serialize on the approval row; only one terminal
+  transition succeeds.
+- Current-step role, workflow permission and requester/approver separation are
+  independently enforced for PostgreSQL decisions.
+- Rejections require a persisted reason; approval actions cannot be updated or
+  deleted.
+- Revoking Security audit INSERT proves setup and HR approval changes roll back.
+- No credentials, payload bodies, authorization headers or database diagnostics
+  are added to logs or public errors.
+
+Disposition
+- S1.5-F03: resolved.
+- HR01-F02: resolved.
+- WF-PG-01-F01: found and resolved during closeout.
+- Full ERP remains NOT PRODUCTION READY. FIN-PG-01, HR-ID-01, OPS-01 and
+  owner/provider/legal/bank/cloud decisions remain dependency-ordered work.
