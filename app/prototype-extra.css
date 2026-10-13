@@ -352,6 +352,16 @@
   transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
 }
 
+a.nx-module-button {
+  text-decoration: none;
+}
+
+.nx-sidebar__section--identity {
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--nx-sidebar-line);
+}
+
 .nx-module-button:hover {
   color: var(--nx-sidebar-text);
   background: var(--nx-sidebar-hover);
@@ -820,6 +830,76 @@
   background: var(--nx-brand-line);
   font-size: 11px;
   font-weight: 700;
+}
+
+.nx-account-menu {
+  position: relative;
+}
+
+.nx-account-menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.nx-account-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.nx-account-menu__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 80;
+  width: 224px;
+  padding: 7px;
+  display: grid;
+  gap: 7px;
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-md);
+  background: var(--nx-surface);
+  box-shadow: 0 14px 34px var(--nx-shadow-color-md);
+}
+
+.nx-account-menu__identity {
+  min-width: 0;
+  padding: 6px 8px 9px;
+  display: grid;
+  gap: 2px;
+  border-bottom: 1px solid var(--nx-border);
+}
+
+.nx-account-menu__identity strong,
+.nx-account-menu__identity small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nx-account-menu__identity strong {
+  color: var(--nx-text-strong);
+  font-size: var(--nx-size-small);
+}
+
+.nx-account-menu__identity small {
+  color: var(--nx-text-muted);
+  font-size: var(--nx-size-micro);
+}
+
+.nx-account-menu__panel button {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--nx-radius-sm);
+  color: var(--nx-danger);
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nx-account-menu__panel button:hover:not(:disabled) {
+  background: var(--nx-danger-soft);
 }
 
 .nx-prototype-toolbar {
@@ -2138,6 +2218,10 @@
 
   .nx-topbar__actions .nx-icon-button:not(:last-child) {
     display: none;
+  }
+
+  .nx-topbar__actions .nx-appearance-menu .nx-icon-button {
+    display: grid;
   }
 
   .nx-prototype-toolbar {

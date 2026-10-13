@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   PROTOTYPE_MODULE_COUNT,
   PROTOTYPE_PAGE_COUNT,
@@ -20,7 +20,6 @@ import {
 import { PrototypeContent, type PrototypeRow, type PrototypeViewState } from "./prototype-content";
 import { savedBankingTransactions } from "./banking-transaction-detail";
 import { NexoraIntelligenceLayer, type IntelligenceSurface } from "./nexora-intelligence";
-import { ThemeSelector } from "./theme-provider";
 
 type RouteState = { moduleId: string; pageId: string; recordRef?: string };
 type DialogState =
@@ -69,6 +68,11 @@ function readHashRoute(): RouteState {
   const resolved = findPrototypePage(moduleId || initialRoute.moduleId, pageId || initialRoute.pageId);
   const recordRef = recordParts.length ? decodeURIComponent(recordParts.join("/")) : undefined;
   return { moduleId: resolved.module.id, pageId: resolved.page.id, recordRef };
+}
+
+function isIdentityWorkspaceHash(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.location.hash.replace(/^#\/?/, "") === "identity/access";
 }
 
 function rowsFor(moduleId: string, moduleLabel: string, pageLabel: string): PrototypeRow[] {
@@ -213,7 +217,13 @@ function writePreferences(prefs: Preferences): void {
   }
 }
 
-export function PrototypeShell() {
+export function PrototypeShell({
+  headerControls,
+  identityContent,
+}: {
+  headerControls?: ReactNode;
+  identityContent?: ReactNode;
+}) {
   const [route, setRoute] = useState<RouteState>(initialRoute);
   const [expandedModule, setExpandedModule] = useState<string | null>(initialRoute.moduleId);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["dashboard:command-centres"]));
@@ -232,6 +242,7 @@ export function PrototypeShell() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [drawerModuleId, setDrawerModuleId] = useState<string | null>(null);
   const [intelligenceSurface, setIntelligenceSurface] = useState<IntelligenceSurface>(null);
+  const [activeWorkspace, setActiveWorkspace] = useState<"prototype" | "identity">("prototype");
 
   const current = useMemo(() => findPrototypePage(route.moduleId, route.pageId), [route]);
   const currentRole = roleOptions.find((role) => role.id === roleId) ?? roleOptions[0];
@@ -286,6 +297,7 @@ export function PrototypeShell() {
   const navigate = useCallback((moduleId: string, pageId: string, recordRef?: string) => {
     const resolved = findPrototypePage(moduleId, pageId);
     const next = { moduleId: resolved.module.id, pageId: resolved.page.id, recordRef };
+    setActiveWorkspace("prototype");
     setRoute(next);
     setExpandedModule(next.moduleId);
     setExpandedGroups((previous) => new Set(previous).add(`${next.moduleId}:${resolved.group.id}`));
@@ -299,6 +311,15 @@ export function PrototypeShell() {
     }
   }, []);
 
+  const openIdentityWorkspace = useCallback(() => {
+    setActiveWorkspace("identity");
+    setMobileOpen(false);
+    setDrawerModuleId(null);
+    setSearchOpen(false);
+    setIntelligenceSurface(null);
+    if (typeof window !== "undefined") window.history.pushState(null, "", "#/identity/access");
+  }, []);
+
   const pushToast = useCallback((tone: Toast["tone"], title: string, message: string) => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
     setToasts((previous) => [...previous.slice(-2), { id, tone, title, message }]);
@@ -306,7 +327,14 @@ export function PrototypeShell() {
   }, []);
 
   useEffect(() => {
-    const syncRoute = () => setRoute(readHashRoute());
+    const syncRoute = () => {
+      if (isIdentityWorkspaceHash()) {
+        setActiveWorkspace("identity");
+        return;
+      }
+      setActiveWorkspace("prototype");
+      setRoute(readHashRoute());
+    };
     syncRoute();
     window.addEventListener("hashchange", syncRoute);
     window.addEventListener("popstate", syncRoute);
@@ -666,6 +694,24 @@ export function PrototypeShell() {
                   </section>
                 );
               })}
+              <section className="nx-sidebar__section nx-sidebar__section--identity">
+                <ul className="nx-module-list">
+                  <li className="nx-module-item">
+                    <button
+                      className="nx-module-button"
+                      type="button"
+                      aria-current={activeWorkspace === "identity" ? "page" : undefined}
+                      onClick={openIdentityWorkspace}
+                    >
+                      <span className="nx-module-button__icon">IA</span>
+                      <span className="nx-module-button__label">Identity &amp; Access</span>
+                      <span className="nx-module-button__meta" aria-hidden="true">
+                        <i className="nx-module-button__chevron" />
+                      </span>
+                    </button>
+                  </li>
+                </ul>
+              </section>
             </nav>
           </div>
           <div className="nx-sidebar__footer">
@@ -745,7 +791,7 @@ export function PrototypeShell() {
               >
                 !<span className="nx-icon-button__badge">3</span>
               </button>
-              <ThemeSelector label="Theme" />
+              {headerControls}
             </div>
           </header>
           <section className="nx-prototype-toolbar" aria-label="Prototype controls">
@@ -805,6 +851,7 @@ export function PrototypeShell() {
           </section>
 
           <div className="nx-content">
+            {activeWorkspace === "identity" && identityContent ? identityContent : <>
             <ol className="nx-breadcrumbs" aria-label="Breadcrumb">
               <li>
                 <button type="button" onClick={() => navigate("dashboard", currentRole.dashboardPageId)}>
@@ -855,6 +902,7 @@ export function PrototypeShell() {
               onOpenPage={(pageId) => navigate(current.module.id, pageId)}
               onNavigate={(moduleId, pageId) => navigate(moduleId, pageId)}
             />
+            </>}
           </div>
         </main>
       </div>

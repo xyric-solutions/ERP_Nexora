@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
+import { Geist_Mono, Source_Sans_3 } from "next/font/google";
 
 import { themeInitializationScript } from "./theme-config";
 import { ThemeProvider } from "./theme-provider";
@@ -35,24 +35,16 @@ import "./manufacturing-workspace.css";
 import "./form-contrast.css";
 import "./print.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const nexoraSans = Source_Sans_3({
+  variable: "--font-nx-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-});
-
-/* Serif display face. Page and report titles are set in it; the data interface
- * stays in the grotesque. This pairing is what moves the register from
- * "dashboard" to "institution". */
-const nexoraSerif = Source_Serif_4({
-  variable: "--font-nx-serif",
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -86,7 +78,7 @@ export default function RootLayout({
       <head>
         <script id="nexora-theme-init" dangerouslySetInnerHTML={{ __html: themeInitializationScript }} />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} ${nexoraSerif.variable} antialiased`}>
+      <body className={`${nexoraSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

@@ -32,9 +32,6 @@
 .brand div {
   display: grid;
 }
-.brand :global(.nx-theme-selector) {
-  margin-left: auto;
-}
 .brand small {
   color: var(--nx-text-muted);
   margin-top: 2px;
@@ -50,6 +47,8 @@
 .card h1 {
   font-family: var(--nx-font-serif);
   font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
   color: var(--nx-text-strong);
   margin: 0 0 8px;
 }
@@ -112,6 +111,44 @@
   border-radius: 9px;
   padding: 0 12px;
   background: var(--nx-surface-soft);
+}
+.passwordField {
+  position: relative;
+  display: block;
+}
+.passwordField input {
+  width: 100%;
+  padding-right: 48px;
+}
+.card button.passwordToggle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  height: 32px;
+  width: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--nx-brand);
+}
+.card button.passwordToggle:hover {
+  background: var(--nx-surface-soft);
+}
+.card button.passwordToggle:focus-visible {
+  outline: 2px solid var(--nx-focus-color);
+  outline-offset: 1px;
+}
+.card button.passwordToggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 .card button {
   height: 46px;

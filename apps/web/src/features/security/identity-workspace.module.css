@@ -5,6 +5,23 @@
   background: var(--nx-canvas);
   color: var(--nx-text);
 }
+.embedded {
+  min-width: 0;
+}
+.embedded .topbar {
+  padding: 2px 0 16px;
+  background: transparent;
+  border-bottom: 0;
+}
+.embedded .summary {
+  padding: 0 0 18px;
+}
+.embedded .tabs {
+  padding: 0;
+}
+.embedded .panel {
+  margin: 22px 0 40px;
+}
 .rail {
   background: var(--nx-sidebar);
   color: var(--nx-sidebar-muted);
@@ -298,6 +315,12 @@
 }
 .loading {
   min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: var(--nx-text-muted);
+}
+.embeddedLoading {
+  min-height: 260px;
   display: grid;
   place-items: center;
   color: var(--nx-text-muted);

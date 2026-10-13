@@ -3,16 +3,26 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { PasswordChangeRequiredResponse, TenantSelectionRequiredResponse } from "@nexora/contracts";
-import { ThemeSelector } from "@prototype/theme-provider";
 
 import { useSession } from "../../src/lib/session/session-provider";
 import styles from "./login.module.css";
+
+function PasswordVisibilityIcon({ visible }: { visible: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M2.5 12s3.25-5.5 9.5-5.5S21.5 12 21.5 12s-3.25 5.5-9.5 5.5S2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="2.5" />
+      {visible ? null : <path d="m4 4 16 16" />}
+    </svg>
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
   const { cancelTenantSelection, changeInitialPassword, login, selectTenant } = useSession();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [selection, setSelection] = useState<TenantSelectionRequiredResponse | null>(null);
   const [passwordChange, setPasswordChange] = useState<PasswordChangeRequiredResponse | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -35,7 +45,7 @@ export default function LoginPage() {
       setPassword("");
       if (result.status === "tenant_selection_required") setSelection(result);
       else if (result.status === "password_change_required") setPasswordChange(result);
-      else router.replace("/admin/identity");
+      else router.replace("/");
     } catch {
       setPassword("");
       setError("Sign-in failed. Check your username or email and password, then try again.");
@@ -52,7 +62,7 @@ export default function LoginPage() {
       const result = await selectTenant({ ticket: selection.ticket, choice_id: choiceId });
       setSelection(null);
       if (result.status === "password_change_required") setPasswordChange(result);
-      else router.replace("/admin/identity");
+      else router.replace("/");
     } catch {
       setSelection(null);
       setError("Organization selection expired or was invalid. Please sign in again.");
@@ -89,7 +99,7 @@ export default function LoginPage() {
       setNewPassword("");
       setConfirmPassword("");
       setPasswordChange(null);
-      router.replace("/admin/identity");
+      router.replace("/");
     } catch {
       setNewPassword("");
       setConfirmPassword("");
@@ -117,7 +127,6 @@ export default function LoginPage() {
             <strong>Nexora ERP</strong>
             <small>Enterprise operations</small>
           </div>
-          <ThemeSelector label="Appearance" />
         </div>
         <header>
           <p>Secure workspace</p>
@@ -202,13 +211,25 @@ export default function LoginPage() {
             </label>
             <label>
               Password
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                autoComplete="current-password"
-                required
-              />
+              <span className={styles.passwordField}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
+                <button
+                  type="button"
+                  className={styles.passwordToggle}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  title={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword((visible) => !visible)}
+                >
+                  <PasswordVisibilityIcon visible={showPassword} />
+                </button>
+              </span>
             </label>
             {error ? (
               <p className={styles.error} role="alert">

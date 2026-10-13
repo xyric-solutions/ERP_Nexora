@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { SecurityPage } from "@nexora/contracts";
-import { ThemeSelector } from "@prototype/theme-provider";
 
 import { useSession } from "../../lib/session/session-provider";
 import UserManagementPanel from "./users/user-management-panel";
@@ -22,7 +21,7 @@ const labels = {
   users: "Users",
 };
 
-export default function IdentityWorkspace() {
+export default function IdentityWorkspace({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
   const search = useSearchParams();
   const { api, session, loading, logout, csrfToken } = useSession();
@@ -133,11 +132,12 @@ export default function IdentityWorkspace() {
     }
     return undefined;
   }
-  if (loading || !session) return <main className={styles.loading}>Verifying secure session…</main>;
+  if (loading || !session)
+    return <main className={embedded ? styles.embeddedLoading : styles.loading}>Verifying secure session…</main>;
 
   return (
-    <main className={styles.shell}>
-      <aside className={styles.rail}>
+    <main className={embedded ? styles.embedded : styles.shell}>
+      {!embedded ? <aside className={styles.rail}>
         <div className={styles.logo}>N</div>
         <nav aria-label="Administration">
           <Link href="/">Overview</Link>
@@ -145,21 +145,20 @@ export default function IdentityWorkspace() {
             Identity &amp; Access
           </Link>
         </nav>
-      </aside>
+      </aside> : null}
       <section className={styles.workspace}>
         <header className={styles.topbar}>
           <div>
             <p>Administration / Security</p>
             <h1>Identity &amp; Access</h1>
           </div>
-          <div className={styles.user}>
-            <ThemeSelector label="Appearance" />
+          {!embedded ? <div className={styles.user}>
             <span>
               {session.user.email}
               <small>{session.tenant_id}</small>
             </span>
             <button onClick={() => void logout().then(() => router.replace("/login"))}>Sign out</button>
-          </div>
+          </div> : null}
         </header>
         <div className={styles.summary}>
           <article>
