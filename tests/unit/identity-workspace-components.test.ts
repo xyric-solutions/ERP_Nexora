@@ -24,6 +24,10 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => state.search,
   useRouter: () => ({ replace: state.replace }),
 }));
+vi.mock("@prototype/theme-provider", () => ({
+  ThemeSelector: ({ label }: { label: string }) =>
+    createElement("select", { "aria-label": label }, createElement("option", { value: "system" }, "System")),
+}));
 vi.mock("../../apps/web/src/lib/session/session-provider", () => ({
   useSession: () => ({
     api: state.api,

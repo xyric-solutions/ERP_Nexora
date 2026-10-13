@@ -82,7 +82,7 @@
   place-items: center;
   border-radius: var(--nx-radius-sm);
   background: var(--nx-sidebar);
-  color: #fff;
+  color: var(--nx-action-text);
   font-family: var(--nx-font-serif);
   font-size: 20px;
   font-weight: 700;

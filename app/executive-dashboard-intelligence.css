@@ -23,7 +23,7 @@
   cursor: pointer;
 }
 
-.nx-executive-headline__item[data-tone="positive"] { border-top-color: var(--nx-success); }
+.nx-executive-headline__item[data-tone="positive"] { border-top-color: var(--nx-success-text); }
 .nx-executive-headline__item[data-tone="warning"] { border-top-color: var(--nx-warning); }
 .nx-executive-headline__item[data-tone="danger"] { border-top-color: var(--nx-danger); }
 .nx-executive-headline__item[data-tone="info"] { border-top-color: var(--nx-info); }

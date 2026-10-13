@@ -468,7 +468,7 @@ test("Banking ships connected entry, detail, statement and reconciliation worksp
   assert.match(batch, /Payment details/);
   assert.match(batch, /Receipt details/);
   assert.match(bankingStyles, /box-shadow: inset 4px 0 0 var\(--nx-brand\)/);
-  assert.match(bankingStyles, /nx-txn-journal thead th \{ background: var\(--nx-brand-strong\); color: #fff/);
+  assert.match(bankingStyles, /nx-txn-journal thead th \{ background: var\(--nx-brand-strong\); color: var\(--nx-action-text\)/);
   assert.match(gridStyles, /nx-batch-grid thead th[\s\S]*?background: var\(--nx-brand-strong\)/);
   assert.doesNotMatch(sharedFormStyles, /^\.nx-workspace-form--banking \{/m);
   assert.match(detail, /buildSelectedTransaction/);

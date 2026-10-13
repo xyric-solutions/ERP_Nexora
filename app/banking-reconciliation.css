@@ -10,7 +10,7 @@
 .nx-recon__steps strong,.nx-recon__steps small { display: block; }
 .nx-recon__steps strong { color: var(--nx-text); font-size: 12px; }
 .nx-recon__steps small { margin-top: 2px; font-size: 11px; }
-.nx-recon__steps li.complete i { border-color: var(--nx-success); background: var(--nx-success); color: white; }
+.nx-recon__steps li.complete i { border-color: var(--nx-success-text); background: var(--nx-success); color: white; }
 .nx-recon__steps li.complete:not(:last-child)::after { background: var(--nx-success); }
 .nx-recon__steps li.current i { border-color: var(--nx-brand); box-shadow: 0 0 0 4px var(--nx-brand-soft); color: var(--nx-brand-strong); }
 .nx-recon__controls { padding: 12px 14px; display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-md); background: var(--nx-surface); }
@@ -43,7 +43,7 @@
 .nx-recon__candidates label { padding: 10px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 9px; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-sm); cursor: pointer; }
 .nx-recon__candidates label:hover,.nx-recon__candidates label.is-selected { border-color: var(--nx-brand); background: var(--nx-brand-soft); }
 .nx-recon__candidates label > span { min-width: 0; }
-.nx-recon__candidates b { float: right; padding: 2px 5px; border-radius: 4px; background: var(--nx-success-soft); color: var(--nx-success); font-size: 11px; }
+.nx-recon__candidates b { float: right; padding: 2px 5px; border-radius: 4px; background: var(--nx-success-soft); color: var(--nx-success-text); font-size: 11px; }
 .nx-recon__candidates strong,.nx-recon__candidates small,.nx-recon__candidates em { display: block; }
 .nx-recon__candidates strong { color: var(--nx-text-strong); font-size: 12px; }
 .nx-recon__candidates small,.nx-recon__candidates em { margin-top: 2px; color: var(--nx-text-muted); font-size: 11px; line-height: 1.4; }
@@ -54,7 +54,7 @@
 .nx-recon__match-actions { padding: 10px 14px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 7px; border-top: 1px solid var(--nx-border); }
 .nx-recon__match-actions .nx-button:first-child { grid-column: 1 / -1; }
 .nx-recon__match .nx-role-section-note { margin: 0 14px 14px; }
-.nx-pos { color: var(--nx-success) !important; }
+.nx-pos { color: var(--nx-success-text) !important; }
 .nx-neg { color: var(--nx-danger) !important; }
 /* Register: the "Add New" panel that starts a reconciliation. */
 .nx-recon__method-note { padding: 12px 14px; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-sm); background: var(--nx-surface-soft); }
@@ -73,7 +73,7 @@
 .nx-worksheet__method { display: flex; gap: 0; overflow: hidden; border: 1px solid var(--nx-border-strong); border-radius: var(--nx-radius-sm); }
 .nx-worksheet__method button { padding: 7px 14px; border: 0; background: var(--nx-surface); color: var(--nx-text-muted); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
 .nx-worksheet__method button + button { border-left: 1px solid var(--nx-border); }
-.nx-worksheet__method button.active { background: var(--nx-brand); color: #fff; }
+.nx-worksheet__method button.active { background: var(--nx-brand); color: var(--nx-action-text); }
 .nx-worksheet__import p { max-width: 82ch; margin: 0 0 14px; color: var(--nx-text-muted); font-size: 12px; line-height: 1.6; }
 .nx-worksheet__controls { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; padding: 13px 14px; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-sm); background: var(--nx-surface-soft); }
 .nx-worksheet__controls label { min-width: 190px; display: grid; gap: 5px; flex: 1 1 190px; }

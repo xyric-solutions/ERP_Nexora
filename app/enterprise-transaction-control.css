@@ -60,8 +60,8 @@
 
 .nx-governance__status--posted,
 .nx-governance__status--closed {
-  border-color: var(--nx-success);
-  color: var(--nx-success);
+  border-color: var(--nx-success-text);
+  color: var(--nx-success-text);
   background: var(--nx-success-soft);
 }
 
@@ -135,10 +135,10 @@
 
 .nx-governance__lifecycle strong { font-size: var(--nx-size-micro); }
 .nx-governance__lifecycle small { color: var(--nx-text-subtle); font-size: var(--nx-size-micro); }
-.nx-governance__lifecycle li.complete i { border-color: var(--nx-success); color: #fff; background: var(--nx-success); }
-.nx-governance__lifecycle li.current i { border-color: var(--nx-primary); color: #fff; background: var(--nx-primary); box-shadow: 0 0 0 3px var(--nx-brand-soft); }
+.nx-governance__lifecycle li.complete i { border-color: var(--nx-success-text); color: var(--nx-action-text); background: var(--nx-success); }
+.nx-governance__lifecycle li.current i { border-color: var(--nx-primary); color: var(--nx-action-text); background: var(--nx-primary); box-shadow: 0 0 0 3px var(--nx-brand-soft); }
 .nx-governance__lifecycle li.current strong { color: var(--nx-secondary); }
-.nx-governance__lifecycle li.reversed i { border-color: var(--nx-danger); color: #fff; background: var(--nx-danger); }
+.nx-governance__lifecycle li.reversed i { border-color: var(--nx-danger); color: var(--nx-action-text); background: var(--nx-danger); }
 
 .nx-governance__commandbar {
   padding: 9px 14px;
@@ -167,7 +167,7 @@
   font-weight: var(--nx-weight-bold);
 }
 
-.nx-governance button.primary { border-color: var(--nx-primary); color: #fff; background: var(--nx-primary); }
+.nx-governance button.primary { border-color: var(--nx-primary); color: var(--nx-action-text); background: var(--nx-primary); }
 .nx-governance button.danger { border-color: var(--nx-danger); color: var(--nx-danger); background: var(--nx-danger-soft); }
 .nx-governance button:disabled { cursor: not-allowed; opacity: .48; }
 
@@ -252,7 +252,7 @@
   font-weight: var(--nx-weight-bold);
 }
 
-.nx-governance__checks article.pass i { color: var(--nx-success); background: var(--nx-success-soft); }
+.nx-governance__checks article.pass i { color: var(--nx-success-text); background: var(--nx-success-soft); }
 .nx-governance__checks article.warn i { color: var(--nx-warning); background: var(--nx-warning-soft); }
 .nx-governance__checks article.advisory i { color: var(--nx-info); background: var(--nx-info-soft); }
 .nx-governance__checks strong { font-size: var(--nx-size-small); }
@@ -343,7 +343,7 @@
 
 .nx-governance__lineage i { color: var(--nx-text-subtle); font-style: normal; }
 .nx-governance__accounting table { width: 100%; min-width: 760px; border-collapse: collapse; }
-.nx-governance__accounting th { padding: 8px 9px; color: #fff; background: var(--nx-brand-strong); font-size: var(--nx-size-micro); text-align: left; }
+.nx-governance__accounting th { padding: 8px 9px; color: var(--nx-action-text); background: var(--nx-brand-strong); font-size: var(--nx-size-micro); text-align: left; }
 .nx-governance__accounting td { padding: 8px 9px; border-bottom: 1px solid var(--nx-border); font-size: var(--nx-size-micro); }
 .nx-governance__accounting td button { min-height: 0; padding: 0; border: 0; color: var(--nx-accent); background: transparent; }
 .nx-governance__accounting .amount { text-align: right; }

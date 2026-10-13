@@ -15,7 +15,7 @@ import type { CSSProperties, ReactNode } from "react";
  * Series identity tones.
  *
  * The seven categorical tones map to the validated cool palette in
- * `tokens.css`, in FIXED ORDER. They previously pointed at brand and status
+ * `theme-colors.css`, in FIXED ORDER. They previously pointed at brand and status
  * tokens (`--nx-success`, `--nx-warning`, `--nx-danger`) plus two raw hexes,
  * which meant a status colour could impersonate a series. Status now has its
  * own reserved tones below and the two are never interchangeable.
@@ -43,6 +43,21 @@ export const chartToneColor: Record<ChartTone, string> = {
   bad: "var(--nx-status-bad)",
   // Anything past the last slot folds into one neutral "other".
   other: "var(--nx-text-subtle)",
+};
+
+const chartToneTextColor: Record<ChartTone, string> = {
+  blue: "var(--nx-on-series-1)",
+  plum: "var(--nx-on-series-2)",
+  cyan: "var(--nx-on-series-3)",
+  violet: "var(--nx-on-series-4)",
+  teal: "var(--nx-on-series-5)",
+  indigo: "var(--nx-on-series-6)",
+  sky: "var(--nx-on-series-7)",
+  good: "var(--nx-on-status-good)",
+  warn: "var(--nx-on-status-warn)",
+  risk: "var(--nx-on-status-risk)",
+  bad: "var(--nx-on-status-bad)",
+  other: "var(--nx-on-chart-other)",
 };
 
 /** The categorical order. It is the colour-blind-safety mechanism: do not rearrange. */
@@ -786,11 +801,20 @@ export function HeatmapChart({
             {columns.map((column) => {
               const value = lookup.get(`${row}|${column}`);
               const intensity = value === undefined ? 0 : 0.12 + ((value - minimum) / span) * 0.88;
+              const highIntensity = intensity >= 0.72;
               return (
                 <span
                   className="nx-heatmap__cell"
                   key={column}
-                  style={{ background: value === undefined ? "var(--nx-surface-soft)" : `color-mix(in srgb, ${color} ${Math.round(intensity * 100)}%, var(--nx-surface))` }}
+                  style={{
+                    background:
+                      value === undefined
+                        ? "var(--nx-surface-soft)"
+                        : highIntensity
+                          ? "var(--nx-heatmap-high-background)"
+                          : `color-mix(in srgb, ${color} ${Math.round(intensity * 100)}%, var(--nx-surface))`,
+                    color: highIntensity ? "var(--nx-heatmap-high-text)" : undefined,
+                  }}
                   title={`${row} · ${column}: ${value === undefined ? "No data" : formatValue(value)}`}
                 >
                   {value === undefined ? "" : formatValue(value)}
@@ -944,7 +968,11 @@ export function TreemapChart({
             className="nx-treemap__tile nx-treemap__tile--lead"
             key={first.id}
             onClick={() => onSelect?.(first)}
-            style={{ background: chartToneColor[first.tone], flexBasis: `${roundTo(Math.max(34, firstShare))}%` }}
+            style={{
+              background: chartToneColor[first.tone],
+              color: chartToneTextColor[first.tone],
+              flexBasis: `${roundTo(Math.max(34, firstShare))}%`,
+            }}
             type="button"
           >
             <strong>{first.label}</strong>
@@ -958,7 +986,11 @@ export function TreemapChart({
               className="nx-treemap__tile"
               key={node.id}
               onClick={() => onSelect?.(node)}
-              style={{ background: chartToneColor[node.tone], flexGrow: Math.max(1, (node.value / restTotal) * 100) }}
+              style={{
+                background: chartToneColor[node.tone],
+                color: chartToneTextColor[node.tone],
+                flexGrow: Math.max(1, (node.value / restTotal) * 100),
+              }}
               type="button"
             >
               <strong>{node.label}</strong>

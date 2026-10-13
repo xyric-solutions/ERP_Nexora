@@ -18,6 +18,7 @@ interface JourneyStep {
 const evidenceDirectory = join(dirname(fileURLToPath(import.meta.url)), "baseline");
 const parityPath = join(evidenceDirectory, "..", "..", "..", "docs", "parity", "hr-screen-parity.csv");
 const preferencesKey = "nexora-prototype-preferences-v2";
+const themePreferenceKey = "nexora-theme-preference-v1";
 
 function parseCsvLine(line: string): string[] {
   const values: string[] = [];
@@ -109,7 +110,13 @@ async function runJourney(page: Page, name: string, steps: readonly JourneyStep[
 
 test.describe("Wave 0 HR visual baseline", () => {
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript((key) => window.localStorage.removeItem(key), preferencesKey);
+    await page.addInitScript(
+      ({ prototypePreferencesKey, appearanceKey }) => {
+        window.localStorage.removeItem(prototypePreferencesKey);
+        window.localStorage.setItem(appearanceKey, "light");
+      },
+      { prototypePreferencesKey: preferencesKey, appearanceKey: themePreferenceKey },
+    );
   });
 
   test("captures all 67 HR screens at the desktop baseline", async ({ page }) => {

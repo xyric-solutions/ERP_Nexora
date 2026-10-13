@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { PasswordChangeRequiredResponse, TenantSelectionRequiredResponse } from "@nexora/contracts";
+import { ThemeSelector } from "@prototype/theme-provider";
 
 import { useSession } from "../../src/lib/session/session-provider";
 import styles from "./login.module.css";
@@ -116,6 +117,7 @@ export default function LoginPage() {
             <strong>Nexora ERP</strong>
             <small>Enterprise operations</small>
           </div>
+          <ThemeSelector label="Appearance" />
         </div>
         <header>
           <p>Secure workspace</p>

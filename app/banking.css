@@ -61,7 +61,7 @@
   transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 .nx-choice-row button:hover { border-color: var(--nx-brand); background: var(--nx-brand-soft); }
-.nx-choice-row button.is-active { border-color: var(--nx-brand); background: var(--nx-brand); color: #fff; }
+.nx-choice-row button.is-active { border-color: var(--nx-brand); background: var(--nx-brand); color: var(--nx-action-text); }
 
 /* Searchable Chart of Accounts selector */
 .nx-account-select { min-width: 0; position: relative; display: grid; gap: 5px; }
@@ -91,7 +91,7 @@
 .nx-account-select__caret { color: var(--nx-text-subtle); font-size: 12px; }
 .nx-account-select i[data-side] { flex: 0 0 auto; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-style: normal; font-weight: 700; }
 .nx-account-select i[data-side="debit"] { background: var(--nx-brand-soft); color: var(--nx-brand-strong); }
-.nx-account-select i[data-side="credit"] { background: var(--nx-success-soft); color: var(--nx-success); }
+.nx-account-select i[data-side="credit"] { background: var(--nx-success-soft); color: var(--nx-success-text); }
 .nx-account-select__panel {
   position: absolute;
   top: calc(100% + 4px);
@@ -148,7 +148,7 @@
 .nx-txn-journal { width: 100%; border-collapse: collapse; font-size: 12px; }
 .nx-txn-journal th,
 .nx-txn-journal td { padding: 8px 10px; border-bottom: 1px solid var(--nx-border); text-align: left; }
-.nx-txn-journal thead th { background: var(--nx-brand-strong); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.nx-txn-journal thead th { background: var(--nx-brand-strong); color: var(--nx-action-text); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .nx-txn-journal .amount { text-align: right; font-variant-numeric: tabular-nums; }
 .nx-txn-journal tbody strong { display: block; color: var(--nx-text-strong); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .nx-txn-journal tbody small { display: block; color: var(--nx-text-muted); font-size: 11px; }
@@ -157,7 +157,7 @@
 .nx-txn-journal__empty { padding: 18px 10px; color: var(--nx-text-muted); text-align: center; }
 
 .nx-txn-balance { margin: 0; padding: 10px 16px; font-size: 12px; font-weight: 600; }
-.nx-txn-balance--ok { background: var(--nx-success-soft); color: var(--nx-success); }
+.nx-txn-balance--ok { background: var(--nx-success-soft); color: var(--nx-success-text); }
 .nx-txn-balance--off { background: var(--nx-warning-soft); color: var(--nx-warning); }
 .nx-txn-fx { margin: 0; padding: 8px 16px; border-top: 1px solid var(--nx-border); color: var(--nx-text-muted); font-size: 11px; }
 .nx-txn-actions { padding: 12px 16px; display: grid; gap: 8px; border-top: 1px solid var(--nx-border); }

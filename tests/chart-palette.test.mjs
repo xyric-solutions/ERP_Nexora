@@ -36,14 +36,17 @@ const LIGHT = ["#4f8fbf", "#713c87", "#03a1b5", "#5d4496", "#019696", "#4b4a9c",
 const DARK = ["#0d9de5", "#1d67bb", "#708cef", "#954ea5", "#09aa9d", "#7455b8", "#0098a4"];
 
 test("the chart palette is exactly the validated cool set", async () => {
-  const tokens = await readFile(appDir + "tokens.css", "utf8");
+  const tokens = await readFile(appDir + "theme-colors.css", "utf8");
   const lower = tokens.toLowerCase();
 
   for (let i = 1; i <= 7; i += 1) {
     assert.ok(tokens.includes(`--nx-series-${i}:`), `--nx-series-${i} must be defined`);
   }
   for (const hex of [...LIGHT, ...DARK]) {
-    assert.ok(lower.includes(hex), `validated palette value ${hex} is missing - was the palette changed without re-validating?`);
+    assert.ok(
+      lower.includes(hex),
+      `validated palette value ${hex} is missing - was the palette changed without re-validating?`,
+    );
   }
 
   const slots = [...tokens.matchAll(/--nx-series-[1-7]:\s*(#[0-9a-fA-F]{6})/g)].map((m) => m[1].toLowerCase());

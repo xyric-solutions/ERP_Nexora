@@ -1,0 +1,40 @@
+.nx-theme-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--nx-text-muted);
+  font-family: var(--nx-font-sans);
+  font-size: var(--nx-size-small);
+  font-weight: var(--nx-weight-semibold);
+  white-space: nowrap;
+}
+
+.nx-theme-selector select {
+  min-height: var(--nx-control-height);
+  border: 1px solid var(--nx-border-strong);
+  border-radius: var(--nx-radius-md);
+  padding: 0 30px 0 10px;
+  background: var(--nx-control-background);
+  color: var(--nx-text-strong);
+  font: inherit;
+  cursor: pointer;
+}
+
+.nx-theme-selector select:focus-visible {
+  outline: 2px solid var(--nx-focus-color);
+  outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  .nx-theme-selector > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}

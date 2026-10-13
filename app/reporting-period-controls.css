@@ -20,7 +20,7 @@
 .nx-reporting-period__actions { display: flex; gap: 7px; }
 .nx-reporting-period__actions button { min-height: 40px; padding: 0 12px; border: 1px solid var(--nx-border-strong); border-radius: var(--nx-radius-sm); color: var(--nx-brand-strong); background: var(--nx-surface); font: inherit; font-size: 11px; font-weight: 750; cursor: pointer; }
 .nx-reporting-period__actions button:hover { border-color: var(--nx-brand); background: var(--nx-brand-soft); }
-.nx-reporting-period__actions .is-primary { color: #fff; border-color: var(--nx-brand); background: var(--nx-brand); }
+.nx-reporting-period__actions .is-primary { color: var(--nx-text-inverse); border-color: var(--nx-brand); background: var(--nx-brand); }
 @media (max-width: 1023px) { .nx-reporting-period__title { width: 100%; } .nx-reporting-period > label, .nx-reporting-period__custom { flex: 1 1 210px; } .nx-reporting-period__custom > label { flex: 1; } }
 @media (max-width: 639px) { .nx-reporting-period { align-items: stretch; flex-direction: column; } .nx-reporting-period > label, .nx-reporting-period__custom, .nx-reporting-period__balance { width: 100%; } .nx-reporting-period__custom { flex-direction: column; } .nx-reporting-period__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 

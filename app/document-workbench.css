@@ -36,7 +36,7 @@
 .nx-document-commandbar button.primary,
 .nx-commerce-line-tools button.primary {
   border-color: var(--nx-brand);
-  color: #fff;
+  color: var(--nx-action-text);
   background: var(--nx-brand);
 }
 
@@ -90,14 +90,14 @@
 
 .nx-document-stateflow li.current i {
   border-color: var(--nx-brand);
-  color: #fff;
+  color: var(--nx-action-text);
   background: var(--nx-brand);
 }
 
 .nx-document-stateflow li.complete i {
-  border-color: #8fd4bd;
-  color: #067457;
-  background: #e9fbf5;
+  border-color: var(--nx-success-border);
+  color: var(--nx-success-text);
+  background: var(--nx-success-soft);
 }
 
 .nx-document-save-state {
@@ -374,16 +374,16 @@
 .nx-expense-grid th,
 .nx-document-accounting th {
   padding: 9px 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--nx-brand-strong) 72%, #fff);
-  color: #fff;
+  border-bottom: 1px solid color-mix(in srgb, var(--nx-brand-strong) 72%, var(--nx-action-text));
+  color: var(--nx-action-text);
   background: var(--nx-brand-strong);
   font-size: 11px;
   text-align: left;
 }
 
 .nx-document-workbench .nx-commerce-edit-table th {
-  border-color: color-mix(in srgb, var(--nx-brand-strong) 72%, #fff);
-  color: #fff;
+  border-color: color-mix(in srgb, var(--nx-brand-strong) 72%, var(--nx-action-text));
+  color: var(--nx-action-text);
   background: var(--nx-brand-strong);
 }
 
@@ -481,7 +481,7 @@
 
 .nx-document-chatter__actions button:first-child {
   border-color: var(--nx-brand);
-  color: #fff;
+  color: var(--nx-action-text);
   background: var(--nx-brand);
 }
 

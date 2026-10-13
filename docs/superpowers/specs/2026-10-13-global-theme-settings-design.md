@@ -1,6 +1,6 @@
 # Global Theme Settings
 
-- Status: approved design pending written-spec review
+- Status: approved
 - Date: 2026-10-13
 - Scope: all production web routes and the shared Nexora prototype shell
 

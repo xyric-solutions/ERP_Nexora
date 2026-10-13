@@ -104,7 +104,7 @@ export const companies = [
     country: "Pakistan",
     city: "Islamabad",
     fiscalYear: "FY 2026",
-    accent: "#2563eb",
+    accent: "var(--nx-series-1)",
   },
   {
     id: "CO-TRD-001",
@@ -117,7 +117,7 @@ export const companies = [
     country: "Pakistan",
     city: "Lahore",
     fiscalYear: "FY 2026",
-    accent: "#0f766e",
+    accent: "var(--nx-series-5)",
   },
   {
     id: "CO-MFG-001",
@@ -130,7 +130,7 @@ export const companies = [
     country: "Pakistan",
     city: "Karachi",
     fiscalYear: "FY 2026",
-    accent: "#7c3aed",
+    accent: "var(--nx-series-4)",
   },
 ] as const satisfies readonly CompanyFixture[];
 

@@ -24,7 +24,7 @@
   overflow: hidden;
   border: 1px solid var(--nx-border);
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--nx-surface);
   box-shadow: var(--nx-shadow-xs);
 }
 
@@ -92,10 +92,10 @@
 .nx-workspace-form .nx-form-section {
   padding: 0;
   overflow: hidden;
-  border-color: #d8e1ec;
+  border-color: var(--nx-border);
   border-radius: 6px;
-  background: #fff;
-  box-shadow: 0 3px 12px rgba(15, 35, 60, .045);
+  background: var(--nx-surface);
+  box-shadow: 0 3px 12px var(--nx-shadow-color-xs);
 }
 
 .nx-workspace-form .nx-section-title {
@@ -111,7 +111,7 @@
   height: 34px;
   border: 1px solid var(--nx-brand-line);
   border-radius: 4px;
-  color: #fff;
+  color: var(--nx-action-text);
   background: var(--nx-brand);
   font-size: 11px;
 }
@@ -131,7 +131,7 @@
   padding: 5px 8px;
   border-radius: 999px;
   color: var(--nx-text-muted);
-  background: #edf2f7;
+  background: var(--nx-border);
   font-size: 11px;
   font-style: normal;
   font-weight: 700;
@@ -193,7 +193,7 @@
   gap: 7px;
   flex-wrap: wrap;
   border-bottom: 1px solid var(--nx-border);
-  background: #f8fafc;
+  background: var(--nx-surface-soft);
 }
 .nx-line-entry-tools button {
   min-height: 29px;
@@ -201,12 +201,12 @@
   border: 1px solid var(--nx-border);
   border-radius: 3px;
   color: var(--nx-text);
-  background: #fff;
+  background: var(--nx-surface);
   font-size: 11px;
   font-weight: 700;
 }
 .nx-line-entry-tools button:hover {
-  border-color: #9fbce2;
+  border-color: var(--nx-brand-line);
   color: var(--nx-brand-strong);
   background: var(--nx-brand-soft);
 }
@@ -220,7 +220,7 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(130px, 1fr));
   border-top: 1px solid var(--nx-border);
-  background: #f8fafc;
+  background: var(--nx-surface-soft);
 }
 .nx-form-total-band > div {
   padding: 11px 14px;
@@ -242,11 +242,11 @@
   font-variant-numeric: tabular-nums;
 }
 .nx-form-total-band .total {
-  color: #fff;
+  color: var(--nx-action-text);
   background: var(--nx-brand);
 }
-.nx-form-total-band .total span { color: rgba(255,255,255,.75); }
-.nx-form-total-band .total strong { color: #fff; font-size: 14px; }
+.nx-form-total-band .total span { color: color-mix(in srgb, var(--nx-action-text) 75%, transparent); }
+.nx-form-total-band .total strong { color: var(--nx-action-text); font-size: 14px; }
 
 .nx-form-inspector {
   min-width: 0;
@@ -264,7 +264,7 @@
 .nx-form-health header {
   padding: 13px 14px;
   border-bottom: 1px solid var(--nx-border);
-  background: #eef7ff;
+  background: var(--nx-brand-soft);
 }
 .nx-form-health header span,
 .nx-form-health header strong { display: block; }
@@ -300,12 +300,12 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  color: #64748b;
-  background: #edf2f7;
+  color: var(--nx-text-muted);
+  background: var(--nx-border);
   font-size: 11px;
 }
-.nx-form-health li.pass > b { color: #067457; background: #e5f8f1; }
-.nx-form-health li.warn > b { color: #9a5c05; background: #fff1cf; }
+.nx-form-health li.pass > b { color: var(--nx-success-text); background: var(--nx-success-soft); }
+.nx-form-health li.warn > b { color: var(--nx-warning); background: var(--nx-warning-soft); }
 .nx-form-health li span,
 .nx-form-health li strong,
 .nx-form-health li small { min-width: 0; display: block; }
@@ -334,7 +334,7 @@
   width: 100%;
   margin-top: 11px;
   padding: 8px;
-  border: 1px solid #bed3ee;
+  border: 1px solid var(--nx-brand-line);
   border-radius: 4px;
   color: var(--nx-brand-strong);
   background: var(--nx-brand-soft);
@@ -378,9 +378,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid #cbd8e8;
+  border: 1px solid var(--nx-brand-line);
   border-radius: 6px;
-  background: rgba(255, 255, 255, .96);
+  background: var(--nx-surface-translucent);
   box-shadow: var(--nx-shadow-md);
   backdrop-filter: blur(12px);
 }
@@ -403,8 +403,8 @@
 }
 
 .nx-form-entry-table th {
-  border-color: color-mix(in srgb, var(--nx-brand-strong) 72%, #fff);
-  color: #fff;
+  border-color: color-mix(in srgb, var(--nx-brand-strong) 72%, var(--nx-action-text));
+  color: var(--nx-action-text);
   background: var(--nx-brand-strong);
   white-space: nowrap;
 }

@@ -125,7 +125,7 @@
 }
 
 .nx-drill__compare strong.is-up {
-  color: var(--nx-success);
+  color: var(--nx-success-text);
 }
 
 .nx-drill__compare strong.is-down {

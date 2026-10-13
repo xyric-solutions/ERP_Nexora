@@ -36,23 +36,23 @@
 .nx-att-legend li { display: flex; align-items: center; gap: 6px; color: var(--nx-text-muted); font-size: 11px; }
 
 .nx-att-cell { width: 20px; height: 20px; display: inline-grid; place-items: center; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-sm); font-size: 11px; font-weight: 700; font-style: normal; }
-.nx-att-cell--present { border-color: #b8e5d4; background: var(--nx-success-soft); color: #087453; }
-.nx-att-cell--absent { border-color: #efc0c5; background: var(--nx-danger-soft); color: #a8323c; }
-.nx-att-cell--half { border-color: #efd5a6; background: var(--nx-warning-soft); color: #9a5707; }
+.nx-att-cell--present { border-color: var(--nx-success-border); background: var(--nx-success-soft); color: var(--nx-success-text); }
+.nx-att-cell--absent { border-color: var(--nx-danger-border); background: var(--nx-danger-soft); color: var(--nx-danger); }
+.nx-att-cell--half { border-color: var(--nx-warning-border); background: var(--nx-warning-soft); color: var(--nx-warning); }
 .nx-att-cell--off { border-color: var(--nx-border-strong); background: var(--nx-surface-soft); color: var(--nx-text-subtle); }
-.nx-att-cell--holiday { border-color: #d4cdf7; background: var(--nx-purple-soft); color: #5b3fa8; }
-.nx-att-cell--leave { border-color: #bfd8f3; background: var(--nx-info-soft); color: #1d5f9e; }
-.nx-att-cell--unpaid { border-color: #efc0c5; background: var(--nx-danger-soft); color: #a8323c; }
-.nx-att-cell--duty { border-color: #bfd8f3; background: var(--nx-info-soft); color: #1d5f9e; }
-.nx-att-cell--missing { border-color: #efd5a6; background: var(--nx-warning-soft); color: #9a5707; }
+.nx-att-cell--holiday { border-color: var(--nx-purple-soft); background: var(--nx-purple-soft); color: var(--nx-purple); }
+.nx-att-cell--leave { border-color: var(--nx-brand-line); background: var(--nx-info-soft); color: var(--nx-brand); }
+.nx-att-cell--unpaid { border-color: var(--nx-danger-border); background: var(--nx-danger-soft); color: var(--nx-danger); }
+.nx-att-cell--duty { border-color: var(--nx-brand-line); background: var(--nx-info-soft); color: var(--nx-brand); }
+.nx-att-cell--missing { border-color: var(--nx-warning-border); background: var(--nx-warning-soft); color: var(--nx-warning); }
 
 .nx-att-chip { display: inline-block; padding: 2px 9px; border: 1px solid var(--nx-border); border-radius: 99px; font-size: 11px; font-weight: 600; white-space: nowrap; }
-.nx-att-chip--present { border-color: #b8e5d4; background: var(--nx-success-soft); color: #087453; }
-.nx-att-chip--absent,.nx-att-chip--unpaid { border-color: #efc0c5; background: var(--nx-danger-soft); color: #a8323c; }
-.nx-att-chip--half,.nx-att-chip--missing { border-color: #efd5a6; background: var(--nx-warning-soft); color: #9a5707; }
+.nx-att-chip--present { border-color: var(--nx-success-border); background: var(--nx-success-soft); color: var(--nx-success-text); }
+.nx-att-chip--absent,.nx-att-chip--unpaid { border-color: var(--nx-danger-border); background: var(--nx-danger-soft); color: var(--nx-danger); }
+.nx-att-chip--half,.nx-att-chip--missing { border-color: var(--nx-warning-border); background: var(--nx-warning-soft); color: var(--nx-warning); }
 .nx-att-chip--off { border-color: var(--nx-border-strong); background: var(--nx-surface-soft); color: var(--nx-text-muted); }
-.nx-att-chip--holiday { border-color: #d4cdf7; background: var(--nx-purple-soft); color: #5b3fa8; }
-.nx-att-chip--leave,.nx-att-chip--duty { border-color: #bfd8f3; background: var(--nx-info-soft); color: #1d5f9e; }
+.nx-att-chip--holiday { border-color: var(--nx-purple-soft); background: var(--nx-purple-soft); color: var(--nx-purple); }
+.nx-att-chip--leave,.nx-att-chip--duty { border-color: var(--nx-brand-line); background: var(--nx-info-soft); color: var(--nx-brand); }
 
 .nx-att-grid-wrap { overflow-x: auto; }
 .nx-att-grid th,.nx-att-grid td { padding: 6px 7px; }
@@ -71,7 +71,7 @@
 
 /* Phase 3 — payroll. */
 
-.nx-pay-formula { padding: 1px 5px; border-radius: var(--nx-radius-sm); background: var(--nx-surface-soft); color: var(--nx-text); font-family: var(--font-geist-mono), ui-monospace, monospace; font-size: 11px; }
+.nx-pay-formula { padding: 1px 5px; border-radius: var(--nx-radius-sm); background: var(--nx-surface-soft); color: var(--nx-text); font-family: var(--nx-font-mono); font-size: 11px; }
 .nx-recon__steps.nx-pay-steps { grid-template-columns: repeat(8, minmax(0, 1fr)); }
 .nx-recon__steps.nx-pay-steps small { display: none; }
 .nx-hr-structure-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 13px; align-items: start; }

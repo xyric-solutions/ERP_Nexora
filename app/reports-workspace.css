@@ -523,7 +523,7 @@
 
 .nx-report-workspace__chart > footer b {
   margin-left: auto;
-  color: var(--nx-success);
+  color: var(--nx-success-text);
 }
 
 .nx-report-workspace__insights header {
@@ -630,7 +630,7 @@
 .nx-report-workspace__table td > span {
   padding: 3px 7px;
   border-radius: var(--nx-radius-pill);
-  color: var(--nx-success);
+  color: var(--nx-success-text);
   background: var(--nx-success-soft);
   font-size: var(--nx-size-micro);
   font-weight: 700;
@@ -880,7 +880,7 @@
   display: grid;
   place-items: center;
   border-radius: var(--nx-radius-sm);
-  color: #fff;
+  color: var(--nx-action-text);
   background: var(--nx-secondary);
   font-size: var(--nx-size-micro);
   font-style: normal;

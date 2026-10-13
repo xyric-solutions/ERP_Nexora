@@ -20,6 +20,7 @@ import {
 import { PrototypeContent, type PrototypeRow, type PrototypeViewState } from "./prototype-content";
 import { savedBankingTransactions } from "./banking-transaction-detail";
 import { NexoraIntelligenceLayer, type IntelligenceSurface } from "./nexora-intelligence";
+import { ThemeSelector } from "./theme-provider";
 
 type RouteState = { moduleId: string; pageId: string; recordRef?: string };
 type DialogState =
@@ -188,7 +189,6 @@ const PREF_KEY = "nexora-prototype-preferences-v2";
 
 type Preferences = {
   density: "comfortable" | "compact";
-  theme: "light" | "dark";
   roleId: string;
   companyMode: CompanyMode;
   roleScoped: boolean;
@@ -231,7 +231,6 @@ export function PrototypeShell() {
   const [dialog, setDialog] = useState<DialogState>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [drawerModuleId, setDrawerModuleId] = useState<string | null>(null);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
   const [intelligenceSurface, setIntelligenceSurface] = useState<IntelligenceSurface>(null);
 
   const current = useMemo(() => findPrototypePage(route.moduleId, route.pageId), [route]);
@@ -331,7 +330,6 @@ export function PrototypeShell() {
     const saved = readPreferences();
     if (!saved) return;
     if (saved.density === "comfortable" || saved.density === "compact") setDensity(saved.density);
-    if (saved.theme === "light" || saved.theme === "dark") setTheme(saved.theme);
     if (saved.roleId && roleOptions.some((role) => role.id === saved.roleId)) setRoleId(saved.roleId);
     if (saved.companyMode && companyModeOptions.some((mode) => mode.id === saved.companyMode))
       setCompanyMode(saved.companyMode);
@@ -342,8 +340,8 @@ export function PrototypeShell() {
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
-    writePreferences({ density, theme, roleId, companyMode, roleScoped, modeScoped, sidebarCollapsed });
-  }, [density, theme, roleId, companyMode, roleScoped, modeScoped, sidebarCollapsed]);
+    writePreferences({ density, roleId, companyMode, roleScoped, modeScoped, sidebarCollapsed });
+  }, [density, roleId, companyMode, roleScoped, modeScoped, sidebarCollapsed]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -526,7 +524,7 @@ export function PrototypeShell() {
   const drawerModule = drawerModuleId ? prototypeModules.find((module) => module.id === drawerModuleId) : null;
 
   return (
-    <div className="nx-prototype" data-theme={theme} data-density={density} data-role-theme={roleId}>
+    <div className="nx-prototype" data-density={density} data-role-theme={roleId}>
       <div
         className="nx-shell"
         data-sidebar={sidebarCollapsed ? "collapsed" : "expanded"}
@@ -747,15 +745,7 @@ export function PrototypeShell() {
               >
                 !<span className="nx-icon-button__badge">3</span>
               </button>
-              <button
-                className="nx-avatar-button"
-                type="button"
-                aria-label="Toggle light and dark theme"
-                title="Toggle visual theme"
-                onClick={() => setTheme((value) => (value === "light" ? "dark" : "light"))}
-              >
-                AM
-              </button>
+              <ThemeSelector label="Theme" />
             </div>
           </header>
           <section className="nx-prototype-toolbar" aria-label="Prototype controls">

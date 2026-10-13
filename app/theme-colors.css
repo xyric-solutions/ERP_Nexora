@@ -1,0 +1,361 @@
+/*
+ * Global semantic color system.
+ *
+ * Light and dark values live here only. Components consume semantic `--nx-*`
+ * variables and never own a competing palette.
+ */
+
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --nx-canvas: #f5f7fa;
+  --nx-surface: #ffffff;
+  --nx-surface-soft: #f5f7fa;
+  --nx-surface-raised: #ffffff;
+  --nx-surface-hover: #eef2f5;
+  --nx-surface-sunken: #e8edf2;
+  --nx-control-background: #ffffff;
+
+  --nx-text: #1f2937;
+  --nx-text-strong: #1f2937;
+  --nx-text-muted: #6b7280;
+  --nx-text-subtle: #6b7280;
+  --nx-text-inverse: #ffffff;
+  --nx-action-text: #ffffff;
+
+  /* High-emphasis and overlay roles used by drawers, heroes and command UI. */
+  --nx-emphasis-background: #071b34;
+  --nx-emphasis-background-soft: #0d3158;
+  --nx-emphasis-text: #ffffff;
+  --nx-emphasis-muted: #c4d1db;
+  --nx-emphasis-border: rgba(255, 255, 255, 0.2);
+  --nx-emphasis-surface: rgba(255, 255, 255, 0.08);
+  --nx-emphasis-surface-hover: rgba(255, 255, 255, 0.16);
+  --nx-overlay-scrim: rgba(5, 21, 41, 0.54);
+  --nx-overlay-scrim-strong: rgba(4, 17, 32, 0.72);
+  --nx-surface-translucent: rgba(255, 255, 255, 0.96);
+
+  --nx-border: #d9e1e8;
+  --nx-border-strong: #b9c8d3;
+  --nx-rule: #d9e1e8;
+
+  --nx-primary: #183b56;
+  --nx-secondary: #2f5d7c;
+  --nx-accent: #4f8fbf;
+  --nx-brand: #183b56;
+  --nx-brand-strong: #183b56;
+  --nx-brand-soft: #edf3f7;
+  --nx-brand-line: #b8cdd9;
+
+  --nx-sidebar: #183b56;
+  --nx-sidebar-deep: #102b40;
+  --nx-sidebar-surface: #2f5d7c;
+  --nx-sidebar-hover: #264e6a;
+  --nx-sidebar-line: #4f6f87;
+  --nx-sidebar-text: #ffffff;
+  --nx-sidebar-muted: #c4d1db;
+  --nx-sidebar-accent: #4f8fbf;
+
+  --nx-info: #2f6f98;
+  --nx-info-soft: #edf3f7;
+  --nx-info-border: #b8cdd9;
+  --nx-success: #2e7d5b;
+  --nx-success-text: #276b4d;
+  --nx-success-soft: #e8f3ee;
+  --nx-success-border: #b8d8c9;
+  --nx-warning: #8a5a0c;
+  --nx-warning-soft: #fbf3e3;
+  --nx-warning-border: #dcc78d;
+  --nx-danger: #b33d45;
+  --nx-danger-soft: #fbecec;
+  --nx-danger-border: #dca9ad;
+  --nx-neutral-soft: #eaeef3;
+  --nx-purple: #4c4485;
+  --nx-purple-soft: #ecebf4;
+
+  --nx-focus-color: #2875a3;
+  --nx-selection-background: #f1f7fa;
+  --nx-selection-border: #2875a3;
+  --nx-login-glow: #e8f1f8;
+  --nx-role-hero-glow: rgba(37, 99, 235, 0.15);
+  --nx-heatmap-high-background: #4f8fbf;
+  --nx-heatmap-high-text: #1f2937;
+  --nx-chart-dark-text: #081321;
+  --nx-chart-light-text: #ffffff;
+  --nx-on-series-1: var(--nx-chart-dark-text);
+  --nx-on-series-2: var(--nx-chart-light-text);
+  --nx-on-series-3: var(--nx-chart-dark-text);
+  --nx-on-series-4: var(--nx-chart-light-text);
+  --nx-on-series-5: var(--nx-chart-dark-text);
+  --nx-on-series-6: var(--nx-chart-light-text);
+  --nx-on-series-7: var(--nx-chart-dark-text);
+  --nx-on-status-good: var(--nx-chart-light-text);
+  --nx-on-status-warn: var(--nx-chart-dark-text);
+  --nx-on-status-risk: var(--nx-chart-light-text);
+  --nx-on-status-bad: var(--nx-chart-light-text);
+  --nx-on-chart-other: var(--nx-chart-light-text);
+  --nx-shadow-color-xs: rgba(10, 23, 40, 0.04);
+  --nx-shadow-color-sm: rgba(10, 23, 40, 0.07);
+  --nx-shadow-color-md: rgba(10, 23, 40, 0.1);
+  --nx-shadow-color-overlay: rgba(10, 23, 40, 0.2);
+  --nx-focus-ring: rgba(79, 143, 191, 0.24);
+
+  /* Fixed document output: deliberately identical in every screen theme. */
+  --nx-paper: #ffffff;
+  --nx-paper-ink: #000000;
+  --nx-paper-muted: #333333;
+  --nx-paper-border: #999999;
+  --nx-paper-rule: #bbbbbb;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --nx-canvas: #0b1524;
+  --nx-surface: #121f30;
+  --nx-surface-soft: #162437;
+  --nx-surface-raised: #142234;
+  --nx-surface-hover: #1a2b41;
+  --nx-surface-sunken: #0e1a2a;
+  --nx-control-background: #142234;
+
+  --nx-text: #d9e4f0;
+  --nx-text-strong: #f4f8fc;
+  --nx-text-muted: #a9b9ca;
+  --nx-text-subtle: #8fa1b4;
+  --nx-text-inverse: #081321;
+  --nx-action-text: #081321;
+
+  --nx-emphasis-background: #07111c;
+  --nx-emphasis-background-soft: #162b3e;
+  --nx-emphasis-text: #f4f8fc;
+  --nx-emphasis-muted: #b7c7d6;
+  --nx-emphasis-border: rgba(244, 248, 252, 0.2);
+  --nx-emphasis-surface: rgba(244, 248, 252, 0.08);
+  --nx-emphasis-surface-hover: rgba(244, 248, 252, 0.16);
+  --nx-overlay-scrim: rgba(2, 8, 16, 0.68);
+  --nx-overlay-scrim-strong: rgba(2, 8, 16, 0.82);
+  --nx-surface-translucent: rgba(18, 31, 48, 0.96);
+
+  --nx-border: #27384c;
+  --nx-border-strong: #435870;
+  --nx-rule: #1f2f42;
+
+  --nx-primary: #79add2;
+  --nx-secondary: #5f8eaf;
+  --nx-accent: #79add2;
+  --nx-brand: #79add2;
+  --nx-brand-strong: #a9cce5;
+  --nx-brand-soft: #15304f;
+  --nx-brand-line: #365675;
+
+  --nx-sidebar: #091522;
+  --nx-sidebar-deep: #07111c;
+  --nx-sidebar-surface: #162b3e;
+  --nx-sidebar-hover: #1d3a51;
+  --nx-sidebar-line: #345169;
+  --nx-sidebar-text: #f4f8fc;
+  --nx-sidebar-muted: #b7c7d6;
+  --nx-sidebar-accent: #79add2;
+
+  --nx-info: #79add2;
+  --nx-info-soft: #15304f;
+  --nx-info-border: #365675;
+  --nx-success: #64b899;
+  --nx-success-text: #64b899;
+  --nx-success-soft: #102b26;
+  --nx-success-border: #2d5b4e;
+  --nx-warning: #d7a55e;
+  --nx-warning-soft: #2f2410;
+  --nx-warning-border: #6c5431;
+  --nx-danger: #e18a92;
+  --nx-danger-soft: #331c21;
+  --nx-danger-border: #71434a;
+  --nx-neutral-soft: #1e2d3f;
+  --nx-purple: #a69bd9;
+  --nx-purple-soft: #23203c;
+
+  --nx-focus-color: #8bc1e5;
+  --nx-selection-background: #183149;
+  --nx-selection-border: #79add2;
+  --nx-login-glow: #142d47;
+  --nx-role-hero-glow: rgba(73, 130, 255, 0.2);
+  --nx-heatmap-high-background: #79add2;
+  --nx-heatmap-high-text: #081321;
+  --nx-chart-dark-text: #081321;
+  --nx-chart-light-text: #ffffff;
+  --nx-on-series-1: var(--nx-chart-dark-text);
+  --nx-on-series-2: var(--nx-chart-light-text);
+  --nx-on-series-3: var(--nx-chart-dark-text);
+  --nx-on-series-4: var(--nx-chart-light-text);
+  --nx-on-series-5: var(--nx-chart-dark-text);
+  --nx-on-series-6: var(--nx-chart-light-text);
+  --nx-on-series-7: var(--nx-chart-dark-text);
+  --nx-on-status-good: var(--nx-chart-dark-text);
+  --nx-on-status-warn: var(--nx-chart-dark-text);
+  --nx-on-status-risk: var(--nx-chart-dark-text);
+  --nx-on-status-bad: var(--nx-chart-dark-text);
+  --nx-on-chart-other: var(--nx-chart-dark-text);
+  --nx-shadow-color-xs: rgba(0, 0, 0, 0.24);
+  --nx-shadow-color-sm: rgba(0, 0, 0, 0.3);
+  --nx-shadow-color-md: rgba(0, 0, 0, 0.36);
+  --nx-shadow-color-overlay: rgba(0, 0, 0, 0.46);
+  --nx-focus-ring: rgba(121, 173, 210, 0.34);
+
+  --nx-paper: #ffffff;
+  --nx-paper-ink: #000000;
+  --nx-paper-muted: #333333;
+  --nx-paper-border: #999999;
+  --nx-paper-rule: #bbbbbb;
+}
+
+/* Legal/document previews stay paper-like in every screen theme. */
+:is(.nx-document, .nx-aiw-paper, .nx-report-sheet) {
+  color-scheme: light;
+  --nx-canvas: var(--nx-paper);
+  --nx-surface: var(--nx-paper);
+  --nx-surface-soft: var(--nx-paper);
+  --nx-surface-raised: var(--nx-paper);
+  --nx-text: var(--nx-paper-ink);
+  --nx-text-strong: var(--nx-paper-ink);
+  --nx-text-muted: var(--nx-paper-muted);
+  --nx-text-subtle: var(--nx-paper-muted);
+  --nx-border: var(--nx-paper-border);
+  --nx-border-strong: var(--nx-paper-border);
+  --nx-rule: var(--nx-paper-rule);
+}
+
+/* ---- Print palette ---------------------------------------------------
+ * Paper is white and ink is black. Screen surfaces and muted greys waste
+ * toner and weaken the document.
+ */
+
+@media print {
+  .nx-prototype {
+    --nx-canvas: var(--nx-paper);
+    --nx-surface: var(--nx-paper);
+    --nx-surface-soft: var(--nx-paper);
+    --nx-surface-raised: var(--nx-paper);
+    --nx-text: var(--nx-paper-ink);
+    --nx-text-strong: var(--nx-paper-ink);
+    --nx-text-muted: var(--nx-paper-muted);
+    --nx-border: var(--nx-paper-border);
+    --nx-rule: var(--nx-paper-rule);
+  }
+}
+
+/*
+ * Role themes change information, permissions and workflow context—not brand
+ * identity. This final lock keeps every role on the approved Nexora palette.
+ */
+.nx-prototype[data-role-theme] {
+  --nx-primary: #183b56;
+  --nx-secondary: #2f5d7c;
+  --nx-accent: #4f8fbf;
+  --nx-brand: #183b56;
+  --nx-brand-strong: #183b56;
+  --nx-brand-soft: #edf3f7;
+  --nx-brand-line: #b8cdd9;
+  --nx-sidebar: #183b56;
+  --nx-sidebar-deep: #102b40;
+  --nx-sidebar-surface: #2f5d7c;
+  --nx-sidebar-hover: #264e6a;
+  --nx-sidebar-line: #4f6f87;
+  --nx-sidebar-text: #ffffff;
+  --nx-sidebar-muted: #c4d1db;
+  --nx-sidebar-accent: #4f8fbf;
+  --nx-focus: 0 0 0 3px rgba(79, 143, 191, 0.24);
+}
+
+.nx-prototype[data-theme="dark"][data-role-theme],
+[data-theme="dark"] .nx-prototype[data-role-theme] {
+  --nx-primary: #4f8fbf;
+  --nx-secondary: #2f5d7c;
+  --nx-accent: #4f8fbf;
+  --nx-brand: #4f8fbf;
+  --nx-brand-strong: #8db8d8;
+  --nx-brand-soft: #1d3344;
+  --nx-brand-line: #365873;
+  --nx-sidebar-accent: #4f8fbf;
+  --nx-focus: 0 0 0 3px rgba(79, 143, 191, 0.32);
+}
+
+/* ---- Chart palette --------------------------------------------------
+ * Categorical series colours. Seven slots, FIXED ORDER, assigned in
+ * sequence and never cycled: the order is the colour-blind-safety
+ * mechanism, so it must not be rearranged.
+ *
+ * This palette is computed, not chosen by eye. Candidates were generated in
+ * OKLCH on the cool arc only (hue 185-320: teal, cyan, azure, blue, indigo,
+ * violet) with chroma capped for restraint, then scored with the dataviz
+ * validator; the published order maximises the worst adjacent separation.
+ *
+ * Light, against the #ffffff card surface - ALL CHECKS PASS:
+ *   lightness band PASS · chroma floor PASS
+ *   CVD separation  worst adjacent deutan dE 17.8 (target 8)
+ *   normal vision   worst adjacent dE 18.3 (floor 15)
+ *   contrast        all 7 >= 3:1
+ * Dark, against #0b1524 - ALL CHECKS PASS:
+ *   CVD separation dE 12.8 · normal vision dE 15.3 · contrast all >= 3:1
+ *
+ * Dark steps are SELECTED for the dark surface, not flipped from light.
+ *
+ * Series identity is never carried by colour alone: charts ship a legend and
+ * direct labels. Status colours are reserved (below) and never used for a
+ * series; a series that *means* good or bad wears the status tokens instead.
+ *
+ * Re-validate before changing any value:
+ *   node scripts/validate_palette.js "<the seven hexes>" --mode light --surface "#ffffff"
+ */
+
+.nx-prototype {
+  --nx-series-1: #4f8fbf; /* approved Nexora accent; default single series */
+  --nx-series-2: #713c87; /* plum */
+  --nx-series-3: #03a1b5; /* cyan */
+  --nx-series-4: #5d4496; /* violet */
+  --nx-series-5: #019696; /* teal */
+  --nx-series-6: #4b4a9c; /* indigo */
+  --nx-series-7: #6487d9; /* sky */
+
+  /* Ordinal ramp: one hue (azure, ~250), monotone lightness. For funnel
+   * stages, tiers and buckets, where order carries meaning and a categorical
+   * set would hide it. Validated with the ordinal checks - monotone L,
+   * adjacent dL >= 0.06, single hue, and the end nearest the surface clearing
+   * the 2:1 floor (light 5.05:1, dark 4.85:1). The dark ramp is inverted
+   * because the anchor flips with the surface. */
+  --nx-ordinal-1: #002a4e;
+  --nx-ordinal-2: #003a69;
+  --nx-ordinal-3: #164c7e;
+  --nx-ordinal-4: #2a5f92;
+  --nx-ordinal-5: #3d72a6;
+
+  /* Chart status. Reserved meaning, always shipped with an icon or label, and
+   * deliberately distinct from the series slots above. */
+  --nx-status-good: #2e7d5b;
+  --nx-status-warn: #c58a18;
+  --nx-status-risk: #c44747;
+  --nx-status-bad: #a83232;
+}
+
+.nx-prototype[data-theme="dark"],
+[data-theme="dark"] .nx-prototype {
+  --nx-series-1: #0d9de5;
+  --nx-series-2: #1d67bb;
+  --nx-series-3: #708cef;
+  --nx-series-4: #954ea5;
+  --nx-series-5: #09aa9d;
+  --nx-series-6: #7455b8;
+  --nx-series-7: #0098a4;
+
+  --nx-ordinal-1: #b4d8ff;
+  --nx-ordinal-2: #8dc4fe;
+  --nx-ordinal-3: #79b0e8;
+  --nx-ordinal-4: #659bd2;
+  --nx-ordinal-5: #5287bd;
+
+  --nx-status-good: #4aa585;
+  --nx-status-warn: #c79144;
+  --nx-status-risk: #d1737c;
+  --nx-status-bad: #e0919a;
+}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { SecurityPage } from "@nexora/contracts";
+import { ThemeSelector } from "@prototype/theme-provider";
 
 import { useSession } from "../../lib/session/session-provider";
 import UserManagementPanel from "./users/user-management-panel";
@@ -152,6 +153,7 @@ export default function IdentityWorkspace() {
             <h1>Identity &amp; Access</h1>
           </div>
           <div className={styles.user}>
+            <ThemeSelector label="Appearance" />
             <span>
               {session.user.email}
               <small>{session.tenant_id}</small>

@@ -1,12 +1,18 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
 
+import { themeInitializationScript } from "./theme-config";
+import { ThemeProvider } from "./theme-provider";
+
 /* Load order is deliberate and must be preserved:
- *   1. reset            2. tokens (the only place --nx-* is defined)
- *   3. component layers 4. print
+ *   1. reset            2. color, typography, and geometry tokens
+ *   3. shared controls  4. component layers  5. print
  * There is no override layer: the component CSS consumes tokens directly. */
 import "./globals.css";
+import "./theme-colors.css";
+import "./typography.css";
 import "./tokens.css";
+import "./theme-controls.css";
 import "./prototype-extra.css";
 import "./commerce.css";
 import "./master-data.css";
@@ -76,11 +82,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${nexoraSerif.variable} antialiased`}
-      >
-        {children}
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script id="nexora-theme-init" dangerouslySetInnerHTML={{ __html: themeInitializationScript }} />
+      </head>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${nexoraSerif.variable} antialiased`}>
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

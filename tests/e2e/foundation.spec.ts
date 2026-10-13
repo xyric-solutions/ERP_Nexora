@@ -27,3 +27,43 @@ test("the email and password login is responsive and accessible without an activ
   const mobileResults = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
   expect(mobileResults.violations).toEqual([]);
 });
+
+test("System, Light, and Dark apply globally and persist across routes", async ({ page }) => {
+  const storageKey = "nexora-theme-preference-v1";
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/login");
+  await page.evaluate((key) => window.localStorage.removeItem(key), storageKey);
+  await page.reload();
+
+  const loginTheme = page.getByLabel("Appearance");
+  await expect(loginTheme).toHaveValue("system");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+  await loginTheme.selectOption("light");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect.poll(() => page.evaluate((key) => window.localStorage.getItem(key), storageKey)).toBe("light");
+
+  await page.goto("/");
+  const shellTheme = page.getByLabel("Theme");
+  await expect(shellTheme).toHaveValue("light");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+  await shellTheme.selectOption("system");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+  await shellTheme.selectOption("dark");
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await expect(page.getByLabel("Theme")).toHaveValue("dark");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+  const darkResults = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+  expect(
+    darkResults.violations.flatMap((violation) =>
+      violation.nodes.map((node) => `${violation.id}: ${node.target.join(" ")}`),
+    ),
+  ).toEqual([]);
+});

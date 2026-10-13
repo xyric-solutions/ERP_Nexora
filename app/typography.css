@@ -1,0 +1,49 @@
+/* Global typography tokens. Theme changes never alter type families or scale. */
+
+:root {
+  --nx-font-sans:
+    var(--font-geist-sans), Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --nx-font-serif:
+    var(--font-nx-serif), "Source Serif 4", Charter, "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --nx-font-mono: var(--font-geist-mono), "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --nx-font-display: var(--nx-font-serif);
+
+  --nx-size-micro: 11px;
+  --nx-size-small: 12px;
+  --nx-size-body: 13px;
+  --nx-size-subhead: 15px;
+  --nx-size-title: 18px;
+  --nx-size-h3: var(--nx-size-subhead);
+  --nx-size-h2: var(--nx-size-title);
+  --nx-size-page: 24px;
+  --nx-size-display: 30px;
+
+  --nx-weight-regular: 400;
+  --nx-weight-medium: 500;
+  --nx-weight-semibold: 600;
+  --nx-weight-bold: 700;
+
+  --nx-tracking-caps: 0.055em;
+  --nx-leading-tight: 1.25;
+  --nx-leading-body: 1.5;
+}
+
+.nx-prototype {
+  font-family: var(--nx-font-sans);
+  font-size: var(--nx-size-body);
+  line-height: var(--nx-leading-body);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings:
+    "tnum" 1,
+    "lnum" 1;
+}
+
+.nx-prototype[data-density="compact"] {
+  --nx-size-body: 12px;
+  --nx-size-subhead: 14px;
+  --nx-size-title: 16px;
+  --nx-size-page: 21px;
+  --nx-size-display: 26px;
+}

@@ -1,6 +1,6 @@
 .root {
   min-height: 420px;
-  color: #203442;
+  color: var(--nx-text);
 }
 .bulkBar {
   display: flex;
@@ -8,14 +8,14 @@
   align-items: center;
   flex-wrap: wrap;
   padding: 12px 20px;
-  background: #eef6fa;
+  background: var(--nx-info-soft);
   font-size: 13px;
 }
 .confirmation {
   margin: 16px 20px;
   padding: 18px;
-  background: #fff9ed;
-  border: 1px solid #e5d8b4;
+  background: var(--nx-warning-soft);
+  border: 1px solid var(--nx-warning-border);
   border-radius: 8px;
 }
 .confirmation label {
@@ -32,14 +32,14 @@
 .confirmation button,
 .bulkBar button {
   min-height: 36px;
-  border: 1px solid #cbd6dd;
+  border: 1px solid var(--nx-border-strong);
   border-radius: 7px;
   padding: 8px 10px;
-  background: #fff;
-  color: #294556;
+  background: var(--nx-surface);
+  color: var(--nx-text);
 }
 .userTable input[type="checkbox"] {
-  accent-color: #17577b;
+  accent-color: var(--nx-brand);
   width: 16px;
   height: 16px;
 }
@@ -48,8 +48,8 @@
   justify-content: space-between;
   gap: 16px;
   padding: 16px 20px;
-  border-bottom: 1px solid #e5eaee;
-  background: #f8fafb;
+  border-bottom: 1px solid var(--nx-border);
+  background: var(--nx-surface-soft);
 }
 .toolbar form,
 .toolbar > div,
@@ -76,11 +76,11 @@
 .wizard select,
 .wizard button {
   min-height: 38px;
-  border: 1px solid #cbd6dd;
+  border: 1px solid var(--nx-border-strong);
   border-radius: 7px;
   padding: 0 10px;
-  background: #fff;
-  color: #294556;
+  background: var(--nx-surface);
+  color: var(--nx-text);
 }
 .toolbar button,
 .detail button,
@@ -95,16 +95,16 @@
   opacity: 0.55;
 }
 .primary {
-  border-color: #17577b !important;
-  background: #17577b !important;
-  color: #fff !important;
+  border-color: var(--nx-brand) !important;
+  background: var(--nx-brand) !important;
+  color: var(--nx-text-inverse) !important;
 }
 .notice {
   margin: 14px 20px 0;
   padding: 10px 12px;
   border-radius: 7px;
-  background: #eef6fa;
-  color: #275c79;
+  background: var(--nx-info-soft);
+  color: var(--nx-info);
 }
 .content {
   display: grid;
@@ -118,15 +118,15 @@
 }
 .userRow,
 .userSelected {
-  background: #fff;
+  background: var(--nx-surface);
   color: inherit;
 }
 .userRow:hover,
 .userSelected {
-  background: #f1f7fa;
+  background: var(--nx-selection-background);
 }
 .userSelected {
-  box-shadow: inset 3px 0 #2875a3;
+  box-shadow: inset 3px 0 var(--nx-focus-color);
 }
 .tableScroll {
   overflow-x: auto;
@@ -140,15 +140,15 @@
 }
 .userTable thead th {
   padding: 12px 16px;
-  background: #f8fafb;
-  border-bottom: 1px solid #dce4e9;
-  color: #506876;
+  background: var(--nx-surface-soft);
+  border-bottom: 1px solid var(--nx-border);
+  color: var(--nx-text-muted);
   font-weight: 750;
 }
 .userTable tbody th,
 .userTable td {
   padding: 12px 16px;
-  border-bottom: 1px solid #edf0f2;
+  border-bottom: 1px solid var(--nx-neutral-soft);
   vertical-align: middle;
   overflow-wrap: anywhere;
 }
@@ -163,7 +163,7 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: #17577b;
+  color: var(--nx-brand);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -175,7 +175,7 @@
 .root button:focus-visible,
 .root input:focus-visible,
 .root select:focus-visible {
-  outline: 2px solid #2875a3;
+  outline: 2px solid var(--nx-focus-color);
   outline-offset: 3px;
 }
 .userNameButton:disabled {
@@ -192,8 +192,8 @@
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: #dceaf2;
-  color: #164c6c;
+  background: var(--nx-brand-soft);
+  color: var(--nx-brand);
   font-weight: 800;
 }
 .status,
@@ -207,38 +207,38 @@
   text-transform: capitalize;
 }
 .linked {
-  background: #e8f3f8;
-  color: #24617e;
+  background: var(--nx-info-soft);
+  color: var(--nx-info);
 }
 .notLinked {
-  background: #f2f0ea;
-  color: #6d6248;
+  background: var(--nx-neutral-soft);
+  color: var(--nx-warning);
 }
 .active {
-  background: #e5f5ec;
-  color: #246540;
+  background: var(--nx-success-soft);
+  color: var(--nx-success-text);
 }
 .locked {
-  background: #fff1db;
-  color: #8a5816;
+  background: var(--nx-warning-soft);
+  color: var(--nx-warning);
 }
 .inactive {
-  background: #edf0f2;
-  color: #65727b;
+  background: var(--nx-neutral-soft);
+  color: var(--nx-text-muted);
 }
 .pending {
-  background: #e9eff9;
-  color: #3c5f91;
+  background: var(--nx-purple-soft);
+  color: var(--nx-purple);
 }
 .state {
   margin: 0;
   padding: 38px 20px;
   text-align: center;
-  color: #758590;
+  color: var(--nx-text-subtle);
 }
 .wizard {
-  border-bottom: 1px solid #dce4e9;
-  background: #fbfcfd;
+  border-bottom: 1px solid var(--nx-border);
+  background: var(--nx-surface-soft);
 }
 .wizard > header,
 .wizard > footer {
@@ -248,7 +248,7 @@
   padding: 18px 20px;
 }
 .wizard > header span {
-  color: #608096;
+  color: var(--nx-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   font-size: 10px;
@@ -262,8 +262,8 @@
 .wizard > header .draftState {
   border-radius: 999px;
   padding: 5px 8px;
-  background: #e8f3f8;
-  color: #24617e;
+  background: var(--nx-info-soft);
+  color: var(--nx-info);
   letter-spacing: 0;
   text-transform: none;
 }
@@ -284,13 +284,13 @@
   align-items: center;
   gap: 7px;
   padding: 11px 8px;
-  border-bottom: 3px solid #dbe3e8;
-  color: #758590;
+  border-bottom: 3px solid var(--nx-border);
+  color: var(--nx-text-subtle);
   font-size: 12px;
 }
 .steps li[aria-current="step"] {
-  border-color: #2875a3;
-  color: #174a69;
+  border-color: var(--nx-focus-color);
+  color: var(--nx-brand-strong);
   font-weight: 750;
 }
 .steps b {
@@ -299,7 +299,7 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #e8eef2;
+  background: var(--nx-neutral-soft);
 }
 .stepBody {
   min-height: 185px;
@@ -311,7 +311,7 @@
 }
 .formHelp {
   margin: 0;
-  color: #536b79;
+  color: var(--nx-text-muted);
   font-size: 12px;
   line-height: 1.6;
 }
@@ -326,7 +326,7 @@
 .reasonField {
   display: grid;
   gap: 6px;
-  color: #506876;
+  color: var(--nx-text-muted);
   font-size: 12px;
   font-weight: 650;
 }
@@ -349,7 +349,7 @@
 .choiceGrid > p {
   grid-column: 1 / -1;
   margin: 0 0 4px;
-  color: #6d7f8a;
+  color: var(--nx-text-muted);
 }
 .choice,
 .choiceSelected {
@@ -357,13 +357,13 @@
   justify-content: space-between;
   gap: 12px;
   padding: 12px;
-  border: 1px solid #d6e0e6;
+  border: 1px solid var(--nx-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--nx-surface);
 }
 .choiceSelected {
-  border-color: #4b88aa;
-  background: #f1f7fa;
+  border-color: var(--nx-accent);
+  background: var(--nx-selection-background);
 }
 .choice label,
 .choiceSelected label,
@@ -378,7 +378,7 @@
 }
 .choice small,
 .choiceSelected small {
-  color: #758590;
+  color: var(--nx-text-subtle);
 }
 .defaultChoice {
   font-size: 12px;
@@ -392,23 +392,23 @@
   display: grid;
   gap: 4px;
   padding: 12px;
-  border: 1px solid #dce4e9;
+  border: 1px solid var(--nx-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--nx-surface);
 }
 .review span,
 .review small {
-  color: #72838e;
+  color: var(--nx-text-subtle);
   font-size: 12px;
 }
 .review p {
   grid-column: 1 / -1;
   margin: 4px 0 0;
-  color: #536b79;
+  color: var(--nx-text-muted);
 }
 .detail {
-  border-left: 1px solid #dce4e9;
-  background: #fbfcfd;
+  border-left: 1px solid var(--nx-border);
+  background: var(--nx-surface-soft);
 }
 .detail > header {
   display: grid;
@@ -416,11 +416,11 @@
   align-items: center;
   gap: 12px;
   padding: 18px;
-  border-bottom: 1px solid #e5eaee;
+  border-bottom: 1px solid var(--nx-border);
 }
 .detail > header span,
 .detail > header p {
-  color: #6d7f8a;
+  color: var(--nx-text-muted);
   font-size: 12px;
 }
 .detail > header p {
@@ -437,12 +437,12 @@
   align-items: center;
   gap: 8px;
   padding: 12px 18px;
-  border-bottom: 1px solid #e5eaee;
-  color: #657985;
+  border-bottom: 1px solid var(--nx-border);
+  color: var(--nx-text-muted);
   font-size: 12px;
 }
 .detailMeta strong {
-  color: #8a5816;
+  color: var(--nx-warning);
 }
 .accountDetails {
   display: grid;
@@ -456,7 +456,7 @@
   min-width: 0;
 }
 .accountDetails dt {
-  color: #6d7f8a;
+  color: var(--nx-text-muted);
   font-size: 11px;
 }
 .accountDetails dd {
@@ -472,19 +472,19 @@
   display: grid;
   gap: 15px;
   padding: 18px;
-  border-bottom: 1px solid #e5eaee;
+  border-bottom: 1px solid var(--nx-border);
 }
 .detailSection p {
   margin: 3px 0 0;
-  color: #6d7f8a;
+  color: var(--nx-text-muted);
   font-size: 12px;
 }
 .actionGrid {
   flex-wrap: wrap;
 }
 .dangerSoft {
-  border-color: #e0b7b7 !important;
-  color: #942f2f !important;
+  border-color: var(--nx-danger-border) !important;
+  color: var(--nx-danger) !important;
 }
 .companyLine {
   display: flex;
@@ -506,13 +506,13 @@
   align-items: center;
   gap: 10px;
   padding: 10px 0;
-  border-top: 1px solid #e5eaee;
+  border-top: 1px solid var(--nx-border);
 }
 .roleList span {
   display: grid;
 }
 .roleList small {
-  color: #758590;
+  color: var(--nx-text-subtle);
 }
 .roleAdd select {
   flex: 1;
@@ -533,7 +533,7 @@
     grid-template-columns: 1fr;
   }
   .detail {
-    border-top: 1px solid #dce4e9;
+    border-top: 1px solid var(--nx-border);
     border-left: 0;
   }
 }

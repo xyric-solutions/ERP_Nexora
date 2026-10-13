@@ -3,15 +3,15 @@
   display: grid;
   place-items: center;
   padding: 32px;
-  background: radial-gradient(circle at top left, #e8f1f8, transparent 40%), #f4f6f8;
+  background: radial-gradient(circle at top left, var(--nx-login-glow), transparent 40%), var(--nx-canvas);
 }
 .card {
   width: min(430px, 100%);
-  background: #fff;
-  border: 1px solid #dce3e9;
+  background: var(--nx-surface);
+  border: 1px solid var(--nx-border);
   border-radius: 18px;
   padding: 32px;
-  box-shadow: 0 24px 70px rgba(15, 42, 64, 0.12);
+  box-shadow: 0 24px 70px var(--nx-shadow-color-md);
 }
 .brand {
   display: flex;
@@ -25,33 +25,36 @@
   width: 42px;
   height: 42px;
   border-radius: 11px;
-  background: #123b56;
-  color: #fff;
+  background: var(--nx-primary);
+  color: var(--nx-text-inverse);
   font-weight: 800;
 }
 .brand div {
   display: grid;
 }
+.brand :global(.nx-theme-selector) {
+  margin-left: auto;
+}
 .brand small {
-  color: #667684;
+  color: var(--nx-text-muted);
   margin-top: 2px;
 }
 .card header p {
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #3f7293;
+  color: var(--nx-info);
   font-size: 12px;
   font-weight: 700;
   margin: 0 0 9px;
 }
 .card h1 {
-  font-family: var(--font-nx-serif);
+  font-family: var(--nx-font-serif);
   font-size: 36px;
-  color: #172b3a;
+  color: var(--nx-text-strong);
   margin: 0 0 8px;
 }
 .card header > span {
-  color: #667684;
+  color: var(--nx-text-muted);
 }
 .card form {
   display: grid;
@@ -65,7 +68,7 @@
 }
 .selection h2 {
   margin: 0;
-  color: #172b3a;
+  color: var(--nx-text-strong);
   font-size: 23px;
 }
 .formHeading {
@@ -77,20 +80,20 @@
   margin: 0;
 }
 .formHeading h2 {
-  color: #172b3a;
+  color: var(--nx-text-strong);
   font-size: 23px;
 }
 .formHeading p,
 .card label small {
-  color: #667684;
+  color: var(--nx-text-muted);
   font-weight: 400;
 }
 .selection p {
   margin: 0;
-  color: #667684;
+  color: var(--nx-text-muted);
 }
 .selection small {
-  color: #667684;
+  color: var(--nx-text-muted);
 }
 .choices {
   display: grid;
@@ -99,45 +102,45 @@
 .card label {
   display: grid;
   gap: 7px;
-  color: #344a59;
+  color: var(--nx-text);
   font-size: 13px;
   font-weight: 650;
 }
 .card input {
   height: 44px;
-  border: 1px solid #cbd6de;
+  border: 1px solid var(--nx-border-strong);
   border-radius: 9px;
   padding: 0 12px;
-  background: #fbfcfd;
+  background: var(--nx-surface-soft);
 }
 .card button {
   height: 46px;
   border: 0;
   border-radius: 9px;
-  background: #173f5a;
-  color: #fff;
+  background: var(--nx-brand);
+  color: var(--nx-text-inverse);
   font-weight: 750;
 }
 .card button:disabled {
   opacity: 0.62;
 }
 .card button.secondary {
-  border: 1px solid #cbd6de;
-  background: #fff;
-  color: #173f5a;
+  border: 1px solid var(--nx-border-strong);
+  background: var(--nx-surface);
+  color: var(--nx-brand);
 }
 .error {
   margin: 0;
   padding: 10px 12px;
   border-radius: 8px;
-  background: #fff0f0;
-  color: #9d2727;
+  background: var(--nx-danger-soft);
+  color: var(--nx-danger);
   font-size: 13px;
 }
 .card footer {
-  border-top: 1px solid #e5eaee;
+  border-top: 1px solid var(--nx-border);
   margin-top: 26px;
   padding-top: 18px;
-  color: #667684;
+  color: var(--nx-text-muted);
   font-size: 12px;
 }
