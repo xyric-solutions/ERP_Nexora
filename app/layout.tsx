@@ -1,39 +1,31 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Source_Sans_3 } from "next/font/google";
 
-import { themeInitializationScript } from "./theme-config";
-import { ThemeProvider } from "./theme-provider";
+import { themeInitializationScript } from "./shared/theme/config";
+import { ThemeProvider } from "./shared/theme/provider";
+import { application } from "./shared/constants/application";
 
 /* Load order is deliberate and must be preserved:
  *   1. reset            2. color, typography, and geometry tokens
  *   3. shared controls  4. component layers  5. print
  * There is no override layer: the component CSS consumes tokens directly. */
-import "./globals.css";
-import "./theme-colors.css";
-import "./typography.css";
-import "./tokens.css";
-import "./theme-controls.css";
-import "./prototype-extra.css";
-import "./commerce.css";
-import "./master-data.css";
-import "./banking.css";
-import "./banking-grid.css";
-import "./banking-reconciliation.css";
-import "./hr.css";
-import "./hr-lifecycle.css";
-import "./hr-reporting.css";
-import "./nexora-intelligence.css";
-import "./nexora-ai-workspace.css";
-import "./form-workspace.css";
-import "./document-workbench.css";
-import "./enterprise-transaction-control.css";
-import "./document-template.css";
-import "./drill.css";
-import "./dashboard-comparison.css";
-import "./reports-workspace.css";
-import "./manufacturing-workspace.css";
-import "./form-contrast.css";
-import "./print.css";
+import "./shared/styles/globals.css";
+import "./shared/styles/theme-colors.css";
+import "./shared/styles/typography.css";
+import "./shared/styles/tokens.css";
+import "./shared/styles/theme-controls.css";
+import "./shell/styles/prototype-extra.css";
+import "./features/commerce/styles/commerce.css";
+import "./features/master-data/styles/master-data.css";
+import "./features/banking/styles/banking.css";
+import "./features/banking/styles/banking-grid.css";
+import "./features/banking/styles/banking-reconciliation.css";
+import "./features/ai/styles/nexora-intelligence.css";
+import "./features/ai/styles/nexora-ai-workspace.css";
+import "./features/drill/drill.css";
+import "./features/reports/styles/reports-workspace.css";
+import "./features/manufacturing/styles/manufacturing-workspace.css";
+import "./shared/styles/print.css";
 
 const nexoraSans = Source_Sans_3({
   variable: "--font-nx-sans",
@@ -48,18 +40,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Nexora ERP - Enterprise Operations",
-  description: "Nexora's secure, role-aware enterprise operations web application.",
+  title: application.title,
+  description: application.description,
   openGraph: {
-    title: "Nexora ERP - Enterprise Operations",
-    description: "Secure, role-aware enterprise operations for Nexora teams.",
+    title: application.title,
+    description: application.description,
     type: "website",
-    images: [{ url: "/og.png", width: 1734, height: 907, alt: "Nexora ERP role-aware command centre" }],
+    images: [{ url: "/og.png", width: 1734, height: 907, alt: application.openGraphImageAlt }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Nexora ERP - Enterprise Operations",
-    description: "Secure, role-aware enterprise operations for Nexora teams.",
+    title: application.title,
+    description: application.description,
     images: ["/og.png"],
   },
   icons: {

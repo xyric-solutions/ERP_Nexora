@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import styles from "./identity-workspace.module.css";
+import { Button } from "../../components/ui/button";
 
 export interface RowAction {
   value: string;
@@ -21,7 +21,7 @@ export function ActionSelect({
 }) {
   return (
     <select
-      className={styles.actionSelect}
+      className="min-h-8 min-w-37.5 rounded-lg border border-input bg-transparent px-2 py-1.5 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
       aria-label={label}
       value=""
       disabled={disabled || actions.length === 0}
@@ -58,6 +58,7 @@ export function SelectionCheckbox({
     <input
       ref={ref}
       type="checkbox"
+      className="size-4 accent-primary"
       aria-label={label}
       checked={checked}
       disabled={disabled}
@@ -68,16 +69,16 @@ export function SelectionCheckbox({
 
 export function RecordDetails({ row, onClose }: { row: Record<string, unknown>; onClose(): void }) {
   return (
-    <section className={styles.recordDetails} aria-label="Record details">
-      <header>
-        <h3>Record details</h3>
-        <button onClick={onClose}>Close details</button>
+    <section className="border-b border-border bg-muted/50 px-5 py-5" aria-label="Record details">
+      <header className="flex items-center justify-between gap-4">
+        <h3 className="text-lg font-semibold">Record details</h3>
+        <Button variant="outline" size="sm" onClick={onClose}>Close details</Button>
       </header>
-      <dl>
+      <dl className="mt-5 grid gap-3">
         {Object.entries(row).map(([key, value]) => (
           <div key={key}>
-            <dt>{key.replaceAll("_", " ")}</dt>
-            <dd>{value === null ? "—" : typeof value === "object" ? JSON.stringify(value, null, 2) : String(value)}</dd>
+            <dt className="text-xs capitalize text-muted-foreground">{key.replaceAll("_", " ")}</dt>
+            <dd className="mt-1 overflow-wrap-anywhere whitespace-pre-wrap text-sm">{value === null ? "—" : typeof value === "object" ? JSON.stringify(value, null, 2) : String(value)}</dd>
           </div>
         ))}
       </dl>

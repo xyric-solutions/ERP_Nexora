@@ -1,0 +1,103 @@
+/*
+ * Tailwind v4 entry point for the Next.js application.
+ *
+ * Preflight is deliberately omitted during the migration: the legacy ERP
+ * stylesheet already provides its reset and removing it would change every
+ * existing screen. New Tailwind and shadcn components use the token mapping
+ * below and can be adopted screen by screen.
+ */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@source "../src";
+@source "../../../app";
+
+@theme inline {
+  --color-background: var(--nx-canvas);
+  --color-foreground: var(--nx-text);
+  --color-card: var(--nx-surface);
+  --color-card-foreground: var(--nx-text);
+  --color-popover: var(--nx-surface-raised);
+  --color-popover-foreground: var(--nx-text);
+  --color-primary: var(--nx-primary);
+  --color-primary-foreground: var(--nx-action-text);
+  --color-secondary: var(--nx-surface-sunken);
+  --color-secondary-foreground: var(--nx-text);
+  --color-muted: var(--nx-surface-soft);
+  --color-muted-foreground: var(--nx-text-muted);
+  --color-accent: var(--nx-brand-soft);
+  --color-accent-foreground: var(--nx-text);
+  --color-destructive: var(--nx-danger);
+  --color-destructive-foreground: var(--nx-text-inverse);
+  --color-border: var(--nx-border);
+  --color-input: var(--nx-border);
+  --color-ring: var(--nx-focus-color);
+  --radius-sm: var(--nx-radius-sm);
+  --radius-md: var(--nx-radius-md);
+  --radius-lg: var(--nx-radius-lg);
+}
+
+/* Shared form legibility belongs in the Tailwind entry rather than a feature
+ * stylesheet. It preserves the established token-based states for the few
+ * native controls that remain while feature layouts move to utilities. */
+@layer base {
+  .nx-prototype :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
+    color: var(--nx-text-strong);
+    background-color: var(--nx-surface);
+    caret-color: var(--nx-text-strong);
+    -webkit-text-fill-color: var(--nx-text-strong);
+    opacity: 1;
+  }
+
+  .nx-prototype :is(input, textarea)::placeholder {
+    color: var(--nx-text-muted);
+    -webkit-text-fill-color: var(--nx-text-muted);
+    opacity: 1;
+  }
+
+  .nx-prototype select option {
+    color: var(--nx-text-strong);
+    background: var(--nx-surface);
+  }
+
+  .nx-prototype :is(label, legend, .nx-field-label, .nx-field__label),
+  .nx-prototype label > :is(span, strong):first-child {
+    color: var(--nx-text-strong);
+  }
+
+  .nx-prototype :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):is(:disabled, [readonly]) {
+    color: var(--nx-text-muted);
+    background-color: var(--nx-surface-sunken);
+    -webkit-text-fill-color: var(--nx-text-muted);
+    opacity: 1;
+  }
+
+  .nx-prototype button:is(.nx-button-primary, .nx-button--primary, .nx-primary-button, .primary, .nx-batch__btn--approve) {
+    border-color: var(--nx-primary);
+    color: var(--nx-text-inverse);
+    background: var(--nx-primary);
+    -webkit-text-fill-color: var(--nx-text-inverse);
+  }
+
+  .nx-prototype button:is(.nx-button-primary, .nx-button--primary, .nx-primary-button, .primary, .nx-batch__btn--approve) :is(span, strong, b, i) {
+    color: inherit;
+    -webkit-text-fill-color: inherit;
+  }
+
+  .nx-prototype button:is(.nx-button-primary, .nx-button--primary, .nx-primary-button, .primary, .nx-batch__btn--approve):hover:not(:disabled) {
+    border-color: var(--nx-secondary);
+    color: var(--nx-text-inverse);
+    background: var(--nx-secondary);
+    -webkit-text-fill-color: var(--nx-text-inverse);
+  }
+
+  .nx-prototype button:is(.nx-button-primary, .nx-button--primary, .nx-primary-button, .primary, .nx-batch__btn--approve):disabled {
+    color: var(--nx-text-inverse);
+    -webkit-text-fill-color: var(--nx-text-inverse);
+    opacity: .58;
+  }
+
+  .nx-prototype :is(.nx-field-error, .nx-error-text, [role="alert"]) {
+    color: var(--nx-danger);
+  }
+}

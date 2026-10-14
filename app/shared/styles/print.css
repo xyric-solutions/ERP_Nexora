@@ -1,0 +1,70 @@
+/*
+ * Print rules for the prototype.
+ *
+ * Screen chrome is dropped so a reviewer can print any screen, and the
+ * document templates print as documents. Separated from the component
+ * layer because print is its own medium, not an override of the screen.
+ */
+
+.nx-no-print {
+  /* visible on screen; removed on paper below */
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+
+  .nx-sidebar,
+  .nx-topbar,
+  .nx-prototype-toolbar,
+  .nx-breadcrumbs,
+  .nx-context-summary,
+  .nx-page-actions,
+  .nx-no-print,
+  .nx-mobile-overlay,
+  .nx-commerce-tabs,
+  .nx-toast-stack {
+    display: none !important;
+  }
+
+  .nx-shell {
+    display: block !important;
+  }
+
+  .nx-content {
+    max-width: none;
+    padding: 0;
+  }
+
+  .nx-card,
+  .nx-panel,
+  .nx-dashboard-card {
+    break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  /* Documents print as the sheet itself: no frame, no shadow, full width. */
+  [data-print-document] {
+    display: block;
+  }
+
+  [data-print-sheet] {
+    width: 100%;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+  }
+
+  [data-print-lines] thead {
+    display: table-header-group;
+  }
+
+  [data-print-lines] tr,
+  [data-print-close],
+  [data-print-footer] {
+    break-inside: avoid;
+  }
+
+}

@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { PrototypeShell } from "../../../app/prototype-shell";
+import { PrototypeShell } from "../../../app/shell/prototype-shell";
 
 import { DashboardHeaderControls } from "../src/features/dashboard/dashboard-header-controls";
 import IdentityWorkspace from "../src/features/security/identity-workspace";

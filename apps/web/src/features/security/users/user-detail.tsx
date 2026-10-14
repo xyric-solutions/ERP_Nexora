@@ -7,8 +7,9 @@ import type {
   SecurityUserDetail,
   SecurityUserOptions,
 } from "@nexora/contracts";
-
-import styles from "./user-management.module.css";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
 
 export type UserDetailMode = "summary" | "edit" | "password" | "companies" | "employee" | "archive";
 
@@ -96,82 +97,82 @@ export default function UserDetail({
   }
 
   return (
-    <aside className={styles.detail} aria-labelledby="user-detail-title">
-      <header>
-        <div className={styles.avatar} aria-hidden="true">
+    <aside className="border-l border-border bg-muted/50" aria-labelledby="user-detail-title">
+      <header className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-3 border-b border-border p-5">
+        <div className="grid size-12 place-items-center rounded-full bg-accent font-bold text-primary" aria-hidden="true">
           {user.display_name.slice(0, 2).toLocaleUpperCase("en-US")}
         </div>
         <div>
-          <span>User account</span>
-          <h3 id="user-detail-title">{user.display_name}</h3>
-          <p>
+          <span className="text-xs text-muted-foreground">User account</span>
+          <h3 id="user-detail-title" className="mt-1 text-lg font-semibold">{user.display_name}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
             {user.username} · {user.email}
           </p>
         </div>
-        <button onClick={onClose} aria-label="Close user detail">
+        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close user detail">
           ×
-        </button>
+        </Button>
       </header>
 
-      <div className={styles.detailMeta}>
-        <span className={`${styles.status} ${styles[user.status]}`}>
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-3 text-xs text-muted-foreground">
+        <span className={user.status === "active" ? "rounded-full bg-[var(--nx-success-soft)] px-2 py-1 font-semibold capitalize text-[var(--nx-success-text)]" : user.status === "locked" ? "rounded-full bg-[var(--nx-warning-soft)] px-2 py-1 font-semibold capitalize text-[var(--nx-warning)]" : "rounded-full bg-muted px-2 py-1 font-semibold capitalize text-muted-foreground"}>
           {user.archived_at ? "Deleted (archived)" : user.status}
         </span>
         <span>{user.default_company?.name ?? "No default company"}</span>
         <span>{user.employee ? `Employee ${user.employee.employee_number}` : "No employee link"}</span>
-        {user.must_change_password ? <strong>Password change required</strong> : null}
+        {user.must_change_password ? <strong className="text-[var(--nx-warning)]">Password change required</strong> : null}
       </div>
 
-      <section className={styles.detailSection} aria-labelledby="account-details-title">
-        <h4 id="account-details-title">User details</h4>
-        <dl className={styles.accountDetails}>
+      <section className="grid gap-4 border-b border-border p-5" aria-labelledby="account-details-title">
+        <h4 id="account-details-title" className="font-semibold">User details</h4>
+        <dl className="grid gap-3 sm:grid-cols-2">
           <div>
-            <dt>Name</dt>
-            <dd>{user.display_name}</dd>
+            <dt className="text-xs text-muted-foreground">Name</dt>
+            <dd className="mt-1 text-sm">{user.display_name}</dd>
           </div>
           <div>
-            <dt>Username</dt>
-            <dd>{user.username}</dd>
+            <dt className="text-xs text-muted-foreground">Username</dt>
+            <dd className="mt-1 text-sm">{user.username}</dd>
           </div>
           <div>
-            <dt>Email</dt>
-            <dd>{user.email}</dd>
+            <dt className="text-xs text-muted-foreground">Email</dt>
+            <dd className="mt-1 text-sm">{user.email}</dd>
           </div>
           <div>
-            <dt>Status</dt>
-            <dd className={styles.capitalize}>{user.status}</dd>
+            <dt className="text-xs text-muted-foreground">Status</dt>
+            <dd className="mt-1 text-sm capitalize">{user.status}</dd>
           </div>
           <div>
-            <dt>Account type</dt>
-            <dd>{user.employee ? "Employee" : "User only"}</dd>
+            <dt className="text-xs text-muted-foreground">Account type</dt>
+            <dd className="mt-1 text-sm">{user.employee ? "Employee" : "User only"}</dd>
           </div>
           <div>
-            <dt>Employee Master</dt>
-            <dd>{user.employee ? `${user.employee.employee_number} — ${user.employee.display_name}` : "Not linked"}</dd>
+            <dt className="text-xs text-muted-foreground">Employee Master</dt>
+            <dd className="mt-1 text-sm">{user.employee ? `${user.employee.employee_number} — ${user.employee.display_name}` : "Not linked"}</dd>
           </div>
           <div>
-            <dt>Default company</dt>
-            <dd>{user.default_company?.name ?? "No default company"}</dd>
+            <dt className="text-xs text-muted-foreground">Default company</dt>
+            <dd className="mt-1 text-sm">{user.default_company?.name ?? "No default company"}</dd>
           </div>
         </dl>
       </section>
 
       {mode === "edit" ? (
-        <form className={styles.detailForm} onSubmit={submitEdit}>
-          <h4>Edit name, username and email</h4>
-          <label>
+        <form className="grid gap-4 border-b border-border p-5" onSubmit={submitEdit}>
+          <h4 className="font-semibold">Edit name, username and email</h4>
+          <Label className="grid gap-2 text-sm text-muted-foreground">
             Display name
-            <input
+            <Input
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
               maxLength={200}
               required
               disabled={busy}
             />
-          </label>
-          <label>
+          </Label>
+          <Label className="grid gap-2 text-sm text-muted-foreground">
             Username
-            <input
+            <Input
               value={username}
               onChange={(event) => setUsername(event.target.value.toLocaleLowerCase("en-US"))}
               pattern="[a-z0-9][a-z0-9._-]{2,127}"
@@ -180,10 +181,10 @@ export default function UserDetail({
               disabled={busy}
               autoComplete="off"
             />
-          </label>
-          <label>
+          </Label>
+          <Label className="grid gap-2 text-sm text-muted-foreground">
             Email
-            <input
+            <Input
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -191,45 +192,45 @@ export default function UserDetail({
               required
               disabled={busy}
             />
-          </label>
-          <div>
-            <button type="button" onClick={() => setMode("summary")}>
+          </Label>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => setMode("summary")}>
               Cancel
-            </button>
-            <button className={styles.primary} disabled={busy}>
+            </Button>
+            <Button disabled={busy}>
               Submit change
-            </button>
+            </Button>
           </div>
         </form>
       ) : mode === "password" ? (
-        <form className={styles.detailForm} onSubmit={submitPasswordReset}>
-          <h4>Reset password</h4>
-          <p className={styles.formHelp}>
+        <form className="grid gap-4 border-b border-border p-5" onSubmit={submitPasswordReset}>
+          <h4 className="font-semibold">Reset password</h4>
+          <p className="text-sm text-muted-foreground">
             Submit a reset for an independent approver. After approval, a new one-time password is shown to the approver
             once. The user sets their own password at the next sign-in, and existing sessions are revoked.
           </p>
-          <label>
+          <Label className="grid gap-2 text-sm text-muted-foreground">
             Reason for password reset
-            <input
+            <Input
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               maxLength={512}
               required
               disabled={busy}
             />
-          </label>
-          <div>
-            <button type="button" onClick={() => setMode("summary")} disabled={busy}>
+          </Label>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => setMode("summary")} disabled={busy}>
               Cancel
-            </button>
-            <button className={styles.primary} disabled={busy || !reason.trim()}>
+            </Button>
+            <Button disabled={busy || !reason.trim()}>
               Submit password reset
-            </button>
+            </Button>
           </div>
         </form>
       ) : mode === "archive" ? (
         <form
-          className={styles.detailForm}
+          className="grid gap-4 border-b border-border p-5"
           onSubmit={(event) => {
             event.preventDefault();
             if (busy || !reason.trim()) return;
@@ -241,38 +242,38 @@ export default function UserDetail({
             });
           }}
         >
-          <h4>Delete user (soft)</h4>
-          <p className={styles.formHelp}>
+          <h4 className="font-semibold">Delete user (soft)</h4>
+          <p className="text-sm text-muted-foreground">
             Independent approval archives this account and revokes login/company access. Records and audit history are
             retained. Restore requires company access and activation approval.
           </p>
-          <label>
+          <Label className="grid gap-2 text-sm text-muted-foreground">
             Reason for soft delete
-            <input
+            <Input
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               maxLength={512}
               required
               disabled={busy}
             />
-          </label>
-          <div>
-            <button type="button" disabled={busy} onClick={() => setMode("summary")}>
+          </Label>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" disabled={busy} onClick={() => setMode("summary")}>
               Cancel
-            </button>
-            <button className={styles.dangerSoft} disabled={busy || !reason.trim()}>
+            </Button>
+            <Button variant="destructive" disabled={busy || !reason.trim()}>
               Submit soft delete
-            </button>
+            </Button>
           </div>
         </form>
       ) : mode === "companies" ? (
-        <form className={styles.detailForm} onSubmit={submitCompanies}>
-          <h4>Company boundary</h4>
+        <form className="grid gap-4 border-b border-border p-5" onSubmit={submitCompanies}>
+          <h4 className="font-semibold">Company boundary</h4>
           {options.companies.map((company) => {
             const selected = companyIds.includes(company.id);
             return (
-              <div key={company.id} className={styles.companyLine}>
-                <label>
+              <div key={company.id} className="flex justify-between gap-3">
+                <label className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
                     checked={selected}
@@ -286,7 +287,7 @@ export default function UserDetail({
                   />
                   {company.name}
                 </label>
-                <label>
+                <label className="flex items-center gap-2 text-sm">
                   <input
                     type="radio"
                     name="detail-default"
@@ -299,19 +300,19 @@ export default function UserDetail({
               </div>
             );
           })}
-          <div>
-            <button type="button" onClick={() => setMode("summary")}>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => setMode("summary")}>
               Cancel
-            </button>
-            <button className={styles.primary} disabled={busy || !companyIds.length || !defaultCompanyId}>
+            </Button>
+            <Button disabled={busy || !companyIds.length || !defaultCompanyId}>
               Submit change
-            </button>
+            </Button>
           </div>
         </form>
       ) : mode === "employee" ? (
-        <form className={styles.detailForm} onSubmit={submitEmployee}>
-          <h4>Employee link</h4>
-          <select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}>
+        <form className="grid gap-4 border-b border-border p-5" onSubmit={submitEmployee}>
+          <h4 className="font-semibold">Employee link</h4>
+          <select className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}>
             <option value="">No employee link</option>
             {user.employee ? (
               <option value={user.employee.id}>
@@ -324,45 +325,46 @@ export default function UserDetail({
               </option>
             ))}
           </select>
-          <label>
+          <Label className="grid gap-2 text-sm text-muted-foreground">
             Reason
-            <input value={reason} onChange={(event) => setReason(event.target.value)} required />
-          </label>
-          <div>
-            <button type="button" onClick={() => setMode("summary")}>
+            <Input value={reason} onChange={(event) => setReason(event.target.value)} required />
+          </Label>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => setMode("summary")}>
               Cancel
-            </button>
-            <button className={styles.primary} disabled={busy}>
+            </Button>
+            <Button disabled={busy}>
               Submit change
-            </button>
+            </Button>
           </div>
         </form>
       ) : (
         <>
-          <section className={styles.detailSection}>
+          <section className="grid gap-4 border-b border-border p-5">
             <div>
-              <h4>Account controls</h4>
-              <p>Governed changes require an independent checker.</p>
+              <h4 className="font-semibold">Account controls</h4>
+              <p className="mt-1 text-sm text-muted-foreground">Governed changes require an independent checker.</p>
             </div>
-            <div className={styles.actionGrid}>
+            <div className="flex flex-wrap gap-2">
               {permissions.has("security.user_account.edit") ? (
-                <button onClick={() => setMode("edit")} disabled={busy}>
+                <Button variant="outline" onClick={() => setMode("edit")} disabled={busy}>
                   Edit name / username / email
-                </button>
+                </Button>
               ) : null}
               {permissions.has("security.user_account.company_access") ? (
-                <button onClick={() => setMode("companies")}>Companies</button>
+                <Button variant="outline" onClick={() => setMode("companies")}>Companies</Button>
               ) : null}
               {permissions.has("security.user_account.edit") ? (
-                <button onClick={() => setMode("employee")}>Employee link</button>
+                <Button variant="outline" onClick={() => setMode("employee")}>Employee link</Button>
               ) : null}
               {permissions.has("security.user_account.reset_password") ? (
-                <button onClick={() => setMode("password")} disabled={busy}>
+                <Button variant="outline" onClick={() => setMode("password")} disabled={busy}>
                   Reset password
-                </button>
+                </Button>
               ) : null}
               {user.status !== "active" && permissions.has("security.user_account.activate") ? (
-                <button
+                <Button
+                  variant="outline"
                   onClick={() =>
                     void onGovernedAction({
                       requested_action: user.status === "locked" ? "unlock" : "activate",
@@ -373,11 +375,11 @@ export default function UserDetail({
                   }
                 >
                   {user.status === "locked" ? "Request unlock" : "Request activation"}
-                </button>
+                </Button>
               ) : null}
               {user.status !== "inactive" && permissions.has("security.user_account.archive") ? (
-                <button
-                  className={styles.dangerSoft}
+                <Button
+                  variant="destructive"
                   onClick={() =>
                     void onGovernedAction({
                       requested_action: "archive",
@@ -388,13 +390,13 @@ export default function UserDetail({
                   }
                 >
                   Deactivate / archive
-                </button>
+                </Button>
               ) : null}
               {user.status !== "inactive" &&
               permissions.has("security.user_account.archive") &&
               permissions.has("security.user_account.submit") ? (
-                <button
-                  className={styles.dangerSoft}
+                <Button
+                  variant="destructive"
                   disabled={busy}
                   onClick={() => {
                     setReason("");
@@ -402,37 +404,39 @@ export default function UserDetail({
                   }}
                 >
                   Delete (soft)
-                </button>
+                </Button>
               ) : null}
               {user.status === "active" && permissions.has("security.user_account.lock") ? (
-                <button className={styles.dangerSoft} onClick={() => void onEmergency("lock", reason)}>
+                <Button variant="destructive" onClick={() => void onEmergency("lock", reason)}>
                   Lock now
-                </button>
+                </Button>
               ) : null}
               {permissions.has("security.user_account.revoke_sessions") ? (
-                <button onClick={() => void onEmergency("revoke_sessions", reason)}>Revoke sessions</button>
+                <Button variant="outline" onClick={() => void onEmergency("revoke_sessions", reason)}>Revoke sessions</Button>
               ) : null}
             </div>
-            <label className={styles.reasonField}>
+            <Label className="grid gap-2 text-sm text-muted-foreground">
               Administrative reason
-              <input value={reason} onChange={(event) => setReason(event.target.value)} />
-            </label>
+              <Input value={reason} onChange={(event) => setReason(event.target.value)} />
+            </Label>
           </section>
 
-          <section className={styles.detailSection}>
+          <section className="grid gap-4 border-b border-border p-5">
             <div>
-              <h4>Role assignments</h4>
-              <p>Later role changes use the governed assignment workflow.</p>
+              <h4 className="font-semibold">Role assignments</h4>
+              <p className="mt-1 text-sm text-muted-foreground">Later role changes use the governed assignment workflow.</p>
             </div>
-            <ul className={styles.roleList}>
+            <ul className="m-0 list-none p-0">
               {user.roles.map((role) => (
-                <li key={role.assignment_id}>
-                  <span>
+                <li className="flex items-center justify-between gap-3 border-t border-border py-3" key={role.assignment_id}>
+                  <span className="grid">
                     <strong>{role.display_name}</strong>
-                    <small>{role.role_code}</small>
+                    <small className="text-xs text-muted-foreground">{role.role_code}</small>
                   </span>
                   {permissions.has("security.authorization.assignment.revoke") ? (
-                    <button
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() =>
                         void onRevokeRole({
                           target_user_id: user.id,
@@ -445,7 +449,7 @@ export default function UserDetail({
                       }
                     >
                       Revoke
-                    </button>
+                    </Button>
                   ) : null}
                 </li>
               ))}
@@ -453,7 +457,7 @@ export default function UserDetail({
             </ul>
             {permissions.has("security.authorization.assignment.create") ? (
               <form
-                className={styles.roleAdd}
+                className="flex gap-2"
                 onSubmit={(event) => {
                   event.preventDefault();
                   if (!rolePolicyId) return;
@@ -467,7 +471,7 @@ export default function UserDetail({
                   });
                 }}
               >
-                <select value={rolePolicyId} onChange={(event) => setRolePolicyId(event.target.value)} required>
+                <select className="h-8 min-w-0 flex-1 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={rolePolicyId} onChange={(event) => setRolePolicyId(event.target.value)} required>
                   <option value="">Select a role</option>
                   {options.roles
                     .filter((role) => !user.roles.some((current) => current.role_policy_id === role.policy_id))
@@ -477,7 +481,7 @@ export default function UserDetail({
                       </option>
                     ))}
                 </select>
-                <button disabled={busy}>Create assignment request</button>
+                <Button disabled={busy}>Create assignment request</Button>
               </form>
             ) : null}
           </section>

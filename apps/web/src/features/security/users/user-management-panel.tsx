@@ -9,6 +9,10 @@ import type {
   SecurityUserOptions,
   SecurityUserPage,
 } from "@nexora/contracts";
+import { Alert, AlertDescription } from "../../../components/ui/alert";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
 
 import { useSession } from "../../../lib/session/session-provider";
 import { ApiError } from "../../../lib/api/generated";
@@ -17,7 +21,6 @@ import { ActionSelect, SelectionCheckbox, type RowAction } from "../administrati
 import { buildSecurityUserListQuery } from "./user-list-query";
 import UserWizard from "./user-wizard";
 import { loadUserWizardDraft, userWizardDraftKey, type UserWizardDraft } from "./user-wizard-draft";
-import styles from "./user-management.module.css";
 import type { IdentitySection } from "../identity-navigation";
 
 const emptyOptions: SecurityUserOptions = { companies: [], employees: [], roles: [] };
@@ -334,27 +337,31 @@ export default function UserManagementPanel({
   }
 
   if (!canRead) {
-    return <p className={styles.state}>You do not have permission to view governed user accounts.</p>;
+    return <p className="p-9 text-center text-sm text-muted-foreground">You do not have permission to view governed user accounts.</p>;
   }
 
   return (
-    <div className={styles.root}>
-      <div className={styles.toolbar}>
+    <div className="min-h-105 text-foreground">
+      <div className="flex flex-wrap justify-between gap-4 border-b border-border bg-muted/60 px-5 py-4">
         <form
+          className="flex flex-1 flex-wrap gap-2"
           onSubmit={(event: FormEvent) => {
             event.preventDefault();
             setAppliedQuery(query.trim());
           }}
         >
-          <label>
-            <span className={styles.srOnly}>Search users</span>
-            <input
+          <div>
+            <Label className="sr-only" htmlFor="user-search">Search users</Label>
+            <Input
+              id="user-search"
+              className="min-w-70"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search name, username, or email"
             />
-          </label>
+          </div>
           <select
+            className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             value={status}
             onChange={(event) => setStatus(event.target.value as typeof status)}
             aria-label="Filter by account status"
@@ -365,6 +372,7 @@ export default function UserManagementPanel({
             <option value="inactive">Inactive</option>
           </select>
           <select
+            className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             value={employeeLink}
             onChange={(event) => setEmployeeLink(event.target.value as typeof employeeLink)}
             aria-label="Filter by employee link"
@@ -374,6 +382,7 @@ export default function UserManagementPanel({
             <option value="false">Not linked</option>
           </select>
           <select
+            className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
             value={archived}
             aria-label="Filter deleted users"
             disabled={busy || !!pendingAction}
@@ -386,24 +395,24 @@ export default function UserManagementPanel({
             <option value="true">Deleted / archived users</option>
             <option value="">All including deleted</option>
           </select>
-          <button disabled={loading}>Search</button>
+          <Button type="submit" variant="outline" disabled={loading}>Search</Button>
         </form>
-        <div>
-          <button onClick={() => void load(selected?.id)} disabled={loading}>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => void load(selected?.id)} disabled={loading}>
             Refresh
-          </button>
+          </Button>
           {canCreate ? (
-            <button className={styles.primary} onClick={openCreate}>
+            <Button onClick={openCreate}>
               Create user
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>
 
       {message ? (
-        <p className={styles.notice} role="status">
-          {message}
-        </p>
+        <Alert className="mx-5 mt-4 border-[var(--nx-info-border)] bg-[var(--nx-info-soft)] text-[var(--nx-info)]" role="status">
+          <AlertDescription className="text-[var(--nx-info)]">{message}</AlertDescription>
+        </Alert>
       ) : null}
       {showCreate ? (
         <UserWizard
@@ -419,7 +428,7 @@ export default function UserManagementPanel({
       ) : null}
 
       {checkedUsers.length > 0 ? (
-        <div className={styles.bulkBar}>
+        <div className="flex flex-wrap items-center gap-3 bg-[var(--nx-info-soft)] px-5 py-3 text-sm">
           <strong>{checkedUsers.length} selected</strong>
           <ActionSelect
             label="Action for selected users"
@@ -427,68 +436,68 @@ export default function UserManagementPanel({
             disabled={busy || loading || !!pendingAction}
             onAction={(action) => startUserAction(action, checkedUsers)}
           />
-          <button disabled={busy || !!pendingAction} onClick={() => setCheckedIds([])}>
+          <Button variant="outline" size="sm" disabled={busy || !!pendingAction} onClick={() => setCheckedIds([])}>
             Clear selection
-          </button>
+          </Button>
           {bulkActions.length === 0 ? <span>No common permitted action. Identity edits require one user.</span> : null}
         </div>
       ) : null}
       {pendingAction ? (
         <form
-          className={styles.confirmation}
+          className="mx-5 my-4 rounded-lg border border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] p-4"
           aria-label="Confirm user action"
           onSubmit={(event) => void confirmUserAction(event)}
         >
-          <h3>
+          <h3 className="text-lg font-semibold">
             {pendingAction.action === "archive" ? "Confirm soft delete" : "Confirm user action"} ·{" "}
             {pendingAction.users.length} user(s)
           </h3>
-          <p>
+          <p className="mt-2 text-sm text-muted-foreground">
             {pendingAction.action === "archive" || pendingAction.action === "deactivate"
               ? "Delete and deactivate use the existing governed archive lifecycle. After checker approval, login and company access are revoked. Records and audit history remain; restore requires company access and activation approval."
               : "Each user is processed separately. Governed changes require independent approval; lock and session revocation take effect immediately."}
           </p>
-          <ul>
+          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
             {pendingAction.users.map((user) => (
               <li key={user.id}>
                 {user.display_name} · {user.email}
               </li>
             ))}
           </ul>
-          <label>
+          <Label className="mt-4 grid gap-2 text-sm text-muted-foreground">
             Administrative reason
-            <input
+            <Input
               value={actionReason}
               onChange={(event) => setActionReason(event.target.value)}
               maxLength={512}
               required
               disabled={busy}
             />
-          </label>
-          <div>
-            <button type="button" disabled={busy} onClick={() => setPendingAction(null)}>
+          </Label>
+          <div className="mt-4 flex gap-2">
+            <Button type="button" variant="outline" disabled={busy} onClick={() => setPendingAction(null)}>
               Cancel
-            </button>
-            <button className={styles.primary} disabled={busy || !actionReason.trim()}>
+            </Button>
+            <Button disabled={busy || !actionReason.trim()}>
               Confirm action
-            </button>
+            </Button>
           </div>
         </form>
       ) : null}
 
-      <div className={styles.content}>
-        <div className={styles.list} aria-busy={loading}>
-          {loading ? <p className={styles.state}>Loading governed users...</p> : null}
-          {!loading && users.length === 0 ? <p className={styles.state}>No users match the current filters.</p> : null}
+      <div className={selected ? "grid min-w-0 lg:grid-cols-[minmax(420px,1fr)_minmax(380px,0.85fr)]" : "grid min-w-0"}>
+        <div className="min-w-0" aria-busy={loading}>
+          {loading ? <p className="p-9 text-center text-sm text-muted-foreground">Loading governed users...</p> : null}
+          {!loading && users.length === 0 ? <p className="p-9 text-center text-sm text-muted-foreground">No users match the current filters.</p> : null}
           {users.length > 0 ? (
-            <div className={styles.tableScroll}>
-              <table className={styles.userTable}>
-                <caption className={styles.srOnly}>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-190 border-collapse text-left text-sm">
+                <caption className="sr-only">
                   User accounts. Select a name to open account details and controls.
                 </caption>
                 <thead>
-                  <tr>
-                    <th scope="col">
+                  <tr className="bg-muted/60">
+                    <th className="px-4 py-3 text-xs font-semibold text-muted-foreground" scope="col">
                       <SelectionCheckbox
                         label="Select all visible users"
                         checked={users.length > 0 && checkedUsers.length === users.length}
@@ -497,19 +506,13 @@ export default function UserManagementPanel({
                         onChange={(checked) => setCheckedIds(checked ? users.map((user) => user.id) : [])}
                       />
                     </th>
-                    <th scope="col">Name</th>
-                    <th scope="col">Username</th>
-                    <th scope="col">Email</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Employee link</th>
-                    <th scope="col">Roles</th>
-                    <th scope="col">Action</th>
+                    {['Name', 'Username', 'Email', 'Status', 'Employee link', 'Roles', 'Action'].map((label) => <th className="px-4 py-3 text-xs font-semibold text-muted-foreground" scope="col" key={label}>{label}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {users.map((user) => (
-                    <tr key={user.id} className={selected?.id === user.id ? styles.userSelected : styles.userRow}>
-                      <td>
+                    <tr key={user.id} className={selected?.id === user.id ? "border-b border-border bg-[var(--nx-selection-background)] shadow-[inset_3px_0_var(--nx-focus-color)]" : "border-b border-border hover:bg-[var(--nx-selection-background)]"}>
+                      <td className="px-4 py-3">
                         <SelectionCheckbox
                           label={`Select user ${user.display_name}`}
                           checked={checkedIds.includes(user.id)}
@@ -521,37 +524,38 @@ export default function UserManagementPanel({
                           }
                         />
                       </td>
-                      <th scope="row">
-                        <button
-                          className={styles.userNameButton}
+                      <th className="min-w-47.5 px-4 py-3 font-medium" scope="row">
+                        <Button
+                          variant="ghost"
+                          className="h-auto justify-start gap-2.5 px-0 py-0 text-left text-primary hover:bg-transparent hover:text-primary hover:underline"
                           onClick={() => void selectUser(user.id)}
                           disabled={busy}
                           aria-pressed={selected?.id === user.id}
                           aria-label={`Open user ${user.display_name}`}
                         >
-                          <span className={styles.avatar} aria-hidden="true">
+                          <span className="grid size-10 place-items-center rounded-full bg-accent font-bold text-primary" aria-hidden="true">
                             {user.display_name.slice(0, 2).toLocaleUpperCase("en-US")}
                           </span>
                           <span>{user.display_name}</span>
-                        </button>
+                        </Button>
                         {user.pending_request_count > 0 ? (
-                          <span className={styles.pending}>{user.pending_request_count} pending</span>
+                          <span className="ml-12 mt-1.5 inline-block rounded-full bg-[var(--nx-purple-soft)] px-2 py-1 text-xs font-semibold text-[var(--nx-purple)]">{user.pending_request_count} pending</span>
                         ) : null}
                       </th>
-                      <td>{user.username}</td>
-                      <td>{user.email}</td>
-                      <td>
-                        <span className={`${styles.status} ${styles[user.status]}`}>
+                      <td className="px-4 py-3">{user.username}</td>
+                      <td className="px-4 py-3">{user.email}</td>
+                      <td className="px-4 py-3">
+                        <span className={user.status === "active" ? "rounded-full bg-[var(--nx-success-soft)] px-2 py-1 text-xs font-semibold capitalize text-[var(--nx-success-text)]" : user.status === "locked" ? "rounded-full bg-[var(--nx-warning-soft)] px-2 py-1 text-xs font-semibold capitalize text-[var(--nx-warning)]" : "rounded-full bg-muted px-2 py-1 text-xs font-semibold capitalize text-muted-foreground"}>
                           {user.archived_at ? "Deleted (archived)" : user.status}
                         </span>
                       </td>
-                      <td>
-                        <span className={user.employee_linked ? styles.linked : styles.notLinked}>
+                      <td className="px-4 py-3">
+                        <span className={user.employee_linked ? "rounded-full bg-[var(--nx-info-soft)] px-2 py-1 text-xs font-semibold text-[var(--nx-info)]" : "rounded-full bg-muted px-2 py-1 text-xs font-semibold text-[var(--nx-warning)]"}>
                           {user.employee_linked ? "Employee linked" : "Not linked"}
                         </span>
                       </td>
-                      <td>{user.role_names.length ? user.role_names.join(", ") : "No active roles"}</td>
-                      <td>
+                      <td className="px-4 py-3">{user.role_names.length ? user.role_names.join(", ") : "No active roles"}</td>
+                      <td className="px-4 py-3">
                         <ActionSelect
                           label={`Action for user ${user.display_name}`}
                           actions={userActions(user)}

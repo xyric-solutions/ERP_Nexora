@@ -2,9 +2,13 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createSecurityRoleRequestSchema, type CreateSecurityRoleRequest } from "@nexora/contracts";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Button } from "../../components/ui/button";
+import { Checkbox } from "../../components/ui/checkbox";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
 import { useSession } from "../../lib/session/session-provider";
 import { SelectionCheckbox } from "./administration-controls";
-import styles from "./identity-workspace.module.css";
 
 interface PermissionDefinition {
   key: string;
@@ -133,18 +137,18 @@ export default function RoleForm({
   const unavailable = selected.filter((key) => !catalogue.some((item) => item.key === key));
   return (
     <form
-      className={styles.roleForm}
+      className="border-b border-border bg-muted/50 px-5 py-6"
       onSubmit={(event) => void submit(event)}
       aria-label={initial ? "Edit role draft" : "Create role"}
     >
       <header>
-        <h3>{initial ? "Edit draft permissions" : "Add role"}</h3>
-        <p>Save a draft, then submit it for independent approval.</p>
+        <h3 className="text-xl font-semibold text-foreground">{initial ? "Edit draft permissions" : "Add role"}</h3>
+        <p className="mt-1 text-sm text-muted-foreground">Save a draft, then submit it for independent approval.</p>
       </header>
-      <div className={styles.roleFields}>
-        <label>
+      <div className="mt-5 grid gap-4 md:grid-cols-3">
+        <Label className="grid gap-2 text-sm text-muted-foreground">
           Role name
-          <input
+          <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
             maxLength={128}
@@ -152,57 +156,55 @@ export default function RoleForm({
             readOnly={!!initial}
             disabled={busy}
           />
-        </label>
-        <label>
+        </Label>
+        <Label className="grid gap-2 text-sm text-muted-foreground">
           Role code
-          <input value={initial?.role_code ?? generatedCode} readOnly aria-describedby="role-code-help" />
-        </label>
-        <label>
+          <Input className="bg-muted text-muted-foreground" value={initial?.role_code ?? generatedCode} readOnly aria-describedby="role-code-help" />
+        </Label>
+        <Label className="grid gap-2 text-sm text-muted-foreground">
           Description
-          <input
+          <Input
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             maxLength={512}
             readOnly={!!initial}
             disabled={busy}
           />
-        </label>
+        </Label>
       </div>
-      <p id="role-code-help" className={styles.formHelp}>
+      <p id="role-code-help" className="mt-3 text-xs text-muted-foreground">
         Role code is generated automatically and remains unchanged.{" "}
         {initial ? "Existing scope, field and SoD restrictions are preserved." : ""}
       </p>
-      <fieldset className={styles.permissionPicker} disabled={busy || loading || !!error}>
-        <legend>
-          Select Permissions <span>{selected.length} selected</span>
+      <fieldset className="mt-5 rounded-lg border border-border bg-card p-4" disabled={busy || loading || !!error}>
+        <legend className="px-2 font-semibold text-foreground">
+          Select Permissions <span className="ml-2 text-xs font-normal text-muted-foreground">{selected.length} selected</span>
         </legend>
-        <label className={styles.permissionSearch}>
+        <Label className="grid gap-2 text-sm text-muted-foreground">
           Search permissions
-          <input
+          <Input
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search module, resource or action"
           />
-        </label>
-        {loading ? <p>Loading production permission catalogue…</p> : null}
-        {error ? <p role="alert">{error}</p> : null}
+        </Label>
+        {loading ? <p className="mt-4 text-sm text-muted-foreground">Loading production permission catalogue…</p> : null}
+        {error ? <Alert className="mt-4" variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}
         {unavailable.length > 0 && !loading ? (
-          <p role="alert">
-            Unavailable existing permissions: {unavailable.join(", ")}. Review the draft before saving.
-          </p>
+          <Alert className="mt-4" variant="destructive"><AlertDescription>Unavailable existing permissions: {unavailable.join(", ")}. Review the draft before saving.</AlertDescription></Alert>
         ) : null}
         {groups.map(([module, definitions]) => {
           const count = definitions.filter((item) => selectedSet.has(item.key)).length;
           return (
-            <details key={module} className={styles.permissionGroup} open={!!search}>
-              <summary>
+            <details key={module} className="border-t border-border" open={!!search}>
+              <summary className="cursor-pointer px-2 py-3.5 text-sm text-primary focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-ring">
                 <strong>{module.replaceAll("_", " ")}</strong>
-                <span>
+                <span className="float-right text-xs text-muted-foreground">
                   {count} / {definitions.length} selected
                 </span>
               </summary>
-              <label className={styles.groupSelection} aria-label={`Select visible permissions in ${module}`}>
+              <label className="flex items-start gap-2.5 bg-muted/70 px-4 py-2.5 text-sm text-muted-foreground" aria-label={`Select visible permissions in ${module}`}>
                 <SelectionCheckbox
                   label={`Select visible permissions in ${module}`}
                   checked={count === definitions.length}
@@ -217,18 +219,17 @@ export default function RoleForm({
                 />
                 Select all {search ? "matching " : ""}permissions in {module}
               </label>
-              <div className={styles.permissionItems}>
+              <div className="grid pb-3 md:grid-cols-2">
                 {definitions.map((item) => (
-                  <label key={item.key} aria-label={item.key}>
-                    <input
-                      type="checkbox"
+                  <label className="flex items-start gap-2.5 px-4 py-2.5 text-sm" key={item.key} aria-label={item.key}>
+                    <Checkbox
                       checked={selectedSet.has(item.key)}
-                      onChange={(event) => toggle([item.key], event.target.checked)}
+                      onCheckedChange={(checked) => toggle([item.key], checked === true)}
                       aria-label={item.key}
                     />
                     <span>
                       <strong>{item.description}</strong>
-                      <small>
+                      <small className="mt-1 block text-xs text-muted-foreground">
                         {item.resource} · {item.key}
                       </small>
                     </span>
@@ -240,16 +241,15 @@ export default function RoleForm({
         })}
         {!loading && !error && groups.length === 0 ? <p>No permissions match your search.</p> : null}
       </fieldset>
-      <footer>
-        <button type="button" onClick={onCancel} disabled={busy}>
+      <footer className="mt-5 flex gap-2">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
           Cancel
-        </button>
-        <button
-          className={styles.primary}
+        </Button>
+        <Button
           disabled={busy || loading || !!error || !name.trim() || selected.length === 0 || unavailable.length > 0}
         >
           Save draft
-        </button>
+        </Button>
       </footer>
     </form>
   );

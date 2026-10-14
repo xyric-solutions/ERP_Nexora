@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardAppearanceMenu } from "@prototype/theme-provider";
+import { DashboardAppearanceMenu } from "@prototype/shared/theme/provider";
+import { Button } from "../../components/ui/button";
 
 import { useSession } from "../../lib/session/session-provider";
 
@@ -46,9 +47,9 @@ export function DashboardHeaderControls() {
             <strong>{user.display_name}</strong>
             <small>{user.email}</small>
           </span>
-          <button type="button" role="menuitem" disabled={signingOut} onClick={() => void signOut()}>
+          <Button variant="ghost" size="sm" type="button" role="menuitem" disabled={signingOut} onClick={() => void signOut()}>
             {signingOut ? "Signing out…" : "Sign out"}
-          </button>
+          </Button>
         </div>
       </details>
     </>

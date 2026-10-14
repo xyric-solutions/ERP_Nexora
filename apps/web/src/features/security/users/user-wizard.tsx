@@ -3,6 +3,10 @@
 import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import type { CreateSecurityUserRequest, SecurityUserOptions } from "@nexora/contracts";
 import { createSecurityUserRequestSchema } from "@nexora/contracts";
+import { Alert, AlertDescription } from "../../../components/ui/alert";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
 
 import {
   clearUserWizardDraft,
@@ -10,7 +14,6 @@ import {
   userWizardSubmissionKey,
   type UserWizardDraft,
 } from "./user-wizard-draft";
-import styles from "./user-management.module.css";
 
 const steps = ["Identity", "Account type", "Companies", "Roles", "Review"] as const;
 
@@ -130,58 +133,58 @@ export default function UserWizard({
   }
 
   return (
-    <form className={styles.wizard} onSubmit={submit} aria-labelledby="new-user-title">
-      <header>
+    <form className="border-b border-border bg-muted/50" onSubmit={submit} aria-labelledby="new-user-title">
+      <header className="flex flex-wrap items-center justify-between gap-4 px-5 py-5">
         <div>
-          <span>Governed account request</span>
-          <h3 id="new-user-title">Create user</h3>
+          <span className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">Governed account request</span>
+          <h3 id="new-user-title" className="mt-1 text-xl font-semibold">Create user</h3>
         </div>
-        <div className={styles.wizardHeaderActions}>
-          {draftRestored ? <span className={styles.draftState}>Draft restored</span> : null}
-          <button type="button" onClick={close} disabled={busy}>
+        <div className="flex items-center gap-2.5">
+          {draftRestored ? <span className="rounded-full bg-[var(--nx-info-soft)] px-2 py-1 text-xs font-medium text-[var(--nx-info)]">Draft restored</span> : null}
+          <Button type="button" variant="outline" onClick={close} disabled={busy}>
             Close and keep draft
-          </button>
+          </Button>
         </div>
       </header>
-      <ol className={styles.steps} aria-label="User creation steps">
+      <ol className="grid grid-cols-5 px-5" aria-label="User creation steps">
         {steps.map((label, index) => (
-          <li key={label} aria-current={step === index ? "step" : undefined}>
-            <b>{index + 1}</b>
+          <li className={`flex items-center gap-2 border-b-3 px-2 py-3 text-xs ${step === index ? "border-primary font-semibold text-primary" : "border-border text-muted-foreground"}`} key={label} aria-current={step === index ? "step" : undefined}>
+            <b className="grid size-5 place-items-center rounded-full bg-muted text-xs">{index + 1}</b>
             {label}
           </li>
         ))}
       </ol>
 
-      <div className={styles.stepBody}>
+      <div className="min-h-46 px-5 py-6">
         {step === 0 ? (
-          <div className={styles.formGrid}>
-            <label>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Label className="grid gap-2 text-sm text-muted-foreground">
               Display name
-              <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
-            </label>
-            <label>
+              <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
+            </Label>
+            <Label className="grid gap-2 text-sm text-muted-foreground">
               Username
-              <input
+              <Input
                 value={username}
                 onChange={(event) => setUsername(event.target.value.toLocaleLowerCase("en-US"))}
                 pattern="[a-z0-9][a-z0-9._-]{2,127}"
                 autoComplete="off"
                 required
               />
-            </label>
-            <label className={styles.spanTwo}>
+            </Label>
+            <Label className="grid gap-2 text-sm text-muted-foreground md:col-span-2">
               Email
-              <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-            </label>
+              <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+            </Label>
           </div>
         ) : step === 1 ? (
-          <div className={styles.accountTypeSection}>
-            <fieldset className={styles.choiceGrid} disabled={busy}>
+          <div className="grid gap-5">
+            <fieldset className="grid gap-3 md:grid-cols-2" disabled={busy}>
               <legend>Is this account for an employee?</legend>
               <label
                 htmlFor={`${accountTypeId}-user`}
                 aria-label="User only"
-                className={accountType === "user" ? styles.choiceSelected : styles.choice}
+                className={accountType === "user" ? "flex justify-between gap-3 rounded-lg border border-primary bg-[var(--nx-selection-background)] p-3" : "flex justify-between gap-3 rounded-lg border border-border bg-card p-3"}
               >
                 <input
                   id={`${accountTypeId}-user`}
@@ -202,7 +205,7 @@ export default function UserWizard({
               <label
                 htmlFor={`${accountTypeId}-employee`}
                 aria-label="Employee"
-                className={accountType === "employee" ? styles.choiceSelected : styles.choice}
+                className={accountType === "employee" ? "flex justify-between gap-3 rounded-lg border border-primary bg-[var(--nx-selection-background)] p-3" : "flex justify-between gap-3 rounded-lg border border-border bg-card p-3"}
               >
                 <input
                   id={`${accountTypeId}-employee`}
@@ -219,7 +222,7 @@ export default function UserWizard({
               </label>
             </fieldset>
             {accountType === "employee" ? (
-              <label className={styles.stackField}>
+              <Label className="grid gap-2 text-sm text-muted-foreground">
                 Employee Master record
                 <select
                   value={employeeId}
@@ -234,23 +237,23 @@ export default function UserWizard({
                     </option>
                   ))}
                 </select>
-                <small>
+                <small className="text-xs text-muted-foreground">
                   {options.employees.length
                     ? "Only employees available within your company access and without an active user link are listed."
                     : "No eligible employees are available. Check the employee's company assignment and existing user link."}
                 </small>
-              </label>
+              </Label>
             ) : (
-              <p className={styles.formHelp}>This account will be created without an employee link.</p>
+              <p className="text-sm text-muted-foreground">This account will be created without an employee link.</p>
             )}
           </div>
         ) : step === 2 ? (
-          <fieldset className={styles.choiceGrid}>
+          <fieldset className="grid gap-3 md:grid-cols-2">
             <legend>Allowed companies and default workspace</legend>
             {options.companies.map((company) => {
               const selected = companyIds.includes(company.id);
               return (
-                <div key={company.id} className={selected ? styles.choiceSelected : styles.choice}>
+                <div key={company.id} className={selected ? "flex justify-between gap-3 rounded-lg border border-primary bg-[var(--nx-selection-background)] p-3" : "flex justify-between gap-3 rounded-lg border border-border bg-card p-3"}>
                   <label htmlFor={`company-${company.id}`} aria-label={`Allow ${company.name}`}>
                     <input
                       id={`company-${company.id}`}
@@ -263,7 +266,7 @@ export default function UserWizard({
                       <small>{company.code}</small>
                     </span>
                   </label>
-                  <label className={styles.defaultChoice} htmlFor={`default-company-${company.id}`}>
+                  <label className="text-xs" htmlFor={`default-company-${company.id}`}>
                     <input
                       id={`default-company-${company.id}`}
                       type="radio"
@@ -279,13 +282,13 @@ export default function UserWizard({
             })}
           </fieldset>
         ) : step === 3 ? (
-          <fieldset className={styles.choiceGrid}>
+          <fieldset className="grid gap-3 md:grid-cols-2">
             <legend>Initial roles</legend>
-            <p>Role authority is checked again by the backend during approval.</p>
+            <p className="text-sm text-muted-foreground md:col-span-2">Role authority is checked again by the backend during approval.</p>
             {options.roles.map((role) => (
               <label
                 key={role.policy_id}
-                className={styles.choice}
+                className="flex justify-between gap-3 rounded-lg border border-border bg-card p-3"
                 htmlFor={`role-${role.policy_id}`}
                 aria-label={`Assign ${role.display_name}`}
               >
@@ -309,16 +312,16 @@ export default function UserWizard({
             ))}
           </fieldset>
         ) : (
-          <div className={styles.review}>
-            <article>
-              <span>Identity</span>
+          <div className="grid gap-3 md:grid-cols-2">
+            <article className="grid gap-1 rounded-lg border border-border bg-card p-3">
+              <span className="text-xs text-muted-foreground">Identity</span>
               <strong>{displayName}</strong>
               <small>
                 {username} · {email}
               </small>
             </article>
-            <article>
-              <span>Account type</span>
+            <article className="grid gap-1 rounded-lg border border-border bg-card p-3">
+              <span className="text-xs text-muted-foreground">Account type</span>
               <strong>{accountType === "employee" ? "Employee" : "User only"}</strong>
               <small>
                 {accountType === "employee"
@@ -327,36 +330,36 @@ export default function UserWizard({
                   : "No employee link"}
               </small>
             </article>
-            <article>
-              <span>Company boundary</span>
+            <article className="grid gap-1 rounded-lg border border-border bg-card p-3">
+              <span className="text-xs text-muted-foreground">Company boundary</span>
               <strong>{companyIds.length} allowed</strong>
               <small>One default selected</small>
             </article>
-            <article>
-              <span>Initial authority</span>
+            <article className="grid gap-1 rounded-lg border border-border bg-card p-3">
+              <span className="text-xs text-muted-foreground">Initial authority</span>
               <strong>
                 {roleIds.length} role{roleIds.length === 1 ? "" : "s"}
               </strong>
             </article>
-            <p>
+            <p className="text-sm text-muted-foreground md:col-span-2">
               Save and submit creates a governed draft for an independent checker. If you close now, your unfinished
               form remains as a draft in this browser session. The account and one-time password do not exist until
               approval.
             </p>
             {!canSubmit ? (
-              <p role="alert">Review your identity, employee selection, and default company before submitting.</p>
+              <Alert className="md:col-span-2" variant="destructive"><AlertDescription>Review your identity, employee selection, and default company before submitting.</AlertDescription></Alert>
             ) : null}
           </div>
         )}
       </div>
 
-      <footer>
-        <button type="button" onClick={() => setStep((value) => Math.max(0, value - 1))} disabled={step === 0 || busy}>
+      <footer className="flex items-center justify-between gap-3 border-t border-border px-5 py-5">
+        <Button type="button" variant="outline" onClick={() => setStep((value) => Math.max(0, value - 1))} disabled={step === 0 || busy}>
           Back
-        </button>
-        <button className={styles.primary} disabled={!canContinue || busy}>
+        </Button>
+        <Button disabled={!canContinue || busy}>
           {busy ? "Saving…" : step === steps.length - 1 ? "Save and submit" : "Continue"}
-        </button>
+        </Button>
       </footer>
     </form>
   );

@@ -13,6 +13,7 @@ import type {
 
 import { NexoraApiClient } from "../api/generated";
 import { BrowserSessionClient } from "../auth/session-client";
+import { apiBaseUrl } from "../../shared/config/runtime";
 
 interface SessionContextValue {
   api: NexoraApiClient;
@@ -30,7 +31,7 @@ interface SessionContextValue {
 const SessionContext = createContext<SessionContextValue | null>(null);
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
-  const api = useMemo(() => new NexoraApiClient(process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000"), []);
+  const api = useMemo(() => new NexoraApiClient(apiBaseUrl()), []);
   const client = useMemo(() => new BrowserSessionClient(api), [api]);
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [loading, setLoading] = useState(true);

@@ -2,12 +2,15 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import type { CreateSecurityAssignmentRequest } from "@nexora/contracts";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
 import { ApiError } from "../../lib/api/generated";
 import { useSession } from "../../lib/session/session-provider";
 import { ActionSelect, RecordDetails, SelectionCheckbox, type RowAction } from "./administration-controls";
 import RoleForm, { roleDraftFromRow } from "./role-form";
 import type { IdentitySection } from "./identity-navigation";
-import styles from "./identity-workspace.module.css";
 
 type Tab = "roles" | "assignments" | "approvals" | "permissions" | "audit";
 type Row = Record<string, unknown>;
@@ -256,12 +259,12 @@ export default function GovernedTable({
   return (
     <>
       {message ? (
-        <p className={styles.notice} role="status">
-          {message}
-        </p>
+        <Alert className="m-5 border-[var(--nx-info-border)] bg-[var(--nx-info-soft)] text-[var(--nx-info)]" role="status">
+          <AlertDescription className="text-[var(--nx-info)]">{message}</AlertDescription>
+        </Alert>
       ) : null}
       {tab === "roles" || tab === "assignments" ? (
-        <label className={styles.historyToggle}>
+        <label className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm text-muted-foreground">
           <input
             type="checkbox"
             checked={includeDeleted}
@@ -311,7 +314,7 @@ export default function GovernedTable({
       ) : null}
       {detail ? <RecordDetails row={detail} onClose={() => setDetail(null)} /> : null}
       {chosen.length ? (
-        <div className={styles.bulkBar}>
+        <div className="flex flex-wrap items-center gap-3 border-b border-[var(--nx-info-border)] bg-[var(--nx-info-soft)] px-5 py-3 text-sm">
           <strong>{chosen.length} selected</strong>
           <ActionSelect
             label="Action for selected records"
@@ -319,9 +322,9 @@ export default function GovernedTable({
             disabled={busy || !!pending}
             onAction={(action) => start(action, chosen)}
           />
-          <button disabled={busy || !!pending} onClick={() => setSelected([])}>
+          <Button variant="outline" size="sm" disabled={busy || !!pending} onClick={() => setSelected([])}>
             Clear selection
-          </button>
+          </Button>
           {bulkActions.length === 0 ? (
             <span>No common permitted action. Edit and user credential approval require a single record.</span>
           ) : null}
@@ -329,73 +332,72 @@ export default function GovernedTable({
       ) : null}
       {pending ? (
         <form
-          className={styles.confirmation}
+          className="border-b border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] px-5 py-5"
           onSubmit={(event) => void confirm(event)}
           aria-label="Confirm administration action"
         >
-          <h3>
+          <h3 className="text-lg font-semibold text-foreground">
             {pending.action === "request_archive" || pending.action === "revoke"
               ? "Confirm soft delete"
               : "Confirm action"}{" "}
             · {pending.rows.length} record(s)
           </h3>
-          <p>
+          <p className="mt-2 text-sm text-muted-foreground">
             {pending.action === "request_archive" || pending.action === "revoke"
               ? "No records are physically erased. Approval archives the role or revokes the assignment, preserving audit history."
               : "Each record is processed separately with existing authorization and maker-checker controls."}
           </p>
-          <ul>
+          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
             {pending.rows.map((row) => (
               <li key={rowId(tab, row)}>{display(row.display_name ?? row.role_code ?? row.request_id)}</li>
             ))}
           </ul>
           {pending.action === "revoke" || pending.action === "rejected" ? (
-            <label>
+            <Label className="mt-4 grid gap-2 text-sm text-muted-foreground">
               Reason
-              <input
+              <Input
                 required
                 maxLength={512}
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
                 disabled={busy}
               />
-            </label>
+            </Label>
           ) : null}
           {pending.action === "edit" && tab === "assignments" ? (
             <>
-              <label>
+              <Label className="mt-4 grid gap-2 text-sm text-muted-foreground">
                 Valid from (ISO timestamp)
-                <input
+                <Input
                   required
                   value={validFrom}
                   onChange={(event) => setValidFrom(event.target.value)}
                   disabled={busy}
                 />
-              </label>
-              <label>
+              </Label>
+              <Label className="mt-4 grid gap-2 text-sm text-muted-foreground">
                 Valid until (ISO timestamp, optional)
-                <input value={validUntil} onChange={(event) => setValidUntil(event.target.value)} disabled={busy} />
-              </label>
+                <Input value={validUntil} onChange={(event) => setValidUntil(event.target.value)} disabled={busy} />
+              </Label>
             </>
           ) : null}
-          <div>
-            <button type="button" disabled={busy} onClick={() => setPending(null)}>
+          <div className="mt-5 flex gap-2">
+            <Button type="button" variant="outline" disabled={busy} onClick={() => setPending(null)}>
               Cancel
-            </button>
-            <button
-              className={styles.primary}
+            </Button>
+            <Button
               disabled={busy || ((pending.action === "revoke" || pending.action === "rejected") && !reason.trim())}
             >
               Confirm{tab === "approvals" ? " decision" : " and submit"}
-            </button>
+            </Button>
           </div>
         </form>
       ) : null}
-      <div className={styles.tableWrap}>
-        <table>
-          <thead>
+      <div className="overflow-auto">
+        <table className="w-full min-w-180 border-collapse text-sm">
+          <thead className="bg-muted/60">
             <tr>
-              <th scope="col">
+              <th className="px-3.5 py-3 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase" scope="col">
                 <SelectionCheckbox
                   label="Select all visible records"
                   checked={visible.length > 0 && chosen.length === visible.length}
@@ -405,17 +407,17 @@ export default function GovernedTable({
                 />
               </th>
               {columns[tab].map((column) => (
-                <th scope="col" key={column}>
+                <th className="px-3.5 py-3 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase" scope="col" key={column}>
                   {column.replaceAll("_", " ")}
                 </th>
               ))}
-              <th scope="col">Action</th>
+              <th className="px-3.5 py-3 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase" scope="col">Action</th>
             </tr>
           </thead>
           <tbody>
             {visible.map((row) => (
-              <tr key={rowId(tab, row)}>
-                <td>
+              <tr className="border-t border-border" key={rowId(tab, row)}>
+                <td className="max-w-80 px-3.5 py-3 align-top">
                   <SelectionCheckbox
                     label={`Select ${display(row.display_name ?? row.role_code ?? row.permission_key ?? row.request_id ?? row.id)}`}
                     checked={selected.includes(rowId(tab, row))}
@@ -428,9 +430,9 @@ export default function GovernedTable({
                   />
                 </td>
                 {columns[tab].map((column) => (
-                  <td key={column}>{display(row[column])}</td>
+                  <td className="max-w-80 truncate px-3.5 py-3 align-top" key={column}>{display(row[column])}</td>
                 ))}
-                <td>
+                <td className="max-w-80 px-3.5 py-3 align-top">
                   <ActionSelect
                     label={`Action for ${display(row.display_name ?? row.role_code ?? row.permission_key ?? row.request_id ?? row.id)}`}
                     actions={actions(row)}
@@ -443,7 +445,7 @@ export default function GovernedTable({
           </tbody>
         </table>
         {visible.length === 0 ? (
-          <p className={styles.state}>No current records. Enable historical records to view retained entries.</p>
+          <p className="p-9 text-center text-sm text-muted-foreground">No current records. Enable historical records to view retained entries.</p>
         ) : null}
       </div>
     </>
