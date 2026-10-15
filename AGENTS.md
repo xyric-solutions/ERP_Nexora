@@ -32,6 +32,53 @@ more specific instruction.
 Do not move files merely to make paths look shorter. Keep the current module
 boundaries unless a requested refactor needs a clearly shared abstraction.
 
+## Backend, API and data safety rules
+
+- Treat `server/api` as the single reusable backend boundary for the web ERP
+  and any future mobile application. Keep public endpoints versioned under
+  `/api/v1` and evolve contracts compatibly.
+- Do not connect browser code, Next.js pages, mobile clients or feature views
+  directly to PostgreSQL, Redis or MinIO. They must use the API. Do not create
+  a duplicate Next.js `app/api` implementation of existing API behavior unless
+  the user explicitly requests a backend architecture migration.
+- Keep the dependency direction: client -> API route -> authentication and
+  authorization -> feature service -> repository -> database or infrastructure.
+  Business rules, permissions, posting rules and audit writes belong on the
+  server, never solely in UI code.
+- Reuse `packages/contracts` for request/response schemas and OpenAPI output.
+  Update the contract, generated client and API implementation together when
+  an endpoint changes; avoid hand-written, drifting copies of API types.
+- Scope every business-data query and mutation to the authenticated tenant,
+  company and permitted role. Authenticate and authorize on the server even
+  when the interface already hides an action.
+- Validate every API request on the server. Return the standard problem/error
+  format, apply pagination and bounded filtering to list endpoints, and avoid
+  exposing internal errors, stack traces, credentials or infrastructure URLs.
+- Use database migrations in `packages/db` for schema changes. Do not change
+  a shared database manually or rely on a UI fixture as a persistent data
+  source. Make migrations additive and reversible where practical; preserve
+  tenant isolation, foreign keys, indexes and audit requirements.
+- Treat banking, payroll, stock, accounting and other posting workflows as
+  high-risk. Use explicit lifecycle states (for example draft, submitted,
+  approved, posted), server-side approval/permission checks, immutable audit
+  history, transaction boundaries and idempotency keys before enabling live
+  posting. Do not silently turn a mock action into a real financial action.
+- Use Redis only for appropriate transient concerns such as sessions,
+  throttling, selections, queues and caching; PostgreSQL remains the source of
+  truth for ERP business records. Use `server/worker` for asynchronous work,
+  with durable job state where required.
+- The browser web session is cookie-based. If mobile support is added, keep
+  the same API/domain contracts but design a dedicated short-lived access-token
+  and refresh-token flow with secure device storage; never reuse database
+  credentials or embed long-lived secrets in a mobile app.
+- Migrate mock screens through a feature-level data adapter: schema/migration
+  -> repository -> service -> documented API -> API tests -> generated client
+  -> screen. Keep a deliberate mock fallback only while that feature is being
+  transitioned, and remove it only after end-to-end verification.
+- Before reporting a feature as live, verify migrations, authorization,
+  validation, audit behavior, API integration tests, frontend integration and
+  a production build. Clearly label unfinished interfaces as mock/prototype.
+
 ## Tailwind and CSS migration rules
 
 - Use Tailwind classes for all new UI and for presentation work on an existing
