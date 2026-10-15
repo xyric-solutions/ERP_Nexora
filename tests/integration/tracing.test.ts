@@ -6,9 +6,9 @@ import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { createApp } from "../../apps/api/src/app.js";
-import { PostgresJobExecutionRepository } from "../../apps/worker/src/job-repository.js";
-import { processQueuedJob } from "../../apps/worker/src/runtime.js";
+import { createApp } from "../../server/api/src/app.js";
+import { PostgresJobExecutionRepository } from "../../server/worker/src/job-repository.js";
+import { processQueuedJob } from "../../server/worker/src/runtime.js";
 import { createDatabasePool } from "../../packages/db/src/pool.js";
 import { migrate } from "../../packages/db/src/migrations.js";
 import { createLogger, createMetrics } from "../../packages/observability/src/index.js";

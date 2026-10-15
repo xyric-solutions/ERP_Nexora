@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError, NexoraApiClient } from "../../apps/web/src/lib/api/generated.js";
-import { buildSecurityUserListQuery } from "../../apps/web/src/features/security/users/user-list-query.js";
+import { ApiError, NexoraApiClient } from "../../app/lib/api/generated.js";
+import { buildSecurityUserListQuery } from "../../app/features/security/users/user-list-query.js";
 import {
   clearUserWizardDraft,
   loadUserWizardDraft,
@@ -10,7 +10,7 @@ import {
   userWizardSubmissionKey,
   type DraftStorage,
   type UserWizardDraft,
-} from "../../apps/web/src/features/security/users/user-wizard-draft.js";
+} from "../../app/features/security/users/user-wizard-draft.js";
 
 class MemoryStorage implements DraftStorage {
   readonly values = new Map<string, string>();

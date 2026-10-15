@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Source_Sans_3 } from "next/font/google";
 
+import { TooltipProvider } from "./components/ui/tooltip";
+import { SessionProvider } from "./lib/session/session-provider";
+import { appUrl } from "./shared/config/runtime";
 import { themeInitializationScript } from "./shared/theme/config";
 import { ThemeProvider } from "./shared/theme/provider";
 import { application } from "./shared/constants/application";
@@ -26,6 +29,7 @@ import "./features/drill/drill.css";
 import "./features/reports/styles/reports-workspace.css";
 import "./features/manufacturing/styles/manufacturing-workspace.css";
 import "./shared/styles/print.css";
+import "./globals.css";
 
 const nexoraSans = Source_Sans_3({
   variable: "--font-nx-sans",
@@ -42,6 +46,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: application.title,
   description: application.description,
+  metadataBase: new URL(appUrl()),
   openGraph: {
     title: application.title,
     description: application.description,
@@ -71,7 +76,11 @@ export default function RootLayout({
         <script id="nexora-theme-init" dangerouslySetInnerHTML={{ __html: themeInitializationScript }} />
       </head>
       <body className={`${nexoraSans.variable} ${geistMono.variable} antialiased`}>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <TooltipProvider>
+            <SessionProvider>{children}</SessionProvider>
+          </TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

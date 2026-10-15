@@ -5,8 +5,8 @@ import { Queue, QueueEvents } from "bullmq";
 import { Redis } from "ioredis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { PostgresJobExecutionRepository } from "../../apps/worker/src/job-repository.js";
-import { createJobRuntime } from "../../apps/worker/src/runtime.js";
+import { PostgresJobExecutionRepository } from "../../server/worker/src/job-repository.js";
+import { createJobRuntime } from "../../server/worker/src/runtime.js";
 import { createDatabasePool } from "../../packages/db/src/pool.js";
 import { migrateSourceSchema } from "../../packages/db/src/source-migrations.js";
 import { createLogger } from "../../packages/observability/src/index.js";

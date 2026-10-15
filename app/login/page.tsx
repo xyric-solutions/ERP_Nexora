@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import type { PasswordChangeRequiredResponse, TenantSelectionRequiredResponse } from "@nexora/contracts";
 import { AlertCircle, Building2, Eye, EyeOff, ShieldCheck } from "lucide-react";
 
-import { useSession } from "../../src/lib/session/session-provider";
-import { Alert, AlertDescription } from "../../src/components/ui/alert";
-import { Button } from "../../src/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader } from "../../src/components/ui/card";
-import { Input } from "../../src/components/ui/input";
-import { Label } from "../../src/components/ui/label";
+import { useSession } from "../lib/session/session-provider";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader } from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 
 export default function LoginPage() {
   const router = useRouter();

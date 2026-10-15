@@ -78,7 +78,7 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       API_HOST: ${API_HOST:-0.0.0.0}
       API_PORT: 4000
-      API_ALLOWED_ORIGINS: ${API_ALLOWED_ORIGINS:-http://localhost:3000}
+      API_ALLOWED_ORIGINS: ${API_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001}
       API_TRUST_PROXY_HOPS: ${API_TRUST_PROXY_HOPS:-0}
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
       DATABASE_AUTO_MIGRATE: "false"
@@ -115,7 +115,7 @@ services:
       migration: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
     healthcheck:
-      test: ["CMD", "node", "apps/worker/dist/healthcheck.js"]
+      test: ["CMD", "node", "server/worker/dist/healthcheck.js"]
       interval: 10s
       timeout: 5s
       retries: 20

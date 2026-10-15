@@ -3,8 +3,8 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { PolicyAdministrationService, PolicyService } from "../../packages/auth/src/index.js";
-import { PostgresPolicyAdministrationRepository } from "../../apps/api/src/modules/auth/policy-administration-repository.js";
-import { PostgresPolicySnapshotRepository } from "../../apps/api/src/modules/auth/policy-repository.js";
+import { PostgresPolicyAdministrationRepository } from "../../server/api/src/modules/auth/policy-administration-repository.js";
+import { PostgresPolicySnapshotRepository } from "../../server/api/src/modules/auth/policy-repository.js";
 import { migrate } from "../../packages/db/src/migrations.js";
 import { createDatabasePool } from "../../packages/db/src/pool.js";
 import { createLegacyBootstrapAdministrator } from "./legacy-security-fixture.js";

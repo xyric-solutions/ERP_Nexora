@@ -8,7 +8,7 @@ import {
   SecurityAdministrationError,
   SourceSecurityAdministrationRepository,
   type SecurityActorContext,
-} from "../../apps/api/src/modules/security/source-administration-repository.js";
+} from "../../server/api/src/modules/security/source-administration-repository.js";
 import { ensureSourceAuthorizationFixture, sourceTestTenantId } from "./source-security-fixture.js";
 
 const runtimeUrl = process.env.TEST_SOURCE_DATABASE_URL;

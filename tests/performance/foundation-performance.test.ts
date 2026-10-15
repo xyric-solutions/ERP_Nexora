@@ -3,7 +3,7 @@ import { PassThrough } from "node:stream";
 import { expect, it, vi } from "vitest";
 import request from "supertest";
 
-import { createApp } from "../../apps/api/src/app.js";
+import { createApp } from "../../server/api/src/app.js";
 import { createLogger, createMetrics } from "../../packages/observability/src/index.js";
 import { evaluatePolicy, type PolicySnapshot } from "../../packages/auth/src/index.js";
 

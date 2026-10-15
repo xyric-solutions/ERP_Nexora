@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 
 const appDir = fileURLToPath(new URL("../app/", import.meta.url));
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
-const webDir = fileURLToPath(new URL("../apps/web/", import.meta.url));
+const webDir = fileURLToPath(new URL("../", import.meta.url));
 
 async function sourceFiles(root, extensions) {
   const found = [];
@@ -109,9 +109,9 @@ test("design token responsibilities remain separated", async () => {
 
 test("production route styles consume centralized semantic colors", async () => {
   const styleUrls = [
-    new URL("../apps/web/app/login/login.module.css", import.meta.url),
-    new URL("../apps/web/src/features/security/identity-workspace.module.css", import.meta.url),
-    new URL("../apps/web/src/features/security/users/user-management.module.css", import.meta.url),
+    new URL("../app/login/login.module.css", import.meta.url),
+    new URL("../app/features/security/identity-workspace.module.css", import.meta.url),
+    new URL("../app/features/security/users/user-management.module.css", import.meta.url),
   ];
   for (const url of styleUrls) {
     const source = code(await readFile(url, "utf8"));

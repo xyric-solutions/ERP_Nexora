@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { BrowserSessionClient } from "../../apps/web/src/lib/auth/session-client.js";
+import { BrowserSessionClient } from "../../app/lib/auth/session-client.js";
 
 const session = {
   status: "authenticated" as const,

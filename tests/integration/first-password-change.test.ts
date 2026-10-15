@@ -14,11 +14,11 @@ import {
 } from "../../packages/auth/src/index.js";
 import { createDatabasePool, type DatabasePool } from "../../packages/db/src/index.js";
 import { createLogger, createMetrics } from "../../packages/observability/src/index.js";
-import { createApp } from "../../apps/api/src/app.js";
-import { RedisLoginThrottleStore } from "../../apps/api/src/modules/auth/redis-throttle-store.js";
-import { RedisPasswordChangeTicketStore } from "../../apps/api/src/modules/auth/redis-password-change-store.js";
-import { RedisTenantSessionStore } from "../../apps/api/src/modules/auth/redis-session-store.js";
-import { SourceTenantAuthenticationRepository } from "../../apps/api/src/modules/auth/source-repository.js";
+import { createApp } from "../../server/api/src/app.js";
+import { RedisLoginThrottleStore } from "../../server/api/src/modules/auth/redis-throttle-store.js";
+import { RedisPasswordChangeTicketStore } from "../../server/api/src/modules/auth/redis-password-change-store.js";
+import { RedisTenantSessionStore } from "../../server/api/src/modules/auth/redis-session-store.js";
+import { SourceTenantAuthenticationRepository } from "../../server/api/src/modules/auth/source-repository.js";
 import { ensureSourceTestTenant, sourceTestTenantId } from "./source-security-fixture.js";
 
 const runtimeDatabaseUrl = process.env.TEST_SOURCE_DATABASE_URL;

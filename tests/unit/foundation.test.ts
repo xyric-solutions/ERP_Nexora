@@ -3,10 +3,10 @@ import { PassThrough } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
 import request from "supertest";
 
-import { createApp } from "../../apps/api/src/app.js";
-import { loadConfig } from "../../apps/api/src/config.js";
-import { FileSigningService } from "../../apps/api/src/modules/files/service.js";
-import { processSampleJob } from "../../apps/worker/src/jobs/sample.js";
+import { createApp } from "../../server/api/src/app.js";
+import { loadConfig } from "../../server/api/src/config.js";
+import { FileSigningService } from "../../server/api/src/modules/files/service.js";
+import { processSampleJob } from "../../server/worker/src/jobs/sample.js";
 import { verifyObjectMetadata } from "../../packages/domain/src/storage/object-storage.js";
 import { createLogger, createMetrics } from "../../packages/observability/src/index.js";
 

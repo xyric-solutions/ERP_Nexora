@@ -5,7 +5,9 @@ const environmentSchema = z
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     API_HOST: z.string().default("127.0.0.1"),
     API_PORT: z.coerce.number().int().min(1).max(65_535).default(4000),
-    API_ALLOWED_ORIGINS: z.string().default("http://localhost:3000"),
+    API_ALLOWED_ORIGINS: z
+      .string()
+      .default("http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001"),
     API_TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
     DATABASE_URL: z.string().url(),
     DATABASE_AUTO_MIGRATE: z.enum(["true", "false"]).default("false"),

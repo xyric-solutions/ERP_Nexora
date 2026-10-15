@@ -3,15 +3,15 @@ import { PassThrough } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
 import request from "supertest";
 
-import { createApp } from "../../apps/api/src/app.js";
+import { createApp } from "../../server/api/src/app.js";
 import {
   clearSessionCookie,
   readSessionCookie,
   serializeSessionCookie,
-} from "../../apps/api/src/modules/auth/cookies.js";
+} from "../../server/api/src/modules/auth/cookies.js";
 import { createLogger, createMetrics, redactSensitive } from "../../packages/observability/src/index.js";
 import { evaluatePolicy } from "../../packages/auth/src/index.js";
-import type { SecurityAdministrationApiRepository } from "../../apps/api/src/modules/security/router.js";
+import type { SecurityAdministrationApiRepository } from "../../server/api/src/modules/security/router.js";
 
 describe("foundation security", () => {
   it("redacts sensitive values recursively", () => {

@@ -22,7 +22,7 @@ it("enforces dependency direction at workspace boundaries", async () => {
     { directory: "packages/contracts/src", forbidden: ["@nexora/db", "@nexora/domain", "apps/"] },
     { directory: "packages/auth/src", forbidden: ["@nexora/db", "apps/"] },
     { directory: "packages/domain/src", forbidden: ["@nexora/db", "apps/"] },
-    { directory: "apps/web", forbidden: ["@nexora/db", "bullmq", "ioredis", "pg"] },
+    { directory: "app", forbidden: ["@nexora/db", "bullmq", "ioredis", "pg"] },
     { directory: "app", forbidden: ["@nexora/db", "@nexora/domain", "bullmq", "ioredis", "pg"] },
   ];
   const violations: string[] = [];

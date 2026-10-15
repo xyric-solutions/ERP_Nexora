@@ -5,10 +5,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SecurityUserDetail, SecurityUserOptions } from "@nexora/contracts";
 
-import UserDetail from "../../apps/web/src/features/security/users/user-detail.js";
-import UserWizard from "../../apps/web/src/features/security/users/user-wizard.js";
-import UserManagementPanel from "../../apps/web/src/features/security/users/user-management-panel.js";
-import type { UserWizardDraft } from "../../apps/web/src/features/security/users/user-wizard-draft.js";
+import UserDetail from "../../app/features/security/users/user-detail.js";
+import UserWizard from "../../app/features/security/users/user-wizard.js";
+import UserManagementPanel from "../../app/features/security/users/user-management-panel.js";
+import type { UserWizardDraft } from "../../app/features/security/users/user-wizard-draft.js";
 
 const api = vi.hoisted(() => ({
   listSecurityUsers: vi.fn(),
@@ -17,7 +17,7 @@ const api = vi.hoisted(() => ({
   createSecurityUserRequest: vi.fn(),
   actOnSecurityUserRequest: vi.fn(),
 }));
-vi.mock("../../apps/web/src/lib/session/session-provider", () => ({
+vi.mock("../../app/lib/session/session-provider", () => ({
   useSession: () => ({
     api,
     csrfToken: () => "synthetic-csrf",

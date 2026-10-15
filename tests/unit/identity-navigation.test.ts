@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { identityHref, identityLocation } from "../../apps/web/src/features/security/identity-navigation.js";
+import { identityHref, identityLocation } from "../../app/features/security/identity-navigation.js";
 
 describe("two-tab Identity workspace deep links", () => {
   it.each([

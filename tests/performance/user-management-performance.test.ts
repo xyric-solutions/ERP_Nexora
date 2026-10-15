@@ -5,7 +5,7 @@ import { createDatabasePool, type DatabasePool } from "../../packages/db/src/ind
 import {
   SourceSecurityAdministrationRepository,
   type SecurityActorContext,
-} from "../../apps/api/src/modules/security/source-administration-repository.js";
+} from "../../server/api/src/modules/security/source-administration-repository.js";
 import { ensureSourceAuthorizationFixture, sourceTestTenantId } from "../integration/source-security-fixture.js";
 
 const databaseUrl = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL;

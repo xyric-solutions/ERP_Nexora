@@ -3,7 +3,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import IdentityWorkspace from "../../apps/web/src/features/security/identity-workspace.js";
+import IdentityWorkspace from "../../app/features/security/identity-workspace.js";
 
 const state = vi.hoisted(() => ({
   search: new URLSearchParams(),
@@ -28,7 +28,7 @@ vi.mock("@prototype/theme-provider", () => ({
   ThemeSelector: ({ label }: { label: string }) =>
     createElement("select", { "aria-label": label }, createElement("option", { value: "system" }, "System")),
 }));
-vi.mock("../../apps/web/src/lib/session/session-provider", () => ({
+vi.mock("../../app/lib/session/session-provider", () => ({
   useSession: () => ({
     api: state.api,
     session: state.session,
@@ -37,10 +37,10 @@ vi.mock("../../apps/web/src/lib/session/session-provider", () => ({
     csrfToken: () => "synthetic-csrf",
   }),
 }));
-vi.mock("../../apps/web/src/features/security/users/user-management-panel", () => ({
+vi.mock("../../app/features/security/users/user-management-panel", () => ({
   default: () => createElement("div", null, "User account list"),
 }));
-vi.mock("../../apps/web/src/features/security/governed-table", () => ({
+vi.mock("../../app/features/security/governed-table", () => ({
   default: ({ tab }: { tab: string }) => createElement("div", null, `Governed ${tab} records`),
 }));
 let container: HTMLDivElement;

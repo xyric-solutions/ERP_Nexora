@@ -4,7 +4,7 @@ import { Redis } from "ioredis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { TenantSelectionService, type PasswordVerifiedAccount } from "../../packages/auth/src/index.js";
-import { RedisTenantSelectionStore } from "../../apps/api/src/modules/auth/redis-tenant-selection-store.js";
+import { RedisTenantSelectionStore } from "../../server/api/src/modules/auth/redis-tenant-selection-store.js";
 
 const redisUrl = process.env.TEST_SOURCE_REDIS_URL;
 const run = redisUrl ? describe : describe.skip;

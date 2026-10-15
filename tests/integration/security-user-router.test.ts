@@ -7,8 +7,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { AuthenticatedAccount, TenantSessionView } from "../../packages/auth/src/index.js";
 import { createDatabasePool, type DatabasePool } from "../../packages/db/src/index.js";
 import { createLogger, createMetrics } from "../../packages/observability/src/index.js";
-import { createApp } from "../../apps/api/src/app.js";
-import { SourceSecurityAdministrationRepository } from "../../apps/api/src/modules/security/source-administration-repository.js";
+import { createApp } from "../../server/api/src/app.js";
+import { SourceSecurityAdministrationRepository } from "../../server/api/src/modules/security/source-administration-repository.js";
 import { ensureSourceAuthorizationFixture, sourceTestTenantId } from "./source-security-fixture.js";
 
 const databaseUrl = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL;

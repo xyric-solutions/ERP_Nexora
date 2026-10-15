@@ -3,9 +3,9 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import RoleForm, { roleDraftFromRow } from "../../apps/web/src/features/security/role-form.js";
-import GovernedTable from "../../apps/web/src/features/security/governed-table.js";
-import { ApiError } from "../../apps/web/src/lib/api/generated.js";
+import RoleForm, { roleDraftFromRow } from "../../app/features/security/role-form.js";
+import GovernedTable from "../../app/features/security/governed-table.js";
+import { ApiError } from "../../app/lib/api/generated.js";
 
 const api = vi.hoisted(() => ({
   listSecurityPermissions: vi.fn(),
@@ -14,7 +14,7 @@ const api = vi.hoisted(() => ({
   actOnSecurityAssignmentRequest: vi.fn(),
   decideSecurityApproval: vi.fn(),
 }));
-vi.mock("../../apps/web/src/lib/session/session-provider", () => ({
+vi.mock("../../app/lib/session/session-provider", () => ({
   useSession: () => ({ api, csrfToken: () => "synthetic-csrf", session: { user: { id: "maker-ui" } } }),
 }));
 const definitions = [
