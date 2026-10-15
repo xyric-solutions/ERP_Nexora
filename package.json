@@ -25,7 +25,7 @@
     "format": "prettier --write \"app/**/*.{ts,tsx,json}\" \"server/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"tests/{unit,integration,contract,security,performance,e2e}/**/*.{ts,tsx}\" \"*.{ts,json}\"",
     "format:check": "prettier --check \"app/**/*.{ts,tsx,json}\" \"server/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"tests/{unit,integration,contract,security,performance,e2e}/**/*.{ts,tsx}\" \"*.{ts,json}\"",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern coverage --ignore-pattern playwright-report --ignore-pattern test-results",
-    "typecheck": "tsc --noEmit --pretty false && tsc -b --pretty false packages/contracts packages/observability packages/auth packages/db packages/domain packages/testing server/api server/worker",
+    "typecheck": "tsc -b --pretty false packages/contracts packages/observability packages/auth packages/db packages/domain packages/testing server/api server/worker && tsc --noEmit --pretty false",
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:integration": "cross-env TEST_SOURCE_DATABASE_URL=postgresql://nexora@127.0.0.1:55433/nexora_source_test TEST_SOURCE_BOOTSTRAP_DATABASE_URL=postgresql://nexora@127.0.0.1:55433/nexora_source_test TEST_SOURCE_REDIS_URL=redis://127.0.0.1:56380 vitest run --config vitest.integration.config.ts",
     "test:contract": "vitest run --config vitest.contract.config.ts",

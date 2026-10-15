@@ -19,6 +19,7 @@ import { RedisTenantSessionStore } from "./modules/auth/redis-session-store.js";
 import { RedisTenantSelectionStore } from "./modules/auth/redis-tenant-selection-store.js";
 import { SourceTenantAuthenticationRepository } from "./modules/auth/source-repository.js";
 import { SourceSecurityAdministrationRepository } from "./modules/security/source-administration-repository.js";
+import { SourceHrRepository } from "./modules/hr/source-repository.js";
 
 const config = loadConfig();
 const logger = createLogger();
@@ -60,6 +61,7 @@ const app = createApp({
   passwordChangeService,
   sessionService,
   securityRepository: new SourceSecurityAdministrationRepository(pool, config.authLoginDirectorySecret),
+  hrRepository: new SourceHrRepository(pool),
   readiness: {
     service: async () => {
       if (draining) throw new Error("service is draining");
@@ -73,6 +75,12 @@ const app = createApp({
         signal: AbortSignal.timeout(3_000),
       });
       if (!response.ok) throw new Error("object storage is unavailable");
+    },
+    hr_foundation: async () => {
+      const result = await pool.query<{ available: boolean }>(
+        "select to_regclass('public.employee') is not null and to_regclass('public.hr_master_record') is not null and to_regclass('public.hr_employee_draft_scope') is not null as available",
+      );
+      if (!result.rows[0]?.available) throw new Error("The current HR foundation migration is required");
     },
   },
 });

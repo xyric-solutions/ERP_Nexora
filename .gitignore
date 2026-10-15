@@ -64,7 +64,3 @@ __pycache__/
 .ruff_cache/
 docs/superpowers/specs/2026-10-01-hr-emp-02f-b-employee-workspace-design.md
 docs/production-deployment-runbook.md
-
-apps/web/CLAUDE.md
-docs/architecture/mvp-structure.md
-docs/architecture/remaining-ui-migration.md
