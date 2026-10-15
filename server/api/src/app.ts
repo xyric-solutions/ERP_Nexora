@@ -21,6 +21,8 @@ import {
   type TenantSessionApiService,
 } from "./modules/auth/tenant-router.js";
 import { createJobsRouter, type JobPublisher } from "./modules/jobs/router.js";
+import { createHrRouter } from "./modules/hr/router.js";
+import type { SourceHrRepository } from "./modules/hr/source-repository.js";
 import { createSecurityRouter } from "./modules/security/router.js";
 import type { SecurityAdministrationApiRepository } from "./modules/security/router.js";
 
@@ -34,6 +36,37 @@ export interface AppDependencies {
   passwordChangeService?: PasswordChangeApiService;
   sessionService?: TenantSessionApiService;
   securityRepository?: SecurityAdministrationApiRepository;
+  hrRepository?: Pick<
+    SourceHrRepository,
+    | "listCompanies"
+    | "listEmployees"
+    | "getEmployee"
+    | "listEmployeeDrafts"
+    | "getEmployeeDraft"
+    | "listEmployeeDraftApprovals"
+    | "getEmployeeDraftApproval"
+    | "listMasters"
+    | "createEmployeeDraft"
+    | "updateEmployeeDraft"
+    | "submitEmployeeDraft"
+    | "decideEmployeeDraftApproval"
+    | "createProfileDraftAssignment"
+    | "listEmployeeContacts"
+    | "createEmployeeContact"
+    | "listEmployeeEmergencyContacts"
+    | "createEmployeeEmergencyContact"
+    | "listEmployeeDocuments"
+    | "listEmployeeAssignments"
+    | "listEmployeeStatusHistory"
+    | "listEmploymentLifecyclePolicies"
+    | "createEmploymentLifecyclePolicy"
+    | "submitEmploymentLifecyclePolicy"
+    | "approveEmploymentLifecyclePolicy"
+    | "activateEmploymentLifecyclePolicy"
+    | "createJob"
+    | "createEmployeeHireRequest"
+    | "decideEmployeeHireRequest"
+  >;
   jobPublisher?: JobPublisher;
   readiness: Record<string, () => Promise<void>>;
   version?: string;
@@ -71,6 +104,18 @@ export function createApp(dependencies: AppDependencies): Express {
       "/api/v1/security",
       createSecurityRouter({
         repository: dependencies.securityRepository,
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
+  }
+  if (dependencies.hrRepository && dependencies.authService && dependencies.sessionService) {
+    app.use(
+      "/api/v1/hr",
+      createHrRouter({
+        repository: dependencies.hrRepository,
         authentication: dependencies.authService,
         sessions: dependencies.sessionService,
         secureCookies: dependencies.config.nodeEnv === "production",

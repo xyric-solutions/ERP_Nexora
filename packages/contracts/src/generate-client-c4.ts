@@ -14,6 +14,45 @@ import type {
   AuthenticationCompletionResponse,
   ChangeInitialPasswordRequest,
   HealthStatus,
+  HrEmployeeDetail,
+  HrEmployeeDraftDirectory,
+  HrEmployeeDraftDetail,
+  HrEmployeeDraftApprovalQueue,
+  HrEmployeeDraftApprovalDetail,
+  HrEmployeeDirectory,
+  HrCompanyDirectory,
+  CreateHrEmployeeDraftRequest,
+  UpdateHrEmployeeDraftRequest,
+  SubmitHrEmployeeDraftRequest,
+  DecideHrEmployeeDraftApprovalRequest,
+  CreateHrProfileDraftAssignmentRequest,
+  HrProfileDraftAssignmentResult,
+  HrEmployeeDraftResult,
+  HrMasterDirectory,
+  HrEmployeeContactDirectory,
+  CreateHrEmployeeContactRequest,
+  HrEmployeeContactResult,
+  HrEmployeeEmergencyContactDirectory,
+  CreateHrEmployeeEmergencyContactRequest,
+  HrEmployeeEmergencyContactResult,
+  HrEmployeeDocumentDirectory,
+  HrEmployeeAssignmentDirectory,
+  HrEmployeeStatusHistoryDirectory,
+  HrEmploymentLifecyclePolicyDirectory,
+  CreateHrEmploymentLifecyclePolicyRequest,
+  HrEmploymentLifecyclePolicyResult,
+  SubmitHrEmploymentLifecyclePolicyRequest,
+  HrEmploymentLifecyclePolicySubmissionResult,
+  ApproveHrEmploymentLifecyclePolicyRequest,
+  HrEmploymentLifecyclePolicyApprovalResult,
+  ActivateHrEmploymentLifecyclePolicyRequest,
+  HrEmploymentLifecyclePolicyActivationResult,
+  CreateHrJobRequest,
+  CreateHrEmployeeHireRequest,
+  HrEmployeeHireRequestResult,
+  DecideHrEmployeeHireRequest,
+  HrEmployeeHireDecisionResult,
+  HrJobResult,
   JobReceipt,
   PasswordLoginRequest,
   PasswordLoginResponse,
@@ -126,6 +165,62 @@ export class NexoraApiClient {
   listSecurityUsers(query = ""): Promise<SecurityUserPage> { return this.request(\`/api/v1/security/users\${query}\`); }
   getSecurityUser(userId: string): Promise<SecurityUserDetail> { return this.request(\`/api/v1/security/users/\${encodeURIComponent(userId)}\`); }
   listSecurityUserOptions(): Promise<SecurityUserOptions> { return this.request("/api/v1/security/user_options"); }
+  listHrEmployees(query: string): Promise<HrEmployeeDirectory> { return this.request(\`/api/v1/hr/employees\${query}\`); }
+  listHrCompanies(): Promise<HrCompanyDirectory> { return this.request("/api/v1/hr/companies"); }
+  getHrEmployee(employeeId: string): Promise<HrEmployeeDetail> { return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(employeeId)}\`); }
+  listHrEmployeeDrafts(query: string): Promise<HrEmployeeDraftDirectory> { return this.request(\`/api/v1/hr/employee_drafts\${query}\`); }
+  getHrEmployeeDraft(employeeId: string): Promise<HrEmployeeDraftDetail> { return this.request(\`/api/v1/hr/employee_drafts/\${encodeURIComponent(employeeId)}\`); }
+  listHrEmployeeDraftApprovals(query: string): Promise<HrEmployeeDraftApprovalQueue> { return this.request(\`/api/v1/hr/employee_draft_approvals\${query}\`); }
+  getHrEmployeeDraftApproval(employeeId: string): Promise<HrEmployeeDraftApprovalDetail> { return this.request(\`/api/v1/hr/employee_draft_approvals/\${encodeURIComponent(employeeId)}\`); }
+  updateHrEmployeeDraft(employeeId: string, payload: UpdateHrEmployeeDraftRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeDraftResult> {
+    return this.request(\`/api/v1/hr/employee_drafts/\${encodeURIComponent(employeeId)}\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  submitHrEmployeeDraft(employeeId: string, payload: SubmitHrEmployeeDraftRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeDraftResult> {
+    return this.request(\`/api/v1/hr/employee_drafts/\${encodeURIComponent(employeeId)}/submit\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  decideHrEmployeeDraftApproval(employeeId: string, payload: DecideHrEmployeeDraftApprovalRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeDraftResult> {
+    return this.request(\`/api/v1/hr/employee_drafts/\${encodeURIComponent(employeeId)}/approval_decision\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  createHrProfileDraftAssignment(employeeId: string, payload: CreateHrProfileDraftAssignmentRequest, csrfToken: string, idempotencyKey: string): Promise<HrProfileDraftAssignmentResult> {
+    return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(employeeId)}/profile_draft_assignment\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  listHrEmployeeContacts(employeeId: string): Promise<HrEmployeeContactDirectory> { return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(employeeId)}/contacts\`); }
+  createHrEmployeeContact(employeeId: string, payload: CreateHrEmployeeContactRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeContactResult> {
+    return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(employeeId)}/contacts\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  listHrEmployeeEmergencyContacts(employeeId: string): Promise<HrEmployeeEmergencyContactDirectory> { return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(employeeId)}/emergency_contacts\`); }
+  createHrEmployeeEmergencyContact(employeeId: string, payload: CreateHrEmployeeEmergencyContactRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeEmergencyContactResult> {
+    return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(employeeId)}/emergency_contacts\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  listHrEmployeeDocuments(employeeId: string): Promise<HrEmployeeDocumentDirectory> { return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(employeeId)}/documents\`); }
+  listHrEmployeeAssignments(employeeId: string): Promise<HrEmployeeAssignmentDirectory> { return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(employeeId)}/assignments\`); }
+  listHrEmployeeStatusHistory(employeeId: string): Promise<HrEmployeeStatusHistoryDirectory> { return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(employeeId)}/status_history\`); }
+  listHrEmploymentLifecyclePolicies(query: string): Promise<HrEmploymentLifecyclePolicyDirectory> { return this.request(\`/api/v1/hr/employment_lifecycle_policies\${query}\`); }
+  createHrEmploymentLifecyclePolicy(payload: CreateHrEmploymentLifecyclePolicyRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmploymentLifecyclePolicyResult> {
+    return this.request("/api/v1/hr/employment_lifecycle_policies", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  submitHrEmploymentLifecyclePolicy(policyId: string, payload: SubmitHrEmploymentLifecyclePolicyRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmploymentLifecyclePolicySubmissionResult> {
+    return this.request(\`/api/v1/hr/employment_lifecycle_policies/\${encodeURIComponent(policyId)}/submit\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  approveHrEmploymentLifecyclePolicy(policyId: string, payload: ApproveHrEmploymentLifecyclePolicyRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmploymentLifecyclePolicyApprovalResult> {
+    return this.request(\`/api/v1/hr/employment_lifecycle_policies/\${encodeURIComponent(policyId)}/approval_decision\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  activateHrEmploymentLifecyclePolicy(policyId: string, payload: ActivateHrEmploymentLifecyclePolicyRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmploymentLifecyclePolicyActivationResult> {
+    return this.request(\`/api/v1/hr/employment_lifecycle_policies/\${encodeURIComponent(policyId)}/activate\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  listHrMasters(query: string): Promise<HrMasterDirectory> { return this.request(\`/api/v1/hr/masters\${query}\`); }
+  createHrJob(payload: CreateHrJobRequest, csrfToken: string, idempotencyKey: string): Promise<HrJobResult> {
+    return this.request("/api/v1/hr/jobs", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  createHrEmployeeHireRequest(employeeId: string, payload: CreateHrEmployeeHireRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeHireRequestResult> {
+    return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(employeeId)}/hire_requests\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  decideHrEmployeeHireRequest(employeeId: string, requestId: string, payload: DecideHrEmployeeHireRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeHireDecisionResult> {
+    return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(employeeId)}/hire_requests/\${encodeURIComponent(requestId)}/decision\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  createHrEmployeeDraft(payload: CreateHrEmployeeDraftRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeDraftResult> {
+    return this.request("/api/v1/hr/employees", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
   createSecurityRole(payload: CreateSecurityRoleRequest, csrfToken: string, idempotencyKey: string): Promise<SecurityAdministrationResult> {
     return this.request("/api/v1/security/roles", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
