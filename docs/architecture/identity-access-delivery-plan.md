@@ -284,3 +284,41 @@ Observed verification:
   The complete integration run retains the known HR assignment projection
   assertion plus a repeat-run HR lifecycle fixture collision. Neither path was
   changed by IA-06; both remain visible for the resumed HR workstream.
+
+## IA-07 acceptance record — 2026-10-16
+
+- Source inspection found no fixture, mock-record, simulated-success or
+  browser-only business persistence inside the Identity feature. The user
+  wizard uses `sessionStorage` only for an unsaved recoverable draft; submitted
+  records continue through the generated API into PostgreSQL. Prototype-shell
+  fixture imports belong to other explicitly prototype-only ERP pages and were
+  not removed during Identity acceptance.
+- Identity navigation, workspace, actions, users, delegation, impersonation,
+  policies and session-context UI regressions passed 54/54. The focused final
+  Identity panel batch passed 49/49, including explicit Policies loading,
+  empty/editor and permission-denied states.
+- Focused Identity PostgreSQL/API regression passed 29/30. The remaining
+  governed-user assertion is repeat-run fixture contamination: an earlier
+  retained synthetic isolated user remains in the shared test database. It is
+  not a current authorization-code failure and must be made run-isolated when
+  the shared HR/security fixture maintenance resumes.
+- Web liveness returned HTTP 200. API readiness reported service, PostgreSQL,
+  Redis, object storage and HR foundation healthy. An unauthenticated policy
+  request returned 401 as required.
+- Controlled browser acceptance could not be completed: the Windows browser
+  helper failed initialization twice, and both the previously supplied Shoaib
+  credential and repository-documented legacy demo credential returned
+  `INVALID_CREDENTIALS` from the current Node API. No credential, cookie, CSRF
+  token or account data was logged.
+- Identity implementation is complete through migration 13. Production/manual
+  acceptance remains pending only for a valid current Node-API UAT account and
+  a functioning browser helper; do not label the module production-ready until
+  that controlled pass is recorded.
+
+## HR resume point
+
+Return to `docs/architecture/hr-backend-delivery-plan.md`. The next planned HR
+slice remains the cross-workflow audit-evidence view after the completed
+employee history read models. Preserve the Identity/API session contract,
+tenant/company authorization and impersonation mutation restrictions while
+resuming HR work.

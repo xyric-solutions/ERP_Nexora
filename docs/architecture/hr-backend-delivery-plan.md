@@ -692,3 +692,30 @@ the authenticated session. Assignment forms fetch company-scoped master options
 from `/hr/masters`, submit a narrow assignment request, and refresh only the
 affected employee/draft data after a successful response. No screen receives
 database credentials or makes a direct storage call.
+
+## Resume handoff after Identity & Access completion — 2026-10-16
+
+Identity implementation slices IA-01 through IA-06 are complete through
+security migration 13. The final controlled browser sign-off remains pending
+because the Windows browser helper could not initialize and the available
+local credentials are not valid for the running Node API; this does not block
+returning to isolated HR development.
+
+Resume HR with the cross-workflow audit-evidence view identified after the
+Employee History read-model slice. Preserve all current HR v33 migrations,
+generated API contracts and working screens. Keep these known regression items
+visible while working:
+
+- the assignment timeline currently includes `reporting_manager_id` while one
+  older test expects it to be absent;
+- persistent shared fixtures can retain company grants, lifecycle policies and
+  synthetic users across repeated integration runs, so new tests must create
+  unique records or assert only their own IDs rather than deleting immutable
+  evidence;
+- manual maker/checker browser acceptance is still open for the completed HR
+  assignment-change and Employee History surfaces.
+
+Identity security is now a required dependency: HR mutations remain blocked
+during impersonation, every request must preserve tenant/company scope, and
+new HR administration must use the existing cookie session and exact
+permission model rather than adding a parallel authentication path.
