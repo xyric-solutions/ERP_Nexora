@@ -96,6 +96,10 @@ import {
   securityAccessReviewDecisionSchema,
 } from "./security/access-review.js";
 import {
+  createSecurityDelegationSchema,
+  securityDelegationActionSchema,
+} from "./security/delegation.js";
+import {
   createSecurityAssignmentRequestSchema,
   createSecurityRoleRequestSchema,
   securityAdministrationResultSchema,
@@ -606,6 +610,63 @@ export function buildOpenApiDocument() {
               content: {
                 "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } },
               },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/security/delegations": {
+        get: {
+          operationId: "listSecurityDelegations",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            ...securityPaginationParameters,
+            {
+              in: "query",
+              name: "lifecycle_state",
+              schema: {
+                type: "string",
+                enum: ["draft", "submitted", "approved", "active", "rejected", "revoked", "expired"],
+              },
+            },
+            {
+              in: "query",
+              name: "principal_id",
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
+          responses: securityPageResponse,
+        },
+        post: {
+          operationId: "createSecurityDelegation",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/CreateSecurityDelegation" } } },
+          },
+          responses: {
+            "201": {
+              description: "Governed delegation draft created",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/security/delegation_actions": {
+        post: {
+          operationId: "actOnSecurityDelegation",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SecurityDelegationAction" } } },
+          },
+          responses: {
+            "200": {
+              description: "Governed delegation transition recorded",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } } },
             },
             ...securityErrors,
           },
@@ -2291,6 +2352,8 @@ export function buildOpenApiDocument() {
         CreateSecurityAccessReviewCampaign: schema(createSecurityAccessReviewCampaignSchema),
         SecurityAccessReviewCampaignAction: schema(securityAccessReviewCampaignActionSchema),
         SecurityAccessReviewDecision: schema(securityAccessReviewDecisionSchema),
+        CreateSecurityDelegation: schema(createSecurityDelegationSchema),
+        SecurityDelegationAction: schema(securityDelegationActionSchema),
         CreateSecurityUserRequest: schema(createSecurityUserRequestSchema),
         SecurityUserRequestAction: schema(securityUserRequestActionSchema),
         SecurityUserEmergencyAction: schema(securityUserEmergencyActionSchema),

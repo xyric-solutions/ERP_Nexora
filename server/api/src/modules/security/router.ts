@@ -5,12 +5,15 @@ import type { TenantAuthApiService, TenantSessionApiService } from "../auth/tena
 import {
   createSecurityAssignmentRequestSchema,
   createSecurityAccessReviewCampaignSchema,
+  createSecurityDelegationSchema,
   createSecurityRoleRequestSchema,
   createSecurityUserRequestSchema,
   securityApprovalActionSchema,
   securityAccessReviewCampaignActionSchema,
   securityAccessReviewDecisionSchema,
   securityAccessReviewListQuerySchema,
+  securityDelegationActionSchema,
+  securityDelegationListQuerySchema,
   securityAssignmentRequestActionSchema,
   securityRoleActionRequestSchema,
   securityUserEmergencyActionSchema,
@@ -45,6 +48,9 @@ export interface SecurityAdministrationApiRepository {
   createAccessReviewCampaign: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["createAccessReviewCampaign"];
   actOnAccessReviewCampaign: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["actOnAccessReviewCampaign"];
   decideAccessReviewItem: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["decideAccessReviewItem"];
+  listDelegations: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["listDelegations"];
+  createDelegation: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["createDelegation"];
+  actOnDelegation: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["actOnDelegation"];
 }
 
 const querySchema = z.object({
@@ -243,6 +249,10 @@ export function createSecurityRouter(dependencies: SecurityRouterDependencies): 
       .parse(req.query);
     res.json(await handle(async () => dependencies.repository.listAccessReviewItems(await context(req, false), query)));
   });
+  router.get("/delegations", async (req, res) => {
+    const query = securityDelegationListQuerySchema.parse(req.query);
+    res.json(await handle(async () => dependencies.repository.listDelegations(await context(req, false), query)));
+  });
 
   router.post("/roles", async (req, res) => {
     const body: unknown = req.body;
@@ -356,6 +366,20 @@ export function createSecurityRouter(dependencies: SecurityRouterDependencies): 
         dependencies.repository.decideAccessReviewItem(actorContext, input, idempotencyKey(req)),
       ),
     );
+  });
+  router.post("/delegations", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const actorContext = await context(req, true);
+    const input = createSecurityDelegationSchema.parse(req.body);
+    res
+      .status(201)
+      .json(await handle(async () => dependencies.repository.createDelegation(actorContext, input, idempotencyKey(req))));
+  });
+  router.post("/delegation_actions", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const actorContext = await context(req, true);
+    const input = securityDelegationActionSchema.parse(req.body);
+    res.json(await handle(async () => dependencies.repository.actOnDelegation(actorContext, input, idempotencyKey(req))));
   });
   return router;
 }

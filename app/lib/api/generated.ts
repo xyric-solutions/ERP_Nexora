@@ -87,6 +87,8 @@ import type {
   CreateSecurityAccessReviewCampaign,
   SecurityAccessReviewCampaignAction,
   SecurityAccessReviewDecision,
+  CreateSecurityDelegation,
+  SecurityDelegationAction,
   CreateSecurityAssignmentRequest,
   CreateSecurityRoleRequest,
   SecurityAdministrationResult,
@@ -194,6 +196,7 @@ export class NexoraApiClient {
   listSecurityUserOptions(): Promise<SecurityUserOptions> { return this.request("/api/v1/security/user_options"); }
   listSecurityAccessReviewCampaigns(query = ""): Promise<SecurityPage> { return this.request(`/api/v1/security/access_review_campaigns${query}`); }
   listSecurityAccessReviewItems(query: string): Promise<SecurityPage> { return this.request(`/api/v1/security/access_review_items${query}`); }
+  listSecurityDelegations(query = ""): Promise<SecurityPage> { return this.request(`/api/v1/security/delegations${query}`); }
   listHrEmployees(query: string): Promise<HrEmployeeDirectory> { return this.request(`/api/v1/hr/employees${query}`); }
   listHrCompanies(): Promise<HrCompanyDirectory> { return this.request("/api/v1/hr/companies"); }
   listHrOrganizationUnits(query: string): Promise<HrOrganizationUnitDirectory> { return this.request(`/api/v1/hr/organization_units${query}`); }
@@ -339,6 +342,12 @@ export class NexoraApiClient {
   }
   decideSecurityAccessReviewItem(payload: SecurityAccessReviewDecision, csrfToken: string, idempotencyKey: string): Promise<SecurityAdministrationResult> {
     return this.request("/api/v1/security/access_review_decisions", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  createSecurityDelegation(payload: CreateSecurityDelegation, csrfToken: string, idempotencyKey: string): Promise<SecurityAdministrationResult> {
+    return this.request("/api/v1/security/delegations", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  actOnSecurityDelegation(payload: SecurityDelegationAction, csrfToken: string, idempotencyKey: string): Promise<SecurityAdministrationResult> {
+    return this.request("/api/v1/security/delegation_actions", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
   enqueueSampleJob(payload: SampleJobPayload): Promise<JobReceipt> {
     return this.request("/api/v1/jobs/sample", { method: "POST", body: JSON.stringify(payload) });

@@ -36,7 +36,7 @@ an explicit completion handoff.
 - [x] IA-01 canonical hash route family and connected navigation.
 - [x] IA-02 execute/fix complete parity for the five existing user/role pages.
 - [x] IA-03 PostgreSQL-backed Access Review.
-- [ ] IA-04 governed Delegation.
+- [x] IA-04 governed Delegation.
 - [ ] IA-05 governed Impersonation and single emergency principal.
 - [ ] IA-06 versioned Security & Session Policies with runtime enforcement.
 - [ ] IA-07 complete security regression and controlled browser acceptance.
@@ -95,8 +95,9 @@ All links remain under the canonical parent:
 - Delegation & Impersonation: `/#/identity/access?tab=roles&section=delegation`
 - Security & Session Policies: `/#/identity/access?tab=roles&section=policies`
 
-The last two URLs are navigation-ready but deliberately unavailable until
-IA-04 through IA-06 provide their database-backed workflows.
+The Delegation portion of the combined Delegation & Impersonation URL is live.
+Impersonation remains explicitly disabled until IA-05. The Policies URL remains
+navigation-ready but unavailable until IA-06.
 
 ## IA-02 verification record â€” 2026-10-16
 
@@ -161,9 +162,43 @@ Observed verification:
   the Next.js 16.3.8 production build passed.
 - Controlled browser acceptance remains deferred to IA-07.
 
+## IA-04 verification record — 2026-10-16
+
+- Security migration 11 adds effective-dated delegation requests and grants,
+  append-only lifecycle evidence, forced tenant RLS, relational constraints,
+  lifecycle/index controls and exact `security.delegation.*` permissions.
+- Delegation supports draft, submit, independent approve/reject, activation and
+  revocation with optimistic versions, idempotency and hash-chained security
+  audit. Actors cannot self-delegate or activate/revoke another maker's grant.
+- Creation, approval and every use revalidate active parties, tenant/scope,
+  source authority and delegation ceiling. Prohibited security authority and
+  transaction-SoD permissions fail closed. Delegated security-management,
+  approval, activation, credential and session-revocation powers are never
+  accepted by runtime authorization.
+- Runtime authorization derives tenant-scoped delegation without copying roles
+  or permanent grants. Revocation, expiry, source-authority loss, inactive
+  parties or ceiling loss removes authority on the next request.
+- Strict contracts, OpenAPI, generated client and `/api/v1/security` routes are
+  aligned. The connected workspace displays pending, active/upcoming and
+  historical records, creation and permitted transitions with no mock fallback.
+
+Observed verification:
+
+- Delegation API/PostgreSQL suite: 5 passed, covering boundary rejection,
+  maker/checker lifecycle, API enforcement, live derived authority, immediate
+  revocation and immutable history.
+- Wider Identity PostgreSQL/API regression: 25 passed across five integration
+  files, including users, roles, assignments and Access Review.
+- Identity UI regression: 37 passed across five unit files.
+- Migration applied successfully through security version 11 on the dedicated
+  test PostgreSQL database.
+- API drift check, full TypeScript check, focused ESLint, `git diff --check` and
+  the Next.js 16.3.8 production build passed.
+- Controlled browser acceptance remains deferred to IA-07.
+
 ## Current safe resume point
 
-Proceed with IA-04, governed Delegation. Preserve security migration 10 and the
-Access Review contract/API/client path. Implement effective-dated delegation as
-an additive governed workflow with subset validation, independent approval and
-runtime invalidation before enabling its workspace controls.
+Proceed with IA-05, governed Impersonation. Preserve security migration 11 and
+the live Delegation path. Add PostgreSQL-authoritative approval/emergency
+designation and short-lived server-side impersonation context; enforce the
+high-risk restriction matrix before enabling impersonation workspace controls.

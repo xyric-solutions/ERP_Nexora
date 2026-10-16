@@ -14,6 +14,7 @@ import UserManagementPanel from "./users/user-management-panel";
 import RoleForm from "./role-form";
 import GovernedTable from "./governed-table";
 import AccessReviewPanel from "./access-review-panel";
+import DelegationPanel from "./delegation-panel";
 import { identityHashLocation, identityHref, type IdentityLocation, type IdentitySection } from "./identity-navigation";
 
 const labels = {
@@ -61,7 +62,7 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
     section === "assignments" || section === "access-reviews" || section === "delegation" || section === "policies"
       ? section
       : workspace;
-  const isPlannedSection = section === "delegation" || section === "policies";
+  const isPlannedSection = section === "policies";
   const sections: IdentitySection[] = isPlannedSection
     ? []
     : workspace === "users"
@@ -363,7 +364,7 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
               {tab === "roles" && permissions.has("security.authorization.role.create") ? (
                 <Button onClick={() => setShowCreate((value) => !value)}>{showCreate ? "Close" : "Create role"}</Button>
               ) : null}
-              {tab !== "users" && tab !== "access-reviews" && !isPlannedSection ? (
+              {tab !== "users" && tab !== "access-reviews" && tab !== "delegation" && !isPlannedSection ? (
                 <Button variant="outline" onClick={() => void load()}>
                   Refresh
                 </Button>
@@ -429,6 +430,8 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
           ) : null}
           {tab === "access-reviews" ? (
             <AccessReviewPanel permissions={permissions} />
+          ) : tab === "delegation" ? (
+            <DelegationPanel permissions={permissions} />
           ) : isPlannedSection ? (
             <Alert className="m-5" role="status">
               <AlertTitle>{labels[section]}</AlertTitle>

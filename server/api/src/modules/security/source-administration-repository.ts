@@ -5,12 +5,15 @@ import type { AuthenticatedAccount } from "@nexora/auth";
 import type {
   CreateSecurityUserRequest,
   CreateSecurityAccessReviewCampaign,
+  CreateSecurityDelegation,
   CreateSecurityAssignmentRequest,
   CreateSecurityRoleRequest,
   SecurityAdministrationResult,
   SecurityAccessReviewCampaignAction,
   SecurityAccessReviewDecision,
   SecurityAccessReviewListQuery,
+  SecurityDelegationAction,
+  SecurityDelegationListQuery,
   SecurityApprovalAction,
   SecurityAssignmentRequestAction,
   SecurityPage,
@@ -1382,6 +1385,313 @@ export class SourceSecurityAdministrationRepository {
     }
   }
 
+  listDelegations(context: SecurityActorContext, query: SecurityDelegationListQuery): Promise<SecurityPage> {
+    return this.read(context, "security.delegation.read", async (client, fullAdmin) => {
+      const parameters: unknown[] = [context.tenantId];
+      const conditions = ["delegation.tenant_id=$1"];
+      if (query.lifecycle_state)
+        conditions.push(`delegation.lifecycle_state=$${parameters.push(query.lifecycle_state)}`);
+      if (query.principal_id) {
+        const principal = parameters.push(query.principal_id);
+        conditions.push(`(delegation.delegator_id=$${principal} or delegation.delegatee_id=$${principal})`);
+      }
+      const canApprove =
+        fullAdmin ||
+        (await this.hasDirectTenantPermission(client, context, "security.delegation.approve"));
+      if (!canApprove) {
+        const actor = parameters.push(context.actor.userId);
+        conditions.push(`(delegation.delegator_id=$${actor} or delegation.delegatee_id=$${actor})`);
+      }
+      parameters.push(query.limit + 1, query.cursor);
+      const result = await client.query<Record<string, unknown>>(
+        `select delegation.*,
+                case
+                  when delegation.lifecycle_state='active' and delegation.valid_until<=now() then 'expired'
+                  when delegation.lifecycle_state='active' and delegation.valid_from>now() then 'upcoming'
+                  else delegation.lifecycle_state
+                end as effective_state,
+                coalesce((select jsonb_agg(jsonb_build_object('event_type',event.event_type,'actor_id',event.actor_id,
+                  'reason',event.reason,'occurred_at',event.occurred_at) order by event.occurred_at,event.event_id)
+                  from security_delegation_event event where event.tenant_id=delegation.tenant_id
+                    and event.delegation_id=delegation.delegation_id),'[]'::jsonb) as history
+           from security_delegation delegation where ${conditions.join(" and ")}
+          order by delegation.created_at desc,delegation.delegation_id desc
+          limit $${parameters.length - 1} offset $${parameters.length}`,
+        parameters,
+      );
+      return page(result.rows.map(cleanRow), query.limit, query.cursor);
+    });
+  }
+
+  createDelegation(
+    context: SecurityActorContext,
+    request: CreateSecurityDelegation,
+    key: string,
+  ): Promise<SecurityAdministrationResult> {
+    return this.run(
+      context,
+      "security.delegation.create",
+      key,
+      request,
+      ["delegatee_id", "permission_key", "scope_value"],
+      async (client) => {
+        if (request.delegatee_id === context.actor.userId)
+          throw new SecurityAdministrationError(403, "SELF_DELEGATION_DENIED", "Self-delegation is not permitted.");
+        if (new Date(request.valid_until).getTime() - new Date(request.valid_from).getTime() > 30 * 86_400_000)
+          throw this.conflict("Delegation duration exceeds the platform maximum of 30 days.");
+        await this.validateDelegationSource(client, context.tenantId, context.actor.userId, request);
+        const delegationId = `delegation-${randomUUID()}`;
+        await client.query(
+          `insert into security_delegation
+            (tenant_id,delegation_id,delegator_id,delegatee_id,permission_key,scope_kind,scope_value,
+             valid_from,valid_until,reason)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [
+            context.tenantId,
+            delegationId,
+            context.actor.userId,
+            request.delegatee_id,
+            request.permission_key,
+            request.scope_kind,
+            request.scope_value,
+            request.valid_from,
+            request.valid_until,
+            request.reason,
+          ],
+        );
+        const after = await this.delegationState(client, context.tenantId, delegationId);
+        await this.appendDelegationEvent(client, context, delegationId, "created", request.reason, after!);
+        return { entityType: "delegation", entityId: delegationId, before: null, after };
+      },
+    );
+  }
+
+  actOnDelegation(
+    context: SecurityActorContext,
+    action: SecurityDelegationAction,
+    key: string,
+  ): Promise<SecurityAdministrationResult> {
+    const permission = action.action === "reject" ? "approve" : action.action;
+    return this.run(
+      context,
+      `security.delegation.${permission}`,
+      key,
+      action,
+      [],
+      async (client, _commandId, fullAdmin) => {
+        const result = await client.query<Record<string, unknown>>(
+          `select * from security_delegation where tenant_id=$1 and delegation_id=$2 for update`,
+          [context.tenantId, action.delegation_id],
+        );
+        const current = result.rows[0];
+        if (!current) throw new SecurityAdministrationError(404, "DELEGATION_NOT_FOUND", "The delegation was not found.");
+        if (Number(current.row_version) !== action.expected_version) throw this.conflict("The delegation version has changed.");
+        const before = cleanRow(current);
+        const eventReason: string | null = "reason" in action ? action.reason : null;
+        if (action.action === "submit") {
+          if (
+            current.lifecycle_state !== "draft" ||
+            (!fullAdmin && current.delegator_id !== context.actor.userId)
+          )
+            throw this.conflict("Only the delegator can submit a current draft.");
+          await this.validateDelegationSource(client, context.tenantId, String(current.delegator_id), {
+            delegatee_id: String(current.delegatee_id),
+            permission_key: String(current.permission_key),
+            scope_kind: current.scope_kind as "tenant" | "company",
+            scope_value: String(current.scope_value),
+            valid_from: new Date(String(current.valid_from)).toISOString(),
+            valid_until: new Date(String(current.valid_until)).toISOString(),
+            reason: String(current.reason),
+          });
+          await client.query(
+            `update security_delegation set lifecycle_state='submitted',submitted_by=$3,submitted_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and delegation_id=$2`,
+            [context.tenantId, action.delegation_id, context.actor.userId],
+          );
+        } else if (action.action === "approve" || action.action === "reject") {
+          if (current.lifecycle_state !== "submitted") throw this.conflict("Only submitted delegations can be decided.");
+          if (current.delegator_id === context.actor.userId)
+            throw new SecurityAdministrationError(403, "MAKER_CHECKER_VIOLATION", "Delegators cannot approve their own request.");
+          if (action.action === "approve") {
+            await this.validateDelegationSource(client, context.tenantId, String(current.delegator_id), {
+              delegatee_id: String(current.delegatee_id),
+              permission_key: String(current.permission_key),
+              scope_kind: current.scope_kind as "tenant" | "company",
+              scope_value: String(current.scope_value),
+              valid_from: new Date(String(current.valid_from)).toISOString(),
+              valid_until: new Date(String(current.valid_until)).toISOString(),
+              reason: String(current.reason),
+            });
+            await client.query(
+              `update security_delegation set lifecycle_state='approved',approved_by=$3,approved_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and delegation_id=$2`,
+              [context.tenantId, action.delegation_id, context.actor.userId],
+            );
+          } else {
+            await client.query(
+              `update security_delegation set lifecycle_state='rejected',rejected_by=$3,rejected_at=now(),rejection_reason=$4,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and delegation_id=$2`,
+              [context.tenantId, action.delegation_id, context.actor.userId, eventReason],
+            );
+          }
+        } else if (action.action === "activate") {
+          if (current.lifecycle_state !== "approved") throw this.conflict("Only approved delegations can be activated.");
+          if (!fullAdmin && current.delegator_id !== context.actor.userId)
+            throw new SecurityAdministrationError(403, "DELEGATION_ACTOR_DENIED", "Only the delegator can activate this delegation.");
+          if (new Date(String(current.valid_until)) <= new Date()) throw this.conflict("The delegation has already expired.");
+          await this.validateDelegationSource(client, context.tenantId, String(current.delegator_id), {
+            delegatee_id: String(current.delegatee_id),
+            permission_key: String(current.permission_key),
+            scope_kind: current.scope_kind as "tenant" | "company",
+            scope_value: String(current.scope_value),
+            valid_from: new Date(String(current.valid_from)).toISOString(),
+            valid_until: new Date(String(current.valid_until)).toISOString(),
+            reason: String(current.reason),
+          });
+          await client.query(
+            `update security_delegation set lifecycle_state='active',activated_by=$3,activated_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and delegation_id=$2`,
+            [context.tenantId, action.delegation_id, context.actor.userId],
+          );
+        } else {
+          if (current.lifecycle_state !== "active") throw this.conflict("Only active delegations can be revoked.");
+          if (!fullAdmin && current.delegator_id !== context.actor.userId)
+            throw new SecurityAdministrationError(403, "DELEGATION_ACTOR_DENIED", "Only the delegator can revoke this delegation.");
+          await client.query(
+            `update security_delegation set lifecycle_state='revoked',revoked_by=$3,revoked_at=now(),revocation_reason=$4,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and delegation_id=$2`,
+            [context.tenantId, action.delegation_id, context.actor.userId, eventReason],
+          );
+        }
+        const after = await this.delegationState(client, context.tenantId, action.delegation_id);
+        const eventType = {
+          submit: "submitted",
+          approve: "approved",
+          reject: "rejected",
+          activate: "activated",
+          revoke: "revoked",
+        }[action.action];
+        await this.appendDelegationEvent(client, context, action.delegation_id, eventType, eventReason, after!);
+        return {
+          entityType: "delegation",
+          entityId: action.delegation_id,
+          before,
+          after,
+          outcome: action.action === "reject" ? "rejected" : "completed",
+        };
+      },
+    );
+  }
+
+  private async validateDelegationSource(
+    client: PoolClient,
+    tenantId: string,
+    delegatorId: string,
+    request: CreateSecurityDelegation,
+  ): Promise<void> {
+    if (
+      request.permission_key.startsWith("security.delegation.") ||
+      request.permission_key.startsWith("security.impersonation.") ||
+      request.permission_key.startsWith("security.session_policy.") ||
+      /\.(approve|activate|administer|reset_password|revoke_sessions)$/.test(request.permission_key)
+    )
+      throw new SecurityAdministrationError(403, "DELEGATION_PROHIBITED", "This permission cannot be delegated.");
+    const delegatee = await client.query(
+      `select 1 from security_user_account where tenant_id=$1 and id=$2 and status='active' and archived_at is null`,
+      [tenantId, request.delegatee_id],
+    );
+    if (!delegatee.rowCount) throw this.conflict("The delegatee is unavailable.");
+    if (request.scope_kind === "tenant" && request.scope_value !== tenantId)
+      throw new SecurityAdministrationError(403, "TENANT_ACCESS_DENIED", "The delegation tenant scope is invalid.");
+    if (request.scope_kind === "company") {
+      const company = await client.query(
+        `select 1 from organization_unit where tenant_id=$1 and id=$2 and type='company' and status='active'`,
+        [tenantId, request.scope_value],
+      );
+      if (!company.rowCount) throw this.conflict("The delegation company is unavailable.");
+    }
+    const source = await client.query<{ permission_key: string; scope_kind: string; scope_value: string; delegable: boolean }>(
+      `select permission_grant.permission_key,scope.scope_kind,scope.scope_value,
+              exists (select 1 from security_role_permission_delegation ceiling
+                where ceiling.tenant_id=permission_grant.tenant_id and ceiling.role_policy_id=permission_grant.role_policy_id
+                  and ceiling.permission_key=permission_grant.permission_key
+                  and ceiling.scope_kind=$4 and ceiling.scope_value=$5) as delegable
+         from security_user_role_assignment_version assignment
+         join security_user_account account on account.tenant_id=assignment.tenant_id and account.id=assignment.user_id and account.status='active'
+         join security_role_policy policy on policy.tenant_id=assignment.tenant_id and policy.id=assignment.role_policy_id and policy.lifecycle_state='active'
+         join security_role_permission_grant permission_grant on permission_grant.tenant_id=policy.tenant_id and permission_grant.role_policy_id=policy.id
+         join security_role_scope_grant scope on scope.tenant_id=permission_grant.tenant_id and scope.role_policy_id=permission_grant.role_policy_id and scope.permission_key=permission_grant.permission_key
+        where assignment.tenant_id=$1 and assignment.user_id=$2 and permission_grant.permission_key=any($3::text[])
+          and assignment.version=(select max(latest.version) from security_user_role_assignment_version latest
+            where latest.tenant_id=assignment.tenant_id and latest.assignment_id=assignment.assignment_id)
+          and assignment.lifecycle_state='active' and assignment.valid_from<=now()
+          and (assignment.valid_until is null or assignment.valid_until>now())`,
+      [tenantId, delegatorId, ["security.authorization.administer", request.permission_key], request.scope_kind, request.scope_value],
+    );
+    const fullAdmin = source.rows.some(
+      (row) => row.permission_key === "security.authorization.administer" && row.scope_kind === "tenant" && row.scope_value === tenantId,
+    );
+    const matching = source.rows.some(
+      (row) =>
+        row.permission_key === request.permission_key &&
+        row.delegable &&
+        (row.scope_kind === "tenant" ||
+          (row.scope_kind === request.scope_kind && row.scope_value === request.scope_value)),
+    );
+    if (!fullAdmin && !matching)
+      throw new SecurityAdministrationError(403, "DELEGATION_DENIED", "The requested authority exceeds the delegator's current ceiling.");
+    const transactionSod = await client.query(
+      `select 1 from security_role_transaction_sod_rule rule
+        join security_user_role_assignment_version assignment
+          on assignment.tenant_id=rule.tenant_id and assignment.role_policy_id=rule.role_policy_id
+       where assignment.tenant_id=$1 and assignment.user_id=$2 and rule.permission_key=$3
+         and assignment.version=(select max(latest.version) from security_user_role_assignment_version latest
+           where latest.tenant_id=assignment.tenant_id and latest.assignment_id=assignment.assignment_id)
+         and assignment.lifecycle_state='active' and assignment.valid_from<=now()
+         and (assignment.valid_until is null or assignment.valid_until>now())
+       limit 1`,
+      [tenantId, delegatorId, request.permission_key],
+    );
+    if (transactionSod.rowCount)
+      throw new SecurityAdministrationError(
+        403,
+        "SOD_VIOLATION",
+        "Permissions with transaction separation-of-duties controls cannot be delegated.",
+      );
+    const duplicate = await client.query(
+      `select 1 from security_user_role_assignment_version assignment
+        join security_role_permission_grant permission_grant on permission_grant.tenant_id=assignment.tenant_id and permission_grant.role_policy_id=assignment.role_policy_id
+        join security_role_scope_grant scope on scope.tenant_id=permission_grant.tenant_id and scope.role_policy_id=permission_grant.role_policy_id and scope.permission_key=permission_grant.permission_key
+       where assignment.tenant_id=$1 and assignment.user_id=$2 and permission_grant.permission_key=$3
+         and assignment.version=(select max(latest.version) from security_user_role_assignment_version latest
+           where latest.tenant_id=assignment.tenant_id and latest.assignment_id=assignment.assignment_id)
+         and assignment.lifecycle_state='active' and assignment.valid_from<=now()
+         and (assignment.valid_until is null or assignment.valid_until>now())
+         and (scope.scope_kind='tenant' or (scope.scope_kind=$4 and scope.scope_value=$5)) limit 1`,
+      [tenantId, request.delegatee_id, request.permission_key, request.scope_kind, request.scope_value],
+    );
+    if (duplicate.rowCount) throw this.conflict("The delegatee already holds this authority directly.");
+  }
+
+  private async delegationState(client: PoolClient, tenantId: string, delegationId: string) {
+    const result = await client.query<Record<string, unknown>>(
+      `select * from security_delegation where tenant_id=$1 and delegation_id=$2`,
+      [tenantId, delegationId],
+    );
+    return result.rows[0] ? cleanRow(result.rows[0]) : null;
+  }
+
+  private async appendDelegationEvent(
+    client: PoolClient,
+    context: SecurityActorContext,
+    delegationId: string,
+    eventType: string,
+    reason: string | null,
+    state: Record<string, unknown>,
+  ) {
+    await client.query(
+      `insert into security_delegation_event
+        (tenant_id,event_id,delegation_id,event_type,actor_id,reason,state_snapshot)
+       values ($1,$2,$3,$4,$5,$6,$7)`,
+      [context.tenantId, `delegation-event-${randomUUID()}`, delegationId, eventType, context.actor.userId, reason, JSON.stringify(state)],
+    );
+  }
+
   private async read<T>(
     context: SecurityActorContext,
     permission: string,
@@ -1552,8 +1862,18 @@ export class SourceSecurityAdministrationRepository {
     const grants = result.rows.filter(
       (row) => row.permission_key === permission && row.scope_kind === "tenant" && row.scope_value === context.tenantId,
     );
-    if (grants.length === 0)
-      throw new SecurityAdministrationError(403, "PERMISSION_DENIED", "The security operation is not permitted.");
+    if (grants.length === 0) {
+      const delegated =
+        fields.length === 0 &&
+        !permission.startsWith("security.delegation.") &&
+        !permission.startsWith("security.impersonation.") &&
+        !permission.startsWith("security.session_policy.") &&
+        !/\.(approve|activate|administer|reset_password|revoke_sessions)$/.test(permission) &&
+        (await this.hasActiveDelegatedTenantPermission(client, context, permission));
+      if (!delegated)
+        throw new SecurityAdministrationError(403, "PERMISSION_DENIED", "The security operation is not permitted.");
+      return false;
+    }
     if (fields.length > 0 && grants.every((grant) => grant.field_allow_mode !== "all")) {
       const fieldResult = await client.query<{ field_name: string; effect: string }>(
         `select field.field_name,field.effect from security_role_field_grant field
@@ -1573,6 +1893,95 @@ export class SourceSecurityAdministrationRepository {
         );
     }
     return false;
+  }
+
+  private async hasDirectTenantPermission(
+    client: PoolClient,
+    context: SecurityActorContext,
+    permission: string,
+  ): Promise<boolean> {
+    const result = await client.query(
+      `select 1
+         from security_user_role_assignment_version assignment
+         join security_user_account account
+           on account.tenant_id=assignment.tenant_id and account.id=assignment.user_id
+          and account.status='active' and account.archived_at is null
+         join security_role_policy policy
+           on policy.tenant_id=assignment.tenant_id and policy.id=assignment.role_policy_id
+          and policy.status='active' and policy.lifecycle_state='active'
+         join security_tenant_role role
+           on role.tenant_id=policy.tenant_id and role.role_id=policy.role_id and role.lifecycle_state='active'
+         join security_role_permission_grant permission_grant
+           on permission_grant.tenant_id=policy.tenant_id and permission_grant.role_policy_id=policy.id and permission_grant.permission_key=$3
+         join security_role_scope_grant scope
+           on scope.tenant_id=permission_grant.tenant_id and scope.role_policy_id=permission_grant.role_policy_id
+          and scope.permission_key=permission_grant.permission_key and scope.scope_kind='tenant' and scope.scope_value=$1
+        where assignment.tenant_id=$1 and assignment.user_id=$2
+          and assignment.version=(select max(latest.version) from security_user_role_assignment_version latest
+            where latest.tenant_id=assignment.tenant_id and latest.assignment_id=assignment.assignment_id)
+          and assignment.lifecycle_state='active' and assignment.valid_from<=now()
+          and (assignment.valid_until is null or assignment.valid_until>now())
+        limit 1`,
+      [context.tenantId, context.actor.userId, permission],
+    );
+    return Boolean(result.rowCount);
+  }
+
+  private async hasActiveDelegatedTenantPermission(
+    client: PoolClient,
+    context: SecurityActorContext,
+    permission: string,
+  ): Promise<boolean> {
+    const result = await client.query(
+      `select 1
+         from security_delegation delegation
+         join security_user_account delegatee
+           on delegatee.tenant_id=delegation.tenant_id and delegatee.id=delegation.delegatee_id
+          and delegatee.status='active' and delegatee.archived_at is null
+         join security_user_account delegator
+           on delegator.tenant_id=delegation.tenant_id and delegator.id=delegation.delegator_id
+          and delegator.status='active' and delegator.archived_at is null
+        where delegation.tenant_id=$1 and delegation.delegatee_id=$2 and delegation.permission_key=$3
+          and delegation.scope_kind='tenant' and delegation.scope_value=$1
+          and delegation.lifecycle_state='active'
+          and delegation.valid_from<=now() and delegation.valid_until>now()
+          and exists (
+            select 1 from security_user_role_assignment_version assignment
+            join security_role_policy policy
+              on policy.tenant_id=assignment.tenant_id and policy.id=assignment.role_policy_id
+             and policy.status='active' and policy.lifecycle_state='active'
+            join security_tenant_role role
+              on role.tenant_id=policy.tenant_id and role.role_id=policy.role_id and role.lifecycle_state='active'
+            join security_role_permission_grant permission_grant
+              on permission_grant.tenant_id=policy.tenant_id and permission_grant.role_policy_id=policy.id
+            join security_role_scope_grant scope
+              on scope.tenant_id=permission_grant.tenant_id and scope.role_policy_id=permission_grant.role_policy_id
+             and scope.permission_key=permission_grant.permission_key and scope.scope_kind='tenant'
+             and scope.scope_value=delegation.tenant_id
+           where assignment.tenant_id=delegation.tenant_id and assignment.user_id=delegation.delegator_id
+             and assignment.version=(select max(latest.version) from security_user_role_assignment_version latest
+               where latest.tenant_id=assignment.tenant_id and latest.assignment_id=assignment.assignment_id)
+             and assignment.lifecycle_state='active' and assignment.valid_from<=now()
+             and (assignment.valid_until is null or assignment.valid_until>now())
+             and (
+               permission_grant.permission_key='security.authorization.administer'
+               or (
+                 permission_grant.permission_key=delegation.permission_key
+                 and exists (
+                   select 1 from security_role_permission_delegation ceiling
+                    where ceiling.tenant_id=permission_grant.tenant_id
+                      and ceiling.role_policy_id=permission_grant.role_policy_id
+                      and ceiling.permission_key=permission_grant.permission_key
+                      and ceiling.scope_kind=delegation.scope_kind
+                      and ceiling.scope_value=delegation.scope_value
+                 )
+               )
+             )
+          )
+        limit 1`,
+      [context.tenantId, context.actor.userId, permission],
+    );
+    return Boolean(result.rowCount);
   }
 
   private async validateRoleDraft(

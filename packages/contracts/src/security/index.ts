@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export * from "./administration.js";
 export * from "./access-review.js";
+export * from "./delegation.js";
 export * from "./user-administration.js";
 
 const identifierSchema = z

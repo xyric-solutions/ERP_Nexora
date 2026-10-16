@@ -34,6 +34,11 @@ const makerPermissions = [
   "security.access_review.submit",
   "security.access_review.activate",
   "security.access_review.close",
+  "security.delegation.read",
+  "security.delegation.create",
+  "security.delegation.submit",
+  "security.delegation.activate",
+  "security.delegation.revoke",
 ] as const;
 
 const checkerPermissions = [
@@ -48,6 +53,8 @@ const checkerPermissions = [
   "security.access_review.read",
   "security.access_review.approve",
   "security.access_review.decide",
+  "security.delegation.read",
+  "security.delegation.approve",
 ] as const;
 
 const roles = [
