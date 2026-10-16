@@ -760,7 +760,7 @@ export const prototypeModules = [
         p("employee-emergency-contacts", "Emergency Contacts"),
         p("employee-documents", "Employee Documents"),
         p("employee-assignments", "Employment Assignments"),
-        p("employee-status-history", "Employee Status History"),
+        p("employee-status-history", "Employee History"),
         p("employee-record", "Employee Record", "detail"),
         p("positions-org", "Positions & Organisation"),
       ]),

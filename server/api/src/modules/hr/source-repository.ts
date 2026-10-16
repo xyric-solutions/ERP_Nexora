@@ -32,6 +32,9 @@ import type {
   HrEmployeeDocumentDirectory,
   HrEmployeeAssignmentDirectory,
   HrEmployeeStatusHistoryDirectory,
+  HrEmployeeHistoryQuery,
+  HrEmployeeLifecycleEventDirectory,
+  HrEmployeeProfileVersionDirectory,
   HrEmploymentLifecyclePolicyDirectory,
   HrEmploymentLifecyclePolicyDirectoryQuery,
   CreateHrEmploymentLifecyclePolicyRequest,
@@ -126,6 +129,22 @@ type EmployeeStatusHistoryRow = Omit<
 > & {
   effective_on: string | Date;
   created_at: string | Date;
+};
+type EmployeeLifecycleEventRow = Omit<
+  HrEmployeeLifecycleEventDirectory["items"][number],
+  "effective_on" | "recorded_at" | "approved_at"
+> & {
+  effective_on: string | Date;
+  recorded_at: string | Date;
+  approved_at: string | Date;
+};
+type EmployeeProfileVersionRow = Omit<
+  HrEmployeeProfileVersionDirectory["items"][number],
+  "effective_from" | "effective_to" | "recorded_at" | "capture_origin"
+> & {
+  effective_from: string | Date;
+  effective_to: string | Date | null;
+  recorded_at: string | Date;
 };
 type EmploymentLifecyclePolicyRow = Omit<
   HrEmploymentLifecyclePolicyDirectory["items"][number],
@@ -272,6 +291,42 @@ function stateHash(value: unknown): string {
 
 function validIdempotencyKey(value: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9._:-]{0,254}$/.test(value);
+}
+
+type EmployeeHistoryCursor = { version: 1; kind: "lifecycle" | "profile"; recordedAt: string; id: string };
+
+function encodeEmployeeHistoryCursor(
+  kind: EmployeeHistoryCursor["kind"],
+  recordedAt: string | Date,
+  id: string,
+): string {
+  return Buffer.from(
+    JSON.stringify({ version: 1, kind, recordedAt: new Date(recordedAt).toISOString(), id }),
+    "utf8",
+  ).toString("base64url");
+}
+
+function decodeEmployeeHistoryCursor(
+  value: string | undefined,
+  expectedKind: EmployeeHistoryCursor["kind"],
+): EmployeeHistoryCursor | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as Partial<EmployeeHistoryCursor>;
+    if (
+      parsed.version !== 1 ||
+      parsed.kind !== expectedKind ||
+      typeof parsed.recordedAt !== "string" ||
+      !Number.isFinite(Date.parse(parsed.recordedAt)) ||
+      typeof parsed.id !== "string" ||
+      parsed.id.length < 1 ||
+      parsed.id.length > 128
+    )
+      throw new Error("invalid cursor");
+    return parsed as EmployeeHistoryCursor;
+  } catch {
+    throw new HrApiError(400, "HR_HISTORY_CURSOR_INVALID", "The employee history cursor is invalid.");
+  }
 }
 
 export class SourceHrRepository {
@@ -625,6 +680,22 @@ export class SourceHrRepository {
           status: "draft",
         },
       });
+      await this.recordEmployeeProfileVersion(
+        client,
+        context,
+        employeeId,
+        {
+          first_name: input.first_name,
+          middle_name: input.middle_name ?? "",
+          last_name: input.last_name,
+          preferred_name: input.preferred_name ?? "",
+          work_email: input.work_email ?? "",
+          date_of_birth: null,
+          personal_email: "",
+          phone: input.phone ?? "",
+        },
+        `platform-audit:${auditEventId}`,
+      );
       const result: HrEmployeeDraftResult = {
         id: employeeId,
         employee_number: input.employee_number,
@@ -695,10 +766,13 @@ export class SourceHrRepository {
         preferred_name: string;
         joined_on: string;
         work_email: string;
+        date_of_birth: string | Date | null;
+        personal_email: string;
         phone: string;
       }>(
         `select employee.employee_number,scope.company_id,employee.first_name,employee.middle_name,employee.last_name,
-                employee.preferred_name,employee.joined_on::text,employee.work_email,employee.phone
+                employee.preferred_name,employee.joined_on::text,employee.work_email,employee.date_of_birth,
+                employee.personal_email,employee.phone
            from hr_employee_draft_scope scope join employee on employee.tenant_id=scope.tenant_id and employee.id=scope.employee_id
           where scope.tenant_id=$1 and employee.id=$2 and employee.status='draft'
             and exists (select 1 from security_user_company_access access where access.tenant_id=scope.tenant_id
@@ -712,7 +786,16 @@ export class SourceHrRepository {
           "HR_EMPLOYEE_DRAFT_NOT_FOUND",
           "The employee draft is unavailable in your company scope.",
         );
-      const after = { ...before, ...input };
+      const after = {
+        ...before,
+        first_name: input.first_name ?? before.first_name,
+        middle_name: input.middle_name ?? before.middle_name,
+        last_name: input.last_name ?? before.last_name,
+        preferred_name: input.preferred_name ?? before.preferred_name,
+        joined_on: input.joined_on ?? before.joined_on,
+        work_email: input.work_email ?? before.work_email,
+        phone: input.phone ?? before.phone,
+      };
       await client.query(
         `update employee set first_name=$3,middle_name=$4,last_name=$5,preferred_name=$6,joined_on=$7,work_email=$8,phone=$9,updated_at=now()
           where tenant_id=$1 and id=$2`,
@@ -733,6 +816,22 @@ export class SourceHrRepository {
         before,
         after,
       });
+      await this.recordEmployeeProfileVersion(
+        client,
+        context,
+        employeeId,
+        {
+          first_name: after.first_name,
+          middle_name: after.middle_name,
+          last_name: after.last_name,
+          preferred_name: after.preferred_name,
+          work_email: after.work_email,
+          date_of_birth: after.date_of_birth,
+          personal_email: after.personal_email,
+          phone: after.phone,
+        },
+        `platform-audit:${auditEventId}`,
+      );
       const result: HrEmployeeDraftResult = {
         id: employeeId,
         employee_number: before.employee_number,
@@ -1508,6 +1607,96 @@ export class SourceHrRepository {
           effective_on: dateOnly(row.effective_on),
           created_at: new Date(row.created_at).toISOString(),
         })),
+      };
+    });
+  }
+
+  async listEmployeeLifecycleEvents(
+    context: HrActorContext,
+    employeeId: string,
+    query: HrEmployeeHistoryQuery,
+  ): Promise<HrEmployeeLifecycleEventDirectory> {
+    return this.read(context, "hr.employment_history.read", async (client) => {
+      await this.requireActiveEmployeeCompanyScope(client, context, employeeId);
+      const cursor = decodeEmployeeHistoryCursor(query.cursor, "lifecycle");
+      const values: unknown[] = [context.tenantId, employeeId];
+      const cursorFilter = cursor
+        ? `and (event.recorded_at,event.id)<($${values.push(cursor.recordedAt)}::timestamptz,$${values.push(cursor.id)})`
+        : "";
+      values.push(query.limit + 1);
+      const result = await client.query<EmployeeLifecycleEventRow>(
+        `select event.id,event.relationship_id,event.sequence,event.event_type,event.effective_on,
+                case when previous_state.id is null then null else jsonb_build_object(
+                  'code',previous_state.code,'label',previous_state.label,
+                  'canonical_class',previous_state.canonical_class
+                ) end as previous_state,
+                jsonb_build_object(
+                  'code',resulting_state.code,'label',resulting_state.label,
+                  'canonical_class',resulting_state.canonical_class
+                ) as resulting_state,
+                event.reason,event.source_reference,event.recorded_at,event.approved_at
+           from hr_employment_event event
+           join hr_employment_relationship relationship
+             on relationship.tenant_id=event.tenant_id and relationship.id=event.relationship_id
+           left join hr_employment_lifecycle_state previous_state
+             on previous_state.tenant_id=event.tenant_id and previous_state.id=event.previous_state_id
+           join hr_employment_lifecycle_state resulting_state
+             on resulting_state.tenant_id=event.tenant_id and resulting_state.id=event.resulting_state_id
+          where event.tenant_id=$1 and relationship.employee_id=$2 ${cursorFilter}
+          order by event.recorded_at desc,event.id desc
+          limit $${values.length}`,
+        values,
+      );
+      const hasMore = result.rows.length > query.limit;
+      const page = result.rows.slice(0, query.limit);
+      const last = page.at(-1);
+      return {
+        items: page.map((row) => ({
+          ...row,
+          effective_on: dateOnly(row.effective_on),
+          recorded_at: new Date(row.recorded_at).toISOString(),
+          approved_at: new Date(row.approved_at).toISOString(),
+        })),
+        next_cursor: hasMore && last ? encodeEmployeeHistoryCursor("lifecycle", last.recorded_at, last.id) : null,
+      };
+    });
+  }
+
+  async listEmployeeProfileHistory(
+    context: HrActorContext,
+    employeeId: string,
+    query: HrEmployeeHistoryQuery,
+  ): Promise<HrEmployeeProfileVersionDirectory> {
+    return this.read(context, "hr.employment_history.read", async (client) => {
+      await this.requireActiveEmployeeCompanyScope(client, context, employeeId);
+      const cursor = decodeEmployeeHistoryCursor(query.cursor, "profile");
+      const values: unknown[] = [context.tenantId, employeeId];
+      const cursorFilter = cursor
+        ? `and (version.recorded_at,version.id)<($${values.push(cursor.recordedAt)}::timestamptz,$${values.push(cursor.id)})`
+        : "";
+      values.push(query.limit + 1);
+      const result = await client.query<EmployeeProfileVersionRow>(
+        `select version.id,version.revision,version.effective_from,version.effective_to,
+                version.first_name,version.middle_name,version.last_name,version.preferred_name,
+                version.work_email,version.source_reference,version.recorded_at
+           from hr_employee_profile_version version
+          where version.tenant_id=$1 and version.employee_id=$2 ${cursorFilter}
+          order by version.recorded_at desc,version.id desc
+          limit $${values.length}`,
+        values,
+      );
+      const hasMore = result.rows.length > query.limit;
+      const page = result.rows.slice(0, query.limit);
+      const last = page.at(-1);
+      return {
+        items: page.map((row) => ({
+          ...row,
+          effective_from: dateOnly(row.effective_from),
+          effective_to: row.effective_to === null ? null : dateOnly(row.effective_to),
+          capture_origin: row.source_reference.startsWith("migration:") ? "migration_baseline" : "recorded_change",
+          recorded_at: new Date(row.recorded_at).toISOString(),
+        })),
+        next_cursor: hasMore && last ? encodeEmployeeHistoryCursor("profile", last.recorded_at, last.id) : null,
       };
     });
   }
@@ -4957,6 +5146,97 @@ export class SourceHrRepository {
     );
     if (!result.rowCount)
       throw new HrApiError(404, "HR_EMPLOYEE_NOT_FOUND", "The employee is unavailable in your company scope.");
+  }
+
+  private async recordEmployeeProfileVersion(
+    client: PoolClient,
+    context: HrActorContext,
+    employeeId: string,
+    profile: {
+      first_name: string;
+      middle_name: string;
+      last_name: string;
+      preferred_name: string;
+      work_email: string;
+      date_of_birth: string | Date | null;
+      personal_email: string;
+      phone: string;
+    },
+    sourceReference: string,
+  ): Promise<void> {
+    const current = await client.query<{
+      id: string;
+      revision: number;
+      effective_from: string | Date;
+      effective_to: string | Date | null;
+      first_name: string;
+      middle_name: string;
+      last_name: string;
+      preferred_name: string;
+      work_email: string;
+      date_of_birth: string | Date | null;
+      personal_email: string;
+      phone: string;
+    }>(
+      `select id,revision,effective_from,effective_to,first_name,middle_name,last_name,
+              preferred_name,work_email,date_of_birth,personal_email,phone
+         from hr_employee_profile_version
+        where tenant_id=$1 and employee_id=$2
+        order by revision desc,recorded_at desc,id desc
+        limit 1 for update`,
+      [context.tenantId, employeeId],
+    );
+    const previous = current.rows[0];
+    const sameProfile =
+      previous !== undefined &&
+      previous.first_name === profile.first_name &&
+      previous.middle_name === profile.middle_name &&
+      previous.last_name === profile.last_name &&
+      previous.preferred_name === profile.preferred_name &&
+      previous.work_email === profile.work_email &&
+      (previous.date_of_birth === null ? null : dateOnly(previous.date_of_birth)) ===
+        (profile.date_of_birth === null ? null : dateOnly(profile.date_of_birth)) &&
+      previous.personal_email === profile.personal_email &&
+      previous.phone === profile.phone;
+    if (sameProfile && previous.effective_to === null) return;
+
+    const captureDate = await client.query<{ value: string }>(
+      "select greatest(coalesce($1::date,current_date),current_date)::text as value",
+      [previous ? dateOnly(previous.effective_from) : null],
+    );
+    const effectiveFrom = captureDate.rows[0]?.value;
+    if (!effectiveFrom) throw new Error("Unable to determine the employee profile capture date.");
+    if (previous?.effective_to === null)
+      await client.query("update hr_employee_profile_version set effective_to=$3 where tenant_id=$1 and id=$2", [
+        context.tenantId,
+        previous.id,
+        effectiveFrom,
+      ]);
+    await client.query(
+      `insert into hr_employee_profile_version (
+         id,tenant_id,employee_id,effective_from,revision,supersedes_version_id,
+         first_name,middle_name,last_name,preferred_name,work_email,date_of_birth,
+         personal_email,phone,recorded_by,source_reference
+       ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+      [
+        `employee-profile-version-${randomUUID()}`,
+        context.tenantId,
+        employeeId,
+        effectiveFrom,
+        (previous?.revision ?? 0) + 1,
+        previous?.id ?? null,
+        profile.first_name,
+        profile.middle_name,
+        profile.last_name,
+        profile.preferred_name,
+        profile.work_email,
+        profile.date_of_birth === null ? null : dateOnly(profile.date_of_birth),
+        profile.personal_email,
+        profile.phone,
+        context.actor.userId,
+        sourceReference,
+      ],
+    );
   }
 
   private async appendPlatformAudit(

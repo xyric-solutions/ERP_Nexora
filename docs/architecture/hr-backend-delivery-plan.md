@@ -13,7 +13,8 @@ PostgreSQL, Redis or storage directly.
 - Employee directory, company scope, HR master reads, employee draft creation,
   update, submission and maker/checker approval.
 - Profile-draft assignments, employee contacts, emergency contacts, restricted
-  document metadata, assignment timeline and employee status-history reads.
+  document metadata, assignment timeline and unified employee-history reads
+  covering status changes, lifecycle events and non-sensitive profile versions.
 - Lifecycle-policy directory and draft policy authoring. Draft authoring creates
   a fixed pre-employment/employed definition and approval-required hire
   transition, with company scope, CSRF/origin validation, idempotency and audit
@@ -29,10 +30,11 @@ PostgreSQL, Redis or storage directly.
 - Governed employee Hire/activation, same-day Transfer, assignment-only
   Promotion, reporting-manager change, work-location change and complete
   organization-placement change are implementation-complete and verified
-  through the API/repository against isolated PostgreSQL. The next safe slice
-  is the immutable lifecycle-event/profile-history read model, providing
-  production visibility before adding further lifecycle transitions. Keep each
-  mutation workflow separate; do not generalize movement rules prematurely.
+  through the API/repository against isolated PostgreSQL. The immutable
+  lifecycle-event/profile-history read models are also complete. The next safe
+  slice is the permission-scoped cross-workflow audit-evidence view, followed
+  by separately designed lifecycle transitions. Keep each mutation workflow
+  separate; do not generalize movement rules prematurely.
 - Independent two-user browser acceptance for a real maker submission followed
   by a different checker decision remains an acceptance gate. Automated browser
   acceptance currently proves authenticated live maker/checker screens and API
@@ -172,8 +174,11 @@ sessions, permissions, company access, approvals and employee/user binding.
       workspace use `hr.employment_history.read`, current company scope and a
       minimal status-event projection. Actor identifiers and mutable controls are
       deliberately excluded.
-- [ ] Profile-history and lifecycle-event read models, plus the full immutable
-      cross-workflow audit evidence view.
+- [x] Profile-history and lifecycle-event read models: typed, cursor-paginated
+      API projections and the unified Employee History workspace expose only
+      non-sensitive profile snapshots and canonical lifecycle event classes.
+      Actor identifiers and private employee fields are excluded by contract.
+- [ ] Full immutable cross-workflow audit evidence view.
 
 ## Phase 3 — recruitment, onboarding and lifecycle
 
@@ -556,11 +561,63 @@ sessions, permissions, company access, approvals and employee/user binding.
 - The isolated integration database is verified at HR version 32. Confirm the
   running development API database migration version before browser acceptance;
   health readiness alone does not prove that version.
-- Checklist progress remains 30/49 (about 61%) because the broad movement item
-  still includes pay-changing Promotion and durable future activation. The next
-  safe slice is the immutable lifecycle-event/profile-history read model,
-  followed by separately designed lifecycle transitions, attendance/leave and
-  payroll work.
+- At that verification point checklist progress remained 30/49 (about 61%)
+  because the broad movement item still included pay-changing Promotion and
+  durable future activation. The lifecycle-event/profile-history read-model
+  slice described next has since been completed.
+
+### Employee History read-model verification record - 2026-10-16
+
+- Added HR source migration `0033_employee_history_read_model`, observed the
+  isolated integration database at HR schema version 33, and preserved the
+  existing migration chain. The migration creates missing baseline profile
+  history and appends a corrected current version when a legacy open snapshot
+  differs from the employee projection; it does not rewrite prior evidence.
+- Added typed, bounded and opaque-cursor-paginated read endpoints:
+  - `GET /api/v1/hr/employees/{employeeId}/lifecycle_events`
+  - `GET /api/v1/hr/employees/{employeeId}/profile_history`
+- Both endpoints require `hr.employment_history.read`, active employee/company
+  scope and tenant isolation. Lifecycle output uses canonical event classes;
+  profile output is a deliberately narrow non-sensitive projection that omits
+  birth date, personal contact details and actor identifiers.
+- Draft creation now records the initial profile version in the same database
+  transaction. A material draft-profile update closes the current version and
+  appends exactly one successor; idempotent replays and no-op updates do not
+  duplicate history.
+- The existing `/#/hr/employee-status-history` route is now the unified
+  **Employee History** workspace with Status Changes, Lifecycle Events and
+  Profile Versions tabs. It uses only the typed API client, provides separate
+  loading/empty/error states and independent `Load older` pagination, and does
+  not fall back to prototype data.
+- Observed verification:
+  - `npm.cmd run typecheck` - passed.
+  - `npm.cmd run api:generate` and `npm.cmd run api:check` - passed.
+  - focused HR router/client unit suite - 37 passed across two files.
+  - OpenAPI contract suite - 2 passed.
+  - migration and governed Hire/Transfer/Promotion/manager/work-location/
+    organization-placement regression - 23 passed across seven files; the
+    isolated database reports HR version 33.
+  - focused draft profile-version integration - 1 passed (16 unrelated tests
+    skipped by the test-name filter).
+  - focused ESLint and Prettier checks for the new/changed implementation -
+    passed. The host `prototype-content.tsx` retains older unrelated lint and
+    formatting findings; this slice changed only its workspace import/render.
+  - `npm.cmd run build:web` - passed on Next.js 16.3.8.
+  - local web and API liveness returned HTTP 200. API readiness reported
+    database, Redis, object storage and HR foundation healthy.
+  - `git diff --check` - required after this handoff update.
+- The complete `hr-foundation-api` file was not recorded as green: four older
+  assertions fail against the persistent isolated fixture state (three stale
+  company-grant assumptions and one assignment-projection assertion). The new
+  profile-version test passes independently; the unrelated failures were not
+  hidden or broadened into this slice.
+- Browser acceptance of all three tabs remains open. The isolated database is
+  verified at HR version 33, but API health does not prove the running
+  development database has that migration. Confirm its configured migration
+  state before manual acceptance, without exposing database credentials.
+- Checklist progress is now 31/50 (62%). The prior combined history/audit item
+  was split so the completed read models are not confused with the still-open
+  cross-workflow audit-evidence view. That audit view is the next safe slice.
 
 ## Currently backend-connected HR pages
 
@@ -580,7 +637,8 @@ Local web base: `http://127.0.0.1:3000` (API: `http://127.0.0.1:4000/api/v1`).
 - `/#/hr/employee-assignments` — profile context, Hire submission, assignment
   timeline, Transfer, assignment-only Promotion, manager-change and
   work-location-change plus organization-placement-change submission.
-- `/#/hr/employee-status-history` — immutable status-history projection.
+- `/#/hr/employee-status-history` — unified Employee History workspace with
+  immutable status, lifecycle-event and non-sensitive profile-version reads.
 - `/#/hr/lifecycle-policies` — policy directory, authoring, submission,
   independent approval and activation.
 - `/#/hr/jobs` — company-scoped job catalogue and governed job creation.

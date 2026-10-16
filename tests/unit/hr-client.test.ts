@@ -375,4 +375,18 @@ describe("HR browser client", () => {
       "decision-key",
     );
   });
+
+  it("serializes bounded lifecycle and profile history reads through the generated client", async () => {
+    const api = {
+      listHrEmployeeLifecycleEvents: vi.fn(async () => ({ items: [], next_cursor: null })),
+      listHrEmployeeProfileHistory: vi.fn(async () => ({ items: [], next_cursor: null })),
+    } as unknown as NexoraApiClient;
+    const client = new HrApiClient(api);
+
+    await client.employeeLifecycleEvents("employee/a", { limit: 10, cursor: "next/value" });
+    await client.employeeProfileHistory("employee/a");
+
+    expect(api.listHrEmployeeLifecycleEvents).toHaveBeenCalledWith("employee/a", "?limit=10&cursor=next%2Fvalue");
+    expect(api.listHrEmployeeProfileHistory).toHaveBeenCalledWith("employee/a", "?limit=25");
+  });
 });

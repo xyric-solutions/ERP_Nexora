@@ -27,6 +27,9 @@ import type {
   HrEmployeeDocumentDirectory,
   HrEmployeeAssignmentDirectory,
   HrEmployeeStatusHistoryDirectory,
+  HrEmployeeHistoryQuery,
+  HrEmployeeLifecycleEventDirectory,
+  HrEmployeeProfileVersionDirectory,
 } from "@nexora/contracts";
 
 import type { HrActorContext, SourceHrRepository } from "../source-repository.js";
@@ -56,6 +59,8 @@ export class HrEmployeeService {
       | "listEmployeeDocuments"
       | "listEmployeeAssignments"
       | "listEmployeeStatusHistory"
+      | "listEmployeeLifecycleEvents"
+      | "listEmployeeProfileHistory"
     >,
   ) {}
 
@@ -181,5 +186,21 @@ export class HrEmployeeService {
 
   listStatusHistory(context: HrActorContext, employeeId: string): Promise<HrEmployeeStatusHistoryDirectory> {
     return this.repository.listEmployeeStatusHistory(context, employeeId);
+  }
+
+  listLifecycleEvents(
+    context: HrActorContext,
+    employeeId: string,
+    query: HrEmployeeHistoryQuery,
+  ): Promise<HrEmployeeLifecycleEventDirectory> {
+    return this.repository.listEmployeeLifecycleEvents(context, employeeId, query);
+  }
+
+  listProfileHistory(
+    context: HrActorContext,
+    employeeId: string,
+    query: HrEmployeeHistoryQuery,
+  ): Promise<HrEmployeeProfileVersionDirectory> {
+    return this.repository.listEmployeeProfileHistory(context, employeeId, query);
   }
 }

@@ -295,6 +295,37 @@ describe("HR API foundation", () => {
     );
   });
 
+  it("parses bounded lifecycle and profile history reads behind authentication", async () => {
+    const repository = {
+      listEmployeeLifecycleEvents: vi.fn(async () => ({ items: [], next_cursor: null })),
+      listEmployeeProfileHistory: vi.fn(async () => ({ items: [], next_cursor: null })),
+    } as unknown as Pick<SourceHrRepository, "listEmployeeLifecycleEvents" | "listEmployeeProfileHistory">;
+    const blocked = await request(appForHr(repository)).get(
+      "/api/v1/hr/employees/employee-1/lifecycle_events?limit=10",
+    );
+    expect(blocked.status).toBe(401);
+
+    const lifecycle = await request(appForHr(repository))
+      .get("/api/v1/hr/employees/employee-1/lifecycle_events?limit=10&cursor=cursor-value")
+      .set("cookie", "nexora_session=token-hr");
+    const profile = await request(appForHr(repository))
+      .get("/api/v1/hr/employees/employee-1/profile_history")
+      .set("cookie", "nexora_session=token-hr");
+
+    expect(lifecycle.status).toBe(200);
+    expect(profile.status).toBe(200);
+    expect(repository.listEmployeeLifecycleEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "employee-1",
+      { limit: 10, cursor: "cursor-value" },
+    );
+    expect(repository.listEmployeeProfileHistory).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "employee-1",
+      { limit: 25 },
+    );
+  });
+
   it("parses a bounded lifecycle-policy directory query in the authenticated HR route", async () => {
     const repository = {
       listEmploymentLifecyclePolicies: vi.fn(async () => ({ items: [] })),

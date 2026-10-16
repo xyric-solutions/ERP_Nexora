@@ -270,6 +270,67 @@ export const hrEmployeeStatusHistoryDirectorySchema = z.strictObject({
   items: z.array(hrEmployeeStatusHistoryEntrySchema),
 });
 
+export const hrEmployeeHistoryQuerySchema = z.strictObject({
+  limit: z.number().int().min(1).max(100).default(25),
+  cursor: z.string().trim().min(1).max(512).optional(),
+});
+
+export const hrEmploymentLifecycleClassSchema = z.enum(["pre_employment", "employed", "temporarily_inactive", "ended"]);
+
+export const hrEmployeeLifecycleStateEvidenceSchema = z.strictObject({
+  code: z.string().min(1).max(64),
+  label: z.string().min(1).max(120),
+  canonical_class: hrEmploymentLifecycleClassSchema,
+});
+
+/** Authoritative lifecycle evidence with actor identifiers deliberately omitted. */
+export const hrEmployeeLifecycleEventSchema = z.strictObject({
+  id: identifier,
+  relationship_id: identifier,
+  sequence: z.number().int().positive(),
+  event_type: z.enum([
+    "hire",
+    "probation",
+    "confirmation",
+    "suspension",
+    "resume",
+    "resignation",
+    "termination",
+    "rehire",
+  ]),
+  effective_on: isoDate,
+  previous_state: hrEmployeeLifecycleStateEvidenceSchema.nullable(),
+  resulting_state: hrEmployeeLifecycleStateEvidenceSchema,
+  reason: z.string().min(1).max(1000),
+  source_reference: z.string().min(1).max(512),
+  recorded_at: z.string().datetime(),
+  approved_at: z.string().datetime(),
+});
+export const hrEmployeeLifecycleEventDirectorySchema = z.strictObject({
+  items: z.array(hrEmployeeLifecycleEventSchema),
+  next_cursor: z.string().nullable(),
+});
+
+/** Non-sensitive profile history; private contact and identity values are excluded. */
+export const hrEmployeeProfileVersionSchema = z.strictObject({
+  id: identifier,
+  revision: z.number().int().positive(),
+  effective_from: isoDate,
+  effective_to: isoDate.nullable(),
+  first_name: z.string().min(1).max(100),
+  middle_name: z.string().max(100),
+  last_name: z.string().min(1).max(100),
+  preferred_name: z.string().max(100),
+  work_email: z.string().max(320),
+  source_reference: z.string().min(1).max(500),
+  capture_origin: z.enum(["migration_baseline", "recorded_change"]),
+  recorded_at: z.string().datetime(),
+});
+export const hrEmployeeProfileVersionDirectorySchema = z.strictObject({
+  items: z.array(hrEmployeeProfileVersionSchema),
+  next_cursor: z.string().nullable(),
+});
+
 export const updateHrEmployeeDraftRequestSchema = z
   .strictObject({
     first_name: z.string().trim().min(1).max(100).optional(),
@@ -758,6 +819,9 @@ export type HrEmployeeEmergencyContactResult = z.infer<typeof hrEmployeeEmergenc
 export type HrEmployeeDocumentDirectory = z.infer<typeof hrEmployeeDocumentDirectorySchema>;
 export type HrEmployeeAssignmentDirectory = z.infer<typeof hrEmployeeAssignmentDirectorySchema>;
 export type HrEmployeeStatusHistoryDirectory = z.infer<typeof hrEmployeeStatusHistoryDirectorySchema>;
+export type HrEmployeeHistoryQuery = z.infer<typeof hrEmployeeHistoryQuerySchema>;
+export type HrEmployeeLifecycleEventDirectory = z.infer<typeof hrEmployeeLifecycleEventDirectorySchema>;
+export type HrEmployeeProfileVersionDirectory = z.infer<typeof hrEmployeeProfileVersionDirectorySchema>;
 
 export const hrEmploymentLifecyclePolicyDirectoryQuerySchema = z.strictObject({
   company_id: identifier,

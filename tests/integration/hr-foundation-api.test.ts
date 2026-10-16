@@ -240,7 +240,9 @@ run("HR foundation API repository", () => {
       ]),
     );
     expect(JSON.stringify(documents)).not.toContain("storage_key");
-    await expect(repository.listEmployeeDocuments(context("r06.maker"), "r06-uat-employee-target")).rejects.toMatchObject({
+    await expect(
+      repository.listEmployeeDocuments(context("r06.maker"), "r06-uat-employee-target"),
+    ).rejects.toMatchObject({
       status: 403,
       code: "PERMISSION_DENIED",
     } satisfies Partial<HrApiError>);
@@ -260,7 +262,9 @@ run("HR foundation API repository", () => {
       ]),
     );
     expect(JSON.stringify(assignments)).not.toContain("reporting_manager_id");
-    await expect(repository.listEmployeeAssignments(context("r06.maker"), "r06-uat-employee-target")).rejects.toMatchObject({
+    await expect(
+      repository.listEmployeeAssignments(context("r06.maker"), "r06-uat-employee-target"),
+    ).rejects.toMatchObject({
       status: 403,
       code: "PERMISSION_DENIED",
     } satisfies Partial<HrApiError>);
@@ -288,7 +292,9 @@ run("HR foundation API repository", () => {
       ]),
     );
     expect(JSON.stringify(history)).not.toContain("actor_id");
-    await expect(repository.listEmployeeStatusHistory(context("r06.maker"), "r06-uat-employee-target")).rejects.toMatchObject({
+    await expect(
+      repository.listEmployeeStatusHistory(context("r06.maker"), "r06-uat-employee-target"),
+    ).rejects.toMatchObject({
       status: 403,
       code: "PERMISSION_DENIED",
     } satisfies Partial<HrApiError>);
@@ -309,7 +315,9 @@ run("HR foundation API repository", () => {
       company_id: "nexora-r06-uat-company",
       limit: 25,
     });
-    expect(policies.items).toEqual(expect.arrayContaining([expect.objectContaining({ id: policyId, status: "draft" })]));
+    expect(policies.items).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: policyId, status: "draft" })]),
+    );
     await expect(
       repository.listEmploymentLifecyclePolicies(context("r06.maker"), {
         company_id: "nexora-r06-uat-company",
@@ -384,7 +392,11 @@ run("HR foundation API repository", () => {
         { event_type: "hire", requires_approval: true, workflow_trigger: "hr_employment_hire" },
       ]);
       expect(audit.rows).toEqual([
-        { action: "hr.employment_lifecycle_policy.create", entity_type: "employment_lifecycle_policy", entity_id: first.id },
+        {
+          action: "hr.employment_lifecycle_policy.create",
+          entity_type: "employment_lifecycle_policy",
+          entity_id: first.id,
+        },
       ]);
     } finally {
       await client.query("rollback").catch(() => undefined);
@@ -450,7 +462,12 @@ run("HR foundation API repository", () => {
     manager.actor.permissions = ["hr.employment_lifecycle_policy.manage"];
     const created = await repository.createEmploymentLifecyclePolicy(
       manager,
-      { company_id: "nexora-r06-uat-company", code: `R06-APPROVE-${suffix}`, name: "Approval-controlled lifecycle", effective_from: "2026-10-15" },
+      {
+        company_id: "nexora-r06-uat-company",
+        code: `R06-APPROVE-${suffix}`,
+        name: "Approval-controlled lifecycle",
+        effective_from: "2026-10-15",
+      },
       `lifecycle-policy-create-approval-${suffix}`,
       "hr-test-correlation",
     );
@@ -465,7 +482,13 @@ run("HR foundation API repository", () => {
     const approver = context("r06.checker");
     approver.actor.permissions = ["hr.employment_lifecycle_policy.approve"];
     await expect(
-      repository.approveEmploymentLifecyclePolicy(manager, created.id, { reason: "Self approval attempt." }, `lifecycle-policy-self-${suffix}`, "hr-test-correlation"),
+      repository.approveEmploymentLifecyclePolicy(
+        manager,
+        created.id,
+        { reason: "Self approval attempt." },
+        `lifecycle-policy-self-${suffix}`,
+        "hr-test-correlation",
+      ),
     ).rejects.toMatchObject({ status: 403, code: "HR_SELF_APPROVAL_FORBIDDEN" } satisfies Partial<HrApiError>);
     const approved = await repository.approveEmploymentLifecyclePolicy(
       approver,
@@ -609,6 +632,13 @@ run("HR foundation API repository", () => {
         "select state,decision_reason from hr_employee_draft_approval where tenant_id=$1 and employee_id=$2",
         [sourceTestTenantId, first.id],
       );
+      const profileVersions = await client.query(
+        `select revision,preferred_name,source_reference,effective_to is null as is_current
+           from hr_employee_profile_version
+          where tenant_id=$1 and employee_id=$2
+          order by revision`,
+        [sourceTestTenantId, first.id],
+      );
       await client.query("commit");
       expect(scope.rows).toEqual([{ company_id: input.company_id }]);
       expect(audit.rows).toEqual([{ action: "hr.employee.create", entity_id: first.id }]);
@@ -617,6 +647,20 @@ run("HR foundation API repository", () => {
         { from_status: "draft", to_status: "pending_approval", reason: "Ready for HR review" },
       ]);
       expect(approval.rows).toEqual([{ state: "approved", decision_reason: "Profile approved for assignment" }]);
+      expect(profileVersions.rows).toEqual([
+        {
+          revision: 1,
+          preferred_name: "",
+          source_reference: `platform-audit:${first.audit_event_id}`,
+          is_current: false,
+        },
+        {
+          revision: 2,
+          preferred_name: update.preferred_name,
+          source_reference: `platform-audit:${updated.audit_event_id}`,
+          is_current: true,
+        },
+      ]);
     } finally {
       await client.query("rollback").catch(() => undefined);
       client.release();

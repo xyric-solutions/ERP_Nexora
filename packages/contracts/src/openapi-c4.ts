@@ -38,6 +38,8 @@ import {
   hrEmployeeDocumentDirectorySchema,
   hrEmployeeAssignmentDirectorySchema,
   hrEmployeeStatusHistoryDirectorySchema,
+  hrEmployeeLifecycleEventDirectorySchema,
+  hrEmployeeProfileVersionDirectorySchema,
   hrEmploymentLifecyclePolicyDirectorySchema,
   createHrEmploymentLifecyclePolicyRequestSchema,
   hrEmploymentLifecyclePolicyResultSchema,
@@ -1071,6 +1073,68 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/hr/employees/{employeeId}/lifecycle_events": {
+        get: {
+          operationId: "listHrEmployeeLifecycleEvents",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 25 },
+            },
+            { in: "query", name: "cursor", required: false, schema: { type: "string", maxLength: 512 } },
+          ],
+          responses: {
+            "200": {
+              description: "Authorized immutable employee lifecycle events",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeLifecycleEventDirectory" } },
+              },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/profile_history": {
+        get: {
+          operationId: "listHrEmployeeProfileHistory",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 25 },
+            },
+            { in: "query", name: "cursor", required: false, schema: { type: "string", maxLength: 512 } },
+          ],
+          responses: {
+            "200": {
+              description: "Authorized non-sensitive immutable employee profile history",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeProfileVersionDirectory" } },
+              },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
       "/hr/masters": {
         get: {
           operationId: "listHrMasters",
@@ -2060,6 +2124,8 @@ export function buildOpenApiDocument() {
         HrEmployeeDocumentDirectory: schema(hrEmployeeDocumentDirectorySchema),
         HrEmployeeAssignmentDirectory: schema(hrEmployeeAssignmentDirectorySchema),
         HrEmployeeStatusHistoryDirectory: schema(hrEmployeeStatusHistoryDirectorySchema),
+        HrEmployeeLifecycleEventDirectory: schema(hrEmployeeLifecycleEventDirectorySchema),
+        HrEmployeeProfileVersionDirectory: schema(hrEmployeeProfileVersionDirectorySchema),
         HrEmploymentLifecyclePolicyDirectory: schema(hrEmploymentLifecyclePolicyDirectorySchema),
         CreateHrEmploymentLifecyclePolicyRequest: schema(createHrEmploymentLifecyclePolicyRequestSchema),
         HrEmploymentLifecyclePolicyResult: schema(hrEmploymentLifecyclePolicyResultSchema),

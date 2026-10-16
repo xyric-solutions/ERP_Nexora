@@ -38,6 +38,7 @@ import {
   createHrEmployeeOrganizationPlacementChangeRequestSchema,
   decideHrEmployeeOrganizationPlacementChangeRequestSchema,
   hrEmployeeOrganizationPlacementChangeRequestDirectoryQuerySchema,
+  hrEmployeeHistoryQuerySchema,
 } from "@nexora/contracts";
 
 import { HttpError } from "../../http/errors.js";
@@ -74,6 +75,8 @@ export interface HrRouterDependencies {
     | "listEmployeeDocuments"
     | "listEmployeeAssignments"
     | "listEmployeeStatusHistory"
+    | "listEmployeeLifecycleEvents"
+    | "listEmployeeProfileHistory"
     | "listEmploymentLifecyclePolicies"
     | "createEmploymentLifecyclePolicy"
     | "submitEmploymentLifecyclePolicy"
@@ -645,6 +648,30 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
     const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
     res.json(
       await handle(async () => employees.listStatusHistory(await loadHrSessionContext(req, dependencies), employeeId)),
+    );
+  });
+  router.get("/employees/:employeeId/lifecycle_events", async (req, res) => {
+    const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
+    const query = hrEmployeeHistoryQuerySchema.parse({
+      limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+      cursor: req.query.cursor,
+    });
+    res.json(
+      await handle(async () =>
+        employees.listLifecycleEvents(await loadHrSessionContext(req, dependencies), employeeId, query),
+      ),
+    );
+  });
+  router.get("/employees/:employeeId/profile_history", async (req, res) => {
+    const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
+    const query = hrEmployeeHistoryQuerySchema.parse({
+      limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+      cursor: req.query.cursor,
+    });
+    res.json(
+      await handle(async () =>
+        employees.listProfileHistory(await loadHrSessionContext(req, dependencies), employeeId, query),
+      ),
     );
   });
   router.get("/employees/:employeeId", async (req, res) => {

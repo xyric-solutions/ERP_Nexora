@@ -37,7 +37,7 @@ import { HrEmployeeContactsWorkspace } from "@prototype/features/hr/views/hr-emp
 import { HrEmployeeEmergencyContactsWorkspace } from "@prototype/features/hr/views/hr-employee-emergency-contacts-workspace";
 import { HrEmployeeDocumentsWorkspace } from "@prototype/features/hr/views/hr-employee-documents-workspace";
 import { HrEmployeeAssignmentsWorkspace } from "@prototype/features/hr/views/hr-employee-assignments-workspace";
-import { HrEmployeeStatusHistoryWorkspace } from "@prototype/features/hr/views/hr-employee-status-history-workspace";
+import { HrEmployeeHistoryWorkspace } from "@prototype/features/hr/views/hr-employee-history-workspace";
 import { HrAttendanceScreen, isHrAttendancePage } from "@prototype/features/hr/views/hr-attendance-screens";
 import { HrPayrollScreen, isHrPayrollPage } from "@prototype/features/hr/views/hr-payroll-screens";
 import { HrLifecycleScreen, isHrLifecyclePage } from "@prototype/features/hr/views/hr-lifecycle-screens";
@@ -2700,7 +2700,7 @@ export function PrototypeContent(props: PrototypeContentProps) {
       return (
         <>
           <PageIntro context={context} />
-          <HrEmployeeStatusHistoryWorkspace />
+          <HrEmployeeHistoryWorkspace />
         </>
       );
     }

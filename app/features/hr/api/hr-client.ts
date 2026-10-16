@@ -24,6 +24,8 @@ import type {
   HrEmployeeDocumentDirectory,
   HrEmployeeAssignmentDirectory,
   HrEmployeeStatusHistoryDirectory,
+  HrEmployeeLifecycleEventDirectory,
+  HrEmployeeProfileVersionDirectory,
   HrEmploymentLifecyclePolicyDirectory,
   CreateHrEmploymentLifecyclePolicyRequest,
   HrEmploymentLifecyclePolicyResult,
@@ -220,6 +222,23 @@ export class HrApiClient {
 
   employeeStatusHistory(employeeId: string): Promise<HrEmployeeStatusHistoryDirectory> {
     return this.api.listHrEmployeeStatusHistory(employeeId);
+  }
+
+  employeeLifecycleEvents(
+    employeeId: string,
+    input: { limit?: number; cursor?: string } = {},
+  ): Promise<HrEmployeeLifecycleEventDirectory> {
+    return this.api.listHrEmployeeLifecycleEvents(
+      employeeId,
+      query({ limit: input.limit ?? 25, cursor: input.cursor }),
+    );
+  }
+
+  employeeProfileHistory(
+    employeeId: string,
+    input: { limit?: number; cursor?: string } = {},
+  ): Promise<HrEmployeeProfileVersionDirectory> {
+    return this.api.listHrEmployeeProfileHistory(employeeId, query({ limit: input.limit ?? 25, cursor: input.cursor }));
   }
 
   employmentLifecyclePolicies(input: {

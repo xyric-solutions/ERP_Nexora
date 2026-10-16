@@ -59,6 +59,8 @@ export interface AppDependencies {
     | "listEmployeeDocuments"
     | "listEmployeeAssignments"
     | "listEmployeeStatusHistory"
+    | "listEmployeeLifecycleEvents"
+    | "listEmployeeProfileHistory"
     | "listEmploymentLifecyclePolicies"
     | "createEmploymentLifecyclePolicy"
     | "submitEmploymentLifecyclePolicy"

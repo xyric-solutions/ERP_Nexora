@@ -28,6 +28,8 @@ import type {
   HrEmployeeDocumentDirectory,
   HrEmployeeAssignmentDirectory,
   HrEmployeeStatusHistoryDirectory,
+  HrEmployeeLifecycleEventDirectory,
+  HrEmployeeProfileVersionDirectory,
   HrEmploymentLifecyclePolicyDirectory,
   CreateHrEmploymentLifecyclePolicyRequest,
   HrEmploymentLifecyclePolicyResult,
@@ -218,6 +220,8 @@ export class NexoraApiClient {
   listHrEmployeeDocuments(employeeId: string): Promise<HrEmployeeDocumentDirectory> { return this.request(`/api/v1/hr/employees/${encodeURIComponent(employeeId)}/documents`); }
   listHrEmployeeAssignments(employeeId: string): Promise<HrEmployeeAssignmentDirectory> { return this.request(`/api/v1/hr/employees/${encodeURIComponent(employeeId)}/assignments`); }
   listHrEmployeeStatusHistory(employeeId: string): Promise<HrEmployeeStatusHistoryDirectory> { return this.request(`/api/v1/hr/employees/${encodeURIComponent(employeeId)}/status_history`); }
+  listHrEmployeeLifecycleEvents(employeeId: string, query: string): Promise<HrEmployeeLifecycleEventDirectory> { return this.request(`/api/v1/hr/employees/${encodeURIComponent(employeeId)}/lifecycle_events${query}`); }
+  listHrEmployeeProfileHistory(employeeId: string, query: string): Promise<HrEmployeeProfileVersionDirectory> { return this.request(`/api/v1/hr/employees/${encodeURIComponent(employeeId)}/profile_history${query}`); }
   listHrEmploymentLifecyclePolicies(query: string): Promise<HrEmploymentLifecyclePolicyDirectory> { return this.request(`/api/v1/hr/employment_lifecycle_policies${query}`); }
   createHrEmploymentLifecyclePolicy(payload: CreateHrEmploymentLifecyclePolicyRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmploymentLifecyclePolicyResult> {
     return this.request("/api/v1/hr/employment_lifecycle_policies", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });

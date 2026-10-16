@@ -333,6 +333,29 @@ run("governed employee Hire repository", () => {
       decided_by: "r06.checker",
       decision_reason: "Independent Hire approval completed.",
     });
+    const historyReader = actor("r06.maker", ["hr.employment_history.read"]);
+    const lifecycleHistory = await repository.listEmployeeLifecycleEvents(historyReader, fixture.employee.id, {
+      limit: 25,
+    });
+    const profileHistory = await repository.listEmployeeProfileHistory(historyReader, fixture.employee.id, {
+      limit: 25,
+    });
+    expect(lifecycleHistory).toMatchObject({
+      items: [
+        expect.objectContaining({
+          event_type: "hire",
+          sequence: 1,
+          resulting_state: expect.objectContaining({ canonical_class: "employed" }),
+        }),
+      ],
+      next_cursor: null,
+    });
+    expect(profileHistory.items).toEqual(
+      expect.arrayContaining([expect.objectContaining({ revision: 1, capture_origin: "recorded_change" })]),
+    );
+    expect(JSON.stringify({ lifecycleHistory, profileHistory })).not.toMatch(
+      /recorded_by|approved_by|date_of_birth|personal_email|phone/,
+    );
   });
 
   it("rejects a Hire request without activating employment or creating an event", async () => {

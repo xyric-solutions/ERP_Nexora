@@ -3,6 +3,10 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import { buildOpenApiDocument } from "../../packages/contracts/src/openapi-c4.js";
+import {
+  hrEmployeeLifecycleEventDirectorySchema,
+  hrEmployeeProfileVersionDirectorySchema,
+} from "../../packages/contracts/src/hr/index.js";
 
 describe("OpenAPI contract", () => {
   it("matches the committed snapshot and versioned paths", async () => {
@@ -49,6 +53,8 @@ describe("OpenAPI contract", () => {
       "/hr/employees/{employeeId}/documents",
       "/hr/employees/{employeeId}/assignments",
       "/hr/employees/{employeeId}/status_history",
+      "/hr/employees/{employeeId}/lifecycle_events",
+      "/hr/employees/{employeeId}/profile_history",
       "/hr/masters",
       "/hr/jobs",
       "/hr/hire_requests",
@@ -83,5 +89,50 @@ describe("OpenAPI contract", () => {
       "/health/ready",
       "/jobs/sample",
     ]);
+  });
+
+  it("keeps employee history projections free of private fields and actor identifiers", () => {
+    const lifecycle = {
+      items: [
+        {
+          id: "event-1",
+          relationship_id: "relationship-1",
+          sequence: 1,
+          event_type: "hire",
+          effective_on: "2026-10-16",
+          previous_state: null,
+          resulting_state: { code: "employed", label: "Employed", canonical_class: "employed" },
+          reason: "Approved hire",
+          source_reference: "hr:hire",
+          recorded_at: "2026-10-16T00:00:00.000Z",
+          approved_at: "2026-10-16T00:00:00.000Z",
+          recorded_by: "private-actor",
+        },
+      ],
+      next_cursor: null,
+    };
+    expect(hrEmployeeLifecycleEventDirectorySchema.safeParse(lifecycle).success).toBe(false);
+
+    const profile = {
+      items: [
+        {
+          id: "version-1",
+          revision: 1,
+          effective_from: "2026-10-16",
+          effective_to: null,
+          first_name: "Synthetic",
+          middle_name: "",
+          last_name: "Employee",
+          preferred_name: "",
+          work_email: "synthetic@example.test",
+          source_reference: "migration:0033-current-state-baseline",
+          capture_origin: "migration_baseline",
+          recorded_at: "2026-10-16T00:00:00.000Z",
+          personal_email: "private@example.test",
+        },
+      ],
+      next_cursor: null,
+    };
+    expect(hrEmployeeProfileVersionDirectorySchema.safeParse(profile).success).toBe(false);
   });
 });
