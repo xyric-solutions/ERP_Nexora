@@ -74,7 +74,8 @@ function readHashRoute(): RouteState {
 
 function isIdentityWorkspaceHash(): boolean {
   if (typeof window === "undefined") return false;
-  return window.location.hash.replace(/^#\/?/, "") === "identity/access";
+  const route = window.location.hash.replace(/^#\/?/, "");
+  return route === "identity/access" || route.startsWith("identity/access?");
 }
 
 function rowsFor(moduleId: string, moduleLabel: string, pageLabel: string): PrototypeRow[] {
@@ -319,7 +320,10 @@ export function PrototypeShell({
     setDrawerModuleId(null);
     setSearchOpen(false);
     setIntelligenceSurface(null);
-    if (typeof window !== "undefined") window.history.pushState(null, "", "#/identity/access");
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, "", "#/identity/access");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }
   }, []);
 
   const pushToast = useCallback((tone: Toast["tone"], title: string, message: string) => {

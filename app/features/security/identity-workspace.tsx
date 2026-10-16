@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import type { SecurityPage } from "@nexora/contracts";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
@@ -13,7 +13,7 @@ import { useSession } from "../../lib/session/session-provider";
 import UserManagementPanel from "./users/user-management-panel";
 import RoleForm from "./role-form";
 import GovernedTable from "./governed-table";
-import { identityHref, identityLocation, type IdentityLocation, type IdentitySection } from "./identity-navigation";
+import { identityHashLocation, identityHref, type IdentityLocation, type IdentitySection } from "./identity-navigation";
 
 const labels = {
   roles: "Roles",
@@ -22,21 +22,51 @@ const labels = {
   permissions: "Permissions",
   audit: "Audit",
   users: "Users",
+  "access-reviews": "Access Reviews",
+  delegation: "Delegation & Impersonation",
+  policies: "Security & Session Policies",
 };
+
+const capabilityTabs = [
+  { id: "users", label: "Users" },
+  { id: "roles", label: "Roles & Permissions" },
+  { id: "assignments", label: "Company-role Assignments" },
+  { id: "access-reviews", label: "Access Reviews" },
+  { id: "delegation", label: "Delegation & Impersonation" },
+  { id: "policies", label: "Security & Session Policies" },
+] as const;
+
+type IdentityCapability = (typeof capabilityTabs)[number]["id"];
+
+function capabilityLocation(capability: IdentityCapability): IdentityLocation {
+  return {
+    tab: capability === "users" ? "users" : "roles",
+    section: capability === "users" || capability === "roles" ? "records" : capability,
+    approvalType: capability === "users" ? "user" : "role",
+    userId: null,
+    rolePolicyId: null,
+    userMode: "list",
+    cursor: "0",
+  };
+}
 
 export default function IdentityWorkspace({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
-  const search = useSearchParams();
   const { api, session, loading, logout, csrfToken } = useSession();
-  const location = useMemo(() => identityLocation(search), [search]);
-  const { tab: workspace, section, approvalType, userId, rolePolicyId } = location;
+  const [location, setLocation] = useState<IdentityLocation>(() => identityHashLocation(""));
+  const { tab: workspace, section, approvalType, userId, rolePolicyId, userMode } = location;
   const tab = section === "records" ? workspace : section;
-  const sections: IdentitySection[] =
-    workspace === "users"
+  const activeCapability: IdentityCapability =
+    section === "assignments" || section === "access-reviews" || section === "delegation" || section === "policies"
+      ? section
+      : workspace;
+  const isPlannedSection = section === "access-reviews" || section === "delegation" || section === "policies";
+  const sections: IdentitySection[] = isPlannedSection
+    ? []
+    : workspace === "users"
       ? ["records", "assignments", "approvals", "audit"]
       : ["records", "permissions", "assignments", "approvals", "audit"];
-  const requestedCursor = Number(search.get("cursor") ?? "0");
-  const cursor = String(Number.isSafeInteger(requestedCursor) && requestedCursor >= 0 ? requestedCursor : 0);
+  const cursor = location.cursor;
   const viewKey = `${workspace}:${tab}:${approvalType}:${userId}:${rolePolicyId}:${cursor}`;
   const [data, setData] = useState<SecurityPage>({ items: [], next_cursor: null });
   const [loadedView, setLoadedView] = useState<string | null>(null);
@@ -45,6 +75,17 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
   const [showCreate, setShowCreate] = useState(false);
   const [credentialDelivery, setCredentialDelivery] = useState<string | null>(null);
   const permissions = useMemo(() => new Set(session?.user.permissions ?? []), [session]);
+
+  useEffect(() => {
+    const syncLocation = () => setLocation(identityHashLocation(window.location.hash));
+    syncLocation();
+    window.addEventListener("hashchange", syncLocation);
+    window.addEventListener("popstate", syncLocation);
+    return () => {
+      window.removeEventListener("hashchange", syncLocation);
+      window.removeEventListener("popstate", syncLocation);
+    };
+  }, []);
 
   const fetchPage = useCallback(() => {
     if (!session) return Promise.resolve<SecurityPage>({ items: [], next_cursor: null });
@@ -107,16 +148,13 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
       active = false;
     };
   }, [fetchPage, viewKey]);
-  function choose(next: IdentityLocation, nextCursor?: string) {
+  function choose(next: IdentityLocation) {
     setCredentialDelivery(null);
     setShowCreate(false);
     setMessage("");
     setData({ items: [], next_cursor: null });
-    window.history.pushState(
-      null,
-      "",
-      identityHref(next) + (nextCursor ? `&cursor=${encodeURIComponent(nextCursor)}` : ""),
-    );
+    setLocation(next);
+    window.history.pushState(null, "", identityHref(next));
   }
   async function run<T>(operation: () => Promise<T>, success: string): Promise<T | undefined> {
     setBusy(true);
@@ -149,10 +187,16 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
     );
 
   return (
-    <main className={embedded ? "min-w-0" : "grid min-h-screen grid-cols-[220px_minmax(0,1fr)] bg-background text-foreground"}>
+    <main
+      className={
+        embedded ? "min-w-0" : "grid min-h-screen grid-cols-[220px_minmax(0,1fr)] bg-background text-foreground"
+      }
+    >
       {!embedded ? (
         <aside className="bg-[var(--nx-sidebar)] px-4 py-6 text-[var(--nx-sidebar-muted)]">
-          <div className="mb-8 ml-2 grid size-10 place-items-center rounded-lg bg-card text-xl font-extrabold text-primary">N</div>
+          <div className="mb-8 ml-2 grid size-10 place-items-center rounded-lg bg-card text-xl font-extrabold text-primary">
+            N
+          </div>
           <nav className="grid gap-1" aria-label="Administration">
             <Link className="rounded-lg px-3 py-2.5 text-sm hover:bg-[var(--nx-sidebar-hover)]" href="/">
               Overview
@@ -167,15 +211,23 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
         </aside>
       ) : null}
       <section className="min-w-0">
-        <header className={embedded ? "flex items-center justify-between gap-5 border-b border-border pb-4" : "flex items-center justify-between gap-5 border-b border-border bg-card px-8 py-6"}>
+        <header
+          className={
+            embedded
+              ? "flex items-center justify-between gap-5 border-b border-border pb-4"
+              : "flex items-center justify-between gap-5 border-b border-border bg-card px-8 py-6"
+          }
+        >
           <div>
-            <p className="mb-1 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Administration / Security</p>
+            <p className="mb-1 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+              Administration / Security
+            </p>
             <h1 className="font-serif text-3xl font-semibold tracking-tight text-foreground">Identity &amp; Access</h1>
           </div>
           {!embedded ? (
             <div className="flex items-center gap-4">
               <span className="grid text-right text-sm font-medium">
-              {session.user.email}
+                {session.user.email}
                 <small className="mt-0.5 text-xs font-normal text-muted-foreground">{session.tenant_id}</small>
               </span>
               <Button variant="outline" onClick={() => void logout().then(() => router.replace("/login"))}>
@@ -194,67 +246,78 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
           <Card className="border border-border shadow-none">
             <CardContent className="grid gap-2 pt-1">
               <span className="text-xs text-muted-foreground">Session</span>
-              <strong className="inline-flex items-center gap-2 text-base text-foreground"><ShieldCheck className="size-4 text-primary" />Server-side · active</strong>
+              <strong className="inline-flex items-center gap-2 text-base text-foreground">
+                <ShieldCheck className="size-4 text-primary" />
+                Server-side · active
+              </strong>
             </CardContent>
           </Card>
           <Card className="border border-border shadow-none">
             <CardContent className="grid gap-2 pt-1">
               <span className="text-xs text-muted-foreground">Access</span>
-              <strong className="inline-flex items-center gap-2 text-base text-foreground"><UsersRound className="size-4 text-primary" />{session.user.roles.length} role{session.user.roles.length === 1 ? "" : "s"}</strong>
+              <strong className="inline-flex items-center gap-2 text-base text-foreground">
+                <UsersRound className="size-4 text-primary" />
+                {session.user.roles.length} role{session.user.roles.length === 1 ? "" : "s"}
+              </strong>
             </CardContent>
           </Card>
         </div>
-        <nav className={embedded ? "flex border-b border-border" : "flex border-b border-border px-8"} aria-label="Identity and Access sections">
-          {(["users", "roles"] as const).map((item) => (
+        <nav
+          className={embedded ? "flex flex-wrap border-b border-border" : "flex flex-wrap border-b border-border px-8"}
+          aria-label="Identity and Access sections"
+        >
+          {capabilityTabs.map((item) => (
             <Button
-              key={item}
+              key={item.id}
               variant="ghost"
-              className={`h-11 rounded-none border-x-0 border-t-0 border-b-3 px-4 ${workspace === item ? "border-primary text-primary hover:bg-transparent hover:text-primary" : "border-transparent text-muted-foreground hover:bg-muted"}`}
-              aria-current={workspace === item ? "page" : undefined}
-              onClick={() =>
-                choose({
-                  tab: item,
-                  section: "records",
-                  approvalType: item === "users" ? "user" : "role",
-                  userId: null,
-                  rolePolicyId: null,
-                })
-              }
+              className={`h-11 rounded-none border-x-0 border-t-0 border-b-3 px-4 ${activeCapability === item.id ? "border-primary text-primary hover:bg-transparent hover:text-primary" : "border-transparent text-muted-foreground hover:bg-muted"}`}
+              aria-current={activeCapability === item.id ? "page" : undefined}
+              onClick={() => choose(capabilityLocation(item.id))}
             >
-              {item === "users" ? "Users Management" : "Roles Management"}
+              {item.label}
             </Button>
           ))}
         </nav>
-        <section className={embedded ? "mt-6 overflow-hidden rounded-xl border border-border bg-card" : "m-8 overflow-hidden rounded-xl border border-border bg-card"}>
-          <nav
-            className="flex flex-wrap gap-2 border-b border-border bg-muted/60 p-4"
-            aria-label={`${workspace === "users" ? "Users" : "Roles"} Management sections`}
-          >
-            {sections.map((item) => (
-              <Button
-                key={item}
-                variant={section === item ? "default" : "outline"}
-                size="sm"
-                aria-current={section === item ? "page" : undefined}
-                onClick={() => choose({ ...location, section: item })}
-              >
-                {item === "records"
-                  ? workspace === "users"
-                    ? "Users"
-                    : "Roles"
-                  : item === "assignments"
+        <section
+          className={
+            embedded
+              ? "mt-6 overflow-hidden rounded-xl border border-border bg-card"
+              : "m-8 overflow-hidden rounded-xl border border-border bg-card"
+          }
+        >
+          {sections.length ? (
+            <nav
+              className="flex flex-wrap gap-2 border-b border-border bg-muted/60 p-4"
+              aria-label={`${workspace === "users" ? "Users" : "Roles"} Management sections`}
+            >
+              {sections.map((item) => (
+                <Button
+                  key={item}
+                  variant={section === item ? "default" : "outline"}
+                  size="sm"
+                  aria-current={section === item ? "page" : undefined}
+                  onClick={() => choose({ ...location, section: item, cursor: "0" })}
+                >
+                  {item === "records"
                     ? workspace === "users"
-                      ? "Assigned roles"
-                      : "Assigned users"
-                    : item === "audit"
-                      ? "Audit history"
-                      : labels[item]}
-              </Button>
-            ))}
-          </nav>
+                      ? "Users"
+                      : "Roles"
+                    : item === "assignments"
+                      ? workspace === "users"
+                        ? "Assigned roles"
+                        : "Assigned users"
+                      : item === "audit"
+                        ? "Audit history"
+                        : labels[item]}
+                </Button>
+              ))}
+            </nav>
+          ) : null}
           <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-5 py-5">
             <div>
-              <p className="mb-1 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">{labels[tab]}</p>
+              <p className="mb-1 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                {labels[tab]}
+              </p>
               <h2 className="text-xl font-semibold text-foreground">
                 {tab === "roles"
                   ? "Governed role policies"
@@ -266,7 +329,13 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
                         ? "Exact permission catalogue"
                         : tab === "audit"
                           ? "Immutable authorization evidence"
-                          : "Governed user accounts"}
+                          : tab === "access-reviews"
+                            ? "Periodic access certification"
+                            : tab === "delegation"
+                              ? "Time-bound delegated and impersonated access"
+                              : tab === "policies"
+                                ? "Tenant authentication and session controls"
+                                : "Governed user accounts"}
               </h2>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -291,11 +360,13 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
                 </select>
               ) : null}
               {tab === "roles" && permissions.has("security.authorization.role.create") ? (
-                <Button onClick={() => setShowCreate((value) => !value)}>
-                  {showCreate ? "Close" : "Create role"}
+                <Button onClick={() => setShowCreate((value) => !value)}>{showCreate ? "Close" : "Create role"}</Button>
+              ) : null}
+              {tab !== "users" && !isPlannedSection ? (
+                <Button variant="outline" onClick={() => void load()}>
+                  Refresh
                 </Button>
               ) : null}
-              {tab !== "users" ? <Button variant="outline" onClick={() => void load()}>Refresh</Button> : null}
             </div>
           </header>
           {section !== "records" && (userId || rolePolicyId) ? (
@@ -303,7 +374,11 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
               <span>
                 Showing records for {userId ? "user" : "role"}: <strong>{userId ?? rolePolicyId}</strong>
               </span>
-              <Button variant="outline" size="sm" onClick={() => choose({ ...location, userId: null, rolePolicyId: null })}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => choose({ ...location, userId: null, rolePolicyId: null, cursor: "0" })}
+              >
                 Show all {workspace}
               </Button>
             </div>
@@ -322,23 +397,54 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
             />
           ) : null}
           {credentialDelivery && tab === "approvals" && loadedView === viewKey ? (
-            <Alert className="m-5 border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] text-[var(--nx-warning)]" aria-labelledby="credential-title">
+            <Alert
+              className="m-5 border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] text-[var(--nx-warning)]"
+              aria-labelledby="credential-title"
+            >
               <div>
                 <AlertTitle id="credential-title">One-time password</AlertTitle>
                 <p>Copy it now. Nexora will not show this credential again.</p>
-                <code className="mt-2 inline-block rounded bg-card px-2 py-1.5 text-sm text-foreground select-all">{credentialDelivery}</code>
+                <code className="mt-2 inline-block rounded bg-card px-2 py-1.5 text-sm text-foreground select-all">
+                  {credentialDelivery}
+                </code>
               </div>
-              <Button className="justify-self-start" variant="outline" size="sm" onClick={() => setCredentialDelivery(null)}>Close permanently</Button>
+              <Button
+                className="justify-self-start"
+                variant="outline"
+                size="sm"
+                onClick={() => setCredentialDelivery(null)}
+              >
+                Close permanently
+              </Button>
             </Alert>
           ) : null}
           {message ? (
-            <Alert className="m-5 border-[var(--nx-info-border)] bg-[var(--nx-info-soft)] text-[var(--nx-info)]" role="status">
+            <Alert
+              className="m-5 border-[var(--nx-info-border)] bg-[var(--nx-info-soft)] text-[var(--nx-info)]"
+              role="status"
+            >
               <AlertDescription className="text-[var(--nx-info)]">{message}</AlertDescription>
             </Alert>
           ) : null}
-          {tab === "users" ? (
+          {isPlannedSection ? (
+            <Alert className="m-5" role="status">
+              <AlertTitle>{labels[section]}</AlertTitle>
+              <AlertDescription>
+                This governed capability is not enabled yet. No prototype records or simulated actions are shown.
+              </AlertDescription>
+            </Alert>
+          ) : tab === "users" ? (
             <UserManagementPanel
+              key={`users:${userId ?? "list"}:${userMode}`}
               permissions={permissions}
+              requestedUserId={userId}
+              createMode={userMode === "create"}
+              onNavigateUser={(targetUserId) =>
+                choose({ ...location, userId: targetUserId, userMode: "list", cursor: "0" })
+              }
+              onCreateModeChange={(active) =>
+                choose({ ...location, userId: null, userMode: active ? "create" : "list", cursor: "0" })
+              }
               onOpenSection={(nextSection, targetUserId) =>
                 choose({
                   ...location,
@@ -355,7 +461,11 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
             <p className="p-9 text-center text-sm text-muted-foreground">Loading governed data…</p>
           ) : data.items.length === 0 ? (
             <p className="p-9 text-center text-sm text-muted-foreground">No records are available for this view.</p>
-          ) : (
+          ) : tab === "roles" ||
+            tab === "assignments" ||
+            tab === "approvals" ||
+            tab === "permissions" ||
+            tab === "audit" ? (
             <GovernedTable
               key={`${tab}:${approvalType}:${userId}:${rolePolicyId}:${cursor}`}
               tab={tab}
@@ -376,19 +486,27 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
                 })
               }
             />
-          )}
-          {tab !== "users" && tab !== "permissions" && !busy && loadedView === viewKey ? (
-            <div className="flex flex-wrap items-center gap-3 border-t border-border px-5 py-3 text-sm" aria-label="Record pagination">
+          ) : null}
+          {!isPlannedSection && tab !== "users" && tab !== "permissions" && !busy && loadedView === viewKey ? (
+            <div
+              className="flex flex-wrap items-center gap-3 border-t border-border px-5 py-3 text-sm"
+              aria-label="Record pagination"
+            >
               <span>Page {Math.floor(Number(cursor) / 50) + 1}</span>
               <Button
                 variant="outline"
                 size="sm"
                 disabled={cursor === "0"}
-                onClick={() => choose(location, String(Math.max(0, Number(cursor) - 50)))}
+                onClick={() => choose({ ...location, cursor: String(Math.max(0, Number(cursor) - 50)) })}
               >
                 Previous
               </Button>
-              <Button variant="outline" size="sm" disabled={!data.next_cursor} onClick={() => choose(location, data.next_cursor ?? undefined)}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!data.next_cursor}
+                onClick={() => choose({ ...location, cursor: data.next_cursor ?? "0" })}
+              >
                 Next
               </Button>
             </div>

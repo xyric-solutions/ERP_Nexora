@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { useSearchParams } from "next/navigation";
 import type {
   CreateSecurityAssignmentRequest,
   CreateSecurityUserRequest,
@@ -42,11 +41,18 @@ function requestError(error: unknown): string {
 export default function UserManagementPanel({
   permissions,
   onOpenSection,
+  requestedUserId = null,
+  createMode = false,
+  onNavigateUser,
+  onCreateModeChange,
 }: {
   permissions: ReadonlySet<string>;
   onOpenSection?(section: IdentitySection, userId: string): void;
+  requestedUserId?: string | null;
+  createMode?: boolean;
+  onNavigateUser?(userId: string | null): void;
+  onCreateModeChange?(active: boolean): void;
 }) {
-  const searchParams = useSearchParams();
   const { api, csrfToken, session } = useSession();
   const [users, setUsers] = useState<SecurityUserPage["items"]>([]);
   const [options, setOptions] = useState<SecurityUserOptions>(emptyOptions);
@@ -57,8 +63,15 @@ export default function UserManagementPanel({
   const [employeeLink, setEmployeeLink] = useState<"" | "true" | "false">("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
-  const [initialDraft, setInitialDraft] = useState<UserWizardDraft | null>(null);
+  const [showCreate, setShowCreate] = useState(createMode);
+  const [initialDraft, setInitialDraft] = useState<UserWizardDraft | null>(() =>
+    createMode && typeof window !== "undefined"
+      ? loadUserWizardDraft(
+          window.sessionStorage,
+          userWizardDraftKey(session?.tenant_id ?? "unknown", session?.user.id ?? "unknown"),
+        )
+      : null,
+  );
   const [message, setMessage] = useState("");
   const [archived, setArchived] = useState<"" | "true" | "false">("false");
   const [checkedIds, setCheckedIds] = useState<string[]>([]);
@@ -70,8 +83,6 @@ export default function UserManagementPanel({
     key: string;
   } | null>(null);
   const [actionReason, setActionReason] = useState("");
-  const requestedUserId = searchParams.get("user");
-
   const canRead = permissions.has("security.user_account.read");
   const canCreate = permissions.has("security.user_account.create");
   const draftKey = userWizardDraftKey(session?.tenant_id ?? "unknown", session?.user.id ?? "unknown");
@@ -114,14 +125,6 @@ export default function UserManagementPanel({
     return () => window.clearTimeout(timer);
   }, [load, requestedUserId]);
 
-  function setDeepLink(userId: string | null) {
-    const params = new URLSearchParams(window.location.search);
-    params.set("tab", "users");
-    if (userId) params.set("user", userId);
-    else params.delete("user");
-    window.history.replaceState(null, "", `/admin/identity?${params.toString()}`);
-  }
-
   async function selectUser(userId: string, mode: UserDetailMode = "summary") {
     setBusy(true);
     setMessage("");
@@ -129,7 +132,7 @@ export default function UserManagementPanel({
       setSelected(await api.getSecurityUser(userId));
       setDetailMode(mode);
       setDetailKey((current) => current + 1);
-      setDeepLink(userId);
+      onNavigateUser?.(userId);
     } catch {
       setMessage("The selected user is unavailable or outside your authorized scope.");
     } finally {
@@ -140,6 +143,7 @@ export default function UserManagementPanel({
   function openCreate(): void {
     setInitialDraft(loadUserWizardDraft(window.sessionStorage, draftKey));
     setShowCreate(true);
+    onCreateModeChange?.(true);
   }
 
   async function createAndSubmitUser(
@@ -161,6 +165,7 @@ export default function UserManagementPanel({
         idempotencySeed ? `web-user-submit:${idempotencySeed}` : idempotency(),
       );
       setShowCreate(false);
+      onCreateModeChange?.(false);
       await load(selected?.id);
       setMessage(success);
       return true;
@@ -420,7 +425,10 @@ export default function UserManagementPanel({
           busy={busy}
           draftKey={draftKey}
           initialDraft={initialDraft}
-          onCancel={() => setShowCreate(false)}
+          onCancel={() => {
+            setShowCreate(false);
+            onCreateModeChange?.(false);
+          }}
           onSubmit={(request, idempotencySeed) =>
             createAndSubmitUser(request, "User request submitted for independent approval.", idempotencySeed)
           }
@@ -580,7 +588,7 @@ export default function UserManagementPanel({
             busy={busy}
             onClose={() => {
               setSelected(null);
-              setDeepLink(null);
+              onNavigateUser?.(null);
             }}
             onGovernedAction={async (request) => {
               await createAndSubmitUser(request, "User change submitted for independent approval.");

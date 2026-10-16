@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import IdentityWorkspace from "../../app/features/security/identity-workspace.js";
 
 const state = vi.hoisted(() => ({
-  search: new URLSearchParams(),
   session: {
     tenant_id: "workspace-tenant",
     user: { id: "checker", email: "checker@example.test", roles: [], permissions: [] as string[] },
@@ -21,7 +20,6 @@ const state = vi.hoisted(() => ({
   replace: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({
-  useSearchParams: () => state.search,
   useRouter: () => ({ replace: state.replace }),
 }));
 vi.mock("@prototype/theme-provider", () => ({
@@ -46,14 +44,15 @@ vi.mock("../../app/features/security/governed-table", () => ({
 let container: HTMLDivElement;
 let root: Root;
 async function render(query: string) {
-  state.search = new URLSearchParams(query);
+  window.history.replaceState(null, "", `/#/identity/access${query ? `?${query}` : ""}`);
+  window.dispatchEvent(new PopStateEvent("popstate"));
   await act(async () => root.render(createElement(IdentityWorkspace)));
 }
 async function click(label: string) {
   const button = [...container.querySelectorAll("button")].find((item) => item.textContent?.trim() === label);
   if (!button) throw new Error(`Missing button: ${label}`);
   await act(async () => button.click());
-  await render(window.location.search);
+  await act(async () => Promise.resolve());
 }
 describe("Users and Roles administrative workspace", () => {
   beforeEach(() => {
@@ -76,13 +75,17 @@ describe("Users and Roles administrative workspace", () => {
     await render("tab=roles");
     const main = container.querySelector('nav[aria-label="Identity and Access sections"]');
     expect([...main!.querySelectorAll("button")].map((button) => button.textContent)).toEqual([
-      "Users Management",
-      "Roles Management",
+      "Users",
+      "Roles & Permissions",
+      "Company-role Assignments",
+      "Access Reviews",
+      "Delegation & Impersonation",
+      "Security & Session Policies",
     ]);
     await click("Permissions");
-    expect(window.location.search).toBe("?tab=roles&section=permissions");
+    expect(window.location.hash).toBe("#/identity/access?tab=roles&section=permissions");
     expect(state.api.listSecurityPermissions).toHaveBeenCalled();
-    await click("Users Management");
+    await click("Users");
     expect(container.textContent).toContain("User account list");
     expect(container.querySelector('nav[aria-label="Users Management sections"]')?.textContent).not.toContain(
       "Permissions",
