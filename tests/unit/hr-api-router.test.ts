@@ -720,6 +720,83 @@ describe("HR API foundation", () => {
     );
   });
 
+  it("protects manager-change creation and independent decisions with explicit clear intent", async () => {
+    const repository = {
+      createEmployeeManagerChangeRequest: vi.fn(async () => ({
+        id: "manager-change-1",
+        employee_id: "employee-1",
+        company_id: "company-a",
+        source_assignment_id: "assignment-1",
+        status: "pending",
+        audit_event_id: "audit-1",
+        replayed: false,
+      })),
+      decideEmployeeManagerChangeRequest: vi.fn(async () => ({
+        id: "manager-change-1",
+        employee_id: "employee-1",
+        company_id: "company-a",
+        source_assignment_id: "assignment-1",
+        status: "approved",
+        assignment_id: "assignment-2",
+        audit_event_id: "audit-2",
+        replayed: false,
+      })),
+    } as unknown as Pick<
+      SourceHrRepository,
+      "createEmployeeManagerChangeRequest" | "decideEmployeeManagerChangeRequest"
+    >;
+    const payload = {
+      company_id: "company-a",
+      source_assignment_id: "assignment-1",
+      reporting_manager_id: null,
+      clear_reporting_manager: true,
+      effective_on: "2026-10-16",
+      reason: "Move the employee to the approved top-level reporting line.",
+    };
+    const created = await request(appForHr(repository))
+      .post("/api/v1/hr/employees/employee-1/manager_change_requests")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "manager-change-request-1")
+      .send(payload);
+    expect(created.status).toBe(201);
+    expect(repository.createEmployeeManagerChangeRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "employee-1",
+      payload,
+      "manager-change-request-1",
+      expect.any(String),
+    );
+
+    const ambiguous = await request(appForHr(repository))
+      .post("/api/v1/hr/employees/employee-1/manager_change_requests")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "manager-change-request-invalid")
+      .send({ ...payload, clear_reporting_manager: false });
+    expect(ambiguous.status).toBe(400);
+
+    const decision = { decision: "approved", reason: "Independent manager-change approval completed." };
+    const decided = await request(appForHr(repository))
+      .post("/api/v1/hr/employees/employee-1/manager_change_requests/manager-change-1/decision")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "manager-change-decision-1")
+      .send(decision);
+    expect(decided.status).toBe(200);
+    expect(repository.decideEmployeeManagerChangeRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "employee-1",
+      "manager-change-1",
+      decision,
+      "manager-change-decision-1",
+      expect.any(String),
+    );
+  });
+
   it("rejects HR data requests without an authenticated session", async () => {
     const response = await request(
       appForHr({

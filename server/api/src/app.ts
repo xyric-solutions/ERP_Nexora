@@ -77,6 +77,10 @@ export interface AppDependencies {
     | "getEmployeePromotionRequest"
     | "createEmployeePromotionRequest"
     | "decideEmployeePromotionRequest"
+    | "listEmployeeManagerChangeRequests"
+    | "getEmployeeManagerChangeRequest"
+    | "createEmployeeManagerChangeRequest"
+    | "decideEmployeeManagerChangeRequest"
   >;
   jobPublisher?: JobPublisher;
   readiness: Record<string, () => Promise<void>>;

@@ -67,6 +67,12 @@ import {
   hrEmployeePromotionDecisionResultSchema,
   hrEmployeePromotionRequestDirectorySchema,
   hrEmployeePromotionRequestReviewSchema,
+  createHrEmployeeManagerChangeRequestSchema,
+  hrEmployeeManagerChangeRequestResultSchema,
+  decideHrEmployeeManagerChangeRequestSchema,
+  hrEmployeeManagerChangeDecisionResultSchema,
+  hrEmployeeManagerChangeRequestDirectorySchema,
+  hrEmployeeManagerChangeRequestReviewSchema,
 } from "./hr/index.js";
 import { jobReceiptSchema, sampleJobPayloadSchema } from "./jobs/index.js";
 import { problemDetailsSchema } from "./problem.js";
@@ -1443,6 +1449,131 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/hr/manager_change_requests": {
+        get: {
+          operationId: "listHrEmployeeManagerChangeRequests",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Pending company-scoped employee manager-change requests",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/HrEmployeeManagerChangeRequestDirectory" },
+                },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/manager_change_requests": {
+        post: {
+          operationId: "createHrEmployeeManagerChangeRequest",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/CreateHrEmployeeManagerChangeRequest" } },
+            },
+          },
+          responses: {
+            "201": {
+              description: "Pending, independently approvable employee manager-change request",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/HrEmployeeManagerChangeRequestResult" },
+                },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/manager_change_requests/{requestId}": {
+        get: {
+          operationId: "getHrEmployeeManagerChangeRequest",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "path", name: "requestId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+          ],
+          responses: {
+            "200": {
+              description: "Company-scoped employee manager-change request review",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/HrEmployeeManagerChangeRequestReview" },
+                },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/manager_change_requests/{requestId}/decision": {
+        post: {
+          operationId: "decideHrEmployeeManagerChangeRequest",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "path", name: "requestId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/DecideHrEmployeeManagerChangeRequest" } },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Independently decided employee manager-change request",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/HrEmployeeManagerChangeDecisionResult" },
+                },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
       "/hr/employment_lifecycle_policies": {
         get: {
           operationId: "listHrEmploymentLifecyclePolicies",
@@ -1688,6 +1819,12 @@ export function buildOpenApiDocument() {
         HrEmployeePromotionDecisionResult: schema(hrEmployeePromotionDecisionResultSchema),
         HrEmployeePromotionRequestDirectory: schema(hrEmployeePromotionRequestDirectorySchema),
         HrEmployeePromotionRequestReview: schema(hrEmployeePromotionRequestReviewSchema),
+        CreateHrEmployeeManagerChangeRequest: schema(createHrEmployeeManagerChangeRequestSchema),
+        HrEmployeeManagerChangeRequestResult: schema(hrEmployeeManagerChangeRequestResultSchema),
+        DecideHrEmployeeManagerChangeRequest: schema(decideHrEmployeeManagerChangeRequestSchema),
+        HrEmployeeManagerChangeDecisionResult: schema(hrEmployeeManagerChangeDecisionResultSchema),
+        HrEmployeeManagerChangeRequestDirectory: schema(hrEmployeeManagerChangeRequestDirectorySchema),
+        HrEmployeeManagerChangeRequestReview: schema(hrEmployeeManagerChangeRequestReviewSchema),
         ProblemDetails: schema(problemDetailsSchema),
         SampleJobPayload: schema(sampleJobPayloadSchema),
         JobReceipt: schema(jobReceiptSchema),

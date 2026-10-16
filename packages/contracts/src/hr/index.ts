@@ -546,6 +546,81 @@ export const hrEmployeePromotionRequestDirectorySchema = z.strictObject({
   items: z.array(hrEmployeePromotionRequestReviewSchema),
 });
 
+/** A manager-change request changes only the reporting line, never compensation or placement. */
+export const createHrEmployeeManagerChangeRequestSchema = z
+  .strictObject({
+    company_id: identifier,
+    source_assignment_id: identifier,
+    reporting_manager_id: identifier.nullable(),
+    clear_reporting_manager: z.boolean(),
+    effective_on: isoDate,
+    reason: z.string().trim().min(1).max(1000),
+  })
+  .superRefine((value, context) => {
+    const selectsManager = value.reporting_manager_id !== null && !value.clear_reporting_manager;
+    const explicitlyClears = value.reporting_manager_id === null && value.clear_reporting_manager;
+    if (!selectsManager && !explicitlyClears) {
+      context.addIssue({
+        code: "custom",
+        path: ["reporting_manager_id"],
+        message: "Select a reporting manager or explicitly clear the reporting manager.",
+      });
+    }
+  });
+export const hrEmployeeManagerChangeRequestResultSchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  company_id: identifier,
+  source_assignment_id: identifier,
+  status: z.literal("pending"),
+  audit_event_id: identifier,
+  replayed: z.boolean(),
+});
+export const decideHrEmployeeManagerChangeRequestSchema = z.strictObject({
+  decision: z.enum(["approved", "rejected"]),
+  reason: z.string().trim().min(1).max(1000),
+});
+export const hrEmployeeManagerChangeDecisionResultSchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  company_id: identifier,
+  source_assignment_id: identifier,
+  status: z.enum(["approved", "rejected"]),
+  assignment_id: identifier.nullable(),
+  audit_event_id: identifier,
+  replayed: z.boolean(),
+});
+export const hrEmployeeManagerChangeRequestDirectoryQuerySchema = z.strictObject({
+  company_id: identifier,
+  search: z.string().trim().max(160).optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+});
+export const hrEmployeeManagerChangeRequestReviewSchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  employee_number: z.string().min(1).max(32),
+  employee_name: z.string().min(1).max(320),
+  company_id: identifier,
+  relationship_id: identifier,
+  source_assignment_id: identifier,
+  current_reporting_manager_id: identifier.nullable(),
+  current_reporting_manager_name: z.string().max(320).nullable(),
+  proposed_reporting_manager_id: identifier.nullable(),
+  proposed_reporting_manager_name: z.string().max(320).nullable(),
+  clear_reporting_manager: z.boolean(),
+  effective_on: isoDate,
+  requested_by: identifier,
+  requested_at: z.string().datetime(),
+  reason: z.string().min(1).max(1000),
+  status: z.enum(["pending", "approved", "rejected"]),
+  decided_by: identifier.nullable(),
+  decided_at: z.string().datetime().nullable(),
+  decision_reason: z.string().max(1000).nullable(),
+});
+export const hrEmployeeManagerChangeRequestDirectorySchema = z.strictObject({
+  items: z.array(hrEmployeeManagerChangeRequestReviewSchema),
+});
+
 export const hrMasterDirectorySchema = z.strictObject({ items: z.array(hrMasterRecordSchema) });
 
 export type HrEmployeeDirectoryQuery = z.infer<typeof hrEmployeeDirectoryQuerySchema>;
@@ -741,3 +816,12 @@ export type HrEmployeePromotionRequestDirectoryQuery = z.infer<
 >;
 export type HrEmployeePromotionRequestReview = z.infer<typeof hrEmployeePromotionRequestReviewSchema>;
 export type HrEmployeePromotionRequestDirectory = z.infer<typeof hrEmployeePromotionRequestDirectorySchema>;
+export type CreateHrEmployeeManagerChangeRequest = z.infer<typeof createHrEmployeeManagerChangeRequestSchema>;
+export type HrEmployeeManagerChangeRequestResult = z.infer<typeof hrEmployeeManagerChangeRequestResultSchema>;
+export type DecideHrEmployeeManagerChangeRequest = z.infer<typeof decideHrEmployeeManagerChangeRequestSchema>;
+export type HrEmployeeManagerChangeDecisionResult = z.infer<typeof hrEmployeeManagerChangeDecisionResultSchema>;
+export type HrEmployeeManagerChangeRequestDirectoryQuery = z.infer<
+  typeof hrEmployeeManagerChangeRequestDirectoryQuerySchema
+>;
+export type HrEmployeeManagerChangeRequestReview = z.infer<typeof hrEmployeeManagerChangeRequestReviewSchema>;
+export type HrEmployeeManagerChangeRequestDirectory = z.infer<typeof hrEmployeeManagerChangeRequestDirectorySchema>;

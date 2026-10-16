@@ -56,6 +56,12 @@ import type {
   HrEmployeePromotionDecisionResult,
   HrEmployeePromotionRequestDirectory,
   HrEmployeePromotionRequestReview,
+  CreateHrEmployeeManagerChangeRequest,
+  HrEmployeeManagerChangeRequestResult,
+  DecideHrEmployeeManagerChangeRequest,
+  HrEmployeeManagerChangeDecisionResult,
+  HrEmployeeManagerChangeRequestDirectory,
+  HrEmployeeManagerChangeRequestReview,
   HrJobResult,
   JobReceipt,
   PasswordLoginRequest,
@@ -246,6 +252,16 @@ export class NexoraApiClient {
   }
   decideHrEmployeePromotionRequest(employeeId: string, requestId: string, payload: DecideHrEmployeePromotionRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeePromotionDecisionResult> {
     return this.request(`/api/v1/hr/employees/${encodeURIComponent(employeeId)}/promotion_requests/${encodeURIComponent(requestId)}/decision`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  createHrEmployeeManagerChangeRequest(employeeId: string, payload: CreateHrEmployeeManagerChangeRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeManagerChangeRequestResult> {
+    return this.request(`/api/v1/hr/employees/${encodeURIComponent(employeeId)}/manager_change_requests`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  listHrEmployeeManagerChangeRequests(query: string): Promise<HrEmployeeManagerChangeRequestDirectory> { return this.request(`/api/v1/hr/manager_change_requests${query}`); }
+  getHrEmployeeManagerChangeRequest(employeeId: string, requestId: string): Promise<HrEmployeeManagerChangeRequestReview> {
+    return this.request(`/api/v1/hr/employees/${encodeURIComponent(employeeId)}/manager_change_requests/${encodeURIComponent(requestId)}`);
+  }
+  decideHrEmployeeManagerChangeRequest(employeeId: string, requestId: string, payload: DecideHrEmployeeManagerChangeRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeManagerChangeDecisionResult> {
+    return this.request(`/api/v1/hr/employees/${encodeURIComponent(employeeId)}/manager_change_requests/${encodeURIComponent(requestId)}/decision`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
   createHrEmployeeDraft(payload: CreateHrEmployeeDraftRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeDraftResult> {
     return this.request("/api/v1/hr/employees", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });

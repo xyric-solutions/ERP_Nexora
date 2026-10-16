@@ -13,6 +13,7 @@ import { HrApiClient } from "../api/hr-client";
 import { HrHireMakerPanel } from "../components/hr-hire-maker-panel";
 import { HrTransferMakerPanel } from "../components/hr-transfer-maker-panel";
 import { HrPromotionMakerPanel } from "../components/hr-promotion-maker-panel";
+import { HrManagerChangeMakerPanel } from "../components/hr-manager-change-maker-panel";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -40,6 +41,7 @@ export function HrEmployeeAssignmentsWorkspace() {
     (session?.user.permissions.includes("hr.employment_relationship.create") ?? false);
   const canRequestTransfer = session?.user.permissions.includes("hr.employee_assignment.transfer") ?? false;
   const canRequestPromotion = session?.user.permissions.includes("hr.employee_assignment.change") ?? false;
+  const canRequestManagerChange = session?.user.permissions.includes("hr.employee_assignment.manager_change") ?? false;
 
   useEffect(() => {
     if (sessionLoading || !canReadAssignments || !canReadEmployees) return;
@@ -243,6 +245,16 @@ export function HrEmployeeAssignmentsWorkspace() {
             employeeId={employeeId}
             assignments={assignments}
             canRequestPromotion={canRequestPromotion}
+          />
+          <HrManagerChangeMakerPanel
+            key={`manager-change:${companyId}:${employeeId}:${assignmentRefreshKey}`}
+            client={client}
+            csrfToken={csrfToken}
+            companyId={companyId}
+            employeeId={employeeId}
+            employees={employees}
+            assignments={assignments}
+            canRequestManagerChange={canRequestManagerChange}
           />
         </>
       )}

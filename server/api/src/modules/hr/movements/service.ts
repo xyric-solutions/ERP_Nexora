@@ -13,6 +13,13 @@ import type {
   HrEmployeePromotionRequestDirectoryQuery,
   HrEmployeePromotionRequestResult,
   HrEmployeePromotionRequestReview,
+  CreateHrEmployeeManagerChangeRequest,
+  DecideHrEmployeeManagerChangeRequest,
+  HrEmployeeManagerChangeDecisionResult,
+  HrEmployeeManagerChangeRequestDirectory,
+  HrEmployeeManagerChangeRequestDirectoryQuery,
+  HrEmployeeManagerChangeRequestResult,
+  HrEmployeeManagerChangeRequestReview,
 } from "@nexora/contracts";
 
 import type { HrActorContext, SourceHrRepository } from "../source-repository.js";
@@ -30,6 +37,10 @@ export class HrMovementService {
       | "getEmployeePromotionRequest"
       | "createEmployeePromotionRequest"
       | "decideEmployeePromotionRequest"
+      | "listEmployeeManagerChangeRequests"
+      | "getEmployeeManagerChangeRequest"
+      | "createEmployeeManagerChangeRequest"
+      | "decideEmployeeManagerChangeRequest"
     >,
   ) {}
 
@@ -122,6 +133,55 @@ export class HrMovementService {
     correlationId: string,
   ): Promise<HrEmployeePromotionDecisionResult> {
     return this.repository.decideEmployeePromotionRequest(
+      context,
+      employeeId,
+      requestId,
+      input,
+      idempotencyKey,
+      correlationId,
+    );
+  }
+
+  listManagerChanges(
+    context: HrActorContext,
+    query: HrEmployeeManagerChangeRequestDirectoryQuery,
+  ): Promise<HrEmployeeManagerChangeRequestDirectory> {
+    return this.repository.listEmployeeManagerChangeRequests(context, query);
+  }
+
+  getManagerChange(
+    context: HrActorContext,
+    employeeId: string,
+    requestId: string,
+  ): Promise<HrEmployeeManagerChangeRequestReview> {
+    return this.repository.getEmployeeManagerChangeRequest(context, employeeId, requestId);
+  }
+
+  requestManagerChange(
+    context: HrActorContext,
+    employeeId: string,
+    input: CreateHrEmployeeManagerChangeRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmployeeManagerChangeRequestResult> {
+    return this.repository.createEmployeeManagerChangeRequest(
+      context,
+      employeeId,
+      input,
+      idempotencyKey,
+      correlationId,
+    );
+  }
+
+  decideManagerChange(
+    context: HrActorContext,
+    employeeId: string,
+    requestId: string,
+    input: DecideHrEmployeeManagerChangeRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmployeeManagerChangeDecisionResult> {
+    return this.repository.decideEmployeeManagerChangeRequest(
       context,
       employeeId,
       requestId,

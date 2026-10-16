@@ -203,4 +203,61 @@ describe("HR browser client", () => {
       "decision-key",
     );
   });
+
+  it("passes manager-change reads and mutations through the generated API client", async () => {
+    const requestResult = {
+      id: "manager-change-1",
+      employee_id: "employee-1",
+      company_id: "company-a",
+      source_assignment_id: "assignment-1",
+      status: "pending" as const,
+      audit_event_id: "audit-1",
+      replayed: false,
+    };
+    const api = {
+      listHrEmployeeManagerChangeRequests: vi.fn(async () => ({ items: [] })),
+      getHrEmployeeManagerChangeRequest: vi.fn(async () => ({ id: "manager-change-1" })),
+      createHrEmployeeManagerChangeRequest: vi.fn(async () => requestResult),
+      decideHrEmployeeManagerChangeRequest: vi.fn(async () => ({
+        ...requestResult,
+        status: "approved" as const,
+        assignment_id: "assignment-2",
+      })),
+    } as unknown as NexoraApiClient;
+    const client = new HrApiClient(api);
+    const payload = {
+      company_id: "company-a",
+      source_assignment_id: "assignment-1",
+      reporting_manager_id: null,
+      clear_reporting_manager: true,
+      effective_on: "2026-10-16",
+      reason: "Clear the reporting manager through independent approval.",
+    };
+
+    await client.managerChangeRequests({ companyId: "company/a", search: "EMP 1", limit: 10 });
+    await client.managerChangeRequest("employee/a", "manager-change/a");
+    await expect(client.createManagerChangeRequest("employee-1", payload, "csrf", "request-key")).resolves.toEqual(
+      requestResult,
+    );
+    await client.decideManagerChangeRequest(
+      "employee-1",
+      "manager-change-1",
+      { decision: "approved", reason: "Independently approved." },
+      "csrf",
+      "decision-key",
+    );
+
+    expect(api.listHrEmployeeManagerChangeRequests).toHaveBeenCalledWith(
+      "?company_id=company%2Fa&search=EMP+1&limit=10",
+    );
+    expect(api.getHrEmployeeManagerChangeRequest).toHaveBeenCalledWith("employee/a", "manager-change/a");
+    expect(api.createHrEmployeeManagerChangeRequest).toHaveBeenCalledWith("employee-1", payload, "csrf", "request-key");
+    expect(api.decideHrEmployeeManagerChangeRequest).toHaveBeenCalledWith(
+      "employee-1",
+      "manager-change-1",
+      { decision: "approved", reason: "Independently approved." },
+      "csrf",
+      "decision-key",
+    );
+  });
 });

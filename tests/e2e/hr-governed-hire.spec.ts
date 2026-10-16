@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const username = process.env.NEXORA_E2E_USERNAME;
 const password = process.env.NEXORA_E2E_PASSWORD;
 
-test.describe("governed employee Hire, Transfer, and Promotion workspaces", () => {
+test.describe("governed employee Hire, Transfer, Promotion, and Manager Change workspaces", () => {
   test.skip(!username || !password, "Local synthetic Nexora credentials are required.");
 
   test("loads the live maker and checker surfaces through the API", async ({ page }) => {
@@ -34,6 +34,7 @@ test.describe("governed employee Hire, Transfer, and Promotion workspaces", () =
     await expect(page.getByText(/independent approval/i).first()).toBeVisible();
     await expect(page.getByText(/Request governed Transfer|Active assignment required/).first()).toBeVisible();
     await expect(page.getByText(/Request governed Promotion|Active assignment required/).first()).toBeVisible();
+    await expect(page.getByText(/Request governed manager change|Active assignment required/).first()).toBeVisible();
 
     await page.goto("/#/hr/employee-approvals");
     await expect(page.getByRole("heading", { level: 1, name: "Employee Approvals" })).toBeVisible();
@@ -46,5 +47,8 @@ test.describe("governed employee Hire, Transfer, and Promotion workspaces", () =
     await expect(page.getByRole("heading", { name: "Promotion approvals" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Refresh Promotion queue" })).toBeEnabled();
     await expect(page.getByText(/No prototype Promotion records are shown/)).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Manager-change approvals" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Refresh manager-change queue" })).toBeEnabled();
+    await expect(page.getByText(/No prototype manager-change records are shown/)).toHaveCount(0);
   });
 });

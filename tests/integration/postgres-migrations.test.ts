@@ -21,7 +21,7 @@ describe("production PostgreSQL source migrations", () => {
       security: 9,
       workflow: 1,
       finance: 1,
-      hr: 29,
+      hr: 30,
       runtime: 1,
     });
   });
@@ -61,7 +61,7 @@ describe("production PostgreSQL source migrations", () => {
     );
     expect(result.rows).toEqual([
       { module_name: "finance", migration_count: "1", latest: 1 },
-      { module_name: "hr", migration_count: "29", latest: 29 },
+      { module_name: "hr", migration_count: "30", latest: 30 },
       { module_name: "platform", migration_count: "7", latest: 7 },
       { module_name: "runtime", migration_count: "1", latest: 1 },
       { module_name: "security", migration_count: "9", latest: 9 },
