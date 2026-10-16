@@ -18,7 +18,7 @@ describe("production PostgreSQL source migrations", () => {
     await expect(migrateSourceSchema(pool)).resolves.toEqual([]);
     await expect(inspectSourceMigrationState(pool)).resolves.toEqual({
       platform: 7,
-      security: 9,
+      security: 13,
       workflow: 1,
       finance: 1,
       hr: 33,
@@ -64,7 +64,7 @@ describe("production PostgreSQL source migrations", () => {
       { module_name: "hr", migration_count: "33", latest: 33 },
       { module_name: "platform", migration_count: "7", latest: 7 },
       { module_name: "runtime", migration_count: "1", latest: 1 },
-      { module_name: "security", migration_count: "9", latest: 9 },
+      { module_name: "security", migration_count: "13", latest: 13 },
       { module_name: "workflow", migration_count: "1", latest: 1 },
     ]);
   });
@@ -136,7 +136,7 @@ describe("production PostgreSQL source migrations", () => {
     const result = await pool.query<{ permission_count: string }>(
       "select count(*)::text as permission_count from security_permission_definition",
     );
-    expect(result.rows[0]?.permission_count).toBe("214");
+    expect(result.rows[0]?.permission_count).toBe("239");
   });
 
   it("installs governed user lifecycle and credential compatibility safeguards", async () => {

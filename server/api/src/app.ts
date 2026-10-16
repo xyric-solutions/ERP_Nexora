@@ -36,6 +36,7 @@ export interface AppDependencies {
   passwordChangeService?: PasswordChangeApiService;
   sessionService?: TenantSessionApiService;
   securityRepository?: SecurityAdministrationApiRepository;
+  invalidateSecurityPolicy?: (tenantId: string) => void;
   hrRepository?: Pick<
     SourceHrRepository,
     | "listCompanies"
@@ -133,6 +134,9 @@ export function createApp(dependencies: AppDependencies): Express {
         sessions: dependencies.sessionService,
         secureCookies: dependencies.config.nodeEnv === "production",
         allowedOrigins: dependencies.config.allowedOrigins,
+        ...(dependencies.invalidateSecurityPolicy
+          ? { invalidateSecurityPolicy: dependencies.invalidateSecurityPolicy }
+          : {}),
       }),
     );
   }

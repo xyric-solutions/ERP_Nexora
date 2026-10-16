@@ -34,6 +34,18 @@ describe("password security", () => {
     expect(() => validatePassword("x".repeat(129))).toThrow(PasswordPolicyError);
   });
 
+  it("enforces tenant password composition without weakening platform bounds", () => {
+    const policy = {
+      minimumLength: 12,
+      requireUppercase: true,
+      requireLowercase: true,
+      requireNumber: true,
+      requireSymbol: true,
+    };
+    expect(() => validatePassword("lowercase-only-phrase", undefined, policy)).toThrow(PasswordPolicyError);
+    expect(() => validatePassword("Strong.Policy9", undefined, policy)).not.toThrow();
+  });
+
   it("rejects reuse among the configured password-history window", async () => {
     const previous = await hashPassword("prior password phrase");
     await expect(assertPasswordNotReused("prior password phrase", [previous])).rejects.toMatchObject({

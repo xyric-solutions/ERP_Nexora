@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import { hashPassword, loginIdentifierHmac } from "@nexora/auth";
-import type { AuthenticatedAccount } from "@nexora/auth";
+import type { AuthenticatedAccount, TenantSecurityPolicy } from "@nexora/auth";
 import type {
   CreateSecurityUserRequest,
   CreateSecurityAccessReviewCampaign,
@@ -17,6 +17,8 @@ import type {
   SecurityDelegationListQuery,
   SecurityImpersonationAction,
   SecurityImpersonationListQuery,
+  CreateSecuritySessionPolicy,
+  SecuritySessionPolicyAction,
   SecurityApprovalAction,
   SecurityAssignmentRequestAction,
   SecurityPage,
@@ -128,6 +130,221 @@ export class SourceSecurityAdministrationRepository {
     private readonly pool: DatabasePool,
     private readonly loginDirectorySecret?: string,
   ) {}
+
+  listSessionPolicies(context: SecurityActorContext): Promise<SecurityPage> {
+    return this.read(context, "security.session_policy.read", async (client) => {
+      const result = await client.query<Record<string, unknown>>(
+        `select policy.*,
+                coalesce((select jsonb_agg(jsonb_build_object('event_type',event.event_type,'actor_id',event.actor_id,
+                  'reason',event.reason,'occurred_at',event.occurred_at) order by event.occurred_at,event.event_id)
+                  from security_session_policy_event event where event.tenant_id=policy.tenant_id
+                    and event.policy_id=policy.policy_id),'[]'::jsonb) as history
+           from security_session_policy policy where policy.tenant_id=$1
+          order by policy.policy_version desc`,
+        [context.tenantId],
+      );
+      return { items: result.rows.map(cleanRow), next_cursor: null };
+    });
+  }
+
+  createSessionPolicy(
+    context: SecurityActorContext,
+    request: CreateSecuritySessionPolicy,
+    key: string,
+  ): Promise<SecurityAdministrationResult> {
+    return this.run(
+      context,
+      "security.session_policy.create",
+      key,
+      request,
+      Object.keys(request.values),
+      async (client) => {
+        const version = await client.query<{ next_version: number }>(
+          `select coalesce(max(policy_version),0)::int+1 as next_version from security_session_policy where tenant_id=$1`,
+          [context.tenantId],
+        );
+        const policyId = `session-policy-${randomUUID()}`;
+        const values = request.values;
+        await client.query(
+          `insert into security_session_policy
+          (tenant_id,policy_id,policy_version,password_minimum_length,password_require_uppercase,
+           password_require_lowercase,password_require_number,password_require_symbol,session_idle_minutes,
+           session_absolute_hours,concurrent_session_limit,login_maximum_failures,login_window_minutes,
+           login_block_minutes,delegation_maximum_days,impersonation_maximum_minutes,change_summary,created_by)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+          [
+            context.tenantId,
+            policyId,
+            version.rows[0]!.next_version,
+            values.password_minimum_length,
+            values.password_require_uppercase,
+            values.password_require_lowercase,
+            values.password_require_number,
+            values.password_require_symbol,
+            values.session_idle_minutes,
+            values.session_absolute_hours,
+            values.concurrent_session_limit,
+            values.login_maximum_failures,
+            values.login_window_minutes,
+            values.login_block_minutes,
+            values.delegation_maximum_days,
+            values.impersonation_maximum_minutes,
+            request.change_summary,
+            context.actor.userId,
+          ],
+        );
+        const after = await this.sessionPolicyState(client, context.tenantId, policyId);
+        await this.appendSessionPolicyEvent(client, context, policyId, "created", request.change_summary, after!);
+        return { entityType: "session_policy", entityId: policyId, before: null, after };
+      },
+    );
+  }
+
+  actOnSessionPolicy(
+    context: SecurityActorContext,
+    action: SecuritySessionPolicyAction,
+    key: string,
+  ): Promise<SecurityAdministrationResult> {
+    const permission = action.action === "reject" ? "approve" : action.action;
+    return this.run(
+      context,
+      `security.session_policy.${permission}`,
+      key,
+      action,
+      [],
+      async (client, _commandId, fullAdmin) => {
+        const locked = await client.query<Record<string, unknown>>(
+          `select * from security_session_policy where tenant_id=$1 and policy_id=$2 for update`,
+          [context.tenantId, action.policy_id],
+        );
+        const current = locked.rows[0];
+        if (!current)
+          throw new SecurityAdministrationError(404, "SESSION_POLICY_NOT_FOUND", "The session policy was not found.");
+        if (Number(current.row_version) !== action.expected_version)
+          throw this.conflict("The session policy version has changed.");
+        const before = cleanRow(current);
+        let eventType: string;
+        const reason: string | null = "reason" in action ? action.reason : null;
+        if (action.action === "submit") {
+          if (current.lifecycle_state !== "draft" || current.created_by !== context.actor.userId)
+            throw this.conflict("Only the author can submit a current draft.");
+          await client.query(
+            `update security_session_policy set lifecycle_state='submitted',submitted_by=$3,submitted_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and policy_id=$2`,
+            [context.tenantId, action.policy_id, context.actor.userId],
+          );
+          eventType = "submitted";
+        } else if (action.action === "approve" || action.action === "reject") {
+          if (current.lifecycle_state !== "submitted") throw this.conflict("Only a submitted policy can be decided.");
+          if (
+            !fullAdmin &&
+            (current.created_by === context.actor.userId || current.submitted_by === context.actor.userId)
+          )
+            throw new SecurityAdministrationError(
+              403,
+              "MAKER_CHECKER_VIOLATION",
+              "The policy author cannot approve it.",
+            );
+          if (action.action === "approve") {
+            await client.query(
+              `update security_session_policy set lifecycle_state='approved',approved_by=$3,approved_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and policy_id=$2`,
+              [context.tenantId, action.policy_id, context.actor.userId],
+            );
+            eventType = "approved";
+          } else {
+            await client.query(
+              `update security_session_policy set lifecycle_state='rejected',rejected_by=$3,rejected_at=now(),rejection_reason=$4,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and policy_id=$2`,
+              [context.tenantId, action.policy_id, context.actor.userId, reason],
+            );
+            eventType = "rejected";
+          }
+        } else {
+          if (current.lifecycle_state !== "approved") throw this.conflict("Only an approved policy can be activated.");
+          if (
+            !fullAdmin &&
+            (current.created_by === context.actor.userId || current.submitted_by === context.actor.userId)
+          )
+            throw new SecurityAdministrationError(
+              403,
+              "MAKER_CHECKER_VIOLATION",
+              "The policy author cannot activate it.",
+            );
+          const active = await client.query<Record<string, unknown>>(
+            `select * from security_session_policy where tenant_id=$1 and lifecycle_state='active' for update`,
+            [context.tenantId],
+          );
+          for (const previous of active.rows) {
+            await client.query(
+              `update security_session_policy set lifecycle_state='superseded',superseded_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and policy_id=$2`,
+              [context.tenantId, previous.policy_id],
+            );
+            const superseded = await this.sessionPolicyState(client, context.tenantId, String(previous.policy_id));
+            await this.appendSessionPolicyEvent(
+              client,
+              context,
+              String(previous.policy_id),
+              "superseded",
+              `Superseded by ${action.policy_id}`,
+              superseded!,
+            );
+          }
+          await client.query(
+            `update security_session_policy set lifecycle_state='active',activated_by=$3,activated_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and policy_id=$2`,
+            [context.tenantId, action.policy_id, context.actor.userId],
+          );
+          eventType = "activated";
+          await client.query(
+            `update security_user_account set session_version=session_version+1,updated_at=now() where tenant_id=$1 and status='active'`,
+            [context.tenantId],
+          );
+        }
+        const after = await this.sessionPolicyState(client, context.tenantId, action.policy_id);
+        await this.appendSessionPolicyEvent(client, context, action.policy_id, eventType, reason, after!);
+        return {
+          entityType: "session_policy",
+          entityId: action.policy_id,
+          before,
+          after,
+          outcome: action.action === "reject" ? "rejected" : "completed",
+        };
+      },
+    );
+  }
+
+  async loadEffectiveSecurityPolicy(tenantId: string): Promise<TenantSecurityPolicy | null> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level repeatable read read only");
+      await client.query("select set_config('nexora.tenant_id', $1, true)", [tenantId]);
+      const result = await client.query<Record<string, unknown>>(
+        `select * from security_session_policy where tenant_id=$1 and lifecycle_state='active'`,
+        [tenantId],
+      );
+      await client.query("commit");
+      const row = result.rows[0];
+      return row
+        ? {
+            passwordMinimumLength: Number(row.password_minimum_length),
+            passwordRequireUppercase: Boolean(row.password_require_uppercase),
+            passwordRequireLowercase: Boolean(row.password_require_lowercase),
+            passwordRequireNumber: Boolean(row.password_require_number),
+            passwordRequireSymbol: Boolean(row.password_require_symbol),
+            sessionIdleMs: Number(row.session_idle_minutes) * 60_000,
+            sessionAbsoluteMs: Number(row.session_absolute_hours) * 3_600_000,
+            concurrentSessionLimit: Number(row.concurrent_session_limit),
+            loginMaximumFailures: Number(row.login_maximum_failures),
+            loginWindowMs: Number(row.login_window_minutes) * 60_000,
+            loginBlockMs: Number(row.login_block_minutes) * 60_000,
+            delegationMaximumMs: Number(row.delegation_maximum_days) * 86_400_000,
+            impersonationMaximumMs: Number(row.impersonation_maximum_minutes) * 60_000,
+          }
+        : null;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 
   async listPermissions(context: SecurityActorContext): Promise<SecurityPage> {
     return this.read(context, "security.authorization.permission.read", async (client) => {
@@ -1399,8 +1616,7 @@ export class SourceSecurityAdministrationRepository {
         conditions.push(`(delegation.delegator_id=$${principal} or delegation.delegatee_id=$${principal})`);
       }
       const canApprove =
-        fullAdmin ||
-        (await this.hasDirectTenantPermission(client, context, "security.delegation.approve"));
+        fullAdmin || (await this.hasDirectTenantPermission(client, context, "security.delegation.approve"));
       if (!canApprove) {
         const actor = parameters.push(context.actor.userId);
         conditions.push(`(delegation.delegator_id=$${actor} or delegation.delegatee_id=$${actor})`);
@@ -1440,8 +1656,13 @@ export class SourceSecurityAdministrationRepository {
       async (client) => {
         if (request.delegatee_id === context.actor.userId)
           throw new SecurityAdministrationError(403, "SELF_DELEGATION_DENIED", "Self-delegation is not permitted.");
-        if (new Date(request.valid_until).getTime() - new Date(request.valid_from).getTime() > 30 * 86_400_000)
-          throw this.conflict("Delegation duration exceeds the platform maximum of 30 days.");
+        const policy = await client.query<{ delegation_maximum_days: number }>(
+          `select delegation_maximum_days from security_session_policy where tenant_id=$1 and lifecycle_state='active'`,
+          [context.tenantId],
+        );
+        const maximumDays = Number(policy.rows[0]?.delegation_maximum_days ?? 30);
+        if (new Date(request.valid_until).getTime() - new Date(request.valid_from).getTime() > maximumDays * 86_400_000)
+          throw this.conflict(`Delegation duration exceeds the tenant maximum of ${maximumDays} days.`);
         await this.validateDelegationSource(client, context.tenantId, context.actor.userId, request);
         const delegationId = `delegation-${randomUUID()}`;
         await client.query(
@@ -1487,15 +1708,14 @@ export class SourceSecurityAdministrationRepository {
           [context.tenantId, action.delegation_id],
         );
         const current = result.rows[0];
-        if (!current) throw new SecurityAdministrationError(404, "DELEGATION_NOT_FOUND", "The delegation was not found.");
-        if (Number(current.row_version) !== action.expected_version) throw this.conflict("The delegation version has changed.");
+        if (!current)
+          throw new SecurityAdministrationError(404, "DELEGATION_NOT_FOUND", "The delegation was not found.");
+        if (Number(current.row_version) !== action.expected_version)
+          throw this.conflict("The delegation version has changed.");
         const before = cleanRow(current);
         const eventReason: string | null = "reason" in action ? action.reason : null;
         if (action.action === "submit") {
-          if (
-            current.lifecycle_state !== "draft" ||
-            (!fullAdmin && current.delegator_id !== context.actor.userId)
-          )
+          if (current.lifecycle_state !== "draft" || (!fullAdmin && current.delegator_id !== context.actor.userId))
             throw this.conflict("Only the delegator can submit a current draft.");
           await this.validateDelegationSource(client, context.tenantId, String(current.delegator_id), {
             delegatee_id: String(current.delegatee_id),
@@ -1511,9 +1731,14 @@ export class SourceSecurityAdministrationRepository {
             [context.tenantId, action.delegation_id, context.actor.userId],
           );
         } else if (action.action === "approve" || action.action === "reject") {
-          if (current.lifecycle_state !== "submitted") throw this.conflict("Only submitted delegations can be decided.");
+          if (current.lifecycle_state !== "submitted")
+            throw this.conflict("Only submitted delegations can be decided.");
           if (current.delegator_id === context.actor.userId)
-            throw new SecurityAdministrationError(403, "MAKER_CHECKER_VIOLATION", "Delegators cannot approve their own request.");
+            throw new SecurityAdministrationError(
+              403,
+              "MAKER_CHECKER_VIOLATION",
+              "Delegators cannot approve their own request.",
+            );
           if (action.action === "approve") {
             await this.validateDelegationSource(client, context.tenantId, String(current.delegator_id), {
               delegatee_id: String(current.delegatee_id),
@@ -1535,10 +1760,16 @@ export class SourceSecurityAdministrationRepository {
             );
           }
         } else if (action.action === "activate") {
-          if (current.lifecycle_state !== "approved") throw this.conflict("Only approved delegations can be activated.");
+          if (current.lifecycle_state !== "approved")
+            throw this.conflict("Only approved delegations can be activated.");
           if (!fullAdmin && current.delegator_id !== context.actor.userId)
-            throw new SecurityAdministrationError(403, "DELEGATION_ACTOR_DENIED", "Only the delegator can activate this delegation.");
-          if (new Date(String(current.valid_until)) <= new Date()) throw this.conflict("The delegation has already expired.");
+            throw new SecurityAdministrationError(
+              403,
+              "DELEGATION_ACTOR_DENIED",
+              "Only the delegator can activate this delegation.",
+            );
+          if (new Date(String(current.valid_until)) <= new Date())
+            throw this.conflict("The delegation has already expired.");
           await this.validateDelegationSource(client, context.tenantId, String(current.delegator_id), {
             delegatee_id: String(current.delegatee_id),
             permission_key: String(current.permission_key),
@@ -1555,7 +1786,11 @@ export class SourceSecurityAdministrationRepository {
         } else {
           if (current.lifecycle_state !== "active") throw this.conflict("Only active delegations can be revoked.");
           if (!fullAdmin && current.delegator_id !== context.actor.userId)
-            throw new SecurityAdministrationError(403, "DELEGATION_ACTOR_DENIED", "Only the delegator can revoke this delegation.");
+            throw new SecurityAdministrationError(
+              403,
+              "DELEGATION_ACTOR_DENIED",
+              "Only the delegator can revoke this delegation.",
+            );
           await client.query(
             `update security_delegation set lifecycle_state='revoked',revoked_by=$3,revoked_at=now(),revocation_reason=$4,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and delegation_id=$2`,
             [context.tenantId, action.delegation_id, context.actor.userId, eventReason],
@@ -1608,7 +1843,12 @@ export class SourceSecurityAdministrationRepository {
       );
       if (!company.rowCount) throw this.conflict("The delegation company is unavailable.");
     }
-    const source = await client.query<{ permission_key: string; scope_kind: string; scope_value: string; delegable: boolean }>(
+    const source = await client.query<{
+      permission_key: string;
+      scope_kind: string;
+      scope_value: string;
+      delegable: boolean;
+    }>(
       `select permission_grant.permission_key,scope.scope_kind,scope.scope_value,
               exists (select 1 from security_role_permission_delegation ceiling
                 where ceiling.tenant_id=permission_grant.tenant_id and ceiling.role_policy_id=permission_grant.role_policy_id
@@ -1624,10 +1864,19 @@ export class SourceSecurityAdministrationRepository {
             where latest.tenant_id=assignment.tenant_id and latest.assignment_id=assignment.assignment_id)
           and assignment.lifecycle_state='active' and assignment.valid_from<=now()
           and (assignment.valid_until is null or assignment.valid_until>now())`,
-      [tenantId, delegatorId, ["security.authorization.administer", request.permission_key], request.scope_kind, request.scope_value],
+      [
+        tenantId,
+        delegatorId,
+        ["security.authorization.administer", request.permission_key],
+        request.scope_kind,
+        request.scope_value,
+      ],
     );
     const fullAdmin = source.rows.some(
-      (row) => row.permission_key === "security.authorization.administer" && row.scope_kind === "tenant" && row.scope_value === tenantId,
+      (row) =>
+        row.permission_key === "security.authorization.administer" &&
+        row.scope_kind === "tenant" &&
+        row.scope_value === tenantId,
     );
     const matching = source.rows.some(
       (row) =>
@@ -1637,7 +1886,11 @@ export class SourceSecurityAdministrationRepository {
           (row.scope_kind === request.scope_kind && row.scope_value === request.scope_value)),
     );
     if (!fullAdmin && !matching)
-      throw new SecurityAdministrationError(403, "DELEGATION_DENIED", "The requested authority exceeds the delegator's current ceiling.");
+      throw new SecurityAdministrationError(
+        403,
+        "DELEGATION_DENIED",
+        "The requested authority exceeds the delegator's current ceiling.",
+      );
     const transactionSod = await client.query(
       `select 1 from security_role_transaction_sod_rule rule
         join security_user_role_assignment_version assignment
@@ -1691,7 +1944,15 @@ export class SourceSecurityAdministrationRepository {
       `insert into security_delegation_event
         (tenant_id,event_id,delegation_id,event_type,actor_id,reason,state_snapshot)
        values ($1,$2,$3,$4,$5,$6,$7)`,
-      [context.tenantId, `delegation-event-${randomUUID()}`, delegationId, eventType, context.actor.userId, reason, JSON.stringify(state)],
+      [
+        context.tenantId,
+        `delegation-event-${randomUUID()}`,
+        delegationId,
+        eventType,
+        context.actor.userId,
+        reason,
+        JSON.stringify(state),
+      ],
     );
   }
 
@@ -1745,16 +2006,38 @@ export class SourceSecurityAdministrationRepository {
       request,
       ["target_user_id", "purpose"],
       async (client) => {
+        const policy = await client.query<{ impersonation_maximum_minutes: number }>(
+          `select impersonation_maximum_minutes from security_session_policy where tenant_id=$1 and lifecycle_state='active'`,
+          [context.tenantId],
+        );
+        const maximumMinutes = Number(policy.rows[0]?.impersonation_maximum_minutes ?? 60);
+        if (request.duration_minutes > maximumMinutes)
+          throw this.conflict(`Impersonation duration exceeds the tenant maximum of ${maximumMinutes} minutes.`);
         await this.validateImpersonationTarget(client, context.tenantId, context.actor.userId, request.target_user_id);
         const requestId = `impersonation-${randomUUID()}`;
         await client.query(
           `insert into security_impersonation_request
             (tenant_id,request_id,actor_id,target_user_id,purpose,duration_minutes)
            values ($1,$2,$3,$4,$5,$6)`,
-          [context.tenantId, requestId, context.actor.userId, request.target_user_id, request.purpose, request.duration_minutes],
+          [
+            context.tenantId,
+            requestId,
+            context.actor.userId,
+            request.target_user_id,
+            request.purpose,
+            request.duration_minutes,
+          ],
         );
         const after = await this.impersonationState(client, context.tenantId, requestId);
-        await this.appendImpersonationEvent(client, context, requestId, "created", request.purpose, context.actor.userId, after!);
+        await this.appendImpersonationEvent(
+          client,
+          context,
+          requestId,
+          "created",
+          request.purpose,
+          context.actor.userId,
+          after!,
+        );
         return { entityType: "impersonation", entityId: requestId, before: null, after };
       },
     );
@@ -1780,8 +2063,13 @@ export class SourceSecurityAdministrationRepository {
         );
         const current = result.rows[0];
         if (!current)
-          throw new SecurityAdministrationError(404, "IMPERSONATION_NOT_FOUND", "The impersonation request was not found.");
-        if (Number(current.row_version) !== action.expected_version) throw this.conflict("The impersonation version has changed.");
+          throw new SecurityAdministrationError(
+            404,
+            "IMPERSONATION_NOT_FOUND",
+            "The impersonation request was not found.",
+          );
+        if (Number(current.row_version) !== action.expected_version)
+          throw this.conflict("The impersonation version has changed.");
         const before = cleanRow(current);
         const reason = "reason" in action ? action.reason : null;
         let eventType = "";
@@ -1801,9 +2089,14 @@ export class SourceSecurityAdministrationRepository {
           );
           eventType = "submitted";
         } else if (action.action === "approve" || action.action === "reject") {
-          if (current.lifecycle_state !== "submitted") throw this.conflict("Only submitted impersonation can be decided.");
+          if (current.lifecycle_state !== "submitted")
+            throw this.conflict("Only submitted impersonation can be decided.");
           if (current.actor_id === context.actor.userId)
-            throw new SecurityAdministrationError(403, "MAKER_CHECKER_VIOLATION", "The requesting actor cannot approve impersonation.");
+            throw new SecurityAdministrationError(
+              403,
+              "MAKER_CHECKER_VIOLATION",
+              "The requesting actor cannot approve impersonation.",
+            );
           if (action.action === "approve") {
             await this.validateImpersonationTarget(
               client,
@@ -1828,7 +2121,11 @@ export class SourceSecurityAdministrationRepository {
           }
         } else if (action.action === "activate" || action.action === "emergency_activate") {
           if (!fullAdmin && current.actor_id !== context.actor.userId)
-            throw new SecurityAdministrationError(403, "IMPERSONATION_ACTOR_DENIED", "Only the requesting actor can activate impersonation.");
+            throw new SecurityAdministrationError(
+              403,
+              "IMPERSONATION_ACTOR_DENIED",
+              "Only the requesting actor can activate impersonation.",
+            );
           if (action.action === "activate" && current.lifecycle_state !== "approved")
             throw this.conflict("Only approved impersonation can be activated.");
           if (action.action === "emergency_activate") {
@@ -1874,7 +2171,11 @@ export class SourceSecurityAdministrationRepository {
         } else {
           if (current.lifecycle_state !== "active") throw this.conflict("Only active impersonation can be ended.");
           if (!fullAdmin && current.actor_id !== context.actor.userId)
-            throw new SecurityAdministrationError(403, "IMPERSONATION_ACTOR_DENIED", "Only the real actor can end impersonation.");
+            throw new SecurityAdministrationError(
+              403,
+              "IMPERSONATION_ACTOR_DENIED",
+              "Only the real actor can end impersonation.",
+            );
           await client.query(
             `update security_impersonation_request set lifecycle_state='ended',ended_by=$3,ended_at=now(),
               end_reason=$4,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and request_id=$2`,
@@ -2050,6 +2351,38 @@ export class SourceSecurityAdministrationRepository {
         eventType,
         context.actor.userId,
         effectiveActorId,
+        reason,
+        JSON.stringify(state),
+      ],
+    );
+  }
+
+  private async sessionPolicyState(client: PoolClient, tenantId: string, policyId: string) {
+    const result = await client.query<Record<string, unknown>>(
+      `select * from security_session_policy where tenant_id=$1 and policy_id=$2`,
+      [tenantId, policyId],
+    );
+    return result.rows[0] ? cleanRow(result.rows[0]) : null;
+  }
+
+  private async appendSessionPolicyEvent(
+    client: PoolClient,
+    context: SecurityActorContext,
+    policyId: string,
+    eventType: string,
+    reason: string | null,
+    state: Record<string, unknown>,
+  ) {
+    await client.query(
+      `insert into security_session_policy_event
+        (tenant_id,event_id,policy_id,event_type,actor_id,reason,state_snapshot)
+       values ($1,$2,$3,$4,$5,$6,$7)`,
+      [
+        context.tenantId,
+        `session-policy-event-${randomUUID()}`,
+        policyId,
+        eventType,
+        context.actor.userId,
         reason,
         JSON.stringify(state),
       ],

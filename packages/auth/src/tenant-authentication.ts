@@ -1,6 +1,7 @@
 import { createHmac, randomBytes } from "node:crypto";
 
 import { hashPassword, passwordHashNeedsUpgrade, verifyCompatiblePassword } from "./passwords.js";
+import type { TenantSecurityPolicyAuthority } from "./security-policy.js";
 
 export interface LoginThrottleKey {
   scope: "identifier" | "network";
@@ -130,6 +131,7 @@ export class TenantAuthenticationService {
     private readonly dummyPasswordHash: string,
     private readonly throttlePolicy: LoginThrottlePolicy,
     private readonly clock: () => Date,
+    private readonly securityPolicyAuthority?: TenantSecurityPolicyAuthority,
   ) {
     if (Buffer.byteLength(throttleSecret, "utf8") < 32) {
       throw new Error("Authentication throttle secret must contain at least 32 bytes");
@@ -149,6 +151,7 @@ export class TenantAuthenticationService {
     throttlePolicy?: LoginThrottlePolicy;
     clock?: () => Date;
     dummyPasswordHash?: string;
+    securityPolicyAuthority?: TenantSecurityPolicyAuthority;
   }): Promise<TenantAuthenticationService> {
     return new TenantAuthenticationService(
       options.repository,
@@ -158,6 +161,7 @@ export class TenantAuthenticationService {
       options.dummyPasswordHash ?? (await hashPassword(randomBytes(32).toString("base64url"))),
       options.throttlePolicy ?? defaultLoginThrottlePolicy,
       options.clock ?? (() => new Date()),
+      options.securityPolicyAuthority,
     );
   }
 
@@ -181,13 +185,36 @@ export class TenantAuthenticationService {
       usernameHmac: loginIdentifierHmac(this.loginDirectorySecret, "username", identifier),
       limit: TenantAuthenticationService.maximumCandidates + 1,
     });
+    let throttlePolicy = this.throttlePolicy;
+    if (this.securityPolicyAuthority && candidates.length > 0) {
+      try {
+        const policies = (
+          await Promise.all(
+            [...new Set(candidates.map((candidate) => candidate.tenantId))].map((tenantId) =>
+              this.securityPolicyAuthority!.loadEffectiveSecurityPolicy(tenantId),
+            ),
+          )
+        ).filter((policy) => policy !== null);
+        if (policies.length)
+          throttlePolicy = {
+            maximumFailures: Math.min(
+              this.throttlePolicy.maximumFailures,
+              ...policies.map((policy) => policy.loginMaximumFailures),
+            ),
+            windowMs: Math.max(this.throttlePolicy.windowMs, ...policies.map((policy) => policy.loginWindowMs)),
+            blockMs: Math.max(this.throttlePolicy.blockMs, ...policies.map((policy) => policy.loginBlockMs)),
+          };
+      } catch {
+        throttlePolicy = this.throttlePolicy;
+      }
+    }
     if (candidates.length > TenantAuthenticationService.maximumCandidates) {
-      const newBlockedUntil = await this.throttleStore.recordFailure(keys, now, this.throttlePolicy);
+      const newBlockedUntil = await this.throttleStore.recordFailure(keys, now, throttlePolicy);
       return newBlockedUntil ? this.throttled(newBlockedUntil, now) : { status: "invalid" };
     }
     if (candidates.length === 0) {
       await verifyCompatiblePassword(this.dummyPasswordHash, input.password);
-      const newBlockedUntil = await this.throttleStore.recordFailure(keys, now, this.throttlePolicy);
+      const newBlockedUntil = await this.throttleStore.recordFailure(keys, now, throttlePolicy);
       return newBlockedUntil ? this.throttled(newBlockedUntil, now) : { status: "invalid" };
     }
 
@@ -213,7 +240,7 @@ export class TenantAuthenticationService {
     }
     const tenantIds = verified.map(({ account }) => account.tenantId);
     if (verified.length === 0 || new Set(tenantIds).size !== tenantIds.length) {
-      await this.throttleStore.recordFailure(keys, now, this.throttlePolicy);
+      await this.throttleStore.recordFailure(keys, now, throttlePolicy);
       return { status: "invalid" };
     }
 

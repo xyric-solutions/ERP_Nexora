@@ -16,6 +16,7 @@ import GovernedTable from "./governed-table";
 import AccessReviewPanel from "./access-review-panel";
 import DelegationPanel from "./delegation-panel";
 import ImpersonationPanel from "./impersonation-panel";
+import SessionPolicyPanel from "./session-policy-panel";
 import { identityHashLocation, identityHref, type IdentityLocation, type IdentitySection } from "./identity-navigation";
 
 const labels = {
@@ -63,12 +64,12 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
     section === "assignments" || section === "access-reviews" || section === "delegation" || section === "policies"
       ? section
       : workspace;
-  const isPlannedSection = section === "policies";
-  const sections: IdentitySection[] = isPlannedSection
-    ? []
-    : workspace === "users"
-      ? ["records", "assignments", "approvals", "audit"]
-      : ["records", "permissions", "assignments", "approvals", "audit"];
+  const sections: IdentitySection[] =
+    section === "policies"
+      ? []
+      : workspace === "users"
+        ? ["records", "assignments", "approvals", "audit"]
+        : ["records", "permissions", "assignments", "approvals", "audit"];
   const cursor = location.cursor;
   const viewKey = `${workspace}:${tab}:${approvalType}:${userId}:${rolePolicyId}:${cursor}`;
   const [data, setData] = useState<SecurityPage>({ items: [], next_cursor: null });
@@ -365,7 +366,7 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
               {tab === "roles" && permissions.has("security.authorization.role.create") ? (
                 <Button onClick={() => setShowCreate((value) => !value)}>{showCreate ? "Close" : "Create role"}</Button>
               ) : null}
-              {tab !== "users" && tab !== "access-reviews" && tab !== "delegation" && !isPlannedSection ? (
+              {tab !== "users" && tab !== "access-reviews" && tab !== "delegation" && tab !== "policies" ? (
                 <Button variant="outline" onClick={() => void load()}>
                   Refresh
                 </Button>
@@ -436,13 +437,8 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
               <DelegationPanel permissions={permissions} />
               <ImpersonationPanel permissions={permissions} />
             </>
-          ) : isPlannedSection ? (
-            <Alert className="m-5" role="status">
-              <AlertTitle>{labels[section]}</AlertTitle>
-              <AlertDescription>
-                This governed capability is not enabled yet. No prototype records or simulated actions are shown.
-              </AlertDescription>
-            </Alert>
+          ) : tab === "policies" ? (
+            <SessionPolicyPanel permissions={permissions} />
           ) : tab === "users" ? (
             <UserManagementPanel
               key={`users:${userId ?? "list"}:${userMode}`}
@@ -497,7 +493,7 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
               }
             />
           ) : null}
-          {!isPlannedSection && tab !== "users" && tab !== "permissions" && !busy && loadedView === viewKey ? (
+          {tab !== "users" && tab !== "permissions" && tab !== "policies" && !busy && loadedView === viewKey ? (
             <div
               className="flex flex-wrap items-center gap-3 border-t border-border px-5 py-3 text-sm"
               aria-label="Record pagination"

@@ -64,9 +64,51 @@ class MemoryTenantSessionStore implements TenantSessionStore {
     }
     return true;
   }
+
+  async enforceConcurrentLimit(tenantId: string, userId: string, maximum: number, keepId: string) {
+    const records = [...this.records.values()]
+      .filter((record) => record.tenantId === tenantId && record.userId === userId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    for (const record of records.slice(0, Math.max(0, records.length - maximum)))
+      if (record.id !== keepId) this.records.delete(record.id);
+  }
 }
 
 describe("TenantSessionService", () => {
+  it("applies active tenant timeout and concurrent-session limits", async () => {
+    const store = new MemoryTenantSessionStore();
+    const now = new Date("2026-10-16T12:00:00.000Z");
+    const service = new TenantSessionService(
+      store,
+      "s".repeat(32),
+      { idleTimeoutMs: 30 * 60_000, absoluteTimeoutMs: 8 * 3_600_000 },
+      { loadSessionVersion: async () => 1 },
+      () => now,
+      undefined,
+      {
+        loadEffectiveSecurityPolicy: async () => ({
+          passwordMinimumLength: 12,
+          passwordRequireUppercase: true,
+          passwordRequireLowercase: true,
+          passwordRequireNumber: true,
+          passwordRequireSymbol: true,
+          sessionIdleMs: 10 * 60_000,
+          sessionAbsoluteMs: 2 * 3_600_000,
+          concurrentSessionLimit: 1,
+          loginMaximumFailures: 4,
+          loginWindowMs: 15 * 60_000,
+          loginBlockMs: 30 * 60_000,
+          delegationMaximumMs: 7 * 86_400_000,
+          impersonationMaximumMs: 15 * 60_000,
+        }),
+      },
+    );
+    const first = await service.issue("tenant-a", "user-a");
+    const second = await service.issue("tenant-a", "user-a");
+    expect(await service.get(first.token)).toBeNull();
+    expect((await service.get(second.token))?.idleExpiresAt.toISOString()).toBe("2026-10-16T12:10:00.000Z");
+    expect((await service.get(second.token))?.absoluteExpiresAt.toISOString()).toBe("2026-10-16T14:00:00.000Z");
+  });
   it("issues tenant-bound opaque sessions, prevents fixation, rotates, and revokes", async () => {
     const store = new MemoryTenantSessionStore();
     let currentSessionVersion = 1;

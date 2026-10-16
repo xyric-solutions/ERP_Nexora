@@ -44,6 +44,9 @@ const makerPermissions = [
   "security.impersonation.submit",
   "security.impersonation.activate",
   "security.impersonation.end",
+  "security.session_policy.read",
+  "security.session_policy.create",
+  "security.session_policy.submit",
 ] as const;
 
 const checkerPermissions = [
@@ -62,6 +65,8 @@ const checkerPermissions = [
   "security.delegation.approve",
   "security.impersonation.read",
   "security.impersonation.approve",
+  "security.session_policy.read",
+  "security.session_policy.approve",
 ] as const;
 
 const roles = [

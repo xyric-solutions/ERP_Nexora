@@ -27,7 +27,11 @@ export type PasswordPolicyViolation =
   | "PASSWORD_TOO_LARGE"
   | "PASSWORD_CONTAINS_NULL"
   | "PASSWORD_CONTAINS_IDENTIFIER"
-  | "PASSWORD_REUSED";
+  | "PASSWORD_REUSED"
+  | "PASSWORD_MISSING_UPPERCASE"
+  | "PASSWORD_MISSING_LOWERCASE"
+  | "PASSWORD_MISSING_NUMBER"
+  | "PASSWORD_MISSING_SYMBOL";
 
 export class PasswordPolicyError extends Error {
   readonly code = "PASSWORD_POLICY_REJECTED";
@@ -37,13 +41,27 @@ export class PasswordPolicyError extends Error {
   }
 }
 
-export function validatePassword(password: string, loginIdentifier?: string): void {
+export function validatePassword(
+  password: string,
+  loginIdentifier?: string,
+  configured?: {
+    minimumLength: number;
+    requireUppercase: boolean;
+    requireLowercase: boolean;
+    requireNumber: boolean;
+    requireSymbol: boolean;
+  },
+): void {
   const violations: PasswordPolicyViolation[] = [];
   const length = [...password].length;
-  if (length < passwordPolicy.minimumLength) violations.push("PASSWORD_TOO_SHORT");
+  if (length < (configured?.minimumLength ?? passwordPolicy.minimumLength)) violations.push("PASSWORD_TOO_SHORT");
   if (length > passwordPolicy.maximumLength) violations.push("PASSWORD_TOO_LONG");
   if (Buffer.byteLength(password, "utf8") > passwordPolicy.maximumBytes) violations.push("PASSWORD_TOO_LARGE");
   if (password.includes("\0")) violations.push("PASSWORD_CONTAINS_NULL");
+  if (configured?.requireUppercase && !/[A-Z]/.test(password)) violations.push("PASSWORD_MISSING_UPPERCASE");
+  if (configured?.requireLowercase && !/[a-z]/.test(password)) violations.push("PASSWORD_MISSING_LOWERCASE");
+  if (configured?.requireNumber && !/[0-9]/.test(password)) violations.push("PASSWORD_MISSING_NUMBER");
+  if (configured?.requireSymbol && !/[^A-Za-z0-9]/.test(password)) violations.push("PASSWORD_MISSING_SYMBOL");
   const identifier = loginIdentifier?.trim().toLocaleLowerCase("en-US");
   if (identifier && identifier.length >= 3 && password.toLocaleLowerCase("en-US").includes(identifier)) {
     violations.push("PASSWORD_CONTAINS_IDENTIFIER");

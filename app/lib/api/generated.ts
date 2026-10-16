@@ -91,6 +91,8 @@ import type {
   SecurityDelegationAction,
   CreateSecurityImpersonation,
   SecurityImpersonationAction,
+  CreateSecuritySessionPolicy,
+  SecuritySessionPolicyAction,
   CreateSecurityAssignmentRequest,
   CreateSecurityRoleRequest,
   SecurityAdministrationResult,
@@ -200,6 +202,7 @@ export class NexoraApiClient {
   listSecurityAccessReviewItems(query: string): Promise<SecurityPage> { return this.request(`/api/v1/security/access_review_items${query}`); }
   listSecurityDelegations(query = ""): Promise<SecurityPage> { return this.request(`/api/v1/security/delegations${query}`); }
   listSecurityImpersonations(query = ""): Promise<SecurityPage> { return this.request(`/api/v1/security/impersonations${query}`); }
+  listSecuritySessionPolicies(): Promise<SecurityPage> { return this.request("/api/v1/security/session_policies"); }
   listHrEmployees(query: string): Promise<HrEmployeeDirectory> { return this.request(`/api/v1/hr/employees${query}`); }
   listHrCompanies(): Promise<HrCompanyDirectory> { return this.request("/api/v1/hr/companies"); }
   listHrOrganizationUnits(query: string): Promise<HrOrganizationUnitDirectory> { return this.request(`/api/v1/hr/organization_units${query}`); }
@@ -357,6 +360,12 @@ export class NexoraApiClient {
   }
   actOnSecurityImpersonation(payload: SecurityImpersonationAction, csrfToken: string, idempotencyKey: string): Promise<SecurityAdministrationResult> {
     return this.request("/api/v1/security/impersonation_actions", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  createSecuritySessionPolicy(payload: CreateSecuritySessionPolicy, csrfToken: string, idempotencyKey: string): Promise<SecurityAdministrationResult> {
+    return this.request("/api/v1/security/session_policies", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  actOnSecuritySessionPolicy(payload: SecuritySessionPolicyAction, csrfToken: string, idempotencyKey: string): Promise<SecurityAdministrationResult> {
+    return this.request("/api/v1/security/session_policy_actions", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
   enqueueSampleJob(payload: SampleJobPayload): Promise<JobReceipt> {
     return this.request("/api/v1/jobs/sample", { method: "POST", body: JSON.stringify(payload) });

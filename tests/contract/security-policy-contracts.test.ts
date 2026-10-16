@@ -6,6 +6,7 @@ import {
   policyFieldPathSchema,
   securityRoleAssignmentSchema,
   securitySodPolicySchema,
+  createSecuritySessionPolicySchema,
 } from "../../packages/contracts/src/index.js";
 
 describe("security policy contracts", () => {
@@ -57,6 +58,40 @@ describe("security policy contracts", () => {
         permissionKey: "hr.employee.read",
         reason: "scope_denied",
         targetCompanyId: "sensitive",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("enforces hard bounds on tenant security/session policy drafts", () => {
+    const valid = {
+      values: {
+        password_minimum_length: 12,
+        password_require_uppercase: true,
+        password_require_lowercase: true,
+        password_require_number: true,
+        password_require_symbol: true,
+        session_idle_minutes: 30,
+        session_absolute_hours: 8,
+        concurrent_session_limit: 3,
+        login_maximum_failures: 5,
+        login_window_minutes: 15,
+        login_block_minutes: 15,
+        delegation_maximum_days: 30,
+        impersonation_maximum_minutes: 30,
+      },
+      change_summary: "Harden tenant controls",
+    };
+    expect(createSecuritySessionPolicySchema.safeParse(valid).success).toBe(true);
+    expect(
+      createSecuritySessionPolicySchema.safeParse({
+        ...valid,
+        values: { ...valid.values, concurrent_session_limit: 0 },
+      }).success,
+    ).toBe(false);
+    expect(
+      createSecuritySessionPolicySchema.safeParse({
+        ...valid,
+        values: { ...valid.values, impersonation_maximum_minutes: 61 },
       }).success,
     ).toBe(false);
   });

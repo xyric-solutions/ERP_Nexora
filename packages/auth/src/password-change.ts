@@ -1,6 +1,7 @@
 import { createHmac, randomBytes } from "node:crypto";
 
 import { validatePassword } from "./passwords.js";
+import type { TenantSecurityPolicyAuthority } from "./security-policy.js";
 
 export interface PasswordChangeContext {
   sourceIp: string;
@@ -43,6 +44,7 @@ export class PasswordChangeService {
     secret: string,
     private readonly ttlMs = 5 * 60 * 1_000,
     private readonly clock: () => Date = () => new Date(),
+    private readonly securityPolicyAuthority?: TenantSecurityPolicyAuthority,
   ) {
     if (Buffer.byteLength(secret, "utf8") < 32) {
       throw new Error("Password-change secret must contain at least 32 bytes");
@@ -86,6 +88,20 @@ export class PasswordChangeService {
     validatePassword(input.newPassword);
     const record = await this.store.consume(this.ticketHash(input.ticket), this.bindingHash(input.context));
     if (!record || new Date(record.expiresAt) <= this.clock()) return null;
+    const policy = await this.securityPolicyAuthority?.loadEffectiveSecurityPolicy(record.tenantId);
+    validatePassword(
+      input.newPassword,
+      undefined,
+      policy
+        ? {
+            minimumLength: policy.passwordMinimumLength,
+            requireUppercase: policy.passwordRequireUppercase,
+            requireLowercase: policy.passwordRequireLowercase,
+            requireNumber: policy.passwordRequireNumber,
+            requireSymbol: policy.passwordRequireSymbol,
+          }
+        : undefined,
+    );
     return {
       tenantId: record.tenantId,
       userId: record.userId,

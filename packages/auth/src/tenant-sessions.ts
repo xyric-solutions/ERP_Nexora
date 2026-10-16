@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import type { TenantSecurityPolicyAuthority } from "./security-policy.js";
 
 export interface TenantSessionRecord {
   id: string;
@@ -33,6 +34,7 @@ export interface TenantSessionStore {
   revokeByTokenHash(tokenHash: string): Promise<boolean>;
   revokeAll(tenantId: string, userId: string): Promise<number>;
   setImpersonation?(id: string, context: TenantImpersonationContext | null): Promise<boolean>;
+  enforceConcurrentLimit?(tenantId: string, userId: string, maximum: number, keepId: string): Promise<void>;
 }
 
 export interface TenantSessionView {
@@ -85,6 +87,7 @@ export class TenantSessionService {
     private readonly authority: TenantSessionAuthority,
     private readonly clock: () => Date = () => new Date(),
     private readonly impersonationAuthority?: TenantImpersonationAuthority,
+    private readonly securityPolicyAuthority?: TenantSecurityPolicyAuthority,
   ) {
     if (Buffer.byteLength(secret, "utf8") < 32) throw new Error("Session secret must contain at least 32 bytes");
     if (policy.idleTimeoutMs <= 0 || policy.absoluteTimeoutMs <= 0 || policy.idleTimeoutMs > policy.absoluteTimeoutMs) {
@@ -101,15 +104,27 @@ export class TenantSessionService {
   ): Promise<IssuedTenantSession> {
     if (presentedToken) await this.revokeToken(presentedToken);
     const now = this.clock();
+    const effectivePolicy = await this.effectivePolicy(tenantId);
     const sessionVersion = await this.authority.loadSessionVersion(tenantId, userId);
     if (!sessionVersion || !Number.isSafeInteger(sessionVersion) || sessionVersion < 1) {
       throw new Error("SESSION_AUTHORITY_UNAVAILABLE");
     }
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const token = randomBytes(48).toString("base64url");
-      const record = this.buildRecord(tenantId, userId, sessionVersion, token, now, context, null);
+      const record = this.buildRecord(
+        tenantId,
+        userId,
+        sessionVersion,
+        token,
+        now,
+        context,
+        null,
+        undefined,
+        effectivePolicy,
+      );
       try {
         await this.store.create(record);
+        await this.store.enforceConcurrentLimit?.(tenantId, userId, effectivePolicy.concurrentSessionLimit, record.id);
         return this.issued(record, token);
       } catch (error) {
         if (attempt === 2) throw error;
@@ -132,6 +147,7 @@ export class TenantSessionService {
     if (!current) return { status: "invalid_session" };
     if (!this.matchesCsrf(current.id, csrfToken)) return { status: "invalid_csrf" };
     const now = this.clock();
+    const effectivePolicy = await this.effectivePolicy(current.tenantId);
     const replacementToken = randomBytes(48).toString("base64url");
     const replacement = this.buildRecord(
       current.tenantId,
@@ -142,6 +158,7 @@ export class TenantSessionService {
       context,
       current.id,
       current.absoluteExpiresAt,
+      effectivePolicy,
     );
     if (!(await this.store.rotate(current.id, replacement, now))) return { status: "invalid_session" };
     return { status: "ok", ...this.issued(replacement, replacementToken) };
@@ -181,10 +198,7 @@ export class TenantSessionService {
     return this.store.revokeAll(tenantId, userId);
   }
 
-  async startImpersonation(
-    token: string,
-    context: TenantImpersonationContext,
-  ): Promise<TenantSessionView | null> {
+  async startImpersonation(token: string, context: TenantImpersonationContext): Promise<TenantSessionView | null> {
     if (!this.store.setImpersonation || !this.impersonationAuthority) return null;
     const current = await this.find(token);
     if (!current || current.impersonation) return null;
@@ -209,10 +223,11 @@ export class TenantSessionService {
     const current = await this.find(token);
     if (!current) return null;
     const now = this.clock();
+    const effectivePolicy = await this.effectivePolicy(current.tenantId);
     return this.store.touch(
       current.id,
       now,
-      earlier(new Date(now.getTime() + this.policy.idleTimeoutMs), current.absoluteExpiresAt),
+      earlier(new Date(now.getTime() + effectivePolicy.idleTimeoutMs), current.absoluteExpiresAt),
     );
   }
 
@@ -233,7 +248,10 @@ export class TenantSessionService {
     if (record.impersonation) {
       let valid = false;
       try {
-        const targetVersion = await this.authority.loadSessionVersion(record.tenantId, record.impersonation.targetUserId);
+        const targetVersion = await this.authority.loadSessionVersion(
+          record.tenantId,
+          record.impersonation.targetUserId,
+        );
         valid =
           targetVersion === record.impersonation.targetSessionVersion &&
           now < record.impersonation.expiresAt &&
@@ -268,8 +286,13 @@ export class TenantSessionService {
     context: { sourceIp?: string; userAgent?: string },
     rotatedFromId: string | null,
     inheritedAbsoluteExpiry?: Date,
+    effectivePolicy = {
+      idleTimeoutMs: this.policy.idleTimeoutMs,
+      absoluteTimeoutMs: this.policy.absoluteTimeoutMs,
+      concurrentSessionLimit: 20,
+    },
   ): TenantSessionRecord {
-    const absoluteExpiresAt = inheritedAbsoluteExpiry ?? new Date(now.getTime() + this.policy.absoluteTimeoutMs);
+    const absoluteExpiresAt = inheritedAbsoluteExpiry ?? new Date(now.getTime() + effectivePolicy.absoluteTimeoutMs);
     return {
       id: randomUUID(),
       tenantId,
@@ -278,12 +301,28 @@ export class TenantSessionService {
       tokenHash: this.digest("session-token", token),
       createdAt: now,
       lastSeenAt: now,
-      idleExpiresAt: earlier(new Date(now.getTime() + this.policy.idleTimeoutMs), absoluteExpiresAt),
+      idleExpiresAt: earlier(new Date(now.getTime() + effectivePolicy.idleTimeoutMs), absoluteExpiresAt),
       absoluteExpiresAt,
       rotatedFromId,
       userAgentHash: context.userAgent ? this.digest("user-agent", context.userAgent) : null,
       sourceIpHash: context.sourceIp ? this.digest("source-ip", context.sourceIp) : null,
     };
+  }
+
+  private async effectivePolicy(tenantId: string) {
+    if (!this.securityPolicyAuthority) return { ...this.policy, concurrentSessionLimit: 20 };
+    try {
+      const active = await this.securityPolicyAuthority.loadEffectiveSecurityPolicy(tenantId);
+      return active
+        ? {
+            idleTimeoutMs: Math.min(this.policy.idleTimeoutMs, active.sessionIdleMs),
+            absoluteTimeoutMs: Math.min(this.policy.absoluteTimeoutMs, active.sessionAbsoluteMs),
+            concurrentSessionLimit: active.concurrentSessionLimit,
+          }
+        : { ...this.policy, concurrentSessionLimit: 20 };
+    } catch {
+      return { ...this.policy, concurrentSessionLimit: 20 };
+    }
   }
 
   private issued(record: TenantSessionRecord, token: string): IssuedTenantSession {

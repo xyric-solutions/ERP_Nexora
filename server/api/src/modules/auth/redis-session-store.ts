@@ -117,9 +117,7 @@ function toStored(record: TenantSessionRecord): StoredSession {
     lastSeenAt: record.lastSeenAt.getTime(),
     idleExpiresAt: record.idleExpiresAt.getTime(),
     absoluteExpiresAt: record.absoluteExpiresAt.getTime(),
-    ...(impersonation
-      ? { impersonation: { ...impersonation, expiresAt: impersonation.expiresAt.getTime() } }
-      : {}),
+    ...(impersonation ? { impersonation: { ...impersonation, expiresAt: impersonation.expiresAt.getTime() } } : {}),
   };
 }
 
@@ -132,9 +130,7 @@ function fromStored(record: StoredSession): TenantSessionRecord {
     lastSeenAt: new Date(record.lastSeenAt),
     idleExpiresAt: new Date(record.idleExpiresAt),
     absoluteExpiresAt: new Date(record.absoluteExpiresAt),
-    ...(impersonation
-      ? { impersonation: { ...impersonation, expiresAt: new Date(impersonation.expiresAt) } }
-      : {}),
+    ...(impersonation ? { impersonation: { ...impersonation, expiresAt: new Date(impersonation.expiresAt) } } : {}),
   };
 }
 
@@ -233,6 +229,21 @@ export class RedisTenantSessionStore implements TenantSessionStore {
   async setImpersonation(id: string, context: TenantImpersonationContext | null): Promise<boolean> {
     const stored = context ? JSON.stringify({ ...context, expiresAt: context.expiresAt.getTime() }) : "";
     return Number(await this.redis.eval(impersonationScript, 1, this.idKey(id), this.sessionPrefix, stored)) === 1;
+  }
+
+  async enforceConcurrentLimit(tenantId: string, userId: string, maximum: number, keepId: string): Promise<void> {
+    const userKey = this.userKey(tenantId, userId);
+    const members = await this.redis.smembers(userKey);
+    const records = (
+      await Promise.all(
+        members.map(async (tokenHash) => ({ tokenHash, record: await this.findByTokenHash(tokenHash) })),
+      )
+    )
+      .filter((entry): entry is { tokenHash: string; record: TenantSessionRecord } => Boolean(entry.record))
+      .sort((left, right) => left.record.createdAt.getTime() - right.record.createdAt.getTime());
+    for (const entry of records.slice(0, Math.max(0, records.length - maximum))) {
+      if (entry.record.id !== keepId) await this.revoke(entry.record.id);
+    }
   }
 
   private sessionKey(tokenHash: string): string {

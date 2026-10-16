@@ -4,6 +4,7 @@ import { Redis } from "ioredis";
 
 import {
   PasswordChangeService,
+  CachedTenantSecurityPolicyAuthority,
   TenantAuthenticationService,
   TenantSelectionService,
   TenantSessionService,
@@ -28,11 +29,14 @@ const pool = createDatabasePool(config.databaseUrl);
 const redis = new Redis(config.redisUrl, { maxRetriesPerRequest: null });
 if (config.databaseAutoMigrate) await migrateSourceSchema(pool);
 const authRepository = new SourceTenantAuthenticationRepository(pool);
+const securityRepository = new SourceSecurityAdministrationRepository(pool, config.authLoginDirectorySecret);
+const securityPolicyAuthority = new CachedTenantSecurityPolicyAuthority(securityRepository);
 const authService = await TenantAuthenticationService.create({
   repository: authRepository,
   throttleStore: new RedisLoginThrottleStore(redis),
   throttleSecret: config.authThrottleSecret,
   loginDirectorySecret: config.authLoginDirectorySecret,
+  securityPolicyAuthority,
 });
 const tenantSelectionService = new TenantSelectionService(
   new RedisTenantSelectionStore(redis),
@@ -41,8 +45,10 @@ const tenantSelectionService = new TenantSelectionService(
 const passwordChangeService = new PasswordChangeService(
   new RedisPasswordChangeTicketStore(redis),
   config.authSessionSecret,
+  undefined,
+  undefined,
+  securityPolicyAuthority,
 );
-const securityRepository = new SourceSecurityAdministrationRepository(pool, config.authLoginDirectorySecret);
 const sessionService = new TenantSessionService(
   new RedisTenantSessionStore(redis),
   config.authSessionSecret,
@@ -53,6 +59,7 @@ const sessionService = new TenantSessionService(
   authRepository,
   undefined,
   securityRepository,
+  securityPolicyAuthority,
 );
 let draining = false;
 const app = createApp({
@@ -64,6 +71,7 @@ const app = createApp({
   passwordChangeService,
   sessionService,
   securityRepository,
+  invalidateSecurityPolicy: (tenantId) => securityPolicyAuthority.invalidate(tenantId),
   hrRepository: new SourceHrRepository(pool),
   readiness: {
     service: async () => {

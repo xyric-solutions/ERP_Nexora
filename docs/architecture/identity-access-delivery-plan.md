@@ -38,7 +38,7 @@ an explicit completion handoff.
 - [x] IA-03 PostgreSQL-backed Access Review.
 - [x] IA-04 governed Delegation.
 - [x] IA-05 governed Impersonation and single emergency principal.
-- [ ] IA-06 versioned Security & Session Policies with runtime enforcement.
+- [x] IA-06 versioned Security & Session Policies with runtime enforcement.
 - [ ] IA-07 complete security regression and controlled browser acceptance.
 
 ## IA-01 verification record — 2026-10-16
@@ -95,8 +95,8 @@ All links remain under the canonical parent:
 - Delegation & Impersonation: `/#/identity/access?tab=roles&section=delegation`
 - Security & Session Policies: `/#/identity/access?tab=roles&section=policies`
 
-The combined Delegation & Impersonation URL is live. The Policies URL remains
-navigation-ready but unavailable until IA-06.
+The combined Delegation & Impersonation and Security & Session Policies URLs
+are live and use versioned production APIs without fixture fallback.
 
 ## IA-02 verification record â€” 2026-10-16
 
@@ -239,7 +239,48 @@ Observed verification:
 
 ## Current safe resume point
 
-Proceed with IA-06, versioned Security & Session Policies. Preserve security
-migration 12 and the PostgreSQL-authoritative impersonation validator. Add
-bounded policy values, independent approval, one active effective version,
-runtime enforcement and safe fallback before enabling the Policies workspace.
+Proceed with IA-07 controlled acceptance and mock retirement. Preserve security
+migration 13 and the PostgreSQL-authoritative policy lifecycle/runtime adapter.
+Verify every canonical Identity URL in a real browser, exercise maker/checker
+and the single tenant-administrator exception with synthetic accounts, search
+for remaining fixture/local-only behavior, and record the exact HR resume point.
+
+## IA-06 verification record — 2026-10-16
+
+- Security migration 13 adds bounded, tenant-RLS session policy versions,
+  exactly one active policy, immutable lifecycle events and exact
+  `security.session_policy.*` permissions.
+- Draft, submit, independent approve/reject and activate transitions use the
+  existing idempotent administration command, optimistic version and
+  hash-chained audit infrastructure. Ordinary authors cannot approve or
+  activate their own policy. The tenant-wide administrator retains the
+  explicitly approved single-principal exception.
+- Active PostgreSQL values are loaded through a bounded 30-second cache whose
+  entry is invalidated on activation. Environment timeouts remain hard upper
+  bounds and safe fallback. Policy-source failure does not relax platform
+  session controls.
+- Password length/composition, login failure window/blocking, idle and absolute
+  session timeouts, concurrent sessions, delegation duration and impersonation
+  duration are enforced in the existing runtime services. Activation advances
+  all active account session versions so old sessions fail closed and new
+  controls apply after authentication.
+- The live Policies workspace provides the current policy/history, bounded
+  draft editor, lifecycle actions, permission/loading/empty/error states and
+  activation warnings. It uses generated `/api/v1/security/session_policies`
+  and `/api/v1/security/session_policy_actions` clients only.
+
+Observed verification:
+
+- Focused authentication/session/cache unit tests: 11 passed across four files.
+- Contract suites: 8 passed, including hard policy bounds and OpenAPI snapshot.
+- PostgreSQL migration and policy lifecycle suites: 10 passed, covering the
+  complete security v13 chain, independent approval, one-active enforcement,
+  immutable history, runtime projection and the administrator exception.
+- Security foundation: 5 passed. API drift, full TypeScript project references,
+  focused ESLint, `git diff --check` and the Next.js 16.3.8 production build
+  passed.
+- The complete unit command has one unrelated missing-module suite
+  (`tests/unit/theme-provider.test.ts` imports absent `app/theme-config.js`).
+  The complete integration run retains the known HR assignment projection
+  assertion plus a repeat-run HR lifecycle fixture collision. Neither path was
+  changed by IA-06; both remain visible for the resumed HR workstream.

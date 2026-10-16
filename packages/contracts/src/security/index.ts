@@ -4,6 +4,7 @@ export * from "./administration.js";
 export * from "./access-review.js";
 export * from "./delegation.js";
 export * from "./impersonation.js";
+export * from "./session-policy.js";
 export * from "./user-administration.js";
 
 const identifierSchema = z

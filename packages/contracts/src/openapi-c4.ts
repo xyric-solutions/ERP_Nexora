@@ -95,14 +95,9 @@ import {
   securityAccessReviewCampaignActionSchema,
   securityAccessReviewDecisionSchema,
 } from "./security/access-review.js";
-import {
-  createSecurityDelegationSchema,
-  securityDelegationActionSchema,
-} from "./security/delegation.js";
-import {
-  createSecurityImpersonationSchema,
-  securityImpersonationActionSchema,
-} from "./security/impersonation.js";
+import { createSecurityDelegationSchema, securityDelegationActionSchema } from "./security/delegation.js";
+import { createSecurityImpersonationSchema, securityImpersonationActionSchema } from "./security/impersonation.js";
+import { createSecuritySessionPolicySchema, securitySessionPolicyActionSchema } from "./security/session-policy.js";
 import {
   createSecurityAssignmentRequestSchema,
   createSecurityRoleRequestSchema,
@@ -652,7 +647,54 @@ export function buildOpenApiDocument() {
           responses: {
             "201": {
               description: "Governed delegation draft created",
-              content: { "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } } },
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/security/session_policies": {
+        get: {
+          operationId: "listSecuritySessionPolicies",
+          security: [{ cookieAuth: [] }],
+          responses: securityPageResponse,
+        },
+        post: {
+          operationId: "createSecuritySessionPolicy",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/CreateSecuritySessionPolicy" } } },
+          },
+          responses: {
+            "201": {
+              description: "Session policy draft created",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/security/session_policy_actions": {
+        post: {
+          operationId: "actOnSecuritySessionPolicy",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SecuritySessionPolicyAction" } } },
+          },
+          responses: {
+            "200": {
+              description: "Session policy transition recorded",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } },
+              },
             },
             ...securityErrors,
           },
@@ -670,7 +712,9 @@ export function buildOpenApiDocument() {
           responses: {
             "200": {
               description: "Governed delegation transition recorded",
-              content: { "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } } },
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } },
+              },
             },
             ...securityErrors,
           },
@@ -705,7 +749,9 @@ export function buildOpenApiDocument() {
           responses: {
             "201": {
               description: "Governed impersonation draft created",
-              content: { "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } } },
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } },
+              },
             },
             ...securityErrors,
           },
@@ -723,7 +769,9 @@ export function buildOpenApiDocument() {
           responses: {
             "200": {
               description: "Governed impersonation transition recorded",
-              content: { "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } } },
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } },
+              },
             },
             ...securityErrors,
           },
@@ -2413,6 +2461,8 @@ export function buildOpenApiDocument() {
         SecurityDelegationAction: schema(securityDelegationActionSchema),
         CreateSecurityImpersonation: schema(createSecurityImpersonationSchema),
         SecurityImpersonationAction: schema(securityImpersonationActionSchema),
+        CreateSecuritySessionPolicy: schema(createSecuritySessionPolicySchema),
+        SecuritySessionPolicyAction: schema(securitySessionPolicyActionSchema),
         CreateSecurityUserRequest: schema(createSecurityUserRequestSchema),
         SecurityUserRequestAction: schema(securityUserRequestActionSchema),
         SecurityUserEmergencyAction: schema(securityUserEmergencyActionSchema),
