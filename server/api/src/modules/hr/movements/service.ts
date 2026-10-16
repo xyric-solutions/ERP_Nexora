@@ -27,6 +27,13 @@ import type {
   HrEmployeeWorkLocationChangeRequestDirectoryQuery,
   HrEmployeeWorkLocationChangeRequestResult,
   HrEmployeeWorkLocationChangeRequestReview,
+  CreateHrEmployeeOrganizationPlacementChangeRequest,
+  DecideHrEmployeeOrganizationPlacementChangeRequest,
+  HrEmployeeOrganizationPlacementChangeDecisionResult,
+  HrEmployeeOrganizationPlacementChangeRequestDirectory,
+  HrEmployeeOrganizationPlacementChangeRequestDirectoryQuery,
+  HrEmployeeOrganizationPlacementChangeRequestResult,
+  HrEmployeeOrganizationPlacementChangeRequestReview,
 } from "@nexora/contracts";
 
 import type { HrActorContext, SourceHrRepository } from "../source-repository.js";
@@ -52,6 +59,10 @@ export class HrMovementService {
       | "getEmployeeWorkLocationChangeRequest"
       | "createEmployeeWorkLocationChangeRequest"
       | "decideEmployeeWorkLocationChangeRequest"
+      | "listEmployeeOrganizationPlacementChangeRequests"
+      | "getEmployeeOrganizationPlacementChangeRequest"
+      | "createEmployeeOrganizationPlacementChangeRequest"
+      | "decideEmployeeOrganizationPlacementChangeRequest"
     >,
   ) {}
 
@@ -230,6 +241,55 @@ export class HrMovementService {
     correlationId: string,
   ): Promise<HrEmployeeWorkLocationChangeDecisionResult> {
     return this.repository.decideEmployeeWorkLocationChangeRequest(
+      context,
+      employeeId,
+      requestId,
+      input,
+      idempotencyKey,
+      correlationId,
+    );
+  }
+
+  listOrganizationPlacementChanges(
+    context: HrActorContext,
+    query: HrEmployeeOrganizationPlacementChangeRequestDirectoryQuery,
+  ): Promise<HrEmployeeOrganizationPlacementChangeRequestDirectory> {
+    return this.repository.listEmployeeOrganizationPlacementChangeRequests(context, query);
+  }
+
+  getOrganizationPlacementChange(
+    context: HrActorContext,
+    employeeId: string,
+    requestId: string,
+  ): Promise<HrEmployeeOrganizationPlacementChangeRequestReview> {
+    return this.repository.getEmployeeOrganizationPlacementChangeRequest(context, employeeId, requestId);
+  }
+
+  requestOrganizationPlacementChange(
+    context: HrActorContext,
+    employeeId: string,
+    input: CreateHrEmployeeOrganizationPlacementChangeRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmployeeOrganizationPlacementChangeRequestResult> {
+    return this.repository.createEmployeeOrganizationPlacementChangeRequest(
+      context,
+      employeeId,
+      input,
+      idempotencyKey,
+      correlationId,
+    );
+  }
+
+  decideOrganizationPlacementChange(
+    context: HrActorContext,
+    employeeId: string,
+    requestId: string,
+    input: DecideHrEmployeeOrganizationPlacementChangeRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmployeeOrganizationPlacementChangeDecisionResult> {
+    return this.repository.decideEmployeeOrganizationPlacementChangeRequest(
       context,
       employeeId,
       requestId,

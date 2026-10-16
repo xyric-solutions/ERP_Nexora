@@ -26,6 +26,7 @@ import { HrTransferApprovalsPanel } from "../components/hr-transfer-approvals-pa
 import { HrPromotionApprovalsPanel } from "../components/hr-promotion-approvals-panel";
 import { HrManagerChangeApprovalsPanel } from "../components/hr-manager-change-approvals-panel";
 import { HrWorkLocationChangeApprovalsPanel } from "../components/hr-work-location-change-approvals-panel";
+import { HrOrganizationPlacementChangeApprovalsPanel } from "../components/hr-organization-placement-change-approvals-panel";
 
 type LoadState = "loading" | "ready" | "error";
 type Decision = DecideHrEmployeeDraftApprovalRequest["decision"];
@@ -53,13 +54,16 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
   const canApprovePromotion = session?.user.permissions.includes("hr.employee_assignment.change") ?? false;
   const canApproveManagerChange = session?.user.permissions.includes("hr.employee_assignment.change") ?? false;
   const canApproveWorkLocationChange = session?.user.permissions.includes("hr.employee_assignment.change") ?? false;
+  const canApproveOrganizationPlacementChange =
+    session?.user.permissions.includes("hr.employee_assignment.change") ?? false;
   const canApprove =
     canApproveDraft ||
     canApproveHire ||
     canApproveTransfer ||
     canApprovePromotion ||
     canApproveManagerChange ||
-    canApproveWorkLocationChange;
+    canApproveWorkLocationChange ||
+    canApproveOrganizationPlacementChange;
   const userId = session?.user.id;
 
   useEffect(() => {
@@ -445,6 +449,17 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           client={client}
           csrfToken={csrfToken}
           companyId={companyId}
+          userId={userId}
+          onAction={onAction}
+        />
+      )}
+      {canApproveOrganizationPlacementChange && (
+        <HrOrganizationPlacementChangeApprovalsPanel
+          key={`organization-placement-change:${companyId}`}
+          client={client}
+          csrfToken={csrfToken}
+          companyId={companyId}
+          canApprove={canApproveOrganizationPlacementChange}
           userId={userId}
           onAction={onAction}
         />

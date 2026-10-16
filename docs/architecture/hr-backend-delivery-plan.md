@@ -19,20 +19,20 @@ PostgreSQL, Redis or storage directly.
   transition, with company scope, CSRF/origin validation, idempotency and audit
   evidence.
 - Governed employee Hire/activation plus same-day Transfer, assignment-only
-  Promotion, reporting-manager change and work-location change. Manager change
-  supports either an eligible same-company manager or an explicit reviewed
-  clear action. Work-location change requires approved, active and effective
-  jurisdiction evidence for the target location.
+  Promotion, reporting-manager change, work-location change and complete
+  organization-placement change. Manager change supports either an eligible
+  same-company manager or an explicit reviewed clear action. Work-location
+  change requires approved, active and effective jurisdiction evidence.
 
 ### Current safe resume point
 
 - Governed employee Hire/activation, same-day Transfer, assignment-only
-  Promotion, reporting-manager change and work-location change are
-  implementation-complete and verified through the API/repository against
-  isolated PostgreSQL. The next safe development slice is governed remaining
-  organisation-placement change for normalized organization-unit links not
-  already covered by Transfer. It needs its own approved scope and projection
-  rules; do not generalize the existing movement workflows prematurely.
+  Promotion, reporting-manager change, work-location change and complete
+  organization-placement change are implementation-complete and verified
+  through the API/repository against isolated PostgreSQL. The next safe slice
+  is the immutable lifecycle-event/profile-history read model, providing
+  production visibility before adding further lifecycle transitions. Keep each
+  mutation workflow separate; do not generalize movement rules prematurely.
 - Independent two-user browser acceptance for a real maker submission followed
   by a different checker decision remains an acceptance gate. Automated browser
   acceptance currently proves authenticated live maker/checker screens and API
@@ -165,8 +165,9 @@ sessions, permissions, company access, approvals and employee/user binding.
 - [ ] Effective-dated active employment assignment movement workflow.
       Same-day Transfer, assignment-only Promotion and reporting-manager change
       plus work-location change are complete as separate approval transitions
-      with immutable audit evidence. Remaining organization-placement changes,
-      pay-changing Promotion, and durable future-dated activation remain open.
+      with immutable audit evidence. Complete organization-placement change is
+      also complete. Pay-changing Promotion and durable future-dated activation
+      remain open.
 - [x] Immutable employee status-history read model: typed API and Tailwind
       workspace use `hr.employment_history.read`, current company scope and a
       minimal status-event projection. Actor identifiers and mutable controls are
@@ -501,10 +502,65 @@ sessions, permissions, company access, approvals and employee/user binding.
   before browser acceptance; do not expose or infer database credentials.
 - Checklist progress remains 30/49 (about 61%) because the broader movement
   checkbox still includes remaining organization placement and future-dated
-  activation. The next safe implementation slice is a separately governed
-  organization-placement change for normalized organization-unit links not
-  already covered by branch/department Transfer. Later slices remain lifecycle,
-  attendance/leave and payroll work.
+  activation. The next safe implementation slice was a separately governed
+  complete organization-placement change.
+
+### Governed organization-placement-change verification record - 2026-10-16
+
+- Added HR source migration
+  `0032_governed_organization_placement_change_requests` and observed the
+  isolated test database at HR schema version 32. It adds an immutable,
+  tenant-RLS-protected request table plus an authoritative hierarchy-validation
+  function for business unit, division, branch, department and warehouse.
+- Added typed/OpenAPI organization-placement endpoints:
+  - `GET /api/v1/hr/organization_placement_change_requests`
+  - `POST /api/v1/hr/employees/{employeeId}/organization_placement_change_requests`
+  - `GET /api/v1/hr/employees/{employeeId}/organization_placement_change_requests/{requestId}`
+  - `POST /api/v1/hr/employees/{employeeId}/organization_placement_change_requests/{requestId}/decision`
+- Maker and checker operations require `hr.employee_assignment.change`, active
+  company access, tenant scope, CSRF/origin validation, idempotency, immutable
+  audit evidence and actor-level maker/checker separation.
+- Requests carry complete current and proposed normalized snapshots. PostgreSQL
+  and repository validation require at least one retained placement, a material
+  change, correct active unit types, legal-company scope and one coherent
+  ancestry chain. Approval revalidates readiness under locks; rejection remains
+  available when readiness later fails.
+- Approval atomically closes the source and creates one relationship-bound
+  `change_reason='organization_change'` segment containing exactly the approved
+  hierarchy. Legal company, job, designation, grade, cost centre, work location,
+  employment type, category, manager and salary remain unchanged.
+- Transfer approval now preserves source business-unit, division and warehouse
+  placement rows while replacing only its approved branch and department.
+- Employee Assignments and Employee Approvals now contain live maker/checker
+  panels with hierarchy filtering/comparison, loading, empty, error,
+  permission, confirmation and success states. API failure never becomes mock
+  success.
+- Observed verification:
+  - `npm.cmd run typecheck` - passed.
+  - `npm.cmd run api:check` - passed.
+  - focused HR router/client unit tests - 35 passed.
+  - focused OpenAPI contract test - 1 passed.
+  - Hire, Transfer, Promotion, manager-change, work-location/organization and
+    migration regression suite - 21 passed across six files; migration state
+    reports HR version 32.
+  - focused ESLint for new panels and changed contract/API/client/test logic -
+    passed after correcting explicit control-label associations.
+  - `npm.cmd run build:web` - passed on Next.js 16.3.8.
+  - local web and API liveness/readiness returned HTTP 200; database, Redis,
+    object-storage and HR-foundation readiness checks were healthy.
+  - `git diff --check` - required before commit.
+- Independent two-user browser acceptance remains open. Use distinct maker and
+  checker accounts to submit and decide a complete hierarchy change, then
+  confirm the assignment timeline, normalized placement rows and unchanged
+  salary/non-organization context.
+- The isolated integration database is verified at HR version 32. Confirm the
+  running development API database migration version before browser acceptance;
+  health readiness alone does not prove that version.
+- Checklist progress remains 30/49 (about 61%) because the broad movement item
+  still includes pay-changing Promotion and durable future activation. The next
+  safe slice is the immutable lifecycle-event/profile-history read model,
+  followed by separately designed lifecycle transitions, attendance/leave and
+  payroll work.
 
 ## Currently backend-connected HR pages
 
@@ -516,13 +572,14 @@ Local web base: `http://127.0.0.1:3000` (API: `http://127.0.0.1:4000/api/v1`).
   fallback remains explicit.
 - `/#/hr/employee-drafts` — draft directory, detail, update and submission.
 - `/#/hr/employee-approvals` — employee draft, Hire, Transfer, Promotion,
-  manager-change and work-location-change checker queues and decisions.
+  manager-change, work-location-change and organization-placement-change
+  checker queues and decisions.
 - `/#/hr/employee-contacts` — governed email/phone contact history.
 - `/#/hr/employee-emergency-contacts` — governed emergency contacts.
 - `/#/hr/employee-documents` — restricted document metadata reads only.
 - `/#/hr/employee-assignments` — profile context, Hire submission, assignment
   timeline, Transfer, assignment-only Promotion, manager-change and
-  work-location-change submission.
+  work-location-change plus organization-placement-change submission.
 - `/#/hr/employee-status-history` — immutable status-history projection.
 - `/#/hr/lifecycle-policies` — policy directory, authoring, submission,
   independent approval and activation.

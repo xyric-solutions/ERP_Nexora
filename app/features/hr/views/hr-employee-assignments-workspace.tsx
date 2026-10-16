@@ -15,6 +15,7 @@ import { HrTransferMakerPanel } from "../components/hr-transfer-maker-panel";
 import { HrPromotionMakerPanel } from "../components/hr-promotion-maker-panel";
 import { HrManagerChangeMakerPanel } from "../components/hr-manager-change-maker-panel";
 import { HrWorkLocationChangeMakerPanel } from "../components/hr-work-location-change-maker-panel";
+import { HrOrganizationPlacementChangeMakerPanel } from "../components/hr-organization-placement-change-maker-panel";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -44,6 +45,8 @@ export function HrEmployeeAssignmentsWorkspace() {
   const canRequestPromotion = session?.user.permissions.includes("hr.employee_assignment.change") ?? false;
   const canRequestManagerChange = session?.user.permissions.includes("hr.employee_assignment.manager_change") ?? false;
   const canRequestWorkLocationChange = session?.user.permissions.includes("hr.employee_assignment.change") ?? false;
+  const canRequestOrganizationPlacementChange =
+    session?.user.permissions.includes("hr.employee_assignment.change") ?? false;
 
   useEffect(() => {
     if (sessionLoading || !canReadAssignments || !canReadEmployees) return;
@@ -266,6 +269,15 @@ export function HrEmployeeAssignmentsWorkspace() {
             employeeId={employeeId}
             assignments={assignments}
             canRequestWorkLocationChange={canRequestWorkLocationChange}
+          />
+          <HrOrganizationPlacementChangeMakerPanel
+            key={`organization-placement-change:${companyId}:${employeeId}:${assignmentRefreshKey}`}
+            client={client}
+            csrfToken={csrfToken}
+            companyId={companyId}
+            employeeId={employeeId}
+            assignments={assignments}
+            canRequest={canRequestOrganizationPlacementChange}
           />
         </>
       )}

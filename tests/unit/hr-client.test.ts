@@ -307,4 +307,72 @@ describe("HR browser client", () => {
       "decision-key",
     );
   });
+
+  it("passes organization-placement-change reads and mutations through the generated API client", async () => {
+    const requestResult = {
+      id: "organization-placement-change-1",
+      employee_id: "employee-1",
+      company_id: "company-a",
+      source_assignment_id: "assignment-1",
+      status: "pending" as const,
+      audit_event_id: "audit-1",
+      replayed: false,
+    };
+    const api = {
+      listHrEmployeeOrganizationPlacementChangeRequests: vi.fn(async () => ({ items: [] })),
+      getHrEmployeeOrganizationPlacementChangeRequest: vi.fn(async () => ({ id: requestResult.id })),
+      createHrEmployeeOrganizationPlacementChangeRequest: vi.fn(async () => requestResult),
+      decideHrEmployeeOrganizationPlacementChangeRequest: vi.fn(async () => ({
+        ...requestResult,
+        status: "approved" as const,
+        assignment_id: "assignment-2",
+      })),
+    } as unknown as NexoraApiClient;
+    const client = new HrApiClient(api);
+    const payload = {
+      company_id: "company-a",
+      source_assignment_id: "assignment-1",
+      proposed: {
+        business_unit_id: "business-unit-2",
+        division_id: "division-2",
+        branch_id: "branch-2",
+        department_id: "department-2",
+        warehouse_id: "warehouse-2",
+      },
+      effective_on: "2026-10-16",
+      reason: "Move to the complete target organization hierarchy.",
+    };
+
+    await client.organizationPlacementChangeRequests({ companyId: "company/a", search: "EMP 1", limit: 10 });
+    await client.organizationPlacementChangeRequest("employee/a", "organization-change/a");
+    await client.createOrganizationPlacementChangeRequest("employee-1", payload, "csrf", "request-key");
+    await client.decideOrganizationPlacementChangeRequest(
+      "employee-1",
+      requestResult.id,
+      { decision: "approved", reason: "Independently approved." },
+      "csrf",
+      "decision-key",
+    );
+
+    expect(api.listHrEmployeeOrganizationPlacementChangeRequests).toHaveBeenCalledWith(
+      "?company_id=company%2Fa&search=EMP+1&limit=10",
+    );
+    expect(api.getHrEmployeeOrganizationPlacementChangeRequest).toHaveBeenCalledWith(
+      "employee/a",
+      "organization-change/a",
+    );
+    expect(api.createHrEmployeeOrganizationPlacementChangeRequest).toHaveBeenCalledWith(
+      "employee-1",
+      payload,
+      "csrf",
+      "request-key",
+    );
+    expect(api.decideHrEmployeeOrganizationPlacementChangeRequest).toHaveBeenCalledWith(
+      "employee-1",
+      requestResult.id,
+      { decision: "approved", reason: "Independently approved." },
+      "csrf",
+      "decision-key",
+    );
+  });
 });

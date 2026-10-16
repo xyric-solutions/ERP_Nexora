@@ -62,6 +62,9 @@ run("governed employee Transfer repository", () => {
     await pool.query(
       `insert into organization_unit (id,tenant_id,parent_id,type,code,name,status)
        values
+        ('transfer-business-unit',$1,$2,'business_unit','TR-BU','Transfer Business Unit','active'),
+        ('transfer-division',$1,$2,'division','TR-DV','Transfer Division','active'),
+        ('transfer-warehouse',$1,$2,'warehouse','TR-WH','Transfer Warehouse','active'),
         ('transfer-source-branch',$1,$2,'branch','TR-SRC-BR','Transfer Source Branch','active'),
         ('transfer-source-department',$1,'transfer-source-branch','department','TR-SRC-DP','Transfer Source Department','active'),
         ('transfer-target-branch',$1,$2,'branch','TR-TGT-BR','Transfer Target Branch','active'),
@@ -206,6 +209,15 @@ run("governed employee Transfer repository", () => {
       "hr-transfer-integration",
     );
     const sourceAssignmentId = hireDecision.assignment_id!;
+    await pool.query(
+      `insert into employee_assignment_org_unit
+        (tenant_id,assignment_id,organization_type,organization_unit_id,created_by)
+       values
+        ($1,$2,'business_unit','transfer-business-unit','r06.maker'),
+        ($1,$2,'division','transfer-division','r06.maker'),
+        ($1,$2,'warehouse','transfer-warehouse','r06.maker')`,
+      [sourceTestTenantId, sourceAssignmentId],
+    );
     const input = {
       company_id: companyId,
       source_assignment_id: sourceAssignmentId,
@@ -327,6 +339,20 @@ run("governed employee Transfer repository", () => {
         department_id: "transfer-target-department",
         same_relationship: true,
       },
+    ]);
+    const placements = await pool.query(
+      `select organization_type,organization_unit_id
+         from employee_assignment_org_unit
+        where tenant_id=$1 and assignment_id=$2
+        order by organization_type`,
+      [sourceTestTenantId, decision.assignment_id],
+    );
+    expect(placements.rows).toEqual([
+      { organization_type: "branch", organization_unit_id: "transfer-target-branch" },
+      { organization_type: "business_unit", organization_unit_id: "transfer-business-unit" },
+      { organization_type: "department", organization_unit_id: "transfer-target-department" },
+      { organization_type: "division", organization_unit_id: "transfer-division" },
+      { organization_type: "warehouse", organization_unit_id: "transfer-warehouse" },
     ]);
   });
 

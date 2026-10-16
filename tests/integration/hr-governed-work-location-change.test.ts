@@ -63,10 +63,26 @@ run("governed employee work-location-change repository", () => {
       `insert into organization_unit (id,tenant_id,parent_id,type,code,name,status)
        values
         ('work-location-business-unit',$1,$2,'business_unit','WL-BU','Work Location Business Unit','active'),
-        ('work-location-branch',$1,'work-location-business-unit','branch','WL-BR','Work Location Branch','active'),
-        ('work-location-department',$1,'work-location-branch','department','WL-DP','Work Location Department','active')
+        ('work-location-division',$1,'work-location-business-unit','division','WL-DV','Work Location Division','active'),
+        ('work-location-branch',$1,'work-location-division','branch','WL-BR','Work Location Branch','active'),
+        ('work-location-department',$1,'work-location-branch','department','WL-DP','Work Location Department','active'),
+        ('work-location-warehouse',$1,'work-location-department','warehouse','WL-WH','Work Location Warehouse','active'),
+        ('work-location-business-unit-two',$1,$2,'business_unit','WL2-BU','Target Business Unit','active'),
+        ('work-location-division-two',$1,'work-location-business-unit-two','division','WL2-DV','Target Division','active'),
+        ('work-location-branch-two',$1,'work-location-division-two','branch','WL2-BR','Target Branch','active'),
+        ('work-location-department-two',$1,'work-location-branch-two','department','WL2-DP','Target Department','active'),
+        ('work-location-warehouse-two',$1,'work-location-department-two','warehouse','WL2-WH','Target Warehouse','active')
        on conflict (tenant_id,id) do nothing`,
       [sourceTestTenantId, companyId],
+    );
+    await pool.query(
+      `update organization_unit
+          set parent_id=case id
+            when 'work-location-branch' then 'work-location-division'
+            when 'work-location-department' then 'work-location-branch'
+            else parent_id end
+        where tenant_id=$1 and id in ('work-location-branch','work-location-department')`,
+      [sourceTestTenantId],
     );
     await pool.query(
       `insert into hr_master_record
@@ -230,7 +246,10 @@ run("governed employee work-location-change repository", () => {
     await pool.query(
       `insert into employee_assignment_org_unit
         (tenant_id,assignment_id,organization_type,organization_unit_id,created_by)
-       values ($1,$2,'business_unit','work-location-business-unit','r06.maker')`,
+       values
+        ($1,$2,'business_unit','work-location-business-unit','r06.maker'),
+        ($1,$2,'division','work-location-division','r06.maker'),
+        ($1,$2,'warehouse','work-location-warehouse','r06.maker')`,
       [sourceTestTenantId, decision.assignment_id],
     );
     return { employee, assignmentId: decision.assignment_id!, suffix };
@@ -393,6 +412,8 @@ run("governed employee work-location-change repository", () => {
       { organization_type: "branch", organization_unit_id: "work-location-branch" },
       { organization_type: "business_unit", organization_unit_id: "work-location-business-unit" },
       { organization_type: "department", organization_unit_id: "work-location-department" },
+      { organization_type: "division", organization_unit_id: "work-location-division" },
+      { organization_type: "warehouse", organization_unit_id: "work-location-warehouse" },
     ]);
     expect((await salaryState(subject.employee.id)).rows).toEqual(salaryBefore);
   });
@@ -522,5 +543,121 @@ run("governed employee work-location-change repository", () => {
         "hr-work-location-change-integration",
       ),
     ).resolves.toMatchObject({ status: "rejected", assignment_id: null });
+  });
+
+  it("governs a complete coherent organization-placement snapshot", async () => {
+    const subject = await activateEmployee("OrganizationPlacement");
+    await addSalary(subject.employee.id, subject.suffix);
+    const salaryBefore = (await salaryState(subject.employee.id)).rows;
+    await expect(
+      repository.createEmployeeOrganizationPlacementChangeRequest(
+        maker(),
+        subject.employee.id,
+        {
+          company_id: companyId,
+          source_assignment_id: subject.assignmentId,
+          proposed: {
+            business_unit_id: "work-location-business-unit-two",
+            division_id: "work-location-division",
+            branch_id: "work-location-branch-two",
+            department_id: "work-location-department-two",
+            warehouse_id: "work-location-warehouse-two",
+          },
+          effective_on: today,
+          reason: "This deliberately mixes two company hierarchy branches.",
+        },
+        `organization-placement-invalid-${subject.suffix}`,
+        "hr-organization-placement-integration",
+      ),
+    ).rejects.toMatchObject({
+      status: 409,
+      code: "HR_ORGANIZATION_PLACEMENT_HIERARCHY_INVALID",
+    } satisfies Partial<HrApiError>);
+
+    const input = {
+      company_id: companyId,
+      source_assignment_id: subject.assignmentId,
+      proposed: {
+        business_unit_id: "work-location-business-unit-two",
+        division_id: "work-location-division-two",
+        branch_id: "work-location-branch-two",
+        department_id: "work-location-department-two",
+        warehouse_id: "work-location-warehouse-two",
+      },
+      effective_on: today,
+      reason: "Move the employee to the complete approved organization hierarchy.",
+    };
+    const request = await repository.createEmployeeOrganizationPlacementChangeRequest(
+      maker(),
+      subject.employee.id,
+      input,
+      `organization-placement-request-${subject.suffix}`,
+      "hr-organization-placement-integration",
+    );
+    await expect(
+      repository.createEmployeeOrganizationPlacementChangeRequest(
+        maker(),
+        subject.employee.id,
+        input,
+        `organization-placement-request-${subject.suffix}`,
+        "hr-organization-placement-integration",
+      ),
+    ).resolves.toMatchObject({ id: request.id, replayed: true });
+    const queue = await repository.listEmployeeOrganizationPlacementChangeRequests(locationApprover(), {
+      company_id: companyId,
+      limit: 50,
+    });
+    expect(queue.items.find((item) => item.id === request.id)).toMatchObject({
+      hierarchy_ready: true,
+      current: { business_unit_id: "work-location-business-unit" },
+      proposed: { warehouse_id: "work-location-warehouse-two" },
+    });
+    await expect(
+      repository.decideEmployeeOrganizationPlacementChangeRequest(
+        maker(),
+        subject.employee.id,
+        request.id,
+        { decision: "approved", reason: "A maker cannot approve this request." },
+        `organization-placement-self-${subject.suffix}`,
+        "hr-organization-placement-integration",
+      ),
+    ).rejects.toMatchObject({ status: 403, code: "HR_SELF_APPROVAL_FORBIDDEN" } satisfies Partial<HrApiError>);
+    const decision = await repository.decideEmployeeOrganizationPlacementChangeRequest(
+      locationApprover(),
+      subject.employee.id,
+      request.id,
+      { decision: "approved", reason: "The complete hierarchy is coherent and independently approved." },
+      `organization-placement-approve-${subject.suffix}`,
+      "hr-organization-placement-integration",
+    );
+    expect(decision).toMatchObject({ status: "approved", source_assignment_id: subject.assignmentId });
+    const placements = await pool.query(
+      `select organization_type,organization_unit_id
+         from employee_assignment_org_unit
+        where tenant_id=$1 and assignment_id=$2
+        order by organization_type`,
+      [sourceTestTenantId, decision.assignment_id],
+    );
+    expect(placements.rows).toEqual([
+      { organization_type: "branch", organization_unit_id: "work-location-branch-two" },
+      { organization_type: "business_unit", organization_unit_id: "work-location-business-unit-two" },
+      { organization_type: "department", organization_unit_id: "work-location-department-two" },
+      { organization_type: "division", organization_unit_id: "work-location-division-two" },
+      { organization_type: "warehouse", organization_unit_id: "work-location-warehouse-two" },
+    ]);
+    expect((await salaryState(subject.employee.id)).rows).toEqual(salaryBefore);
+    const projected = await pool.query(
+      `select company_id,designation_id,job_id,job_grade_id,cost_center_id,work_location_id,
+              employment_type_id,employee_category_id,reporting_manager_id,change_reason
+         from employee_assignment where tenant_id=$1 and id=$2`,
+      [sourceTestTenantId, decision.assignment_id],
+    );
+    const source = await pool.query(
+      `select company_id,designation_id,job_id,job_grade_id,cost_center_id,work_location_id,
+              employment_type_id,employee_category_id,reporting_manager_id
+         from employee_assignment where tenant_id=$1 and id=$2`,
+      [sourceTestTenantId, subject.assignmentId],
+    );
+    expect(projected.rows[0]).toEqual({ ...source.rows[0], change_reason: "organization_change" });
   });
 });

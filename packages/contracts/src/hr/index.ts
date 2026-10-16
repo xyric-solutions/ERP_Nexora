@@ -53,7 +53,7 @@ export type HrCompanyDirectory = z.infer<typeof hrCompanyDirectorySchema>;
 
 export const hrOrganizationUnitDirectoryQuerySchema = z.strictObject({
   company_id: identifier,
-  type: z.enum(["branch", "department"]).optional(),
+  type: z.enum(["business_unit", "division", "branch", "department", "warehouse"]).optional(),
   limit: z.number().int().min(1).max(200).default(200),
 });
 export const hrOrganizationUnitDirectorySchema = z.strictObject({
@@ -61,7 +61,7 @@ export const hrOrganizationUnitDirectorySchema = z.strictObject({
     z.strictObject({
       id: identifier,
       parent_id: identifier,
-      type: z.enum(["branch", "department"]),
+      type: z.enum(["business_unit", "division", "branch", "department", "warehouse"]),
       code: z.string().min(1).max(64),
       name: z.string().min(1).max(200),
     }),
@@ -69,6 +69,13 @@ export const hrOrganizationUnitDirectorySchema = z.strictObject({
 });
 export type HrOrganizationUnitDirectoryQuery = z.infer<typeof hrOrganizationUnitDirectoryQuerySchema>;
 export type HrOrganizationUnitDirectory = z.infer<typeof hrOrganizationUnitDirectorySchema>;
+export const hrOrganizationPlacementSnapshotSchema = z.strictObject({
+  business_unit_id: identifier.nullable(),
+  division_id: identifier.nullable(),
+  branch_id: identifier.nullable(),
+  department_id: identifier.nullable(),
+  warehouse_id: identifier.nullable(),
+});
 
 // Creating a draft deliberately excludes bank, tax, national-ID and employment
 // assignment data. Those fields have their own governed workflows and must not
@@ -220,6 +227,7 @@ export const hrEmployeeAssignmentSchema = z.strictObject({
   employment_type_id: identifier,
   employee_category_id: identifier,
   reporting_manager_id: identifier.nullable(),
+  organization_placements: hrOrganizationPlacementSnapshotSchema,
   designation: z.string().min(1).max(160),
   job: z.string().max(160),
   job_grade: z.string().min(1).max(160),
@@ -686,6 +694,53 @@ export const hrEmployeeWorkLocationChangeRequestDirectorySchema = z.strictObject
   items: z.array(hrEmployeeWorkLocationChangeRequestReviewSchema),
 });
 
+export const createHrEmployeeOrganizationPlacementChangeRequestSchema = z.strictObject({
+  company_id: identifier,
+  source_assignment_id: identifier,
+  proposed: hrOrganizationPlacementSnapshotSchema,
+  effective_on: isoDate,
+  reason: z.string().trim().min(1).max(1000),
+});
+export const hrEmployeeOrganizationPlacementChangeRequestResultSchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  company_id: identifier,
+  source_assignment_id: identifier,
+  status: z.literal("pending"),
+  audit_event_id: identifier,
+  replayed: z.boolean(),
+});
+export const decideHrEmployeeOrganizationPlacementChangeRequestSchema = decideHrEmployeeWorkLocationChangeRequestSchema;
+export const hrEmployeeOrganizationPlacementChangeDecisionResultSchema =
+  hrEmployeeWorkLocationChangeDecisionResultSchema;
+export const hrEmployeeOrganizationPlacementChangeRequestDirectoryQuerySchema =
+  hrEmployeeWorkLocationChangeRequestDirectoryQuerySchema;
+export const hrEmployeeOrganizationPlacementChangeRequestReviewSchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  employee_number: z.string().min(1).max(32),
+  employee_name: z.string().min(1).max(320),
+  company_id: identifier,
+  relationship_id: identifier,
+  source_assignment_id: identifier,
+  current: hrOrganizationPlacementSnapshotSchema,
+  proposed: hrOrganizationPlacementSnapshotSchema,
+  current_names: z.record(z.string(), z.string()),
+  proposed_names: z.record(z.string(), z.string()),
+  hierarchy_ready: z.boolean(),
+  effective_on: isoDate,
+  requested_by: identifier,
+  requested_at: z.string().datetime(),
+  reason: z.string().min(1).max(1000),
+  status: z.enum(["pending", "approved", "rejected"]),
+  decided_by: identifier.nullable(),
+  decided_at: z.string().datetime().nullable(),
+  decision_reason: z.string().max(1000).nullable(),
+});
+export const hrEmployeeOrganizationPlacementChangeRequestDirectorySchema = z.strictObject({
+  items: z.array(hrEmployeeOrganizationPlacementChangeRequestReviewSchema),
+});
+
 export const hrMasterDirectorySchema = z.strictObject({ items: z.array(hrMasterRecordSchema) });
 
 export type HrEmployeeDirectoryQuery = z.infer<typeof hrEmployeeDirectoryQuerySchema>;
@@ -898,4 +953,26 @@ export type HrEmployeeWorkLocationChangeRequestDirectoryQuery = z.infer<
 export type HrEmployeeWorkLocationChangeRequestReview = z.infer<typeof hrEmployeeWorkLocationChangeRequestReviewSchema>;
 export type HrEmployeeWorkLocationChangeRequestDirectory = z.infer<
   typeof hrEmployeeWorkLocationChangeRequestDirectorySchema
+>;
+export type HrOrganizationPlacementSnapshot = z.infer<typeof hrOrganizationPlacementSnapshotSchema>;
+export type CreateHrEmployeeOrganizationPlacementChangeRequest = z.infer<
+  typeof createHrEmployeeOrganizationPlacementChangeRequestSchema
+>;
+export type HrEmployeeOrganizationPlacementChangeRequestResult = z.infer<
+  typeof hrEmployeeOrganizationPlacementChangeRequestResultSchema
+>;
+export type DecideHrEmployeeOrganizationPlacementChangeRequest = z.infer<
+  typeof decideHrEmployeeOrganizationPlacementChangeRequestSchema
+>;
+export type HrEmployeeOrganizationPlacementChangeDecisionResult = z.infer<
+  typeof hrEmployeeOrganizationPlacementChangeDecisionResultSchema
+>;
+export type HrEmployeeOrganizationPlacementChangeRequestDirectoryQuery = z.infer<
+  typeof hrEmployeeOrganizationPlacementChangeRequestDirectoryQuerySchema
+>;
+export type HrEmployeeOrganizationPlacementChangeRequestReview = z.infer<
+  typeof hrEmployeeOrganizationPlacementChangeRequestReviewSchema
+>;
+export type HrEmployeeOrganizationPlacementChangeRequestDirectory = z.infer<
+  typeof hrEmployeeOrganizationPlacementChangeRequestDirectorySchema
 >;

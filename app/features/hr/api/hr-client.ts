@@ -67,6 +67,12 @@ import type {
   HrEmployeeWorkLocationChangeDecisionResult,
   HrEmployeeWorkLocationChangeRequestDirectory,
   HrEmployeeWorkLocationChangeRequestReview,
+  CreateHrEmployeeOrganizationPlacementChangeRequest,
+  HrEmployeeOrganizationPlacementChangeRequestResult,
+  DecideHrEmployeeOrganizationPlacementChangeRequest,
+  HrEmployeeOrganizationPlacementChangeDecisionResult,
+  HrEmployeeOrganizationPlacementChangeRequestDirectory,
+  HrEmployeeOrganizationPlacementChangeRequestReview,
 } from "@nexora/contracts";
 
 import type { NexoraApiClient } from "@/lib/api/generated";
@@ -434,5 +440,47 @@ export class HrApiClient {
     idempotencyKey: string,
   ): Promise<HrEmployeeWorkLocationChangeDecisionResult> {
     return this.api.decideHrEmployeeWorkLocationChangeRequest(employeeId, requestId, input, csrfToken, idempotencyKey);
+  }
+
+  createOrganizationPlacementChangeRequest(
+    employeeId: string,
+    input: CreateHrEmployeeOrganizationPlacementChangeRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmployeeOrganizationPlacementChangeRequestResult> {
+    return this.api.createHrEmployeeOrganizationPlacementChangeRequest(employeeId, input, csrfToken, idempotencyKey);
+  }
+
+  organizationPlacementChangeRequests(input: {
+    companyId: string;
+    search?: string;
+    limit?: number;
+  }): Promise<HrEmployeeOrganizationPlacementChangeRequestDirectory> {
+    return this.api.listHrEmployeeOrganizationPlacementChangeRequests(
+      query({ company_id: input.companyId, search: input.search, limit: input.limit }),
+    );
+  }
+
+  organizationPlacementChangeRequest(
+    employeeId: string,
+    requestId: string,
+  ): Promise<HrEmployeeOrganizationPlacementChangeRequestReview> {
+    return this.api.getHrEmployeeOrganizationPlacementChangeRequest(employeeId, requestId);
+  }
+
+  decideOrganizationPlacementChangeRequest(
+    employeeId: string,
+    requestId: string,
+    input: DecideHrEmployeeOrganizationPlacementChangeRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmployeeOrganizationPlacementChangeDecisionResult> {
+    return this.api.decideHrEmployeeOrganizationPlacementChangeRequest(
+      employeeId,
+      requestId,
+      input,
+      csrfToken,
+      idempotencyKey,
+    );
   }
 }

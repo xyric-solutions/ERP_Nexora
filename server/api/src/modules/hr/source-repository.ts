@@ -79,6 +79,14 @@ import type {
   HrEmployeeWorkLocationChangeRequestDirectory,
   HrEmployeeWorkLocationChangeRequestDirectoryQuery,
   HrEmployeeWorkLocationChangeRequestReview,
+  CreateHrEmployeeOrganizationPlacementChangeRequest,
+  HrEmployeeOrganizationPlacementChangeRequestResult,
+  DecideHrEmployeeOrganizationPlacementChangeRequest,
+  HrEmployeeOrganizationPlacementChangeDecisionResult,
+  HrEmployeeOrganizationPlacementChangeRequestDirectory,
+  HrEmployeeOrganizationPlacementChangeRequestDirectoryQuery,
+  HrEmployeeOrganizationPlacementChangeRequestReview,
+  HrOrganizationPlacementSnapshot,
 } from "@nexora/contracts";
 import type { Pool, PoolClient } from "pg";
 
@@ -166,6 +174,14 @@ type EmployeeWorkLocationChangeRequestReviewRow = Omit<
   requested_at: string | Date;
   decided_at: string | Date | null;
 };
+type EmployeeOrganizationPlacementChangeRequestReviewRow = Omit<
+  HrEmployeeOrganizationPlacementChangeRequestReview,
+  "effective_on" | "requested_at" | "decided_at"
+> & {
+  effective_on: string | Date;
+  requested_at: string | Date;
+  decided_at: string | Date | null;
+};
 
 function dateOnly(value: string | Date): string {
   return value instanceof Date ? value.toISOString().slice(0, 10) : value.slice(0, 10);
@@ -216,6 +232,17 @@ function employeeManagerChangeRequestReview(
 function employeeWorkLocationChangeRequestReview(
   row: EmployeeWorkLocationChangeRequestReviewRow,
 ): HrEmployeeWorkLocationChangeRequestReview {
+  return {
+    ...row,
+    effective_on: dateOnly(row.effective_on),
+    requested_at: new Date(row.requested_at).toISOString(),
+    decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
+  };
+}
+
+function employeeOrganizationPlacementChangeRequestReview(
+  row: EmployeeOrganizationPlacementChangeRequestReviewRow,
+): HrEmployeeOrganizationPlacementChangeRequestReview {
   return {
     ...row,
     effective_on: dateOnly(row.effective_on),
@@ -297,11 +324,16 @@ export class SourceHrRepository {
   ): Promise<HrOrganizationUnitDirectory> {
     return this.read(
       context,
-      ["hr.employee_assignment.read", "hr.employee_assignment.create", "hr.employee_assignment.transfer"],
+      [
+        "hr.employee_assignment.read",
+        "hr.employee_assignment.create",
+        "hr.employee_assignment.transfer",
+        "hr.employee_assignment.change",
+      ],
       async (client) => {
         await this.requireCompanyAccess(client, context, query.company_id);
         const values: unknown[] = [context.tenantId, query.company_id];
-        const filters = ["unit.id<>$2", "unit.type in ('branch','department')"];
+        const filters = ["unit.id<>$2", "unit.type in ('business_unit','division','branch','department','warehouse')"];
         if (query.type) filters.push(`unit.type=$${values.push(query.type)}`);
         values.push(query.limit);
         const result = await client.query<HrOrganizationUnitDirectory["items"][number]>(
@@ -1413,6 +1445,18 @@ export class SourceHrRepository {
                 assignment.job_id,assignment.designation_id,assignment.job_grade_id,assignment.cost_center_id,
                 assignment.work_location_id,assignment.employment_type_id,assignment.employee_category_id,
                 assignment.reporting_manager_id,
+                jsonb_build_object(
+                  'business_unit_id',(select organization_unit_id from employee_assignment_org_unit
+                    where tenant_id=assignment.tenant_id and assignment_id=assignment.id and organization_type='business_unit'),
+                  'division_id',(select organization_unit_id from employee_assignment_org_unit
+                    where tenant_id=assignment.tenant_id and assignment_id=assignment.id and organization_type='division'),
+                  'branch_id',(select organization_unit_id from employee_assignment_org_unit
+                    where tenant_id=assignment.tenant_id and assignment_id=assignment.id and organization_type='branch'),
+                  'department_id',(select organization_unit_id from employee_assignment_org_unit
+                    where tenant_id=assignment.tenant_id and assignment_id=assignment.id and organization_type='department'),
+                  'warehouse_id',(select organization_unit_id from employee_assignment_org_unit
+                    where tenant_id=assignment.tenant_id and assignment_id=assignment.id and organization_type='warehouse')
+                ) as organization_placements,
                 designation.name as designation,coalesce(job.name,'') as job,
                 job_grade.name as job_grade,employment_type.name as employment_type,
                 work_location.name as work_location,assignment.change_reason,
@@ -2649,6 +2693,16 @@ export class SourceHrRepository {
             row.relationship_id,
             `hr:transfer-request:${requestId}`,
           ],
+        );
+        await client.query(
+          `insert into employee_assignment_org_unit
+            (tenant_id,assignment_id,organization_type,organization_unit_id,created_by)
+           select tenant_id,$3,organization_type,organization_unit_id,$4
+             from employee_assignment_org_unit
+            where tenant_id=$1 and assignment_id=$2
+              and organization_type not in ('branch','department')
+           on conflict do nothing`,
+          [context.tenantId, row.source_assignment_id, assignmentId, context.actor.userId],
         );
       }
       await client.query(
@@ -4030,6 +4084,498 @@ export class SourceHrRepository {
     }
   }
 
+  async listEmployeeOrganizationPlacementChangeRequests(
+    context: HrActorContext,
+    query: HrEmployeeOrganizationPlacementChangeRequestDirectoryQuery,
+  ): Promise<HrEmployeeOrganizationPlacementChangeRequestDirectory> {
+    return this.read(context, "hr.employee_assignment.change", async (client) => {
+      await this.requireCompanyAccess(client, context, query.company_id);
+      const values: unknown[] = [context.tenantId, query.company_id];
+      const filters = ["request.tenant_id=$1", "request.company_id=$2", "request.request_state='pending'"];
+      if (query.search) {
+        const parameter = values.push(`%${query.search.replace(/[\\%_]/g, "\\$&")}%`);
+        filters.push(
+          `(employee.employee_number ilike $${parameter} escape '\\' or concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) ilike $${parameter} escape '\\')`,
+        );
+      }
+      values.push(query.limit);
+      const result = await client.query<EmployeeOrganizationPlacementChangeRequestReviewRow>(
+        `${this.employeeOrganizationPlacementChangeRequestReviewSelect()}
+          where ${filters.join(" and ")}
+          order by request.requested_at,request.id
+          limit $${values.length}`,
+        values,
+      );
+      return { items: result.rows.map(employeeOrganizationPlacementChangeRequestReview) };
+    });
+  }
+
+  async getEmployeeOrganizationPlacementChangeRequest(
+    context: HrActorContext,
+    employeeId: string,
+    requestId: string,
+  ): Promise<HrEmployeeOrganizationPlacementChangeRequestReview> {
+    return this.read(context, "hr.employee_assignment.change", async (client) => {
+      const result = await client.query<EmployeeOrganizationPlacementChangeRequestReviewRow>(
+        `${this.employeeOrganizationPlacementChangeRequestReviewSelect()}
+          where request.tenant_id=$1 and request.id=$2 and request.employee_id=$3
+            and exists (
+              select 1 from security_user_company_access access
+               where access.tenant_id=request.tenant_id and access.user_id=$4
+                 and access.company_id=request.company_id and access.revoked_at is null
+            )`,
+        [context.tenantId, requestId, employeeId, context.actor.userId],
+      );
+      if (!result.rows[0])
+        throw new HrApiError(
+          404,
+          "HR_ORGANIZATION_PLACEMENT_CHANGE_NOT_FOUND",
+          "The organization-placement-change request is unavailable in your company scope.",
+        );
+      return employeeOrganizationPlacementChangeRequestReview(result.rows[0]);
+    });
+  }
+
+  async createEmployeeOrganizationPlacementChangeRequest(
+    context: HrActorContext,
+    employeeId: string,
+    input: CreateHrEmployeeOrganizationPlacementChangeRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmployeeOrganizationPlacementChangeRequestResult> {
+    if (!validIdempotencyKey(idempotencyKey))
+      throw new HrApiError(400, "INVALID_IDEMPOTENCY_KEY", "The idempotency key is invalid.");
+    if (!context.actor.permissions.includes("hr.employee_assignment.change"))
+      throw new HrApiError(403, "PERMISSION_DENIED", "You are not permitted to request organization changes.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level serializable");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+        `nexora:hr:employee-organization-placement-change:${context.tenantId}:${input.source_assignment_id}`,
+      ]);
+      await this.requireCompanyAccess(client, context, input.company_id);
+      const path = `/api/v1/hr/employees/${employeeId}/organization_placement_change_requests`;
+      const fingerprint = stateHash(input);
+      const replay = await client.query<{
+        request_fingerprint: string;
+        response_body: HrEmployeeOrganizationPlacementChangeRequestResult;
+      }>(
+        `select request_fingerprint,response_body from platform_admin_idempotency
+          where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey],
+      );
+      if (replay.rows[0]) {
+        if (replay.rows[0].request_fingerprint !== fingerprint)
+          throw new HrApiError(
+            409,
+            "IDEMPOTENCY_CONFLICT",
+            "The idempotency key was already used for another request.",
+          );
+        await client.query("commit");
+        return { ...replay.rows[0].response_body, replayed: true };
+      }
+      const currentDate = (await client.query<{ current_date: string }>("select current_date::text as current_date"))
+        .rows[0]?.current_date;
+      if (input.effective_on !== currentDate)
+        throw new HrApiError(
+          409,
+          "HR_ORGANIZATION_PLACEMENT_EFFECTIVE_DATE_REQUIRED",
+          "This organization-placement workflow currently requires today's effective date.",
+        );
+      const source = await client.query<{
+        relationship_id: string;
+        business_unit_id: string | null;
+        division_id: string | null;
+        branch_id: string | null;
+        department_id: string | null;
+        warehouse_id: string | null;
+      }>(
+        `select assignment.employment_relationship_id as relationship_id,
+                (select organization_unit_id from employee_assignment_org_unit
+                  where tenant_id=assignment.tenant_id and assignment_id=assignment.id
+                    and organization_type='business_unit') as business_unit_id,
+                (select organization_unit_id from employee_assignment_org_unit
+                  where tenant_id=assignment.tenant_id and assignment_id=assignment.id
+                    and organization_type='division') as division_id,
+                (select organization_unit_id from employee_assignment_org_unit
+                  where tenant_id=assignment.tenant_id and assignment_id=assignment.id
+                    and organization_type='branch') as branch_id,
+                (select organization_unit_id from employee_assignment_org_unit
+                  where tenant_id=assignment.tenant_id and assignment_id=assignment.id
+                    and organization_type='department') as department_id,
+                (select organization_unit_id from employee_assignment_org_unit
+                  where tenant_id=assignment.tenant_id and assignment_id=assignment.id
+                    and organization_type='warehouse') as warehouse_id
+           from employee_assignment assignment
+           join employee on employee.tenant_id=assignment.tenant_id and employee.id=assignment.employee_id
+           join hr_employment_relationship relationship
+             on relationship.tenant_id=assignment.tenant_id and relationship.id=assignment.employment_relationship_id
+          where assignment.tenant_id=$1 and assignment.id=$2 and assignment.employee_id=$3
+            and assignment.company_id=$4 and assignment.assignment_status='active'
+            and assignment.effective_to is null and assignment.effective_from<current_date
+            and employee.status in ('active','probation','confirmed','suspended')
+            and relationship.status='active'
+          for update of assignment,employee,relationship`,
+        [context.tenantId, input.source_assignment_id, employeeId, input.company_id],
+      );
+      const sourceRow = source.rows[0];
+      if (!sourceRow?.relationship_id)
+        throw new HrApiError(
+          409,
+          "HR_ORGANIZATION_PLACEMENT_SOURCE_UNAVAILABLE",
+          "The source assignment is no longer eligible for an organization-placement change.",
+        );
+      const current: HrOrganizationPlacementSnapshot = {
+        business_unit_id: sourceRow.business_unit_id,
+        division_id: sourceRow.division_id,
+        branch_id: sourceRow.branch_id,
+        department_id: sourceRow.department_id,
+        warehouse_id: sourceRow.warehouse_id,
+      };
+      if (stateHash(current) === stateHash(input.proposed))
+        throw new HrApiError(
+          409,
+          "HR_ORGANIZATION_PLACEMENT_CHANGE_REQUIRED",
+          "The proposed organization hierarchy must differ from the current hierarchy.",
+        );
+      const readiness = await client.query<{ ready: boolean }>(
+        `select hr_organization_placement_is_coherent($1,$2,$3,$4,$5,$6,$7) as ready`,
+        [
+          context.tenantId,
+          input.company_id,
+          input.proposed.business_unit_id,
+          input.proposed.division_id,
+          input.proposed.branch_id,
+          input.proposed.department_id,
+          input.proposed.warehouse_id,
+        ],
+      );
+      if (!readiness.rows[0]?.ready)
+        throw new HrApiError(
+          409,
+          "HR_ORGANIZATION_PLACEMENT_HIERARCHY_INVALID",
+          "The proposed organization units must form one active hierarchy in the legal company.",
+        );
+      const pending = await client.query(
+        `select 1 from hr_employee_organization_placement_change_request
+          where tenant_id=$1 and source_assignment_id=$2 and request_state='pending'`,
+        [context.tenantId, input.source_assignment_id],
+      );
+      if (pending.rowCount)
+        throw new HrApiError(
+          409,
+          "HR_ORGANIZATION_PLACEMENT_ALREADY_PENDING",
+          "An organization-placement-change request is already pending for this assignment.",
+        );
+      const id = `employee-organization-placement-change-request-${randomUUID()}`;
+      await client.query(
+        `insert into hr_employee_organization_placement_change_request
+          (tenant_id,id,employee_id,company_id,relationship_id,source_assignment_id,
+           current_business_unit_id,current_division_id,current_branch_id,current_department_id,current_warehouse_id,
+           proposed_business_unit_id,proposed_division_id,proposed_branch_id,proposed_department_id,proposed_warehouse_id,
+           effective_on,reason,requested_by)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+        [
+          context.tenantId,
+          id,
+          employeeId,
+          input.company_id,
+          sourceRow.relationship_id,
+          input.source_assignment_id,
+          current.business_unit_id,
+          current.division_id,
+          current.branch_id,
+          current.department_id,
+          current.warehouse_id,
+          input.proposed.business_unit_id,
+          input.proposed.division_id,
+          input.proposed.branch_id,
+          input.proposed.department_id,
+          input.proposed.warehouse_id,
+          input.effective_on,
+          input.reason,
+          context.actor.userId,
+        ],
+      );
+      const audit = await this.appendPlatformAudit(
+        client,
+        context,
+        correlationId,
+        "hr.employee_assignment.organization_change.request",
+        { entityId: id, before: current, after: { ...input.proposed, status: "pending" } },
+      );
+      const result: HrEmployeeOrganizationPlacementChangeRequestResult = {
+        id,
+        employee_id: employeeId,
+        company_id: input.company_id,
+        source_assignment_id: input.source_assignment_id,
+        status: "pending",
+        audit_event_id: audit,
+        replayed: false,
+      };
+      await client.query(
+        `insert into platform_admin_idempotency
+          (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag)
+         values ($1,$2,'POST',$3,$4,$5,201,$6,$7)`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stateHash(result)],
+      );
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+      if (["23503", "23514"].includes(code))
+        throw new HrApiError(
+          409,
+          "HR_ORGANIZATION_PLACEMENT_CONTEXT_INVALID",
+          "The organization-placement context is no longer valid. Refresh the assignment and hierarchy data.",
+        );
+      if (code === "23505")
+        throw new HrApiError(
+          409,
+          "HR_ORGANIZATION_PLACEMENT_ALREADY_PENDING",
+          "An organization-placement-change request is already pending for this assignment.",
+        );
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async decideEmployeeOrganizationPlacementChangeRequest(
+    context: HrActorContext,
+    employeeId: string,
+    requestId: string,
+    input: DecideHrEmployeeOrganizationPlacementChangeRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmployeeOrganizationPlacementChangeDecisionResult> {
+    if (!validIdempotencyKey(idempotencyKey))
+      throw new HrApiError(400, "INVALID_IDEMPOTENCY_KEY", "The idempotency key is invalid.");
+    if (!context.actor.permissions.includes("hr.employee_assignment.change"))
+      throw new HrApiError(403, "PERMISSION_DENIED", "You are not permitted to decide organization changes.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level serializable");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+        `nexora:hr:employee-organization-placement-change:${context.tenantId}:${requestId}`,
+      ]);
+      const path = `/api/v1/hr/employees/${employeeId}/organization_placement_change_requests/${requestId}/decision`;
+      const fingerprint = stateHash(input);
+      const replay = await client.query<{
+        request_fingerprint: string;
+        response_body: HrEmployeeOrganizationPlacementChangeDecisionResult;
+      }>(
+        `select request_fingerprint,response_body from platform_admin_idempotency
+          where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey],
+      );
+      if (replay.rows[0]) {
+        if (replay.rows[0].request_fingerprint !== fingerprint)
+          throw new HrApiError(
+            409,
+            "IDEMPOTENCY_CONFLICT",
+            "The idempotency key was already used for another request.",
+          );
+        await client.query("commit");
+        return { ...replay.rows[0].response_body, replayed: true };
+      }
+      const pending = await client.query<{
+        company_id: string;
+        relationship_id: string;
+        source_assignment_id: string;
+        requested_by: string;
+        effective_on: string;
+        proposed_business_unit_id: string | null;
+        proposed_division_id: string | null;
+        proposed_branch_id: string | null;
+        proposed_department_id: string | null;
+        proposed_warehouse_id: string | null;
+        designation_id: string;
+        job_id: string;
+        job_grade_id: string;
+        cost_center_id: string;
+        work_location_id: string;
+        employment_type_id: string;
+        employee_category_id: string;
+        reporting_manager_id: string | null;
+      }>(
+        `select request.company_id,request.relationship_id,request.source_assignment_id,
+                request.requested_by,request.effective_on::text,
+                request.proposed_business_unit_id,request.proposed_division_id,
+                request.proposed_branch_id,request.proposed_department_id,request.proposed_warehouse_id,
+                assignment.designation_id,assignment.job_id,assignment.job_grade_id,
+                assignment.cost_center_id,assignment.work_location_id,assignment.employment_type_id,
+                assignment.employee_category_id,assignment.reporting_manager_id
+           from hr_employee_organization_placement_change_request request
+           join employee_assignment assignment
+             on assignment.tenant_id=request.tenant_id and assignment.id=request.source_assignment_id
+           join hr_employment_relationship relationship
+             on relationship.tenant_id=request.tenant_id and relationship.id=request.relationship_id
+          where request.tenant_id=$1 and request.id=$2 and request.employee_id=$3
+            and request.request_state='pending' and assignment.assignment_status='active'
+            and assignment.effective_to is null and relationship.status='active'
+            and exists (
+              select 1 from security_user_company_access access
+               where access.tenant_id=request.tenant_id and access.user_id=$4
+                 and access.company_id=request.company_id and access.revoked_at is null
+            )
+          for update of request,assignment,relationship`,
+        [context.tenantId, requestId, employeeId, context.actor.userId],
+      );
+      const row = pending.rows[0];
+      if (!row)
+        throw new HrApiError(
+          409,
+          "HR_ORGANIZATION_PLACEMENT_NOT_PENDING",
+          "The organization-placement-change request is not pending in your company scope.",
+        );
+      if (row.requested_by === context.actor.userId)
+        throw new HrApiError(
+          403,
+          "HR_SELF_APPROVAL_FORBIDDEN",
+          "A different HR approver must decide this organization-placement-change request.",
+        );
+      const currentDate = (await client.query<{ current_date: string }>("select current_date::text as current_date"))
+        .rows[0]?.current_date;
+      if (row.effective_on !== currentDate)
+        throw new HrApiError(
+          409,
+          "HR_ORGANIZATION_PLACEMENT_EFFECTIVE_DATE_REQUIRED",
+          "This organization-placement change can only be decided on its effective date.",
+        );
+      if (input.decision === "approved") {
+        const readiness = await client.query<{ ready: boolean }>(
+          `select hr_organization_placement_is_coherent($1,$2,$3,$4,$5,$6,$7) as ready`,
+          [
+            context.tenantId,
+            row.company_id,
+            row.proposed_business_unit_id,
+            row.proposed_division_id,
+            row.proposed_branch_id,
+            row.proposed_department_id,
+            row.proposed_warehouse_id,
+          ],
+        );
+        if (!readiness.rows[0]?.ready)
+          throw new HrApiError(
+            409,
+            "HR_ORGANIZATION_PLACEMENT_HIERARCHY_INVALID",
+            "The proposed organization hierarchy is no longer active and coherent.",
+          );
+      }
+      let assignmentId: string | null = null;
+      if (input.decision === "approved") {
+        await client.query(
+          `update employee_assignment
+              set effective_to=($3::date - 1),assignment_status='ended',updated_at=now()
+            where tenant_id=$1 and id=$2`,
+          [context.tenantId, row.source_assignment_id, row.effective_on],
+        );
+        assignmentId = `employee-assignment-${randomUUID()}`;
+        await client.query(
+          `insert into employee_assignment
+            (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_id,
+             job_grade_id,cost_center_id,work_location_id,employment_type_id,employee_category_id,
+             reporting_manager_id,effective_from,change_reason,created_by,employment_relationship_id,
+             assignment_status,source_reference)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'organization_change',$16,$17,'active',$18)`,
+          [
+            assignmentId,
+            context.tenantId,
+            employeeId,
+            row.company_id,
+            row.proposed_branch_id,
+            row.proposed_department_id,
+            row.designation_id,
+            row.job_id,
+            row.job_grade_id,
+            row.cost_center_id,
+            row.work_location_id,
+            row.employment_type_id,
+            row.employee_category_id,
+            row.reporting_manager_id,
+            row.effective_on,
+            context.actor.userId,
+            row.relationship_id,
+            `hr:organization-placement-change-request:${requestId}`,
+          ],
+        );
+        await client.query(
+          `insert into employee_assignment_org_unit
+            (tenant_id,assignment_id,organization_type,organization_unit_id,created_by)
+           select $1,$2,placement.organization_type,placement.organization_unit_id,$3
+             from (values
+               ('business_unit',$4::text),('division',$5::text),('branch',$6::text),
+               ('department',$7::text),('warehouse',$8::text)
+             ) placement(organization_type,organization_unit_id)
+            where placement.organization_unit_id is not null
+           on conflict do nothing`,
+          [
+            context.tenantId,
+            assignmentId,
+            context.actor.userId,
+            row.proposed_business_unit_id,
+            row.proposed_division_id,
+            row.proposed_branch_id,
+            row.proposed_department_id,
+            row.proposed_warehouse_id,
+          ],
+        );
+      }
+      await client.query(
+        `update hr_employee_organization_placement_change_request
+            set request_state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,
+                projected_assignment_id=$6,row_version=row_version+1
+          where tenant_id=$1 and id=$2`,
+        [context.tenantId, requestId, input.decision, context.actor.userId, input.reason, assignmentId],
+      );
+      const audit = await this.appendPlatformAudit(
+        client,
+        context,
+        correlationId,
+        "hr.employee_assignment.organization_change.decide",
+        {
+          entityId: requestId,
+          before: { status: "pending", source_assignment_id: row.source_assignment_id },
+          after: { status: input.decision, assignment_id: assignmentId },
+        },
+      );
+      const result: HrEmployeeOrganizationPlacementChangeDecisionResult = {
+        id: requestId,
+        employee_id: employeeId,
+        company_id: row.company_id,
+        source_assignment_id: row.source_assignment_id,
+        status: input.decision,
+        assignment_id: assignmentId,
+        audit_event_id: audit,
+        replayed: false,
+      };
+      await client.query(
+        `insert into platform_admin_idempotency
+          (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag)
+         values ($1,$2,'POST',$3,$4,$5,200,$6,$7)`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stateHash(result)],
+      );
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+      if (["23503", "23514"].includes(code))
+        throw new HrApiError(
+          409,
+          "HR_ORGANIZATION_PLACEMENT_CONTEXT_INVALID",
+          "The organization-placement context is no longer valid. Refresh the request and hierarchy data.",
+        );
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async listMasters(context: HrActorContext, query: HrMasterDirectoryQuery): Promise<HrMasterDirectory> {
     return this.read(context, "hr.master.read", async (client) => {
       await this.requireCompanyAccess(client, context, query.company_id);
@@ -4300,6 +4846,64 @@ export class SourceHrRepository {
                and profile.company_id=request.company_id`;
   }
 
+  private employeeOrganizationPlacementChangeRequestReviewSelect(): string {
+    return `select request.id,request.employee_id,employee.employee_number,
+                   concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as employee_name,
+                   request.company_id,request.relationship_id,request.source_assignment_id,
+                   jsonb_build_object(
+                     'business_unit_id',request.current_business_unit_id,
+                     'division_id',request.current_division_id,
+                     'branch_id',request.current_branch_id,
+                     'department_id',request.current_department_id,
+                     'warehouse_id',request.current_warehouse_id
+                   ) as current,
+                   jsonb_build_object(
+                     'business_unit_id',request.proposed_business_unit_id,
+                     'division_id',request.proposed_division_id,
+                     'branch_id',request.proposed_branch_id,
+                     'department_id',request.proposed_department_id,
+                     'warehouse_id',request.proposed_warehouse_id
+                   ) as proposed,
+                   coalesce((
+                     select jsonb_object_agg(placement.organization_type,unit.name)
+                       from (values
+                         ('business_unit',request.current_business_unit_id),
+                         ('division',request.current_division_id),
+                         ('branch',request.current_branch_id),
+                         ('department',request.current_department_id),
+                         ('warehouse',request.current_warehouse_id)
+                       ) placement(organization_type,organization_unit_id)
+                       join organization_unit unit
+                         on unit.tenant_id=request.tenant_id
+                        and unit.id=placement.organization_unit_id
+                   ),'{}'::jsonb) as current_names,
+                   coalesce((
+                     select jsonb_object_agg(placement.organization_type,unit.name)
+                       from (values
+                         ('business_unit',request.proposed_business_unit_id),
+                         ('division',request.proposed_division_id),
+                         ('branch',request.proposed_branch_id),
+                         ('department',request.proposed_department_id),
+                         ('warehouse',request.proposed_warehouse_id)
+                       ) placement(organization_type,organization_unit_id)
+                       join organization_unit unit
+                         on unit.tenant_id=request.tenant_id
+                        and unit.id=placement.organization_unit_id
+                   ),'{}'::jsonb) as proposed_names,
+                   hr_organization_placement_is_coherent(
+                     request.tenant_id,request.company_id,
+                     request.proposed_business_unit_id,request.proposed_division_id,
+                     request.proposed_branch_id,request.proposed_department_id,
+                     request.proposed_warehouse_id
+                   ) as hierarchy_ready,
+                   request.effective_on,request.requested_by,request.requested_at,
+                   request.reason,request.request_state as status,request.decided_by,
+                   request.decided_at,request.decision_reason
+              from hr_employee_organization_placement_change_request request
+              join employee
+                on employee.tenant_id=request.tenant_id and employee.id=request.employee_id`;
+  }
+
   private async requireCompanyAccess(client: PoolClient, context: HrActorContext, companyId: string): Promise<void> {
     const access = await client.query(
       `select 1 from security_user_company_access
@@ -4381,7 +4985,9 @@ export class SourceHrRepository {
       | "hr.employee_assignment.manager_change.request"
       | "hr.employee_assignment.manager_change.decide"
       | "hr.employee_assignment.work_location_change.request"
-      | "hr.employee_assignment.work_location_change.decide",
+      | "hr.employee_assignment.work_location_change.decide"
+      | "hr.employee_assignment.organization_change.request"
+      | "hr.employee_assignment.organization_change.decide",
     mutation: {
       entityId: string;
       entityType?: "employee" | "employment_lifecycle_policy" | "hr_master_record" | "employment_relationship";
