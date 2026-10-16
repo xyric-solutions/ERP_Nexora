@@ -21,9 +21,15 @@ PostgreSQL, Redis or storage directly.
 
 ### Current safe resume point
 
-- Build governed employee hire/activation and movement workflows. Policy
-  authoring, submission, independent approval and activation are complete;
-  activating a policy does not create or activate an employee.
+- Governed employee Hire/activation is implementation-complete and verified
+  through the API/repository against isolated PostgreSQL. The next development
+  slice is effective-dated employee movement (transfer first, then promotion,
+  manager and organisation changes) using the same request/decision/event/
+  projection pattern. Do not reuse the Hire request as a generic movement.
+- Independent two-user browser acceptance for a real maker submission followed
+  by a different checker decision remains an acceptance gate. Automated browser
+  acceptance currently proves authenticated live maker/checker screens and API
+  data loading; PostgreSQL integration tests prove both decision outcomes.
 - Continue file upload/verification only after secure object-storage signing,
   malware scanning and audit finalization are wired.
 - Recruitment, onboarding, attendance, leave, payroll, benefits, self-service,
@@ -145,9 +151,10 @@ sessions, permissions, company access, approvals and employee/user binding.
       selection -> `employee_assignment.assignment_status = 'profile_draft'`.
       This is not an active employment assignment and cannot unlock payroll.
 - [x] Assignment timeline read model: the typed API and Tailwind workspace use
-      `hr.employee_assignment.read`, active employee company scope and a
-      read-only, effective-dated projection. It does not expose an assignment
-      mutation or bypass database history constraints.
+      `hr.employee_assignment.read`, authorized employee company scope and a
+      read-only, effective-dated projection. It includes protected
+      `profile_draft` rows for pre-employment preparation without treating them
+      as operational assignments or bypassing database history constraints.
 - [ ] Effective-dated active employment assignment activation and employee
       movement workflow (transfer, promotion, manager and organisation changes),
       each with a separate approval transition and immutable audit evidence.
@@ -178,7 +185,7 @@ sessions, permissions, company access, approvals and employee/user binding.
       activate an approved policy that is effective today and has no overlapping
       active company policy. It is CSRF/origin-protected, idempotent and audited.
       Activation never creates an employee relationship or assignment.
-- [ ] Governed employee hire and activation. No
+- [x] Governed employee hire and activation. No
       employee employment relationship or active assignment may be created until
       an active policy and valid transition exist.
       **Implementation gate verified:** the existing `profile_draft` assignment
@@ -194,16 +201,20 @@ sessions, permissions, company access, approvals and employee/user binding.
       It creates only a `draft` relationship plus a `pending` lifecycle request;
       employee status and assignments remain unchanged. The additive migration
       stores the protected job/profile context and validates it in PostgreSQL.
-      The independent decision, event append and operational-assignment creation
-      remain deliberately unfinished.
-- [~] Independent Hire decision implementation: repository/service/router work
-      now enforces `hr.employment_lifecycle.approve`, company scope and
+      Employee Assignments now prepares the required placement/master context
+      and submits this request through the typed client with no mock success.
+- [x] Independent Hire decision implementation: repository/service/router work
+      enforces `hr.employment_lifecycle.approve`, company scope and
       requester/approver separation. Approval appends the Hire event before
       projecting the relationship, employee and new relationship-bound
       operational assignment; rejection never activates them. OpenAPI, the
-      generated browser client and mutation-route coverage are complete.
-      Runtime database migration plus end-to-end integration verification remain
-      the safe resume point before this is considered live.
+      generated browser client, bounded pending queue/detail reads and
+      mutation-route coverage are complete. Employee Approvals contains a
+      separate live Hire checker section with required reason and confirmation.
+      PostgreSQL integration proves creation, replay, conflicting idempotency,
+      duplicate-pending rejection, company/tenant scope, self-approval denial,
+      approval projections, profile-draft preservation and rejection
+      non-activation.
 - [x] Job catalog foundation: `job` is now a company-scoped HR master type and
       is available through the existing bounded, permission-scoped master API.
       This additive migration does not create jobs or alter any employee.
@@ -215,6 +226,38 @@ sessions, permissions, company access, approvals and employee/user binding.
 - [ ] Offer-to-employee conversion using the governed user-link boundary.
 - [ ] Onboarding, probation, confirmation, transfer, resignation, termination,
       clearance and final-settlement workflow.
+
+### Governed Hire verification record — 2026-10-16
+
+- Applied source migrations in the isolated test database:
+  `platform:7` (`hierarchical_audit_actions`) and `hr:27`
+  (`hire_request_context_guard_fix`). Existing migration files were not edited.
+- Fixed three runtime blockers found by real PostgreSQL execution: hierarchical
+  HR audit action names rejected by the platform constraint, an ambiguous
+  `assignment_status` reference in the Hire context trigger, and an incorrect
+  initial-state lookup during Hire event append.
+- Added authorized active branch/department reads through
+  `GET /api/v1/hr/organization_units`; browser code still uses only the API.
+- Added bounded Hire review reads:
+  `GET /api/v1/hr/hire_requests` and
+  `GET /api/v1/hr/employees/{employeeId}/hire_requests/{requestId}`.
+- Observed verification:
+  - `npm.cmd run typecheck` — passed.
+  - contract OpenAPI test — 1 passed.
+  - focused HR unit tests — 25 passed across router/client tests.
+  - migration plus governed-Hire integration — 10 passed across two files.
+  - focused new-panel ESLint — passed.
+  - `npm.cmd run build:web` — passed on Next.js 16.3.8.
+  - focused Playwright acceptance — 1 passed against the running web/API,
+    covering login and live Assignments/Approvals surfaces.
+  - `git diff --check` — passed.
+- Repository-wide `npm.cmd run lint` is not green: it reports 122 pre-existing
+  errors and one warning across legacy/shared screens. The two new Hire panels
+  pass focused ESLint; no unrelated lint cleanup was included in this slice.
+- Manual acceptance still required: use distinct maker and checker accounts to
+  submit and decide a new Hire request in the browser, then confirm the active
+  employee/relationship/assignment projections. Do not call this production
+  accepted until that independent-user check is recorded.
 
 ## Phase 4 — attendance and leave
 

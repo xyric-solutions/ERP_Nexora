@@ -10,6 +10,7 @@ import type {
   HrEmployeeDraftApprovalDetail,
   HrEmployeeDirectory,
   HrCompanyDirectory,
+  HrOrganizationUnitDirectory,
   CreateHrEmployeeDraftRequest,
   UpdateHrEmployeeDraftRequest,
   SubmitHrEmployeeDraftRequest,
@@ -41,6 +42,8 @@ import type {
   HrEmployeeHireRequestResult,
   DecideHrEmployeeHireRequest,
   HrEmployeeHireDecisionResult,
+  HrEmployeeHireRequestDirectory,
+  HrEmployeeHireRequestReview,
   HrJobResult,
   JobReceipt,
   PasswordLoginRequest,
@@ -156,6 +159,7 @@ export class NexoraApiClient {
   listSecurityUserOptions(): Promise<SecurityUserOptions> { return this.request("/api/v1/security/user_options"); }
   listHrEmployees(query: string): Promise<HrEmployeeDirectory> { return this.request(`/api/v1/hr/employees${query}`); }
   listHrCompanies(): Promise<HrCompanyDirectory> { return this.request("/api/v1/hr/companies"); }
+  listHrOrganizationUnits(query: string): Promise<HrOrganizationUnitDirectory> { return this.request(`/api/v1/hr/organization_units${query}`); }
   getHrEmployee(employeeId: string): Promise<HrEmployeeDetail> { return this.request(`/api/v1/hr/employees/${encodeURIComponent(employeeId)}`); }
   listHrEmployeeDrafts(query: string): Promise<HrEmployeeDraftDirectory> { return this.request(`/api/v1/hr/employee_drafts${query}`); }
   getHrEmployeeDraft(employeeId: string): Promise<HrEmployeeDraftDetail> { return this.request(`/api/v1/hr/employee_drafts/${encodeURIComponent(employeeId)}`); }
@@ -203,6 +207,10 @@ export class NexoraApiClient {
   }
   createHrEmployeeHireRequest(employeeId: string, payload: CreateHrEmployeeHireRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeHireRequestResult> {
     return this.request(`/api/v1/hr/employees/${encodeURIComponent(employeeId)}/hire_requests`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  listHrEmployeeHireRequests(query: string): Promise<HrEmployeeHireRequestDirectory> { return this.request(`/api/v1/hr/hire_requests${query}`); }
+  getHrEmployeeHireRequest(employeeId: string, requestId: string): Promise<HrEmployeeHireRequestReview> {
+    return this.request(`/api/v1/hr/employees/${encodeURIComponent(employeeId)}/hire_requests/${encodeURIComponent(requestId)}`);
   }
   decideHrEmployeeHireRequest(employeeId: string, requestId: string, payload: DecideHrEmployeeHireRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeHireDecisionResult> {
     return this.request(`/api/v1/hr/employees/${encodeURIComponent(employeeId)}/hire_requests/${encodeURIComponent(requestId)}/decision`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });

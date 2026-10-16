@@ -16,6 +16,7 @@ import {
   hrEmployeeDetailSchema,
   hrEmployeeDirectorySchema,
   hrCompanyDirectorySchema,
+  hrOrganizationUnitDirectorySchema,
   hrEmployeeDraftDirectorySchema,
   hrEmployeeDraftDetailSchema,
   hrEmployeeDraftApprovalQueueSchema,
@@ -52,6 +53,8 @@ import {
   hrEmployeeHireRequestResultSchema,
   decideHrEmployeeHireRequestSchema,
   hrEmployeeHireDecisionResultSchema,
+  hrEmployeeHireRequestDirectorySchema,
+  hrEmployeeHireRequestReviewSchema,
 } from "./hr/index.js";
 import { jobReceiptSchema, sampleJobPayloadSchema } from "./jobs/index.js";
 import { problemDetailsSchema } from "./problem.js";
@@ -601,6 +604,34 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/hr/organization_units": {
+        get: {
+          operationId: "listHrOrganizationUnits",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "query", name: "type", required: false, schema: { type: "string", enum: ["branch", "department"] } },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 200, default: 200 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Authorized active organization placements below a company",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrOrganizationUnitDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
       "/hr/employees/{employeeId}": {
         get: {
           operationId: "getHrEmployee",
@@ -945,7 +976,12 @@ export function buildOpenApiDocument() {
           operationId: "listHrEmployeeDocuments",
           security: [{ cookieAuth: [] }],
           parameters: [
-            { in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
           ],
           responses: {
             "200": {
@@ -962,12 +998,19 @@ export function buildOpenApiDocument() {
           operationId: "listHrEmployeeAssignments",
           security: [{ cookieAuth: [] }],
           parameters: [
-            { in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
           ],
           responses: {
             "200": {
               description: "Authorized immutable employee assignment timeline",
-              content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeAssignmentDirectory" } } },
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeAssignmentDirectory" } },
+              },
             },
             "404": problemResponse,
             ...securityErrors,
@@ -979,12 +1022,19 @@ export function buildOpenApiDocument() {
           operationId: "listHrEmployeeStatusHistory",
           security: [{ cookieAuth: [] }],
           parameters: [
-            { in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
           ],
           responses: {
             "200": {
               description: "Authorized immutable employee status history",
-              content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeStatusHistoryDirectory" } } },
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeStatusHistoryDirectory" } },
+              },
             },
             "404": problemResponse,
             ...securityErrors,
@@ -1025,8 +1075,47 @@ export function buildOpenApiDocument() {
           operationId: "createHrJob",
           security: [{ cookieAuth: [] }],
           parameters: [csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrJobRequest" } } } },
-          responses: { "201": { description: "Company-scoped job created", content: { "application/json": { schema: { $ref: "#/components/schemas/HrJobResult" } } } }, ...securityErrors },
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrJobRequest" } } },
+          },
+          responses: {
+            "201": {
+              description: "Company-scoped job created",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrJobResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/hire_requests": {
+        get: {
+          operationId: "listHrEmployeeHireRequests",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Pending company-scoped employee Hire requests",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeHireRequestDirectory" } },
+              },
+            },
+            ...securityErrors,
+          },
         },
       },
       "/hr/employees/{employeeId}/hire_requests": {
@@ -1034,12 +1123,48 @@ export function buildOpenApiDocument() {
           operationId: "createHrEmployeeHireRequest",
           security: [{ cookieAuth: [] }],
           parameters: [
-            { in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
             csrfParameter,
             idempotencyParameter,
           ],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrEmployeeHireRequest" } } } },
-          responses: { "201": { description: "Pending, independently approvable employee hire request", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeHireRequestResult" } } } }, ...securityErrors },
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrEmployeeHireRequest" } } },
+          },
+          responses: {
+            "201": {
+              description: "Pending, independently approvable employee hire request",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeHireRequestResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/hire_requests/{requestId}": {
+        get: {
+          operationId: "getHrEmployeeHireRequest",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "path", name: "requestId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+          ],
+          responses: {
+            "200": {
+              description: "Company-scoped employee Hire request review",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeHireRequestReview" } } },
+            },
+            ...securityErrors,
+          },
         },
       },
       "/hr/employees/{employeeId}/hire_requests/{requestId}/decision": {
@@ -1047,13 +1172,29 @@ export function buildOpenApiDocument() {
           operationId: "decideHrEmployeeHireRequest",
           security: [{ cookieAuth: [] }],
           parameters: [
-            { in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
             { in: "path", name: "requestId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
             csrfParameter,
             idempotencyParameter,
           ],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/DecideHrEmployeeHireRequest" } } } },
-          responses: { "200": { description: "Independently decided employee Hire request", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeHireDecisionResult" } } } }, ...securityErrors },
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/DecideHrEmployeeHireRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Independently decided employee Hire request",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeHireDecisionResult" } },
+              },
+            },
+            ...securityErrors,
+          },
         },
       },
       "/hr/employment_lifecycle_policies": {
@@ -1061,13 +1202,25 @@ export function buildOpenApiDocument() {
           operationId: "listHrEmploymentLifecyclePolicies",
           security: [{ cookieAuth: [] }],
           parameters: [
-            { in: "query", name: "company_id", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
-            { in: "query", name: "limit", required: false, schema: { type: "integer", minimum: 1, maximum: 100, default: 50 } },
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            },
           ],
           responses: {
             "200": {
               description: "Company-scoped employment lifecycle policy directory",
-              content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyDirectory" } } },
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyDirectory" } },
+              },
             },
             ...securityErrors,
           },
@@ -1078,12 +1231,16 @@ export function buildOpenApiDocument() {
           parameters: [csrfParameter, idempotencyParameter],
           requestBody: {
             required: true,
-            content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrEmploymentLifecyclePolicyRequest" } } },
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/CreateHrEmploymentLifecyclePolicyRequest" } },
+            },
           },
           responses: {
             "201": {
               description: "Draft employment lifecycle policy created with a fixed initial/hire definition",
-              content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyResult" } } },
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyResult" } },
+              },
             },
             ...securityErrors,
           },
@@ -1100,12 +1257,18 @@ export function buildOpenApiDocument() {
           ],
           requestBody: {
             required: true,
-            content: { "application/json": { schema: { $ref: "#/components/schemas/SubmitHrEmploymentLifecyclePolicyRequest" } } },
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/SubmitHrEmploymentLifecyclePolicyRequest" } },
+            },
           },
           responses: {
             "200": {
               description: "Draft lifecycle policy submitted for independent approval",
-              content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicySubmissionResult" } } },
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicySubmissionResult" },
+                },
+              },
             },
             ...securityErrors,
           },
@@ -1122,12 +1285,20 @@ export function buildOpenApiDocument() {
           ],
           requestBody: {
             required: true,
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ApproveHrEmploymentLifecyclePolicyRequest" } } },
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApproveHrEmploymentLifecyclePolicyRequest" },
+              },
+            },
           },
           responses: {
             "200": {
               description: "Lifecycle policy independently approved; activation remains a separate operation",
-              content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyApprovalResult" } } },
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyApprovalResult" },
+                },
+              },
             },
             ...securityErrors,
           },
@@ -1137,9 +1308,30 @@ export function buildOpenApiDocument() {
         post: {
           operationId: "activateHrEmploymentLifecyclePolicy",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "policyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ActivateHrEmploymentLifecyclePolicyRequest" } } } },
-          responses: { "200": { description: "Approved current policy activated", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyActivationResult" } } } }, ...securityErrors },
+          parameters: [
+            { in: "path", name: "policyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ActivateHrEmploymentLifecyclePolicyRequest" },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Approved current policy activated",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyActivationResult" },
+                },
+              },
+            },
+            ...securityErrors,
+          },
         },
       },
       "/health/live": {
@@ -1210,6 +1402,7 @@ export function buildOpenApiDocument() {
         HrProfileDraftAssignmentResult: schema(hrProfileDraftAssignmentResultSchema),
         CreateHrEmployeeDraftRequest: schema(createHrEmployeeDraftRequestSchema),
         HrEmployeeDraftResult: schema(hrEmployeeDraftResultSchema),
+        HrOrganizationUnitDirectory: schema(hrOrganizationUnitDirectorySchema),
         HrMasterDirectory: schema(hrMasterDirectorySchema),
         HrEmployeeContactDirectory: schema(hrEmployeeContactDirectorySchema),
         CreateHrEmployeeContactRequest: schema(createHrEmployeeContactRequestSchema),
@@ -1235,6 +1428,8 @@ export function buildOpenApiDocument() {
         HrEmployeeHireRequestResult: schema(hrEmployeeHireRequestResultSchema),
         DecideHrEmployeeHireRequest: schema(decideHrEmployeeHireRequestSchema),
         HrEmployeeHireDecisionResult: schema(hrEmployeeHireDecisionResultSchema),
+        HrEmployeeHireRequestDirectory: schema(hrEmployeeHireRequestDirectorySchema),
+        HrEmployeeHireRequestReview: schema(hrEmployeeHireRequestReviewSchema),
         ProblemDetails: schema(problemDetailsSchema),
         SampleJobPayload: schema(sampleJobPayloadSchema),
         JobReceipt: schema(jobReceiptSchema),

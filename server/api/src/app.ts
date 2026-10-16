@@ -39,6 +39,7 @@ export interface AppDependencies {
   hrRepository?: Pick<
     SourceHrRepository,
     | "listCompanies"
+    | "listOrganizationUnits"
     | "listEmployees"
     | "getEmployee"
     | "listEmployeeDrafts"
@@ -64,6 +65,8 @@ export interface AppDependencies {
     | "approveEmploymentLifecyclePolicy"
     | "activateEmploymentLifecyclePolicy"
     | "createJob"
+    | "listEmployeeHireRequests"
+    | "getEmployeeHireRequest"
     | "createEmployeeHireRequest"
     | "decideEmployeeHireRequest"
   >;

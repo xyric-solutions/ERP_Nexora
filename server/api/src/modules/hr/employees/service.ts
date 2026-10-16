@@ -2,6 +2,8 @@ import type {
   CreateHrEmployeeDraftRequest,
   HrEmployeeDetail,
   HrCompanyDirectory,
+  HrOrganizationUnitDirectory,
+  HrOrganizationUnitDirectoryQuery,
   HrEmployeeDirectory,
   HrEmployeeDirectoryQuery,
   HrEmployeeDraftDirectory,
@@ -35,6 +37,7 @@ export class HrEmployeeService {
     private readonly repository: Pick<
       SourceHrRepository,
       | "listCompanies"
+      | "listOrganizationUnits"
       | "listEmployees"
       | "getEmployee"
       | "listEmployeeDrafts"
@@ -58,6 +61,13 @@ export class HrEmployeeService {
 
   listCompanies(context: HrActorContext): Promise<HrCompanyDirectory> {
     return this.repository.listCompanies(context);
+  }
+
+  listOrganizationUnits(
+    context: HrActorContext,
+    query: HrOrganizationUnitDirectoryQuery,
+  ): Promise<HrOrganizationUnitDirectory> {
+    return this.repository.listOrganizationUnits(context, query);
   }
 
   list(context: HrActorContext, query: HrEmployeeDirectoryQuery): Promise<HrEmployeeDirectory> {

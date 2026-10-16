@@ -17,11 +17,11 @@ describe("production PostgreSQL source migrations", () => {
   it("is deterministic and idempotent", async () => {
     await expect(migrateSourceSchema(pool)).resolves.toEqual([]);
     await expect(inspectSourceMigrationState(pool)).resolves.toEqual({
-      platform: 6,
+      platform: 7,
       security: 9,
       workflow: 1,
       finance: 1,
-      hr: 22,
+      hr: 27,
       runtime: 1,
     });
   });
@@ -61,12 +61,22 @@ describe("production PostgreSQL source migrations", () => {
     );
     expect(result.rows).toEqual([
       { module_name: "finance", migration_count: "1", latest: 1 },
-      { module_name: "hr", migration_count: "22", latest: 22 },
-      { module_name: "platform", migration_count: "6", latest: 6 },
+      { module_name: "hr", migration_count: "27", latest: 27 },
+      { module_name: "platform", migration_count: "7", latest: 7 },
       { module_name: "runtime", migration_count: "1", latest: 1 },
       { module_name: "security", migration_count: "9", latest: 9 },
       { module_name: "workflow", migration_count: "1", latest: 1 },
     ]);
+  });
+
+  it("accepts bounded hierarchical platform audit action names", async () => {
+    const result = await pool.query<{ definition: string }>(
+      `select pg_get_constraintdef(oid) as definition
+         from pg_constraint
+        where conrelid='platform_admin_audit_event'::regclass
+          and conname='platform_admin_audit_event_action_check'`,
+    );
+    expect(result.rows[0]?.definition).toContain("{2,5}");
   });
 
   it("forces row-level security on every tenant-owned production table", async () => {

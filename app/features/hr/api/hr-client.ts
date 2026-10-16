@@ -2,6 +2,7 @@ import type {
   CreateHrEmployeeDraftRequest,
   HrEmployeeDetail,
   HrCompanyDirectory,
+  HrOrganizationUnitDirectory,
   HrEmployeeDraftDirectory,
   HrEmployeeDraftDetail,
   HrEmployeeDraftApprovalQueue,
@@ -40,6 +41,8 @@ import type {
   HrEmployeeHireRequestResult,
   DecideHrEmployeeHireRequest,
   HrEmployeeHireDecisionResult,
+  HrEmployeeHireRequestDirectory,
+  HrEmployeeHireRequestReview,
 } from "@nexora/contracts";
 
 import type { NexoraApiClient } from "@/lib/api/generated";
@@ -62,6 +65,16 @@ export class HrApiClient {
 
   companies(): Promise<HrCompanyDirectory> {
     return this.api.listHrCompanies();
+  }
+
+  organizationUnits(input: {
+    companyId: string;
+    type?: "branch" | "department";
+    limit?: number;
+  }): Promise<HrOrganizationUnitDirectory> {
+    return this.api.listHrOrganizationUnits(
+      query({ company_id: input.companyId, type: input.type, limit: input.limit ?? 200 }),
+    );
   }
 
   employees(input: {
@@ -179,7 +192,10 @@ export class HrApiClient {
     return this.api.listHrEmployeeStatusHistory(employeeId);
   }
 
-  employmentLifecyclePolicies(input: { companyId: string; limit?: number }): Promise<HrEmploymentLifecyclePolicyDirectory> {
+  employmentLifecyclePolicies(input: {
+    companyId: string;
+    limit?: number;
+  }): Promise<HrEmploymentLifecyclePolicyDirectory> {
     return this.api.listHrEmploymentLifecyclePolicies(query({ company_id: input.companyId, limit: input.limit ?? 50 }));
   }
 
@@ -209,7 +225,12 @@ export class HrApiClient {
     return this.api.approveHrEmploymentLifecyclePolicy(policyId, input, csrfToken, idempotencyKey);
   }
 
-  activateEmploymentLifecyclePolicy(policyId: string, input: ActivateHrEmploymentLifecyclePolicyRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmploymentLifecyclePolicyActivationResult> {
+  activateEmploymentLifecyclePolicy(
+    policyId: string,
+    input: ActivateHrEmploymentLifecyclePolicyRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmploymentLifecyclePolicyActivationResult> {
     return this.api.activateHrEmploymentLifecyclePolicy(policyId, input, csrfToken, idempotencyKey);
   }
 
@@ -233,10 +254,29 @@ export class HrApiClient {
     return this.api.createHrJob(input, csrfToken, idempotencyKey);
   }
 
-  createHireRequest(employeeId: string, input: CreateHrEmployeeHireRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeHireRequestResult> {
+  createHireRequest(
+    employeeId: string,
+    input: CreateHrEmployeeHireRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmployeeHireRequestResult> {
     return this.api.createHrEmployeeHireRequest(employeeId, input, csrfToken, idempotencyKey);
   }
-  decideHireRequest(employeeId: string, requestId: string, input: DecideHrEmployeeHireRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeHireDecisionResult> {
+  hireRequests(input: { companyId: string; search?: string; limit?: number }): Promise<HrEmployeeHireRequestDirectory> {
+    return this.api.listHrEmployeeHireRequests(
+      query({ company_id: input.companyId, search: input.search, limit: input.limit ?? 50 }),
+    );
+  }
+  hireRequest(employeeId: string, requestId: string): Promise<HrEmployeeHireRequestReview> {
+    return this.api.getHrEmployeeHireRequest(employeeId, requestId);
+  }
+  decideHireRequest(
+    employeeId: string,
+    requestId: string,
+    input: DecideHrEmployeeHireRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmployeeHireDecisionResult> {
     return this.api.decideHrEmployeeHireRequest(employeeId, requestId, input, csrfToken, idempotencyKey);
   }
 }

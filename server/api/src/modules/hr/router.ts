@@ -21,6 +21,8 @@ import {
   createHrJobRequestSchema,
   createHrEmployeeHireRequestSchema,
   decideHrEmployeeHireRequestSchema,
+  hrEmployeeHireRequestDirectoryQuerySchema,
+  hrOrganizationUnitDirectoryQuerySchema,
 } from "@nexora/contracts";
 
 import { HttpError } from "../../http/errors.js";
@@ -36,6 +38,7 @@ export interface HrRouterDependencies {
   repository: Pick<
     SourceHrRepository,
     | "listCompanies"
+    | "listOrganizationUnits"
     | "listEmployees"
     | "getEmployee"
     | "listEmployeeDrafts"
@@ -61,6 +64,8 @@ export interface HrRouterDependencies {
     | "approveEmploymentLifecyclePolicy"
     | "activateEmploymentLifecyclePolicy"
     | "createJob"
+    | "listEmployeeHireRequests"
+    | "getEmployeeHireRequest"
     | "createEmployeeHireRequest"
     | "decideEmployeeHireRequest"
   >;
@@ -110,6 +115,16 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
 
   router.get("/companies", async (req, res) => {
     res.json(await handle(async () => employees.listCompanies(await loadHrSessionContext(req, dependencies))));
+  });
+  router.get("/organization_units", async (req, res) => {
+    const query = hrOrganizationUnitDirectoryQuerySchema.parse({
+      company_id: req.query.company_id,
+      type: req.query.type,
+      limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+    });
+    res.json(
+      await handle(async () => employees.listOrganizationUnits(await loadHrSessionContext(req, dependencies), query)),
+    );
   });
 
   router.get("/employees", async (req, res) => {
@@ -223,21 +238,57 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
     );
     res.status(result.replayed ? 200 : 201).json(result);
   });
+  router.get("/hire_requests", async (req, res) => {
+    const query = hrEmployeeHireRequestDirectoryQuerySchema.parse({
+      company_id: req.query.company_id,
+      search: req.query.search,
+      limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+    });
+    res.json(
+      await handle(async () => lifecycle.listHireRequests(await loadHrSessionContext(req, dependencies), query)),
+    );
+  });
   router.post("/employees/:employeeId/hire_requests", async (req, res) => {
     trustedOrigin(req, dependencies.allowedOrigins);
     const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
     const input = createHrEmployeeHireRequestSchema.parse(req.body);
-    const result = await handle(async () => lifecycle.requestHire(
-      await loadHrSessionContext(req, dependencies, true), employeeId, input, idempotencyKey(req), currentRequestContext().correlationId,
-    ));
+    const result = await handle(async () =>
+      lifecycle.requestHire(
+        await loadHrSessionContext(req, dependencies, true),
+        employeeId,
+        input,
+        idempotencyKey(req),
+        currentRequestContext().correlationId,
+      ),
+    );
     res.status(result.replayed ? 200 : 201).json(result);
+  });
+  router.get("/employees/:employeeId/hire_requests/:requestId", async (req, res) => {
+    const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
+    const requestId = z.string().trim().min(1).max(128).parse(req.params.requestId);
+    res.json(
+      await handle(async () =>
+        lifecycle.getHireRequest(await loadHrSessionContext(req, dependencies), employeeId, requestId),
+      ),
+    );
   });
   router.post("/employees/:employeeId/hire_requests/:requestId/decision", async (req, res) => {
     trustedOrigin(req, dependencies.allowedOrigins);
     const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
     const requestId = z.string().trim().min(1).max(128).parse(req.params.requestId);
     const input = decideHrEmployeeHireRequestSchema.parse(req.body);
-    res.json(await handle(async () => lifecycle.decideHire(await loadHrSessionContext(req, dependencies, true), employeeId, requestId, input, idempotencyKey(req), currentRequestContext().correlationId)));
+    res.json(
+      await handle(async () =>
+        lifecycle.decideHire(
+          await loadHrSessionContext(req, dependencies, true),
+          employeeId,
+          requestId,
+          input,
+          idempotencyKey(req),
+          currentRequestContext().correlationId,
+        ),
+      ),
+    );
   });
   router.get("/employees/:employeeId/contacts", async (req, res) => {
     const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
@@ -285,15 +336,21 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
   });
   router.get("/employees/:employeeId/documents", async (req, res) => {
     const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
-    res.json(await handle(async () => employees.listDocuments(await loadHrSessionContext(req, dependencies), employeeId)));
+    res.json(
+      await handle(async () => employees.listDocuments(await loadHrSessionContext(req, dependencies), employeeId)),
+    );
   });
   router.get("/employees/:employeeId/assignments", async (req, res) => {
     const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
-    res.json(await handle(async () => employees.listAssignments(await loadHrSessionContext(req, dependencies), employeeId)));
+    res.json(
+      await handle(async () => employees.listAssignments(await loadHrSessionContext(req, dependencies), employeeId)),
+    );
   });
   router.get("/employees/:employeeId/status_history", async (req, res) => {
     const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
-    res.json(await handle(async () => employees.listStatusHistory(await loadHrSessionContext(req, dependencies), employeeId)));
+    res.json(
+      await handle(async () => employees.listStatusHistory(await loadHrSessionContext(req, dependencies), employeeId)),
+    );
   });
   router.get("/employees/:employeeId", async (req, res) => {
     const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
@@ -311,7 +368,14 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
   router.post("/jobs", async (req, res) => {
     trustedOrigin(req, dependencies.allowedOrigins);
     const input = createHrJobRequestSchema.parse(req.body);
-    const result = await handle(async () => dependencies.repository.createJob(await loadHrSessionContext(req, dependencies, true), input, idempotencyKey(req), currentRequestContext().correlationId));
+    const result = await handle(async () =>
+      dependencies.repository.createJob(
+        await loadHrSessionContext(req, dependencies, true),
+        input,
+        idempotencyKey(req),
+        currentRequestContext().correlationId,
+      ),
+    );
     res.status(result.replayed ? 200 : 201).json(result);
   });
   router.get("/employment_lifecycle_policies", async (req, res) => {
@@ -370,7 +434,17 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
     trustedOrigin(req, dependencies.allowedOrigins);
     const policyId = z.string().trim().min(1).max(128).parse(req.params.policyId);
     const input = activateHrEmploymentLifecyclePolicyRequestSchema.parse(req.body);
-    res.json(await handle(async () => lifecycle.activatePolicy(await loadHrSessionContext(req, dependencies, true), policyId, input, idempotencyKey(req), currentRequestContext().correlationId)));
+    res.json(
+      await handle(async () =>
+        lifecycle.activatePolicy(
+          await loadHrSessionContext(req, dependencies, true),
+          policyId,
+          input,
+          idempotencyKey(req),
+          currentRequestContext().correlationId,
+        ),
+      ),
+    );
   });
   return router;
 }

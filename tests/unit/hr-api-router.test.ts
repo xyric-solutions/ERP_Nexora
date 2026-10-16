@@ -107,6 +107,25 @@ describe("HR API foundation", () => {
     );
   });
 
+  it("returns bounded active organization placements for an authorized company", async () => {
+    const directory = {
+      items: [{ id: "branch-a", parent_id: "company-a", type: "branch", code: "BR-A", name: "Branch A" }],
+    } as const;
+    const repository = {
+      listOrganizationUnits: vi.fn(async () => directory),
+    } as unknown as Pick<SourceHrRepository, "listOrganizationUnits">;
+    const response = await request(appForHr(repository))
+      .get("/api/v1/hr/organization_units?company_id=company-a&type=branch&limit=100")
+      .set("cookie", "nexora_session=token-hr");
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(directory);
+    expect(repository.listOrganizationUnits).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), {
+      company_id: "company-a",
+      type: "branch",
+      limit: 100,
+    });
+  });
+
   it("protects employee contact creation with the standard browser mutation controls", async () => {
     const repository = {
       createEmployeeContact: vi.fn(async () => ({
@@ -328,8 +347,14 @@ describe("HR API foundation", () => {
   it("protects lifecycle-policy submission with the standard browser mutation controls", async () => {
     const repository = {
       submitEmploymentLifecyclePolicy: vi.fn(async () => ({
-        id: "policy-1", company_id: "company-a", code: "POLICY-1", name: "Lifecycle policy", version: 1,
-        status: "pending_approval", audit_event_id: "audit-2", replayed: false,
+        id: "policy-1",
+        company_id: "company-a",
+        code: "POLICY-1",
+        name: "Lifecycle policy",
+        version: 1,
+        status: "pending_approval",
+        audit_event_id: "audit-2",
+        replayed: false,
       })),
     } as unknown as Pick<SourceHrRepository, "submitEmploymentLifecyclePolicy">;
     const payload = { reason: "Ready for independent review." };
@@ -353,8 +378,14 @@ describe("HR API foundation", () => {
   it("protects lifecycle-policy independent approval with the standard browser mutation controls", async () => {
     const repository = {
       approveEmploymentLifecyclePolicy: vi.fn(async () => ({
-        id: "policy-1", company_id: "company-a", code: "POLICY-1", name: "Lifecycle policy", version: 1,
-        status: "approved", audit_event_id: "audit-3", replayed: false,
+        id: "policy-1",
+        company_id: "company-a",
+        code: "POLICY-1",
+        name: "Lifecycle policy",
+        version: 1,
+        status: "approved",
+        audit_event_id: "audit-3",
+        replayed: false,
       })),
     } as unknown as Pick<SourceHrRepository, "approveEmploymentLifecyclePolicy">;
     const payload = { reason: "Independently reviewed and approved." };
@@ -376,27 +407,173 @@ describe("HR API foundation", () => {
   });
 
   it("protects lifecycle-policy activation with the standard browser mutation controls", async () => {
-    const repository = { activateEmploymentLifecyclePolicy: vi.fn(async () => ({ id: "policy-1", company_id: "company-a", code: "POLICY-1", name: "Lifecycle policy", version: 1, status: "active", audit_event_id: "audit-4", replayed: false })) } as unknown as Pick<SourceHrRepository, "activateEmploymentLifecyclePolicy">;
+    const repository = {
+      activateEmploymentLifecyclePolicy: vi.fn(async () => ({
+        id: "policy-1",
+        company_id: "company-a",
+        code: "POLICY-1",
+        name: "Lifecycle policy",
+        version: 1,
+        status: "active",
+        audit_event_id: "audit-4",
+        replayed: false,
+      })),
+    } as unknown as Pick<SourceHrRepository, "activateEmploymentLifecyclePolicy">;
     const payload = { reason: "Approved policy is effective today." };
-    const response = await request(appForHr(repository)).post("/api/v1/hr/employment_lifecycle_policies/policy-1/activate").set("cookie", "nexora_session=token-hr").set("origin", "https://hr.example.test").set("x-csrf-token", session.csrfToken).set("idempotency-key", "lifecycle-policy-activate-1").send(payload);
+    const response = await request(appForHr(repository))
+      .post("/api/v1/hr/employment_lifecycle_policies/policy-1/activate")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "lifecycle-policy-activate-1")
+      .send(payload);
     expect(response.status).toBe(200);
-    expect(repository.activateEmploymentLifecyclePolicy).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), "policy-1", payload, "lifecycle-policy-activate-1", expect.any(String));
+    expect(repository.activateEmploymentLifecyclePolicy).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "policy-1",
+      payload,
+      "lifecycle-policy-activate-1",
+      expect.any(String),
+    );
   });
 
   it("protects pending employee hire requests with the standard browser mutation controls", async () => {
-    const repository = { createEmployeeHireRequest: vi.fn(async () => ({ id: "request-1", employee_id: "employee-1", company_id: "company-a", relationship_id: "relationship-1", lifecycle_request_id: "request-1", status: "pending_approval", audit_event_id: "audit-5", replayed: false })) } as unknown as Pick<SourceHrRepository, "createEmployeeHireRequest">;
-    const payload = { company_id: "company-a", job_id: "job-1", profile_draft_assignment_id: "assignment-1", effective_on: "2026-10-15", reason: "Approved profile is ready for independent hire review." };
-    const response = await request(appForHr(repository)).post("/api/v1/hr/employees/employee-1/hire_requests").set("cookie", "nexora_session=token-hr").set("origin", "https://hr.example.test").set("x-csrf-token", session.csrfToken).set("idempotency-key", "employee-hire-request-1").send(payload);
+    const repository = {
+      createEmployeeHireRequest: vi.fn(async () => ({
+        id: "request-1",
+        employee_id: "employee-1",
+        company_id: "company-a",
+        relationship_id: "relationship-1",
+        lifecycle_request_id: "request-1",
+        status: "pending_approval",
+        audit_event_id: "audit-5",
+        replayed: false,
+      })),
+    } as unknown as Pick<SourceHrRepository, "createEmployeeHireRequest">;
+    const payload = {
+      company_id: "company-a",
+      job_id: "job-1",
+      profile_draft_assignment_id: "assignment-1",
+      effective_on: "2026-10-15",
+      reason: "Approved profile is ready for independent hire review.",
+    };
+    const response = await request(appForHr(repository))
+      .post("/api/v1/hr/employees/employee-1/hire_requests")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "employee-hire-request-1")
+      .send(payload);
     expect(response.status).toBe(201);
-    expect(repository.createEmployeeHireRequest).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), "employee-1", payload, "employee-hire-request-1", expect.any(String));
+    expect(repository.createEmployeeHireRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "employee-1",
+      payload,
+      "employee-hire-request-1",
+      expect.any(String),
+    );
+  });
+
+  it("parses the bounded pending Hire review queue query", async () => {
+    const repository = {
+      listEmployeeHireRequests: vi.fn(async () => ({ items: [] })),
+    } as unknown as Pick<SourceHrRepository, "listEmployeeHireRequests">;
+    const response = await request(appForHr(repository))
+      .get("/api/v1/hr/hire_requests?company_id=company-a&search=Analyst&limit=25")
+      .set("cookie", "nexora_session=token-hr");
+    expect(response.status).toBe(200);
+    expect(repository.listEmployeeHireRequests).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      { company_id: "company-a", search: "Analyst", limit: 25 },
+    );
+  });
+
+  it("rejects an unbounded Hire review queue query before repository access", async () => {
+    const repository = {
+      listEmployeeHireRequests: vi.fn(async () => ({ items: [] })),
+    } as unknown as Pick<SourceHrRepository, "listEmployeeHireRequests">;
+    const response = await request(appForHr(repository))
+      .get("/api/v1/hr/hire_requests?company_id=company-a&limit=101")
+      .set("cookie", "nexora_session=token-hr");
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("INVALID_REQUEST");
+    expect(repository.listEmployeeHireRequests).not.toHaveBeenCalled();
+  });
+
+  it("returns one authenticated, company-scoped Hire review projection", async () => {
+    const detail = {
+      id: "request-1",
+      employee_id: "employee-1",
+      employee_number: "EMP-001",
+      employee_name: "Ayesha Khan",
+      company_id: "company-a",
+      relationship_id: "relationship-1",
+      job_id: "job-1",
+      job_code: "ANL-1",
+      job_name: "Analyst",
+      profile_draft_assignment_id: "assignment-1",
+      designation: "Analyst",
+      job_grade: "G1",
+      employment_type: "Full time",
+      work_location: "Head office",
+      effective_on: "2026-10-15",
+      requested_by: "maker-user",
+      requested_at: "2026-10-15T01:00:00.000Z",
+      reason: "Approved profile is ready for independent hire review.",
+      status: "pending",
+      decided_by: null,
+      decided_at: null,
+      decision_reason: null,
+    } as const;
+    const repository = {
+      getEmployeeHireRequest: vi.fn(async () => detail),
+    } as unknown as Pick<SourceHrRepository, "getEmployeeHireRequest">;
+    const blocked = await request(appForHr(repository)).get("/api/v1/hr/employees/employee-1/hire_requests/request-1");
+    expect(blocked.status).toBe(401);
+    expect(repository.getEmployeeHireRequest).not.toHaveBeenCalled();
+
+    const accepted = await request(appForHr(repository))
+      .get("/api/v1/hr/employees/employee-1/hire_requests/request-1")
+      .set("cookie", "nexora_session=token-hr");
+    expect(accepted.status).toBe(200);
+    expect(accepted.body).toEqual(detail);
+    expect(repository.getEmployeeHireRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "employee-1",
+      "request-1",
+    );
   });
 
   it("protects independent employee hire decisions with the standard browser mutation controls", async () => {
-    const repository = { decideEmployeeHireRequest: vi.fn(async () => ({ id: "request-1", employee_id: "employee-1", company_id: "company-a", relationship_id: "relationship-1", status: "approved", assignment_id: "assignment-2", audit_event_id: "audit-6", replayed: false })) } as unknown as Pick<SourceHrRepository, "decideEmployeeHireRequest">;
+    const repository = {
+      decideEmployeeHireRequest: vi.fn(async () => ({
+        id: "request-1",
+        employee_id: "employee-1",
+        company_id: "company-a",
+        relationship_id: "relationship-1",
+        status: "approved",
+        assignment_id: "assignment-2",
+        audit_event_id: "audit-6",
+        replayed: false,
+      })),
+    } as unknown as Pick<SourceHrRepository, "decideEmployeeHireRequest">;
     const payload = { decision: "approved", reason: "Independent HR approval completed." };
-    const response = await request(appForHr(repository)).post("/api/v1/hr/employees/employee-1/hire_requests/request-1/decision").set("cookie", "nexora_session=token-hr").set("origin", "https://hr.example.test").set("x-csrf-token", session.csrfToken).set("idempotency-key", "employee-hire-decision-1").send(payload);
+    const response = await request(appForHr(repository))
+      .post("/api/v1/hr/employees/employee-1/hire_requests/request-1/decision")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "employee-hire-decision-1")
+      .send(payload);
     expect(response.status).toBe(200);
-    expect(repository.decideEmployeeHireRequest).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), "employee-1", "request-1", payload, "employee-hire-decision-1", expect.any(String));
+    expect(repository.decideEmployeeHireRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "employee-1",
+      "request-1",
+      payload,
+      "employee-hire-decision-1",
+      expect.any(String),
+    );
   });
 
   it("rejects HR data requests without an authenticated session", async () => {

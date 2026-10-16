@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
+import { HrHireMakerPanel } from "../components/hr-hire-maker-panel";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -19,7 +20,7 @@ function assignmentVariant(status: HrEmployeeAssignmentDirectory["items"][number
 
 /** Displays the database-enforced assignment history; all movement actions remain intentionally unavailable. */
 export function HrEmployeeAssignmentsWorkspace() {
-  const { api, session, loading: sessionLoading } = useSession();
+  const { api, csrfToken, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [companyId, setCompanyId] = useState("");
@@ -28,8 +29,13 @@ export function HrEmployeeAssignmentsWorkspace() {
   const [assignments, setAssignments] = useState<HrEmployeeAssignmentDirectory["items"]>([]);
   const [state, setState] = useState<LoadState>("loading");
   const [assignmentState, setAssignmentState] = useState<LoadState>("ready");
+  const [assignmentRefreshKey, setAssignmentRefreshKey] = useState(0);
   const canReadAssignments = session?.user.permissions.includes("hr.employee_assignment.read") ?? false;
   const canReadEmployees = session?.user.permissions.includes("hr.employee.read") ?? false;
+  const canCreateAssignment = session?.user.permissions.includes("hr.employee_assignment.create") ?? false;
+  const canRequestHire =
+    (session?.user.permissions.includes("hr.employment_lifecycle.action") ?? false) &&
+    (session?.user.permissions.includes("hr.employment_relationship.create") ?? false);
 
   useEffect(() => {
     if (sessionLoading || !canReadAssignments || !canReadEmployees) return;
@@ -90,7 +96,7 @@ export function HrEmployeeAssignmentsWorkspace() {
     return () => {
       active = false;
     };
-  }, [client, employeeId]);
+  }, [assignmentRefreshKey, client, employeeId]);
 
   if (sessionLoading) return <Skeleton className="h-32 w-full" />;
   if (!canReadAssignments || !canReadEmployees)
@@ -106,8 +112,8 @@ export function HrEmployeeAssignmentsWorkspace() {
       <Alert>
         <AlertTitle>Effective-dated assignment history</AlertTitle>
         <AlertDescription>
-          This is a read-only timeline. Transfer, promotion, activation and end-of-assignment actions will be added only
-          with their separate approval workflow.
+          The timeline remains immutable. Authorized HR makers can prepare a profile-draft assignment and submit a
+          separate Hire request below; activation still requires an independent approval.
         </AlertDescription>
       </Alert>
       <div className="grid gap-3 rounded-lg border border-border bg-card p-3 shadow-sm md:grid-cols-2">
@@ -154,54 +160,69 @@ export function HrEmployeeAssignmentsWorkspace() {
       {employeeId && assignmentState === "error" && (
         <Alert variant="destructive">
           <AlertTitle>Assignment history unavailable</AlertTitle>
-          <AlertDescription>The selected employee is no longer available in your current company scope.</AlertDescription>
+          <AlertDescription>
+            The selected employee is no longer available in your current company scope.
+          </AlertDescription>
         </Alert>
       )}
       {employeeId && assignmentState === "ready" && (
-        <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-          <table className="w-full min-w-[920px] text-left text-sm">
-            <thead className="border-b bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3">Effective period</th>
-                <th className="px-4 py-3">Role</th>
-                <th className="px-4 py-3">Employment context</th>
-                <th className="px-4 py-3">Change</th>
-                <th className="px-4 py-3">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assignments.map((assignment) => (
-                <tr className="border-b border-border/70 last:border-0" key={assignment.id}>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {assignment.effective_from} to {assignment.effective_to ?? "Current"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="font-medium">{assignment.designation}</p>
-                    {assignment.job && <p className="text-xs text-muted-foreground">{assignment.job}</p>}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {assignment.employment_type} · {assignment.job_grade} · {assignment.work_location}
-                  </td>
-                  <td className="px-4 py-3 capitalize text-muted-foreground">
-                    {assignment.change_reason.replaceAll("_", " ")}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={assignmentVariant(assignment.assignment_status)}>
-                      {assignment.assignment_status.replaceAll("_", " ")}
-                    </Badge>
-                  </td>
-                </tr>
-              ))}
-              {assignments.length === 0 && (
+        <>
+          <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
+            <table className="w-full min-w-[920px] text-left text-sm">
+              <thead className="border-b bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
-                    No assignment history is available for this employee.
-                  </td>
+                  <th className="px-4 py-3">Effective period</th>
+                  <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3">Employment context</th>
+                  <th className="px-4 py-3">Change</th>
+                  <th className="px-4 py-3">Status</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {assignments.map((assignment) => (
+                  <tr className="border-b border-border/70 last:border-0" key={assignment.id}>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {assignment.effective_from} to {assignment.effective_to ?? "Current"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium">{assignment.designation}</p>
+                      {assignment.job && <p className="text-xs text-muted-foreground">{assignment.job}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {assignment.employment_type} · {assignment.job_grade} · {assignment.work_location}
+                    </td>
+                    <td className="px-4 py-3 capitalize text-muted-foreground">
+                      {assignment.change_reason.replaceAll("_", " ")}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={assignmentVariant(assignment.assignment_status)}>
+                        {assignment.assignment_status.replaceAll("_", " ")}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+                {assignments.length === 0 && (
+                  <tr>
+                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
+                      No assignment history is available for this employee.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <HrHireMakerPanel
+            key={`${companyId}:${employeeId}`}
+            client={client}
+            csrfToken={csrfToken}
+            companyId={companyId}
+            employeeId={employeeId}
+            assignments={assignments}
+            canCreateAssignment={canCreateAssignment}
+            canRequestHire={canRequestHire}
+            onAssignmentCreated={() => setAssignmentRefreshKey((current) => current + 1)}
+          />
+        </>
       )}
     </section>
   );

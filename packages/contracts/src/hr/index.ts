@@ -51,6 +51,25 @@ export const hrCompanyDirectorySchema = z.strictObject({
 });
 export type HrCompanyDirectory = z.infer<typeof hrCompanyDirectorySchema>;
 
+export const hrOrganizationUnitDirectoryQuerySchema = z.strictObject({
+  company_id: identifier,
+  type: z.enum(["branch", "department"]).optional(),
+  limit: z.number().int().min(1).max(200).default(200),
+});
+export const hrOrganizationUnitDirectorySchema = z.strictObject({
+  items: z.array(
+    z.strictObject({
+      id: identifier,
+      parent_id: identifier,
+      type: z.enum(["branch", "department"]),
+      code: z.string().min(1).max(64),
+      name: z.string().min(1).max(200),
+    }),
+  ),
+});
+export type HrOrganizationUnitDirectoryQuery = z.infer<typeof hrOrganizationUnitDirectoryQuerySchema>;
+export type HrOrganizationUnitDirectory = z.infer<typeof hrOrganizationUnitDirectorySchema>;
+
 // Creating a draft deliberately excludes bank, tax, national-ID and employment
 // assignment data. Those fields have their own governed workflows and must not
 // be bundled into a directory/profile write.
@@ -289,11 +308,21 @@ export const hrMasterRecordSchema = z.strictObject({
 });
 export const createHrJobRequestSchema = z.strictObject({
   company_id: identifier,
-  code: z.string().trim().regex(/^[A-Z0-9][A-Z0-9._/-]{0,31}$/),
+  code: z
+    .string()
+    .trim()
+    .regex(/^[A-Z0-9][A-Z0-9._/-]{0,31}$/),
   name: z.string().trim().min(1).max(160),
   description: z.string().trim().max(1000).optional(),
 });
-export const hrJobResultSchema = z.strictObject({ id: identifier, company_id: identifier, code: z.string(), name: z.string(), audit_event_id: identifier, replayed: z.boolean() });
+export const hrJobResultSchema = z.strictObject({
+  id: identifier,
+  company_id: identifier,
+  code: z.string(),
+  name: z.string(),
+  audit_event_id: identifier,
+  replayed: z.boolean(),
+});
 
 /**
  * A hire request captures proposed employment context only. It must not be
@@ -329,6 +358,42 @@ export const hrEmployeeHireDecisionResultSchema = z.strictObject({
   assignment_id: identifier.nullable(),
   audit_event_id: identifier,
   replayed: z.boolean(),
+});
+
+export const hrEmployeeHireRequestDirectoryQuerySchema = z.strictObject({
+  company_id: identifier,
+  search: z.string().trim().max(160).optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+});
+
+/** Minimal approval projection; private employee fields are deliberately excluded. */
+export const hrEmployeeHireRequestReviewSchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  employee_number: z.string().min(1).max(32),
+  employee_name: z.string().min(1).max(320),
+  company_id: identifier,
+  relationship_id: identifier,
+  job_id: identifier,
+  job_code: z.string().min(1).max(32),
+  job_name: z.string().min(1).max(160),
+  profile_draft_assignment_id: identifier,
+  designation: z.string().min(1).max(160),
+  job_grade: z.string().min(1).max(160),
+  employment_type: z.string().min(1).max(160),
+  work_location: z.string().min(1).max(160),
+  effective_on: isoDate,
+  requested_by: identifier,
+  requested_at: z.string().datetime(),
+  reason: z.string().min(1).max(1000),
+  status: z.enum(["pending", "approved", "rejected"]),
+  decided_by: identifier.nullable(),
+  decided_at: z.string().datetime().nullable(),
+  decision_reason: z.string().max(1000).nullable(),
+});
+
+export const hrEmployeeHireRequestDirectorySchema = z.strictObject({
+  items: z.array(hrEmployeeHireRequestReviewSchema),
 });
 
 export const hrMasterDirectorySchema = z.strictObject({ items: z.array(hrMasterRecordSchema) });
@@ -379,7 +444,11 @@ export const createHrEmploymentLifecyclePolicyRequestSchema = z
   })
   .superRefine((value, context) => {
     if (value.effective_to && value.effective_to < value.effective_from)
-      context.addIssue({ code: "custom", path: ["effective_to"], message: "The end date cannot precede the start date." });
+      context.addIssue({
+        code: "custom",
+        path: ["effective_to"],
+        message: "The end date cannot precede the start date.",
+      });
   });
 export const hrEmploymentLifecyclePolicyResultSchema = z.strictObject({
   id: identifier,
@@ -402,7 +471,9 @@ export type HrEmploymentLifecyclePolicyDirectory = z.infer<typeof hrEmploymentLi
 export type CreateHrEmploymentLifecyclePolicyRequest = z.infer<typeof createHrEmploymentLifecyclePolicyRequestSchema>;
 export type HrEmploymentLifecyclePolicyResult = z.infer<typeof hrEmploymentLifecyclePolicyResultSchema>;
 export type SubmitHrEmploymentLifecyclePolicyRequest = z.infer<typeof submitHrEmploymentLifecyclePolicyRequestSchema>;
-export type HrEmploymentLifecyclePolicySubmissionResult = z.infer<typeof hrEmploymentLifecyclePolicySubmissionResultSchema>;
+export type HrEmploymentLifecyclePolicySubmissionResult = z.infer<
+  typeof hrEmploymentLifecyclePolicySubmissionResultSchema
+>;
 export const approveHrEmploymentLifecyclePolicyRequestSchema = z.strictObject({
   reason: z.string().trim().min(1).max(1000),
 });
@@ -417,8 +488,12 @@ export const activateHrEmploymentLifecyclePolicyRequestSchema = z.strictObject({
 export const hrEmploymentLifecyclePolicyActivationResultSchema = hrEmploymentLifecyclePolicyResultSchema.extend({
   status: z.literal("active"),
 });
-export type ActivateHrEmploymentLifecyclePolicyRequest = z.infer<typeof activateHrEmploymentLifecyclePolicyRequestSchema>;
-export type HrEmploymentLifecyclePolicyActivationResult = z.infer<typeof hrEmploymentLifecyclePolicyActivationResultSchema>;
+export type ActivateHrEmploymentLifecyclePolicyRequest = z.infer<
+  typeof activateHrEmploymentLifecyclePolicyRequestSchema
+>;
+export type HrEmploymentLifecyclePolicyActivationResult = z.infer<
+  typeof hrEmploymentLifecyclePolicyActivationResultSchema
+>;
 export type UpdateHrEmployeeDraftRequest = z.infer<typeof updateHrEmployeeDraftRequestSchema>;
 
 export const submitHrEmployeeDraftRequestSchema = z.strictObject({
@@ -495,3 +570,6 @@ export type CreateHrEmployeeHireRequest = z.infer<typeof createHrEmployeeHireReq
 export type HrEmployeeHireRequestResult = z.infer<typeof hrEmployeeHireRequestResultSchema>;
 export type DecideHrEmployeeHireRequest = z.infer<typeof decideHrEmployeeHireRequestSchema>;
 export type HrEmployeeHireDecisionResult = z.infer<typeof hrEmployeeHireDecisionResultSchema>;
+export type HrEmployeeHireRequestDirectoryQuery = z.infer<typeof hrEmployeeHireRequestDirectoryQuerySchema>;
+export type HrEmployeeHireRequestReview = z.infer<typeof hrEmployeeHireRequestReviewSchema>;
+export type HrEmployeeHireRequestDirectory = z.infer<typeof hrEmployeeHireRequestDirectorySchema>;

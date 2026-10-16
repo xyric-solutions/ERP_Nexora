@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
+import { HrHireApprovalsPanel } from "../components/hr-hire-approvals-panel";
 
 type LoadState = "loading" | "ready" | "error";
 type Decision = DecideHrEmployeeDraftApprovalRequest["decision"];
@@ -42,7 +43,9 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const retry = useRef<{ fingerprint: string; key: string } | null>(null);
-  const canApprove = session?.user.permissions.includes("hr.employee.approve") ?? false;
+  const canApproveDraft = session?.user.permissions.includes("hr.employee.approve") ?? false;
+  const canApproveHire = session?.user.permissions.includes("hr.employment_lifecycle.approve") ?? false;
+  const canApprove = canApproveDraft || canApproveHire;
   const userId = session?.user.id;
 
   useEffect(() => {
@@ -67,7 +70,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
   }, [canApprove, client, sessionLoading]);
 
   useEffect(() => {
-    if (!canApprove || !companyId) return;
+    if (!canApproveDraft || !companyId) return;
     let active = true;
     setState("loading");
     setQueue([]);
@@ -88,7 +91,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
     return () => {
       active = false;
     };
-  }, [canApprove, client, companyId, refreshKey]);
+  }, [canApproveDraft, client, companyId, refreshKey]);
 
   useEffect(() => {
     if (!selectedId || !companyId) return;
@@ -158,12 +161,14 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
     return (
       <Alert>
         <AlertTitle>Approval access required</AlertTitle>
-        <AlertDescription>Your session does not have permission to review HR employee drafts.</AlertDescription>
+        <AlertDescription>
+          Your session does not have permission to review employee drafts or Hire requests.
+        </AlertDescription>
       </Alert>
     );
 
   return (
-    <section className="grid min-w-0 gap-4" aria-label="Employee draft approvals">
+    <section className="grid min-w-0 gap-4" aria-label="Employee and Hire approvals">
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
         <label className="grid min-w-55 flex-1 gap-1.5 text-sm font-medium text-foreground">
           Company
@@ -189,19 +194,19 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           Refresh queue
         </Button>
       </div>
-      {notice && (
+      {canApproveDraft && notice && (
         <Alert>
           <AlertTitle>Decision recorded</AlertTitle>
           <AlertDescription>{notice}</AlertDescription>
         </Alert>
       )}
-      {error && (
+      {canApproveDraft && error && (
         <Alert variant="destructive">
           <AlertTitle>Decision unavailable</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      {state === "error" && (
+      {canApproveDraft && state === "error" && (
         <Alert variant="destructive">
           <AlertTitle>Live approvals unavailable</AlertTitle>
           <AlertDescription>
@@ -209,13 +214,13 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           </AlertDescription>
         </Alert>
       )}
-      {state === "loading" && (
+      {canApproveDraft && state === "loading" && (
         <div className="grid gap-2 rounded-lg border border-border bg-card p-4" aria-live="polite">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
         </div>
       )}
-      {state === "ready" && (
+      {canApproveDraft && state === "ready" && (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,.8fr)]">
           <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
             <table className="w-full min-w-160 text-left text-sm">
@@ -380,6 +385,16 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {canApproveHire && (
+        <HrHireApprovalsPanel
+          key={companyId}
+          client={client}
+          csrfToken={csrfToken}
+          companyId={companyId}
+          userId={userId}
+          onAction={onAction}
+        />
+      )}
     </section>
   );
 }
