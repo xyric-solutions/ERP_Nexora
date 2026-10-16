@@ -33,7 +33,20 @@ export async function loadHrSessionContext(
   const tenantHeader = req.get("x-tenant-id");
   if (tenantHeader && tenantHeader !== session.tenantId)
     throw new HttpError(403, "TENANT_ACCESS_DENIED", "The tenant boundary was rejected.");
-  const actor = await dependencies.authentication.loadAuthenticatedAccount(session.tenantId, session.userId);
+  if (mutation && session.impersonation)
+    throw new HttpError(
+      403,
+      "IMPERSONATION_RESTRICTED",
+      "Mutating HR operations are disabled during impersonation.",
+    );
+  const actorId = session.impersonation?.targetUserId ?? session.userId;
+  const actor = await dependencies.authentication.loadAuthenticatedAccount(session.tenantId, actorId);
   if (!actor) throw new HttpError(401, "INVALID_SESSION", "The session is missing or no longer valid.");
-  return { tenantId: session.tenantId, actor };
+  return {
+    tenantId: session.tenantId,
+    actor,
+    ...(session.impersonation
+      ? { realActorId: session.userId, impersonationRequestId: session.impersonation.requestId }
+      : {}),
+  };
 }

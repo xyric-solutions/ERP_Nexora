@@ -100,6 +100,10 @@ import {
   securityDelegationActionSchema,
 } from "./security/delegation.js";
 import {
+  createSecurityImpersonationSchema,
+  securityImpersonationActionSchema,
+} from "./security/impersonation.js";
+import {
   createSecurityAssignmentRequestSchema,
   createSecurityRoleRequestSchema,
   securityAdministrationResultSchema,
@@ -666,6 +670,59 @@ export function buildOpenApiDocument() {
           responses: {
             "200": {
               description: "Governed delegation transition recorded",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/security/impersonations": {
+        get: {
+          operationId: "listSecurityImpersonations",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            ...securityPaginationParameters,
+            {
+              in: "query",
+              name: "lifecycle_state",
+              schema: {
+                type: "string",
+                enum: ["draft", "submitted", "approved", "active", "rejected", "ended", "expired", "activation_failed"],
+              },
+            },
+            { in: "query", name: "principal_id", schema: { type: "string", minLength: 1, maxLength: 128 } },
+          ],
+          responses: securityPageResponse,
+        },
+        post: {
+          operationId: "createSecurityImpersonation",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/CreateSecurityImpersonation" } } },
+          },
+          responses: {
+            "201": {
+              description: "Governed impersonation draft created",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/security/impersonation_actions": {
+        post: {
+          operationId: "actOnSecurityImpersonation",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SecurityImpersonationAction" } } },
+          },
+          responses: {
+            "200": {
+              description: "Governed impersonation transition recorded",
               content: { "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } } },
             },
             ...securityErrors,
@@ -2354,6 +2411,8 @@ export function buildOpenApiDocument() {
         SecurityAccessReviewDecision: schema(securityAccessReviewDecisionSchema),
         CreateSecurityDelegation: schema(createSecurityDelegationSchema),
         SecurityDelegationAction: schema(securityDelegationActionSchema),
+        CreateSecurityImpersonation: schema(createSecurityImpersonationSchema),
+        SecurityImpersonationAction: schema(securityImpersonationActionSchema),
         CreateSecurityUserRequest: schema(createSecurityUserRequestSchema),
         SecurityUserRequestAction: schema(securityUserRequestActionSchema),
         SecurityUserEmergencyAction: schema(securityUserEmergencyActionSchema),

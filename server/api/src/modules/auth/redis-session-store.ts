@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import type { TenantSessionRecord, TenantSessionStore } from "@nexora/auth";
+import type { TenantImpersonationContext, TenantSessionRecord, TenantSessionStore } from "@nexora/auth";
 import type { Redis } from "ioredis";
 
 interface StoredSession {
@@ -16,6 +16,7 @@ interface StoredSession {
   rotatedFromId: string | null;
   userAgentHash: string | null;
   sourceIpHash: string | null;
+  impersonation?: Omit<TenantImpersonationContext, "expiresAt"> & { expiresAt: number };
 }
 
 const createScript = `
@@ -93,24 +94,47 @@ redis.call('DEL', KEYS[1])
 return count
 `;
 
+const impersonationScript = `
+local identity = redis.call('GET', KEYS[1])
+if not identity then return 0 end
+local mapping = cjson.decode(identity)
+local sessionKey = ARGV[1] .. mapping.tokenHash
+local raw = redis.call('GET', sessionKey)
+if not raw then return 0 end
+local ttl = redis.call('PTTL', sessionKey)
+if ttl <= 0 then return 0 end
+local record = cjson.decode(raw)
+if ARGV[2] == '' then record.impersonation = nil else record.impersonation = cjson.decode(ARGV[2]) end
+redis.call('SET', sessionKey, cjson.encode(record), 'PX', ttl)
+return 1
+`;
+
 function toStored(record: TenantSessionRecord): StoredSession {
+  const { impersonation, ...base } = record;
   return {
-    ...record,
+    ...base,
     createdAt: record.createdAt.getTime(),
     lastSeenAt: record.lastSeenAt.getTime(),
     idleExpiresAt: record.idleExpiresAt.getTime(),
     absoluteExpiresAt: record.absoluteExpiresAt.getTime(),
+    ...(impersonation
+      ? { impersonation: { ...impersonation, expiresAt: impersonation.expiresAt.getTime() } }
+      : {}),
   };
 }
 
 function fromStored(record: StoredSession): TenantSessionRecord {
+  const { impersonation, ...base } = record;
   return {
-    ...record,
+    ...base,
     sessionVersion: record.sessionVersion ?? 1,
     createdAt: new Date(record.createdAt),
     lastSeenAt: new Date(record.lastSeenAt),
     idleExpiresAt: new Date(record.idleExpiresAt),
     absoluteExpiresAt: new Date(record.absoluteExpiresAt),
+    ...(impersonation
+      ? { impersonation: { ...impersonation, expiresAt: new Date(impersonation.expiresAt) } }
+      : {}),
   };
 }
 
@@ -204,6 +228,11 @@ export class RedisTenantSessionStore implements TenantSessionStore {
     return Number(
       await this.redis.eval(revokeAllScript, 1, this.userKey(tenantId, userId), this.sessionPrefix, this.idPrefix),
     );
+  }
+
+  async setImpersonation(id: string, context: TenantImpersonationContext | null): Promise<boolean> {
+    const stored = context ? JSON.stringify({ ...context, expiresAt: context.expiresAt.getTime() }) : "";
+    return Number(await this.redis.eval(impersonationScript, 1, this.idKey(id), this.sessionPrefix, stored)) === 1;
   }
 
   private sessionKey(tokenHash: string): string {

@@ -13,6 +13,15 @@ export interface TenantSessionRecord {
   rotatedFromId: string | null;
   userAgentHash: string | null;
   sourceIpHash: string | null;
+  impersonation?: TenantImpersonationContext;
+}
+
+export interface TenantImpersonationContext {
+  requestId: string;
+  requestVersion: number;
+  targetUserId: string;
+  targetSessionVersion: number;
+  expiresAt: Date;
 }
 
 export interface TenantSessionStore {
@@ -23,6 +32,7 @@ export interface TenantSessionStore {
   revoke(id: string): Promise<boolean>;
   revokeByTokenHash(tokenHash: string): Promise<boolean>;
   revokeAll(tenantId: string, userId: string): Promise<number>;
+  setImpersonation?(id: string, context: TenantImpersonationContext | null): Promise<boolean>;
 }
 
 export interface TenantSessionView {
@@ -33,6 +43,7 @@ export interface TenantSessionView {
   csrfToken: string;
   idleExpiresAt: Date;
   absoluteExpiresAt: Date;
+  impersonation?: TenantImpersonationContext;
 }
 
 export interface IssuedTenantSession extends TenantSessionView {
@@ -41,6 +52,16 @@ export interface IssuedTenantSession extends TenantSessionView {
 
 export interface TenantSessionAuthority {
   loadSessionVersion(tenantId: string, userId: string): Promise<number | null>;
+}
+
+export interface TenantImpersonationAuthority {
+  validateImpersonationContext(input: {
+    tenantId: string;
+    sessionId: string;
+    realUserId: string;
+    requestId: string;
+    targetUserId: string;
+  }): Promise<boolean>;
 }
 
 export type TenantSessionMutationResult = { status: "invalid_session" } | { status: "invalid_csrf" } | { status: "ok" };
@@ -63,6 +84,7 @@ export class TenantSessionService {
     private readonly policy: { idleTimeoutMs: number; absoluteTimeoutMs: number },
     private readonly authority: TenantSessionAuthority,
     private readonly clock: () => Date = () => new Date(),
+    private readonly impersonationAuthority?: TenantImpersonationAuthority,
   ) {
     if (Buffer.byteLength(secret, "utf8") < 32) throw new Error("Session secret must contain at least 32 bytes");
     if (policy.idleTimeoutMs <= 0 || policy.absoluteTimeoutMs <= 0 || policy.idleTimeoutMs > policy.absoluteTimeoutMs) {
@@ -159,6 +181,30 @@ export class TenantSessionService {
     return this.store.revokeAll(tenantId, userId);
   }
 
+  async startImpersonation(
+    token: string,
+    context: TenantImpersonationContext,
+  ): Promise<TenantSessionView | null> {
+    if (!this.store.setImpersonation || !this.impersonationAuthority) return null;
+    const current = await this.find(token);
+    if (!current || current.impersonation) return null;
+    const targetVersion = await this.authority.loadSessionVersion(current.tenantId, context.targetUserId);
+    if (targetVersion !== context.targetSessionVersion || context.expiresAt <= this.clock()) return null;
+    const valid = await this.impersonationAuthority.validateImpersonationContext({
+      tenantId: current.tenantId,
+      sessionId: current.id,
+      realUserId: current.userId,
+      requestId: context.requestId,
+      targetUserId: context.targetUserId,
+    });
+    if (!valid || !(await this.store.setImpersonation(current.id, context))) return null;
+    return this.view({ ...current, impersonation: context });
+  }
+
+  async endImpersonation(sessionId: string): Promise<boolean> {
+    return this.store.setImpersonation ? this.store.setImpersonation(sessionId, null) : false;
+  }
+
   private async findAndTouch(token: string): Promise<TenantSessionRecord | null> {
     const current = await this.find(token);
     if (!current) return null;
@@ -183,6 +229,32 @@ export class TenantSessionService {
     if (now >= record.idleExpiresAt || now >= record.absoluteExpiresAt) {
       await this.store.revoke(record.id);
       return null;
+    }
+    if (record.impersonation) {
+      let valid = false;
+      try {
+        const targetVersion = await this.authority.loadSessionVersion(record.tenantId, record.impersonation.targetUserId);
+        valid =
+          targetVersion === record.impersonation.targetSessionVersion &&
+          now < record.impersonation.expiresAt &&
+          Boolean(this.impersonationAuthority) &&
+          (await this.impersonationAuthority!.validateImpersonationContext({
+            tenantId: record.tenantId,
+            sessionId: record.id,
+            realUserId: record.userId,
+            requestId: record.impersonation.requestId,
+            targetUserId: record.impersonation.targetUserId,
+          }));
+      } catch {
+        valid = false;
+      }
+      if (!valid) {
+        if (!this.store.setImpersonation || !(await this.store.setImpersonation(record.id, null))) {
+          await this.store.revoke(record.id);
+          return null;
+        }
+        delete record.impersonation;
+      }
     }
     return record;
   }
@@ -227,6 +299,7 @@ export class TenantSessionService {
       csrfToken: this.csrf(record.id),
       idleExpiresAt: record.idleExpiresAt,
       absoluteExpiresAt: record.absoluteExpiresAt,
+      ...(record.impersonation ? { impersonation: record.impersonation } : {}),
     };
   }
 

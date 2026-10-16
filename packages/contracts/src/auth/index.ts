@@ -30,6 +30,13 @@ export const authenticatedUserSchema = z.object({
   permissions: z.array(z.string().regex(/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*){2,}$/)),
 });
 
+export const impersonationSessionSchema = z.object({
+  request_id: z.string().min(1).max(128),
+  expected_version: z.number().int().positive(),
+  real_user: authenticatedUserSchema,
+  expires_at: z.string().datetime({ offset: true }),
+});
+
 export const sessionResponseSchema = z.object({
   status: z.literal("authenticated"),
   tenant_id: tenantIdentifierSchema,
@@ -37,6 +44,7 @@ export const sessionResponseSchema = z.object({
   csrf_token: z.string().min(43).max(43),
   idle_expires_at: z.string().datetime({ offset: true }),
   absolute_expires_at: z.string().datetime({ offset: true }),
+  impersonation: impersonationSessionSchema.optional(),
 });
 
 export const tenantSelectionChoiceSchema = z.object({

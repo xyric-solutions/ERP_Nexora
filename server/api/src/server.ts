@@ -42,6 +42,7 @@ const passwordChangeService = new PasswordChangeService(
   new RedisPasswordChangeTicketStore(redis),
   config.authSessionSecret,
 );
+const securityRepository = new SourceSecurityAdministrationRepository(pool, config.authLoginDirectorySecret);
 const sessionService = new TenantSessionService(
   new RedisTenantSessionStore(redis),
   config.authSessionSecret,
@@ -50,6 +51,8 @@ const sessionService = new TenantSessionService(
     absoluteTimeoutMs: config.authSessionAbsoluteMs,
   },
   authRepository,
+  undefined,
+  securityRepository,
 );
 let draining = false;
 const app = createApp({
@@ -60,7 +63,7 @@ const app = createApp({
   tenantSelectionService,
   passwordChangeService,
   sessionService,
-  securityRepository: new SourceSecurityAdministrationRepository(pool, config.authLoginDirectorySecret),
+  securityRepository,
   hrRepository: new SourceHrRepository(pool),
   readiness: {
     service: async () => {

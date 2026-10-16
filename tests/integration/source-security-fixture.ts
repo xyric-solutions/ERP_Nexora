@@ -39,6 +39,11 @@ const makerPermissions = [
   "security.delegation.submit",
   "security.delegation.activate",
   "security.delegation.revoke",
+  "security.impersonation.read",
+  "security.impersonation.create",
+  "security.impersonation.submit",
+  "security.impersonation.activate",
+  "security.impersonation.end",
 ] as const;
 
 const checkerPermissions = [
@@ -55,6 +60,8 @@ const checkerPermissions = [
   "security.access_review.decide",
   "security.delegation.read",
   "security.delegation.approve",
+  "security.impersonation.read",
+  "security.impersonation.approve",
 ] as const;
 
 const roles = [
@@ -299,6 +306,15 @@ export async function ensureSourceAuthorizationFixture(pool: DatabasePool): Prom
         [sourceTestTenantId, assignmentId, userId, policyId, `test-fixture:${assignmentId}`],
       );
     }
+    await client.query(
+      `insert into security_emergency_impersonation_principal
+        (tenant_id,user_id,designated_by,source_reference)
+       values ($1,'r06.last-admin-b','r06.last-admin-b','controlled-test-fixture')
+       on conflict (tenant_id) do update set
+         user_id=excluded.user_id,designated_by=excluded.designated_by,
+         source_reference=excluded.source_reference,revoked_at=null`,
+      [sourceTestTenantId],
+    );
     for (const userId of users) {
       const companyIds = [
         "nexora-r06-uat-company",

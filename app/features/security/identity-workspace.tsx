@@ -15,6 +15,7 @@ import RoleForm from "./role-form";
 import GovernedTable from "./governed-table";
 import AccessReviewPanel from "./access-review-panel";
 import DelegationPanel from "./delegation-panel";
+import ImpersonationPanel from "./impersonation-panel";
 import { identityHashLocation, identityHref, type IdentityLocation, type IdentitySection } from "./identity-navigation";
 
 const labels = {
@@ -431,7 +432,10 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
           {tab === "access-reviews" ? (
             <AccessReviewPanel permissions={permissions} />
           ) : tab === "delegation" ? (
-            <DelegationPanel permissions={permissions} />
+            <>
+              <DelegationPanel permissions={permissions} />
+              <ImpersonationPanel permissions={permissions} />
+            </>
           ) : isPlannedSection ? (
             <Alert className="m-5" role="status">
               <AlertTitle>{labels[section]}</AlertTitle>

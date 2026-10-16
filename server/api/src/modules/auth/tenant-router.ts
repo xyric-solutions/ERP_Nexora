@@ -44,6 +44,8 @@ export interface TenantSessionApiService {
   logoutAll: TenantSessionService["logoutAll"];
   revokeToken: TenantSessionService["revokeToken"];
   revokeAllForUser: TenantSessionService["revokeAllForUser"];
+  startImpersonation?: TenantSessionService["startImpersonation"];
+  endImpersonation?: TenantSessionService["endImpersonation"];
 }
 
 export interface PasswordChangeApiService {
@@ -138,20 +140,38 @@ function sessionContext(req: Request) {
   };
 }
 
-function responseForSession(session: TenantSessionView, account: AuthenticatedAccount): SessionResponse {
+function userResponse(account: AuthenticatedAccount) {
+  return {
+    id: account.userId,
+    email: account.email,
+    display_name: account.displayName,
+    roles: [...account.roles],
+    permissions: [...account.permissions],
+  };
+}
+
+function responseForSession(
+  session: TenantSessionView,
+  realAccount: AuthenticatedAccount,
+  effectiveAccount: AuthenticatedAccount = realAccount,
+): SessionResponse {
   return {
     status: "authenticated",
     tenant_id: session.tenantId,
-    user: {
-      id: account.userId,
-      email: account.email,
-      display_name: account.displayName,
-      roles: [...account.roles],
-      permissions: [...account.permissions],
-    },
+    user: userResponse(effectiveAccount),
     csrf_token: session.csrfToken,
     idle_expires_at: session.idleExpiresAt.toISOString(),
     absolute_expires_at: session.absoluteExpiresAt.toISOString(),
+    ...(session.impersonation
+      ? {
+          impersonation: {
+            request_id: session.impersonation.requestId,
+            expected_version: session.impersonation.requestVersion,
+            real_user: userResponse(realAccount),
+            expires_at: session.impersonation.expiresAt.toISOString(),
+          },
+        }
+      : {}),
   };
 }
 
@@ -379,14 +399,22 @@ export function createTenantAuthRouter(dependencies: TenantAuthRouterDependencie
       res.setHeader("set-cookie", clearSessionCookie(secureCookies));
       throw new HttpError(401, "INVALID_SESSION", "The session is missing or no longer valid.");
     }
-    const account = await authentication.loadAuthenticatedAccount(session.tenantId, session.userId);
-    if (!account) {
+    const realAccount = await authentication.loadAuthenticatedAccount(session.tenantId, session.userId);
+    if (!realAccount) {
+      await sessions.revokeToken(token);
+      res.setHeader("set-cookie", clearSessionCookie(secureCookies));
+      throw new HttpError(401, "INVALID_SESSION", "The session is missing or no longer valid.");
+    }
+    const effectiveAccount = session.impersonation
+      ? await authentication.loadAuthenticatedAccount(session.tenantId, session.impersonation.targetUserId)
+      : realAccount;
+    if (!effectiveAccount) {
       await sessions.revokeToken(token);
       res.setHeader("set-cookie", clearSessionCookie(secureCookies));
       throw new HttpError(401, "INVALID_SESSION", "The session is missing or no longer valid.");
     }
     res.setHeader("set-cookie", serializeSessionCookie(token, session.idleExpiresAt, new Date(), secureCookies));
-    res.json(responseForSession(session, account));
+    res.json(responseForSession(session, realAccount, effectiveAccount));
   });
 
   router.post("/session/rotate", async (req, res) => {

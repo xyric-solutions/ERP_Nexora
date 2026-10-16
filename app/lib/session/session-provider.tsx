@@ -14,6 +14,7 @@ import type {
 import { NexoraApiClient } from "../api/generated";
 import { BrowserSessionClient } from "../auth/session-client";
 import { apiBaseUrl } from "../../shared/config/runtime";
+import { Button } from "../../components/ui/button";
 
 interface SessionContextValue {
   api: NexoraApiClient;
@@ -24,6 +25,7 @@ interface SessionContextValue {
   cancelTenantSelection(payload: CancelTenantSelectionRequest): Promise<void>;
   changeInitialPassword(payload: ChangeInitialPasswordRequest): Promise<SessionResponse>;
   logout(): Promise<void>;
+  endImpersonation(): Promise<void>;
   refresh(): Promise<void>;
   csrfToken(): string;
 }
@@ -93,12 +95,41 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         await client.logout();
         setSession(null);
       },
+      async endImpersonation() {
+        if (!session?.impersonation) return;
+        try {
+          await api.actOnSecurityImpersonation(
+            {
+              action: "end",
+              request_id: session.impersonation.request_id,
+              expected_version: session.impersonation.expected_version,
+              reason: "Ended by the real actor",
+            },
+            client.csrfTokenForRequest(),
+            `web-impersonation-end-${crypto.randomUUID()}`,
+          );
+        } finally {
+          await refresh();
+        }
+      },
       refresh,
       csrfToken: () => client.csrfTokenForRequest(),
     }),
     [api, client, loading, refresh, session],
   );
-  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+  return (
+    <SessionContext.Provider value={value}>
+      {session?.impersonation ? (
+        <div className="sticky top-0 z-[100] flex flex-wrap items-center justify-between gap-3 border-b border-amber-700 bg-amber-100 px-4 py-3 text-sm text-amber-950" role="alert">
+          <p>
+            <strong>{session.impersonation.real_user.display_name} is impersonating {session.user.display_name}.</strong> Read-only operational access ends at {new Date(session.impersonation.expires_at).toLocaleTimeString()}.
+          </p>
+          <Button type="button" variant="destructive" size="sm" onClick={() => void value.endImpersonation()}>End session</Button>
+        </div>
+      ) : null}
+      {children}
+    </SessionContext.Provider>
+  );
 }
 
 export function useSession(): SessionContextValue {

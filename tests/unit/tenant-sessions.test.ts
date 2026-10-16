@@ -52,6 +52,18 @@ class MemoryTenantSessionStore implements TenantSessionStore {
     }
     return count;
   }
+
+  async setImpersonation(id: string, context: TenantSessionRecord["impersonation"] | null) {
+    const record = this.records.get(id);
+    if (!record) return false;
+    if (context) this.records.set(id, { ...record, impersonation: context });
+    else {
+      const remaining = { ...record };
+      delete remaining.impersonation;
+      this.records.set(id, remaining);
+    }
+    return true;
+  }
 }
 
 describe("TenantSessionService", () => {
@@ -95,5 +107,45 @@ describe("TenantSessionService", () => {
       ).resolves.toEqual({ status: "ok" });
       expect(await service.get(replacementAfterRevocation.token)).toBeNull();
     }
+  });
+
+  it("revalidates impersonation authority and both account session versions on every use", async () => {
+    const store = new MemoryTenantSessionStore();
+    const versions = new Map([
+      ["real-user", 1],
+      ["target-user", 3],
+    ]);
+    let contextActive = true;
+    const service = new TenantSessionService(
+      store,
+      "s".repeat(32),
+      { idleTimeoutMs: 60_000, absoluteTimeoutMs: 300_000 },
+      { loadSessionVersion: async (_tenantId, userId) => versions.get(userId) ?? null },
+      () => new Date("2026-10-16T12:00:00.000Z"),
+      { validateImpersonationContext: async () => contextActive },
+    );
+    const issued = await service.issue("tenant-a", "real-user");
+    const started = await service.startImpersonation(issued.token, {
+      requestId: "impersonation-1",
+      requestVersion: 4,
+      targetUserId: "target-user",
+      targetSessionVersion: 3,
+      expiresAt: new Date("2026-10-16T12:10:00.000Z"),
+    });
+    expect(started?.impersonation?.targetUserId).toBe("target-user");
+    contextActive = false;
+    expect((await service.get(issued.token))?.impersonation).toBeUndefined();
+
+    contextActive = true;
+    const restarted = await service.startImpersonation(issued.token, {
+      requestId: "impersonation-2",
+      requestVersion: 2,
+      targetUserId: "target-user",
+      targetSessionVersion: 3,
+      expiresAt: new Date("2026-10-16T12:10:00.000Z"),
+    });
+    expect(restarted).not.toBeNull();
+    versions.set("target-user", 4);
+    expect((await service.get(issued.token))?.impersonation).toBeUndefined();
   });
 });

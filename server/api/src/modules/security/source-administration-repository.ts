@@ -6,6 +6,7 @@ import type {
   CreateSecurityUserRequest,
   CreateSecurityAccessReviewCampaign,
   CreateSecurityDelegation,
+  CreateSecurityImpersonation,
   CreateSecurityAssignmentRequest,
   CreateSecurityRoleRequest,
   SecurityAdministrationResult,
@@ -14,6 +15,8 @@ import type {
   SecurityAccessReviewListQuery,
   SecurityDelegationAction,
   SecurityDelegationListQuery,
+  SecurityImpersonationAction,
+  SecurityImpersonationListQuery,
   SecurityApprovalAction,
   SecurityAssignmentRequestAction,
   SecurityPage,
@@ -1689,6 +1692,367 @@ export class SourceSecurityAdministrationRepository {
         (tenant_id,event_id,delegation_id,event_type,actor_id,reason,state_snapshot)
        values ($1,$2,$3,$4,$5,$6,$7)`,
       [context.tenantId, `delegation-event-${randomUUID()}`, delegationId, eventType, context.actor.userId, reason, JSON.stringify(state)],
+    );
+  }
+
+  listImpersonations(context: SecurityActorContext, query: SecurityImpersonationListQuery): Promise<SecurityPage> {
+    return this.read(context, "security.impersonation.read", async (client, fullAdmin) => {
+      const parameters: unknown[] = [context.tenantId];
+      const conditions = ["request.tenant_id=$1"];
+      if (query.lifecycle_state) conditions.push(`request.lifecycle_state=$${parameters.push(query.lifecycle_state)}`);
+      if (query.principal_id) {
+        const principal = parameters.push(query.principal_id);
+        conditions.push(`(request.actor_id=$${principal} or request.target_user_id=$${principal})`);
+      }
+      const canApprove =
+        fullAdmin || (await this.hasDirectTenantPermission(client, context, "security.impersonation.approve"));
+      if (!canApprove) {
+        const actor = parameters.push(context.actor.userId);
+        conditions.push(`(request.actor_id=$${actor} or request.target_user_id=$${actor})`);
+      }
+      parameters.push(query.limit + 1, query.cursor);
+      const result = await client.query<Record<string, unknown>>(
+        `select request.*,
+                case when request.lifecycle_state='active' and request.expires_at<=now() then 'expired'
+                     else request.lifecycle_state end as effective_state,
+                (principal.user_id=request.actor_id and principal.revoked_at is null) as emergency_principal,
+                coalesce((select jsonb_agg(jsonb_build_object(
+                  'event_type',event.event_type,'real_actor_id',event.real_actor_id,
+                  'effective_actor_id',event.effective_actor_id,'reason',event.reason,
+                  'occurred_at',event.occurred_at) order by event.occurred_at,event.event_id)
+                  from security_impersonation_event event where event.tenant_id=request.tenant_id
+                    and event.request_id=request.request_id),'[]'::jsonb) as history
+           from security_impersonation_request request
+           left join security_emergency_impersonation_principal principal on principal.tenant_id=request.tenant_id
+          where ${conditions.join(" and ")}
+          order by request.created_at desc,request.request_id desc
+          limit $${parameters.length - 1} offset $${parameters.length}`,
+        parameters,
+      );
+      return page(result.rows.map(cleanRow), query.limit, query.cursor);
+    });
+  }
+
+  createImpersonation(
+    context: SecurityActorContext,
+    request: CreateSecurityImpersonation,
+    key: string,
+  ): Promise<SecurityAdministrationResult> {
+    return this.run(
+      context,
+      "security.impersonation.create",
+      key,
+      request,
+      ["target_user_id", "purpose"],
+      async (client) => {
+        await this.validateImpersonationTarget(client, context.tenantId, context.actor.userId, request.target_user_id);
+        const requestId = `impersonation-${randomUUID()}`;
+        await client.query(
+          `insert into security_impersonation_request
+            (tenant_id,request_id,actor_id,target_user_id,purpose,duration_minutes)
+           values ($1,$2,$3,$4,$5,$6)`,
+          [context.tenantId, requestId, context.actor.userId, request.target_user_id, request.purpose, request.duration_minutes],
+        );
+        const after = await this.impersonationState(client, context.tenantId, requestId);
+        await this.appendImpersonationEvent(client, context, requestId, "created", request.purpose, context.actor.userId, after!);
+        return { entityType: "impersonation", entityId: requestId, before: null, after };
+      },
+    );
+  }
+
+  actOnImpersonation(
+    context: SecurityActorContext,
+    action: SecurityImpersonationAction,
+    key: string,
+    sessionId: string,
+  ): Promise<SecurityAdministrationResult> {
+    const permission = action.action === "reject" ? "approve" : action.action;
+    return this.run(
+      context,
+      `security.impersonation.${permission}`,
+      key,
+      action,
+      [],
+      async (client, _commandId, fullAdmin) => {
+        const result = await client.query<Record<string, unknown>>(
+          `select * from security_impersonation_request where tenant_id=$1 and request_id=$2 for update`,
+          [context.tenantId, action.request_id],
+        );
+        const current = result.rows[0];
+        if (!current)
+          throw new SecurityAdministrationError(404, "IMPERSONATION_NOT_FOUND", "The impersonation request was not found.");
+        if (Number(current.row_version) !== action.expected_version) throw this.conflict("The impersonation version has changed.");
+        const before = cleanRow(current);
+        const reason = "reason" in action ? action.reason : null;
+        let eventType = "";
+        if (action.action === "submit") {
+          if (current.lifecycle_state !== "draft" || (!fullAdmin && current.actor_id !== context.actor.userId))
+            throw this.conflict("Only the requesting actor can submit a current draft.");
+          await this.validateImpersonationTarget(
+            client,
+            context.tenantId,
+            String(current.actor_id),
+            String(current.target_user_id),
+          );
+          await client.query(
+            `update security_impersonation_request set lifecycle_state='submitted',submitted_by=$3,
+              submitted_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and request_id=$2`,
+            [context.tenantId, action.request_id, context.actor.userId],
+          );
+          eventType = "submitted";
+        } else if (action.action === "approve" || action.action === "reject") {
+          if (current.lifecycle_state !== "submitted") throw this.conflict("Only submitted impersonation can be decided.");
+          if (current.actor_id === context.actor.userId)
+            throw new SecurityAdministrationError(403, "MAKER_CHECKER_VIOLATION", "The requesting actor cannot approve impersonation.");
+          if (action.action === "approve") {
+            await this.validateImpersonationTarget(
+              client,
+              context.tenantId,
+              String(current.actor_id),
+              String(current.target_user_id),
+            );
+            await client.query(
+              `update security_impersonation_request set lifecycle_state='approved',approved_by=$3,
+                approved_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and request_id=$2`,
+              [context.tenantId, action.request_id, context.actor.userId],
+            );
+            eventType = "approved";
+          } else {
+            await client.query(
+              `update security_impersonation_request set lifecycle_state='rejected',rejected_by=$3,
+                rejected_at=now(),rejection_reason=$4,updated_at=now(),row_version=row_version+1
+               where tenant_id=$1 and request_id=$2`,
+              [context.tenantId, action.request_id, context.actor.userId, reason],
+            );
+            eventType = "rejected";
+          }
+        } else if (action.action === "activate" || action.action === "emergency_activate") {
+          if (!fullAdmin && current.actor_id !== context.actor.userId)
+            throw new SecurityAdministrationError(403, "IMPERSONATION_ACTOR_DENIED", "Only the requesting actor can activate impersonation.");
+          if (action.action === "activate" && current.lifecycle_state !== "approved")
+            throw this.conflict("Only approved impersonation can be activated.");
+          if (action.action === "emergency_activate") {
+            if (current.lifecycle_state !== "draft" && current.lifecycle_state !== "submitted")
+              throw this.conflict("Emergency activation requires a pending request.");
+            const principal = await client.query(
+              `select 1 from security_emergency_impersonation_principal
+                where tenant_id=$1 and user_id=$2 and revoked_at is null`,
+              [context.tenantId, context.actor.userId],
+            );
+            if (!principal.rowCount)
+              throw new SecurityAdministrationError(
+                403,
+                "EMERGENCY_PRINCIPAL_REQUIRED",
+                "The actor is not the tenant's designated emergency impersonation principal.",
+              );
+          }
+          await this.validateImpersonationTarget(
+            client,
+            context.tenantId,
+            String(current.actor_id),
+            String(current.target_user_id),
+          );
+          const target = await client.query<{ session_version: number }>(
+            `select session_version from security_user_account where tenant_id=$1 and id=$2`,
+            [context.tenantId, current.target_user_id],
+          );
+          await client.query(
+            `update security_impersonation_request set lifecycle_state='active',emergency_activation=$3,
+              activated_by=$4,activated_at=now(),active_session_id=$5,target_session_version=$6,
+              expires_at=now()+(duration_minutes * interval '1 minute'),updated_at=now(),row_version=row_version+1
+             where tenant_id=$1 and request_id=$2`,
+            [
+              context.tenantId,
+              action.request_id,
+              action.action === "emergency_activate",
+              context.actor.userId,
+              sessionId,
+              target.rows[0]!.session_version,
+            ],
+          );
+          eventType = action.action === "emergency_activate" ? "emergency_activated" : "activated";
+        } else {
+          if (current.lifecycle_state !== "active") throw this.conflict("Only active impersonation can be ended.");
+          if (!fullAdmin && current.actor_id !== context.actor.userId)
+            throw new SecurityAdministrationError(403, "IMPERSONATION_ACTOR_DENIED", "Only the real actor can end impersonation.");
+          await client.query(
+            `update security_impersonation_request set lifecycle_state='ended',ended_by=$3,ended_at=now(),
+              end_reason=$4,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and request_id=$2`,
+            [context.tenantId, action.request_id, context.actor.userId, reason],
+          );
+          eventType = "ended";
+        }
+        const after = await this.impersonationState(client, context.tenantId, action.request_id);
+        await this.appendImpersonationEvent(
+          client,
+          context,
+          action.request_id,
+          eventType,
+          reason,
+          eventType === "activated" || eventType === "emergency_activated" || eventType === "ended"
+            ? String(current.target_user_id)
+            : context.actor.userId,
+          after!,
+        );
+        return {
+          entityType: "impersonation",
+          entityId: action.request_id,
+          before,
+          after,
+          outcome: action.action === "reject" ? "rejected" : "completed",
+        };
+      },
+    );
+  }
+
+  async failImpersonationActivation(
+    context: SecurityActorContext,
+    requestId: string,
+    sessionId: string,
+  ): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin");
+      await client.query("select set_config('nexora.tenant_id', $1, true)", [context.tenantId]);
+      const current = await client.query<Record<string, unknown>>(
+        `select * from security_impersonation_request
+          where tenant_id=$1 and request_id=$2 and lifecycle_state='active' and active_session_id=$3 for update`,
+        [context.tenantId, requestId, sessionId],
+      );
+      if (current.rows[0]) {
+        await client.query(
+          `update security_impersonation_request set lifecycle_state='activation_failed',ended_by=$3,
+            ended_at=now(),end_reason='Session context could not be established',updated_at=now(),row_version=row_version+1
+           where tenant_id=$1 and request_id=$2`,
+          [context.tenantId, requestId, context.actor.userId],
+        );
+        const after = await this.impersonationState(client, context.tenantId, requestId);
+        await this.appendImpersonationEvent(
+          client,
+          context,
+          requestId,
+          "activation_failed",
+          "Session context could not be established",
+          context.actor.userId,
+          after!,
+        );
+        await this.appendAudit(client, context, "security.impersonation.activation_failed", {
+          entityType: "impersonation",
+          entityId: requestId,
+          before: cleanRow(current.rows[0]),
+          after,
+          outcome: "rejected",
+        });
+      }
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async validateImpersonationContext(input: {
+    tenantId: string;
+    sessionId: string;
+    realUserId: string;
+    requestId: string;
+    targetUserId: string;
+  }): Promise<boolean> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level repeatable read read only");
+      await client.query("select set_config('nexora.tenant_id', $1, true)", [input.tenantId]);
+      const result = await client.query(
+        `select 1 from security_impersonation_request request
+          join security_user_account actor on actor.tenant_id=request.tenant_id and actor.id=request.actor_id
+            and actor.status='active' and actor.archived_at is null
+          join security_user_account target on target.tenant_id=request.tenant_id and target.id=request.target_user_id
+            and target.status='active' and target.archived_at is null
+         where request.tenant_id=$1 and request.request_id=$2 and request.actor_id=$3 and request.target_user_id=$4
+           and request.active_session_id=$5 and request.lifecycle_state='active' and request.expires_at>now()
+           and exists (
+             select 1 from security_user_role_assignment_version assignment
+             join security_role_policy policy on policy.tenant_id=assignment.tenant_id and policy.id=assignment.role_policy_id
+               and policy.status='active' and policy.lifecycle_state='active'
+             join security_role_permission_grant permission_grant on permission_grant.tenant_id=policy.tenant_id
+               and permission_grant.role_policy_id=policy.id
+             join security_role_scope_grant scope on scope.tenant_id=permission_grant.tenant_id
+               and scope.role_policy_id=permission_grant.role_policy_id and scope.permission_key=permission_grant.permission_key
+               and scope.scope_kind='tenant' and scope.scope_value=request.tenant_id
+            where assignment.tenant_id=request.tenant_id and assignment.user_id=request.actor_id
+              and assignment.version=(select max(latest.version) from security_user_role_assignment_version latest
+                where latest.tenant_id=assignment.tenant_id and latest.assignment_id=assignment.assignment_id)
+              and assignment.lifecycle_state='active' and assignment.valid_from<=now()
+              and (assignment.valid_until is null or assignment.valid_until>now())
+              and (
+                (not request.emergency_activation and permission_grant.permission_key in (
+                  'security.authorization.administer','security.impersonation.activate'
+                ))
+                or (
+                  request.emergency_activation
+                  and permission_grant.permission_key in (
+                    'security.authorization.administer','security.impersonation.emergency_activate'
+                  )
+                  and exists (select 1 from security_emergency_impersonation_principal principal
+                    where principal.tenant_id=request.tenant_id and principal.user_id=request.actor_id and principal.revoked_at is null)
+                )
+              )
+           )`,
+        [input.tenantId, input.requestId, input.realUserId, input.targetUserId, input.sessionId],
+      );
+      await client.query("commit");
+      return Boolean(result.rowCount);
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  private async validateImpersonationTarget(client: PoolClient, tenantId: string, actorId: string, targetId: string) {
+    if (actorId === targetId)
+      throw new SecurityAdministrationError(403, "SELF_IMPERSONATION_DENIED", "Self-impersonation is not permitted.");
+    const target = await client.query(
+      `select 1 from security_user_account where tenant_id=$1 and id=$2 and status='active' and archived_at is null`,
+      [tenantId, targetId],
+    );
+    if (!target.rowCount) throw this.conflict("The impersonation target is unavailable.");
+  }
+
+  private async impersonationState(client: PoolClient, tenantId: string, requestId: string) {
+    const result = await client.query<Record<string, unknown>>(
+      `select * from security_impersonation_request where tenant_id=$1 and request_id=$2`,
+      [tenantId, requestId],
+    );
+    return result.rows[0] ? cleanRow(result.rows[0]) : null;
+  }
+
+  private async appendImpersonationEvent(
+    client: PoolClient,
+    context: SecurityActorContext,
+    requestId: string,
+    eventType: string,
+    reason: string | null,
+    effectiveActorId: string,
+    state: Record<string, unknown>,
+  ) {
+    await client.query(
+      `insert into security_impersonation_event
+        (tenant_id,event_id,request_id,event_type,real_actor_id,effective_actor_id,reason,state_snapshot)
+       values ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [
+        context.tenantId,
+        `impersonation-event-${randomUUID()}`,
+        requestId,
+        eventType,
+        context.actor.userId,
+        effectiveActorId,
+        reason,
+        JSON.stringify(state),
+      ],
     );
   }
 

@@ -37,7 +37,7 @@ an explicit completion handoff.
 - [x] IA-02 execute/fix complete parity for the five existing user/role pages.
 - [x] IA-03 PostgreSQL-backed Access Review.
 - [x] IA-04 governed Delegation.
-- [ ] IA-05 governed Impersonation and single emergency principal.
+- [x] IA-05 governed Impersonation and single emergency principal.
 - [ ] IA-06 versioned Security & Session Policies with runtime enforcement.
 - [ ] IA-07 complete security regression and controlled browser acceptance.
 
@@ -95,8 +95,7 @@ All links remain under the canonical parent:
 - Delegation & Impersonation: `/#/identity/access?tab=roles&section=delegation`
 - Security & Session Policies: `/#/identity/access?tab=roles&section=policies`
 
-The Delegation portion of the combined Delegation & Impersonation URL is live.
-Impersonation remains explicitly disabled until IA-05. The Policies URL remains
+The combined Delegation & Impersonation URL is live. The Policies URL remains
 navigation-ready but unavailable until IA-06.
 
 ## IA-02 verification record â€” 2026-10-16
@@ -196,9 +195,51 @@ Observed verification:
   the Next.js 16.3.8 production build passed.
 - Controlled browser acceptance remains deferred to IA-07.
 
+## IA-05 verification record — 2026-10-16
+
+- Security migration 12 adds tenant-RLS impersonation requests, one current
+  emergency principal per tenant, immutable lifecycle evidence, relational
+  constraints/indexes and exact `security.impersonation.*` permissions.
+- Normal requests use draft, submit, independent approve/reject, activate and
+  end states with optimistic versions, idempotency and hash-chained security
+  audit. Emergency activation skips approval only when the real actor has
+  server authority and is the single PostgreSQL-designated principal.
+- PostgreSQL remains authoritative for every active context. Redis stores only
+  the short-lived attachment to the real browser session. Each request
+  revalidates request state, expiry, real and target accounts/session versions,
+  source authority and emergency designation; stale or unavailable authority
+  removes the transient context rather than expanding access.
+- `/api/v1/auth/session` returns the effective target plus visible real-actor
+  evidence. A global, unavoidable banner identifies both parties, expiry and an
+  End session control. No reusable impersonation token reaches the browser.
+- All Identity & Access operations and every HR mutation are rejected during
+  impersonation. Read-only HR requests resolve the effective target while
+  retaining real actor and request identifiers in server context.
+- The connected workspace provides request, pending/approval, active and
+  historical views. The designated emergency administrator receives the
+  emergency action without role-name or username inference.
+
+Observed verification:
+
+- PostgreSQL + Redis impersonation suite: 3 passed, covering normal
+  maker/checker activation, effective session response, security restriction,
+  explicit termination, emergency designation, approval-free activation,
+  designation loss and PostgreSQL-authoritative stale-context invalidation.
+- Focused session, HR restriction and impersonation UI tests: 6 passed. The
+  broader IA-05 UI/session batch passed 24 tests across six files.
+- Wider authentication, Identity and HR API run observed 47 passing tests and
+  one existing HR assignment-timeline assertion failure: the current response
+  contains `reporting_manager_id`. IA-05 changed no assignment projection and
+  the failure remains for the paused HR workstream rather than being hidden.
+- Security foundation: 5 passed. API drift check, full TypeScript check,
+  focused ESLint, `git diff --check` and the Next.js 16.3.8 production build
+  passed.
+- Migration applied successfully through security version 12 on the dedicated
+  test PostgreSQL database. Controlled browser acceptance remains IA-07.
+
 ## Current safe resume point
 
-Proceed with IA-05, governed Impersonation. Preserve security migration 11 and
-the live Delegation path. Add PostgreSQL-authoritative approval/emergency
-designation and short-lived server-side impersonation context; enforce the
-high-risk restriction matrix before enabling impersonation workspace controls.
+Proceed with IA-06, versioned Security & Session Policies. Preserve security
+migration 12 and the PostgreSQL-authoritative impersonation validator. Add
+bounded policy values, independent approval, one active effective version,
+runtime enforcement and safe fallback before enabling the Policies workspace.

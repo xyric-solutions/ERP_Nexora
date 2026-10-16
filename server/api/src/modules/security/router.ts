@@ -6,6 +6,7 @@ import {
   createSecurityAssignmentRequestSchema,
   createSecurityAccessReviewCampaignSchema,
   createSecurityDelegationSchema,
+  createSecurityImpersonationSchema,
   createSecurityRoleRequestSchema,
   createSecurityUserRequestSchema,
   securityApprovalActionSchema,
@@ -14,6 +15,8 @@ import {
   securityAccessReviewListQuerySchema,
   securityDelegationActionSchema,
   securityDelegationListQuerySchema,
+  securityImpersonationActionSchema,
+  securityImpersonationListQuerySchema,
   securityAssignmentRequestActionSchema,
   securityRoleActionRequestSchema,
   securityUserEmergencyActionSchema,
@@ -51,6 +54,10 @@ export interface SecurityAdministrationApiRepository {
   listDelegations: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["listDelegations"];
   createDelegation: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["createDelegation"];
   actOnDelegation: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["actOnDelegation"];
+  listImpersonations: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["listImpersonations"];
+  createImpersonation: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["createImpersonation"];
+  actOnImpersonation: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["actOnImpersonation"];
+  failImpersonationActivation: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["failImpersonationActivation"];
 }
 
 const querySchema = z.object({
@@ -109,7 +116,7 @@ function idempotencyKey(req: Request): string {
 export function createSecurityRouter(dependencies: SecurityRouterDependencies): Router {
   const router = Router();
 
-  async function context(req: Request, mutation: boolean): Promise<SecurityActorContext> {
+  async function sessionContextForRequest(req: Request, mutation: boolean) {
     const token = readSessionCookie(req.get("cookie"), dependencies.secureCookies);
     if (!token) throw new HttpError(401, "INVALID_SESSION", "The session is missing or no longer valid.");
     const session = mutation
@@ -131,7 +138,22 @@ export function createSecurityRouter(dependencies: SecurityRouterDependencies): 
       session.session.userId,
     );
     if (!actor) throw new HttpError(401, "INVALID_SESSION", "The session is missing or no longer valid.");
-    return { tenantId: session.session.tenantId, actor, correlationId: currentRequestContext().correlationId };
+    return { token, session: session.session, actor };
+  }
+
+  async function context(req: Request, mutation: boolean): Promise<SecurityActorContext> {
+    const resolved = await sessionContextForRequest(req, mutation);
+    if (resolved.session.impersonation)
+      throw new HttpError(
+        403,
+        "IMPERSONATION_RESTRICTED",
+        "Identity and Access operations are disabled during impersonation.",
+      );
+    return {
+      tenantId: resolved.session.tenantId,
+      actor: resolved.actor,
+      correlationId: currentRequestContext().correlationId,
+    };
   }
 
   const handle = async <T>(operation: () => Promise<T>): Promise<T> => {
@@ -252,6 +274,10 @@ export function createSecurityRouter(dependencies: SecurityRouterDependencies): 
   router.get("/delegations", async (req, res) => {
     const query = securityDelegationListQuerySchema.parse(req.query);
     res.json(await handle(async () => dependencies.repository.listDelegations(await context(req, false), query)));
+  });
+  router.get("/impersonations", async (req, res) => {
+    const query = securityImpersonationListQuerySchema.parse(req.query);
+    res.json(await handle(async () => dependencies.repository.listImpersonations(await context(req, false), query)));
   });
 
   router.post("/roles", async (req, res) => {
@@ -380,6 +406,57 @@ export function createSecurityRouter(dependencies: SecurityRouterDependencies): 
     const actorContext = await context(req, true);
     const input = securityDelegationActionSchema.parse(req.body);
     res.json(await handle(async () => dependencies.repository.actOnDelegation(actorContext, input, idempotencyKey(req))));
+  });
+  router.post("/impersonations", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const actorContext = await context(req, true);
+    const input = createSecurityImpersonationSchema.parse(req.body);
+    res
+      .status(201)
+      .json(await handle(async () => dependencies.repository.createImpersonation(actorContext, input, idempotencyKey(req))));
+  });
+  router.post("/impersonation_actions", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const input = securityImpersonationActionSchema.parse(req.body);
+    const resolved = await sessionContextForRequest(req, true);
+    if (resolved.session.impersonation && (input.action !== "end" || resolved.session.impersonation.requestId !== input.request_id))
+      throw new HttpError(403, "IMPERSONATION_RESTRICTED", "Only the current impersonation session can be ended.");
+    const actorContext: SecurityActorContext = {
+      tenantId: resolved.session.tenantId,
+      actor: resolved.actor,
+      correlationId: currentRequestContext().correlationId,
+    };
+    const result = await handle(async () =>
+      dependencies.repository.actOnImpersonation(
+        actorContext,
+        input,
+        idempotencyKey(req),
+        resolved.session.sessionId,
+      ),
+    );
+    const next = result.projection.new_state as Record<string, unknown>;
+    if (input.action === "activate" || input.action === "emergency_activate") {
+      if (!dependencies.sessions.startImpersonation) {
+        await dependencies.repository.failImpersonationActivation(actorContext, input.request_id, resolved.session.sessionId);
+        throw new HttpError(503, "IMPERSONATION_SESSION_UNAVAILABLE", "The impersonation session could not be established.");
+      }
+      const started = await dependencies.sessions.startImpersonation(resolved.token, {
+        requestId: input.request_id,
+        requestVersion: Number(next.row_version),
+        targetUserId: String(next.target_user_id),
+        targetSessionVersion: Number(next.target_session_version),
+        expiresAt: new Date(String(next.expires_at)),
+      });
+      if (!started) {
+        await dependencies.repository.failImpersonationActivation(actorContext, input.request_id, resolved.session.sessionId);
+        throw new HttpError(503, "IMPERSONATION_SESSION_UNAVAILABLE", "The impersonation session could not be established.");
+      }
+    } else if (input.action === "end") {
+      const activeSessionId = String(next.active_session_id ?? resolved.session.sessionId);
+      if (!dependencies.sessions.endImpersonation || !(await dependencies.sessions.endImpersonation(activeSessionId)))
+        throw new HttpError(503, "IMPERSONATION_SESSION_UNAVAILABLE", "The impersonation session could not be cleared.");
+    }
+    res.json(result);
   });
   return router;
 }

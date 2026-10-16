@@ -106,6 +106,8 @@ export class HrApiError extends Error {
 export interface HrActorContext {
   tenantId: string;
   actor: AuthenticatedAccount;
+  realActorId?: string;
+  impersonationRequestId?: string;
 }
 
 type EmployeeSummaryRow = Omit<HrEmployeeDirectory["items"][number], "joined_on"> & { joined_on: string | Date };

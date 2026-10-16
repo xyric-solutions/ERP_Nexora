@@ -50,9 +50,10 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
 
   const actorId = session?.user.id ?? "";
   const isFullAdmin = permissions.has("security.authorization.administer");
+  const canRead = isFullAdmin || permissions.has("security.delegation.read");
 
   const load = useCallback(async () => {
-    if (!permissions.has("security.delegation.read")) return;
+    if (!canRead) return;
     setLoading(true);
     setMessage("");
     try {
@@ -79,7 +80,7 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
     } finally {
       setLoading(false);
     }
-  }, [actorId, api, isFullAdmin, permissions]);
+  }, [actorId, api, canRead, isFullAdmin, permissions]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -154,7 +155,7 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
     [rows],
   );
 
-  if (!permissions.has("security.delegation.read")) {
+  if (!canRead) {
     return <p className="p-9 text-center text-sm text-muted-foreground">You do not have permission to view delegations.</p>;
   }
 
@@ -168,7 +169,7 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
           <Button type="button" variant="outline" disabled={loading || busy} onClick={() => void load()}>
             Refresh
           </Button>
-          {permissions.has("security.delegation.create") ? (
+          {isFullAdmin || permissions.has("security.delegation.create") ? (
             <Button type="button" disabled={busy} onClick={() => setShowCreate((value) => !value)}>
               {showCreate ? "Close" : "Create delegation"}
             </Button>
@@ -233,10 +234,10 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
                       <p className="mt-3 text-sm">{String(row.reason)}</p>
                       <p className="mt-2 text-xs text-muted-foreground">{new Date(String(row.valid_from)).toLocaleString()} — {new Date(String(row.valid_until)).toLocaleString()}</p>
                       <div className="mt-4 flex flex-wrap gap-2">
-                        {state === "draft" && owns && permissions.has("security.delegation.submit") ? <Button type="button" size="sm" disabled={busy} onClick={() => void transition(row, "submit")}>Submit</Button> : null}
-                        {state === "submitted" && !owns && permissions.has("security.delegation.approve") ? <><Button type="button" size="sm" disabled={busy} onClick={() => void transition(row, "approve")}>Approve</Button><Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => void transition(row, "reject")}>Reject</Button></> : null}
-                        {state === "approved" && owns && permissions.has("security.delegation.activate") ? <Button type="button" size="sm" disabled={busy} onClick={() => void transition(row, "activate")}>Activate</Button> : null}
-                        {(state === "active" || state === "upcoming") && owns && permissions.has("security.delegation.revoke") ? <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => void transition(row, "revoke")}>Revoke</Button> : null}
+                        {state === "draft" && owns && (isFullAdmin || permissions.has("security.delegation.submit")) ? <Button type="button" size="sm" disabled={busy} onClick={() => void transition(row, "submit")}>Submit</Button> : null}
+                        {state === "submitted" && !owns && (isFullAdmin || permissions.has("security.delegation.approve")) ? <><Button type="button" size="sm" disabled={busy} onClick={() => void transition(row, "approve")}>Approve</Button><Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => void transition(row, "reject")}>Reject</Button></> : null}
+                        {state === "approved" && owns && (isFullAdmin || permissions.has("security.delegation.activate")) ? <Button type="button" size="sm" disabled={busy} onClick={() => void transition(row, "activate")}>Activate</Button> : null}
+                        {(state === "active" || state === "upcoming") && owns && (isFullAdmin || permissions.has("security.delegation.revoke")) ? <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => void transition(row, "revoke")}>Revoke</Button> : null}
                       </div>
                     </article>
                   );
@@ -246,7 +247,6 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
           ) : null)}
         </div>
       )}
-      <Alert className="m-5 border-dashed"><AlertDescription>Impersonation remains disabled until its separately governed IA-05 session-control slice is verified.</AlertDescription></Alert>
     </div>
   );
 }
