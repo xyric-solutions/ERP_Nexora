@@ -4,9 +4,13 @@ import { z } from "zod";
 import type { TenantAuthApiService, TenantSessionApiService } from "../auth/tenant-router.js";
 import {
   createSecurityAssignmentRequestSchema,
+  createSecurityAccessReviewCampaignSchema,
   createSecurityRoleRequestSchema,
   createSecurityUserRequestSchema,
   securityApprovalActionSchema,
+  securityAccessReviewCampaignActionSchema,
+  securityAccessReviewDecisionSchema,
+  securityAccessReviewListQuerySchema,
   securityAssignmentRequestActionSchema,
   securityRoleActionRequestSchema,
   securityUserEmergencyActionSchema,
@@ -36,6 +40,11 @@ export interface SecurityAdministrationApiRepository {
   createUserRequest: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["createUserRequest"];
   actOnUserRequest: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["actOnUserRequest"];
   actOnUserEmergency: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["actOnUserEmergency"];
+  listAccessReviewCampaigns: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["listAccessReviewCampaigns"];
+  listAccessReviewItems: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["listAccessReviewItems"];
+  createAccessReviewCampaign: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["createAccessReviewCampaign"];
+  actOnAccessReviewCampaign: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["actOnAccessReviewCampaign"];
+  decideAccessReviewItem: import("./source-administration-repository.js").SourceSecurityAdministrationRepository["decideAccessReviewItem"];
 }
 
 const querySchema = z.object({
@@ -222,6 +231,18 @@ export function createSecurityRouter(dependencies: SecurityRouterDependencies): 
   router.get("/user_options", async (req, res) =>
     res.json(await handle(async () => dependencies.repository.listUserOptions(await context(req, false)))),
   );
+  router.get("/access_review_campaigns", async (req, res) => {
+    const query = securityAccessReviewListQuerySchema.parse(req.query);
+    res.json(
+      await handle(async () => dependencies.repository.listAccessReviewCampaigns(await context(req, false), query)),
+    );
+  });
+  router.get("/access_review_items", async (req, res) => {
+    const query = securityAccessReviewListQuerySchema
+      .extend({ campaign_id: z.string().min(1).max(128) })
+      .parse(req.query);
+    res.json(await handle(async () => dependencies.repository.listAccessReviewItems(await context(req, false), query)));
+  });
 
   router.post("/roles", async (req, res) => {
     const body: unknown = req.body;
@@ -303,6 +324,38 @@ export function createSecurityRouter(dependencies: SecurityRouterDependencies): 
     );
     await dependencies.sessions.revokeAllForUser(actorContext.tenantId, input.target_user_id);
     res.json(result);
+  });
+  router.post("/access_review_campaigns", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const actorContext = await context(req, true);
+    const input = createSecurityAccessReviewCampaignSchema.parse(req.body);
+    res
+      .status(201)
+      .json(
+        await handle(async () =>
+          dependencies.repository.createAccessReviewCampaign(actorContext, input, idempotencyKey(req)),
+        ),
+      );
+  });
+  router.post("/access_review_campaign_actions", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const actorContext = await context(req, true);
+    const input = securityAccessReviewCampaignActionSchema.parse(req.body);
+    res.json(
+      await handle(async () =>
+        dependencies.repository.actOnAccessReviewCampaign(actorContext, input, idempotencyKey(req)),
+      ),
+    );
+  });
+  router.post("/access_review_decisions", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const actorContext = await context(req, true);
+    const input = securityAccessReviewDecisionSchema.parse(req.body);
+    res.json(
+      await handle(async () =>
+        dependencies.repository.decideAccessReviewItem(actorContext, input, idempotencyKey(req)),
+      ),
+    );
   });
   return router;
 }

@@ -91,6 +91,11 @@ import {
 import { jobReceiptSchema, sampleJobPayloadSchema } from "./jobs/index.js";
 import { problemDetailsSchema } from "./problem.js";
 import {
+  createSecurityAccessReviewCampaignSchema,
+  securityAccessReviewCampaignActionSchema,
+  securityAccessReviewDecisionSchema,
+} from "./security/access-review.js";
+import {
   createSecurityAssignmentRequestSchema,
   createSecurityRoleRequestSchema,
   securityAdministrationResultSchema,
@@ -513,6 +518,94 @@ export function buildOpenApiDocument() {
             "200": {
               description: "Eligible tenant-scoped user administration options",
               content: { "application/json": { schema: { $ref: "#/components/schemas/SecurityUserOptions" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/security/access_review_campaigns": {
+        get: {
+          operationId: "listSecurityAccessReviewCampaigns",
+          security: [{ cookieAuth: [] }],
+          parameters: securityPaginationParameters,
+          responses: securityPageResponse,
+        },
+        post: {
+          operationId: "createSecurityAccessReviewCampaign",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/CreateSecurityAccessReviewCampaign" } },
+            },
+          },
+          responses: {
+            "201": {
+              description: "Access review campaign draft created",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/security/access_review_items": {
+        get: {
+          operationId: "listSecurityAccessReviewItems",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            ...securityPaginationParameters,
+            {
+              in: "query",
+              name: "campaign_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
+          responses: securityPageResponse,
+        },
+      },
+      "/security/access_review_campaign_actions": {
+        post: {
+          operationId: "actOnSecurityAccessReviewCampaign",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/SecurityAccessReviewCampaignAction" } },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Access review campaign transition recorded",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/security/access_review_decisions": {
+        post: {
+          operationId: "decideSecurityAccessReviewItem",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/SecurityAccessReviewDecision" } },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Immutable access review decision recorded",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/SecurityAdministrationResult" } },
+              },
             },
             ...securityErrors,
           },
@@ -2195,6 +2288,9 @@ export function buildOpenApiDocument() {
         SecurityAssignmentRequestAction: schema(securityAssignmentRequestActionSchema),
         SecurityApprovalAction: schema(securityApprovalActionSchema),
         SecurityAdministrationResult: schema(securityAdministrationResultSchema),
+        CreateSecurityAccessReviewCampaign: schema(createSecurityAccessReviewCampaignSchema),
+        SecurityAccessReviewCampaignAction: schema(securityAccessReviewCampaignActionSchema),
+        SecurityAccessReviewDecision: schema(securityAccessReviewDecisionSchema),
         CreateSecurityUserRequest: schema(createSecurityUserRequestSchema),
         SecurityUserRequestAction: schema(securityUserRequestActionSchema),
         SecurityUserEmergencyAction: schema(securityUserEmergencyActionSchema),

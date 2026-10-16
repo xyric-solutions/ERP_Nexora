@@ -4,9 +4,13 @@ import { hashPassword, loginIdentifierHmac } from "@nexora/auth";
 import type { AuthenticatedAccount } from "@nexora/auth";
 import type {
   CreateSecurityUserRequest,
+  CreateSecurityAccessReviewCampaign,
   CreateSecurityAssignmentRequest,
   CreateSecurityRoleRequest,
   SecurityAdministrationResult,
+  SecurityAccessReviewCampaignAction,
+  SecurityAccessReviewDecision,
+  SecurityAccessReviewListQuery,
   SecurityApprovalAction,
   SecurityAssignmentRequestAction,
   SecurityPage,
@@ -956,6 +960,426 @@ export class SourceSecurityAdministrationRepository {
       entity_type: "user_account",
       credential_delivery_available: false,
     };
+  }
+
+  listAccessReviewCampaigns(
+    context: SecurityActorContext,
+    query: SecurityAccessReviewListQuery,
+  ): Promise<SecurityPage> {
+    return this.read(context, "security.access_review.read", async (client, fullAdmin) => {
+      const parameters: unknown[] = [context.tenantId];
+      const conditions = ["campaign.tenant_id=$1"];
+      if (query.lifecycle_state) conditions.push(`campaign.lifecycle_state=$${parameters.push(query.lifecycle_state)}`);
+      if (query.campaign_id) conditions.push(`campaign.campaign_id=$${parameters.push(query.campaign_id)}`);
+      if (query.reviewer_id) {
+        conditions.push(
+          `exists (select 1 from security_access_review_reviewer reviewer
+                    where reviewer.tenant_id=campaign.tenant_id and reviewer.campaign_id=campaign.campaign_id
+                      and reviewer.reviewer_id=$${parameters.push(query.reviewer_id)})`,
+        );
+      }
+      if (!fullAdmin) {
+        const actorParameter = parameters.push(context.actor.userId);
+        conditions.push(
+          `(campaign.owner_id=$${actorParameter} or exists (
+             select 1 from security_access_review_reviewer reviewer
+              where reviewer.tenant_id=campaign.tenant_id and reviewer.campaign_id=campaign.campaign_id
+                and reviewer.reviewer_id=$${actorParameter}))`,
+        );
+      }
+      parameters.push(query.limit + 1, query.cursor);
+      const result = await client.query<Record<string, unknown>>(
+        `select campaign.*,
+                coalesce((select jsonb_agg(company_id order by company_id)
+                  from security_access_review_campaign_company company
+                 where company.tenant_id=campaign.tenant_id and company.campaign_id=campaign.campaign_id),'[]'::jsonb) as company_ids,
+                coalesce((select jsonb_agg(reviewer_id order by reviewer_id)
+                  from security_access_review_reviewer reviewer
+                 where reviewer.tenant_id=campaign.tenant_id and reviewer.campaign_id=campaign.campaign_id),'[]'::jsonb) as reviewer_ids,
+                (select count(*)::int from security_access_review_item item
+                  where item.tenant_id=campaign.tenant_id and item.campaign_id=campaign.campaign_id) as item_count,
+                (select count(*)::int from security_access_review_decision decision
+                  where decision.tenant_id=campaign.tenant_id and decision.campaign_id=campaign.campaign_id) as decision_count
+           from security_access_review_campaign campaign
+          where ${conditions.join(" and ")}
+          order by campaign.created_at desc,campaign.campaign_id desc
+          limit $${parameters.length - 1} offset $${parameters.length}`,
+        parameters,
+      );
+      return page(result.rows.map(cleanRow), query.limit, query.cursor);
+    });
+  }
+
+  listAccessReviewItems(
+    context: SecurityActorContext,
+    query: SecurityAccessReviewListQuery & { campaign_id: string },
+  ): Promise<SecurityPage> {
+    return this.read(context, "security.access_review.read", async (client, fullAdmin) => {
+      const campaign = await this.accessReviewCampaignState(client, context.tenantId, query.campaign_id);
+      if (!campaign)
+        throw new SecurityAdministrationError(404, "ACCESS_REVIEW_NOT_FOUND", "The access review was not found.");
+      const reviewers = Array.isArray(campaign.reviewer_ids) ? campaign.reviewer_ids.map(String) : [];
+      if (!fullAdmin && campaign.owner_id !== context.actor.userId && !reviewers.includes(context.actor.userId))
+        throw new SecurityAdministrationError(404, "ACCESS_REVIEW_NOT_FOUND", "The access review was not found.");
+      const parameters: unknown[] = [context.tenantId, query.campaign_id];
+      const reviewer =
+        query.reviewer_id ?? (!fullAdmin && campaign.owner_id !== context.actor.userId ? context.actor.userId : null);
+      const reviewerFilter = reviewer ? `and item.reviewer_id=$${parameters.push(reviewer)}` : "";
+      parameters.push(query.limit + 1, query.cursor);
+      const result = await client.query<Record<string, unknown>>(
+        `select item.*,decision.decision_id,decision.decision,decision.reason,
+                decision.remediation_resource_type,decision.remediation_request_id,decision.decided_at
+           from security_access_review_item item
+           left join security_access_review_decision decision
+             on decision.tenant_id=item.tenant_id and decision.item_id=item.item_id
+          where item.tenant_id=$1 and item.campaign_id=$2 ${reviewerFilter}
+          order by item.captured_at,item.item_id
+          limit $${parameters.length - 1} offset $${parameters.length}`,
+        parameters,
+      );
+      return page(result.rows.map(cleanRow), query.limit, query.cursor);
+    });
+  }
+
+  createAccessReviewCampaign(
+    context: SecurityActorContext,
+    request: CreateSecurityAccessReviewCampaign,
+    key: string,
+  ): Promise<SecurityAdministrationResult> {
+    return this.run(
+      context,
+      "security.access_review.create",
+      key,
+      request,
+      ["name", "company_ids", "reviewer_ids"],
+      async (client, _commandId, fullAdmin) => {
+        const companyIds = [...new Set(request.company_ids)].sort();
+        const reviewerIds = [...new Set(request.reviewer_ids)].sort();
+        if (companyIds.length !== request.company_ids.length || reviewerIds.length !== request.reviewer_ids.length)
+          throw this.conflict("Access review companies and reviewers must be unique.");
+        if (reviewerIds.includes(context.actor.userId))
+          throw new SecurityAdministrationError(
+            403,
+            "MAKER_CHECKER_VIOLATION",
+            "The campaign owner cannot review their own campaign.",
+          );
+        if (companyIds.length) {
+          const companies = await client.query<{ id: string }>(
+            `select company.id from organization_unit company
+              where company.tenant_id=$1 and company.id=any($2::text[]) and company.type='company' and company.status='active'`,
+            [context.tenantId, companyIds],
+          );
+          if (companies.rowCount !== companyIds.length)
+            throw this.conflict("One or more review companies are unavailable.");
+          if (!fullAdmin) {
+            const allowed = await client.query(
+              `select company_id from security_user_company_access
+                where tenant_id=$1 and user_id=$2 and company_id=any($3::text[]) and revoked_at is null`,
+              [context.tenantId, context.actor.userId, companyIds],
+            );
+            if (allowed.rowCount !== companyIds.length)
+              throw new SecurityAdministrationError(
+                403,
+                "COMPANY_ACCESS_DENIED",
+                "The campaign exceeds your company access.",
+              );
+          }
+        }
+        const reviewers = await client.query<{ id: string }>(
+          `select id from security_user_account where tenant_id=$1 and id=any($2::text[]) and status='active' and archived_at is null`,
+          [context.tenantId, reviewerIds],
+        );
+        if (reviewers.rowCount !== reviewerIds.length) throw this.conflict("One or more reviewers are unavailable.");
+        const campaignId = `access-review-${randomUUID()}`;
+        await client.query(
+          `insert into security_access_review_campaign
+            (tenant_id,campaign_id,name,description,scope_mode,review_starts_at,review_ends_at,owner_id)
+           values ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [
+            context.tenantId,
+            campaignId,
+            request.name,
+            request.description,
+            companyIds.length ? "companies" : "tenant",
+            request.review_starts_at,
+            request.review_ends_at,
+            context.actor.userId,
+          ],
+        );
+        for (const companyId of companyIds)
+          await client.query(
+            `insert into security_access_review_campaign_company (tenant_id,campaign_id,company_id) values ($1,$2,$3)`,
+            [context.tenantId, campaignId, companyId],
+          );
+        for (const reviewerId of reviewerIds)
+          await client.query(
+            `insert into security_access_review_reviewer
+              (tenant_id,campaign_id,reviewer_id,assigned_by) values ($1,$2,$3,$4)`,
+            [context.tenantId, campaignId, reviewerId, context.actor.userId],
+          );
+        return {
+          entityType: "access_review_campaign",
+          entityId: campaignId,
+          before: null,
+          after: await this.accessReviewCampaignState(client, context.tenantId, campaignId),
+        };
+      },
+    );
+  }
+
+  actOnAccessReviewCampaign(
+    context: SecurityActorContext,
+    action: SecurityAccessReviewCampaignAction,
+    key: string,
+  ): Promise<SecurityAdministrationResult> {
+    const permission = action.action === "reject" ? "approve" : action.action;
+    return this.run(context, `security.access_review.${permission}`, key, action, [], async (client) => {
+      const locked = await client.query<Record<string, unknown>>(
+        `select * from security_access_review_campaign where tenant_id=$1 and campaign_id=$2 for update`,
+        [context.tenantId, action.campaign_id],
+      );
+      const current = locked.rows[0];
+      if (!current)
+        throw new SecurityAdministrationError(404, "ACCESS_REVIEW_NOT_FOUND", "The access review was not found.");
+      if (Number(current.row_version) !== action.expected_version)
+        throw this.conflict("The access review version has changed.");
+      const before = cleanRow(current);
+      if (action.action === "submit") {
+        if (current.lifecycle_state !== "draft" || current.owner_id !== context.actor.userId)
+          throw this.conflict("Only the campaign owner can submit a current draft.");
+        await client.query(
+          `update security_access_review_campaign set lifecycle_state='submitted',submitted_by=$3,submitted_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and campaign_id=$2`,
+          [context.tenantId, action.campaign_id, context.actor.userId],
+        );
+      } else if (action.action === "approve" || action.action === "reject") {
+        if (current.lifecycle_state !== "submitted") throw this.conflict("Only submitted campaigns can be decided.");
+        if (current.owner_id === context.actor.userId)
+          throw new SecurityAdministrationError(
+            403,
+            "MAKER_CHECKER_VIOLATION",
+            "Campaign owners cannot approve their own campaign.",
+          );
+        if (action.action === "approve")
+          await client.query(
+            `update security_access_review_campaign set lifecycle_state='approved',approved_by=$3,approved_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and campaign_id=$2`,
+            [context.tenantId, action.campaign_id, context.actor.userId],
+          );
+        else
+          await client.query(
+            `update security_access_review_campaign set lifecycle_state='rejected',rejected_by=$3,rejected_at=now(),rejection_reason=$4,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and campaign_id=$2`,
+            [context.tenantId, action.campaign_id, context.actor.userId, "reason" in action ? action.reason : null],
+          );
+      } else if (action.action === "activate") {
+        if (current.lifecycle_state !== "approved") throw this.conflict("Only approved campaigns can be activated.");
+        await this.captureAccessReviewItems(client, context, action.campaign_id);
+        await client.query(
+          `update security_access_review_campaign set lifecycle_state='active',activated_by=$3,activated_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and campaign_id=$2`,
+          [context.tenantId, action.campaign_id, context.actor.userId],
+        );
+      } else {
+        if (current.lifecycle_state !== "active") throw this.conflict("Only active campaigns can be closed.");
+        const incomplete = await client.query(
+          `select 1 from security_access_review_item item
+              left join security_access_review_decision decision
+                on decision.tenant_id=item.tenant_id and decision.item_id=item.item_id
+             where item.tenant_id=$1 and item.campaign_id=$2
+               and (decision.decision_id is null or (decision.decision<>'retain' and decision.remediation_request_id is null)) limit 1`,
+          [context.tenantId, action.campaign_id],
+        );
+        if (incomplete.rowCount)
+          throw this.conflict("Every review item must have a complete decision and remediation reference.");
+        await client.query(
+          `update security_access_review_campaign set lifecycle_state='closed',closed_by=$3,closed_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and campaign_id=$2`,
+          [context.tenantId, action.campaign_id, context.actor.userId],
+        );
+      }
+      return {
+        entityType: "access_review_campaign",
+        entityId: action.campaign_id,
+        before,
+        after: await this.accessReviewCampaignState(client, context.tenantId, action.campaign_id),
+        outcome: action.action === "reject" ? "rejected" : "completed",
+      };
+    });
+  }
+
+  decideAccessReviewItem(
+    context: SecurityActorContext,
+    request: SecurityAccessReviewDecision,
+    key: string,
+  ): Promise<SecurityAdministrationResult> {
+    return this.run(context, "security.access_review.decide", key, request, [], async (client) => {
+      const result = await client.query<Record<string, unknown>>(
+        `select item.*,campaign.lifecycle_state
+             from security_access_review_item item
+             join security_access_review_campaign campaign
+               on campaign.tenant_id=item.tenant_id and campaign.campaign_id=item.campaign_id
+            where item.tenant_id=$1 and item.item_id=$2 for update of item`,
+        [context.tenantId, request.item_id],
+      );
+      const item = result.rows[0];
+      if (!item || item.lifecycle_state !== "active")
+        throw new SecurityAdministrationError(
+          404,
+          "ACCESS_REVIEW_ITEM_NOT_FOUND",
+          "The active review item was not found.",
+        );
+      if (item.reviewer_id !== context.actor.userId)
+        throw new SecurityAdministrationError(
+          403,
+          "REVIEWER_REQUIRED",
+          "Only the assigned reviewer can decide this item.",
+        );
+      if (Number(item.row_version) !== request.expected_version)
+        throw this.conflict("The review item version has changed.");
+      const existing = await client.query(
+        `select 1 from security_access_review_decision where tenant_id=$1 and item_id=$2`,
+        [context.tenantId, request.item_id],
+      );
+      if (existing.rowCount) throw this.conflict("The review item already has an immutable decision.");
+      let remediationRequestId: string | null = null;
+      if (request.decision !== "retain") {
+        if (!item.assignment_id || !item.role_policy_id)
+          throw this.conflict("This account-only item requires a separate governed user change.");
+        const assignment = await client.query<Record<string, unknown>>(
+          `select user_id,role_policy_id,assignment_id,valid_from,valid_until,lifecycle_state
+               from security_user_role_assignment where tenant_id=$1 and assignment_id=$2 for update`,
+          [context.tenantId, item.assignment_id],
+        );
+        const current = assignment.rows[0];
+        if (!current || current.lifecycle_state !== "active")
+          throw this.conflict("The reviewed assignment is no longer active.");
+        remediationRequestId = `assignment-approval-${randomUUID()}`;
+        const proposal = {
+          target_user_id: current.user_id,
+          role_policy_id: current.role_policy_id,
+          assignment_id: current.assignment_id,
+          valid_from: new Date(String(current.valid_from)).toISOString(),
+          valid_until: current.valid_until ? new Date(String(current.valid_until)).toISOString() : null,
+          revocation_reason: request.reason,
+        };
+        await client.query(
+          `insert into security_assignment_approval_request
+              (tenant_id,request_id,assignment_id,target_user_id,role_policy_id,requested_action,proposed_assignment,request_state,requested_by)
+             values ($1,$2,$3,$4,$5,'revoke',$6,'draft',$7)`,
+          [
+            context.tenantId,
+            remediationRequestId,
+            current.assignment_id,
+            current.user_id,
+            current.role_policy_id,
+            JSON.stringify(proposal),
+            context.actor.userId,
+          ],
+        );
+      }
+      const decisionId = `access-review-decision-${randomUUID()}`;
+      await client.query(
+        `insert into security_access_review_decision
+            (tenant_id,decision_id,campaign_id,item_id,reviewer_id,decision,reason,remediation_resource_type,remediation_request_id)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [
+          context.tenantId,
+          decisionId,
+          item.campaign_id,
+          request.item_id,
+          context.actor.userId,
+          request.decision,
+          request.reason,
+          remediationRequestId ? "assignment" : null,
+          remediationRequestId,
+        ],
+      );
+      const after = await client.query<Record<string, unknown>>(
+        `select * from security_access_review_decision where tenant_id=$1 and decision_id=$2`,
+        [context.tenantId, decisionId],
+      );
+      return {
+        entityType: "access_review_decision",
+        entityId: decisionId,
+        before: null,
+        after: cleanRow(after.rows[0]!),
+        approvalReference: remediationRequestId,
+      };
+    });
+  }
+
+  private async accessReviewCampaignState(
+    client: PoolClient,
+    tenantId: string,
+    campaignId: string,
+  ): Promise<Record<string, unknown> | null> {
+    const result = await client.query<Record<string, unknown>>(
+      `select campaign.*,
+              coalesce((select jsonb_agg(company_id order by company_id) from security_access_review_campaign_company company
+                where company.tenant_id=campaign.tenant_id and company.campaign_id=campaign.campaign_id),'[]'::jsonb) as company_ids,
+              coalesce((select jsonb_agg(reviewer_id order by reviewer_id) from security_access_review_reviewer reviewer
+                where reviewer.tenant_id=campaign.tenant_id and reviewer.campaign_id=campaign.campaign_id),'[]'::jsonb) as reviewer_ids
+         from security_access_review_campaign campaign where campaign.tenant_id=$1 and campaign.campaign_id=$2`,
+      [tenantId, campaignId],
+    );
+    return result.rows[0] ? cleanRow(result.rows[0]) : null;
+  }
+
+  private async captureAccessReviewItems(
+    client: PoolClient,
+    context: SecurityActorContext,
+    campaignId: string,
+  ): Promise<void> {
+    const reviewers = await client.query<{ reviewer_id: string }>(
+      `select reviewer_id from security_access_review_reviewer where tenant_id=$1 and campaign_id=$2 order by reviewer_id`,
+      [context.tenantId, campaignId],
+    );
+    if (!reviewers.rowCount) throw this.conflict("The access review has no reviewers.");
+    const rows = await client.query<Record<string, unknown>>(
+      `select account.id as subject_user_id,account.display_name,account.email,account.status,
+              assignment.assignment_id,assignment.role_policy_id,assignment.valid_from,assignment.valid_until,
+              role.role_code,role.display_name as role_name,policy.permissions,
+              coalesce((select jsonb_agg(jsonb_build_object('company_id',access.company_id,'is_default',access.is_default)
+                order by access.company_id) from security_user_company_access access
+                where access.tenant_id=account.tenant_id and access.user_id=account.id and access.revoked_at is null),'[]'::jsonb) as companies,
+              (select jsonb_build_object('employee_id',binding.employee_id,'effective_from',binding.effective_from,'effective_to',binding.effective_to)
+                 from employee_user_binding binding where binding.tenant_id=account.tenant_id and binding.user_id=account.id
+                   and binding.effective_from<=current_date and (binding.effective_to is null or binding.effective_to>=current_date)
+                 order by binding.effective_from desc limit 1) as employee_link
+         from security_user_role_assignment_version assignment
+         join security_user_account account on account.tenant_id=assignment.tenant_id and account.id=assignment.user_id
+         join security_role_policy policy on policy.tenant_id=assignment.tenant_id and policy.id=assignment.role_policy_id
+         join security_tenant_role role on role.tenant_id=policy.tenant_id and role.role_id=policy.role_id
+        where assignment.tenant_id=$1 and account.status='active' and account.archived_at is null
+          and assignment.version=(select max(latest.version) from security_user_role_assignment_version latest
+            where latest.tenant_id=assignment.tenant_id and latest.assignment_id=assignment.assignment_id)
+          and assignment.lifecycle_state='active' and assignment.valid_from<=now()
+          and (assignment.valid_until is null or assignment.valid_until>now())
+          and (not exists (select 1 from security_access_review_campaign_company scope
+                where scope.tenant_id=$1 and scope.campaign_id=$2)
+            or exists (select 1 from security_user_company_access access
+                join security_access_review_campaign_company scope
+                  on scope.tenant_id=access.tenant_id and scope.campaign_id=$2 and scope.company_id=access.company_id
+               where access.tenant_id=account.tenant_id and access.user_id=account.id and access.revoked_at is null))
+        order by account.id,assignment.assignment_id`,
+      [context.tenantId, campaignId],
+    );
+    for (const [index, row] of rows.rows.entries()) {
+      const snapshot = cleanRow(row);
+      const reviewerId = reviewers.rows[index % reviewers.rows.length]!.reviewer_id;
+      await client.query(
+        `insert into security_access_review_item
+          (tenant_id,item_id,campaign_id,reviewer_id,subject_user_id,assignment_id,role_policy_id,snapshot,snapshot_hash)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [
+          context.tenantId,
+          `access-review-item-${randomUUID()}`,
+          campaignId,
+          reviewerId,
+          row.subject_user_id,
+          row.assignment_id,
+          row.role_policy_id,
+          JSON.stringify(snapshot),
+          stateHash(snapshot),
+        ],
+      );
+    }
   }
 
   private async read<T>(

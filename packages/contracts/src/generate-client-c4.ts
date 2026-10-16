@@ -95,6 +95,9 @@ import type {
   SelectTenantRequest,
   CancelTenantSelectionRequest,
   SampleJobPayload,
+  CreateSecurityAccessReviewCampaign,
+  SecurityAccessReviewCampaignAction,
+  SecurityAccessReviewDecision,
   CreateSecurityAssignmentRequest,
   CreateSecurityRoleRequest,
   SecurityAdministrationResult,
@@ -200,6 +203,8 @@ export class NexoraApiClient {
   listSecurityUsers(query = ""): Promise<SecurityUserPage> { return this.request(\`/api/v1/security/users\${query}\`); }
   getSecurityUser(userId: string): Promise<SecurityUserDetail> { return this.request(\`/api/v1/security/users/\${encodeURIComponent(userId)}\`); }
   listSecurityUserOptions(): Promise<SecurityUserOptions> { return this.request("/api/v1/security/user_options"); }
+  listSecurityAccessReviewCampaigns(query = ""): Promise<SecurityPage> { return this.request(\`/api/v1/security/access_review_campaigns\${query}\`); }
+  listSecurityAccessReviewItems(query: string): Promise<SecurityPage> { return this.request(\`/api/v1/security/access_review_items\${query}\`); }
   listHrEmployees(query: string): Promise<HrEmployeeDirectory> { return this.request(\`/api/v1/hr/employees\${query}\`); }
   listHrCompanies(): Promise<HrCompanyDirectory> { return this.request("/api/v1/hr/companies"); }
   listHrOrganizationUnits(query: string): Promise<HrOrganizationUnitDirectory> { return this.request(\`/api/v1/hr/organization_units\${query}\`); }
@@ -336,6 +341,15 @@ export class NexoraApiClient {
   }
   actOnSecurityUserEmergency(payload: SecurityUserEmergencyAction, csrfToken: string, idempotencyKey: string): Promise<SecurityUserAdministrationResult> {
     return this.request("/api/v1/security/user_emergency_actions", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  createSecurityAccessReviewCampaign(payload: CreateSecurityAccessReviewCampaign, csrfToken: string, idempotencyKey: string): Promise<SecurityAdministrationResult> {
+    return this.request("/api/v1/security/access_review_campaigns", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  actOnSecurityAccessReviewCampaign(payload: SecurityAccessReviewCampaignAction, csrfToken: string, idempotencyKey: string): Promise<SecurityAdministrationResult> {
+    return this.request("/api/v1/security/access_review_campaign_actions", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  decideSecurityAccessReviewItem(payload: SecurityAccessReviewDecision, csrfToken: string, idempotencyKey: string): Promise<SecurityAdministrationResult> {
+    return this.request("/api/v1/security/access_review_decisions", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
   enqueueSampleJob(payload: SampleJobPayload): Promise<JobReceipt> {
     return this.request("/api/v1/jobs/sample", { method: "POST", body: JSON.stringify(payload) });

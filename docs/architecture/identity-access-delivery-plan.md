@@ -35,7 +35,7 @@ an explicit completion handoff.
 
 - [x] IA-01 canonical hash route family and connected navigation.
 - [x] IA-02 execute/fix complete parity for the five existing user/role pages.
-- [ ] IA-03 PostgreSQL-backed Access Review.
+- [x] IA-03 PostgreSQL-backed Access Review.
 - [ ] IA-04 governed Delegation.
 - [ ] IA-05 governed Impersonation and single emergency principal.
 - [ ] IA-06 versioned Security & Session Policies with runtime enforcement.
@@ -95,8 +95,8 @@ All links remain under the canonical parent:
 - Delegation & Impersonation: `/#/identity/access?tab=roles&section=delegation`
 - Security & Session Policies: `/#/identity/access?tab=roles&section=policies`
 
-The last three URLs are navigation-ready but deliberately unavailable until
-IA-03 through IA-06 provide their database-backed workflows.
+The last two URLs are navigation-ready but deliberately unavailable until
+IA-04 through IA-06 provide their database-backed workflows.
 
 ## IA-02 verification record â€” 2026-10-16
 
@@ -133,11 +133,37 @@ Observed verification:
   unavailable during IA-01. It must be completed in IA-07 before production
   acceptance.
 
+## IA-03 verification record â€” 2026-10-16
+
+- Security migration 10 adds tenant-RLS campaign, company scope, reviewer,
+  immutable item snapshot and append-retained decision evidence tables.
+- Campaigns support draft, submit, independent approve/reject, activation,
+  immutable snapshot capture and gated closure with optimistic versions,
+  idempotency and hash-chained security audit events.
+- Reviewer decisions support retain, revoke and remediate. Non-retain decisions
+  create an existing governed assignment-revocation request; no review endpoint
+  directly removes authority.
+- Strict contracts, OpenAPI, generated client and `/api/v1/security` routes are
+  aligned. The connected Access Reviews workspace uses only these live APIs.
+- Campaign creation exposes tenant or company scope, an independent reviewer,
+  review dates, progress, reviewer queue, entitlement evidence, decisions and
+  remediation references. Loading, empty, error and permission-denied states
+  are explicit and no fixture fallback exists.
+
+Observed verification:
+
+- Access Review and existing security PostgreSQL regressions: 20 passed across
+  four integration files.
+- Identity workspace/navigation regressions: 16 passed across two unit files.
+- Migration applied successfully through security version 10 on the dedicated
+  test PostgreSQL database.
+- API drift check, full TypeScript check, focused ESLint, `git diff --check` and
+  the Next.js 16.3.8 production build passed.
+- Controlled browser acceptance remains deferred to IA-07.
+
 ## Current safe resume point
 
-Proceed with IA-03, PostgreSQL-backed Access Review. Start with the additive
-contract and migration defined in the approved implementation plan, then build
-repository/service/API tests before connecting the existing Access Reviews
-workspace entry. Preserve the now-green user, role and assignment regression
-baseline. Do not add fixture-backed UI records or begin delegation and
-impersonation before Access Review is independently verified.
+Proceed with IA-04, governed Delegation. Preserve security migration 10 and the
+Access Review contract/API/client path. Implement effective-dated delegation as
+an additive governed workflow with subset validation, independent approval and
+runtime invalidation before enabling its workspace controls.

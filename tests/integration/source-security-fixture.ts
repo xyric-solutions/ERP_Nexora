@@ -29,6 +29,11 @@ const makerPermissions = [
   "security.user_account.reset_password",
   "security.user_account.revoke_sessions",
   "security.user_account.company_access",
+  "security.access_review.read",
+  "security.access_review.create",
+  "security.access_review.submit",
+  "security.access_review.activate",
+  "security.access_review.close",
 ] as const;
 
 const checkerPermissions = [
@@ -40,6 +45,9 @@ const checkerPermissions = [
   "security.authorization.audit.read",
   "security.user_account.read",
   "security.user_account.approve",
+  "security.access_review.read",
+  "security.access_review.approve",
+  "security.access_review.decide",
 ] as const;
 
 const roles = [

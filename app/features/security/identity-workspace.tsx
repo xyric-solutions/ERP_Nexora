@@ -13,6 +13,7 @@ import { useSession } from "../../lib/session/session-provider";
 import UserManagementPanel from "./users/user-management-panel";
 import RoleForm from "./role-form";
 import GovernedTable from "./governed-table";
+import AccessReviewPanel from "./access-review-panel";
 import { identityHashLocation, identityHref, type IdentityLocation, type IdentitySection } from "./identity-navigation";
 
 const labels = {
@@ -60,7 +61,7 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
     section === "assignments" || section === "access-reviews" || section === "delegation" || section === "policies"
       ? section
       : workspace;
-  const isPlannedSection = section === "access-reviews" || section === "delegation" || section === "policies";
+  const isPlannedSection = section === "delegation" || section === "policies";
   const sections: IdentitySection[] = isPlannedSection
     ? []
     : workspace === "users"
@@ -362,7 +363,7 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
               {tab === "roles" && permissions.has("security.authorization.role.create") ? (
                 <Button onClick={() => setShowCreate((value) => !value)}>{showCreate ? "Close" : "Create role"}</Button>
               ) : null}
-              {tab !== "users" && !isPlannedSection ? (
+              {tab !== "users" && tab !== "access-reviews" && !isPlannedSection ? (
                 <Button variant="outline" onClick={() => void load()}>
                   Refresh
                 </Button>
@@ -426,7 +427,9 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
               <AlertDescription className="text-[var(--nx-info)]">{message}</AlertDescription>
             </Alert>
           ) : null}
-          {isPlannedSection ? (
+          {tab === "access-reviews" ? (
+            <AccessReviewPanel permissions={permissions} />
+          ) : isPlannedSection ? (
             <Alert className="m-5" role="status">
               <AlertTitle>{labels[section]}</AlertTitle>
               <AlertDescription>
