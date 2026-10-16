@@ -576,6 +576,81 @@ describe("HR API foundation", () => {
     );
   });
 
+  it("protects Transfer creation and independent decisions with the standard browser controls", async () => {
+    const repository = {
+      createEmployeeTransferRequest: vi.fn(async () => ({
+        id: "transfer-1",
+        employee_id: "employee-1",
+        company_id: "company-a",
+        source_assignment_id: "assignment-1",
+        status: "pending",
+        audit_event_id: "audit-1",
+        replayed: false,
+      })),
+      decideEmployeeTransferRequest: vi.fn(async () => ({
+        id: "transfer-1",
+        employee_id: "employee-1",
+        company_id: "company-a",
+        source_assignment_id: "assignment-1",
+        status: "approved",
+        assignment_id: "assignment-2",
+        audit_event_id: "audit-2",
+        replayed: false,
+      })),
+    } as unknown as Pick<
+      SourceHrRepository,
+      "createEmployeeTransferRequest" | "decideEmployeeTransferRequest"
+    >;
+    const payload = {
+      company_id: "company-a",
+      source_assignment_id: "assignment-1",
+      branch_id: "branch-2",
+      department_id: "department-2",
+      job_id: "job-1",
+      designation_id: "designation-1",
+      job_grade_id: "grade-1",
+      cost_center_id: "cost-center-1",
+      work_location_id: "location-1",
+      employment_type_id: "employment-type-1",
+      employee_category_id: "category-1",
+      effective_on: "2026-10-16",
+      reason: "Move the employee to the new operating branch.",
+    };
+    const created = await request(appForHr(repository))
+      .post("/api/v1/hr/employees/employee-1/transfer_requests")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "transfer-request-1")
+      .send(payload);
+    expect(created.status).toBe(201);
+    expect(repository.createEmployeeTransferRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "employee-1",
+      payload,
+      "transfer-request-1",
+      expect.any(String),
+    );
+
+    const decision = { decision: "approved", reason: "Independent Transfer approval completed." };
+    const decided = await request(appForHr(repository))
+      .post("/api/v1/hr/employees/employee-1/transfer_requests/transfer-1/decision")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "transfer-decision-1")
+      .send(decision);
+    expect(decided.status).toBe(200);
+    expect(repository.decideEmployeeTransferRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "employee-1",
+      "transfer-1",
+      decision,
+      "transfer-decision-1",
+      expect.any(String),
+    );
+  });
+
   it("rejects HR data requests without an authenticated session", async () => {
     const response = await request(
       appForHr({

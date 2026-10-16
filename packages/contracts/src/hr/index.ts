@@ -209,6 +209,17 @@ export const hrEmployeeAssignmentSchema = z.strictObject({
   id: identifier,
   employee_id: identifier,
   company_id: identifier,
+  employment_relationship_id: identifier.nullable(),
+  branch_id: identifier.nullable(),
+  department_id: identifier.nullable(),
+  job_id: identifier.nullable(),
+  designation_id: identifier,
+  job_grade_id: identifier,
+  cost_center_id: identifier,
+  work_location_id: identifier,
+  employment_type_id: identifier,
+  employee_category_id: identifier,
+  reporting_manager_id: identifier.nullable(),
   designation: z.string().min(1).max(160),
   job: z.string().max(160),
   job_grade: z.string().min(1).max(160),
@@ -396,6 +407,80 @@ export const hrEmployeeHireRequestDirectorySchema = z.strictObject({
   items: z.array(hrEmployeeHireRequestReviewSchema),
 });
 
+/** A transfer request is proposed assignment context, never a live assignment. */
+export const createHrEmployeeTransferRequestSchema = z.strictObject({
+  company_id: identifier,
+  source_assignment_id: identifier,
+  branch_id: identifier.optional(),
+  department_id: identifier.optional(),
+  job_id: identifier,
+  designation_id: identifier,
+  job_grade_id: identifier,
+  cost_center_id: identifier,
+  work_location_id: identifier,
+  employment_type_id: identifier,
+  employee_category_id: identifier,
+  reporting_manager_id: identifier.optional(),
+  effective_on: isoDate,
+  reason: z.string().trim().min(1).max(1000),
+});
+export const hrEmployeeTransferRequestResultSchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  company_id: identifier,
+  source_assignment_id: identifier,
+  status: z.literal("pending"),
+  audit_event_id: identifier,
+  replayed: z.boolean(),
+});
+export const decideHrEmployeeTransferRequestSchema = z.strictObject({
+  decision: z.enum(["approved", "rejected"]),
+  reason: z.string().trim().min(1).max(1000),
+});
+export const hrEmployeeTransferDecisionResultSchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  company_id: identifier,
+  source_assignment_id: identifier,
+  status: z.enum(["approved", "rejected"]),
+  assignment_id: identifier.nullable(),
+  audit_event_id: identifier,
+  replayed: z.boolean(),
+});
+export const hrEmployeeTransferRequestDirectoryQuerySchema = z.strictObject({
+  company_id: identifier,
+  search: z.string().trim().max(160).optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+});
+export const hrEmployeeTransferRequestReviewSchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  employee_number: z.string().min(1).max(32),
+  employee_name: z.string().min(1).max(320),
+  company_id: identifier,
+  relationship_id: identifier,
+  source_assignment_id: identifier,
+  source_branch: z.string().max(200),
+  source_department: z.string().max(200),
+  proposed_branch: z.string().max(200),
+  proposed_department: z.string().max(200),
+  proposed_job: z.string().min(1).max(160),
+  proposed_designation: z.string().min(1).max(160),
+  proposed_job_grade: z.string().min(1).max(160),
+  proposed_work_location: z.string().min(1).max(160),
+  effective_on: isoDate,
+  requested_by: identifier,
+  requested_at: z.string().datetime(),
+  reason: z.string().min(1).max(1000),
+  status: z.enum(["pending", "approved", "rejected"]),
+  decided_by: identifier.nullable(),
+  decided_at: z.string().datetime().nullable(),
+  decision_reason: z.string().max(1000).nullable(),
+});
+export const hrEmployeeTransferRequestDirectorySchema = z.strictObject({
+  items: z.array(hrEmployeeTransferRequestReviewSchema),
+});
+
 export const hrMasterDirectorySchema = z.strictObject({ items: z.array(hrMasterRecordSchema) });
 
 export type HrEmployeeDirectoryQuery = z.infer<typeof hrEmployeeDirectoryQuerySchema>;
@@ -573,3 +658,12 @@ export type HrEmployeeHireDecisionResult = z.infer<typeof hrEmployeeHireDecision
 export type HrEmployeeHireRequestDirectoryQuery = z.infer<typeof hrEmployeeHireRequestDirectoryQuerySchema>;
 export type HrEmployeeHireRequestReview = z.infer<typeof hrEmployeeHireRequestReviewSchema>;
 export type HrEmployeeHireRequestDirectory = z.infer<typeof hrEmployeeHireRequestDirectorySchema>;
+export type CreateHrEmployeeTransferRequest = z.infer<typeof createHrEmployeeTransferRequestSchema>;
+export type HrEmployeeTransferRequestResult = z.infer<typeof hrEmployeeTransferRequestResultSchema>;
+export type DecideHrEmployeeTransferRequest = z.infer<typeof decideHrEmployeeTransferRequestSchema>;
+export type HrEmployeeTransferDecisionResult = z.infer<typeof hrEmployeeTransferDecisionResultSchema>;
+export type HrEmployeeTransferRequestDirectoryQuery = z.infer<
+  typeof hrEmployeeTransferRequestDirectoryQuerySchema
+>;
+export type HrEmployeeTransferRequestReview = z.infer<typeof hrEmployeeTransferRequestReviewSchema>;
+export type HrEmployeeTransferRequestDirectory = z.infer<typeof hrEmployeeTransferRequestDirectorySchema>;

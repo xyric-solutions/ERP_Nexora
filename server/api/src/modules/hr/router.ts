@@ -23,6 +23,9 @@ import {
   decideHrEmployeeHireRequestSchema,
   hrEmployeeHireRequestDirectoryQuerySchema,
   hrOrganizationUnitDirectoryQuerySchema,
+  createHrEmployeeTransferRequestSchema,
+  decideHrEmployeeTransferRequestSchema,
+  hrEmployeeTransferRequestDirectoryQuerySchema,
 } from "@nexora/contracts";
 
 import { HttpError } from "../../http/errors.js";
@@ -31,6 +34,7 @@ import type { TenantAuthApiService, TenantSessionApiService } from "../auth/tena
 import { HrEmployeeService } from "./employees/service.js";
 import { HrMasterService } from "./masters/service.js";
 import { HrLifecycleService } from "./lifecycle/service.js";
+import { HrMovementService } from "./movements/service.js";
 import { HrApiError, type SourceHrRepository } from "./source-repository.js";
 import { loadHrSessionContext } from "./shared/session-context.js";
 
@@ -68,6 +72,10 @@ export interface HrRouterDependencies {
     | "getEmployeeHireRequest"
     | "createEmployeeHireRequest"
     | "decideEmployeeHireRequest"
+    | "listEmployeeTransferRequests"
+    | "getEmployeeTransferRequest"
+    | "createEmployeeTransferRequest"
+    | "decideEmployeeTransferRequest"
   >;
   authentication: TenantAuthApiService;
   sessions: TenantSessionApiService;
@@ -99,6 +107,7 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
   const employees = new HrEmployeeService(dependencies.repository);
   const masters = new HrMasterService(dependencies.repository);
   const lifecycle = new HrLifecycleService(dependencies.repository);
+  const movements = new HrMovementService(dependencies.repository);
   router.use((_req, res, next) => {
     res.setHeader("cache-control", "no-store");
     next();
@@ -280,6 +289,58 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
     res.json(
       await handle(async () =>
         lifecycle.decideHire(
+          await loadHrSessionContext(req, dependencies, true),
+          employeeId,
+          requestId,
+          input,
+          idempotencyKey(req),
+          currentRequestContext().correlationId,
+        ),
+      ),
+    );
+  });
+  router.get("/transfer_requests", async (req, res) => {
+    const query = hrEmployeeTransferRequestDirectoryQuerySchema.parse({
+      company_id: req.query.company_id,
+      search: req.query.search,
+      limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+    });
+    res.json(
+      await handle(async () => movements.listTransfers(await loadHrSessionContext(req, dependencies), query)),
+    );
+  });
+  router.post("/employees/:employeeId/transfer_requests", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
+    const input = createHrEmployeeTransferRequestSchema.parse(req.body);
+    const result = await handle(async () =>
+      movements.requestTransfer(
+        await loadHrSessionContext(req, dependencies, true),
+        employeeId,
+        input,
+        idempotencyKey(req),
+        currentRequestContext().correlationId,
+      ),
+    );
+    res.status(result.replayed ? 200 : 201).json(result);
+  });
+  router.get("/employees/:employeeId/transfer_requests/:requestId", async (req, res) => {
+    const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
+    const requestId = z.string().trim().min(1).max(128).parse(req.params.requestId);
+    res.json(
+      await handle(async () =>
+        movements.getTransfer(await loadHrSessionContext(req, dependencies), employeeId, requestId),
+      ),
+    );
+  });
+  router.post("/employees/:employeeId/transfer_requests/:requestId/decision", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
+    const requestId = z.string().trim().min(1).max(128).parse(req.params.requestId);
+    const input = decideHrEmployeeTransferRequestSchema.parse(req.body);
+    res.json(
+      await handle(async () =>
+        movements.decideTransfer(
           await loadHrSessionContext(req, dependencies, true),
           employeeId,
           requestId,

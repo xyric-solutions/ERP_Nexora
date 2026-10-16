@@ -55,6 +55,12 @@ import {
   hrEmployeeHireDecisionResultSchema,
   hrEmployeeHireRequestDirectorySchema,
   hrEmployeeHireRequestReviewSchema,
+  createHrEmployeeTransferRequestSchema,
+  hrEmployeeTransferRequestResultSchema,
+  decideHrEmployeeTransferRequestSchema,
+  hrEmployeeTransferDecisionResultSchema,
+  hrEmployeeTransferRequestDirectorySchema,
+  hrEmployeeTransferRequestReviewSchema,
 } from "./hr/index.js";
 import { jobReceiptSchema, sampleJobPayloadSchema } from "./jobs/index.js";
 import { problemDetailsSchema } from "./problem.js";
@@ -1197,6 +1203,123 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/hr/transfer_requests": {
+        get: {
+          operationId: "listHrEmployeeTransferRequests",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Pending company-scoped employee transfer requests",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeTransferRequestDirectory" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/transfer_requests": {
+        post: {
+          operationId: "createHrEmployeeTransferRequest",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/CreateHrEmployeeTransferRequest" } },
+            },
+          },
+          responses: {
+            "201": {
+              description: "Pending, independently approvable employee transfer request",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeTransferRequestResult" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/transfer_requests/{requestId}": {
+        get: {
+          operationId: "getHrEmployeeTransferRequest",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "path", name: "requestId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+          ],
+          responses: {
+            "200": {
+              description: "Company-scoped employee transfer request review",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeTransferRequestReview" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/transfer_requests/{requestId}/decision": {
+        post: {
+          operationId: "decideHrEmployeeTransferRequest",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "path", name: "requestId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/DecideHrEmployeeTransferRequest" } },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Independently decided employee transfer request",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeTransferDecisionResult" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
       "/hr/employment_lifecycle_policies": {
         get: {
           operationId: "listHrEmploymentLifecyclePolicies",
@@ -1430,6 +1553,12 @@ export function buildOpenApiDocument() {
         HrEmployeeHireDecisionResult: schema(hrEmployeeHireDecisionResultSchema),
         HrEmployeeHireRequestDirectory: schema(hrEmployeeHireRequestDirectorySchema),
         HrEmployeeHireRequestReview: schema(hrEmployeeHireRequestReviewSchema),
+        CreateHrEmployeeTransferRequest: schema(createHrEmployeeTransferRequestSchema),
+        HrEmployeeTransferRequestResult: schema(hrEmployeeTransferRequestResultSchema),
+        DecideHrEmployeeTransferRequest: schema(decideHrEmployeeTransferRequestSchema),
+        HrEmployeeTransferDecisionResult: schema(hrEmployeeTransferDecisionResultSchema),
+        HrEmployeeTransferRequestDirectory: schema(hrEmployeeTransferRequestDirectorySchema),
+        HrEmployeeTransferRequestReview: schema(hrEmployeeTransferRequestReviewSchema),
         ProblemDetails: schema(problemDetailsSchema),
         SampleJobPayload: schema(sampleJobPayloadSchema),
         JobReceipt: schema(jobReceiptSchema),

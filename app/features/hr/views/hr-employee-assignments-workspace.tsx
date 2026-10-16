@@ -11,6 +11,7 @@ import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
 import { HrHireMakerPanel } from "../components/hr-hire-maker-panel";
+import { HrTransferMakerPanel } from "../components/hr-transfer-maker-panel";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -18,7 +19,7 @@ function assignmentVariant(status: HrEmployeeAssignmentDirectory["items"][number
   return status === "active" ? "secondary" : status === "ended" || status === "cancelled" ? "outline" : "default";
 }
 
-/** Displays the database-enforced assignment history; all movement actions remain intentionally unavailable. */
+/** Displays immutable assignment history and governed maker workflows. */
 export function HrEmployeeAssignmentsWorkspace() {
   const { api, csrfToken, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
@@ -36,6 +37,7 @@ export function HrEmployeeAssignmentsWorkspace() {
   const canRequestHire =
     (session?.user.permissions.includes("hr.employment_lifecycle.action") ?? false) &&
     (session?.user.permissions.includes("hr.employment_relationship.create") ?? false);
+  const canRequestTransfer = session?.user.permissions.includes("hr.employee_assignment.transfer") ?? false;
 
   useEffect(() => {
     if (sessionLoading || !canReadAssignments || !canReadEmployees) return;
@@ -221,6 +223,15 @@ export function HrEmployeeAssignmentsWorkspace() {
             canCreateAssignment={canCreateAssignment}
             canRequestHire={canRequestHire}
             onAssignmentCreated={() => setAssignmentRefreshKey((current) => current + 1)}
+          />
+          <HrTransferMakerPanel
+            key={`transfer:${companyId}:${employeeId}:${assignmentRefreshKey}`}
+            client={client}
+            csrfToken={csrfToken}
+            companyId={companyId}
+            employeeId={employeeId}
+            assignments={assignments}
+            canRequestTransfer={canRequestTransfer}
           />
         </>
       )}

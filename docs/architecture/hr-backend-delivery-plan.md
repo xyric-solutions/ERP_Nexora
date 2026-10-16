@@ -21,11 +21,11 @@ PostgreSQL, Redis or storage directly.
 
 ### Current safe resume point
 
-- Governed employee Hire/activation is implementation-complete and verified
-  through the API/repository against isolated PostgreSQL. The next development
-  slice is effective-dated employee movement (transfer first, then promotion,
-  manager and organisation changes) using the same request/decision/event/
-  projection pattern. Do not reuse the Hire request as a generic movement.
+- Governed employee Hire/activation and same-day employee Transfer are
+  implementation-complete and verified through the API/repository against
+  isolated PostgreSQL. The next development slice is governed Promotion,
+  followed by manager and organisation changes. Each movement keeps its own
+  request/decision/projection rules; do not reuse Hire or Transfer generically.
 - Independent two-user browser acceptance for a real maker submission followed
   by a different checker decision remains an acceptance gate. Automated browser
   acceptance currently proves authenticated live maker/checker screens and API
@@ -155,9 +155,10 @@ sessions, permissions, company access, approvals and employee/user binding.
       read-only, effective-dated projection. It includes protected
       `profile_draft` rows for pre-employment preparation without treating them
       as operational assignments or bypassing database history constraints.
-- [ ] Effective-dated active employment assignment activation and employee
-      movement workflow (transfer, promotion, manager and organisation changes),
-      each with a separate approval transition and immutable audit evidence.
+- [ ] Effective-dated active employment assignment movement workflow.
+      Same-day Transfer is complete with a separate approval transition and
+      immutable audit evidence. Promotion, manager and organisation changes,
+      plus durable future-dated activation, remain open.
 - [x] Immutable employee status-history read model: typed API and Tailwind
       workspace use `hr.employment_history.read`, current company scope and a
       minimal status-event projection. Actor identifiers and mutable controls are
@@ -258,6 +259,74 @@ sessions, permissions, company access, approvals and employee/user binding.
   submit and decide a new Hire request in the browser, then confirm the active
   employee/relationship/assignment projections. Do not call this production
   accepted until that independent-user check is recorded.
+
+### Governed Transfer verification record — 2026-10-16
+
+- Added HR source migration `0028_governed_transfer_requests` and observed the
+  isolated test database at HR schema version 28. The request table is tenant
+  RLS protected, company/source scoped, immutable after decision, uniquely
+  pending per source assignment, and indexed for checker queues and history.
+- Added typed/OpenAPI Transfer endpoints:
+  - `GET /api/v1/hr/transfer_requests`
+  - `POST /api/v1/hr/employees/{employeeId}/transfer_requests`
+  - `GET /api/v1/hr/employees/{employeeId}/transfer_requests/{requestId}`
+  - `POST /api/v1/hr/employees/{employeeId}/transfer_requests/{requestId}/decision`
+- Makers require `hr.employee_assignment.transfer`; independent decisions
+  require `hr.employee_assignment.change`. Active company access, tenant scope,
+  CSRF/origin validation, idempotency, immutable audit evidence and requester/
+  checker separation remain server enforced.
+- Approval closes the current assignment and inserts one relationship-bound
+  `change_reason='transfer'` segment in the same serializable transaction.
+  Rejection creates no assignment change. The database restricts this Transfer
+  slice to branch/department changes; job, designation, grade, manager, work
+  location and employment context remain unchanged.
+- This first Transfer slice is deliberately same-day effective. Future-dated
+  approval is blocked until a durable activation worker can switch segments
+  without creating an authorization gap.
+- Existing Employee Assignments and Employee Approvals pages now contain live
+  Transfer maker/checker panels. API failure never substitutes prototype data.
+- Observed verification:
+  - `npm.cmd run typecheck` — passed.
+  - focused OpenAPI contract test — 1 passed.
+  - focused HR router/client unit tests — 27 passed.
+  - PostgreSQL governed-Transfer integration — 2 passed, proving replay,
+    conflicting idempotency, duplicate-pending rejection, company scope,
+    self-approval denial, approval projection and rejection non-projection.
+  - source migration suite — 8 passed with HR version 28.
+  - `npm.cmd run api:check` — passed.
+  - focused ESLint for new Transfer panels/client/router/service — passed.
+  - `npm.cmd run build:web` — passed on Next.js 16.3.8.
+  - focused Playwright acceptance — 1 passed against live web/API, covering
+    authenticated Assignments and Approvals surfaces for Hire and Transfer.
+- Repository-wide `npm.cmd run lint` is not green: it reports 114 errors and
+  one warning across pre-existing legacy/shared screens, including existing
+  effect-state and label findings in the two host HR workspaces. The new
+  Transfer panels, client, router, service and repository pass focused ESLint.
+- Manual acceptance remains: use distinct maker/checker accounts to submit and
+  decide a new Transfer in the browser, then confirm the assignment timeline.
+
+## Currently backend-connected HR pages
+
+Local web base: `http://127.0.0.1:3000` (API: `http://127.0.0.1:4000/api/v1`).
+
+- `/#/hr/employees` — server-scoped employee directory; prototype fallback is
+  still retained while deployed API acceptance remains open.
+- `/#/hr/add-employee` — governed employee draft creation; unavailable-API
+  fallback remains explicit.
+- `/#/hr/employee-drafts` — draft directory, detail, update and submission.
+- `/#/hr/employee-approvals` — employee draft, Hire and Transfer checker queues
+  and decisions.
+- `/#/hr/employee-contacts` — governed email/phone contact history.
+- `/#/hr/employee-emergency-contacts` — governed emergency contacts.
+- `/#/hr/employee-documents` — restricted document metadata reads only.
+- `/#/hr/employee-assignments` — profile context, Hire submission, assignment
+  timeline and Transfer submission.
+- `/#/hr/employee-status-history` — immutable status-history projection.
+- `/#/hr/lifecycle-policies` — policy directory, authoring, submission,
+  independent approval and activation.
+- `/#/hr/jobs` — company-scoped job catalogue and governed job creation.
+
+Other HR prototype pages remain mock/prototype unless separately marked above.
 
 ## Phase 4 — attendance and leave
 

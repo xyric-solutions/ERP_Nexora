@@ -69,6 +69,10 @@ export interface AppDependencies {
     | "getEmployeeHireRequest"
     | "createEmployeeHireRequest"
     | "decideEmployeeHireRequest"
+    | "listEmployeeTransferRequests"
+    | "getEmployeeTransferRequest"
+    | "createEmployeeTransferRequest"
+    | "decideEmployeeTransferRequest"
   >;
   jobPublisher?: JobPublisher;
   readiness: Record<string, () => Promise<void>>;

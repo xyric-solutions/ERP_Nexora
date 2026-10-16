@@ -71,4 +71,73 @@ describe("HR browser client", () => {
       "decision-key",
     );
   });
+
+  it("passes Transfer reads and mutations through the generated API client", async () => {
+    const requestResult = {
+      id: "transfer-1",
+      employee_id: "employee-1",
+      company_id: "company-a",
+      source_assignment_id: "assignment-1",
+      status: "pending" as const,
+      audit_event_id: "audit-1",
+      replayed: false,
+    };
+    const api = {
+      listHrEmployeeTransferRequests: vi.fn(async () => ({ items: [] })),
+      getHrEmployeeTransferRequest: vi.fn(async () => ({ id: "transfer-1" })),
+      createHrEmployeeTransferRequest: vi.fn(async () => requestResult),
+      decideHrEmployeeTransferRequest: vi.fn(async () => ({
+        ...requestResult,
+        status: "approved" as const,
+        assignment_id: "assignment-2",
+      })),
+    } as unknown as NexoraApiClient;
+    const client = new HrApiClient(api);
+    const payload = {
+      company_id: "company-a",
+      source_assignment_id: "assignment-1",
+      branch_id: "branch-2",
+      department_id: "department-2",
+      job_id: "job-1",
+      designation_id: "designation-1",
+      job_grade_id: "grade-1",
+      cost_center_id: "cost-center-1",
+      work_location_id: "location-1",
+      employment_type_id: "employment-type-1",
+      employee_category_id: "category-1",
+      effective_on: "2026-10-16",
+      reason: "Move the employee to the new operating branch.",
+    };
+
+    await client.transferRequests({ companyId: "company/a", search: "EMP 1", limit: 10 });
+    await client.transferRequest("employee/a", "transfer/a");
+    await expect(client.createTransferRequest("employee-1", payload, "csrf", "request-key")).resolves.toEqual(
+      requestResult,
+    );
+    await client.decideTransferRequest(
+      "employee-1",
+      "transfer-1",
+      { decision: "approved", reason: "Independently approved." },
+      "csrf",
+      "decision-key",
+    );
+
+    expect(api.listHrEmployeeTransferRequests).toHaveBeenCalledWith(
+      "?company_id=company%2Fa&search=EMP+1&limit=10",
+    );
+    expect(api.getHrEmployeeTransferRequest).toHaveBeenCalledWith("employee/a", "transfer/a");
+    expect(api.createHrEmployeeTransferRequest).toHaveBeenCalledWith(
+      "employee-1",
+      payload,
+      "csrf",
+      "request-key",
+    );
+    expect(api.decideHrEmployeeTransferRequest).toHaveBeenCalledWith(
+      "employee-1",
+      "transfer-1",
+      { decision: "approved", reason: "Independently approved." },
+      "csrf",
+      "decision-key",
+    );
+  });
 });

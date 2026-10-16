@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const username = process.env.NEXORA_E2E_USERNAME;
 const password = process.env.NEXORA_E2E_PASSWORD;
 
-test.describe("governed employee Hire workspaces", () => {
+test.describe("governed employee Hire and Transfer workspaces", () => {
   test.skip(!username || !password, "Local synthetic Nexora credentials are required.");
 
   test("loads the live maker and checker surfaces through the API", async ({ page }) => {
@@ -32,11 +32,15 @@ test.describe("governed employee Hire workspaces", () => {
     await employee.selectOption(candidateValue);
     await expect(page.getByRole("heading", { name: "Prepare governed Hire" })).toBeVisible();
     await expect(page.getByText(/independent approval/i).first()).toBeVisible();
+    await expect(page.getByText(/Request governed Transfer|Active assignment required/).first()).toBeVisible();
 
     await page.goto("/#/hr/employee-approvals");
     await expect(page.getByRole("heading", { level: 1, name: "Employee Approvals" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Hire approvals" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Refresh Hire queue" })).toBeEnabled();
     await expect(page.getByText(/No prototype Hire records are shown/)).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Transfer approvals" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Refresh Transfer queue" })).toBeEnabled();
+    await expect(page.getByText(/No prototype Transfer records are shown/)).toHaveCount(0);
   });
 });

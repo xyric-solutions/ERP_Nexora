@@ -51,6 +51,13 @@ import type {
   HrEmployeeHireRequestDirectory,
   HrEmployeeHireRequestDirectoryQuery,
   HrEmployeeHireRequestReview,
+  CreateHrEmployeeTransferRequest,
+  HrEmployeeTransferRequestResult,
+  DecideHrEmployeeTransferRequest,
+  HrEmployeeTransferDecisionResult,
+  HrEmployeeTransferRequestDirectory,
+  HrEmployeeTransferRequestDirectoryQuery,
+  HrEmployeeTransferRequestReview,
 } from "@nexora/contracts";
 import type { Pool, PoolClient } from "pg";
 
@@ -106,6 +113,14 @@ type EmployeeHireRequestReviewRow = Omit<
   requested_at: string | Date;
   decided_at: string | Date | null;
 };
+type EmployeeTransferRequestReviewRow = Omit<
+  HrEmployeeTransferRequestReview,
+  "effective_on" | "requested_at" | "decided_at"
+> & {
+  effective_on: string | Date;
+  requested_at: string | Date;
+  decided_at: string | Date | null;
+};
 
 function dateOnly(value: string | Date): string {
   return value instanceof Date ? value.toISOString().slice(0, 10) : value.slice(0, 10);
@@ -116,6 +131,15 @@ function employeeSummary(row: EmployeeSummaryRow): HrEmployeeDirectory["items"][
 }
 
 function employeeHireRequestReview(row: EmployeeHireRequestReviewRow): HrEmployeeHireRequestReview {
+  return {
+    ...row,
+    effective_on: dateOnly(row.effective_on),
+    requested_at: new Date(row.requested_at).toISOString(),
+    decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
+  };
+}
+
+function employeeTransferRequestReview(row: EmployeeTransferRequestReviewRow): HrEmployeeTransferRequestReview {
   return {
     ...row,
     effective_on: dateOnly(row.effective_on),
@@ -171,6 +195,8 @@ export class SourceHrRepository {
         "hr.employment_lifecycle_policy.approve",
         "hr.employment_lifecycle.action",
         "hr.employment_relationship.create",
+        "hr.employee_assignment.transfer",
+        "hr.employee_assignment.change",
       ],
       async (client) => {
         const result = await client.query<HrCompanyDirectory["items"][number]>(
@@ -193,7 +219,10 @@ export class SourceHrRepository {
     context: HrActorContext,
     query: HrOrganizationUnitDirectoryQuery,
   ): Promise<HrOrganizationUnitDirectory> {
-    return this.read(context, ["hr.employee_assignment.read", "hr.employee_assignment.create"], async (client) => {
+    return this.read(
+      context,
+      ["hr.employee_assignment.read", "hr.employee_assignment.create", "hr.employee_assignment.transfer"],
+      async (client) => {
       await this.requireCompanyAccess(client, context, query.company_id);
       const values: unknown[] = [context.tenantId, query.company_id];
       const filters = ["unit.id<>$2", "unit.type in ('branch','department')"];
@@ -217,8 +246,9 @@ export class SourceHrRepository {
           limit $${values.length}`,
         values,
       );
-      return { items: result.rows };
-    });
+        return { items: result.rows };
+      },
+    );
   }
 
   async listEmployees(context: HrActorContext, query: HrEmployeeDirectoryQuery): Promise<HrEmployeeDirectory> {
@@ -1303,6 +1333,10 @@ export class SourceHrRepository {
       await this.requireEmployeeAssignmentCompanyScope(client, context, employeeId);
       const result = await client.query<EmployeeAssignmentRow>(
         `select assignment.id,assignment.employee_id,assignment.company_id,
+                assignment.employment_relationship_id,assignment.branch_id,assignment.department_id,
+                assignment.job_id,assignment.designation_id,assignment.job_grade_id,assignment.cost_center_id,
+                assignment.work_location_id,assignment.employment_type_id,assignment.employee_category_id,
+                assignment.reporting_manager_id,
                 designation.name as designation,coalesce(job.name,'') as job,
                 job_grade.name as job_grade,employment_type.name as employment_type,
                 work_location.name as work_location,assignment.change_reason,
@@ -2203,6 +2237,364 @@ export class SourceHrRepository {
     }
   }
 
+  async listEmployeeTransferRequests(
+    context: HrActorContext,
+    query: HrEmployeeTransferRequestDirectoryQuery,
+  ): Promise<HrEmployeeTransferRequestDirectory> {
+    return this.read(context, "hr.employee_assignment.change", async (client) => {
+      await this.requireCompanyAccess(client, context, query.company_id);
+      const values: unknown[] = [context.tenantId, query.company_id];
+      const filters = ["request.tenant_id=$1", "request.company_id=$2", "request.request_state='pending'"];
+      if (query.search) {
+        const parameter = values.push(`%${query.search.replace(/[\\%_]/g, "\\$&")}%`);
+        filters.push(
+          `(employee.employee_number ilike $${parameter} escape '\\' or concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) ilike $${parameter} escape '\\')`,
+        );
+      }
+      values.push(query.limit);
+      const result = await client.query<EmployeeTransferRequestReviewRow>(
+        `${this.employeeTransferRequestReviewSelect()}
+          where ${filters.join(" and ")}
+          order by request.requested_at,request.id
+          limit $${values.length}`,
+        values,
+      );
+      return { items: result.rows.map(employeeTransferRequestReview) };
+    });
+  }
+
+  async getEmployeeTransferRequest(
+    context: HrActorContext,
+    employeeId: string,
+    requestId: string,
+  ): Promise<HrEmployeeTransferRequestReview> {
+    return this.read(context, "hr.employee_assignment.change", async (client) => {
+      const result = await client.query<EmployeeTransferRequestReviewRow>(
+        `${this.employeeTransferRequestReviewSelect()}
+          where request.tenant_id=$1 and request.id=$2 and request.employee_id=$3
+            and exists (
+              select 1 from security_user_company_access access
+               where access.tenant_id=request.tenant_id and access.user_id=$4
+                 and access.company_id=request.company_id and access.revoked_at is null
+            )`,
+        [context.tenantId, requestId, employeeId, context.actor.userId],
+      );
+      if (!result.rows[0])
+        throw new HrApiError(404, "HR_TRANSFER_NOT_FOUND", "The transfer request is unavailable in your company scope.");
+      return employeeTransferRequestReview(result.rows[0]);
+    });
+  }
+
+  async createEmployeeTransferRequest(
+    context: HrActorContext,
+    employeeId: string,
+    input: CreateHrEmployeeTransferRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmployeeTransferRequestResult> {
+    if (!validIdempotencyKey(idempotencyKey))
+      throw new HrApiError(400, "INVALID_IDEMPOTENCY_KEY", "The idempotency key is invalid.");
+    if (!context.actor.permissions.includes("hr.employee_assignment.transfer"))
+      throw new HrApiError(403, "PERMISSION_DENIED", "You are not permitted to request employee transfers.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level serializable");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+        `nexora:hr:employee-transfer:${context.tenantId}:${input.source_assignment_id}`,
+      ]);
+      await this.requireCompanyAccess(client, context, input.company_id);
+      const path = `/api/v1/hr/employees/${employeeId}/transfer_requests`;
+      const fingerprint = stateHash(input);
+      const replay = await client.query<{
+        request_fingerprint: string;
+        response_body: HrEmployeeTransferRequestResult;
+      }>(
+        `select request_fingerprint,response_body from platform_admin_idempotency
+          where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey],
+      );
+      if (replay.rows[0]) {
+        if (replay.rows[0].request_fingerprint !== fingerprint)
+          throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request.");
+        await client.query("commit");
+        return { ...replay.rows[0].response_body, replayed: true };
+      }
+      const currentDate = (await client.query<{ current_date: string }>("select current_date::text as current_date"))
+        .rows[0]?.current_date;
+      if (input.effective_on !== currentDate)
+        throw new HrApiError(
+          409,
+          "HR_TRANSFER_EFFECTIVE_DATE_REQUIRED",
+          "This transfer workflow currently requires today's effective date.",
+        );
+      const source = await client.query<{ relationship_id: string }>(
+        `select assignment.employment_relationship_id as relationship_id
+           from employee_assignment assignment
+           join employee on employee.tenant_id=assignment.tenant_id and employee.id=assignment.employee_id
+           join hr_employment_relationship relationship
+             on relationship.tenant_id=assignment.tenant_id and relationship.id=assignment.employment_relationship_id
+          where assignment.tenant_id=$1 and assignment.id=$2 and assignment.employee_id=$3
+            and assignment.company_id=$4 and assignment.assignment_status='active'
+            and assignment.effective_to is null and assignment.effective_from<current_date
+            and employee.status in ('active','probation','confirmed','suspended')
+            and relationship.status='active'
+          for update of assignment,employee,relationship`,
+        [context.tenantId, input.source_assignment_id, employeeId, input.company_id],
+      );
+      if (!source.rows[0]?.relationship_id)
+        throw new HrApiError(
+          409,
+          "HR_TRANSFER_SOURCE_UNAVAILABLE",
+          "The source assignment is no longer eligible for transfer.",
+        );
+      const pending = await client.query(
+        `select 1 from hr_employee_transfer_request
+          where tenant_id=$1 and source_assignment_id=$2 and request_state='pending'`,
+        [context.tenantId, input.source_assignment_id],
+      );
+      if (pending.rowCount)
+        throw new HrApiError(409, "HR_TRANSFER_ALREADY_PENDING", "A transfer request is already pending for this assignment.");
+      const id = `employee-transfer-request-${randomUUID()}`;
+      await client.query(
+        `insert into hr_employee_transfer_request
+          (tenant_id,id,employee_id,company_id,relationship_id,source_assignment_id,
+           proposed_branch_id,proposed_department_id,proposed_job_id,proposed_designation_id,
+           proposed_job_grade_id,proposed_cost_center_id,proposed_work_location_id,
+           proposed_employment_type_id,proposed_employee_category_id,proposed_reporting_manager_id,
+           effective_on,reason,requested_by)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+        [
+          context.tenantId,
+          id,
+          employeeId,
+          input.company_id,
+          source.rows[0].relationship_id,
+          input.source_assignment_id,
+          input.branch_id ?? null,
+          input.department_id ?? null,
+          input.job_id,
+          input.designation_id,
+          input.job_grade_id,
+          input.cost_center_id,
+          input.work_location_id,
+          input.employment_type_id,
+          input.employee_category_id,
+          input.reporting_manager_id ?? null,
+          input.effective_on,
+          input.reason,
+          context.actor.userId,
+        ],
+      );
+      const audit = await this.appendPlatformAudit(
+        client,
+        context,
+        correlationId,
+        "hr.employee_assignment.transfer.request",
+        {
+          entityId: id,
+          before: null,
+          after: {
+            employee_id: employeeId,
+            company_id: input.company_id,
+            source_assignment_id: input.source_assignment_id,
+            effective_on: input.effective_on,
+            status: "pending",
+          },
+        },
+      );
+      const result: HrEmployeeTransferRequestResult = {
+        id,
+        employee_id: employeeId,
+        company_id: input.company_id,
+        source_assignment_id: input.source_assignment_id,
+        status: "pending",
+        audit_event_id: audit,
+        replayed: false,
+      };
+      await client.query(
+        `insert into platform_admin_idempotency
+          (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag)
+         values ($1,$2,'POST',$3,$4,$5,201,$6,$7)`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stateHash(result)],
+      );
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async decideEmployeeTransferRequest(
+    context: HrActorContext,
+    employeeId: string,
+    requestId: string,
+    input: DecideHrEmployeeTransferRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmployeeTransferDecisionResult> {
+    if (!validIdempotencyKey(idempotencyKey))
+      throw new HrApiError(400, "INVALID_IDEMPOTENCY_KEY", "The idempotency key is invalid.");
+    if (!context.actor.permissions.includes("hr.employee_assignment.change"))
+      throw new HrApiError(403, "PERMISSION_DENIED", "You are not permitted to decide employee transfers.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level serializable");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+        `nexora:hr:employee-transfer:${context.tenantId}:${requestId}`,
+      ]);
+      const path = `/api/v1/hr/employees/${employeeId}/transfer_requests/${requestId}/decision`;
+      const fingerprint = stateHash(input);
+      const replay = await client.query<{
+        request_fingerprint: string;
+        response_body: HrEmployeeTransferDecisionResult;
+      }>(
+        `select request_fingerprint,response_body from platform_admin_idempotency
+          where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey],
+      );
+      if (replay.rows[0]) {
+        if (replay.rows[0].request_fingerprint !== fingerprint)
+          throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request.");
+        await client.query("commit");
+        return { ...replay.rows[0].response_body, replayed: true };
+      }
+      const pending = await client.query<{
+        company_id: string;
+        relationship_id: string;
+        source_assignment_id: string;
+        requested_by: string;
+        effective_on: string;
+        proposed_branch_id: string | null;
+        proposed_department_id: string | null;
+        proposed_job_id: string;
+        proposed_designation_id: string;
+        proposed_job_grade_id: string;
+        proposed_cost_center_id: string;
+        proposed_work_location_id: string;
+        proposed_employment_type_id: string;
+        proposed_employee_category_id: string;
+        proposed_reporting_manager_id: string | null;
+      }>(
+        `select request.company_id,request.relationship_id,request.source_assignment_id,
+                request.requested_by,request.effective_on::text,request.proposed_branch_id,
+                request.proposed_department_id,request.proposed_job_id,request.proposed_designation_id,
+                request.proposed_job_grade_id,request.proposed_cost_center_id,
+                request.proposed_work_location_id,request.proposed_employment_type_id,
+                request.proposed_employee_category_id,request.proposed_reporting_manager_id
+           from hr_employee_transfer_request request
+           join employee_assignment assignment
+             on assignment.tenant_id=request.tenant_id and assignment.id=request.source_assignment_id
+          where request.tenant_id=$1 and request.id=$2 and request.employee_id=$3
+            and request.request_state='pending' and assignment.assignment_status='active'
+            and assignment.effective_to is null
+            and exists (
+              select 1 from security_user_company_access access
+               where access.tenant_id=request.tenant_id and access.user_id=$4
+                 and access.company_id=request.company_id and access.revoked_at is null
+            )
+          for update of request,assignment`,
+        [context.tenantId, requestId, employeeId, context.actor.userId],
+      );
+      const row = pending.rows[0];
+      if (!row)
+        throw new HrApiError(409, "HR_TRANSFER_NOT_PENDING", "The transfer request is not pending in your company scope.");
+      if (row.requested_by === context.actor.userId)
+        throw new HrApiError(403, "HR_SELF_APPROVAL_FORBIDDEN", "A different HR approver must decide this transfer request.");
+      const currentDate = (await client.query<{ current_date: string }>("select current_date::text as current_date"))
+        .rows[0]?.current_date;
+      if (row.effective_on !== currentDate)
+        throw new HrApiError(
+          409,
+          "HR_TRANSFER_EFFECTIVE_DATE_REQUIRED",
+          "This transfer can only be decided on its effective date.",
+        );
+      let assignmentId: string | null = null;
+      if (input.decision === "approved") {
+        await client.query(
+          `update employee_assignment
+              set effective_to=($3::date - 1),assignment_status='ended',updated_at=now()
+            where tenant_id=$1 and id=$2`,
+          [context.tenantId, row.source_assignment_id, row.effective_on],
+        );
+        assignmentId = `employee-assignment-${randomUUID()}`;
+        await client.query(
+          `insert into employee_assignment
+            (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_id,
+             job_grade_id,cost_center_id,work_location_id,employment_type_id,employee_category_id,
+             reporting_manager_id,effective_from,change_reason,created_by,employment_relationship_id,
+             assignment_status,source_reference)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'transfer',$16,$17,'active',$18)`,
+          [
+            assignmentId,
+            context.tenantId,
+            employeeId,
+            row.company_id,
+            row.proposed_branch_id,
+            row.proposed_department_id,
+            row.proposed_designation_id,
+            row.proposed_job_id,
+            row.proposed_job_grade_id,
+            row.proposed_cost_center_id,
+            row.proposed_work_location_id,
+            row.proposed_employment_type_id,
+            row.proposed_employee_category_id,
+            row.proposed_reporting_manager_id,
+            row.effective_on,
+            context.actor.userId,
+            row.relationship_id,
+            `hr:transfer-request:${requestId}`,
+          ],
+        );
+      }
+      await client.query(
+        `update hr_employee_transfer_request
+            set request_state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,
+                projected_assignment_id=$6,row_version=row_version+1
+          where tenant_id=$1 and id=$2`,
+        [context.tenantId, requestId, input.decision, context.actor.userId, input.reason, assignmentId],
+      );
+      const audit = await this.appendPlatformAudit(
+        client,
+        context,
+        correlationId,
+        "hr.employee_assignment.transfer.decide",
+        {
+          entityId: requestId,
+          before: { status: "pending", source_assignment_id: row.source_assignment_id },
+          after: { status: input.decision, assignment_id: assignmentId },
+        },
+      );
+      const result: HrEmployeeTransferDecisionResult = {
+        id: requestId,
+        employee_id: employeeId,
+        company_id: row.company_id,
+        source_assignment_id: row.source_assignment_id,
+        status: input.decision,
+        assignment_id: assignmentId,
+        audit_event_id: audit,
+        replayed: false,
+      };
+      await client.query(
+        `insert into platform_admin_idempotency
+          (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag)
+         values ($1,$2,'POST',$3,$4,$5,200,$6,$7)`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stateHash(result)],
+      );
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async listMasters(context: HrActorContext, query: HrMasterDirectoryQuery): Promise<HrMasterDirectory> {
     return this.read(context, "hr.master.read", async (client) => {
       await this.requireCompanyAccess(client, context, query.company_id);
@@ -2347,6 +2739,44 @@ export class SourceHrRepository {
                 on work_location.tenant_id=assignment.tenant_id and work_location.id=assignment.work_location_id`;
   }
 
+  private employeeTransferRequestReviewSelect(): string {
+    return `select request.id,request.employee_id,employee.employee_number,
+                   concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as employee_name,
+                   request.company_id,request.relationship_id,request.source_assignment_id,
+                   coalesce(source_branch.name,'') as source_branch,
+                   coalesce(source_department.name,'') as source_department,
+                   coalesce(proposed_branch.name,'') as proposed_branch,
+                   coalesce(proposed_department.name,'') as proposed_department,
+                   proposed_job.name as proposed_job,
+                   proposed_designation.name as proposed_designation,
+                   proposed_job_grade.name as proposed_job_grade,
+                   proposed_work_location.name as proposed_work_location,
+                   request.effective_on,request.requested_by,request.requested_at,
+                   request.reason,request.request_state as status,request.decided_by,
+                   request.decided_at,request.decision_reason
+              from hr_employee_transfer_request request
+              join employee
+                on employee.tenant_id=request.tenant_id and employee.id=request.employee_id
+              join employee_assignment source_assignment
+                on source_assignment.tenant_id=request.tenant_id and source_assignment.id=request.source_assignment_id
+              left join organization_unit source_branch
+                on source_branch.tenant_id=source_assignment.tenant_id and source_branch.id=source_assignment.branch_id
+              left join organization_unit source_department
+                on source_department.tenant_id=source_assignment.tenant_id and source_department.id=source_assignment.department_id
+              left join organization_unit proposed_branch
+                on proposed_branch.tenant_id=request.tenant_id and proposed_branch.id=request.proposed_branch_id
+              left join organization_unit proposed_department
+                on proposed_department.tenant_id=request.tenant_id and proposed_department.id=request.proposed_department_id
+              join hr_master_record proposed_job
+                on proposed_job.tenant_id=request.tenant_id and proposed_job.id=request.proposed_job_id
+              join hr_master_record proposed_designation
+                on proposed_designation.tenant_id=request.tenant_id and proposed_designation.id=request.proposed_designation_id
+              join hr_master_record proposed_job_grade
+                on proposed_job_grade.tenant_id=request.tenant_id and proposed_job_grade.id=request.proposed_job_grade_id
+              join hr_master_record proposed_work_location
+                on proposed_work_location.tenant_id=request.tenant_id and proposed_work_location.id=request.proposed_work_location_id`;
+  }
+
   private async requireCompanyAccess(client: PoolClient, context: HrActorContext, companyId: string): Promise<void> {
     const access = await client.query(
       `select 1 from security_user_company_access
@@ -2420,7 +2850,9 @@ export class SourceHrRepository {
       | "hr.employment_lifecycle_policy.activate"
       | "hr.master.job.create"
       | "hr.employment_lifecycle.hire.request"
-      | "hr.employment_lifecycle.hire.decide",
+      | "hr.employment_lifecycle.hire.decide"
+      | "hr.employee_assignment.transfer.request"
+      | "hr.employee_assignment.transfer.decide",
     mutation: {
       entityId: string;
       entityType?: "employee" | "employment_lifecycle_policy" | "hr_master_record" | "employment_relationship";

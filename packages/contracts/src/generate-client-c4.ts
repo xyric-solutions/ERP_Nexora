@@ -55,6 +55,12 @@ import type {
   HrEmployeeHireDecisionResult,
   HrEmployeeHireRequestDirectory,
   HrEmployeeHireRequestReview,
+  CreateHrEmployeeTransferRequest,
+  HrEmployeeTransferRequestResult,
+  DecideHrEmployeeTransferRequest,
+  HrEmployeeTransferDecisionResult,
+  HrEmployeeTransferRequestDirectory,
+  HrEmployeeTransferRequestReview,
   HrJobResult,
   JobReceipt,
   PasswordLoginRequest,
@@ -225,6 +231,16 @@ export class NexoraApiClient {
   }
   decideHrEmployeeHireRequest(employeeId: string, requestId: string, payload: DecideHrEmployeeHireRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeHireDecisionResult> {
     return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(employeeId)}/hire_requests/\${encodeURIComponent(requestId)}/decision\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  createHrEmployeeTransferRequest(employeeId: string, payload: CreateHrEmployeeTransferRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeTransferRequestResult> {
+    return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(employeeId)}/transfer_requests\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  listHrEmployeeTransferRequests(query: string): Promise<HrEmployeeTransferRequestDirectory> { return this.request(\`/api/v1/hr/transfer_requests\${query}\`); }
+  getHrEmployeeTransferRequest(employeeId: string, requestId: string): Promise<HrEmployeeTransferRequestReview> {
+    return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(employeeId)}/transfer_requests/\${encodeURIComponent(requestId)}\`);
+  }
+  decideHrEmployeeTransferRequest(employeeId: string, requestId: string, payload: DecideHrEmployeeTransferRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeTransferDecisionResult> {
+    return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(employeeId)}/transfer_requests/\${encodeURIComponent(requestId)}/decision\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
   createHrEmployeeDraft(payload: CreateHrEmployeeDraftRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeDraftResult> {
     return this.request("/api/v1/hr/employees", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
