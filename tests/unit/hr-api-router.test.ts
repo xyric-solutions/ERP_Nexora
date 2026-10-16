@@ -597,10 +597,7 @@ describe("HR API foundation", () => {
         audit_event_id: "audit-2",
         replayed: false,
       })),
-    } as unknown as Pick<
-      SourceHrRepository,
-      "createEmployeeTransferRequest" | "decideEmployeeTransferRequest"
-    >;
+    } as unknown as Pick<SourceHrRepository, "createEmployeeTransferRequest" | "decideEmployeeTransferRequest">;
     const payload = {
       company_id: "company-a",
       source_assignment_id: "assignment-1",
@@ -672,10 +669,7 @@ describe("HR API foundation", () => {
         audit_event_id: "audit-2",
         replayed: false,
       })),
-    } as unknown as Pick<
-      SourceHrRepository,
-      "createEmployeePromotionRequest" | "decideEmployeePromotionRequest"
-    >;
+    } as unknown as Pick<SourceHrRepository, "createEmployeePromotionRequest" | "decideEmployeePromotionRequest">;
     const payload = {
       company_id: "company-a",
       source_assignment_id: "assignment-1",
@@ -793,6 +787,82 @@ describe("HR API foundation", () => {
       "manager-change-1",
       decision,
       "manager-change-decision-1",
+      expect.any(String),
+    );
+  });
+
+  it("protects work-location-change creation and independent decisions", async () => {
+    const repository = {
+      createEmployeeWorkLocationChangeRequest: vi.fn(async () => ({
+        id: "work-location-change-1",
+        employee_id: "employee-1",
+        company_id: "company-a",
+        source_assignment_id: "assignment-1",
+        status: "pending",
+        audit_event_id: "audit-1",
+        replayed: false,
+      })),
+      decideEmployeeWorkLocationChangeRequest: vi.fn(async () => ({
+        id: "work-location-change-1",
+        employee_id: "employee-1",
+        company_id: "company-a",
+        source_assignment_id: "assignment-1",
+        status: "approved",
+        assignment_id: "assignment-2",
+        audit_event_id: "audit-2",
+        replayed: false,
+      })),
+    } as unknown as Pick<
+      SourceHrRepository,
+      "createEmployeeWorkLocationChangeRequest" | "decideEmployeeWorkLocationChangeRequest"
+    >;
+    const payload = {
+      company_id: "company-a",
+      source_assignment_id: "assignment-1",
+      work_location_id: "location-2",
+      effective_on: "2026-10-16",
+      reason: "Move to the reviewed Lahore statutory location.",
+    };
+    const created = await request(appForHr(repository))
+      .post("/api/v1/hr/employees/employee-1/work_location_change_requests")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "work-location-change-request-1")
+      .send(payload);
+    expect(created.status).toBe(201);
+    expect(repository.createEmployeeWorkLocationChangeRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "employee-1",
+      payload,
+      "work-location-change-request-1",
+      expect.any(String),
+    );
+
+    const invalid = await request(appForHr(repository))
+      .post("/api/v1/hr/employees/employee-1/work_location_change_requests")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "work-location-change-request-invalid")
+      .send({ ...payload, reason: "" });
+    expect(invalid.status).toBe(400);
+
+    const decision = { decision: "approved", reason: "Independent location approval completed." };
+    const decided = await request(appForHr(repository))
+      .post("/api/v1/hr/employees/employee-1/work_location_change_requests/work-location-change-1/decision")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "work-location-change-decision-1")
+      .send(decision);
+    expect(decided.status).toBe(200);
+    expect(repository.decideEmployeeWorkLocationChangeRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "employee-1",
+      "work-location-change-1",
+      decision,
+      "work-location-change-decision-1",
       expect.any(String),
     );
   });

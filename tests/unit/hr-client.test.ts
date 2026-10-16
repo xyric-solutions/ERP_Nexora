@@ -122,16 +122,9 @@ describe("HR browser client", () => {
       "decision-key",
     );
 
-    expect(api.listHrEmployeeTransferRequests).toHaveBeenCalledWith(
-      "?company_id=company%2Fa&search=EMP+1&limit=10",
-    );
+    expect(api.listHrEmployeeTransferRequests).toHaveBeenCalledWith("?company_id=company%2Fa&search=EMP+1&limit=10");
     expect(api.getHrEmployeeTransferRequest).toHaveBeenCalledWith("employee/a", "transfer/a");
-    expect(api.createHrEmployeeTransferRequest).toHaveBeenCalledWith(
-      "employee-1",
-      payload,
-      "csrf",
-      "request-key",
-    );
+    expect(api.createHrEmployeeTransferRequest).toHaveBeenCalledWith("employee-1", payload, "csrf", "request-key");
     expect(api.decideHrEmployeeTransferRequest).toHaveBeenCalledWith(
       "employee-1",
       "transfer-1",
@@ -185,16 +178,9 @@ describe("HR browser client", () => {
       "decision-key",
     );
 
-    expect(api.listHrEmployeePromotionRequests).toHaveBeenCalledWith(
-      "?company_id=company%2Fa&search=EMP+1&limit=10",
-    );
+    expect(api.listHrEmployeePromotionRequests).toHaveBeenCalledWith("?company_id=company%2Fa&search=EMP+1&limit=10");
     expect(api.getHrEmployeePromotionRequest).toHaveBeenCalledWith("employee/a", "promotion/a");
-    expect(api.createHrEmployeePromotionRequest).toHaveBeenCalledWith(
-      "employee-1",
-      payload,
-      "csrf",
-      "request-key",
-    );
+    expect(api.createHrEmployeePromotionRequest).toHaveBeenCalledWith("employee-1", payload, "csrf", "request-key");
     expect(api.decideHrEmployeePromotionRequest).toHaveBeenCalledWith(
       "employee-1",
       "promotion-1",
@@ -255,6 +241,67 @@ describe("HR browser client", () => {
     expect(api.decideHrEmployeeManagerChangeRequest).toHaveBeenCalledWith(
       "employee-1",
       "manager-change-1",
+      { decision: "approved", reason: "Independently approved." },
+      "csrf",
+      "decision-key",
+    );
+  });
+
+  it("passes work-location-change reads and mutations through the generated API client", async () => {
+    const requestResult = {
+      id: "work-location-change-1",
+      employee_id: "employee-1",
+      company_id: "company-a",
+      source_assignment_id: "assignment-1",
+      status: "pending" as const,
+      audit_event_id: "audit-1",
+      replayed: false,
+    };
+    const api = {
+      listHrEmployeeWorkLocationChangeRequests: vi.fn(async () => ({ items: [] })),
+      getHrEmployeeWorkLocationChangeRequest: vi.fn(async () => ({ id: "work-location-change-1" })),
+      createHrEmployeeWorkLocationChangeRequest: vi.fn(async () => requestResult),
+      decideHrEmployeeWorkLocationChangeRequest: vi.fn(async () => ({
+        ...requestResult,
+        status: "approved" as const,
+        assignment_id: "assignment-2",
+      })),
+    } as unknown as NexoraApiClient;
+    const client = new HrApiClient(api);
+    const payload = {
+      company_id: "company-a",
+      source_assignment_id: "assignment-1",
+      work_location_id: "location-2",
+      effective_on: "2026-10-16",
+      reason: "Move to the reviewed Lahore statutory location.",
+    };
+
+    await client.workLocationChangeRequests({ companyId: "company/a", search: "EMP 1", limit: 10 });
+    await client.workLocationChangeRequest("employee/a", "work-location-change/a");
+    await expect(client.createWorkLocationChangeRequest("employee-1", payload, "csrf", "request-key")).resolves.toEqual(
+      requestResult,
+    );
+    await client.decideWorkLocationChangeRequest(
+      "employee-1",
+      "work-location-change-1",
+      { decision: "approved", reason: "Independently approved." },
+      "csrf",
+      "decision-key",
+    );
+
+    expect(api.listHrEmployeeWorkLocationChangeRequests).toHaveBeenCalledWith(
+      "?company_id=company%2Fa&search=EMP+1&limit=10",
+    );
+    expect(api.getHrEmployeeWorkLocationChangeRequest).toHaveBeenCalledWith("employee/a", "work-location-change/a");
+    expect(api.createHrEmployeeWorkLocationChangeRequest).toHaveBeenCalledWith(
+      "employee-1",
+      payload,
+      "csrf",
+      "request-key",
+    );
+    expect(api.decideHrEmployeeWorkLocationChangeRequest).toHaveBeenCalledWith(
+      "employee-1",
+      "work-location-change-1",
       { decision: "approved", reason: "Independently approved." },
       "csrf",
       "decision-key",

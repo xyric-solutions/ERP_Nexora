@@ -621,6 +621,71 @@ export const hrEmployeeManagerChangeRequestDirectorySchema = z.strictObject({
   items: z.array(hrEmployeeManagerChangeRequestReviewSchema),
 });
 
+/** A work-location change alters statutory location context, never role, placement, or pay. */
+export const createHrEmployeeWorkLocationChangeRequestSchema = z.strictObject({
+  company_id: identifier,
+  source_assignment_id: identifier,
+  work_location_id: identifier,
+  effective_on: isoDate,
+  reason: z.string().trim().min(1).max(1000),
+});
+export const hrEmployeeWorkLocationChangeRequestResultSchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  company_id: identifier,
+  source_assignment_id: identifier,
+  status: z.literal("pending"),
+  audit_event_id: identifier,
+  replayed: z.boolean(),
+});
+export const decideHrEmployeeWorkLocationChangeRequestSchema = z.strictObject({
+  decision: z.enum(["approved", "rejected"]),
+  reason: z.string().trim().min(1).max(1000),
+});
+export const hrEmployeeWorkLocationChangeDecisionResultSchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  company_id: identifier,
+  source_assignment_id: identifier,
+  status: z.enum(["approved", "rejected"]),
+  assignment_id: identifier.nullable(),
+  audit_event_id: identifier,
+  replayed: z.boolean(),
+});
+export const hrEmployeeWorkLocationChangeRequestDirectoryQuerySchema = z.strictObject({
+  company_id: identifier,
+  search: z.string().trim().max(160).optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+});
+export const hrEmployeeWorkLocationChangeRequestReviewSchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  employee_number: z.string().min(1).max(32),
+  employee_name: z.string().min(1).max(320),
+  company_id: identifier,
+  relationship_id: identifier,
+  source_assignment_id: identifier,
+  current_work_location_id: identifier,
+  current_work_location_name: z.string().min(1).max(160),
+  proposed_work_location_id: identifier,
+  proposed_work_location_name: z.string().min(1).max(160),
+  jurisdiction_profile_id: identifier,
+  jurisdiction_country_code: z.string().min(1).max(32),
+  jurisdiction_id: identifier,
+  jurisdiction_ready: z.boolean(),
+  effective_on: isoDate,
+  requested_by: identifier,
+  requested_at: z.string().datetime(),
+  reason: z.string().min(1).max(1000),
+  status: z.enum(["pending", "approved", "rejected"]),
+  decided_by: identifier.nullable(),
+  decided_at: z.string().datetime().nullable(),
+  decision_reason: z.string().max(1000).nullable(),
+});
+export const hrEmployeeWorkLocationChangeRequestDirectorySchema = z.strictObject({
+  items: z.array(hrEmployeeWorkLocationChangeRequestReviewSchema),
+});
+
 export const hrMasterDirectorySchema = z.strictObject({ items: z.array(hrMasterRecordSchema) });
 
 export type HrEmployeeDirectoryQuery = z.infer<typeof hrEmployeeDirectoryQuerySchema>;
@@ -802,18 +867,14 @@ export type CreateHrEmployeeTransferRequest = z.infer<typeof createHrEmployeeTra
 export type HrEmployeeTransferRequestResult = z.infer<typeof hrEmployeeTransferRequestResultSchema>;
 export type DecideHrEmployeeTransferRequest = z.infer<typeof decideHrEmployeeTransferRequestSchema>;
 export type HrEmployeeTransferDecisionResult = z.infer<typeof hrEmployeeTransferDecisionResultSchema>;
-export type HrEmployeeTransferRequestDirectoryQuery = z.infer<
-  typeof hrEmployeeTransferRequestDirectoryQuerySchema
->;
+export type HrEmployeeTransferRequestDirectoryQuery = z.infer<typeof hrEmployeeTransferRequestDirectoryQuerySchema>;
 export type HrEmployeeTransferRequestReview = z.infer<typeof hrEmployeeTransferRequestReviewSchema>;
 export type HrEmployeeTransferRequestDirectory = z.infer<typeof hrEmployeeTransferRequestDirectorySchema>;
 export type CreateHrEmployeePromotionRequest = z.infer<typeof createHrEmployeePromotionRequestSchema>;
 export type HrEmployeePromotionRequestResult = z.infer<typeof hrEmployeePromotionRequestResultSchema>;
 export type DecideHrEmployeePromotionRequest = z.infer<typeof decideHrEmployeePromotionRequestSchema>;
 export type HrEmployeePromotionDecisionResult = z.infer<typeof hrEmployeePromotionDecisionResultSchema>;
-export type HrEmployeePromotionRequestDirectoryQuery = z.infer<
-  typeof hrEmployeePromotionRequestDirectoryQuerySchema
->;
+export type HrEmployeePromotionRequestDirectoryQuery = z.infer<typeof hrEmployeePromotionRequestDirectoryQuerySchema>;
 export type HrEmployeePromotionRequestReview = z.infer<typeof hrEmployeePromotionRequestReviewSchema>;
 export type HrEmployeePromotionRequestDirectory = z.infer<typeof hrEmployeePromotionRequestDirectorySchema>;
 export type CreateHrEmployeeManagerChangeRequest = z.infer<typeof createHrEmployeeManagerChangeRequestSchema>;
@@ -825,3 +886,16 @@ export type HrEmployeeManagerChangeRequestDirectoryQuery = z.infer<
 >;
 export type HrEmployeeManagerChangeRequestReview = z.infer<typeof hrEmployeeManagerChangeRequestReviewSchema>;
 export type HrEmployeeManagerChangeRequestDirectory = z.infer<typeof hrEmployeeManagerChangeRequestDirectorySchema>;
+export type CreateHrEmployeeWorkLocationChangeRequest = z.infer<typeof createHrEmployeeWorkLocationChangeRequestSchema>;
+export type HrEmployeeWorkLocationChangeRequestResult = z.infer<typeof hrEmployeeWorkLocationChangeRequestResultSchema>;
+export type DecideHrEmployeeWorkLocationChangeRequest = z.infer<typeof decideHrEmployeeWorkLocationChangeRequestSchema>;
+export type HrEmployeeWorkLocationChangeDecisionResult = z.infer<
+  typeof hrEmployeeWorkLocationChangeDecisionResultSchema
+>;
+export type HrEmployeeWorkLocationChangeRequestDirectoryQuery = z.infer<
+  typeof hrEmployeeWorkLocationChangeRequestDirectoryQuerySchema
+>;
+export type HrEmployeeWorkLocationChangeRequestReview = z.infer<typeof hrEmployeeWorkLocationChangeRequestReviewSchema>;
+export type HrEmployeeWorkLocationChangeRequestDirectory = z.infer<
+  typeof hrEmployeeWorkLocationChangeRequestDirectorySchema
+>;

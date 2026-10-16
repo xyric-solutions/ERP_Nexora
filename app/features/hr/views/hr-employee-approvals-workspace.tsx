@@ -25,6 +25,7 @@ import { HrHireApprovalsPanel } from "../components/hr-hire-approvals-panel";
 import { HrTransferApprovalsPanel } from "../components/hr-transfer-approvals-panel";
 import { HrPromotionApprovalsPanel } from "../components/hr-promotion-approvals-panel";
 import { HrManagerChangeApprovalsPanel } from "../components/hr-manager-change-approvals-panel";
+import { HrWorkLocationChangeApprovalsPanel } from "../components/hr-work-location-change-approvals-panel";
 
 type LoadState = "loading" | "ready" | "error";
 type Decision = DecideHrEmployeeDraftApprovalRequest["decision"];
@@ -51,8 +52,14 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
   const canApproveTransfer = session?.user.permissions.includes("hr.employee_assignment.change") ?? false;
   const canApprovePromotion = session?.user.permissions.includes("hr.employee_assignment.change") ?? false;
   const canApproveManagerChange = session?.user.permissions.includes("hr.employee_assignment.change") ?? false;
+  const canApproveWorkLocationChange = session?.user.permissions.includes("hr.employee_assignment.change") ?? false;
   const canApprove =
-    canApproveDraft || canApproveHire || canApproveTransfer || canApprovePromotion || canApproveManagerChange;
+    canApproveDraft ||
+    canApproveHire ||
+    canApproveTransfer ||
+    canApprovePromotion ||
+    canApproveManagerChange ||
+    canApproveWorkLocationChange;
   const userId = session?.user.id;
 
   useEffect(() => {
@@ -425,6 +432,16 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
       {canApproveManagerChange && (
         <HrManagerChangeApprovalsPanel
           key={`manager-change:${companyId}`}
+          client={client}
+          csrfToken={csrfToken}
+          companyId={companyId}
+          userId={userId}
+          onAction={onAction}
+        />
+      )}
+      {canApproveWorkLocationChange && (
+        <HrWorkLocationChangeApprovalsPanel
+          key={`work-location-change:${companyId}`}
           client={client}
           csrfToken={csrfToken}
           companyId={companyId}

@@ -61,6 +61,12 @@ import type {
   HrEmployeeManagerChangeDecisionResult,
   HrEmployeeManagerChangeRequestDirectory,
   HrEmployeeManagerChangeRequestReview,
+  CreateHrEmployeeWorkLocationChangeRequest,
+  HrEmployeeWorkLocationChangeRequestResult,
+  DecideHrEmployeeWorkLocationChangeRequest,
+  HrEmployeeWorkLocationChangeDecisionResult,
+  HrEmployeeWorkLocationChangeRequestDirectory,
+  HrEmployeeWorkLocationChangeRequestReview,
 } from "@nexora/contracts";
 
 import type { NexoraApiClient } from "@/lib/api/generated";
@@ -395,5 +401,38 @@ export class HrApiClient {
     idempotencyKey: string,
   ): Promise<HrEmployeeManagerChangeDecisionResult> {
     return this.api.decideHrEmployeeManagerChangeRequest(employeeId, requestId, input, csrfToken, idempotencyKey);
+  }
+
+  createWorkLocationChangeRequest(
+    employeeId: string,
+    input: CreateHrEmployeeWorkLocationChangeRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmployeeWorkLocationChangeRequestResult> {
+    return this.api.createHrEmployeeWorkLocationChangeRequest(employeeId, input, csrfToken, idempotencyKey);
+  }
+
+  workLocationChangeRequests(input: {
+    companyId: string;
+    search?: string;
+    limit?: number;
+  }): Promise<HrEmployeeWorkLocationChangeRequestDirectory> {
+    return this.api.listHrEmployeeWorkLocationChangeRequests(
+      query({ company_id: input.companyId, search: input.search, limit: input.limit ?? 50 }),
+    );
+  }
+
+  workLocationChangeRequest(employeeId: string, requestId: string): Promise<HrEmployeeWorkLocationChangeRequestReview> {
+    return this.api.getHrEmployeeWorkLocationChangeRequest(employeeId, requestId);
+  }
+
+  decideWorkLocationChangeRequest(
+    employeeId: string,
+    requestId: string,
+    input: DecideHrEmployeeWorkLocationChangeRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmployeeWorkLocationChangeDecisionResult> {
+    return this.api.decideHrEmployeeWorkLocationChangeRequest(employeeId, requestId, input, csrfToken, idempotencyKey);
   }
 }

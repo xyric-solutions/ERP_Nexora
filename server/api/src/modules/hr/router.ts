@@ -32,6 +32,9 @@ import {
   createHrEmployeeManagerChangeRequestSchema,
   decideHrEmployeeManagerChangeRequestSchema,
   hrEmployeeManagerChangeRequestDirectoryQuerySchema,
+  createHrEmployeeWorkLocationChangeRequestSchema,
+  decideHrEmployeeWorkLocationChangeRequestSchema,
+  hrEmployeeWorkLocationChangeRequestDirectoryQuerySchema,
 } from "@nexora/contracts";
 
 import { HttpError } from "../../http/errors.js";
@@ -90,6 +93,10 @@ export interface HrRouterDependencies {
     | "getEmployeeManagerChangeRequest"
     | "createEmployeeManagerChangeRequest"
     | "decideEmployeeManagerChangeRequest"
+    | "listEmployeeWorkLocationChangeRequests"
+    | "getEmployeeWorkLocationChangeRequest"
+    | "createEmployeeWorkLocationChangeRequest"
+    | "decideEmployeeWorkLocationChangeRequest"
   >;
   authentication: TenantAuthApiService;
   sessions: TenantSessionApiService;
@@ -319,9 +326,7 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
       search: req.query.search,
       limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
     });
-    res.json(
-      await handle(async () => movements.listTransfers(await loadHrSessionContext(req, dependencies), query)),
-    );
+    res.json(await handle(async () => movements.listTransfers(await loadHrSessionContext(req, dependencies), query)));
   });
   router.post("/employees/:employeeId/transfer_requests", async (req, res) => {
     trustedOrigin(req, dependencies.allowedOrigins);
@@ -371,9 +376,7 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
       search: req.query.search,
       limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
     });
-    res.json(
-      await handle(async () => movements.listPromotions(await loadHrSessionContext(req, dependencies), query)),
-    );
+    res.json(await handle(async () => movements.listPromotions(await loadHrSessionContext(req, dependencies), query)));
   });
   router.post("/employees/:employeeId/promotion_requests", async (req, res) => {
     trustedOrigin(req, dependencies.allowedOrigins);
@@ -459,6 +462,58 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
     res.json(
       await handle(async () =>
         movements.decideManagerChange(
+          await loadHrSessionContext(req, dependencies, true),
+          employeeId,
+          requestId,
+          input,
+          idempotencyKey(req),
+          currentRequestContext().correlationId,
+        ),
+      ),
+    );
+  });
+  router.get("/work_location_change_requests", async (req, res) => {
+    const query = hrEmployeeWorkLocationChangeRequestDirectoryQuerySchema.parse({
+      company_id: req.query.company_id,
+      search: req.query.search,
+      limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+    });
+    res.json(
+      await handle(async () => movements.listWorkLocationChanges(await loadHrSessionContext(req, dependencies), query)),
+    );
+  });
+  router.post("/employees/:employeeId/work_location_change_requests", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
+    const input = createHrEmployeeWorkLocationChangeRequestSchema.parse(req.body);
+    const result = await handle(async () =>
+      movements.requestWorkLocationChange(
+        await loadHrSessionContext(req, dependencies, true),
+        employeeId,
+        input,
+        idempotencyKey(req),
+        currentRequestContext().correlationId,
+      ),
+    );
+    res.status(result.replayed ? 200 : 201).json(result);
+  });
+  router.get("/employees/:employeeId/work_location_change_requests/:requestId", async (req, res) => {
+    const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
+    const requestId = z.string().trim().min(1).max(128).parse(req.params.requestId);
+    res.json(
+      await handle(async () =>
+        movements.getWorkLocationChange(await loadHrSessionContext(req, dependencies), employeeId, requestId),
+      ),
+    );
+  });
+  router.post("/employees/:employeeId/work_location_change_requests/:requestId/decision", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
+    const requestId = z.string().trim().min(1).max(128).parse(req.params.requestId);
+    const input = decideHrEmployeeWorkLocationChangeRequestSchema.parse(req.body);
+    res.json(
+      await handle(async () =>
+        movements.decideWorkLocationChange(
           await loadHrSessionContext(req, dependencies, true),
           employeeId,
           requestId,

@@ -72,6 +72,13 @@ import type {
   HrEmployeeManagerChangeRequestDirectory,
   HrEmployeeManagerChangeRequestDirectoryQuery,
   HrEmployeeManagerChangeRequestReview,
+  CreateHrEmployeeWorkLocationChangeRequest,
+  HrEmployeeWorkLocationChangeRequestResult,
+  DecideHrEmployeeWorkLocationChangeRequest,
+  HrEmployeeWorkLocationChangeDecisionResult,
+  HrEmployeeWorkLocationChangeRequestDirectory,
+  HrEmployeeWorkLocationChangeRequestDirectoryQuery,
+  HrEmployeeWorkLocationChangeRequestReview,
 } from "@nexora/contracts";
 import type { Pool, PoolClient } from "pg";
 
@@ -151,6 +158,14 @@ type EmployeeManagerChangeRequestReviewRow = Omit<
   requested_at: string | Date;
   decided_at: string | Date | null;
 };
+type EmployeeWorkLocationChangeRequestReviewRow = Omit<
+  HrEmployeeWorkLocationChangeRequestReview,
+  "effective_on" | "requested_at" | "decided_at"
+> & {
+  effective_on: string | Date;
+  requested_at: string | Date;
+  decided_at: string | Date | null;
+};
 
 function dateOnly(value: string | Date): string {
   return value instanceof Date ? value.toISOString().slice(0, 10) : value.slice(0, 10);
@@ -190,6 +205,17 @@ function employeePromotionRequestReview(row: EmployeePromotionRequestReviewRow):
 function employeeManagerChangeRequestReview(
   row: EmployeeManagerChangeRequestReviewRow,
 ): HrEmployeeManagerChangeRequestReview {
+  return {
+    ...row,
+    effective_on: dateOnly(row.effective_on),
+    requested_at: new Date(row.requested_at).toISOString(),
+    decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
+  };
+}
+
+function employeeWorkLocationChangeRequestReview(
+  row: EmployeeWorkLocationChangeRequestReviewRow,
+): HrEmployeeWorkLocationChangeRequestReview {
   return {
     ...row,
     effective_on: dateOnly(row.effective_on),
@@ -273,13 +299,13 @@ export class SourceHrRepository {
       context,
       ["hr.employee_assignment.read", "hr.employee_assignment.create", "hr.employee_assignment.transfer"],
       async (client) => {
-      await this.requireCompanyAccess(client, context, query.company_id);
-      const values: unknown[] = [context.tenantId, query.company_id];
-      const filters = ["unit.id<>$2", "unit.type in ('branch','department')"];
-      if (query.type) filters.push(`unit.type=$${values.push(query.type)}`);
-      values.push(query.limit);
-      const result = await client.query<HrOrganizationUnitDirectory["items"][number]>(
-        `with recursive company_tree as (
+        await this.requireCompanyAccess(client, context, query.company_id);
+        const values: unknown[] = [context.tenantId, query.company_id];
+        const filters = ["unit.id<>$2", "unit.type in ('branch','department')"];
+        if (query.type) filters.push(`unit.type=$${values.push(query.type)}`);
+        values.push(query.limit);
+        const result = await client.query<HrOrganizationUnitDirectory["items"][number]>(
+          `with recursive company_tree as (
            select id,parent_id,type,code,name
              from organization_unit
             where tenant_id=$1 and id=$2 and type='company' and status='active'
@@ -294,8 +320,8 @@ export class SourceHrRepository {
           where ${filters.join(" and ")}
           order by unit.type,unit.name,unit.code,unit.id
           limit $${values.length}`,
-        values,
-      );
+          values,
+        );
         return { items: result.rows };
       },
     );
@@ -2330,7 +2356,11 @@ export class SourceHrRepository {
         [context.tenantId, requestId, employeeId, context.actor.userId],
       );
       if (!result.rows[0])
-        throw new HrApiError(404, "HR_TRANSFER_NOT_FOUND", "The transfer request is unavailable in your company scope.");
+        throw new HrApiError(
+          404,
+          "HR_TRANSFER_NOT_FOUND",
+          "The transfer request is unavailable in your company scope.",
+        );
       return employeeTransferRequestReview(result.rows[0]);
     });
   }
@@ -2366,7 +2396,11 @@ export class SourceHrRepository {
       );
       if (replay.rows[0]) {
         if (replay.rows[0].request_fingerprint !== fingerprint)
-          throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request.");
+          throw new HrApiError(
+            409,
+            "IDEMPOTENCY_CONFLICT",
+            "The idempotency key was already used for another request.",
+          );
         await client.query("commit");
         return { ...replay.rows[0].response_body, replayed: true };
       }
@@ -2404,7 +2438,11 @@ export class SourceHrRepository {
         [context.tenantId, input.source_assignment_id],
       );
       if (pending.rowCount)
-        throw new HrApiError(409, "HR_TRANSFER_ALREADY_PENDING", "A transfer request is already pending for this assignment.");
+        throw new HrApiError(
+          409,
+          "HR_TRANSFER_ALREADY_PENDING",
+          "A transfer request is already pending for this assignment.",
+        );
       const id = `employee-transfer-request-${randomUUID()}`;
       await client.query(
         `insert into hr_employee_transfer_request
@@ -2509,7 +2547,11 @@ export class SourceHrRepository {
       );
       if (replay.rows[0]) {
         if (replay.rows[0].request_fingerprint !== fingerprint)
-          throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request.");
+          throw new HrApiError(
+            409,
+            "IDEMPOTENCY_CONFLICT",
+            "The idempotency key was already used for another request.",
+          );
         await client.query("commit");
         return { ...replay.rows[0].response_body, replayed: true };
       }
@@ -2552,9 +2594,17 @@ export class SourceHrRepository {
       );
       const row = pending.rows[0];
       if (!row)
-        throw new HrApiError(409, "HR_TRANSFER_NOT_PENDING", "The transfer request is not pending in your company scope.");
+        throw new HrApiError(
+          409,
+          "HR_TRANSFER_NOT_PENDING",
+          "The transfer request is not pending in your company scope.",
+        );
       if (row.requested_by === context.actor.userId)
-        throw new HrApiError(403, "HR_SELF_APPROVAL_FORBIDDEN", "A different HR approver must decide this transfer request.");
+        throw new HrApiError(
+          403,
+          "HR_SELF_APPROVAL_FORBIDDEN",
+          "A different HR approver must decide this transfer request.",
+        );
       const currentDate = (await client.query<{ current_date: string }>("select current_date::text as current_date"))
         .rows[0]?.current_date;
       if (row.effective_on !== currentDate)
@@ -2688,7 +2738,11 @@ export class SourceHrRepository {
         [context.tenantId, requestId, employeeId, context.actor.userId],
       );
       if (!result.rows[0])
-        throw new HrApiError(404, "HR_PROMOTION_NOT_FOUND", "The promotion request is unavailable in your company scope.");
+        throw new HrApiError(
+          404,
+          "HR_PROMOTION_NOT_FOUND",
+          "The promotion request is unavailable in your company scope.",
+        );
       return employeePromotionRequestReview(result.rows[0]);
     });
   }
@@ -2724,7 +2778,11 @@ export class SourceHrRepository {
       );
       if (replay.rows[0]) {
         if (replay.rows[0].request_fingerprint !== fingerprint)
-          throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request.");
+          throw new HrApiError(
+            409,
+            "IDEMPOTENCY_CONFLICT",
+            "The idempotency key was already used for another request.",
+          );
         await client.query("commit");
         return { ...replay.rows[0].response_body, replayed: true };
       }
@@ -2779,7 +2837,11 @@ export class SourceHrRepository {
         [context.tenantId, input.source_assignment_id],
       );
       if (pending.rowCount)
-        throw new HrApiError(409, "HR_PROMOTION_ALREADY_PENDING", "A promotion request is already pending for this assignment.");
+        throw new HrApiError(
+          409,
+          "HR_PROMOTION_ALREADY_PENDING",
+          "A promotion request is already pending for this assignment.",
+        );
       const id = `employee-promotion-request-${randomUUID()}`;
       await client.query(
         `insert into hr_employee_promotion_request
@@ -2845,7 +2907,11 @@ export class SourceHrRepository {
           "The promotion context is no longer valid. Refresh the employee assignment and active master data.",
         );
       if (code === "23505")
-        throw new HrApiError(409, "HR_PROMOTION_ALREADY_PENDING", "A promotion request is already pending for this assignment.");
+        throw new HrApiError(
+          409,
+          "HR_PROMOTION_ALREADY_PENDING",
+          "A promotion request is already pending for this assignment.",
+        );
       throw error;
     } finally {
       client.release();
@@ -2883,7 +2949,11 @@ export class SourceHrRepository {
       );
       if (replay.rows[0]) {
         if (replay.rows[0].request_fingerprint !== fingerprint)
-          throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request.");
+          throw new HrApiError(
+            409,
+            "IDEMPOTENCY_CONFLICT",
+            "The idempotency key was already used for another request.",
+          );
         await client.query("commit");
         return { ...replay.rows[0].response_body, replayed: true };
       }
@@ -2928,9 +2998,17 @@ export class SourceHrRepository {
       );
       const row = pending.rows[0];
       if (!row)
-        throw new HrApiError(409, "HR_PROMOTION_NOT_PENDING", "The promotion request is not pending in your company scope.");
+        throw new HrApiError(
+          409,
+          "HR_PROMOTION_NOT_PENDING",
+          "The promotion request is not pending in your company scope.",
+        );
       if (row.requested_by === context.actor.userId)
-        throw new HrApiError(403, "HR_SELF_APPROVAL_FORBIDDEN", "A different HR approver must decide this promotion request.");
+        throw new HrApiError(
+          403,
+          "HR_SELF_APPROVAL_FORBIDDEN",
+          "A different HR approver must decide this promotion request.",
+        );
       const currentDate = (await client.query<{ current_date: string }>("select current_date::text as current_date"))
         .rows[0]?.current_date;
       if (row.effective_on !== currentDate)
@@ -3487,6 +3565,471 @@ export class SourceHrRepository {
     }
   }
 
+  async listEmployeeWorkLocationChangeRequests(
+    context: HrActorContext,
+    query: HrEmployeeWorkLocationChangeRequestDirectoryQuery,
+  ): Promise<HrEmployeeWorkLocationChangeRequestDirectory> {
+    return this.read(context, "hr.employee_assignment.change", async (client) => {
+      await this.requireCompanyAccess(client, context, query.company_id);
+      const values: unknown[] = [context.tenantId, query.company_id];
+      const filters = ["request.tenant_id=$1", "request.company_id=$2", "request.request_state='pending'"];
+      if (query.search) {
+        const parameter = values.push(`%${query.search.replace(/[\\%_]/g, "\\$&")}%`);
+        filters.push(
+          `(employee.employee_number ilike $${parameter} escape '\\' or concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) ilike $${parameter} escape '\\')`,
+        );
+      }
+      values.push(query.limit);
+      const result = await client.query<EmployeeWorkLocationChangeRequestReviewRow>(
+        `${this.employeeWorkLocationChangeRequestReviewSelect()}
+          where ${filters.join(" and ")}
+          order by request.requested_at,request.id
+          limit $${values.length}`,
+        values,
+      );
+      return { items: result.rows.map(employeeWorkLocationChangeRequestReview) };
+    });
+  }
+
+  async getEmployeeWorkLocationChangeRequest(
+    context: HrActorContext,
+    employeeId: string,
+    requestId: string,
+  ): Promise<HrEmployeeWorkLocationChangeRequestReview> {
+    return this.read(context, "hr.employee_assignment.change", async (client) => {
+      const result = await client.query<EmployeeWorkLocationChangeRequestReviewRow>(
+        `${this.employeeWorkLocationChangeRequestReviewSelect()}
+          where request.tenant_id=$1 and request.id=$2 and request.employee_id=$3
+            and exists (
+              select 1 from security_user_company_access access
+               where access.tenant_id=request.tenant_id and access.user_id=$4
+                 and access.company_id=request.company_id and access.revoked_at is null
+            )`,
+        [context.tenantId, requestId, employeeId, context.actor.userId],
+      );
+      if (!result.rows[0])
+        throw new HrApiError(
+          404,
+          "HR_WORK_LOCATION_CHANGE_NOT_FOUND",
+          "The work-location-change request is unavailable in your company scope.",
+        );
+      return employeeWorkLocationChangeRequestReview(result.rows[0]);
+    });
+  }
+
+  async createEmployeeWorkLocationChangeRequest(
+    context: HrActorContext,
+    employeeId: string,
+    input: CreateHrEmployeeWorkLocationChangeRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmployeeWorkLocationChangeRequestResult> {
+    if (!validIdempotencyKey(idempotencyKey))
+      throw new HrApiError(400, "INVALID_IDEMPOTENCY_KEY", "The idempotency key is invalid.");
+    if (!context.actor.permissions.includes("hr.employee_assignment.change"))
+      throw new HrApiError(403, "PERMISSION_DENIED", "You are not permitted to request work-location changes.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level serializable");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+        `nexora:hr:employee-work-location-change:${context.tenantId}:${input.source_assignment_id}`,
+      ]);
+      await this.requireCompanyAccess(client, context, input.company_id);
+      const path = `/api/v1/hr/employees/${employeeId}/work_location_change_requests`;
+      const fingerprint = stateHash(input);
+      const replay = await client.query<{
+        request_fingerprint: string;
+        response_body: HrEmployeeWorkLocationChangeRequestResult;
+      }>(
+        `select request_fingerprint,response_body from platform_admin_idempotency
+          where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey],
+      );
+      if (replay.rows[0]) {
+        if (replay.rows[0].request_fingerprint !== fingerprint)
+          throw new HrApiError(
+            409,
+            "IDEMPOTENCY_CONFLICT",
+            "The idempotency key was already used for another request.",
+          );
+        await client.query("commit");
+        return { ...replay.rows[0].response_body, replayed: true };
+      }
+      const currentDate = (await client.query<{ current_date: string }>("select current_date::text as current_date"))
+        .rows[0]?.current_date;
+      if (input.effective_on !== currentDate)
+        throw new HrApiError(
+          409,
+          "HR_WORK_LOCATION_CHANGE_EFFECTIVE_DATE_REQUIRED",
+          "This work-location-change workflow currently requires today's effective date.",
+        );
+      const source = await client.query<{
+        relationship_id: string;
+        work_location_id: string;
+      }>(
+        `select assignment.employment_relationship_id as relationship_id,assignment.work_location_id
+           from employee_assignment assignment
+           join employee on employee.tenant_id=assignment.tenant_id and employee.id=assignment.employee_id
+           join hr_employment_relationship relationship
+             on relationship.tenant_id=assignment.tenant_id and relationship.id=assignment.employment_relationship_id
+          where assignment.tenant_id=$1 and assignment.id=$2 and assignment.employee_id=$3
+            and assignment.company_id=$4 and assignment.assignment_status='active'
+            and assignment.effective_to is null and assignment.effective_from<current_date
+            and employee.status in ('active','probation','confirmed','suspended')
+            and relationship.status='active'
+          for update of assignment,employee,relationship`,
+        [context.tenantId, input.source_assignment_id, employeeId, input.company_id],
+      );
+      const sourceRow = source.rows[0];
+      if (!sourceRow?.relationship_id)
+        throw new HrApiError(
+          409,
+          "HR_WORK_LOCATION_CHANGE_SOURCE_UNAVAILABLE",
+          "The source assignment is no longer eligible for a work-location change.",
+        );
+      if (sourceRow.work_location_id === input.work_location_id)
+        throw new HrApiError(
+          409,
+          "HR_WORK_LOCATION_CHANGE_REQUIRED",
+          "A work-location-change request must select a different work location.",
+        );
+      const target = await client.query<{ profile_id: string }>(
+        `select profile.id as profile_id
+           from hr_master_record location
+           join hr_work_location_profile profile
+             on profile.tenant_id=location.tenant_id
+            and profile.company_id=location.company_id
+            and profile.work_location_id=location.id
+          where location.tenant_id=$1 and location.id=$2 and location.company_id=$3
+            and location.master_type='work_location' and location.status='active'
+            and profile.state in ('approved','active')
+            and profile.effective_from<=$4::date
+            and (profile.effective_to is null or profile.effective_to>=$4::date)
+          order by profile.effective_from desc,profile.id
+          limit 1
+          for share of location,profile`,
+        [context.tenantId, input.work_location_id, input.company_id, input.effective_on],
+      );
+      const profileId = target.rows[0]?.profile_id;
+      if (!profileId)
+        throw new HrApiError(
+          409,
+          "HR_WORK_LOCATION_JURISDICTION_REQUIRED",
+          "The target work location requires an effective approved jurisdiction profile.",
+        );
+      const pending = await client.query(
+        `select 1 from hr_employee_work_location_change_request
+          where tenant_id=$1 and source_assignment_id=$2 and request_state='pending'`,
+        [context.tenantId, input.source_assignment_id],
+      );
+      if (pending.rowCount)
+        throw new HrApiError(
+          409,
+          "HR_WORK_LOCATION_CHANGE_ALREADY_PENDING",
+          "A work-location-change request is already pending for this assignment.",
+        );
+      const id = `employee-work-location-change-request-${randomUUID()}`;
+      await client.query(
+        `insert into hr_employee_work_location_change_request
+          (tenant_id,id,employee_id,company_id,relationship_id,source_assignment_id,
+           current_work_location_id,proposed_work_location_id,proposed_work_location_profile_id,
+           effective_on,reason,requested_by)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [
+          context.tenantId,
+          id,
+          employeeId,
+          input.company_id,
+          sourceRow.relationship_id,
+          input.source_assignment_id,
+          sourceRow.work_location_id,
+          input.work_location_id,
+          profileId,
+          input.effective_on,
+          input.reason,
+          context.actor.userId,
+        ],
+      );
+      const audit = await this.appendPlatformAudit(
+        client,
+        context,
+        correlationId,
+        "hr.employee_assignment.work_location_change.request",
+        {
+          entityId: id,
+          before: { work_location_id: sourceRow.work_location_id },
+          after: {
+            employee_id: employeeId,
+            company_id: input.company_id,
+            source_assignment_id: input.source_assignment_id,
+            work_location_id: input.work_location_id,
+            jurisdiction_profile_id: profileId,
+            effective_on: input.effective_on,
+            status: "pending",
+          },
+        },
+      );
+      const result: HrEmployeeWorkLocationChangeRequestResult = {
+        id,
+        employee_id: employeeId,
+        company_id: input.company_id,
+        source_assignment_id: input.source_assignment_id,
+        status: "pending",
+        audit_event_id: audit,
+        replayed: false,
+      };
+      await client.query(
+        `insert into platform_admin_idempotency
+          (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag)
+         values ($1,$2,'POST',$3,$4,$5,201,$6,$7)`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stateHash(result)],
+      );
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+      if (["23503", "23514"].includes(code))
+        throw new HrApiError(
+          409,
+          "HR_WORK_LOCATION_CHANGE_CONTEXT_INVALID",
+          "The work-location-change context is no longer valid. Refresh the assignment and location data.",
+        );
+      if (code === "23505")
+        throw new HrApiError(
+          409,
+          "HR_WORK_LOCATION_CHANGE_ALREADY_PENDING",
+          "A work-location-change request is already pending for this assignment.",
+        );
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async decideEmployeeWorkLocationChangeRequest(
+    context: HrActorContext,
+    employeeId: string,
+    requestId: string,
+    input: DecideHrEmployeeWorkLocationChangeRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmployeeWorkLocationChangeDecisionResult> {
+    if (!validIdempotencyKey(idempotencyKey))
+      throw new HrApiError(400, "INVALID_IDEMPOTENCY_KEY", "The idempotency key is invalid.");
+    if (!context.actor.permissions.includes("hr.employee_assignment.change"))
+      throw new HrApiError(403, "PERMISSION_DENIED", "You are not permitted to decide work-location changes.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level serializable");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+        `nexora:hr:employee-work-location-change:${context.tenantId}:${requestId}`,
+      ]);
+      const path = `/api/v1/hr/employees/${employeeId}/work_location_change_requests/${requestId}/decision`;
+      const fingerprint = stateHash(input);
+      const replay = await client.query<{
+        request_fingerprint: string;
+        response_body: HrEmployeeWorkLocationChangeDecisionResult;
+      }>(
+        `select request_fingerprint,response_body from platform_admin_idempotency
+          where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey],
+      );
+      if (replay.rows[0]) {
+        if (replay.rows[0].request_fingerprint !== fingerprint)
+          throw new HrApiError(
+            409,
+            "IDEMPOTENCY_CONFLICT",
+            "The idempotency key was already used for another request.",
+          );
+        await client.query("commit");
+        return { ...replay.rows[0].response_body, replayed: true };
+      }
+      const pending = await client.query<{
+        company_id: string;
+        relationship_id: string;
+        source_assignment_id: string;
+        requested_by: string;
+        effective_on: string;
+        proposed_work_location_id: string;
+        proposed_work_location_profile_id: string;
+        profile_state: string;
+        profile_effective_from: string;
+        profile_effective_to: string | null;
+        branch_id: string | null;
+        department_id: string | null;
+        designation_id: string;
+        job_id: string;
+        job_grade_id: string;
+        cost_center_id: string;
+        employment_type_id: string;
+        employee_category_id: string;
+        reporting_manager_id: string | null;
+      }>(
+        `select request.company_id,request.relationship_id,request.source_assignment_id,
+                request.requested_by,request.effective_on::text,request.proposed_work_location_id,
+                request.proposed_work_location_profile_id,profile.state as profile_state,
+                profile.effective_from::text as profile_effective_from,
+                profile.effective_to::text as profile_effective_to,
+                assignment.branch_id,assignment.department_id,assignment.designation_id,assignment.job_id,
+                assignment.job_grade_id,assignment.cost_center_id,assignment.employment_type_id,
+                assignment.employee_category_id,assignment.reporting_manager_id
+           from hr_employee_work_location_change_request request
+           join employee_assignment assignment
+             on assignment.tenant_id=request.tenant_id and assignment.id=request.source_assignment_id
+           join hr_employment_relationship relationship
+             on relationship.tenant_id=request.tenant_id and relationship.id=request.relationship_id
+           join hr_work_location_profile profile
+             on profile.tenant_id=request.tenant_id
+            and profile.id=request.proposed_work_location_profile_id
+            and profile.company_id=request.company_id
+          where request.tenant_id=$1 and request.id=$2 and request.employee_id=$3
+            and request.request_state='pending' and assignment.assignment_status='active'
+            and assignment.effective_to is null and relationship.status='active'
+            and exists (
+              select 1 from security_user_company_access access
+               where access.tenant_id=request.tenant_id and access.user_id=$4
+                 and access.company_id=request.company_id and access.revoked_at is null
+            )
+          for update of request,assignment,relationship,profile`,
+        [context.tenantId, requestId, employeeId, context.actor.userId],
+      );
+      const row = pending.rows[0];
+      if (!row)
+        throw new HrApiError(
+          409,
+          "HR_WORK_LOCATION_CHANGE_NOT_PENDING",
+          "The work-location-change request is not pending in your company scope.",
+        );
+      if (row.requested_by === context.actor.userId)
+        throw new HrApiError(
+          403,
+          "HR_SELF_APPROVAL_FORBIDDEN",
+          "A different HR approver must decide this work-location-change request.",
+        );
+      const currentDate = (await client.query<{ current_date: string }>("select current_date::text as current_date"))
+        .rows[0]?.current_date;
+      if (row.effective_on !== currentDate)
+        throw new HrApiError(
+          409,
+          "HR_WORK_LOCATION_CHANGE_EFFECTIVE_DATE_REQUIRED",
+          "This work-location change can only be decided on its effective date.",
+        );
+      const jurisdictionReady =
+        ["approved", "active"].includes(row.profile_state) &&
+        row.profile_effective_from <= row.effective_on &&
+        (row.profile_effective_to === null || row.profile_effective_to >= row.effective_on);
+      if (input.decision === "approved" && !jurisdictionReady)
+        throw new HrApiError(
+          409,
+          "HR_WORK_LOCATION_JURISDICTION_REQUIRED",
+          "The target work location no longer has effective approved jurisdiction evidence.",
+        );
+      let assignmentId: string | null = null;
+      if (input.decision === "approved") {
+        await client.query(
+          `update employee_assignment
+              set effective_to=($3::date - 1),assignment_status='ended',updated_at=now()
+            where tenant_id=$1 and id=$2`,
+          [context.tenantId, row.source_assignment_id, row.effective_on],
+        );
+        assignmentId = `employee-assignment-${randomUUID()}`;
+        await client.query(
+          `insert into employee_assignment
+            (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_id,
+             job_grade_id,cost_center_id,work_location_id,employment_type_id,employee_category_id,
+             reporting_manager_id,effective_from,change_reason,created_by,employment_relationship_id,
+             assignment_status,source_reference)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'work_location_change',$16,$17,'active',$18)`,
+          [
+            assignmentId,
+            context.tenantId,
+            employeeId,
+            row.company_id,
+            row.branch_id,
+            row.department_id,
+            row.designation_id,
+            row.job_id,
+            row.job_grade_id,
+            row.cost_center_id,
+            row.proposed_work_location_id,
+            row.employment_type_id,
+            row.employee_category_id,
+            row.reporting_manager_id,
+            row.effective_on,
+            context.actor.userId,
+            row.relationship_id,
+            `hr:work-location-change-request:${requestId}`,
+          ],
+        );
+        await client.query(
+          `insert into employee_assignment_org_unit
+            (tenant_id,assignment_id,organization_type,organization_unit_id,created_by)
+           select tenant_id,$3,organization_type,organization_unit_id,$4
+             from employee_assignment_org_unit
+            where tenant_id=$1 and assignment_id=$2
+           on conflict do nothing`,
+          [context.tenantId, row.source_assignment_id, assignmentId, context.actor.userId],
+        );
+      }
+      await client.query(
+        `update hr_employee_work_location_change_request
+            set request_state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,
+                projected_assignment_id=$6,row_version=row_version+1
+          where tenant_id=$1 and id=$2`,
+        [context.tenantId, requestId, input.decision, context.actor.userId, input.reason, assignmentId],
+      );
+      const audit = await this.appendPlatformAudit(
+        client,
+        context,
+        correlationId,
+        "hr.employee_assignment.work_location_change.decide",
+        {
+          entityId: requestId,
+          before: { status: "pending", source_assignment_id: row.source_assignment_id },
+          after: {
+            status: input.decision,
+            assignment_id: assignmentId,
+            work_location_id: row.proposed_work_location_id,
+            jurisdiction_profile_id: row.proposed_work_location_profile_id,
+          },
+        },
+      );
+      const result: HrEmployeeWorkLocationChangeDecisionResult = {
+        id: requestId,
+        employee_id: employeeId,
+        company_id: row.company_id,
+        source_assignment_id: row.source_assignment_id,
+        status: input.decision,
+        assignment_id: assignmentId,
+        audit_event_id: audit,
+        replayed: false,
+      };
+      await client.query(
+        `insert into platform_admin_idempotency
+          (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag)
+         values ($1,$2,'POST',$3,$4,$5,200,$6,$7)`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stateHash(result)],
+      );
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+      if (["23503", "23514"].includes(code))
+        throw new HrApiError(
+          409,
+          "HR_WORK_LOCATION_CHANGE_CONTEXT_INVALID",
+          "The work-location-change context is no longer valid. Refresh the request and active assignment data.",
+        );
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async listMasters(context: HrActorContext, query: HrMasterDirectoryQuery): Promise<HrMasterDirectory> {
     return this.read(context, "hr.master.read", async (client) => {
       await this.requireCompanyAccess(client, context, query.company_id);
@@ -3727,6 +4270,36 @@ export class SourceHrRepository {
                and proposed_manager.id=request.proposed_reporting_manager_id`;
   }
 
+  private employeeWorkLocationChangeRequestReviewSelect(): string {
+    return `select request.id,request.employee_id,employee.employee_number,
+                   concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as employee_name,
+                   request.company_id,request.relationship_id,request.source_assignment_id,
+                   request.current_work_location_id,current_location.name as current_work_location_name,
+                   request.proposed_work_location_id,proposed_location.name as proposed_work_location_name,
+                   request.proposed_work_location_profile_id as jurisdiction_profile_id,
+                   profile.country_code as jurisdiction_country_code,profile.jurisdiction_id,
+                   (profile.state in ('approved','active')
+                     and profile.effective_from<=request.effective_on
+                     and (profile.effective_to is null or profile.effective_to>=request.effective_on))
+                     as jurisdiction_ready,
+                   request.effective_on,request.requested_by,request.requested_at,
+                   request.reason,request.request_state as status,request.decided_by,
+                   request.decided_at,request.decision_reason
+              from hr_employee_work_location_change_request request
+              join employee
+                on employee.tenant_id=request.tenant_id and employee.id=request.employee_id
+              join hr_master_record current_location
+                on current_location.tenant_id=request.tenant_id
+               and current_location.id=request.current_work_location_id
+              join hr_master_record proposed_location
+                on proposed_location.tenant_id=request.tenant_id
+               and proposed_location.id=request.proposed_work_location_id
+              join hr_work_location_profile profile
+                on profile.tenant_id=request.tenant_id
+               and profile.id=request.proposed_work_location_profile_id
+               and profile.company_id=request.company_id`;
+  }
+
   private async requireCompanyAccess(client: PoolClient, context: HrActorContext, companyId: string): Promise<void> {
     const access = await client.query(
       `select 1 from security_user_company_access
@@ -3806,7 +4379,9 @@ export class SourceHrRepository {
       | "hr.employee_assignment.promotion.request"
       | "hr.employee_assignment.promotion.decide"
       | "hr.employee_assignment.manager_change.request"
-      | "hr.employee_assignment.manager_change.decide",
+      | "hr.employee_assignment.manager_change.decide"
+      | "hr.employee_assignment.work_location_change.request"
+      | "hr.employee_assignment.work_location_change.decide",
     mutation: {
       entityId: string;
       entityType?: "employee" | "employment_lifecycle_policy" | "hr_master_record" | "employment_relationship";

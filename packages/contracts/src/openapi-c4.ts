@@ -73,6 +73,12 @@ import {
   hrEmployeeManagerChangeDecisionResultSchema,
   hrEmployeeManagerChangeRequestDirectorySchema,
   hrEmployeeManagerChangeRequestReviewSchema,
+  createHrEmployeeWorkLocationChangeRequestSchema,
+  hrEmployeeWorkLocationChangeRequestResultSchema,
+  decideHrEmployeeWorkLocationChangeRequestSchema,
+  hrEmployeeWorkLocationChangeDecisionResultSchema,
+  hrEmployeeWorkLocationChangeRequestDirectorySchema,
+  hrEmployeeWorkLocationChangeRequestReviewSchema,
 } from "./hr/index.js";
 import { jobReceiptSchema, sampleJobPayloadSchema } from "./jobs/index.js";
 import { problemDetailsSchema } from "./problem.js";
@@ -1574,6 +1580,135 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/hr/work_location_change_requests": {
+        get: {
+          operationId: "listHrEmployeeWorkLocationChangeRequests",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Pending company-scoped employee work-location-change requests",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/HrEmployeeWorkLocationChangeRequestDirectory" },
+                },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/work_location_change_requests": {
+        post: {
+          operationId: "createHrEmployeeWorkLocationChangeRequest",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/CreateHrEmployeeWorkLocationChangeRequest" },
+              },
+            },
+          },
+          responses: {
+            "201": {
+              description: "Pending, independently approvable employee work-location-change request",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/HrEmployeeWorkLocationChangeRequestResult" },
+                },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/work_location_change_requests/{requestId}": {
+        get: {
+          operationId: "getHrEmployeeWorkLocationChangeRequest",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "path", name: "requestId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+          ],
+          responses: {
+            "200": {
+              description: "Company-scoped employee work-location-change request review",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/HrEmployeeWorkLocationChangeRequestReview" },
+                },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/work_location_change_requests/{requestId}/decision": {
+        post: {
+          operationId: "decideHrEmployeeWorkLocationChangeRequest",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "path", name: "requestId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/DecideHrEmployeeWorkLocationChangeRequest" },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Independently decided employee work-location-change request",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/HrEmployeeWorkLocationChangeDecisionResult" },
+                },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
       "/hr/employment_lifecycle_policies": {
         get: {
           operationId: "listHrEmploymentLifecyclePolicies",
@@ -1825,6 +1960,12 @@ export function buildOpenApiDocument() {
         HrEmployeeManagerChangeDecisionResult: schema(hrEmployeeManagerChangeDecisionResultSchema),
         HrEmployeeManagerChangeRequestDirectory: schema(hrEmployeeManagerChangeRequestDirectorySchema),
         HrEmployeeManagerChangeRequestReview: schema(hrEmployeeManagerChangeRequestReviewSchema),
+        CreateHrEmployeeWorkLocationChangeRequest: schema(createHrEmployeeWorkLocationChangeRequestSchema),
+        HrEmployeeWorkLocationChangeRequestResult: schema(hrEmployeeWorkLocationChangeRequestResultSchema),
+        DecideHrEmployeeWorkLocationChangeRequest: schema(decideHrEmployeeWorkLocationChangeRequestSchema),
+        HrEmployeeWorkLocationChangeDecisionResult: schema(hrEmployeeWorkLocationChangeDecisionResultSchema),
+        HrEmployeeWorkLocationChangeRequestDirectory: schema(hrEmployeeWorkLocationChangeRequestDirectorySchema),
+        HrEmployeeWorkLocationChangeRequestReview: schema(hrEmployeeWorkLocationChangeRequestReviewSchema),
         ProblemDetails: schema(problemDetailsSchema),
         SampleJobPayload: schema(sampleJobPayloadSchema),
         JobReceipt: schema(jobReceiptSchema),

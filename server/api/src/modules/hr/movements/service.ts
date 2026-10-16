@@ -20,6 +20,13 @@ import type {
   HrEmployeeManagerChangeRequestDirectoryQuery,
   HrEmployeeManagerChangeRequestResult,
   HrEmployeeManagerChangeRequestReview,
+  CreateHrEmployeeWorkLocationChangeRequest,
+  DecideHrEmployeeWorkLocationChangeRequest,
+  HrEmployeeWorkLocationChangeDecisionResult,
+  HrEmployeeWorkLocationChangeRequestDirectory,
+  HrEmployeeWorkLocationChangeRequestDirectoryQuery,
+  HrEmployeeWorkLocationChangeRequestResult,
+  HrEmployeeWorkLocationChangeRequestReview,
 } from "@nexora/contracts";
 
 import type { HrActorContext, SourceHrRepository } from "../source-repository.js";
@@ -41,6 +48,10 @@ export class HrMovementService {
       | "getEmployeeManagerChangeRequest"
       | "createEmployeeManagerChangeRequest"
       | "decideEmployeeManagerChangeRequest"
+      | "listEmployeeWorkLocationChangeRequests"
+      | "getEmployeeWorkLocationChangeRequest"
+      | "createEmployeeWorkLocationChangeRequest"
+      | "decideEmployeeWorkLocationChangeRequest"
     >,
   ) {}
 
@@ -66,13 +77,7 @@ export class HrMovementService {
     idempotencyKey: string,
     correlationId: string,
   ): Promise<HrEmployeeTransferRequestResult> {
-    return this.repository.createEmployeeTransferRequest(
-      context,
-      employeeId,
-      input,
-      idempotencyKey,
-      correlationId,
-    );
+    return this.repository.createEmployeeTransferRequest(context, employeeId, input, idempotencyKey, correlationId);
   }
 
   decideTransfer(
@@ -115,13 +120,7 @@ export class HrMovementService {
     idempotencyKey: string,
     correlationId: string,
   ): Promise<HrEmployeePromotionRequestResult> {
-    return this.repository.createEmployeePromotionRequest(
-      context,
-      employeeId,
-      input,
-      idempotencyKey,
-      correlationId,
-    );
+    return this.repository.createEmployeePromotionRequest(context, employeeId, input, idempotencyKey, correlationId);
   }
 
   decidePromotion(
@@ -182,6 +181,55 @@ export class HrMovementService {
     correlationId: string,
   ): Promise<HrEmployeeManagerChangeDecisionResult> {
     return this.repository.decideEmployeeManagerChangeRequest(
+      context,
+      employeeId,
+      requestId,
+      input,
+      idempotencyKey,
+      correlationId,
+    );
+  }
+
+  listWorkLocationChanges(
+    context: HrActorContext,
+    query: HrEmployeeWorkLocationChangeRequestDirectoryQuery,
+  ): Promise<HrEmployeeWorkLocationChangeRequestDirectory> {
+    return this.repository.listEmployeeWorkLocationChangeRequests(context, query);
+  }
+
+  getWorkLocationChange(
+    context: HrActorContext,
+    employeeId: string,
+    requestId: string,
+  ): Promise<HrEmployeeWorkLocationChangeRequestReview> {
+    return this.repository.getEmployeeWorkLocationChangeRequest(context, employeeId, requestId);
+  }
+
+  requestWorkLocationChange(
+    context: HrActorContext,
+    employeeId: string,
+    input: CreateHrEmployeeWorkLocationChangeRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmployeeWorkLocationChangeRequestResult> {
+    return this.repository.createEmployeeWorkLocationChangeRequest(
+      context,
+      employeeId,
+      input,
+      idempotencyKey,
+      correlationId,
+    );
+  }
+
+  decideWorkLocationChange(
+    context: HrActorContext,
+    employeeId: string,
+    requestId: string,
+    input: DecideHrEmployeeWorkLocationChangeRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmployeeWorkLocationChangeDecisionResult> {
+    return this.repository.decideEmployeeWorkLocationChangeRequest(
       context,
       employeeId,
       requestId,
