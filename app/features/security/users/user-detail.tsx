@@ -197,7 +197,7 @@ export default function UserDetail({
             <Button type="button" variant="outline" onClick={() => setMode("summary")}>
               Cancel
             </Button>
-            <Button disabled={busy}>
+            <Button type="submit" disabled={busy}>
               Submit change
             </Button>
           </div>
@@ -223,7 +223,7 @@ export default function UserDetail({
             <Button type="button" variant="outline" onClick={() => setMode("summary")} disabled={busy}>
               Cancel
             </Button>
-            <Button disabled={busy || !reason.trim()}>
+            <Button type="submit" disabled={busy || !reason.trim()}>
               Submit password reset
             </Button>
           </div>
@@ -261,7 +261,7 @@ export default function UserDetail({
             <Button type="button" variant="outline" disabled={busy} onClick={() => setMode("summary")}>
               Cancel
             </Button>
-            <Button variant="destructive" disabled={busy || !reason.trim()}>
+            <Button type="submit" variant="destructive" disabled={busy || !reason.trim()}>
               Submit soft delete
             </Button>
           </div>
@@ -304,7 +304,7 @@ export default function UserDetail({
             <Button type="button" variant="outline" onClick={() => setMode("summary")}>
               Cancel
             </Button>
-            <Button disabled={busy || !companyIds.length || !defaultCompanyId}>
+            <Button type="submit" disabled={busy || !companyIds.length || !defaultCompanyId}>
               Submit change
             </Button>
           </div>
@@ -333,7 +333,7 @@ export default function UserDetail({
             <Button type="button" variant="outline" onClick={() => setMode("summary")}>
               Cancel
             </Button>
-            <Button disabled={busy}>
+            <Button type="submit" disabled={busy}>
               Submit change
             </Button>
           </div>
@@ -481,7 +481,7 @@ export default function UserDetail({
                       </option>
                     ))}
                 </select>
-                <Button disabled={busy}>Create assignment request</Button>
+                <Button type="submit" disabled={busy}>Create assignment request</Button>
               </form>
             ) : null}
           </section>

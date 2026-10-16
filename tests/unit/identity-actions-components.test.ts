@@ -66,6 +66,7 @@ async function choose(label: string, value: string) {
 describe("Identity & Access actions and permissions", () => {
   beforeEach(() => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    vi.stubGlobal("PointerEvent", MouseEvent);
     api.listSecurityPermissions.mockResolvedValue({ items: definitions, next_cursor: null });
     api.actOnSecurityRole.mockResolvedValue({});
     container = document.createElement("div");
@@ -108,8 +109,16 @@ describe("Identity & Access actions and permissions", () => {
     expect(container.querySelector('input[aria-label="hr.employee.edit"]')).toBeNull();
     await click(container.querySelector<HTMLInputElement>('input[aria-label="Select visible permissions in hr"]')!);
     await input(search, "");
-    expect(container.querySelector<HTMLInputElement>('input[aria-label="hr.employee.read"]')?.checked).toBe(true);
-    expect(container.querySelector<HTMLInputElement>('input[aria-label="hr.employee.edit"]')?.checked).toBe(false);
+    expect(
+      container
+        .querySelector<HTMLElement>('[data-slot="checkbox"][aria-label="hr.employee.read"]')
+        ?.getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(
+      container
+        .querySelector<HTMLElement>('[data-slot="checkbox"][aria-label="hr.employee.edit"]')
+        ?.getAttribute("aria-checked"),
+    ).toBe("false");
   });
 
   it("fails closed when permission catalogue loading fails", async () => {
@@ -132,7 +141,7 @@ describe("Identity & Access actions and permissions", () => {
     await act(async () =>
       root.render(createElement(RoleForm, { initial: draft, busy: false, onSave, onCancel: vi.fn() })),
     );
-    await click(container.querySelector<HTMLInputElement>('input[aria-label="hr.employee.edit"]')!);
+    await click(container.querySelector<HTMLElement>('[data-slot="checkbox"][aria-label="hr.employee.edit"]')!);
     await click(button("Save draft"));
     expect(onSave.mock.calls[0]?.[0]).toEqual({ ...draft, permissions: ["hr.employee.edit", "hr.employee.read"] });
   });

@@ -221,7 +221,7 @@ export default function RoleForm({
               </label>
               <div className="grid pb-3 md:grid-cols-2">
                 {definitions.map((item) => (
-                  <label className="flex items-start gap-2.5 px-4 py-2.5 text-sm" key={item.key} aria-label={item.key}>
+                  <div className="flex items-start gap-2.5 px-4 py-2.5 text-sm" key={item.key}>
                     <Checkbox
                       checked={selectedSet.has(item.key)}
                       onCheckedChange={(checked) => toggle([item.key], checked === true)}
@@ -233,7 +233,7 @@ export default function RoleForm({
                         {item.resource} · {item.key}
                       </small>
                     </span>
-                  </label>
+                  </div>
                 ))}
               </div>
             </details>
@@ -246,6 +246,7 @@ export default function RoleForm({
           Cancel
         </Button>
         <Button
+          type="submit"
           disabled={busy || loading || !!error || !name.trim() || selected.length === 0 || unavailable.length > 0}
         >
           Save draft

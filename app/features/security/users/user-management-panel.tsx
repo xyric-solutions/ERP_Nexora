@@ -486,7 +486,7 @@ export default function UserManagementPanel({
             <Button type="button" variant="outline" disabled={busy} onClick={() => setPendingAction(null)}>
               Cancel
             </Button>
-            <Button disabled={busy || !actionReason.trim()}>
+            <Button type="submit" disabled={busy || !actionReason.trim()}>
               Confirm action
             </Button>
           </div>

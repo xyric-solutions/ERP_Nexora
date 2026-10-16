@@ -386,6 +386,7 @@ export default function GovernedTable({
               Cancel
             </Button>
             <Button
+              type="submit"
               disabled={busy || ((pending.action === "revoke" || pending.action === "rejected") && !reason.trim())}
             >
               Confirm{tab === "approvals" ? " decision" : " and submit"}

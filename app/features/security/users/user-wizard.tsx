@@ -357,7 +357,7 @@ export default function UserWizard({
         <Button type="button" variant="outline" onClick={() => setStep((value) => Math.max(0, value - 1))} disabled={step === 0 || busy}>
           Back
         </Button>
-        <Button disabled={!canContinue || busy}>
+        <Button type="submit" disabled={!canContinue || busy}>
           {busy ? "Saving…" : step === steps.length - 1 ? "Save and submit" : "Continue"}
         </Button>
       </footer>

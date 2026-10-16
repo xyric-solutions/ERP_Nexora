@@ -34,7 +34,7 @@ an explicit completion handoff.
 ### Workspace completion
 
 - [x] IA-01 canonical hash route family and connected navigation.
-- [ ] IA-02 execute/fix complete parity for the five existing user/role pages.
+- [x] IA-02 execute/fix complete parity for the five existing user/role pages.
 - [ ] IA-03 PostgreSQL-backed Access Review.
 - [ ] IA-04 governed Delegation.
 - [ ] IA-05 governed Impersonation and single emergency principal.
@@ -98,11 +98,46 @@ All links remain under the canonical parent:
 The last three URLs are navigation-ready but deliberately unavailable until
 IA-03 through IA-06 provide their database-backed workflows.
 
+## IA-02 verification record â€” 2026-10-16
+
+- Every action button inside the existing Identity forms now declares its
+  submit intent explicitly. This restores live submission for the user wizard,
+  user identity/company/employee/password/archive forms, assignment creation,
+  role draft saving, governed bulk role actions and governed bulk user actions.
+- Non-submit controls retain `type="button"`; the shared Base UI button remains
+  unchanged so unrelated screens do not acquire accidental form submission.
+- Role-permission component tests now interact with the rendered Base UI
+  checkbox root and provide the browser `PointerEvent` primitive absent from
+  jsdom. This verifies the production component rather than its hidden form
+  input.
+- Existing API and PostgreSQL contracts were unchanged. No schema migration,
+  mock fallback or browser-only business record was introduced.
+
+Observed verification:
+
+- Combined Identity workspace and interaction regression: 43 passed across five
+  files (including the 19 focused user/role interaction tests).
+- Focused PostgreSQL/API integration tests: 16 passed across three files,
+  covering governed user administration, authorization administration and the
+  security user router.
+- Focused security foundation tests: 5 passed.
+- API generated-client drift check, full TypeScript project-reference check,
+  focused ESLint and `git diff --check`: passed.
+- `npm.cmd run build:web`: passed on Next.js 16.3.8.
+- The first database run correctly exposed stale state in the disposable test
+  database. Only the tmpfs-backed `compose.test.yaml` stack was recreated;
+  migrations then applied through security version 9 and all focused database
+  suites passed from a clean state. Development and production data were not
+  touched.
+- Browser acceptance remains pending because the Windows browser helper was
+  unavailable during IA-01. It must be completed in IA-07 before production
+  acceptance.
+
 ## Current safe resume point
 
-Proceed with IA-02. Re-run and investigate the existing user/role interaction
-test failures, then execute the real PostgreSQL security administration suites.
-Verify every current user, role and assignment action through the connected
-workspace before creating the Access Review migration. Do not mask a test
-failure, add fixtures as live data, or begin impersonation before the existing
-authorization baseline is green.
+Proceed with IA-03, PostgreSQL-backed Access Review. Start with the additive
+contract and migration defined in the approved implementation plan, then build
+repository/service/API tests before connecting the existing Access Reviews
+workspace entry. Preserve the now-green user, role and assignment regression
+baseline. Do not add fixture-backed UI records or begin delegation and
+impersonation before Access Review is independently verified.
