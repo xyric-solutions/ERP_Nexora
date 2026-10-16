@@ -49,6 +49,12 @@ import type {
   HrEmployeeTransferDecisionResult,
   HrEmployeeTransferRequestDirectory,
   HrEmployeeTransferRequestReview,
+  CreateHrEmployeePromotionRequest,
+  HrEmployeePromotionRequestResult,
+  DecideHrEmployeePromotionRequest,
+  HrEmployeePromotionDecisionResult,
+  HrEmployeePromotionRequestDirectory,
+  HrEmployeePromotionRequestReview,
 } from "@nexora/contracts";
 
 import type { NexoraApiClient } from "@/lib/api/generated";
@@ -317,5 +323,38 @@ export class HrApiClient {
     idempotencyKey: string,
   ): Promise<HrEmployeeTransferDecisionResult> {
     return this.api.decideHrEmployeeTransferRequest(employeeId, requestId, input, csrfToken, idempotencyKey);
+  }
+
+  createPromotionRequest(
+    employeeId: string,
+    input: CreateHrEmployeePromotionRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmployeePromotionRequestResult> {
+    return this.api.createHrEmployeePromotionRequest(employeeId, input, csrfToken, idempotencyKey);
+  }
+
+  promotionRequests(input: {
+    companyId: string;
+    search?: string;
+    limit?: number;
+  }): Promise<HrEmployeePromotionRequestDirectory> {
+    return this.api.listHrEmployeePromotionRequests(
+      query({ company_id: input.companyId, search: input.search, limit: input.limit ?? 50 }),
+    );
+  }
+
+  promotionRequest(employeeId: string, requestId: string): Promise<HrEmployeePromotionRequestReview> {
+    return this.api.getHrEmployeePromotionRequest(employeeId, requestId);
+  }
+
+  decidePromotionRequest(
+    employeeId: string,
+    requestId: string,
+    input: DecideHrEmployeePromotionRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmployeePromotionDecisionResult> {
+    return this.api.decideHrEmployeePromotionRequest(employeeId, requestId, input, csrfToken, idempotencyKey);
   }
 }

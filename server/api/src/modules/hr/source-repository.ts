@@ -58,6 +58,13 @@ import type {
   HrEmployeeTransferRequestDirectory,
   HrEmployeeTransferRequestDirectoryQuery,
   HrEmployeeTransferRequestReview,
+  CreateHrEmployeePromotionRequest,
+  HrEmployeePromotionRequestResult,
+  DecideHrEmployeePromotionRequest,
+  HrEmployeePromotionDecisionResult,
+  HrEmployeePromotionRequestDirectory,
+  HrEmployeePromotionRequestDirectoryQuery,
+  HrEmployeePromotionRequestReview,
 } from "@nexora/contracts";
 import type { Pool, PoolClient } from "pg";
 
@@ -121,6 +128,14 @@ type EmployeeTransferRequestReviewRow = Omit<
   requested_at: string | Date;
   decided_at: string | Date | null;
 };
+type EmployeePromotionRequestReviewRow = Omit<
+  HrEmployeePromotionRequestReview,
+  "effective_on" | "requested_at" | "decided_at"
+> & {
+  effective_on: string | Date;
+  requested_at: string | Date;
+  decided_at: string | Date | null;
+};
 
 function dateOnly(value: string | Date): string {
   return value instanceof Date ? value.toISOString().slice(0, 10) : value.slice(0, 10);
@@ -140,6 +155,15 @@ function employeeHireRequestReview(row: EmployeeHireRequestReviewRow): HrEmploye
 }
 
 function employeeTransferRequestReview(row: EmployeeTransferRequestReviewRow): HrEmployeeTransferRequestReview {
+  return {
+    ...row,
+    effective_on: dateOnly(row.effective_on),
+    requested_at: new Date(row.requested_at).toISOString(),
+    decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
+  };
+}
+
+function employeePromotionRequestReview(row: EmployeePromotionRequestReviewRow): HrEmployeePromotionRequestReview {
   return {
     ...row,
     effective_on: dateOnly(row.effective_on),
@@ -2595,6 +2619,389 @@ export class SourceHrRepository {
     }
   }
 
+  async listEmployeePromotionRequests(
+    context: HrActorContext,
+    query: HrEmployeePromotionRequestDirectoryQuery,
+  ): Promise<HrEmployeePromotionRequestDirectory> {
+    return this.read(context, "hr.employee_assignment.change", async (client) => {
+      await this.requireCompanyAccess(client, context, query.company_id);
+      const values: unknown[] = [context.tenantId, query.company_id];
+      const filters = ["request.tenant_id=$1", "request.company_id=$2", "request.request_state='pending'"];
+      if (query.search) {
+        const parameter = values.push(`%${query.search.replace(/[\\%_]/g, "\\$&")}%`);
+        filters.push(
+          `(employee.employee_number ilike $${parameter} escape '\\' or concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) ilike $${parameter} escape '\\')`,
+        );
+      }
+      values.push(query.limit);
+      const result = await client.query<EmployeePromotionRequestReviewRow>(
+        `${this.employeePromotionRequestReviewSelect()}
+          where ${filters.join(" and ")}
+          order by request.requested_at,request.id
+          limit $${values.length}`,
+        values,
+      );
+      return { items: result.rows.map(employeePromotionRequestReview) };
+    });
+  }
+
+  async getEmployeePromotionRequest(
+    context: HrActorContext,
+    employeeId: string,
+    requestId: string,
+  ): Promise<HrEmployeePromotionRequestReview> {
+    return this.read(context, "hr.employee_assignment.change", async (client) => {
+      const result = await client.query<EmployeePromotionRequestReviewRow>(
+        `${this.employeePromotionRequestReviewSelect()}
+          where request.tenant_id=$1 and request.id=$2 and request.employee_id=$3
+            and exists (
+              select 1 from security_user_company_access access
+               where access.tenant_id=request.tenant_id and access.user_id=$4
+                 and access.company_id=request.company_id and access.revoked_at is null
+            )`,
+        [context.tenantId, requestId, employeeId, context.actor.userId],
+      );
+      if (!result.rows[0])
+        throw new HrApiError(404, "HR_PROMOTION_NOT_FOUND", "The promotion request is unavailable in your company scope.");
+      return employeePromotionRequestReview(result.rows[0]);
+    });
+  }
+
+  async createEmployeePromotionRequest(
+    context: HrActorContext,
+    employeeId: string,
+    input: CreateHrEmployeePromotionRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmployeePromotionRequestResult> {
+    if (!validIdempotencyKey(idempotencyKey))
+      throw new HrApiError(400, "INVALID_IDEMPOTENCY_KEY", "The idempotency key is invalid.");
+    if (!context.actor.permissions.includes("hr.employee_assignment.change"))
+      throw new HrApiError(403, "PERMISSION_DENIED", "You are not permitted to request employee promotions.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level serializable");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+        `nexora:hr:employee-promotion:${context.tenantId}:${input.source_assignment_id}`,
+      ]);
+      await this.requireCompanyAccess(client, context, input.company_id);
+      const path = `/api/v1/hr/employees/${employeeId}/promotion_requests`;
+      const fingerprint = stateHash(input);
+      const replay = await client.query<{
+        request_fingerprint: string;
+        response_body: HrEmployeePromotionRequestResult;
+      }>(
+        `select request_fingerprint,response_body from platform_admin_idempotency
+          where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey],
+      );
+      if (replay.rows[0]) {
+        if (replay.rows[0].request_fingerprint !== fingerprint)
+          throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request.");
+        await client.query("commit");
+        return { ...replay.rows[0].response_body, replayed: true };
+      }
+      const currentDate = (await client.query<{ current_date: string }>("select current_date::text as current_date"))
+        .rows[0]?.current_date;
+      if (input.effective_on !== currentDate)
+        throw new HrApiError(
+          409,
+          "HR_PROMOTION_EFFECTIVE_DATE_REQUIRED",
+          "This promotion workflow currently requires today's effective date.",
+        );
+      const source = await client.query<{
+        relationship_id: string;
+        job_id: string;
+        designation_id: string;
+        job_grade_id: string;
+      }>(
+        `select assignment.employment_relationship_id as relationship_id,
+                assignment.job_id,assignment.designation_id,assignment.job_grade_id
+           from employee_assignment assignment
+           join employee on employee.tenant_id=assignment.tenant_id and employee.id=assignment.employee_id
+           join hr_employment_relationship relationship
+             on relationship.tenant_id=assignment.tenant_id and relationship.id=assignment.employment_relationship_id
+          where assignment.tenant_id=$1 and assignment.id=$2 and assignment.employee_id=$3
+            and assignment.company_id=$4 and assignment.assignment_status='active'
+            and assignment.effective_to is null and assignment.effective_from<current_date
+            and employee.status in ('active','probation','confirmed','suspended')
+            and relationship.status='active'
+          for update of assignment,employee,relationship`,
+        [context.tenantId, input.source_assignment_id, employeeId, input.company_id],
+      );
+      const sourceRow = source.rows[0];
+      if (!sourceRow?.relationship_id)
+        throw new HrApiError(
+          409,
+          "HR_PROMOTION_SOURCE_UNAVAILABLE",
+          "The source assignment is no longer eligible for promotion.",
+        );
+      if (
+        sourceRow.job_id === input.job_id &&
+        sourceRow.designation_id === input.designation_id &&
+        sourceRow.job_grade_id === input.job_grade_id
+      )
+        throw new HrApiError(
+          409,
+          "HR_PROMOTION_CHANGE_REQUIRED",
+          "A promotion must change the job, designation, or job grade.",
+        );
+      const pending = await client.query(
+        `select 1 from hr_employee_promotion_request
+          where tenant_id=$1 and source_assignment_id=$2 and request_state='pending'`,
+        [context.tenantId, input.source_assignment_id],
+      );
+      if (pending.rowCount)
+        throw new HrApiError(409, "HR_PROMOTION_ALREADY_PENDING", "A promotion request is already pending for this assignment.");
+      const id = `employee-promotion-request-${randomUUID()}`;
+      await client.query(
+        `insert into hr_employee_promotion_request
+          (tenant_id,id,employee_id,company_id,relationship_id,source_assignment_id,
+           proposed_job_id,proposed_designation_id,proposed_job_grade_id,effective_on,reason,requested_by)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [
+          context.tenantId,
+          id,
+          employeeId,
+          input.company_id,
+          sourceRow.relationship_id,
+          input.source_assignment_id,
+          input.job_id,
+          input.designation_id,
+          input.job_grade_id,
+          input.effective_on,
+          input.reason,
+          context.actor.userId,
+        ],
+      );
+      const audit = await this.appendPlatformAudit(
+        client,
+        context,
+        correlationId,
+        "hr.employee_assignment.promotion.request",
+        {
+          entityId: id,
+          before: null,
+          after: {
+            employee_id: employeeId,
+            company_id: input.company_id,
+            source_assignment_id: input.source_assignment_id,
+            effective_on: input.effective_on,
+            status: "pending",
+          },
+        },
+      );
+      const result: HrEmployeePromotionRequestResult = {
+        id,
+        employee_id: employeeId,
+        company_id: input.company_id,
+        source_assignment_id: input.source_assignment_id,
+        status: "pending",
+        audit_event_id: audit,
+        replayed: false,
+      };
+      await client.query(
+        `insert into platform_admin_idempotency
+          (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag)
+         values ($1,$2,'POST',$3,$4,$5,201,$6,$7)`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stateHash(result)],
+      );
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+      if (["23503", "23514"].includes(code))
+        throw new HrApiError(
+          409,
+          "HR_PROMOTION_CONTEXT_INVALID",
+          "The promotion context is no longer valid. Refresh the employee assignment and active master data.",
+        );
+      if (code === "23505")
+        throw new HrApiError(409, "HR_PROMOTION_ALREADY_PENDING", "A promotion request is already pending for this assignment.");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async decideEmployeePromotionRequest(
+    context: HrActorContext,
+    employeeId: string,
+    requestId: string,
+    input: DecideHrEmployeePromotionRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmployeePromotionDecisionResult> {
+    if (!validIdempotencyKey(idempotencyKey))
+      throw new HrApiError(400, "INVALID_IDEMPOTENCY_KEY", "The idempotency key is invalid.");
+    if (!context.actor.permissions.includes("hr.employee_assignment.change"))
+      throw new HrApiError(403, "PERMISSION_DENIED", "You are not permitted to decide employee promotions.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level serializable");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+        `nexora:hr:employee-promotion:${context.tenantId}:${requestId}`,
+      ]);
+      const path = `/api/v1/hr/employees/${employeeId}/promotion_requests/${requestId}/decision`;
+      const fingerprint = stateHash(input);
+      const replay = await client.query<{
+        request_fingerprint: string;
+        response_body: HrEmployeePromotionDecisionResult;
+      }>(
+        `select request_fingerprint,response_body from platform_admin_idempotency
+          where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey],
+      );
+      if (replay.rows[0]) {
+        if (replay.rows[0].request_fingerprint !== fingerprint)
+          throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request.");
+        await client.query("commit");
+        return { ...replay.rows[0].response_body, replayed: true };
+      }
+      const pending = await client.query<{
+        company_id: string;
+        relationship_id: string;
+        source_assignment_id: string;
+        requested_by: string;
+        effective_on: string;
+        proposed_job_id: string;
+        proposed_designation_id: string;
+        proposed_job_grade_id: string;
+        branch_id: string | null;
+        department_id: string | null;
+        cost_center_id: string;
+        work_location_id: string;
+        employment_type_id: string;
+        employee_category_id: string;
+        reporting_manager_id: string | null;
+      }>(
+        `select request.company_id,request.relationship_id,request.source_assignment_id,
+                request.requested_by,request.effective_on::text,request.proposed_job_id,
+                request.proposed_designation_id,request.proposed_job_grade_id,
+                assignment.branch_id,assignment.department_id,assignment.cost_center_id,
+                assignment.work_location_id,assignment.employment_type_id,
+                assignment.employee_category_id,assignment.reporting_manager_id
+           from hr_employee_promotion_request request
+           join employee_assignment assignment
+             on assignment.tenant_id=request.tenant_id and assignment.id=request.source_assignment_id
+           join hr_employment_relationship relationship
+             on relationship.tenant_id=request.tenant_id and relationship.id=request.relationship_id
+          where request.tenant_id=$1 and request.id=$2 and request.employee_id=$3
+            and request.request_state='pending' and assignment.assignment_status='active'
+            and assignment.effective_to is null and relationship.status='active'
+            and exists (
+              select 1 from security_user_company_access access
+               where access.tenant_id=request.tenant_id and access.user_id=$4
+                 and access.company_id=request.company_id and access.revoked_at is null
+            )
+          for update of request,assignment,relationship`,
+        [context.tenantId, requestId, employeeId, context.actor.userId],
+      );
+      const row = pending.rows[0];
+      if (!row)
+        throw new HrApiError(409, "HR_PROMOTION_NOT_PENDING", "The promotion request is not pending in your company scope.");
+      if (row.requested_by === context.actor.userId)
+        throw new HrApiError(403, "HR_SELF_APPROVAL_FORBIDDEN", "A different HR approver must decide this promotion request.");
+      const currentDate = (await client.query<{ current_date: string }>("select current_date::text as current_date"))
+        .rows[0]?.current_date;
+      if (row.effective_on !== currentDate)
+        throw new HrApiError(
+          409,
+          "HR_PROMOTION_EFFECTIVE_DATE_REQUIRED",
+          "This promotion can only be decided on its effective date.",
+        );
+      let assignmentId: string | null = null;
+      if (input.decision === "approved") {
+        await client.query(
+          `update employee_assignment
+              set effective_to=($3::date - 1),assignment_status='ended',updated_at=now()
+            where tenant_id=$1 and id=$2`,
+          [context.tenantId, row.source_assignment_id, row.effective_on],
+        );
+        assignmentId = `employee-assignment-${randomUUID()}`;
+        await client.query(
+          `insert into employee_assignment
+            (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_id,
+             job_grade_id,cost_center_id,work_location_id,employment_type_id,employee_category_id,
+             reporting_manager_id,effective_from,change_reason,created_by,employment_relationship_id,
+             assignment_status,source_reference)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'promotion',$16,$17,'active',$18)`,
+          [
+            assignmentId,
+            context.tenantId,
+            employeeId,
+            row.company_id,
+            row.branch_id,
+            row.department_id,
+            row.proposed_designation_id,
+            row.proposed_job_id,
+            row.proposed_job_grade_id,
+            row.cost_center_id,
+            row.work_location_id,
+            row.employment_type_id,
+            row.employee_category_id,
+            row.reporting_manager_id,
+            row.effective_on,
+            context.actor.userId,
+            row.relationship_id,
+            `hr:promotion-request:${requestId}`,
+          ],
+        );
+      }
+      await client.query(
+        `update hr_employee_promotion_request
+            set request_state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,
+                projected_assignment_id=$6,row_version=row_version+1
+          where tenant_id=$1 and id=$2`,
+        [context.tenantId, requestId, input.decision, context.actor.userId, input.reason, assignmentId],
+      );
+      const audit = await this.appendPlatformAudit(
+        client,
+        context,
+        correlationId,
+        "hr.employee_assignment.promotion.decide",
+        {
+          entityId: requestId,
+          before: { status: "pending", source_assignment_id: row.source_assignment_id },
+          after: { status: input.decision, assignment_id: assignmentId },
+        },
+      );
+      const result: HrEmployeePromotionDecisionResult = {
+        id: requestId,
+        employee_id: employeeId,
+        company_id: row.company_id,
+        source_assignment_id: row.source_assignment_id,
+        status: input.decision,
+        assignment_id: assignmentId,
+        audit_event_id: audit,
+        replayed: false,
+      };
+      await client.query(
+        `insert into platform_admin_idempotency
+          (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag)
+         values ($1,$2,'POST',$3,$4,$5,200,$6,$7)`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stateHash(result)],
+      );
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+      if (["23503", "23514"].includes(code))
+        throw new HrApiError(
+          409,
+          "HR_PROMOTION_CONTEXT_INVALID",
+          "The promotion context is no longer valid. Refresh the request and active assignment data.",
+        );
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async listMasters(context: HrActorContext, query: HrMasterDirectoryQuery): Promise<HrMasterDirectory> {
     return this.read(context, "hr.master.read", async (client) => {
       await this.requireCompanyAccess(client, context, query.company_id);
@@ -2777,6 +3184,36 @@ export class SourceHrRepository {
                 on proposed_work_location.tenant_id=request.tenant_id and proposed_work_location.id=request.proposed_work_location_id`;
   }
 
+  private employeePromotionRequestReviewSelect(): string {
+    return `select request.id,request.employee_id,employee.employee_number,
+                   concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as employee_name,
+                   request.company_id,request.relationship_id,request.source_assignment_id,
+                   source_job.name as source_job,source_designation.name as source_designation,
+                   source_job_grade.name as source_job_grade,proposed_job.name as proposed_job,
+                   proposed_designation.name as proposed_designation,
+                   proposed_job_grade.name as proposed_job_grade,request.effective_on,
+                   request.requested_by,request.requested_at,request.reason,
+                   request.request_state as status,request.decided_by,
+                   request.decided_at,request.decision_reason
+              from hr_employee_promotion_request request
+              join employee
+                on employee.tenant_id=request.tenant_id and employee.id=request.employee_id
+              join employee_assignment source_assignment
+                on source_assignment.tenant_id=request.tenant_id and source_assignment.id=request.source_assignment_id
+              join hr_master_record source_job
+                on source_job.tenant_id=source_assignment.tenant_id and source_job.id=source_assignment.job_id
+              join hr_master_record source_designation
+                on source_designation.tenant_id=source_assignment.tenant_id and source_designation.id=source_assignment.designation_id
+              join hr_master_record source_job_grade
+                on source_job_grade.tenant_id=source_assignment.tenant_id and source_job_grade.id=source_assignment.job_grade_id
+              join hr_master_record proposed_job
+                on proposed_job.tenant_id=request.tenant_id and proposed_job.id=request.proposed_job_id
+              join hr_master_record proposed_designation
+                on proposed_designation.tenant_id=request.tenant_id and proposed_designation.id=request.proposed_designation_id
+              join hr_master_record proposed_job_grade
+                on proposed_job_grade.tenant_id=request.tenant_id and proposed_job_grade.id=request.proposed_job_grade_id`;
+  }
+
   private async requireCompanyAccess(client: PoolClient, context: HrActorContext, companyId: string): Promise<void> {
     const access = await client.query(
       `select 1 from security_user_company_access
@@ -2852,7 +3289,9 @@ export class SourceHrRepository {
       | "hr.employment_lifecycle.hire.request"
       | "hr.employment_lifecycle.hire.decide"
       | "hr.employee_assignment.transfer.request"
-      | "hr.employee_assignment.transfer.decide",
+      | "hr.employee_assignment.transfer.decide"
+      | "hr.employee_assignment.promotion.request"
+      | "hr.employee_assignment.promotion.decide",
     mutation: {
       entityId: string;
       entityType?: "employee" | "employment_lifecycle_policy" | "hr_master_record" | "employment_relationship";

@@ -180,7 +180,7 @@ run("governed employee Transfer repository", () => {
     );
     const job = await repository.createJob(
       maker(),
-      { company_id: companyId, code: `TJ${suffix}`, name: `${label} Transfer Job` },
+      { company_id: companyId, code: `TJ${suffix}`, name: `${label} Transfer Job ${suffix}` },
       `transfer-job-${suffix}`,
       "hr-transfer-integration",
     );

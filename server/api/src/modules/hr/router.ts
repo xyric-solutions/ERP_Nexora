@@ -26,6 +26,9 @@ import {
   createHrEmployeeTransferRequestSchema,
   decideHrEmployeeTransferRequestSchema,
   hrEmployeeTransferRequestDirectoryQuerySchema,
+  createHrEmployeePromotionRequestSchema,
+  decideHrEmployeePromotionRequestSchema,
+  hrEmployeePromotionRequestDirectoryQuerySchema,
 } from "@nexora/contracts";
 
 import { HttpError } from "../../http/errors.js";
@@ -76,6 +79,10 @@ export interface HrRouterDependencies {
     | "getEmployeeTransferRequest"
     | "createEmployeeTransferRequest"
     | "decideEmployeeTransferRequest"
+    | "listEmployeePromotionRequests"
+    | "getEmployeePromotionRequest"
+    | "createEmployeePromotionRequest"
+    | "decideEmployeePromotionRequest"
   >;
   authentication: TenantAuthApiService;
   sessions: TenantSessionApiService;
@@ -341,6 +348,58 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
     res.json(
       await handle(async () =>
         movements.decideTransfer(
+          await loadHrSessionContext(req, dependencies, true),
+          employeeId,
+          requestId,
+          input,
+          idempotencyKey(req),
+          currentRequestContext().correlationId,
+        ),
+      ),
+    );
+  });
+  router.get("/promotion_requests", async (req, res) => {
+    const query = hrEmployeePromotionRequestDirectoryQuerySchema.parse({
+      company_id: req.query.company_id,
+      search: req.query.search,
+      limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+    });
+    res.json(
+      await handle(async () => movements.listPromotions(await loadHrSessionContext(req, dependencies), query)),
+    );
+  });
+  router.post("/employees/:employeeId/promotion_requests", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
+    const input = createHrEmployeePromotionRequestSchema.parse(req.body);
+    const result = await handle(async () =>
+      movements.requestPromotion(
+        await loadHrSessionContext(req, dependencies, true),
+        employeeId,
+        input,
+        idempotencyKey(req),
+        currentRequestContext().correlationId,
+      ),
+    );
+    res.status(result.replayed ? 200 : 201).json(result);
+  });
+  router.get("/employees/:employeeId/promotion_requests/:requestId", async (req, res) => {
+    const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
+    const requestId = z.string().trim().min(1).max(128).parse(req.params.requestId);
+    res.json(
+      await handle(async () =>
+        movements.getPromotion(await loadHrSessionContext(req, dependencies), employeeId, requestId),
+      ),
+    );
+  });
+  router.post("/employees/:employeeId/promotion_requests/:requestId/decision", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);
+    const requestId = z.string().trim().min(1).max(128).parse(req.params.requestId);
+    const input = decideHrEmployeePromotionRequestSchema.parse(req.body);
+    res.json(
+      await handle(async () =>
+        movements.decidePromotion(
           await loadHrSessionContext(req, dependencies, true),
           employeeId,
           requestId,

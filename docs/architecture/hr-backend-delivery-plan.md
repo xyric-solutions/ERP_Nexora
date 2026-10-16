@@ -21,11 +21,12 @@ PostgreSQL, Redis or storage directly.
 
 ### Current safe resume point
 
-- Governed employee Hire/activation and same-day employee Transfer are
-  implementation-complete and verified through the API/repository against
-  isolated PostgreSQL. The next development slice is governed Promotion,
-  followed by manager and organisation changes. Each movement keeps its own
-  request/decision/projection rules; do not reuse Hire or Transfer generically.
+- Governed employee Hire/activation, same-day Transfer and assignment-only
+  Promotion are implementation-complete and verified through the API/repository
+  against isolated PostgreSQL. The next development slice is governed manager
+  change, followed by organisation and work-location changes. Each movement
+  keeps its own request/decision/projection rules; do not generalize the
+  existing workflows prematurely.
 - Independent two-user browser acceptance for a real maker submission followed
   by a different checker decision remains an acceptance gate. Automated browser
   acceptance currently proves authenticated live maker/checker screens and API
@@ -156,9 +157,10 @@ sessions, permissions, company access, approvals and employee/user binding.
       `profile_draft` rows for pre-employment preparation without treating them
       as operational assignments or bypassing database history constraints.
 - [ ] Effective-dated active employment assignment movement workflow.
-      Same-day Transfer is complete with a separate approval transition and
-      immutable audit evidence. Promotion, manager and organisation changes,
-      plus durable future-dated activation, remain open.
+      Same-day Transfer and assignment-only Promotion are complete as separate
+      approval transitions with immutable audit evidence. Manager,
+      organisation and work-location changes, pay-changing Promotion, and
+      durable future-dated activation remain open.
 - [x] Immutable employee status-history read model: typed API and Tailwind
       workspace use `hr.employment_history.read`, current company scope and a
       minimal status-event projection. Actor identifiers and mutable controls are
@@ -305,6 +307,63 @@ sessions, permissions, company access, approvals and employee/user binding.
 - Manual acceptance remains: use distinct maker/checker accounts to submit and
   decide a new Transfer in the browser, then confirm the assignment timeline.
 
+### Governed Promotion verification record - 2026-10-16
+
+- Added HR source migration `0029_governed_promotion_requests` and observed the
+  isolated test database at HR schema version 29. The request table is tenant
+  RLS protected, company/source scoped, immutable after decision, uniquely
+  pending per source assignment, and indexed for checker queues and history.
+- Added typed/OpenAPI Promotion endpoints:
+  - `GET /api/v1/hr/promotion_requests`
+  - `POST /api/v1/hr/employees/{employeeId}/promotion_requests`
+  - `GET /api/v1/hr/employees/{employeeId}/promotion_requests/{requestId}`
+  - `POST /api/v1/hr/employees/{employeeId}/promotion_requests/{requestId}/decision`
+- Request and decision operations require the existing
+  `hr.employee_assignment.change` permission. Active company access, tenant
+  scope, CSRF/origin validation, idempotency, immutable audit evidence and
+  requester/checker separation remain server enforced. Actor-level separation
+  prevents self-approval even when maker and checker share the permission.
+- Approval closes the current assignment and inserts one relationship-bound
+  `change_reason='promotion'` segment in the same serializable transaction.
+  Only job, designation and job grade come from the protected request; branch,
+  department, cost centre, work location, employment type, category and manager
+  are copied from the locked source assignment. Rejection creates no assignment
+  projection.
+- Promotion is deliberately assignment-only. Contracts expose no compensation
+  fields, repository code does not write payroll tables, and PostgreSQL tests
+  prove a real effective `hr_salary_assignment` row is identical before and
+  after both approval and rejection. Pay-changing Promotion remains blocked on
+  a separate production salary-revision API and approval workflow.
+- This first Promotion slice is same-day effective. Future-dated approval is
+  blocked until a durable activation worker can switch assignment segments
+  without creating an authority gap.
+- Existing Employee Assignments and Employee Approvals pages now contain live
+  Promotion maker/checker panels, including explicit compensation-isolation
+  messaging. API failure never substitutes prototype data.
+- Observed verification:
+  - `npm.cmd run typecheck` - passed.
+  - focused OpenAPI contract test - 1 passed.
+  - focused HR router/client unit tests - 29 passed.
+  - PostgreSQL governed-Promotion integration - 2 passed, proving replay,
+    conflicting idempotency, duplicate-pending rejection, company scope,
+    self-approval denial, atomic approval projection, rejection non-projection,
+    unchanged non-role context and unchanged salary rows.
+  - Hire, Transfer, Promotion and migration regression suite - 14 passed;
+    source migration suite reports HR version 29.
+  - `npm.cmd run api:check` - passed.
+  - focused ESLint for Promotion panels/client/router/service/repository/tests -
+    passed.
+  - `npm.cmd run build:web` - passed on Next.js 16.3.8.
+  - focused Playwright acceptance - 1 passed against the already-running local
+    web/API, covering authenticated Assignments and Approvals surfaces for Hire,
+    Transfer and Promotion.
+  - `git diff --check` - passed before this handoff update.
+- Repository-wide lint remains a known pre-existing cleanup area and was not
+  used as the acceptance gate for this focused slice. New Promotion files and
+  touched API/client/test files pass focused ESLint.
+- Manual acceptance remains: use distinct maker/checker accounts to submit and
+  decide a new Promotion in the browser, then confirm the assignment timeline.
+
 ## Currently backend-connected HR pages
 
 Local web base: `http://127.0.0.1:3000` (API: `http://127.0.0.1:4000/api/v1`).
@@ -314,13 +373,13 @@ Local web base: `http://127.0.0.1:3000` (API: `http://127.0.0.1:4000/api/v1`).
 - `/#/hr/add-employee` — governed employee draft creation; unavailable-API
   fallback remains explicit.
 - `/#/hr/employee-drafts` — draft directory, detail, update and submission.
-- `/#/hr/employee-approvals` — employee draft, Hire and Transfer checker queues
-  and decisions.
+- `/#/hr/employee-approvals` — employee draft, Hire, Transfer and Promotion
+  checker queues and decisions.
 - `/#/hr/employee-contacts` — governed email/phone contact history.
 - `/#/hr/employee-emergency-contacts` — governed emergency contacts.
 - `/#/hr/employee-documents` — restricted document metadata reads only.
 - `/#/hr/employee-assignments` — profile context, Hire submission, assignment
-  timeline and Transfer submission.
+  timeline, Transfer submission and assignment-only Promotion submission.
 - `/#/hr/employee-status-history` — immutable status-history projection.
 - `/#/hr/lifecycle-policies` — policy directory, authoring, submission,
   independent approval and activation.

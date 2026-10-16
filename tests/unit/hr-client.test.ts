@@ -140,4 +140,67 @@ describe("HR browser client", () => {
       "decision-key",
     );
   });
+
+  it("passes Promotion reads and mutations through the generated API client", async () => {
+    const requestResult = {
+      id: "promotion-1",
+      employee_id: "employee-1",
+      company_id: "company-a",
+      source_assignment_id: "assignment-1",
+      status: "pending" as const,
+      audit_event_id: "audit-1",
+      replayed: false,
+    };
+    const api = {
+      listHrEmployeePromotionRequests: vi.fn(async () => ({ items: [] })),
+      getHrEmployeePromotionRequest: vi.fn(async () => ({ id: "promotion-1" })),
+      createHrEmployeePromotionRequest: vi.fn(async () => requestResult),
+      decideHrEmployeePromotionRequest: vi.fn(async () => ({
+        ...requestResult,
+        status: "approved" as const,
+        assignment_id: "assignment-2",
+      })),
+    } as unknown as NexoraApiClient;
+    const client = new HrApiClient(api);
+    const payload = {
+      company_id: "company-a",
+      source_assignment_id: "assignment-1",
+      job_id: "job-2",
+      designation_id: "designation-2",
+      job_grade_id: "grade-2",
+      effective_on: "2026-10-16",
+      reason: "Promote the employee to the approved role.",
+    };
+
+    await client.promotionRequests({ companyId: "company/a", search: "EMP 1", limit: 10 });
+    await client.promotionRequest("employee/a", "promotion/a");
+    await expect(client.createPromotionRequest("employee-1", payload, "csrf", "request-key")).resolves.toEqual(
+      requestResult,
+    );
+    await client.decidePromotionRequest(
+      "employee-1",
+      "promotion-1",
+      { decision: "approved", reason: "Independently approved." },
+      "csrf",
+      "decision-key",
+    );
+
+    expect(api.listHrEmployeePromotionRequests).toHaveBeenCalledWith(
+      "?company_id=company%2Fa&search=EMP+1&limit=10",
+    );
+    expect(api.getHrEmployeePromotionRequest).toHaveBeenCalledWith("employee/a", "promotion/a");
+    expect(api.createHrEmployeePromotionRequest).toHaveBeenCalledWith(
+      "employee-1",
+      payload,
+      "csrf",
+      "request-key",
+    );
+    expect(api.decideHrEmployeePromotionRequest).toHaveBeenCalledWith(
+      "employee-1",
+      "promotion-1",
+      { decision: "approved", reason: "Independently approved." },
+      "csrf",
+      "decision-key",
+    );
+  });
 });

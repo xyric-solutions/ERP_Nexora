@@ -6,6 +6,13 @@ import type {
   HrEmployeeTransferRequestDirectoryQuery,
   HrEmployeeTransferRequestResult,
   HrEmployeeTransferRequestReview,
+  CreateHrEmployeePromotionRequest,
+  DecideHrEmployeePromotionRequest,
+  HrEmployeePromotionDecisionResult,
+  HrEmployeePromotionRequestDirectory,
+  HrEmployeePromotionRequestDirectoryQuery,
+  HrEmployeePromotionRequestResult,
+  HrEmployeePromotionRequestReview,
 } from "@nexora/contracts";
 
 import type { HrActorContext, SourceHrRepository } from "../source-repository.js";
@@ -19,6 +26,10 @@ export class HrMovementService {
       | "getEmployeeTransferRequest"
       | "createEmployeeTransferRequest"
       | "decideEmployeeTransferRequest"
+      | "listEmployeePromotionRequests"
+      | "getEmployeePromotionRequest"
+      | "createEmployeePromotionRequest"
+      | "decideEmployeePromotionRequest"
     >,
   ) {}
 
@@ -62,6 +73,55 @@ export class HrMovementService {
     correlationId: string,
   ): Promise<HrEmployeeTransferDecisionResult> {
     return this.repository.decideEmployeeTransferRequest(
+      context,
+      employeeId,
+      requestId,
+      input,
+      idempotencyKey,
+      correlationId,
+    );
+  }
+
+  listPromotions(
+    context: HrActorContext,
+    query: HrEmployeePromotionRequestDirectoryQuery,
+  ): Promise<HrEmployeePromotionRequestDirectory> {
+    return this.repository.listEmployeePromotionRequests(context, query);
+  }
+
+  getPromotion(
+    context: HrActorContext,
+    employeeId: string,
+    requestId: string,
+  ): Promise<HrEmployeePromotionRequestReview> {
+    return this.repository.getEmployeePromotionRequest(context, employeeId, requestId);
+  }
+
+  requestPromotion(
+    context: HrActorContext,
+    employeeId: string,
+    input: CreateHrEmployeePromotionRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmployeePromotionRequestResult> {
+    return this.repository.createEmployeePromotionRequest(
+      context,
+      employeeId,
+      input,
+      idempotencyKey,
+      correlationId,
+    );
+  }
+
+  decidePromotion(
+    context: HrActorContext,
+    employeeId: string,
+    requestId: string,
+    input: DecideHrEmployeePromotionRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmployeePromotionDecisionResult> {
+    return this.repository.decideEmployeePromotionRequest(
       context,
       employeeId,
       requestId,

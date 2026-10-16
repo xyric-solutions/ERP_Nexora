@@ -481,6 +481,71 @@ export const hrEmployeeTransferRequestDirectorySchema = z.strictObject({
   items: z.array(hrEmployeeTransferRequestReviewSchema),
 });
 
+/** A promotion request changes assignment role fields, never compensation. */
+export const createHrEmployeePromotionRequestSchema = z.strictObject({
+  company_id: identifier,
+  source_assignment_id: identifier,
+  job_id: identifier,
+  designation_id: identifier,
+  job_grade_id: identifier,
+  effective_on: isoDate,
+  reason: z.string().trim().min(1).max(1000),
+});
+export const hrEmployeePromotionRequestResultSchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  company_id: identifier,
+  source_assignment_id: identifier,
+  status: z.literal("pending"),
+  audit_event_id: identifier,
+  replayed: z.boolean(),
+});
+export const decideHrEmployeePromotionRequestSchema = z.strictObject({
+  decision: z.enum(["approved", "rejected"]),
+  reason: z.string().trim().min(1).max(1000),
+});
+export const hrEmployeePromotionDecisionResultSchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  company_id: identifier,
+  source_assignment_id: identifier,
+  status: z.enum(["approved", "rejected"]),
+  assignment_id: identifier.nullable(),
+  audit_event_id: identifier,
+  replayed: z.boolean(),
+});
+export const hrEmployeePromotionRequestDirectoryQuerySchema = z.strictObject({
+  company_id: identifier,
+  search: z.string().trim().max(160).optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+});
+export const hrEmployeePromotionRequestReviewSchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  employee_number: z.string().min(1).max(32),
+  employee_name: z.string().min(1).max(320),
+  company_id: identifier,
+  relationship_id: identifier,
+  source_assignment_id: identifier,
+  source_job: z.string().min(1).max(160),
+  source_designation: z.string().min(1).max(160),
+  source_job_grade: z.string().min(1).max(160),
+  proposed_job: z.string().min(1).max(160),
+  proposed_designation: z.string().min(1).max(160),
+  proposed_job_grade: z.string().min(1).max(160),
+  effective_on: isoDate,
+  requested_by: identifier,
+  requested_at: z.string().datetime(),
+  reason: z.string().min(1).max(1000),
+  status: z.enum(["pending", "approved", "rejected"]),
+  decided_by: identifier.nullable(),
+  decided_at: z.string().datetime().nullable(),
+  decision_reason: z.string().max(1000).nullable(),
+});
+export const hrEmployeePromotionRequestDirectorySchema = z.strictObject({
+  items: z.array(hrEmployeePromotionRequestReviewSchema),
+});
+
 export const hrMasterDirectorySchema = z.strictObject({ items: z.array(hrMasterRecordSchema) });
 
 export type HrEmployeeDirectoryQuery = z.infer<typeof hrEmployeeDirectoryQuerySchema>;
@@ -667,3 +732,12 @@ export type HrEmployeeTransferRequestDirectoryQuery = z.infer<
 >;
 export type HrEmployeeTransferRequestReview = z.infer<typeof hrEmployeeTransferRequestReviewSchema>;
 export type HrEmployeeTransferRequestDirectory = z.infer<typeof hrEmployeeTransferRequestDirectorySchema>;
+export type CreateHrEmployeePromotionRequest = z.infer<typeof createHrEmployeePromotionRequestSchema>;
+export type HrEmployeePromotionRequestResult = z.infer<typeof hrEmployeePromotionRequestResultSchema>;
+export type DecideHrEmployeePromotionRequest = z.infer<typeof decideHrEmployeePromotionRequestSchema>;
+export type HrEmployeePromotionDecisionResult = z.infer<typeof hrEmployeePromotionDecisionResultSchema>;
+export type HrEmployeePromotionRequestDirectoryQuery = z.infer<
+  typeof hrEmployeePromotionRequestDirectoryQuerySchema
+>;
+export type HrEmployeePromotionRequestReview = z.infer<typeof hrEmployeePromotionRequestReviewSchema>;
+export type HrEmployeePromotionRequestDirectory = z.infer<typeof hrEmployeePromotionRequestDirectorySchema>;

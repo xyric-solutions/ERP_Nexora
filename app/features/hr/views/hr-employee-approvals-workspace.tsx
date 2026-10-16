@@ -23,6 +23,7 @@ import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrHireApprovalsPanel } from "../components/hr-hire-approvals-panel";
 import { HrTransferApprovalsPanel } from "../components/hr-transfer-approvals-panel";
+import { HrPromotionApprovalsPanel } from "../components/hr-promotion-approvals-panel";
 
 type LoadState = "loading" | "ready" | "error";
 type Decision = DecideHrEmployeeDraftApprovalRequest["decision"];
@@ -47,7 +48,8 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
   const canApproveDraft = session?.user.permissions.includes("hr.employee.approve") ?? false;
   const canApproveHire = session?.user.permissions.includes("hr.employment_lifecycle.approve") ?? false;
   const canApproveTransfer = session?.user.permissions.includes("hr.employee_assignment.change") ?? false;
-  const canApprove = canApproveDraft || canApproveHire || canApproveTransfer;
+  const canApprovePromotion = session?.user.permissions.includes("hr.employee_assignment.change") ?? false;
+  const canApprove = canApproveDraft || canApproveHire || canApproveTransfer || canApprovePromotion;
   const userId = session?.user.id;
 
   useEffect(() => {
@@ -400,6 +402,16 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
       {canApproveTransfer && (
         <HrTransferApprovalsPanel
           key={`transfer:${companyId}`}
+          client={client}
+          csrfToken={csrfToken}
+          companyId={companyId}
+          userId={userId}
+          onAction={onAction}
+        />
+      )}
+      {canApprovePromotion && (
+        <HrPromotionApprovalsPanel
+          key={`promotion:${companyId}`}
           client={client}
           csrfToken={csrfToken}
           companyId={companyId}

@@ -61,6 +61,12 @@ import {
   hrEmployeeTransferDecisionResultSchema,
   hrEmployeeTransferRequestDirectorySchema,
   hrEmployeeTransferRequestReviewSchema,
+  createHrEmployeePromotionRequestSchema,
+  hrEmployeePromotionRequestResultSchema,
+  decideHrEmployeePromotionRequestSchema,
+  hrEmployeePromotionDecisionResultSchema,
+  hrEmployeePromotionRequestDirectorySchema,
+  hrEmployeePromotionRequestReviewSchema,
 } from "./hr/index.js";
 import { jobReceiptSchema, sampleJobPayloadSchema } from "./jobs/index.js";
 import { problemDetailsSchema } from "./problem.js";
@@ -1320,6 +1326,123 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/hr/promotion_requests": {
+        get: {
+          operationId: "listHrEmployeePromotionRequests",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Pending company-scoped employee promotion requests",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeePromotionRequestDirectory" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/promotion_requests": {
+        post: {
+          operationId: "createHrEmployeePromotionRequest",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/CreateHrEmployeePromotionRequest" } },
+            },
+          },
+          responses: {
+            "201": {
+              description: "Pending, independently approvable employee promotion request",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeePromotionRequestResult" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/promotion_requests/{requestId}": {
+        get: {
+          operationId: "getHrEmployeePromotionRequest",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "path", name: "requestId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+          ],
+          responses: {
+            "200": {
+              description: "Company-scoped employee promotion request review",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeePromotionRequestReview" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/promotion_requests/{requestId}/decision": {
+        post: {
+          operationId: "decideHrEmployeePromotionRequest",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "path", name: "requestId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/DecideHrEmployeePromotionRequest" } },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Independently decided employee promotion request",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeePromotionDecisionResult" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
       "/hr/employment_lifecycle_policies": {
         get: {
           operationId: "listHrEmploymentLifecyclePolicies",
@@ -1559,6 +1682,12 @@ export function buildOpenApiDocument() {
         HrEmployeeTransferDecisionResult: schema(hrEmployeeTransferDecisionResultSchema),
         HrEmployeeTransferRequestDirectory: schema(hrEmployeeTransferRequestDirectorySchema),
         HrEmployeeTransferRequestReview: schema(hrEmployeeTransferRequestReviewSchema),
+        CreateHrEmployeePromotionRequest: schema(createHrEmployeePromotionRequestSchema),
+        HrEmployeePromotionRequestResult: schema(hrEmployeePromotionRequestResultSchema),
+        DecideHrEmployeePromotionRequest: schema(decideHrEmployeePromotionRequestSchema),
+        HrEmployeePromotionDecisionResult: schema(hrEmployeePromotionDecisionResultSchema),
+        HrEmployeePromotionRequestDirectory: schema(hrEmployeePromotionRequestDirectorySchema),
+        HrEmployeePromotionRequestReview: schema(hrEmployeePromotionRequestReviewSchema),
         ProblemDetails: schema(problemDetailsSchema),
         SampleJobPayload: schema(sampleJobPayloadSchema),
         JobReceipt: schema(jobReceiptSchema),

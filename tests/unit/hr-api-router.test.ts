@@ -651,6 +651,75 @@ describe("HR API foundation", () => {
     );
   });
 
+  it("protects Promotion creation and independent decisions with the standard browser controls", async () => {
+    const repository = {
+      createEmployeePromotionRequest: vi.fn(async () => ({
+        id: "promotion-1",
+        employee_id: "employee-1",
+        company_id: "company-a",
+        source_assignment_id: "assignment-1",
+        status: "pending",
+        audit_event_id: "audit-1",
+        replayed: false,
+      })),
+      decideEmployeePromotionRequest: vi.fn(async () => ({
+        id: "promotion-1",
+        employee_id: "employee-1",
+        company_id: "company-a",
+        source_assignment_id: "assignment-1",
+        status: "approved",
+        assignment_id: "assignment-2",
+        audit_event_id: "audit-2",
+        replayed: false,
+      })),
+    } as unknown as Pick<
+      SourceHrRepository,
+      "createEmployeePromotionRequest" | "decideEmployeePromotionRequest"
+    >;
+    const payload = {
+      company_id: "company-a",
+      source_assignment_id: "assignment-1",
+      job_id: "job-2",
+      designation_id: "designation-2",
+      job_grade_id: "grade-2",
+      effective_on: "2026-10-16",
+      reason: "Promote the employee to the approved role.",
+    };
+    const created = await request(appForHr(repository))
+      .post("/api/v1/hr/employees/employee-1/promotion_requests")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "promotion-request-1")
+      .send(payload);
+    expect(created.status).toBe(201);
+    expect(repository.createEmployeePromotionRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "employee-1",
+      payload,
+      "promotion-request-1",
+      expect.any(String),
+    );
+
+    const decision = { decision: "approved", reason: "Independent Promotion approval completed." };
+    const decided = await request(appForHr(repository))
+      .post("/api/v1/hr/employees/employee-1/promotion_requests/promotion-1/decision")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "promotion-decision-1")
+      .send(decision);
+    expect(decided.status).toBe(200);
+    expect(repository.decideEmployeePromotionRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "employee-1",
+      "promotion-1",
+      decision,
+      "promotion-decision-1",
+      expect.any(String),
+    );
+  });
+
   it("rejects HR data requests without an authenticated session", async () => {
     const response = await request(
       appForHr({
