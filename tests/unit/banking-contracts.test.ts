@@ -155,6 +155,12 @@ describe("Banking contracts", () => {
         lines: [{ ...validPaymentCreate.lines[0], external_reference: "x".repeat(129) }],
       }).success,
     ).toBe(false);
+    expect(
+      createBankPaymentRequestSchema.safeParse({
+        ...validPaymentCreate,
+        lines: [{ ...validPaymentCreate.lines[0], document_reference: "" }],
+      }).success,
+    ).toBe(false);
   });
 
   it("requires optimistic versions and reasons for rejecting or reversing Bank Payments", () => {
@@ -194,6 +200,7 @@ describe("Banking contracts", () => {
       currency: "USD",
       total_amount: "1250.00",
       line_count: 1,
+      narration_summary: "Synthetic supplier settlement",
       state: "submitted",
       version: 2,
       created_at: "2026-10-19T08:00:00.000Z",
