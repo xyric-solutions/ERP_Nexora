@@ -23,18 +23,31 @@ import {
   bankPaymentOptionsSchema,
   bankPaymentPostingResultSchema,
   bankPaymentReversalResultSchema,
+  bankReceiptDetailSchema,
+  bankReceiptDirectorySchema,
+  bankReceiptMutationResultSchema,
+  bankReceiptNominalAccountDirectorySchema,
+  bankReceiptOptionsSchema,
+  bankReceiptPostingResultSchema,
+  bankReceiptReversalResultSchema,
   bankingCompanyDirectorySchema,
   bankingLedgerAccountDirectorySchema,
   changeBankAccountStatusRequestSchema,
   createBankPaymentRequestSchema,
+  createBankReceiptRequestSchema,
   createBankAccountRequestSchema,
   decideBankPaymentRequestSchema,
+  decideBankReceiptRequestSchema,
   decideBankAccountRequestSchema,
   postBankPaymentRequestSchema,
+  postBankReceiptRequestSchema,
   reverseBankPaymentRequestSchema,
+  reverseBankReceiptRequestSchema,
   submitBankPaymentRequestSchema,
+  submitBankReceiptRequestSchema,
   submitBankAccountRequestSchema,
   updateBankPaymentRequestSchema,
+  updateBankReceiptRequestSchema,
   updateBankAccountRequestSchema,
 } from "./banking/index.js";
 import { healthStatusSchema } from "./health.js";
@@ -1358,6 +1371,262 @@ export function buildOpenApiDocument() {
             "200": {
               description: "Posted Bank Payment reversed through a compensating journal",
               content: { "application/json": { schema: { $ref: "#/components/schemas/BankPaymentReversalResult" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/receipts": {
+        get: {
+          operationId: "listBankReceipts",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            {
+              in: "query",
+              name: "bank_account_id",
+              required: false,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            {
+              in: "query",
+              name: "state",
+              required: false,
+              schema: { type: "string", enum: ["draft", "submitted", "approved", "rejected", "posted", "reversed"] },
+            },
+            { in: "query", name: "posting_date_from", required: false, schema: { type: "string", format: "date" } },
+            { in: "query", name: "posting_date_to", required: false, schema: { type: "string", format: "date" } },
+            { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            {
+              in: "query",
+              name: "sort_by",
+              required: false,
+              schema: {
+                type: "string",
+                enum: ["posting_date", "reference", "total_amount", "state"],
+                default: "posting_date",
+              },
+            },
+            {
+              in: "query",
+              name: "sort_direction",
+              required: false,
+              schema: { type: "string", enum: ["asc", "desc"], default: "desc" },
+            },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            },
+            { in: "query", name: "cursor", required: false, schema: { type: "string", minLength: 1, maxLength: 512 } },
+          ],
+          responses: {
+            "200": {
+              description: "Company-scoped Bank Receipt directory",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+        post: {
+          operationId: "createBankReceipt",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/CreateBankReceiptRequest" } } },
+          },
+          responses: {
+            "201": {
+              description: "Bank Receipt draft created",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptMutationResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/receipts/options": {
+        get: {
+          operationId: "listBankReceiptOptions",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Eligible active Bank Accounts and receipt methods",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptOptions" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/receipts/nominal_accounts": {
+        get: {
+          operationId: "listBankReceiptNominalAccounts",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Bounded active nominal-account directory for Bank Receipts",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/BankReceiptNominalAccountDirectory" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/receipts/{receiptId}": {
+        get: {
+          operationId: "getBankReceipt",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "receiptId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+          ],
+          responses: {
+            "200": {
+              description: "Company-scoped governed Bank Receipt detail",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptDetail" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+        patch: {
+          operationId: "updateBankReceipt",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "receiptId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateBankReceiptRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Bank Receipt draft updated",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptMutationResult" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/receipts/{receiptId}/submit": {
+        post: {
+          operationId: "submitBankReceipt",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "receiptId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SubmitBankReceiptRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Bank Receipt submitted for independent approval",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptMutationResult" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/receipts/{receiptId}/decision": {
+        post: {
+          operationId: "decideBankReceipt",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "receiptId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/DecideBankReceiptRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Bank Receipt independently approved or rejected",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptMutationResult" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/receipts/{receiptId}/post": {
+        post: {
+          operationId: "postBankReceipt",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "receiptId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/PostBankReceiptRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Approved Bank Receipt posted to an immutable journal",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptPostingResult" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/receipts/{receiptId}/reverse": {
+        post: {
+          operationId: "reverseBankReceipt",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "receiptId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ReverseBankReceiptRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Posted Bank Receipt reversed through a compensating journal",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptReversalResult" } } },
             },
             "404": problemResponse,
             ...securityErrors,
@@ -2976,6 +3245,19 @@ export function buildOpenApiDocument() {
         SecurityUserDetail: schema(securityUserDetailSchema),
         SecurityUserOptions: schema(securityUserOptionsSchema),
         SecurityUserAdministrationResult: schema(securityUserAdministrationResultSchema),
+        BankReceiptDirectory: schema(bankReceiptDirectorySchema),
+        BankReceiptDetail: schema(bankReceiptDetailSchema),
+        BankReceiptOptions: schema(bankReceiptOptionsSchema),
+        BankReceiptNominalAccountDirectory: schema(bankReceiptNominalAccountDirectorySchema),
+        CreateBankReceiptRequest: schema(createBankReceiptRequestSchema),
+        UpdateBankReceiptRequest: schema(updateBankReceiptRequestSchema),
+        SubmitBankReceiptRequest: schema(submitBankReceiptRequestSchema),
+        DecideBankReceiptRequest: schema(decideBankReceiptRequestSchema),
+        PostBankReceiptRequest: schema(postBankReceiptRequestSchema),
+        ReverseBankReceiptRequest: schema(reverseBankReceiptRequestSchema),
+        BankReceiptMutationResult: schema(bankReceiptMutationResultSchema),
+        BankReceiptPostingResult: schema(bankReceiptPostingResultSchema),
+        BankReceiptReversalResult: schema(bankReceiptReversalResultSchema),
       },
     },
   } as const;

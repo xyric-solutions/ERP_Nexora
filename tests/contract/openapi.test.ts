@@ -64,6 +64,14 @@ describe("OpenAPI contract", () => {
       "/banking/payments/{paymentId}/decision",
       "/banking/payments/{paymentId}/post",
       "/banking/payments/{paymentId}/reverse",
+      "/banking/receipts",
+      "/banking/receipts/options",
+      "/banking/receipts/nominal_accounts",
+      "/banking/receipts/{receiptId}",
+      "/banking/receipts/{receiptId}/submit",
+      "/banking/receipts/{receiptId}/decision",
+      "/banking/receipts/{receiptId}/post",
+      "/banking/receipts/{receiptId}/reverse",
       "/hr/companies",
       "/hr/organization_units",
       "/hr/employees/{employeeId}",
@@ -140,6 +148,37 @@ describe("OpenAPI contract", () => {
       "lines",
     ]);
     expect(createSchema.properties).not.toHaveProperty("tenant_id");
+    expect(createSchema.properties).not.toHaveProperty("state");
+    expect(createSchema.properties).not.toHaveProperty("total_amount");
+    expect(createSchema.properties).not.toHaveProperty("bank_control_account_id");
+    expect(createSchema.properties).not.toHaveProperty("journal_id");
+  });
+
+  it("documents the governed Bank Receipt lifecycle without Customer or accounting authority", () => {
+    const document = buildOpenApiDocument();
+    expect(document.paths["/banking/receipts"].get.operationId).toBe("listBankReceipts");
+    expect(document.paths["/banking/receipts"].post.operationId).toBe("createBankReceipt");
+    expect(document.paths["/banking/receipts/{receiptId}"].patch.operationId).toBe("updateBankReceipt");
+    expect(document.paths["/banking/receipts/{receiptId}/submit"].post.operationId).toBe("submitBankReceipt");
+    expect(document.paths["/banking/receipts/{receiptId}/decision"].post.operationId).toBe("decideBankReceipt");
+    expect(document.paths["/banking/receipts/{receiptId}/post"].post.operationId).toBe("postBankReceipt");
+    expect(document.paths["/banking/receipts/{receiptId}/reverse"].post.operationId).toBe("reverseBankReceipt");
+
+    const createSchema = document.components.schemas.CreateBankReceiptRequest as {
+      properties?: Record<string, unknown>;
+      additionalProperties?: boolean;
+    };
+    expect(createSchema.additionalProperties).toBe(false);
+    expect(Object.keys(createSchema.properties ?? {})).toEqual([
+      "company_id",
+      "bank_account_id",
+      "posting_date",
+      "value_date",
+      "lines",
+    ]);
+    expect(createSchema.properties).not.toHaveProperty("tenant_id");
+    expect(createSchema.properties).not.toHaveProperty("customer_id");
+    expect(createSchema.properties).not.toHaveProperty("invoice_id");
     expect(createSchema.properties).not.toHaveProperty("state");
     expect(createSchema.properties).not.toHaveProperty("total_amount");
     expect(createSchema.properties).not.toHaveProperty("bank_control_account_id");

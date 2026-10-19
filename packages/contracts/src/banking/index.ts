@@ -475,6 +475,260 @@ export const bankPaymentReversalResultSchema = bankPaymentMutationResultSchema.e
   reversal_journal_entry_number: z.string().min(1).max(128),
 });
 
+export const bankReceiptStateSchema = z.enum(["draft", "submitted", "approved", "rejected", "posted", "reversed"]);
+
+export const bankReceiptMethodSchema = z.enum(["bank_transfer", "cheque", "cash", "online", "direct_debit", "card"]);
+
+const bankReceiptReference = z.string().trim().min(1).max(128);
+const bankReceiptPayerName = z.string().trim().min(1).max(200);
+const bankReceiptNarration = z.string().trim().min(3).max(500);
+const bankReceiptReason = z.string().trim().min(3).max(500);
+
+export const bankReceiptDimensionsSchema = bankPaymentDimensionsRecordSchema.superRefine((value, context) => {
+  if (Object.keys(value).length > 25) {
+    context.addIssue({ code: "custom", message: "At most 25 accounting dimensions are allowed." });
+  }
+  if (JSON.stringify(value).length > 4_000) {
+    context.addIssue({ code: "custom", message: "Accounting dimensions are too large." });
+  }
+});
+
+const editableBankReceiptLineFields = {
+  line_order: z.number().int().min(1).max(200),
+  document_date: isoDate,
+  external_reference: bankReceiptReference.nullable().optional(),
+  document_reference: bankReceiptReference.nullable().optional(),
+  receipt_method: bankReceiptMethodSchema,
+  payer_name: bankReceiptPayerName,
+  nominal_account_id: identifier,
+  narration: bankReceiptNarration.nullable().optional(),
+  amount: positiveBoundedDecimal,
+  dimensions: bankReceiptDimensionsSchema,
+} as const;
+
+export const bankReceiptLineInputSchema = z.strictObject(editableBankReceiptLineFields);
+
+export const bankReceiptLineSchema = z.strictObject({
+  id: identifier,
+  line_order: editableBankReceiptLineFields.line_order,
+  document_date: editableBankReceiptLineFields.document_date,
+  external_reference: bankReceiptReference.nullable(),
+  document_reference: bankReceiptReference.nullable(),
+  receipt_method: editableBankReceiptLineFields.receipt_method,
+  payer_name: editableBankReceiptLineFields.payer_name,
+  nominal_account_id: editableBankReceiptLineFields.nominal_account_id,
+  narration: bankReceiptNarration.nullable(),
+  amount: editableBankReceiptLineFields.amount,
+  dimensions: editableBankReceiptLineFields.dimensions,
+});
+
+const bankReceiptLinesSchema = z
+  .array(bankReceiptLineInputSchema)
+  .min(1)
+  .max(200)
+  .superRefine((lines, context) => {
+    const orders = new Set(lines.map((line) => line.line_order));
+    if (orders.size !== lines.length) {
+      context.addIssue({ code: "custom", message: "Receipt line order values must be unique." });
+    }
+  });
+
+const editableBankReceiptFields = {
+  bank_account_id: identifier,
+  posting_date: isoDate,
+  value_date: isoDate.nullable().optional(),
+  lines: bankReceiptLinesSchema,
+} as const;
+
+export const createBankReceiptRequestSchema = z.strictObject({
+  company_id: identifier,
+  ...editableBankReceiptFields,
+});
+
+export const updateBankReceiptRequestSchema = z
+  .strictObject({
+    expected_version: z.number().int().positive(),
+    bank_account_id: editableBankReceiptFields.bank_account_id.optional(),
+    posting_date: editableBankReceiptFields.posting_date.optional(),
+    value_date: editableBankReceiptFields.value_date,
+    lines: editableBankReceiptFields.lines.optional(),
+  })
+  .refine(
+    (value) => Object.keys(value).some((key) => key !== "expected_version"),
+    "At least one bank receipt field is required.",
+  );
+
+export const submitBankReceiptRequestSchema = z.strictObject({
+  expected_version: z.number().int().positive(),
+});
+
+export const decideBankReceiptRequestSchema = z
+  .strictObject({
+    action: z.enum(["approve", "reject"]),
+    expected_version: z.number().int().positive(),
+    reason: bankReceiptReason.optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.action === "reject" && value.reason === undefined) {
+      context.addIssue({ code: "custom", path: ["reason"], message: "A rejection reason is required." });
+    }
+  });
+
+export const postBankReceiptRequestSchema = z.strictObject({
+  expected_version: z.number().int().positive(),
+});
+
+export const reverseBankReceiptRequestSchema = z.strictObject({
+  expected_version: z.number().int().positive(),
+  reason: bankReceiptReason,
+});
+
+export const bankReceiptDirectoryQuerySchema = z
+  .strictObject({
+    company_id: identifier,
+    bank_account_id: identifier.optional(),
+    state: bankReceiptStateSchema.optional(),
+    posting_date_from: isoDate.optional(),
+    posting_date_to: isoDate.optional(),
+    search: z.string().trim().max(160).optional(),
+    sort_by: z.enum(["posting_date", "reference", "total_amount", "state"]).default("posting_date"),
+    sort_direction: z.enum(["asc", "desc"]).default("desc"),
+    limit: z.number().int().min(1).max(100).default(50),
+    cursor: z.string().trim().min(1).max(512).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.posting_date_from && value.posting_date_to && value.posting_date_from > value.posting_date_to) {
+      context.addIssue({
+        code: "custom",
+        path: ["posting_date_to"],
+        message: "The ending posting date cannot be before the starting posting date.",
+      });
+    }
+  });
+
+export const bankReceiptSummarySchema = z.strictObject({
+  id: identifier,
+  company_id: identifier,
+  reference: z.string().min(1).max(64),
+  bank_account_id: identifier,
+  bank_account_name: z.string().min(1).max(160),
+  bank_name: z.string().min(1).max(200),
+  account_number_masked: z.string().min(4).max(80),
+  posting_date: isoDate,
+  value_date: isoDate.nullable(),
+  currency: isoCurrency,
+  total_amount: positiveBoundedDecimal,
+  line_count: z.number().int().min(1).max(200),
+  payer_summary: z.string().trim().min(1).max(500).nullable(),
+  nominal_account_summary: z.string().trim().min(1).max(500).nullable(),
+  narration_summary: z.string().trim().min(1).max(500).nullable(),
+  state: bankReceiptStateSchema,
+  version: z.number().int().positive(),
+  created_at: isoDateTime,
+});
+
+export const bankReceiptDirectorySchema = z.strictObject({
+  items: z.array(bankReceiptSummarySchema),
+  next_cursor: z.string().nullable(),
+});
+
+export const bankReceiptTimelineEventSchema = z.strictObject({
+  id: identifier,
+  action: z.enum(["created", "updated", "submitted", "approved", "rejected", "posted", "reversed"]),
+  previous_state: bankReceiptStateSchema.nullable(),
+  resulting_state: bankReceiptStateSchema,
+  actor_id: identifier,
+  actor_label: z.string().trim().min(1).max(200),
+  reason: z.string().max(500).nullable(),
+  occurred_at: isoDateTime,
+});
+
+export const bankReceiptAccountingPreviewLineSchema = z.strictObject({
+  line_order: z.number().int().min(1).max(201),
+  account_id: identifier,
+  account_code: z.string().min(1).max(128),
+  account_name: z.string().min(1).max(200),
+  side: z.enum(["debit", "credit"]),
+  amount: positiveBoundedDecimal,
+  is_bank_control: z.boolean(),
+});
+
+export const bankReceiptAccountingPreviewSchema = z.strictObject({
+  currency: isoCurrency,
+  lines: z.array(bankReceiptAccountingPreviewLineSchema).min(2).max(201),
+  debit_total: positiveBoundedDecimal,
+  credit_total: positiveBoundedDecimal,
+});
+
+export const bankReceiptDetailSchema = bankReceiptSummarySchema.extend({
+  base_currency: isoCurrency,
+  exchange_rate: positiveBoundedRate.nullable(),
+  lines: z.array(bankReceiptLineSchema).min(1).max(200),
+  timeline: z.array(bankReceiptTimelineEventSchema).max(1_000),
+  accounting_preview: bankReceiptAccountingPreviewSchema,
+  created_by: identifier,
+  submitted_by: identifier.nullable(),
+  approved_by: identifier.nullable(),
+  rejected_by: identifier.nullable(),
+  posted_by: identifier.nullable(),
+  reversed_by: identifier.nullable(),
+  submitted_at: isoDateTime.nullable(),
+  approved_at: isoDateTime.nullable(),
+  rejected_at: isoDateTime.nullable(),
+  posted_at: isoDateTime.nullable(),
+  reversed_at: isoDateTime.nullable(),
+  accounting_event_id: identifier.nullable(),
+  journal_id: identifier.nullable(),
+  journal_entry_number: z.string().min(1).max(128).nullable(),
+  reversal_accounting_event_id: identifier.nullable(),
+  reversal_journal_id: identifier.nullable(),
+  reversal_journal_entry_number: z.string().min(1).max(128).nullable(),
+  self_decision_requires_override: z.boolean(),
+  super_admin_override_allowed: z.boolean(),
+});
+
+export const bankReceiptOptionsQuerySchema = z.strictObject({
+  company_id: identifier,
+});
+
+export const bankReceiptOptionsSchema = z.strictObject({
+  bank_accounts: bankPaymentOptionsSchema.shape.bank_accounts,
+  receipt_methods: z
+    .array(
+      z.strictObject({
+        value: bankReceiptMethodSchema,
+        label: z.string().trim().min(1).max(80),
+      }),
+    )
+    .length(bankReceiptMethodSchema.options.length),
+});
+
+export const bankReceiptNominalAccountDirectoryQuerySchema = bankPaymentNominalAccountDirectoryQuerySchema;
+export const bankReceiptNominalAccountDirectorySchema = bankPaymentNominalAccountDirectorySchema;
+
+export const bankReceiptMutationResultSchema = z.strictObject({
+  id: identifier,
+  reference: z.string().min(1).max(64),
+  state: bankReceiptStateSchema,
+  version: z.number().int().positive(),
+  audit_event_id: identifier,
+  replayed: z.boolean(),
+});
+
+export const bankReceiptPostingResultSchema = bankReceiptMutationResultSchema.extend({
+  accounting_event_id: identifier,
+  journal_id: identifier,
+  journal_entry_number: z.string().min(1).max(128),
+});
+
+export const bankReceiptReversalResultSchema = bankReceiptMutationResultSchema.extend({
+  original_accounting_event_id: identifier,
+  original_journal_id: identifier,
+  reversal_accounting_event_id: identifier,
+  reversal_journal_id: identifier,
+  reversal_journal_entry_number: z.string().min(1).max(128),
+});
+
 export type BankAccountState = z.infer<typeof bankAccountStateSchema>;
 export type BankAccountType = z.infer<typeof bankAccountTypeSchema>;
 export type BankingCompanyDirectory = z.infer<typeof bankingCompanyDirectorySchema>;
@@ -511,10 +765,33 @@ export type BankPaymentAccountingPreview = z.infer<typeof bankPaymentAccountingP
 export type BankPaymentDetail = z.infer<typeof bankPaymentDetailSchema>;
 export type BankPaymentOptionsQuery = z.infer<typeof bankPaymentOptionsQuerySchema>;
 export type BankPaymentOptions = z.infer<typeof bankPaymentOptionsSchema>;
-export type BankPaymentNominalAccountDirectoryQuery = z.infer<
-  typeof bankPaymentNominalAccountDirectoryQuerySchema
->;
+export type BankPaymentNominalAccountDirectoryQuery = z.infer<typeof bankPaymentNominalAccountDirectoryQuerySchema>;
 export type BankPaymentNominalAccountDirectory = z.infer<typeof bankPaymentNominalAccountDirectorySchema>;
 export type BankPaymentMutationResult = z.infer<typeof bankPaymentMutationResultSchema>;
 export type BankPaymentPostingResult = z.infer<typeof bankPaymentPostingResultSchema>;
 export type BankPaymentReversalResult = z.infer<typeof bankPaymentReversalResultSchema>;
+export type BankReceiptState = z.infer<typeof bankReceiptStateSchema>;
+export type BankReceiptMethod = z.infer<typeof bankReceiptMethodSchema>;
+export type BankReceiptDimensions = z.infer<typeof bankReceiptDimensionsSchema>;
+export type BankReceiptLineInput = z.infer<typeof bankReceiptLineInputSchema>;
+export type BankReceiptLine = z.infer<typeof bankReceiptLineSchema>;
+export type CreateBankReceiptRequest = z.infer<typeof createBankReceiptRequestSchema>;
+export type UpdateBankReceiptRequest = z.infer<typeof updateBankReceiptRequestSchema>;
+export type SubmitBankReceiptRequest = z.infer<typeof submitBankReceiptRequestSchema>;
+export type DecideBankReceiptRequest = z.infer<typeof decideBankReceiptRequestSchema>;
+export type PostBankReceiptRequest = z.infer<typeof postBankReceiptRequestSchema>;
+export type ReverseBankReceiptRequest = z.infer<typeof reverseBankReceiptRequestSchema>;
+export type BankReceiptDirectoryQuery = z.infer<typeof bankReceiptDirectoryQuerySchema>;
+export type BankReceiptSummary = z.infer<typeof bankReceiptSummarySchema>;
+export type BankReceiptDirectory = z.infer<typeof bankReceiptDirectorySchema>;
+export type BankReceiptTimelineEvent = z.infer<typeof bankReceiptTimelineEventSchema>;
+export type BankReceiptAccountingPreviewLine = z.infer<typeof bankReceiptAccountingPreviewLineSchema>;
+export type BankReceiptAccountingPreview = z.infer<typeof bankReceiptAccountingPreviewSchema>;
+export type BankReceiptDetail = z.infer<typeof bankReceiptDetailSchema>;
+export type BankReceiptOptionsQuery = z.infer<typeof bankReceiptOptionsQuerySchema>;
+export type BankReceiptOptions = z.infer<typeof bankReceiptOptionsSchema>;
+export type BankReceiptNominalAccountDirectoryQuery = z.infer<typeof bankReceiptNominalAccountDirectoryQuerySchema>;
+export type BankReceiptNominalAccountDirectory = z.infer<typeof bankReceiptNominalAccountDirectorySchema>;
+export type BankReceiptMutationResult = z.infer<typeof bankReceiptMutationResultSchema>;
+export type BankReceiptPostingResult = z.infer<typeof bankReceiptPostingResultSchema>;
+export type BankReceiptReversalResult = z.infer<typeof bankReceiptReversalResultSchema>;

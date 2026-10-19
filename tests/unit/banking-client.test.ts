@@ -22,6 +22,24 @@ describe("Banking browser API adapter", () => {
     }
   });
 
+  it("exposes generated Bank Receipt directory and lifecycle methods", () => {
+    const api = new NexoraApiClient("http://127.0.0.1:4000") as unknown as Record<string, unknown>;
+    for (const method of [
+      "listBankReceipts",
+      "listBankReceiptOptions",
+      "listBankReceiptNominalAccounts",
+      "getBankReceipt",
+      "createBankReceipt",
+      "updateBankReceipt",
+      "submitBankReceipt",
+      "decideBankReceipt",
+      "postBankReceipt",
+      "reverseBankReceipt",
+    ]) {
+      expect(typeof api[method]).toBe("function");
+    }
+  });
+
   it("encodes bounded account-directory filters through the generated client", async () => {
     const api = {
       listBankAccounts: vi.fn(async () => ({ items: [], next_cursor: null })),
