@@ -56,6 +56,14 @@ describe("OpenAPI contract", () => {
       "/banking/accounts/{accountId}/submit",
       "/banking/accounts/{accountId}/decision",
       "/banking/accounts/{accountId}/status",
+      "/banking/payments",
+      "/banking/payments/options",
+      "/banking/payments/nominal_accounts",
+      "/banking/payments/{paymentId}",
+      "/banking/payments/{paymentId}/submit",
+      "/banking/payments/{paymentId}/decision",
+      "/banking/payments/{paymentId}/post",
+      "/banking/payments/{paymentId}/reverse",
       "/hr/companies",
       "/hr/organization_units",
       "/hr/employees/{employeeId}",
@@ -107,6 +115,35 @@ describe("OpenAPI contract", () => {
       "/health/ready",
       "/jobs/sample",
     ]);
+  });
+
+  it("documents the governed Bank Payment lifecycle without browser-controlled accounting authority", () => {
+    const document = buildOpenApiDocument();
+    expect(document.paths["/banking/payments"].get.operationId).toBe("listBankPayments");
+    expect(document.paths["/banking/payments"].post.operationId).toBe("createBankPayment");
+    expect(document.paths["/banking/payments/{paymentId}"].patch.operationId).toBe("updateBankPayment");
+    expect(document.paths["/banking/payments/{paymentId}/submit"].post.operationId).toBe("submitBankPayment");
+    expect(document.paths["/banking/payments/{paymentId}/decision"].post.operationId).toBe("decideBankPayment");
+    expect(document.paths["/banking/payments/{paymentId}/post"].post.operationId).toBe("postBankPayment");
+    expect(document.paths["/banking/payments/{paymentId}/reverse"].post.operationId).toBe("reverseBankPayment");
+
+    const createSchema = document.components.schemas.CreateBankPaymentRequest as {
+      properties?: Record<string, unknown>;
+      additionalProperties?: boolean;
+    };
+    expect(createSchema.additionalProperties).toBe(false);
+    expect(Object.keys(createSchema.properties ?? {})).toEqual([
+      "company_id",
+      "bank_account_id",
+      "posting_date",
+      "value_date",
+      "lines",
+    ]);
+    expect(createSchema.properties).not.toHaveProperty("tenant_id");
+    expect(createSchema.properties).not.toHaveProperty("state");
+    expect(createSchema.properties).not.toHaveProperty("total_amount");
+    expect(createSchema.properties).not.toHaveProperty("bank_control_account_id");
+    expect(createSchema.properties).not.toHaveProperty("journal_id");
   });
 
   it("keeps employee history projections free of private fields and actor identifiers", () => {

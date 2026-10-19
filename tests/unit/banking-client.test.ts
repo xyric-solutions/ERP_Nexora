@@ -1,9 +1,27 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { BankingApiClient } from "../../app/features/banking/api/banking-client.js";
-import type { NexoraApiClient } from "../../app/lib/api/generated.js";
+import { NexoraApiClient } from "../../app/lib/api/generated.js";
 
 describe("Banking browser API adapter", () => {
+  it("exposes generated Bank Payment directory and lifecycle methods", () => {
+    const api = new NexoraApiClient("http://127.0.0.1:4000");
+    for (const method of [
+      api.listBankPayments,
+      api.listBankPaymentOptions,
+      api.listBankPaymentNominalAccounts,
+      api.getBankPayment,
+      api.createBankPayment,
+      api.updateBankPayment,
+      api.submitBankPayment,
+      api.decideBankPayment,
+      api.postBankPayment,
+      api.reverseBankPayment,
+    ]) {
+      expect(typeof method).toBe("function");
+    }
+  });
+
   it("encodes bounded account-directory filters through the generated client", async () => {
     const api = {
       listBankAccounts: vi.fn(async () => ({ items: [], next_cursor: null })),

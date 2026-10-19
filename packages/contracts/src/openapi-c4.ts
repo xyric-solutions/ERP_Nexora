@@ -16,12 +16,25 @@ import {
   bankAccountDetailSchema,
   bankAccountDirectorySchema,
   bankAccountMutationResultSchema,
+  bankPaymentDetailSchema,
+  bankPaymentDirectorySchema,
+  bankPaymentMutationResultSchema,
+  bankPaymentNominalAccountDirectorySchema,
+  bankPaymentOptionsSchema,
+  bankPaymentPostingResultSchema,
+  bankPaymentReversalResultSchema,
   bankingCompanyDirectorySchema,
   bankingLedgerAccountDirectorySchema,
   changeBankAccountStatusRequestSchema,
+  createBankPaymentRequestSchema,
   createBankAccountRequestSchema,
+  decideBankPaymentRequestSchema,
   decideBankAccountRequestSchema,
+  postBankPaymentRequestSchema,
+  reverseBankPaymentRequestSchema,
+  submitBankPaymentRequestSchema,
   submitBankAccountRequestSchema,
+  updateBankPaymentRequestSchema,
   updateBankAccountRequestSchema,
 } from "./banking/index.js";
 import { healthStatusSchema } from "./health.js";
@@ -1121,6 +1134,232 @@ export function buildOpenApiDocument() {
               description: "Bank-account operational status changed",
               content: { "application/json": { schema: { $ref: "#/components/schemas/BankAccountMutationResult" } } },
             },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/payments": {
+        get: {
+          operationId: "listBankPayments",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "query", name: "company_id", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            { in: "query", name: "bank_account_id", required: false, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            {
+              in: "query",
+              name: "state",
+              required: false,
+              schema: { type: "string", enum: ["draft", "submitted", "approved", "rejected", "posted", "reversed"] },
+            },
+            { in: "query", name: "posting_date_from", required: false, schema: { type: "string", format: "date" } },
+            { in: "query", name: "posting_date_to", required: false, schema: { type: "string", format: "date" } },
+            { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            {
+              in: "query",
+              name: "sort_by",
+              required: false,
+              schema: {
+                type: "string",
+                enum: ["posting_date", "reference", "total_amount", "state"],
+                default: "posting_date",
+              },
+            },
+            {
+              in: "query",
+              name: "sort_direction",
+              required: false,
+              schema: { type: "string", enum: ["asc", "desc"], default: "desc" },
+            },
+            { in: "query", name: "limit", required: false, schema: { type: "integer", minimum: 1, maximum: 100, default: 50 } },
+            { in: "query", name: "cursor", required: false, schema: { type: "string", minLength: 1, maxLength: 512 } },
+          ],
+          responses: {
+            "200": {
+              description: "Company-scoped Bank Payment directory",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankPaymentDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+        post: {
+          operationId: "createBankPayment",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/CreateBankPaymentRequest" } } },
+          },
+          responses: {
+            "201": {
+              description: "Bank Payment draft created",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankPaymentMutationResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/payments/options": {
+        get: {
+          operationId: "listBankPaymentOptions",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "query", name: "company_id", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+          ],
+          responses: {
+            "200": {
+              description: "Eligible active Bank Accounts for payment capture",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankPaymentOptions" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/payments/nominal_accounts": {
+        get: {
+          operationId: "listBankPaymentNominalAccounts",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "query", name: "company_id", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            { in: "query", name: "limit", required: false, schema: { type: "integer", minimum: 1, maximum: 100, default: 50 } },
+          ],
+          responses: {
+            "200": {
+              description: "Bounded active nominal-account directory for Bank Payments",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/BankPaymentNominalAccountDirectory" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/payments/{paymentId}": {
+        get: {
+          operationId: "getBankPayment",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "paymentId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+          ],
+          responses: {
+            "200": {
+              description: "Company-scoped governed Bank Payment detail",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankPaymentDetail" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+        patch: {
+          operationId: "updateBankPayment",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "paymentId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateBankPaymentRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Bank Payment draft updated",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankPaymentMutationResult" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/payments/{paymentId}/submit": {
+        post: {
+          operationId: "submitBankPayment",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "paymentId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SubmitBankPaymentRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Bank Payment submitted for independent approval",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankPaymentMutationResult" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/payments/{paymentId}/decision": {
+        post: {
+          operationId: "decideBankPayment",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "paymentId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/DecideBankPaymentRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Bank Payment independently approved or rejected",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankPaymentMutationResult" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/payments/{paymentId}/post": {
+        post: {
+          operationId: "postBankPayment",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "paymentId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/PostBankPaymentRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Approved Bank Payment posted to an immutable journal",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankPaymentPostingResult" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/payments/{paymentId}/reverse": {
+        post: {
+          operationId: "reverseBankPayment",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "paymentId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ReverseBankPaymentRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Posted Bank Payment reversed through a compensating journal",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankPaymentReversalResult" } } },
+            },
+            "404": problemResponse,
             ...securityErrors,
           },
         },
@@ -2612,6 +2851,19 @@ export function buildOpenApiDocument() {
         DecideBankAccountRequest: schema(decideBankAccountRequestSchema),
         ChangeBankAccountStatusRequest: schema(changeBankAccountStatusRequestSchema),
         BankAccountMutationResult: schema(bankAccountMutationResultSchema),
+        BankPaymentDirectory: schema(bankPaymentDirectorySchema),
+        BankPaymentDetail: schema(bankPaymentDetailSchema),
+        BankPaymentOptions: schema(bankPaymentOptionsSchema),
+        BankPaymentNominalAccountDirectory: schema(bankPaymentNominalAccountDirectorySchema),
+        CreateBankPaymentRequest: schema(createBankPaymentRequestSchema),
+        UpdateBankPaymentRequest: schema(updateBankPaymentRequestSchema),
+        SubmitBankPaymentRequest: schema(submitBankPaymentRequestSchema),
+        DecideBankPaymentRequest: schema(decideBankPaymentRequestSchema),
+        PostBankPaymentRequest: schema(postBankPaymentRequestSchema),
+        ReverseBankPaymentRequest: schema(reverseBankPaymentRequestSchema),
+        BankPaymentMutationResult: schema(bankPaymentMutationResultSchema),
+        BankPaymentPostingResult: schema(bankPaymentPostingResultSchema),
+        BankPaymentReversalResult: schema(bankPaymentReversalResultSchema),
         HrEmployeeDirectory: schema(hrEmployeeDirectorySchema),
         HrCompanyDirectory: schema(hrCompanyDirectorySchema),
         HrEmployeeDetail: schema(hrEmployeeDetailSchema),

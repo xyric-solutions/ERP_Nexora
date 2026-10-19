@@ -25,6 +25,19 @@ import type {
   DecideBankAccountRequest,
   ChangeBankAccountStatusRequest,
   BankAccountMutationResult,
+  BankPaymentDirectory,
+  BankPaymentDetail,
+  BankPaymentOptions,
+  BankPaymentNominalAccountDirectory,
+  CreateBankPaymentRequest,
+  UpdateBankPaymentRequest,
+  SubmitBankPaymentRequest,
+  DecideBankPaymentRequest,
+  PostBankPaymentRequest,
+  ReverseBankPaymentRequest,
+  BankPaymentMutationResult,
+  BankPaymentPostingResult,
+  BankPaymentReversalResult,
   HrEmployeeDetail,
   HrEmployeeDraftDirectory,
   HrEmployeeDraftDetail,
@@ -244,6 +257,28 @@ export class NexoraApiClient {
   }
   changeBankAccountStatus(accountId: string, payload: ChangeBankAccountStatusRequest, csrfToken: string, idempotencyKey: string): Promise<BankAccountMutationResult> {
     return this.request(\`/api/v1/banking/accounts/\${encodeURIComponent(accountId)}/status\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  listBankPayments(query: string): Promise<BankPaymentDirectory> { return this.request(\`/api/v1/banking/payments\${query}\`); }
+  listBankPaymentOptions(query: string): Promise<BankPaymentOptions> { return this.request(\`/api/v1/banking/payments/options\${query}\`); }
+  listBankPaymentNominalAccounts(query: string): Promise<BankPaymentNominalAccountDirectory> { return this.request(\`/api/v1/banking/payments/nominal_accounts\${query}\`); }
+  getBankPayment(paymentId: string): Promise<BankPaymentDetail> { return this.request(\`/api/v1/banking/payments/\${encodeURIComponent(paymentId)}\`); }
+  createBankPayment(payload: CreateBankPaymentRequest, csrfToken: string, idempotencyKey: string): Promise<BankPaymentMutationResult> {
+    return this.request("/api/v1/banking/payments", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  updateBankPayment(paymentId: string, payload: UpdateBankPaymentRequest, csrfToken: string, idempotencyKey: string): Promise<BankPaymentMutationResult> {
+    return this.request(\`/api/v1/banking/payments/\${encodeURIComponent(paymentId)}\`, { method: "PATCH", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  submitBankPayment(paymentId: string, payload: SubmitBankPaymentRequest, csrfToken: string, idempotencyKey: string): Promise<BankPaymentMutationResult> {
+    return this.request(\`/api/v1/banking/payments/\${encodeURIComponent(paymentId)}/submit\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  decideBankPayment(paymentId: string, payload: DecideBankPaymentRequest, csrfToken: string, idempotencyKey: string): Promise<BankPaymentMutationResult> {
+    return this.request(\`/api/v1/banking/payments/\${encodeURIComponent(paymentId)}/decision\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  postBankPayment(paymentId: string, payload: PostBankPaymentRequest, csrfToken: string, idempotencyKey: string): Promise<BankPaymentPostingResult> {
+    return this.request(\`/api/v1/banking/payments/\${encodeURIComponent(paymentId)}/post\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  reverseBankPayment(paymentId: string, payload: ReverseBankPaymentRequest, csrfToken: string, idempotencyKey: string): Promise<BankPaymentReversalResult> {
+    return this.request(\`/api/v1/banking/payments/\${encodeURIComponent(paymentId)}/reverse\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
   listHrEmployees(query: string): Promise<HrEmployeeDirectory> { return this.request(\`/api/v1/hr/employees\${query}\`); }
   listHrCompanies(): Promise<HrCompanyDirectory> { return this.request("/api/v1/hr/companies"); }
