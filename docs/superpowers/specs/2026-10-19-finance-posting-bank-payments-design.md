@@ -1,6 +1,6 @@
 # Finance Posting Foundation and Bank Payments Design
 
-- Status: approved direction — written specification awaiting review
+- Status: approved design — implementation planned
 - Approved direction: 2026-10-19
 - Scope: reusable Finance posting boundary plus the first live Bank Payments vertical slice
 - UI authority: existing Banking prototype screens and navigation
