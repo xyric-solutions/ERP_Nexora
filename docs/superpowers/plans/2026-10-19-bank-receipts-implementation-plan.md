@@ -1,6 +1,6 @@
 # Bank Receipts Production Integration Implementation Plan
 
-- Status: approved design; implementation plan awaiting review
+- Status: BR-00 through BR-06 complete; BR-07 is the safe resume point
 - Date: 2026-10-19
 - Approved design: `../specs/2026-10-19-bank-receipts-design.md`
 - Production surface: Banking & Treasury - Bank Receipts, Add Bank Receipt and
@@ -8,6 +8,23 @@
 - Shared authority: `server/api/src/modules/finance/posting`
 - Feature authority: `server/api/src/modules/banking/receipts`
 - Persistence authority: next additive Finance migration after Finance 0007
+
+### Implementation checkpoint - 2026-10-19 (BR-06)
+
+- The Bank Receipts directory now uses the typed `/api/v1/banking/receipts`
+  boundary with authenticated company selection, Bank Account/state/date
+  filters, deferred bounded search, server sorting and cursor continuation.
+- Persisted receipt rows expose reference, dates, masked receiving account,
+  payer and nominal summaries, currency, line count, total and lifecycle state.
+- Loading, empty, denied, retryable error and unavailable-export states are
+  explicit; the live route has no fixture fallback.
+- Receipt references navigate with the persisted receipt ID rather than a
+  display reference, preserving the receipt-specific URL identity.
+- BR-06 verification observed: 13 focused tests passed, repository typecheck
+  passed and the Next 16 production web build completed successfully.
+- Safe resume point: BR-07, replacing the approved receipt batch-entry fixture
+  with draft create/update/submit through `BankingApiClient` while retaining
+  the multi-line layout and unsaved-data safeguards.
 
 ## 1. Outcome
 

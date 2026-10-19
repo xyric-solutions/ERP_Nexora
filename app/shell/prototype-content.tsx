@@ -17,9 +17,11 @@ import { BankingTransactionForm } from "@prototype/features/banking/views/bankin
 import { BankingTransactionDetail } from "@prototype/features/banking/views/banking-transaction-detail";
 import { BankingBatchEntry } from "@prototype/features/banking/views/banking-batch-entry";
 import { BankingPayments } from "@prototype/features/banking/views/banking-payments";
+import { BankingReceipts } from "@prototype/features/banking/views/banking-receipts";
 import { BankingPaymentEntry } from "@prototype/features/banking/views/banking-payment-entry";
 import { BankingPaymentDetail } from "@prototype/features/banking/views/banking-payment-detail";
 import { isPersistedBankPaymentId } from "@prototype/features/banking/model/bank-payment-routing";
+import { isPersistedBankReceiptId } from "@prototype/features/banking/model/bank-receipt-routing";
 import { BankStatement } from "@prototype/features/banking/views/banking-statement";
 import { BankingAccountBalances } from "@prototype/features/banking/views/banking-account-balances";
 import {
@@ -2630,12 +2632,14 @@ export function PrototypeContent(props: PrototypeContentProps) {
   } | null>(null);
   const [selectedBankingReference, setSelectedBankingReference] = useState("PAY-2026-0418");
   const [selectedBankAccountId, setSelectedBankAccountId] = useState("");
-  const isLiveBankPaymentPage =
+  const isLiveBankingTransactionPage =
     context.moduleId === "banking" &&
     (context.pageId === "bank-payments" ||
+      context.pageId === "bank-receipts" ||
       context.pageId === "add-bank-payment" ||
-      (context.pageId === "transaction-detail" && isPersistedBankPaymentId(context.recordRef)));
-  if (!isLiveBankPaymentPage && viewState !== "data")
+      (context.pageId === "transaction-detail" &&
+        (isPersistedBankPaymentId(context.recordRef) || isPersistedBankReceiptId(context.recordRef))));
+  if (!isLiveBankingTransactionPage && viewState !== "data")
     return (
       <>
         <PageIntro context={context} />
@@ -2862,6 +2866,15 @@ export function PrototypeContent(props: PrototypeContentProps) {
         <BankingPayments
           onCreatePayment={() => props.onNavigate("banking", "add-bank-payment")}
           onOpenPayment={(paymentId) => props.onNavigate("banking", "transaction-detail", paymentId)}
+        />
+      );
+    }
+
+    if (context.pageId === "bank-receipts") {
+      return (
+        <BankingReceipts
+          onCreateReceipt={() => props.onNavigate("banking", "add-bank-receipt")}
+          onOpenReceipt={(receiptId) => props.onNavigate("banking", "transaction-detail", receiptId)}
         />
       );
     }
