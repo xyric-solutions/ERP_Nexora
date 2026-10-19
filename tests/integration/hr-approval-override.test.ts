@@ -9,12 +9,98 @@ import {
   SourceHrRepository,
   type HrActorContext,
 } from "../../server/api/src/modules/hr/source-repository.js";
-import { ensureSourceSuperAdministratorFixture, sourceTestTenantId } from "./source-security-fixture.js";
+import { ensureSourceAuthorizationFixture, sourceTestTenantId } from "./source-security-fixture.js";
 
 const databaseUrl = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL;
 const run = databaseUrl ? describe : describe.skip;
 const companyId = "hr-override-company";
-const superAdministratorId = "user-shoaib-super-admin";
+const superAdministratorId = "hr.override.admin";
+
+async function ensureHrOverrideAdministrator(pool: DatabasePool): Promise<void> {
+  await ensureSourceAuthorizationFixture(pool);
+  const client = await pool.connect();
+  const policyId = "hr-override-super-admin-policy";
+  const assignmentId = "hr-override-super-admin-assignment";
+  const permissions = [
+    "platform.approval.override",
+    "hr.employee.create",
+    "hr.employee.submit",
+    "hr.employee.approve",
+    "hr.employment_lifecycle_policy.manage",
+    "hr.employment_lifecycle_policy.approve",
+  ];
+  try {
+    await client.query("begin");
+    await client.query("select set_config('nexora.tenant_id',$1,true)", [sourceTestTenantId]);
+    await client.query(
+      `insert into security_user_account
+        (id,tenant_id,identity_subject,email,status,mfa_state,created_at,updated_at,display_name)
+       values ($1,$2,$3,'hr-override-admin@uat.nexora.invalid','active','disabled',now(),now(),
+               'HR Override Administrator')
+       on conflict (tenant_id,id) do update set status='active',updated_at=now()`,
+      [superAdministratorId, sourceTestTenantId, `local:${superAdministratorId}`],
+    );
+    await client.query(
+      `insert into security_tenant_role
+        (tenant_id,role_id,role_code,display_name,description,lifecycle_state,source_kind,source_reference)
+       values ($1,'hr-override-super-admin-role','super_administrator','Super Administrator',
+               'HR override integration fixture','active','legacy_backfill','hr-override-test')
+       on conflict (tenant_id,role_code) do nothing`,
+      [sourceTestTenantId],
+    );
+    const role = await client.query<{ role_id: string }>(
+      `select role_id from security_tenant_role
+        where tenant_id=$1 and role_code='super_administrator' and lifecycle_state='active'`,
+      [sourceTestTenantId],
+    );
+    const roleId = role.rows[0]?.role_id;
+    if (!roleId) throw new Error("The governed super-administrator role is unavailable");
+    await client.query(
+      `insert into security_role_policy
+        (id,tenant_id,role,scope,permissions,field_rules,sod_rules,version,status,created_at,role_id,lifecycle_state)
+       values ($2,$1,'super_administrator',jsonb_build_object('mode','tenant'),$3::jsonb,
+               '{"allow":null,"deny":[]}'::jsonb,
+               '{"conflicting_roles":[],"distinct_actor_fields":[]}'::jsonb,
+               2147483646,'active',now(),$4,'active')
+       on conflict (tenant_id,id) do update set
+         permissions=excluded.permissions,status='active',lifecycle_state='active',archived_at=null`,
+      [sourceTestTenantId, policyId, JSON.stringify(permissions), roleId],
+    );
+    await client.query(
+      `insert into security_role_permission_grant
+        (tenant_id,role_policy_id,permission_key,field_allow_mode)
+       select $1,$2,permission_key,'all' from security_permission_definition
+        where permission_key=any($3::text[]) and status='active'
+       on conflict do nothing`,
+      [sourceTestTenantId, policyId, permissions],
+    );
+    await client.query(
+      `insert into security_user_role_assignment
+        (tenant_id,user_id,role_policy_id,assigned_by,assigned_at,assignment_id,lifecycle_state,valid_from)
+       values ($1,$2,$3,$2,now(),$4,'active',now())
+       on conflict (tenant_id,user_id,role_policy_id) do update set
+         lifecycle_state='active',revoked_by=null,revoked_at=null,revocation_reason=null`,
+      [sourceTestTenantId, superAdministratorId, policyId, assignmentId],
+    );
+    await client.query(
+      `insert into security_user_role_assignment_version
+        (tenant_id,assignment_id,version,supersedes_version,user_id,role_policy_id,lifecycle_state,
+         valid_from,valid_until,assigned_by,administration_command_id,source_kind,source_reference)
+       select $1,$2,1,null,$3,$4,'active',assignment.valid_from,null,$3,null,
+              'legacy_backfill','hr-override-test'
+         from security_user_role_assignment assignment
+        where assignment.tenant_id=$1 and assignment.assignment_id=$2
+       on conflict (tenant_id,assignment_id,version) do nothing`,
+      [sourceTestTenantId, assignmentId, superAdministratorId, policyId],
+    );
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 
 function context(userId: string, roles: string[], permissions: string[]): HrActorContext {
   const actor: AuthenticatedAccount = {
@@ -39,7 +125,7 @@ run("HR global super-administrator approval override", () => {
 
   beforeAll(async () => {
     pool = createDatabasePool(databaseUrl!);
-    await ensureSourceSuperAdministratorFixture(pool);
+    await ensureHrOverrideAdministrator(pool);
     repository = new SourceHrRepository(pool);
     await pool.query(
       `insert into organization_unit (id,tenant_id,parent_id,type,code,name,status)
