@@ -24,6 +24,7 @@ import { createJobsRouter, type JobPublisher } from "./modules/jobs/router.js";
 import {
   createBankingRouter,
   type BankingPaymentRepository,
+  type BankingReceiptRepository,
   type BankingRepository,
 } from "./modules/banking/router.js";
 import { createHrRouter } from "./modules/hr/router.js";
@@ -44,6 +45,7 @@ export interface AppDependencies {
   invalidateSecurityPolicy?: (tenantId: string) => void;
   bankingRepository?: BankingRepository;
   bankingPaymentRepository?: BankingPaymentRepository;
+  bankingReceiptRepository?: BankingReceiptRepository;
   hrRepository?: Pick<
     SourceHrRepository,
     | "listCompanies"
@@ -116,8 +118,13 @@ function status(version: string, checks?: HealthStatus["checks"]): HealthStatus 
 }
 
 export function createApp(dependencies: AppDependencies): Express {
-  if (Boolean(dependencies.bankingRepository) !== Boolean(dependencies.bankingPaymentRepository)) {
-    throw new Error("Banking account and payment repositories must be configured together.");
+  const bankingRepositoryCount = [
+    dependencies.bankingRepository,
+    dependencies.bankingPaymentRepository,
+    dependencies.bankingReceiptRepository,
+  ].filter(Boolean).length;
+  if (bankingRepositoryCount !== 0 && bankingRepositoryCount !== 3) {
+    throw new Error("Banking account, payment, and receipt repositories must be configured together.");
   }
   const app = express();
   app.disable("x-powered-by");
@@ -165,6 +172,7 @@ export function createApp(dependencies: AppDependencies): Express {
   if (
     dependencies.bankingRepository &&
     dependencies.bankingPaymentRepository &&
+    dependencies.bankingReceiptRepository &&
     dependencies.authService &&
     dependencies.sessionService
   ) {
@@ -173,6 +181,7 @@ export function createApp(dependencies: AppDependencies): Express {
       createBankingRouter({
         repository: dependencies.bankingRepository,
         paymentRepository: dependencies.bankingPaymentRepository,
+        receiptRepository: dependencies.bankingReceiptRepository,
         authentication: dependencies.authService,
         sessions: dependencies.sessionService,
         secureCookies: dependencies.config.nodeEnv === "production",

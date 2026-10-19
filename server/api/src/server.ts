@@ -21,6 +21,7 @@ import { RedisTenantSelectionStore } from "./modules/auth/redis-tenant-selection
 import { SourceTenantAuthenticationRepository } from "./modules/auth/source-repository.js";
 import { BankingIdentifierCrypto } from "./modules/banking/crypto.js";
 import { SourceBankPaymentRepository } from "./modules/banking/payments/source-repository.js";
+import { SourceBankReceiptRepository } from "./modules/banking/receipts/source-repository.js";
 import { SourceBankingRepository } from "./modules/banking/source-repository.js";
 import { FinancePostingService } from "./modules/finance/posting/index.js";
 import { SourceSecurityAdministrationRepository } from "./modules/security/source-administration-repository.js";
@@ -81,6 +82,7 @@ const app = createApp({
     new BankingIdentifierCrypto(config.bankingDataEncryptionKey, config.bankingDataEncryptionKeyVersion),
   ),
   bankingPaymentRepository: new SourceBankPaymentRepository(pool, new FinancePostingService()),
+  bankingReceiptRepository: new SourceBankReceiptRepository(pool, new FinancePostingService()),
   hrRepository: new SourceHrRepository(pool),
   readiness: {
     service: async () => {
@@ -109,6 +111,9 @@ const app = createApp({
           and to_regclass('public.bank_payment') is not null
           and to_regclass('public.bank_payment_line') is not null
           and to_regclass('public.bank_payment_event') is not null
+          and to_regclass('public.bank_receipt') is not null
+          and to_regclass('public.bank_receipt_line') is not null
+          and to_regclass('public.bank_receipt_event') is not null
           and to_regclass('public.accounting_event') is not null
           and to_regclass('public.journal_entry') is not null
           and to_regclass('public.journal_line') is not null as available`,
