@@ -1,6 +1,6 @@
 # Bank Receipts Production Integration Implementation Plan
 
-- Status: BR-00 through BR-08 complete; BR-09 is the safe resume point
+- Status: BR-00 through BR-10 implemented and acceptance-verified; repository-wide lint remains a pre-existing external gate
 - Date: 2026-10-19
 - Approved design: `../specs/2026-10-19-bank-receipts-design.md`
 - Production surface: Banking & Treasury - Bank Receipts, Add Bank Receipt and
@@ -69,6 +69,40 @@
 - Safe resume point: BR-09, provisioning a disposable receipt-UAT database and
   proving the browser-to-PostgreSQL-to-Finance lifecycle without touching a
   shared or production database.
+
+### Implementation checkpoint - 2026-10-19 (BR-09 and BR-10)
+
+- A fresh disposable database, `nexora_bank_receipts_uat_20261019_1709`, was
+  migrated to Platform 8, Security 15, Workflow 1, Finance 8, HR 34 and
+  Runtime 1. No shared or production database was reset, truncated or changed.
+- The repeatable `uat:provision-bank-receipts` command now provisions only the
+  reserved synthetic currency, Finance authority, receiving Bank Account and
+  company-scoped receipt permissions needed for controlled acceptance. It
+  fails closed when reserved authority conflicts and does not print secrets.
+- Chromium observed three real browser workflows against the isolated API and
+  PostgreSQL: distinct maker/checker/poster create through compensating
+  reversal, governed `shoaib` same-actor approval with a required reason, and
+  restricted-session denial plus 390px usability.
+- Read-only PostgreSQL evidence confirmed the browser-created receipt in
+  `reversed` state, original journal in `reversed`, compensating journal in
+  `posted`, zero net Bank control movement and one linked override event for
+  the governed super-admin decision.
+- Automated Account Balances evidence confirmed `125.25000000` after posting
+  and `0.00000000` after reversal through the same posted-ledger projection.
+- Final focused verification observed 64 unit/component assertions, 29
+  PostgreSQL integration assertions, 15 database-security assertions and 3
+  Chromium scenarios passing. Generated API drift, TypeScript, phase-owned
+  ESLint, production build and `git diff --check` also passed.
+- Full repository lint was observed separately and remains blocked by 113
+  pre-existing errors and one warning outside the receipt phase-owned files.
+  Bank Receipts introduces no targeted ESLint failure, but the repository must
+  not be labelled globally lint-clean until that independent debt is removed.
+- Bank Receipts is complete at the approved scope. Customer allocation,
+  attachment upload, export and print remain explicitly unavailable rather
+  than simulated.
+- Safe resume point: obtain approval for a separate Bank Transfers vertical
+  slice. Do not extend this receipt plan into Transfers, statement import or
+  reconciliation automatically.
 
 ## 1. Outcome
 
@@ -759,3 +793,52 @@ prototype terminology and layout, add explicit loading/empty/error states,
 bounded filters and keyset continuation, and navigate persisted rows using the
 receipt-specific ID helper. Do not connect entry/detail lifecycle actions in
 the list phase, and do not fall back to fixtures on API errors.
+
+## 19. Final completion record - 2026-10-19
+
+Status: **BR-00 through BR-10 implemented and acceptance-verified**.
+
+The earlier BR-06 resume note above is retained as historical execution
+evidence and is superseded by this completion record.
+
+Additional completed commits:
+
+- `be2f401 feat(banking): connect bank receipt directory`
+- `dc80ec5 feat(banking): connect bank receipt entry`
+- `4f28a3f feat(banking): connect bank receipt lifecycle`
+- `30a9dc2 test(banking): verify receipt lifecycle acceptance`
+
+Production routes now connected to `/api/v1/banking/receipts` are:
+
+- `/#/banking/bank-receipts`
+- `/#/banking/add-bank-receipt`
+- `/#/banking/transaction-detail/{bank-receipt-id}`
+
+The list, entry and persisted detail surfaces contain no receipt fixture
+fallback. Draft save/reload/update, submit, independent approval, explicit
+Finance posting, compensating reversal and the governed super-admin approval
+exception were observed through Chromium and PostgreSQL. The normal accounting
+direction is debit Bank control and credit receipt nominal lines; reversal is a
+separate linked journal and never rewrites the original.
+
+Verification classification:
+
+- **Source-inspected:** contracts, generated client, authenticated API routes,
+  permission gates, repository transactions, Finance delegation, receipt UI
+  adapters and absence of direct browser-to-database access.
+- **Automated:** 64 focused unit/component assertions, 29 PostgreSQL
+  integration assertions and 15 database-security assertions passed.
+- **Browser-observed:** 3 Chromium scenarios passed against the isolated API,
+  including persistence across reload/new sessions and a 390px viewport.
+- **Database-observed:** lifecycle actors/events, balanced original and
+  compensating journals, zero post-reversal Bank control movement, and linked
+  approval-override evidence were queried from the disposable UAT database.
+- **Build/tooling:** `api:check`, repository typecheck, targeted ESLint,
+  production `build:web` and `git diff --check` passed. Repository-wide lint
+  remains a separately tracked pre-existing failure (113 errors, one warning).
+
+The next Banking development unit is **Bank Transfers**, but implementation
+requires its own approved design and plan. HR remains a separate governed
+consumer: future payroll payment profiles or batches may validate and call
+Banking/Finance contracts server-side, but HR must not write Bank Account,
+receipt or journal tables directly.

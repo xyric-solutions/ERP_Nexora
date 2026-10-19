@@ -353,10 +353,29 @@ detail routes:
 Chromium acceptance passed with distinct maker, checker and poster identities,
 the governed `shoaib` self-approval override, restricted-session denial and a
 390px viewport. The production build also passed. The shared transaction-detail
-page intentionally retains its prototype path for legacy receipt, transfer,
-charge, interest, cheque and deposit references.
+page intentionally retains its prototype path for legacy transfer, charge,
+interest, cheque and deposit references; persisted receipt IDs use the live
+receipt detail workspace on that same route family.
 
-Other Banking pages, including receipts, transfers, statement import,
-reconciliation, charges/interest, cheques/deposits and Treasury, remain
-explicitly prototype surfaces. The next production Banking slice is Bank
-Receipts and must reuse the delivered Finance posting boundary.
+Bank Receipts is now production-integrated for its list, entry and persisted
+detail routes:
+
+- `/#/banking/bank-receipts` uses a bounded, company-scoped PostgreSQL-backed
+  directory with Bank Account, lifecycle, date, search, sort and cursor state;
+- `/#/banking/add-bank-receipt` persists reload-safe multi-line drafts, payer
+  snapshots and submission through the typed Banking client; and
+- `/#/banking/transaction-detail/{bank-receipt-id}` performs independent
+  approval, explicit Finance posting and linked compensating reversal.
+
+Chromium acceptance passed for the distinct maker/checker/poster workflow, the
+governed `shoaib` self-approval exception, restricted-session denial and 390px
+usability. PostgreSQL evidence confirmed balanced journals, immutable original
+posting evidence, zero net Bank control movement after reversal and a linked
+approval-override event. Export, print, attachments and customer/invoice
+allocation remain explicitly unavailable because governed endpoints do not yet
+exist for those capabilities.
+
+Other Banking pages, including transfers, statement import, reconciliation,
+charges/interest, cheques/deposits and Treasury, remain explicitly prototype
+surfaces. The next candidate production Banking slice is Bank Transfers and
+requires a separate approved design and implementation plan.

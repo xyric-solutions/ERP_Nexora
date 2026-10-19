@@ -792,6 +792,18 @@ compensating reversal, restricted denial and the governed `shoaib`
 self-approval override. No HR mutation or direct HR-to-Banking write path was
 added.
 
+The Bank Receipts acceptance gate is also complete through Finance 0008. Its
+list, multi-line entry and persisted detail routes use the same versioned
+Banking API boundary, PostgreSQL authority and Finance posting service.
+Chromium and read-only database evidence verified maker/checker/poster
+separation, reload persistence, debit-Bank/credit-nominal posting, linked
+compensating reversal, restricted denial and the governed `shoaib` approval
+override. Receipt delivery added no HR mutation and no direct HR-to-Banking or
+HR-to-ledger write path.
+
 Resume HR at the cross-workflow audit-evidence view already identified above.
-The next Banking slice is Bank Receipts; payroll-to-Banking consumption remains
-deferred to the HR Phase 5 governed payment-profile/payment-batch work.
+The next candidate Banking slice is Bank Transfers and requires separate
+approval. Payroll-to-Banking consumption remains deferred to the HR Phase 5
+governed payment-profile/payment-batch work; that future server workflow may
+consume Banking and Finance contracts but must not write Bank Account, receipt
+or journal tables directly.
