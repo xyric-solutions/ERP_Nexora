@@ -593,3 +593,54 @@ This plan does not authorize Customer master data, Accounts Receivable invoice
 allocation, write-offs, attachment upload, Transfers, statement import,
 reconciliation, charges, interest, cheques, deposits, Treasury instruments or
 a duplicate accounting engine. Those require separate approved vertical slices.
+
+## 18. Implementation checkpoint - 2026-10-19
+
+Status: **BR-00, BR-01 and BR-02 complete; resume at BR-03**.
+
+Completed commits:
+
+- `f29d818 feat(banking): add bank receipt API contracts`
+- `8439520 feat(db): add governed bank receipt schema`
+
+Observed baseline before receipt changes:
+
+- accepted Banking/Finance unit baseline: 43/43 passed;
+- OpenAPI contract baseline: 3/3 passed;
+- Finance and Bank Payment PostgreSQL integration baseline: 9/9 passed; and
+- Bank Payment database-security baseline: 6/6 passed.
+
+BR-01 evidence:
+
+- the first failure run proved receipt schemas, generated methods, OpenAPI paths
+  and authenticated routes were absent rather than silently mocked;
+- strict receipt contract and browser-client tests: 26/26 passed;
+- focused Payment-service regression included in the final unit run: 27/27
+  total passed;
+- OpenAPI contract: 4/4 passed;
+- `api:check` passed; and
+- full TypeScript check passed.
+
+BR-02 evidence:
+
+- additive Finance migration 0008 advanced the isolated local UAT database
+  from Finance 7 to Finance 8 without changing Platform, Security, HR, Workflow
+  or Runtime migration heads;
+- migration ledger/idempotency suite: 11/11 passed;
+- combined Receipt and Payment database-security suites: 13/13 passed;
+- receipt security coverage observed forced RLS, company-bound foreign keys,
+  lifecycle/line/posting/currency/override guards, the Finance currency-rate
+  lock, exact receipt permissions and immutable audit authority; and
+- full TypeScript and focused formatting checks passed.
+
+The migration was observed as an additive upgrade of
+`nexora_bank_payments_uat_20261019_1510`. A new empty-database migration run is
+still required by BR-09 and has not been claimed.
+
+Safe resume point: implement `server/api/src/modules/banking/receipts` as a
+separate repository/service in BR-03. Reuse the existing Finance posting
+service with `banking.receipt`, `bank_receipt.posted` and
+`bank_receipt.reversed`; debit the Bank control account and credit each nominal
+line. Do not modify or generalize the accepted Payment repository, and do not
+start API/UI integration before the repository lifecycle and rollback tests
+pass.
