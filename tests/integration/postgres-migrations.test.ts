@@ -17,10 +17,10 @@ describe("production PostgreSQL source migrations", () => {
   it("is deterministic and idempotent", async () => {
     await expect(migrateSourceSchema(pool)).resolves.toEqual([]);
     await expect(inspectSourceMigrationState(pool)).resolves.toEqual({
-      platform: 7,
+      platform: 8,
       security: 14,
       workflow: 1,
-      finance: 4,
+      finance: 5,
       hr: 34,
       runtime: 1,
     });
@@ -36,6 +36,10 @@ describe("production PostgreSQL source migrations", () => {
       "security_permission_definition",
       "security_login_identifier",
       "approval_override_event",
+      "bank_payment",
+      "bank_payment_event",
+      "bank_payment_line",
+      "bank_payment_sequence",
       "security_authentication_event",
       "security_tenant_role",
       "security_user_change_request",
@@ -61,12 +65,22 @@ describe("production PostgreSQL source migrations", () => {
        order by module_name`,
     );
     expect(result.rows).toEqual([
-      { module_name: "finance", migration_count: "4", latest: 4 },
+      { module_name: "finance", migration_count: "5", latest: 5 },
       { module_name: "hr", migration_count: "34", latest: 34 },
-      { module_name: "platform", migration_count: "7", latest: 7 },
+      { module_name: "platform", migration_count: "8", latest: 8 },
       { module_name: "runtime", migration_count: "1", latest: 1 },
       { module_name: "security", migration_count: "14", latest: 14 },
       { module_name: "workflow", migration_count: "1", latest: 1 },
+    ]);
+    const bankPaymentMigrations = await pool.query<{ module_name: string; version: number; name: string }>(
+      `select module_name,version,name from nexora_schema_migration
+        where (module_name='platform' and version=8)
+           or (module_name='finance' and version=5)
+        order by module_name`,
+    );
+    expect(bankPaymentMigrations.rows).toEqual([
+      { module_name: "finance", version: 5, name: "finance_posting_bank_payments" },
+      { module_name: "platform", version: 8, name: "idempotency_patch_method" },
     ]);
   });
 
@@ -78,6 +92,52 @@ describe("production PostgreSQL source migrations", () => {
           and conname='platform_admin_audit_event_action_check'`,
     );
     expect(result.rows[0]?.definition).toContain("{2,5}");
+  });
+
+  it("allows only POST and PATCH in the shared idempotency store", async () => {
+    const result = await pool.query<{ definition: string }>(
+      `select pg_get_constraintdef(oid) as definition
+         from pg_constraint
+        where conrelid='platform_admin_idempotency'::regclass
+          and conname='platform_admin_idempotency_method_check'`,
+    );
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]?.definition).toContain("'POST'::text");
+    expect(result.rows[0]?.definition).toContain("'PATCH'::text");
+    expect(result.rows[0]?.definition).not.toContain("'PUT'::text");
+    expect(result.rows[0]?.definition).not.toContain("'DELETE'::text");
+
+    const client = await pool.connect();
+    const tenantId = "migration-idempotency-method-test";
+    const insert = `insert into platform_admin_idempotency (
+      tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,
+      response_status,response_body,response_etag
+    ) values ($1,'actor',$2,'/api/v1/test',$3,$4,200,'{}'::jsonb,'etag')`;
+    try {
+      await client.query("begin");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [tenantId]);
+      await client.query(
+        `insert into tenant (id,name,plan,region,status,default_locale)
+         values ($1,'Migration idempotency test','enterprise','test','active','en')`,
+        [tenantId],
+      );
+      await expect(client.query(insert, [tenantId, "POST", "post-key", "a".repeat(64)])).resolves.toBeDefined();
+      await expect(client.query(insert, [tenantId, "PATCH", "patch-key", "b".repeat(64)])).resolves.toBeDefined();
+
+      await client.query("savepoint invalid_delete_method");
+      await expect(client.query(insert, [tenantId, "DELETE", "delete-key", "c".repeat(64)])).rejects.toMatchObject({
+        code: "23514",
+      });
+      await client.query("rollback to savepoint invalid_delete_method");
+      await client.query("savepoint invalid_put_method");
+      await expect(client.query(insert, [tenantId, "PUT", "put-key", "d".repeat(64)])).rejects.toMatchObject({
+        code: "23514",
+      });
+      await client.query("rollback to savepoint invalid_put_method");
+    } finally {
+      await client.query("rollback");
+      client.release();
+    }
   });
 
   it("forces row-level security on every tenant-owned production table", async () => {
@@ -137,12 +197,26 @@ describe("production PostgreSQL source migrations", () => {
     const result = await pool.query<{ permission_count: string }>(
       "select count(*)::text as permission_count from security_permission_definition",
     );
-    expect(result.rows[0]?.permission_count).toBe("246");
+    expect(result.rows[0]?.permission_count).toBe("253");
     const overridePermission = await pool.query<{ permission_key: string }>(
       `select permission_key from security_permission_definition
         where permission_key='platform.approval.override' and status='active'`,
     );
     expect(overridePermission.rows).toEqual([{ permission_key: "platform.approval.override" }]);
+    const paymentPermissions = await pool.query<{ permission_key: string }>(
+      `select permission_key from security_permission_definition
+        where permission_key like 'banking.payment.%' and status='active'
+        order by permission_key`,
+    );
+    expect(paymentPermissions.rows.map((row) => row.permission_key)).toEqual([
+      "banking.payment.approve",
+      "banking.payment.create",
+      "banking.payment.post",
+      "banking.payment.read",
+      "banking.payment.reverse",
+      "banking.payment.submit",
+      "banking.payment.update",
+    ]);
   });
 
   it("installs immutable tenant-scoped approval override evidence and nullable Security references", async () => {
