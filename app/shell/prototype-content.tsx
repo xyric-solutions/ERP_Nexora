@@ -20,6 +20,7 @@ import { BankingReceipts } from "@prototype/features/banking/views/banking-recei
 import { BankingPaymentEntry } from "@prototype/features/banking/views/banking-payment-entry";
 import { BankingReceiptEntry } from "@prototype/features/banking/views/banking-receipt-entry";
 import { BankingPaymentDetail } from "@prototype/features/banking/views/banking-payment-detail";
+import { BankingReceiptDetail } from "@prototype/features/banking/views/banking-receipt-detail";
 import { isPersistedBankPaymentId } from "@prototype/features/banking/model/bank-payment-routing";
 import { isPersistedBankReceiptId } from "@prototype/features/banking/model/bank-receipt-routing";
 import { BankStatement } from "@prototype/features/banking/views/banking-statement";
@@ -3043,6 +3044,16 @@ export function PrototypeContent(props: PrototypeContentProps) {
       );
     }
     if (context.pageId === "transaction-detail") {
+      if (isPersistedBankReceiptId(context.recordRef)) {
+        return (
+          <BankingReceiptDetail
+            key={context.recordRef}
+            receiptId={context.recordRef}
+            onBack={() => props.onNavigate("banking", "bank-receipts")}
+            onEdit={(receiptId) => props.onNavigate("banking", "add-bank-receipt", receiptId)}
+          />
+        );
+      }
       if (isPersistedBankPaymentId(context.recordRef)) {
         return (
           <BankingPaymentDetail

@@ -1,6 +1,6 @@
 # Bank Receipts Production Integration Implementation Plan
 
-- Status: BR-00 through BR-07 complete; BR-08 is the safe resume point
+- Status: BR-00 through BR-08 complete; BR-09 is the safe resume point
 - Date: 2026-10-19
 - Approved design: `../specs/2026-10-19-bank-receipts-design.md`
 - Production surface: Banking & Treasury - Bank Receipts, Add Bank Receipt and
@@ -45,6 +45,30 @@
   passed and the Next 16 production web build completed successfully.
 - Safe resume point: BR-08, replacing legacy transaction detail for persisted
   receipt IDs with live detail, timeline and governed lifecycle actions.
+
+### Implementation checkpoint - 2026-10-19 (BR-08)
+
+- Persisted receipt IDs now route to a live receipt detail workspace with
+  header facts, payer snapshots, lines, accounting preview, lifecycle timeline
+  and masked Finance evidence.
+- State- and permission-gated edit, submit, approve/reject, post and reverse
+  actions use the typed adapter, optimistic versions and stable retry keys.
+- Ordinary self-decision remains blocked. The existing governed global
+  super-admin path requires its visible warning and a reason; it does not
+  grant posting or reversal authority.
+- Posting requires explicit confirmation. Reversal requires a reason and
+  explicit confirmation and preserves the original journal as immutable.
+- Loading, missing, denied, stale-version, mutation error and success states
+  are explicit. Print remains disabled and accurately labelled unavailable.
+- BR-06 through BR-08 verification observed: 23 focused tests passed,
+  repository typecheck passed, targeted ESLint passed and the Next 16
+  production build completed successfully.
+- Repository-wide lint remains blocked by 113 pre-existing errors and one
+  warning outside the receipt phase-owned files; the exact run was observed
+  and is not reported as passing.
+- Safe resume point: BR-09, provisioning a disposable receipt-UAT database and
+  proving the browser-to-PostgreSQL-to-Finance lifecycle without touching a
+  shared or production database.
 
 ## 1. Outcome
 
