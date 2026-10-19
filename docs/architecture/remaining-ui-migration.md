@@ -36,10 +36,10 @@ The codebase is already organised for this work:
 
 10. Rebuild Docker only after a meaningful batch is verified:
 
-   ```powershell
-   docker compose build web
-   docker compose up -d --force-recreate --no-deps web
-   ```
+```powershell
+docker compose build web
+docker compose up -d --force-recreate --no-deps web
+```
 
 ## Completed work
 
@@ -319,3 +319,30 @@ approval intentionally does not activate the policy. Activation remains
 unavailable until its governed workflow is implemented.
 
 The migration is complete only when every active screen has been reviewed, common controls are shared, feature boundaries remain intact, obsolete feature CSS has been removed deliberately, and `npm.cmd --prefix apps\\web run build` passes after the final change.
+
+## Banking production-integration handoff — 2026-10-19
+
+The following approved Banking surfaces are now API-backed and use PostgreSQL
+without a prototype-data fallback:
+
+- `/#/banking/account-balances` and `/#/banking/bank-accounts` — company-scoped
+  account summaries, posted-ledger balances, bounded server filtering, sorting
+  and pagination;
+- `/#/banking/add-bank-account` — encrypted Bank Account draft creation and
+  optional submission for independent approval;
+- `/#/banking/bank-account-approvals` — pending queue, masked review and
+  maker/checker decision; and
+- the account-detail workspace opened from a live Account Balances row —
+  masked persisted detail plus governed deactivate/close controls.
+
+These surfaces retain the approved layout and shared Tailwind/shadcn controls.
+They expose loading, empty, error, success and permission states and are marked
+**Backend connected** only after the real Chromium maker/checker acceptance
+flow passed. Export remains disabled because there is no export API.
+
+Other Banking pages, including payments, receipts, transfers, statement
+import, reconciliation and transaction posting, remain explicitly prototype
+surfaces. Their legacy UI must not be presented as persisted functionality.
+The next production Banking slice is Bank Payments, but it must first reuse or
+establish the Finance posting/approval/reversal/period-lock boundary; it must
+not create a second accounting engine.

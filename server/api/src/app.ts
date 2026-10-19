@@ -21,6 +21,7 @@ import {
   type TenantSessionApiService,
 } from "./modules/auth/tenant-router.js";
 import { createJobsRouter, type JobPublisher } from "./modules/jobs/router.js";
+import { createBankingRouter, type BankingRepository } from "./modules/banking/router.js";
 import { createHrRouter } from "./modules/hr/router.js";
 import type { SourceHrRepository } from "./modules/hr/source-repository.js";
 import { createSecurityRouter } from "./modules/security/router.js";
@@ -37,6 +38,7 @@ export interface AppDependencies {
   sessionService?: TenantSessionApiService;
   securityRepository?: SecurityAdministrationApiRepository;
   invalidateSecurityPolicy?: (tenantId: string) => void;
+  bankingRepository?: BankingRepository;
   hrRepository?: Pick<
     SourceHrRepository,
     | "listCompanies"
@@ -145,6 +147,18 @@ export function createApp(dependencies: AppDependencies): Express {
       "/api/v1/hr",
       createHrRouter({
         repository: dependencies.hrRepository,
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
+  }
+  if (dependencies.bankingRepository && dependencies.authService && dependencies.sessionService) {
+    app.use(
+      "/api/v1/banking",
+      createBankingRouter({
+        repository: dependencies.bankingRepository,
         authentication: dependencies.authService,
         sessions: dependencies.sessionService,
         secureCookies: dependencies.config.nodeEnv === "production",

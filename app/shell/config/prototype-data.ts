@@ -112,6 +112,7 @@ export const prototypeModules = [
       g("bank-accounts", "Bank Accounts", [
         p("bank-accounts", "Bank & Cash Accounts"),
         p("add-bank-account", "Bank Account Setup", "form"),
+        p("bank-account-approvals", "Bank Account Approvals", "approval"),
         p("bank-account-detail", "Bank Account Detail", "detail"),
         p("bank-statement", "Bank Statement", "report"),
       ]),

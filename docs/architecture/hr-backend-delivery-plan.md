@@ -719,3 +719,29 @@ Identity security is now a required dependency: HR mutations remain blocked
 during impersonation, every request must preserve tenant/company scope, and
 new HR administration must use the existing cookie session and exact
 permission model rather than adding a parallel authentication path.
+
+## Banking dependency handoff — 2026-10-19
+
+The first governed Banking account foundation is now implemented through the
+versioned API and PostgreSQL. It supplies the stable Bank Account identifier
+required by `hr_payment_export_profile.finance_bank_account_id`, including
+tenant/company scope, currency, lifecycle state and Chart of Accounts mapping.
+
+Repository inspection found no live HR API, service, repository or frontend
+mutation for creating or updating a payment export profile. The column exists
+in HR migration `0020_governed_payroll_payment`, but it is not yet an active
+business workflow. No speculative HR-to-Banking write path was added.
+
+When the Phase 5 payroll payment-profile slice is implemented, its server-side
+validation must resolve the selected Bank Account through the Banking boundary
+and require all of the following before persistence:
+
+- the same authenticated tenant and permitted company;
+- an active Bank Account;
+- the payroll/payment currency expected by the profile;
+- a valid, active and postable Chart of Accounts mapping; and
+- authorization and audit evidence for the HR payment-profile mutation.
+
+HR must not update Banking master data or write accounting journals directly.
+The next safe HR development slice remains the cross-workflow audit-evidence
+view described above; the payroll-to-Banking consumer belongs to Phase 5.

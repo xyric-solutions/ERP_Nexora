@@ -47,6 +47,11 @@ const makerPermissions = [
   "security.session_policy.read",
   "security.session_policy.create",
   "security.session_policy.submit",
+  "banking.bank_account.read",
+  "banking.bank_account.create",
+  "banking.bank_account.update",
+  "banking.bank_account.submit",
+  "banking.bank_account.status",
 ] as const;
 
 const checkerPermissions = [
@@ -67,6 +72,9 @@ const checkerPermissions = [
   "security.impersonation.approve",
   "security.session_policy.read",
   "security.session_policy.approve",
+  "banking.bank_account.read",
+  "banking.bank_account.approve",
+  "banking.bank_account.status",
 ] as const;
 
 const roles = [
@@ -134,6 +142,17 @@ export async function ensureSourceTestTenant(pool: DatabasePool): Promise<void> 
     `insert into organization_unit (id,tenant_id,parent_id,type,code,name,status)
      values ('nexora-r06-uat-company',$1,null,'company','R06-UAT','Nexora R06 UAT Company','active')
      on conflict (tenant_id,id) do nothing`,
+    [sourceTestTenantId],
+  );
+  await pool.query(
+    `insert into account
+      (id,tenant_id,company_id,code,name,type,is_header,status,manual_posting_allowed,
+       is_system_account,reconciliation_required,created_at)
+     values
+      ('r06-uat-bank-operating-usd',$1,'nexora-r06-uat-company','10-01-00200','Bank — Operating USD','asset',false,'active',true,false,true,now()),
+      ('r06-uat-bank-operating-pkr',$1,'nexora-r06-uat-company','10-01-00210','Bank — Operating PKR','asset',false,'active',true,false,true,now())
+     on conflict (tenant_id,id) do update set
+       status='active',manual_posting_allowed=true,reconciliation_required=true`,
     [sourceTestTenantId],
   );
   await pool.query(

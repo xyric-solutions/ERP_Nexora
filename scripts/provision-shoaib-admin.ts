@@ -216,32 +216,27 @@ try {
     [tenantId, policyId],
   );
 
-  await client.query(
-    `update security_user_company_access
-        set is_default=false
-      where tenant_id=$1 and user_id=$2 and revoked_at is null`,
+  const existingDefaultAccess = await client.query(
+    `select 1 from security_user_company_access
+      where tenant_id=$1 and user_id=$2 and revoked_at is null and is_default
+      limit 1`,
     [tenantId, userId],
   );
-  for (const [index, company] of companies.rows.entries()) {
+  let hasDefaultAccess = existingDefaultAccess.rowCount === 1;
+  for (const company of companies.rows) {
     const existingAccess = await client.query<{ access_id: string }>(
       `select access_id from security_user_company_access
         where tenant_id=$1 and user_id=$2 and company_id=$3 and revoked_at is null`,
       [tenantId, userId, company.id],
     );
-    if (existingAccess.rows[0]) {
-      await client.query(
-        `update security_user_company_access
-            set is_default=$4,source_kind='compatibility_backfill',source_reference=$5
-          where tenant_id=$1 and access_id=$2 and company_id=$3`,
-        [tenantId, existingAccess.rows[0].access_id, company.id, index === 0, sourceReference],
-      );
-    } else {
+    if (!existingAccess.rows[0]) {
       await client.query(
         `insert into security_user_company_access
           (tenant_id,access_id,user_id,company_id,is_default,granted_by,source_kind,source_reference)
          values ($1,$2,$3,$4,$5,$3,'compatibility_backfill',$6)`,
-        [tenantId, companyAccessId(company.id), userId, company.id, index === 0, sourceReference],
+        [tenantId, companyAccessId(company.id), userId, company.id, !hasDefaultAccess, sourceReference],
       );
+      hasDefaultAccess = true;
     }
   }
 

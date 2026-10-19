@@ -19,6 +19,8 @@ import { RedisPasswordChangeTicketStore } from "./modules/auth/redis-password-ch
 import { RedisTenantSessionStore } from "./modules/auth/redis-session-store.js";
 import { RedisTenantSelectionStore } from "./modules/auth/redis-tenant-selection-store.js";
 import { SourceTenantAuthenticationRepository } from "./modules/auth/source-repository.js";
+import { BankingIdentifierCrypto } from "./modules/banking/crypto.js";
+import { SourceBankingRepository } from "./modules/banking/source-repository.js";
 import { SourceSecurityAdministrationRepository } from "./modules/security/source-administration-repository.js";
 import { SourceHrRepository } from "./modules/hr/source-repository.js";
 
@@ -72,6 +74,10 @@ const app = createApp({
   sessionService,
   securityRepository,
   invalidateSecurityPolicy: (tenantId) => securityPolicyAuthority.invalidate(tenantId),
+  bankingRepository: new SourceBankingRepository(
+    pool,
+    new BankingIdentifierCrypto(config.bankingDataEncryptionKey, config.bankingDataEncryptionKeyVersion),
+  ),
   hrRepository: new SourceHrRepository(pool),
   readiness: {
     service: async () => {
@@ -92,6 +98,12 @@ const app = createApp({
         "select to_regclass('public.employee') is not null and to_regclass('public.hr_master_record') is not null and to_regclass('public.hr_employee_draft_scope') is not null as available",
       );
       if (!result.rows[0]?.available) throw new Error("The current HR foundation migration is required");
+    },
+    banking_foundation: async () => {
+      const result = await pool.query<{ available: boolean }>(
+        "select to_regclass('public.bank_account') is not null and to_regclass('public.bank_account_event') is not null as available",
+      );
+      if (!result.rows[0]?.available) throw new Error("The current Banking foundation migration is required");
     },
   },
 });

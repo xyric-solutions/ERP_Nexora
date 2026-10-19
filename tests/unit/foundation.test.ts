@@ -30,12 +30,15 @@ describe("runtime foundation", () => {
       AUTH_THROTTLE_SECRET: "t".repeat(32),
       AUTH_LOGIN_DIRECTORY_SECRET: "d".repeat(32),
       AUTH_SESSION_SECRET: "s".repeat(32),
+      BANKING_DATA_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
     };
 
     const config = loadConfig(environment);
     expect(config.authThrottleSecret).toBe("t".repeat(32));
     expect(config.authLoginDirectorySecret).toBe("d".repeat(32));
     expect(config.authSessionSecret).toBe("s".repeat(32));
+    expect(config.bankingDataEncryptionKeyVersion).toBe("v1");
+    expect(() => loadConfig({ ...environment, BANKING_DATA_ENCRYPTION_KEY: "" })).toThrow();
     expect(() => loadConfig({ ...environment, AUTH_THROTTLE_SECRET: "short" })).toThrow();
     expect(() => loadConfig({ ...environment, AUTH_SESSION_SECRET: "short" })).toThrow();
     expect(() => loadConfig({ ...environment, AUTH_SESSION_SECRET: environment.AUTH_THROTTLE_SECRET })).toThrow();

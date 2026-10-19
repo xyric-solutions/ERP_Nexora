@@ -14,12 +14,15 @@ import { DrillRenderer } from "@prototype/features/drill/core/drill-renderer.tsx
 import type { ModulePageProfile } from "@prototype/shared/types/module-profile-types";
 import { bankAccounts } from "@prototype/features/banking/model/banking-master-data";
 import { BankingTransactionForm } from "@prototype/features/banking/views/banking-transaction-form";
-import {
-  BankAccountDetail,
-  BankingTransactionDetail,
-} from "@prototype/features/banking/views/banking-transaction-detail";
+import { BankingTransactionDetail } from "@prototype/features/banking/views/banking-transaction-detail";
 import { BankingBatchEntry } from "@prototype/features/banking/views/banking-batch-entry";
-import { BankAccountBalances, BankStatement } from "@prototype/features/banking/views/banking-statement";
+import { BankStatement } from "@prototype/features/banking/views/banking-statement";
+import { BankingAccountBalances } from "@prototype/features/banking/views/banking-account-balances";
+import {
+  BankAccountApprovals,
+  BankAccountDetailWorkspace,
+  BankAccountSetup,
+} from "@prototype/features/banking/views/banking-account-governance";
 import { BankingReconciliation } from "@prototype/features/banking/views/banking-reconciliation";
 import {
   findReconciliation,
@@ -2616,7 +2619,7 @@ export function PrototypeContent(props: PrototypeContentProps) {
     row: ModuleRow;
   } | null>(null);
   const [selectedBankingReference, setSelectedBankingReference] = useState("PAY-2026-0418");
-  const [selectedBankAccountId, setSelectedBankAccountId] = useState("BA-4471");
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState("");
   if (viewState !== "data")
     return (
       <>
@@ -2769,7 +2772,13 @@ export function PrototypeContent(props: PrototypeContentProps) {
         </>
       );
     }
-    if (context.pageId === "jobs") return <><PageIntro context={context} /><HrJobsWorkspace /></>;
+    if (context.pageId === "jobs")
+      return (
+        <>
+          <PageIntro context={context} />
+          <HrJobsWorkspace />
+        </>
+      );
     if (isHrLifecyclePage(context.pageId)) {
       return (
         <>
@@ -2855,21 +2864,52 @@ export function PrototypeContent(props: PrototypeContentProps) {
       );
     }
 
-    if (context.pageId === "account-balances") {
+    if (context.pageId === "account-balances" || context.pageId === "bank-accounts") {
       return (
         <>
-          <PageIntro context={context}>
-            <ActionButton onClick={() => onAction("Export", context.pageLabel)}>Export</ActionButton>
+          <PageIntro context={{ ...context, status: "backend connected" }}>
+            <Button variant="outline" type="button" disabled title="A governed export API is not available yet">
+              Export unavailable
+            </Button>
             <ActionButton tone="primary" onClick={() => props.onNavigate("banking", "add-bank-account")}>
               + Add New
             </ActionButton>
           </PageIntro>
-          <BankAccountBalances
-            onAction={onAction}
+          <BankingAccountBalances
             onOpenAccount={(accountId) => {
               setSelectedBankAccountId(accountId);
-              props.onNavigate("banking", "bank-statement");
+              props.onNavigate("banking", "bank-account-detail");
             }}
+          />
+        </>
+      );
+    }
+
+    if (context.pageId === "add-bank-account") {
+      return (
+        <>
+          <PageIntro context={{ ...context, status: "backend connected" }} />
+          <BankAccountSetup onCreated={(accountId) => setSelectedBankAccountId(accountId)} />
+        </>
+      );
+    }
+
+    if (context.pageId === "bank-account-approvals") {
+      return (
+        <>
+          <PageIntro context={{ ...context, status: "backend connected" }} />
+          <BankAccountApprovals />
+        </>
+      );
+    }
+
+    if (context.pageId === "bank-account-detail") {
+      return (
+        <>
+          <PageIntro context={{ ...context, status: "backend connected" }} />
+          <BankAccountDetailWorkspace
+            accountId={selectedBankAccountId}
+            onBack={() => props.onNavigate("banking", "account-balances")}
           />
         </>
       );
@@ -2961,24 +3001,6 @@ export function PrototypeContent(props: PrototypeContentProps) {
           sourceRow={selectedBankingRecord?.row}
           onAction={onAction}
           onBack={() => props.onNavigate("banking", selectedBankingRecord?.pageId ?? "bank-payments")}
-        />
-      );
-    }
-    if (context.pageId === "bank-account-detail") {
-      return (
-        <BankAccountDetail
-          accountId={selectedBankAccountId}
-          onAction={onAction}
-          onOpenStatement={(accountId) => {
-            setSelectedBankAccountId(accountId);
-            props.onNavigate("banking", "bank-statement");
-          }}
-          onNewTransaction={() => props.onNavigate("banking", "add-bank-payment")}
-          onOpenTransaction={(reference) => {
-            setSelectedBankingRecord(null);
-            setSelectedBankingReference(reference);
-            props.onNavigate("banking", "transaction-detail");
-          }}
         />
       );
     }

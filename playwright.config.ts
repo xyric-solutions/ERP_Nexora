@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3200";
+const useExistingWebServer = process.env.PLAYWRIGHT_USE_EXISTING_WEB === "true";
+
 export default defineConfig({
   testDir: "./tests/e2e",
   testMatch: "**/*.spec.ts",
@@ -7,13 +10,15 @@ export default defineConfig({
   fullyParallel: false,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [["html", { open: "never" }], ["list"]] : "list",
-  use: { baseURL: "http://127.0.0.1:3200", trace: "retain-on-failure", screenshot: "only-on-failure" },
+  use: { baseURL, trace: "retain-on-failure", screenshot: "only-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    command: "npm run dev:web",
-    url: "http://127.0.0.1:3200",
-    env: { PORT: "3200" },
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: useExistingWebServer
+    ? undefined
+    : {
+        command: "npm run dev:web",
+        url: baseURL,
+        env: { PORT: "3200" },
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
+      },
 });

@@ -155,17 +155,17 @@ The production API surface is versioned under `/api/v1/banking`.
 
 Initial endpoints:
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| `GET` | `/companies` | Return active companies available to the session for Banking use. Prefer a shared company projection if one is established during planning. |
-| `GET` | `/accounts` | Bounded account directory with company, search, bank, currency and state filters. |
-| `GET` | `/accounts/summary` | Currency totals and account counts derived from approved accounts and posted journal lines. |
-| `GET` | `/accounts/{accountId}` | Masked account detail and approval metadata. |
-| `POST` | `/accounts` | Create an idempotent draft with a zero opening balance. |
-| `POST` | `/accounts/{accountId}` | Update a draft using an expected version. |
-| `POST` | `/accounts/{accountId}/submit` | Submit the current version for independent approval. |
-| `POST` | `/accounts/{accountId}/decision` | Independently approve or reject a pending account. |
-| `POST` | `/accounts/{accountId}/status` | Govern inactive/closed transitions where allowed. |
+| Method | Route                            | Purpose                                                                                                                                     |
+| ------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/companies`                     | Return active companies available to the session for Banking use. Prefer a shared company projection if one is established during planning. |
+| `GET`  | `/accounts`                      | Bounded account directory with company, search, bank, currency and state filters.                                                           |
+| `GET`  | `/accounts/summary`              | Currency totals and account counts derived from approved accounts and posted journal lines.                                                 |
+| `GET`  | `/accounts/{accountId}`          | Masked account detail and approval metadata.                                                                                                |
+| `POST` | `/accounts`                      | Create an idempotent draft with a zero opening balance.                                                                                     |
+| `POST` | `/accounts/{accountId}`          | Update a draft using an expected version.                                                                                                   |
+| `POST` | `/accounts/{accountId}/submit`   | Submit the current version for independent approval.                                                                                        |
+| `POST` | `/accounts/{accountId}/decision` | Independently approve or reject a pending account.                                                                                          |
+| `POST` | `/accounts/{accountId}/status`   | Govern inactive/closed transitions where allowed.                                                                                           |
 
 Mutations require trusted-origin validation, session CSRF, an idempotency key,
 an expected record version where applicable, and an auditable reason for
@@ -348,3 +348,11 @@ company isolation are verified, sensitive identifiers remain protected,
 maker/checker activation is proven with distinct actors, balances are derived
 only from posted ledger records, HR can resolve only eligible active accounts,
 and automated plus browser acceptance evidence is recorded.
+
+## Implementation record — 2026-10-19
+
+The approved foundation is implemented and its focused browser-to-PostgreSQL
+acceptance flow passed. Account Balances, Bank Account Setup, Bank Account
+Approvals and persisted account detail are the only Banking surfaces promoted
+to **Backend connected** by this slice. All excluded workflows listed above
+remain prototype-only and require separate approval and implementation slices.

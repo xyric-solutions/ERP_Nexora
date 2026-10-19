@@ -11,6 +11,19 @@ import {
   sessionResponseSchema,
   tenantSelectionRequiredResponseSchema,
 } from "./auth/index.js";
+import {
+  bankAccountCurrencySummarySchema,
+  bankAccountDetailSchema,
+  bankAccountDirectorySchema,
+  bankAccountMutationResultSchema,
+  bankingCompanyDirectorySchema,
+  bankingLedgerAccountDirectorySchema,
+  changeBankAccountStatusRequestSchema,
+  createBankAccountRequestSchema,
+  decideBankAccountRequestSchema,
+  submitBankAccountRequestSchema,
+  updateBankAccountRequestSchema,
+} from "./banking/index.js";
 import { healthStatusSchema } from "./health.js";
 import {
   hrEmployeeDetailSchema,
@@ -877,6 +890,236 @@ export function buildOpenApiDocument() {
             "201": {
               description: "Governed employee draft created",
               content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeDraftResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/companies": {
+        get: {
+          operationId: "listBankingCompanies",
+          security: [{ cookieAuth: [] }],
+          responses: {
+            "200": {
+              description: "Companies within the authenticated user's active Banking access scope",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankingCompanyDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/ledger_accounts": {
+        get: {
+          operationId: "listBankingLedgerAccounts",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 200, default: 100 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Eligible postable asset accounts for bank-account mapping",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/BankingLedgerAccountDirectory" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/accounts": {
+        get: {
+          operationId: "listBankAccounts",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            { in: "query", name: "bank", required: false, schema: { type: "string", maxLength: 200 } },
+            { in: "query", name: "currency", required: false, schema: { type: "string", pattern: "^[A-Z]{3}$" } },
+            {
+              in: "query",
+              name: "ledger_account_id",
+              required: false,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "query", name: "state", required: false, schema: { type: "string" } },
+            { in: "query", name: "sort_by", required: false, schema: { type: "string", default: "account_name" } },
+            {
+              in: "query",
+              name: "sort_direction",
+              required: false,
+              schema: { type: "string", enum: ["asc", "desc"], default: "asc" },
+            },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            },
+            { in: "query", name: "cursor", required: false, schema: { type: "string", maxLength: 512 } },
+          ],
+          responses: {
+            "200": {
+              description: "Company-scoped bank-account directory",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankAccountDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+        post: {
+          operationId: "createBankAccount",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/CreateBankAccountRequest" } } },
+          },
+          responses: {
+            "201": {
+              description: "Governed bank-account draft created",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankAccountMutationResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/accounts/summary": {
+        get: {
+          operationId: "getBankAccountSummary",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Posted ledger balance totals by account currency",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankAccountCurrencySummary" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/accounts/{accountId}": {
+        get: {
+          operationId: "getBankAccount",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "accountId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+          ],
+          responses: {
+            "200": {
+              description: "Masked governed bank-account detail",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankAccountDetail" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+        post: {
+          operationId: "updateBankAccount",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "accountId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateBankAccountRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Bank-account draft updated",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankAccountMutationResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/accounts/{accountId}/submit": {
+        post: {
+          operationId: "submitBankAccount",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "accountId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SubmitBankAccountRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Bank account submitted for independent approval",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankAccountMutationResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/accounts/{accountId}/decision": {
+        post: {
+          operationId: "decideBankAccount",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "accountId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/DecideBankAccountRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Independent bank-account approval decision recorded",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankAccountMutationResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/accounts/{accountId}/status": {
+        post: {
+          operationId: "changeBankAccountStatus",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "accountId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ChangeBankAccountStatusRequest" } },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Bank-account operational status changed",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankAccountMutationResult" } } },
             },
             ...securityErrors,
           },
@@ -2358,6 +2601,17 @@ export function buildOpenApiDocument() {
         CancelTenantSelectionRequest: schema(cancelTenantSelectionRequestSchema),
         SessionResponse: schema(sessionResponseSchema),
         HealthStatus: schema(healthStatusSchema),
+        BankingCompanyDirectory: schema(bankingCompanyDirectorySchema),
+        BankingLedgerAccountDirectory: schema(bankingLedgerAccountDirectorySchema),
+        BankAccountDirectory: schema(bankAccountDirectorySchema),
+        BankAccountCurrencySummary: schema(bankAccountCurrencySummarySchema),
+        BankAccountDetail: schema(bankAccountDetailSchema),
+        CreateBankAccountRequest: schema(createBankAccountRequestSchema),
+        UpdateBankAccountRequest: schema(updateBankAccountRequestSchema),
+        SubmitBankAccountRequest: schema(submitBankAccountRequestSchema),
+        DecideBankAccountRequest: schema(decideBankAccountRequestSchema),
+        ChangeBankAccountStatusRequest: schema(changeBankAccountStatusRequestSchema),
+        BankAccountMutationResult: schema(bankAccountMutationResultSchema),
         HrEmployeeDirectory: schema(hrEmployeeDirectorySchema),
         HrCompanyDirectory: schema(hrCompanyDirectorySchema),
         HrEmployeeDetail: schema(hrEmployeeDetailSchema),

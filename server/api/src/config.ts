@@ -16,6 +16,8 @@ const environmentSchema = z
     AUTH_THROTTLE_SECRET: z.string().min(32).max(512),
     AUTH_LOGIN_DIRECTORY_SECRET: z.string().min(32).max(512),
     AUTH_SESSION_SECRET: z.string().min(32).max(512),
+    BANKING_DATA_ENCRYPTION_KEY: z.string().min(1).max(512),
+    BANKING_DATA_ENCRYPTION_KEY_VERSION: z.string().trim().min(1).max(64).default("v1"),
     AUTH_SESSION_IDLE_MINUTES: z.coerce.number().int().min(1).max(1_440).default(30),
     AUTH_SESSION_ABSOLUTE_HOURS: z.coerce.number().int().min(1).max(720).default(8),
     METRICS_BEARER_TOKEN: z.string().min(32).max(512).optional(),
@@ -54,6 +56,8 @@ export interface ApiConfig {
   authThrottleSecret: string;
   authLoginDirectorySecret: string;
   authSessionSecret: string;
+  bankingDataEncryptionKey: string;
+  bankingDataEncryptionKeyVersion: string;
   authSessionIdleMs: number;
   authSessionAbsoluteMs: number;
   metricsBearerToken: string | null;
@@ -78,6 +82,8 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): ApiCon
     authThrottleSecret: value.AUTH_THROTTLE_SECRET,
     authLoginDirectorySecret: value.AUTH_LOGIN_DIRECTORY_SECRET,
     authSessionSecret: value.AUTH_SESSION_SECRET,
+    bankingDataEncryptionKey: value.BANKING_DATA_ENCRYPTION_KEY,
+    bankingDataEncryptionKeyVersion: value.BANKING_DATA_ENCRYPTION_KEY_VERSION,
     authSessionIdleMs: value.AUTH_SESSION_IDLE_MINUTES * 60 * 1000,
     authSessionAbsoluteMs: value.AUTH_SESSION_ABSOLUTE_HOURS * 60 * 60 * 1000,
     metricsBearerToken: value.METRICS_BEARER_TOKEN ?? null,

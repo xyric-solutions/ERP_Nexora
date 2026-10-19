@@ -292,3 +292,36 @@ Setup screens are PostgreSQL-backed with no mock fallback, account identifiers
 are protected, distinct maker/checker activation is proven, ledger balances are
 derived only from posted journals, HR has a stable eligibility boundary, and
 the automated plus browser acceptance evidence above has been observed.
+
+## 6. Delivery status — 2026-10-19
+
+**Status: COMPLETE — focused acceptance passed.**
+
+Tasks 1–11 are implemented for the Bank Account foundation. The delivered
+path is generated client → `/api/v1/banking` → cookie authentication, CSRF and
+permission/company enforcement → Banking service/repository → PostgreSQL.
+Sensitive account and IBAN values are encrypted at rest and only masked values
+are returned. Account creation is idempotent, lifecycle changes use optimistic
+versions and transactions, and immutable Banking plus platform audit evidence
+is recorded. Maker/checker separation is enforced for every actor, including
+administrators.
+
+The real Chromium acceptance flow created and submitted an account as the
+maker, approved it as a different checker, opened it through Account Balances,
+reloaded the application, and directly confirmed the active encrypted database
+record and three lifecycle events. The live pages are consequently marked
+**Backend connected** and never fall back to prototype rows.
+
+HR payment export profiles are not yet a live runtime workflow. The stable
+eligibility boundary for that future Phase 5 consumer is recorded in
+`docs/architecture/hr-backend-delivery-plan.md`; no speculative HR mutation was
+introduced.
+
+### Safe resume point
+
+Start the next Banking slice with Bank Payments only after confirming the
+existing Finance journal-posting authority. Design the draft/submitted/
+approved/posted/reversed lifecycle, period locks, idempotency, immutable audit
+and transactional double-entry boundary before enabling a live payment action.
+Payments, receipts, transfers, statements/imports and reconciliation remain
+prototype-only until their own vertical slices pass equivalent acceptance.
