@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -70,6 +70,11 @@ function readHashRoute(): RouteState {
   const resolved = findPrototypePage(moduleId || initialRoute.moduleId, pageId || initialRoute.pageId);
   const recordRef = recordParts.length ? decodeURIComponent(recordParts.join("/")) : undefined;
   return { moduleId: resolved.module.id, pageId: resolved.page.id, recordRef };
+}
+
+function hashForRoute(route: RouteState): string {
+  const recordPath = route.recordRef ? `/${encodeURIComponent(route.recordRef)}` : "";
+  return `#/${route.moduleId}/${route.pageId}${recordPath}`;
 }
 
 function isIdentityWorkspaceHash(): boolean {
@@ -246,6 +251,9 @@ export function PrototypeShell({
   const [drawerModuleId, setDrawerModuleId] = useState<string | null>(null);
   const [intelligenceSurface, setIntelligenceSurface] = useState<IntelligenceSurface>(null);
   const [activeWorkspace, setActiveWorkspace] = useState<"prototype" | "identity">("prototype");
+  const [paymentEntryDirty, setPaymentEntryDirty] = useState(false);
+  const routeRef = useRef(route);
+  const paymentEntryDirtyRef = useRef(paymentEntryDirty);
 
   const current = useMemo(() => findPrototypePage(route.moduleId, route.pageId), [route]);
   const currentRole = roleOptions.find((role) => role.id === roleId) ?? roleOptions[0];
@@ -297,24 +305,48 @@ export function PrototypeShell({
     return [...exactRecords.slice(0, 12), ...pages.slice(0, Math.max(0, 18 - exactRecords.length))].slice(0, 18);
   }, [searchQuery]);
 
-  const navigate = useCallback((moduleId: string, pageId: string, recordRef?: string) => {
-    const resolved = findPrototypePage(moduleId, pageId);
-    const next = { moduleId: resolved.module.id, pageId: resolved.page.id, recordRef };
-    setActiveWorkspace("prototype");
-    setRoute(next);
-    setExpandedModule(next.moduleId);
-    setExpandedGroups((previous) => new Set(previous).add(`${next.moduleId}:${resolved.group.id}`));
-    setMobileOpen(false);
-    setDrawerModuleId(null);
-    setSearchOpen(false);
-    setIntelligenceSurface(null);
-    if (typeof window !== "undefined") {
-      const recordPath = recordRef ? `/${encodeURIComponent(recordRef)}` : "";
-      window.history.pushState(null, "", `#/${next.moduleId}/${next.pageId}${recordPath}`);
-    }
+  const confirmPaymentEntryDiscard = useCallback((bypass = false) => {
+    if (bypass || !paymentEntryDirtyRef.current || typeof window === "undefined") return true;
+    if (!window.confirm("You have unsaved Bank Payment changes. Leave this page and discard them?")) return false;
+    paymentEntryDirtyRef.current = false;
+    setPaymentEntryDirty(false);
+    return true;
   }, []);
 
+  const navigate = useCallback(
+    (
+      moduleId: string,
+      pageId: string,
+      recordRef?: string,
+      options?: { replace?: boolean; bypassUnsavedGuard?: boolean },
+    ) => {
+      if (!confirmPaymentEntryDiscard(options?.bypassUnsavedGuard)) return;
+      const resolved = findPrototypePage(moduleId, pageId);
+      const next = { moduleId: resolved.module.id, pageId: resolved.page.id, recordRef };
+      routeRef.current = next;
+      paymentEntryDirtyRef.current = false;
+      setPaymentEntryDirty(false);
+      setActiveWorkspace("prototype");
+      setRoute(next);
+      setExpandedModule(next.moduleId);
+      setExpandedGroups((previous) => new Set(previous).add(`${next.moduleId}:${resolved.group.id}`));
+      setMobileOpen(false);
+      setDrawerModuleId(null);
+      setSearchOpen(false);
+      setIntelligenceSurface(null);
+      if (typeof window !== "undefined") {
+        const url = hashForRoute(next);
+        if (options?.replace) window.history.replaceState(null, "", url);
+        else window.history.pushState(null, "", url);
+      }
+    },
+    [confirmPaymentEntryDiscard],
+  );
+
   const openIdentityWorkspace = useCallback(() => {
+    if (!confirmPaymentEntryDiscard()) return;
+    paymentEntryDirtyRef.current = false;
+    setPaymentEntryDirty(false);
     setActiveWorkspace("identity");
     setMobileOpen(false);
     setDrawerModuleId(null);
@@ -324,7 +356,7 @@ export function PrototypeShell({
       window.history.pushState(null, "", "#/identity/access");
       window.dispatchEvent(new PopStateEvent("popstate"));
     }
-  }, []);
+  }, [confirmPaymentEntryDiscard]);
 
   const pushToast = useCallback((tone: Toast["tone"], title: string, message: string) => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -335,11 +367,34 @@ export function PrototypeShell({
   useEffect(() => {
     const syncRoute = () => {
       if (isIdentityWorkspaceHash()) {
+        if (!confirmPaymentEntryDiscard()) {
+          window.history.pushState(null, "", hashForRoute(routeRef.current));
+          return;
+        }
+        paymentEntryDirtyRef.current = false;
+        setPaymentEntryDirty(false);
         setActiveWorkspace("identity");
         return;
       }
+      const next = readHashRoute();
+      const currentRoute = routeRef.current;
+      const routeUnchanged =
+        next.moduleId === currentRoute.moduleId &&
+        next.pageId === currentRoute.pageId &&
+        next.recordRef === currentRoute.recordRef;
+      if (routeUnchanged) {
+        setActiveWorkspace("prototype");
+        return;
+      }
+      if (!confirmPaymentEntryDiscard()) {
+        window.history.pushState(null, "", hashForRoute(currentRoute));
+        return;
+      }
+      routeRef.current = next;
+      paymentEntryDirtyRef.current = false;
+      setPaymentEntryDirty(false);
       setActiveWorkspace("prototype");
-      setRoute(readHashRoute());
+      setRoute(next);
     };
     syncRoute();
     window.addEventListener("hashchange", syncRoute);
@@ -348,7 +403,15 @@ export function PrototypeShell({
       window.removeEventListener("hashchange", syncRoute);
       window.removeEventListener("popstate", syncRoute);
     };
-  }, []);
+  }, [confirmPaymentEntryDiscard]);
+
+  useEffect(() => {
+    routeRef.current = route;
+  }, [route]);
+
+  useEffect(() => {
+    paymentEntryDirtyRef.current = paymentEntryDirty;
+  }, [paymentEntryDirty]);
 
   // Restore saved reviewer preferences once, on the client only.
   //
@@ -906,7 +969,10 @@ export function PrototypeShell({
               viewState={viewState}
               onAction={handleAction}
               onOpenPage={(pageId) => navigate(current.module.id, pageId)}
-              onNavigate={(moduleId, pageId) => navigate(moduleId, pageId)}
+              onNavigate={(moduleId, pageId, recordRef, options) =>
+                navigate(moduleId, pageId, recordRef, options)
+              }
+              onPaymentEntryDirtyChange={setPaymentEntryDirty}
             />
             </>}
           </div>

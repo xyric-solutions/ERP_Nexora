@@ -16,6 +16,10 @@ import { bankAccounts } from "@prototype/features/banking/model/banking-master-d
 import { BankingTransactionForm } from "@prototype/features/banking/views/banking-transaction-form";
 import { BankingTransactionDetail } from "@prototype/features/banking/views/banking-transaction-detail";
 import { BankingBatchEntry } from "@prototype/features/banking/views/banking-batch-entry";
+import { BankingPayments } from "@prototype/features/banking/views/banking-payments";
+import { BankingPaymentEntry } from "@prototype/features/banking/views/banking-payment-entry";
+import { BankingPaymentDetail } from "@prototype/features/banking/views/banking-payment-detail";
+import { isPersistedBankPaymentId } from "@prototype/features/banking/model/bank-payment-routing";
 import { BankStatement } from "@prototype/features/banking/views/banking-statement";
 import { BankingAccountBalances } from "@prototype/features/banking/views/banking-account-balances";
 import {
@@ -108,7 +112,13 @@ interface PrototypeContentProps {
   viewState: PrototypeViewState;
   onAction: (action: string, subject?: string) => void;
   onOpenPage: (pageId: string) => void;
-  onNavigate: (moduleId: string, pageId: string, recordRef?: string) => void;
+  onNavigate: (
+    moduleId: string,
+    pageId: string,
+    recordRef?: string,
+    options?: { replace?: boolean; bypassUnsavedGuard?: boolean },
+  ) => void;
+  onPaymentEntryDirtyChange?: (dirty: boolean) => void;
 }
 
 const chartHeights = [38, 54, 46, 70, 63, 78, 69, 92, 82, 108, 94, 116];
@@ -2620,7 +2630,12 @@ export function PrototypeContent(props: PrototypeContentProps) {
   } | null>(null);
   const [selectedBankingReference, setSelectedBankingReference] = useState("PAY-2026-0418");
   const [selectedBankAccountId, setSelectedBankAccountId] = useState("");
-  if (viewState !== "data")
+  const isLiveBankPaymentPage =
+    context.moduleId === "banking" &&
+    (context.pageId === "bank-payments" ||
+      context.pageId === "add-bank-payment" ||
+      (context.pageId === "transaction-detail" && isPersistedBankPaymentId(context.recordRef)));
+  if (!isLiveBankPaymentPage && viewState !== "data")
     return (
       <>
         <PageIntro context={context} />
@@ -2842,19 +2857,42 @@ export function PrototypeContent(props: PrototypeContentProps) {
   }
 
   if (context.moduleId === "banking") {
-    // Payments and receipts use the multi-line batch grid; the remaining
-    // types stay on the single-transaction form.
-    if (context.pageId === "add-bank-payment" || context.pageId === "add-bank-receipt") {
+    if (context.pageId === "bank-payments") {
+      return (
+        <BankingPayments
+          onCreatePayment={() => props.onNavigate("banking", "add-bank-payment")}
+          onOpenPayment={(paymentId) => props.onNavigate("banking", "transaction-detail", paymentId)}
+        />
+      );
+    }
+
+    if (context.pageId === "add-bank-payment") {
+      return (
+        <BankingPaymentEntry
+          paymentId={context.recordRef}
+          onBack={() => props.onNavigate("banking", "bank-payments", undefined, { bypassUnsavedGuard: true })}
+          onDirtyChange={props.onPaymentEntryDirtyChange}
+          onNavigate={(pageId, paymentId, options) =>
+            props.onNavigate("banking", pageId, paymentId, {
+              ...options,
+              bypassUnsavedGuard: true,
+            })
+          }
+        />
+      );
+    }
+
+    // Receipts remain on the approved prototype batch grid until their own
+    // persisted Banking/Finance slice is delivered.
+    if (context.pageId === "add-bank-receipt") {
       // Deliberately no PageIntro: this screen mirrors the dense entry
       // format, which carries its own compact title.
       return (
         <BankingBatchEntry
           key={context.pageId}
-          kind={context.pageId === "add-bank-payment" ? "payment" : "receipt"}
+          kind="receipt"
           onAction={onAction}
-          onBack={() =>
-            props.onNavigate("banking", context.pageId === "add-bank-payment" ? "bank-payments" : "bank-receipts")
-          }
+          onBack={() => props.onNavigate("banking", "bank-receipts")}
           onOpenTransaction={(reference) => {
             setSelectedBankingRecord(null);
             setSelectedBankingReference(reference);
@@ -2994,6 +3032,16 @@ export function PrototypeContent(props: PrototypeContentProps) {
       );
     }
     if (context.pageId === "transaction-detail") {
+      if (isPersistedBankPaymentId(context.recordRef)) {
+        return (
+          <BankingPaymentDetail
+            key={context.recordRef}
+            paymentId={context.recordRef}
+            onBack={() => props.onNavigate("banking", "bank-payments")}
+            onEdit={(paymentId) => props.onNavigate("banking", "add-bank-payment", paymentId)}
+          />
+        );
+      }
       return (
         <BankingTransactionDetail
           reference={selectedBankingRecord ? undefined : (context.recordRef ?? selectedBankingReference)}
