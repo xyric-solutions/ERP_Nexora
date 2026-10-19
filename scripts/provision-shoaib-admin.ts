@@ -12,6 +12,7 @@ const roleCode = "super_administrator";
 const policyId = "policy-super-administrator";
 const assignmentId = "assignment-shoaib-super-administrator";
 const sourceReference = "uat-provision-shoaib-admin";
+const approvalOverridePermission = "platform.approval.override";
 
 const databaseUrl = process.env.DATABASE_URL;
 const password = process.env.NEXORA_SHOAIB_PASSWORD;
@@ -49,6 +50,9 @@ try {
   if (permissions.rowCount === 0) throw new Error("No active permissions are available");
   if (!permissions.rows.some((row) => row.permission_key === "security.authorization.administer")) {
     throw new Error("The tenant-wide administrator permission is unavailable");
+  }
+  if (!permissions.rows.some((row) => row.permission_key === approvalOverridePermission)) {
+    throw new Error("The governed approval override permission is unavailable");
   }
   const permissionKeys = permissions.rows.map((row) => row.permission_key);
 
@@ -288,6 +292,7 @@ try {
     company_count: number;
     identifier_count: number;
     assignment_count: number;
+    approval_override_grant_count: number;
   }>(
     `select
        (select count(*)::int from security_role_permission_grant
@@ -301,8 +306,11 @@ try {
            and version.version=(select max(latest.version)
              from security_user_role_assignment_version latest
             where latest.tenant_id=version.tenant_id and latest.assignment_id=version.assignment_id)
-           and version.lifecycle_state='active') as assignment_count`,
-    [tenantId, policyId, userId],
+           and version.lifecycle_state='active') as assignment_count,
+       (select count(*)::int from security_role_permission_grant
+         where tenant_id=$1 and role_policy_id=$2 and permission_key=$4)
+         as approval_override_grant_count`,
+    [tenantId, policyId, userId, approvalOverridePermission],
   );
   const verified = verification.rows[0];
   if (
@@ -310,7 +318,8 @@ try {
     Number(verified.permission_count) !== permissionKeys.length ||
     Number(verified.company_count) !== companies.rowCount ||
     Number(verified.identifier_count) !== 2 ||
-    Number(verified.assignment_count) !== 1
+    Number(verified.assignment_count) !== 1 ||
+    Number(verified.approval_override_grant_count) !== 1
   ) {
     throw new Error("Shoaib administrator verification failed");
   }
