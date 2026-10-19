@@ -34,7 +34,19 @@ import type {
   HrEmployeeDraftApprovalDetail,
   HrEmployeeDirectory,
   HrCompanyDirectory,
+  HrDashboardSummary,
+  HrFinancePayrollDashboard,
+  HrPositionsOrganization,
+  HrManpowerRequisitionDirectory,
+  CreateHrManpowerRequisitionRequest,
+  HrManpowerRequisitionResult,
+  SubmitHrManpowerRequisitionRequest,
+  DecideHrManpowerRequisitionRequest,
   HrOrganizationUnitDirectory,
+  CreateHrOrganizationUnitRequest,
+  UpdateHrOrganizationUnitRequest,
+  ChangeHrOrganizationUnitStatusRequest,
+  HrOrganizationUnitMutationResult,
   CreateHrEmployeeDraftRequest,
   UpdateHrEmployeeDraftRequest,
   SubmitHrEmployeeDraftRequest,
@@ -43,6 +55,13 @@ import type {
   HrProfileDraftAssignmentResult,
   HrEmployeeDraftResult,
   HrMasterDirectory,
+  CreateHrMasterRequest,
+  UpdateHrMasterRequest,
+  ChangeHrMasterStatusRequest,
+  HrMasterMutationResult,
+  HrJobGradeDirectory,
+  CreateHrJobGradeRequest,
+  UpdateHrJobGradeRequest,
   HrEmployeeContactDirectory,
   CreateHrEmployeeContactRequest,
   HrEmployeeContactResult,
@@ -271,7 +290,23 @@ export class NexoraApiClient {
   }
   listHrEmployees(query: string): Promise<HrEmployeeDirectory> { return this.request(`/api/v1/hr/employees${query}`); }
   listHrCompanies(): Promise<HrCompanyDirectory> { return this.request("/api/v1/hr/companies"); }
+  getHrDashboard(query: string): Promise<HrDashboardSummary> { return this.request(`/api/v1/hr/dashboard${query}`); }
+  getHrFinancePayrollDashboard(query: string): Promise<HrFinancePayrollDashboard> { return this.request(`/api/v1/hr/finance_payroll_dashboard${query}`); }
+  getHrPositionsOrganization(query: string): Promise<HrPositionsOrganization> { return this.request(`/api/v1/hr/positions_organization${query}`); }
+  listHrManpowerRequisitions(query: string): Promise<HrManpowerRequisitionDirectory> { return this.request(`/api/v1/hr/manpower_requisitions${query}`); }
+  createHrManpowerRequisition(payload: CreateHrManpowerRequisitionRequest, csrfToken: string, idempotencyKey: string): Promise<HrManpowerRequisitionResult> { return this.request("/api/v1/hr/manpower_requisitions", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) }); }
+  submitHrManpowerRequisition(requisitionId: string, payload: SubmitHrManpowerRequisitionRequest, csrfToken: string, idempotencyKey: string): Promise<HrManpowerRequisitionResult> { return this.request(`/api/v1/hr/manpower_requisitions/${encodeURIComponent(requisitionId)}/submit`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) }); }
+  decideHrManpowerRequisition(requisitionId: string, payload: DecideHrManpowerRequisitionRequest, csrfToken: string, idempotencyKey: string): Promise<HrManpowerRequisitionResult> { return this.request(`/api/v1/hr/manpower_requisitions/${encodeURIComponent(requisitionId)}/decision`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) }); }
   listHrOrganizationUnits(query: string): Promise<HrOrganizationUnitDirectory> { return this.request(`/api/v1/hr/organization_units${query}`); }
+  createHrOrganizationUnit(payload: CreateHrOrganizationUnitRequest, csrfToken: string, idempotencyKey: string): Promise<HrOrganizationUnitMutationResult> {
+    return this.request("/api/v1/hr/organization_units", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  updateHrOrganizationUnit(unitId: string, payload: UpdateHrOrganizationUnitRequest, csrfToken: string, idempotencyKey: string): Promise<HrOrganizationUnitMutationResult> {
+    return this.request(`/api/v1/hr/organization_units/${encodeURIComponent(unitId)}`, { method: "PATCH", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  changeHrOrganizationUnitStatus(unitId: string, payload: ChangeHrOrganizationUnitStatusRequest, csrfToken: string, idempotencyKey: string): Promise<HrOrganizationUnitMutationResult> {
+    return this.request(`/api/v1/hr/organization_units/${encodeURIComponent(unitId)}/status`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
   getHrEmployee(employeeId: string): Promise<HrEmployeeDetail> { return this.request(`/api/v1/hr/employees/${encodeURIComponent(employeeId)}`); }
   listHrEmployeeDrafts(query: string): Promise<HrEmployeeDraftDirectory> { return this.request(`/api/v1/hr/employee_drafts${query}`); }
   getHrEmployeeDraft(employeeId: string): Promise<HrEmployeeDraftDetail> { return this.request(`/api/v1/hr/employee_drafts/${encodeURIComponent(employeeId)}`); }
@@ -316,6 +351,22 @@ export class NexoraApiClient {
     return this.request(`/api/v1/hr/employment_lifecycle_policies/${encodeURIComponent(policyId)}/activate`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
   listHrMasters(query: string): Promise<HrMasterDirectory> { return this.request(`/api/v1/hr/masters${query}`); }
+  createHrMaster(payload: CreateHrMasterRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
+    return this.request("/api/v1/hr/masters", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  updateHrMaster(masterId: string, payload: UpdateHrMasterRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
+    return this.request(`/api/v1/hr/masters/${encodeURIComponent(masterId)}`, { method: "PATCH", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  changeHrMasterStatus(masterId: string, payload: ChangeHrMasterStatusRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
+    return this.request(`/api/v1/hr/masters/${encodeURIComponent(masterId)}/status`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  listHrJobGrades(query: string): Promise<HrJobGradeDirectory> { return this.request(`/api/v1/hr/job_grades${query}`); }
+  createHrJobGrade(payload: CreateHrJobGradeRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
+    return this.request("/api/v1/hr/job_grades", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  updateHrJobGrade(gradeId: string, payload: UpdateHrJobGradeRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
+    return this.request(`/api/v1/hr/job_grades/${encodeURIComponent(gradeId)}`, { method: "PATCH", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
   createHrJob(payload: CreateHrJobRequest, csrfToken: string, idempotencyKey: string): Promise<HrJobResult> {
     return this.request("/api/v1/hr/jobs", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }

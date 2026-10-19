@@ -1,18 +1,26 @@
 module_id,group_id,group_label,page_id,page_label,archetype,catalogue_status,current_renderer,audit_status,production_module
-hr,organisation,Organisation & Masters,org-structure,Organisation Structure,list,prototype,HrOrgStructure,DEDICATED_MOCK,M03 Organisation
-hr,organisation,Organisation & Masters,designations,Designations,list,prototype,HrMasterScreen,DEDICATED_MOCK,M03 Organisation
-hr,organisation,Organisation & Masters,job-grades,Job Grades,list,prototype,HrMasterScreen,DEDICATED_MOCK,M03 Organisation
-hr,organisation,Organisation & Masters,cost-centres,Cost Centres,list,prototype,HrMasterScreen,DEDICATED_MOCK,M03 Organisation
-hr,organisation,Organisation & Masters,work-locations,Work Locations,list,prototype,HrMasterScreen,DEDICATED_MOCK,M03 Organisation
-hr,organisation,Organisation & Masters,employment-types,Employment Types,list,prototype,HrMasterScreen,DEDICATED_MOCK,M03 Organisation
-hr,organisation,Organisation & Masters,employee-categories,Employee Categories,list,prototype,HrMasterScreen,DEDICATED_MOCK,M03 Organisation
-hr,people,People,hr-dashboard,HR Dashboard,dashboard,prototype,HrReportingWorkspace,DEDICATED_MOCK,M17 Reporting & Compliance
-hr,people,People,finance-payroll-dashboard,Finance / Payroll Dashboard,dashboard,prototype,HrReportingWorkspace,DEDICATED_MOCK,M17 Reporting & Compliance
-hr,people,People,employees,Employee Directory,list,prototype,ListView (generic fallback),GENERIC_FALLBACK,M04 Employee Core
-hr,people,People,add-employee,Add Employee,form,prototype,ListView (generic fallback),GENERIC_FALLBACK,M04 Employee Core
-hr,people,People,employee-record,Employee Record,detail,prototype,ListView (generic fallback),GENERIC_FALLBACK,M04 Employee Core
-hr,people,People,positions-org,Positions & Organisation,list,prototype,ListView (generic fallback),GENERIC_FALLBACK,M04 Employee Core
-hr,recruitment,Recruitment,manpower-requisitions,Manpower Requisitions,approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,M05 Manpower Planning
+hr,organisation,Organisation & Masters,org-structure,Organisation Structure,list,live,HrOrganizationStructureWorkspace,LIVE_API_AUDITED,M03 Organisation
+hr,organisation,Organisation & Masters,designations,Designations,list,live,HrMasterCatalogueWorkspace,LIVE_API_AUDITED,M03 Organisation
+hr,organisation,Organisation & Masters,job-grades,Job Grades,list,live,HrJobGradesWorkspace,LIVE_API_AUDITED,M03 Organisation
+hr,organisation,Organisation & Masters,jobs,Jobs,list,live,HrJobsWorkspace,LIVE_API_AUDITED,M03 Organisation
+hr,organisation,Organisation & Masters,cost-centres,Cost Centres,list,live,HrConfiguredMasterWorkspace,LIVE_API_AUDITED,M03 Organisation
+hr,organisation,Organisation & Masters,work-locations,Work Locations,list,live,HrConfiguredMasterWorkspace,LIVE_API_AUDITED,M03 Organisation
+hr,organisation,Organisation & Masters,employment-types,Employment Types,list,live,HrConfiguredMasterWorkspace,LIVE_API_AUDITED,M03 Organisation
+hr,organisation,Organisation & Masters,employee-categories,Employee Categories,list,live,HrConfiguredMasterWorkspace,LIVE_API_AUDITED,M03 Organisation
+hr,people,People,hr-dashboard,HR Dashboard,dashboard,live,HrDashboardWorkspace,LIVE_API_AUDITED,M17 Reporting & Compliance
+hr,people,People,finance-payroll-dashboard,Finance / Payroll Dashboard,dashboard,live,HrFinancePayrollDashboardWorkspace,LIVE_API_AUDITED,M17 Reporting & Compliance
+hr,people,People,employees,Employee Directory,list,live,HrEmployeeDirectory,LIVE_API_AUDITED,M04 Employee Core
+hr,people,People,add-employee,Add Employee,form,live,HrEmployeeDraftForm,LIVE_API_AUDITED,M04 Employee Core
+hr,people,People,employee-drafts,Employee Drafts,list,live,HrEmployeeDraftsWorkspace,LIVE_API_AUDITED,M04 Employee Core
+hr,people,People,employee-approvals,Employee Approvals,approval,live,HrEmployeeApprovalsWorkspace,LIVE_API_AUDITED,M04 Employee Core
+hr,people,People,employee-contacts,Employee Contacts,list,live,HrEmployeeContactsWorkspace,LIVE_API_AUDITED,M04 Employee Core
+hr,people,People,employee-emergency-contacts,Emergency Contacts,list,live,HrEmployeeEmergencyContactsWorkspace,LIVE_API_AUDITED,M04 Employee Core
+hr,people,People,employee-documents,Employee Documents,list,live,HrEmployeeDocumentsWorkspace,LIVE_API_AUDITED,M04 Employee Core
+hr,people,People,employee-assignments,Employment Assignments,list,live,HrEmployeeAssignmentsWorkspace,LIVE_API_AUDITED,M04 Employee Core
+hr,people,People,employee-status-history,Employee History,list,live,HrEmployeeHistoryWorkspace,LIVE_API_AUDITED,M04 Employee Core
+hr,people,People,employee-record,Employee Record,detail,live,HrEmployeeRecordWorkspace,LIVE_API_AUDITED,M04 Employee Core
+hr,people,People,positions-org,Positions & Organisation,list,live,HrPositionsOrganizationWorkspace,LIVE_API_AUDITED,M04 Employee Core
+hr,recruitment,Recruitment,manpower-requisitions,Manpower Requisitions,approval,live,HrManpowerRequisitionsWorkspace,LIVE_API_AUDITED,M05 Manpower Planning
 hr,recruitment,Recruitment,job-openings,Job Openings,list,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
 hr,recruitment,Recruitment,candidates,Candidate Directory,list,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
 hr,recruitment,Recruitment,recruitment-pipeline,Recruitment Pipeline,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
@@ -51,6 +59,7 @@ hr,learning,Learning & Development,training-programs,Training Programmes,setting
 hr,learning,Learning & Development,training-requests,Training Requests,approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
 hr,learning,Learning & Development,training-sessions,Training Sessions,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
 hr,learning,Learning & Development,training-completions,Completion & Certificates,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
+hr,employee-lifecycle,Employee Lifecycle,lifecycle-policies,Lifecycle Policies,settings,live,ListView (generic fallback),LIVE_API_AUDITED,M10 Separation & Settlement
 hr,employee-lifecycle,Employee Lifecycle,onboarding,Onboarding,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,"M07 Hire, Onboard & Probation"
 hr,employee-lifecycle,Employee Lifecycle,probation-reviews,Probation Reviews,approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,"M07 Hire, Onboard & Probation"
 hr,employee-lifecycle,Employee Lifecycle,employee-movements,"Transfers, Promotions & Movements",approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,M09 Move & Reward

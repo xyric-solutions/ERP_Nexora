@@ -35,8 +35,17 @@ import {
 } from "@prototype/features/banking/model/banking-reconciliation-data";
 import { BankingReconciliationRegister } from "@prototype/features/banking/views/banking-reconciliation-register";
 import { BankingReconciliationWorksheet } from "@prototype/features/banking/views/banking-reconciliation-worksheet";
-import { HrMasterScreen, HrOrgStructure, hrMasterForPage } from "@prototype/features/hr/views/hr-master-screens";
+import { HrMasterScreen, hrMasterForPage } from "@prototype/features/hr/views/hr-master-screens";
+import { HrOrganizationStructureWorkspace } from "@prototype/features/hr/views/hr-organization-structure-workspace";
+import { HrMasterCatalogueWorkspace } from "@prototype/features/hr/views/hr-master-catalogue-workspace";
+import { HrJobGradesWorkspace } from "@prototype/features/hr/views/hr-job-grades-workspace";
+import { HrConfiguredMasterWorkspace, type HrConfiguredMasterDefinition } from "@prototype/features/hr/views/hr-configured-master-workspace";
+import { HrDashboardWorkspace } from "@prototype/features/hr/views/hr-dashboard-workspace";
+import { HrFinancePayrollDashboardWorkspace } from "@prototype/features/hr/views/hr-finance-payroll-dashboard-workspace";
 import { HrEmployeeDirectory } from "@prototype/features/hr/views/hr-employee-directory";
+import { HrEmployeeRecordWorkspace } from "@prototype/features/hr/views/hr-employee-record-workspace";
+import { HrPositionsOrganizationWorkspace } from "@prototype/features/hr/views/hr-positions-organization-workspace";
+import { HrManpowerRequisitionsWorkspace } from "@prototype/features/hr/views/hr-manpower-requisitions-workspace";
 import { HrEmployeeDraftForm } from "@prototype/features/hr/views/hr-employee-draft-form";
 import { HrEmployeeDraftsWorkspace } from "@prototype/features/hr/views/hr-employee-drafts-workspace";
 import { HrEmployeeApprovalsWorkspace } from "@prototype/features/hr/views/hr-employee-approvals-workspace";
@@ -105,6 +114,32 @@ export interface PrototypeRow {
   status: string;
   owner: string;
 }
+
+const configuredHrMasters: Record<string, HrConfiguredMasterDefinition> = {
+  "cost-centres": {
+    type: "cost_center", label: "Cost Centres", singular: "Cost Centre",
+    guidance: "Cost centres are the shared company finance dimension used on employee assignments. They remain separate from the organisation tree because one cost centre can span branches. Finance confirms the default nominal before payroll posting is enabled.",
+    configurationKey: "default_nominal", configurationLabel: "Default nominal", configurationHelp: "Finance-owned nominal account code used as the proposed payroll allocation.", configurationPlaceholder: "For example 60-01-00100",
+  },
+  "work-locations": {
+    type: "work_location", label: "Work Locations", singular: "Work Location",
+    guidance: "Work locations describe where an employee works and stay separate from legal branches. Location changes remain governed employee-assignment movements.",
+    configurationKey: "working_pattern", configurationLabel: "Working pattern", configurationHelp: "Default physical-working arrangement for assignments at this location.",
+    options: [{ value: "on_site", label: "On site" }, { value: "hybrid", label: "Hybrid" }, { value: "remote", label: "Remote" }, { value: "client_site", label: "Client site" }],
+  },
+  "employment-types": {
+    type: "employment_type", label: "Employment Types", singular: "Employment Type",
+    guidance: "Employment types describe the contractual basis of work. The payment route guides downstream setup but does not create payroll or supplier transactions.",
+    configurationKey: "payment_route", configurationLabel: "Payment route", configurationHelp: "Downstream route expected for people using this employment type.",
+    options: [{ value: "payroll", label: "Payroll" }, { value: "stipend", label: "Stipend" }, { value: "accounts_payable", label: "Accounts payable" }],
+  },
+  "employee-categories": {
+    type: "employee_category", label: "Employee Categories", singular: "Employee Category",
+    guidance: "Employee categories group people for policy, benefit and reporting rules. The pay cycle is configuration and does not release a payroll run.",
+    configurationKey: "pay_cycle", configurationLabel: "Pay cycle", configurationHelp: "Expected pay frequency for this employee category.",
+    options: [{ value: "monthly", label: "Monthly" }, { value: "fortnightly", label: "Fortnightly" }, { value: "weekly", label: "Weekly" }, { value: "stipend", label: "Stipend" }],
+  },
+};
 
 interface PrototypeContentProps {
   context: PrototypePageContext;
@@ -2653,6 +2688,14 @@ export function PrototypeContent(props: PrototypeContentProps) {
     return <NexoraAiWorkspace context={context} onAction={onAction} onNavigate={props.onNavigate} />;
   }
 
+  if (context.moduleId === "hr" && context.pageId === "hr-dashboard") {
+    return <HrDashboardWorkspace onNavigate={props.onNavigate} />;
+  }
+
+  if (context.moduleId === "hr" && context.pageId === "finance-payroll-dashboard") {
+    return <HrFinancePayrollDashboardWorkspace onNavigate={props.onNavigate} />;
+  }
+
   if (["hr", "reports"].includes(context.moduleId) && isHrReportingPage(context.pageId)) {
     return <HrReportingWorkspace context={context} onAction={onAction} onNavigate={props.onNavigate} />;
   }
@@ -2726,12 +2769,7 @@ export function PrototypeContent(props: PrototypeContentProps) {
       return (
         <>
           <PageIntro context={context} />
-          <HrEmployeeDraftsWorkspace
-            onAction={onAction}
-            fallback={
-              <ListView context={context} rows={props.rows} onAction={onAction} onNavigate={props.onNavigate} />
-            }
-          />
+          <HrEmployeeDraftsWorkspace onAction={onAction} />
         </>
       );
     }
@@ -2739,12 +2777,7 @@ export function PrototypeContent(props: PrototypeContentProps) {
       return (
         <>
           <PageIntro context={context} />
-          <HrEmployeeDraftForm
-            onAction={onAction}
-            fallback={
-              <FormView context={context} rows={props.rows} onAction={onAction} onNavigate={props.onNavigate} />
-            }
-          />
+          <HrEmployeeDraftForm onAction={onAction} />
         </>
       );
     }
@@ -2752,30 +2785,38 @@ export function PrototypeContent(props: PrototypeContentProps) {
       return (
         <>
           <PageIntro context={context}>
-            <ActionButton onClick={() => onAction("Export", context.pageLabel)}>Export</ActionButton>
-            <ActionButton tone="primary" onClick={() => onAction("Add employee", context.pageLabel)}>
+            <ActionButton tone="primary" onClick={() => props.onNavigate("hr", "add-employee")}>
               + Add Employee
             </ActionButton>
           </PageIntro>
-          <HrEmployeeDirectory
-            onAction={onAction}
-            fallback={
-              <ListView context={context} rows={props.rows} onAction={onAction} onNavigate={props.onNavigate} />
-            }
-          />
+          <HrEmployeeDirectory onOpenEmployee={(employeeId) => props.onNavigate("hr", "employee-record", employeeId)} />
         </>
       );
+    }
+    if (context.pageId === "employee-record") {
+      return (
+        <>
+          <PageIntro context={context} />
+          <HrEmployeeRecordWorkspace employeeId={context.recordRef ?? ""} onNavigate={props.onNavigate} />
+        </>
+      );
+    }
+    if (context.pageId === "positions-org") {
+      return (
+        <>
+          <PageIntro context={context} />
+          <HrPositionsOrganizationWorkspace onNavigate={props.onNavigate} />
+        </>
+      );
+    }
+    if (context.pageId === "manpower-requisitions") {
+      return <><PageIntro context={context} /><HrManpowerRequisitionsWorkspace /></>;
     }
     if (context.pageId === "org-structure") {
       return (
         <>
-          <PageIntro context={context}>
-            <ActionButton onClick={() => onAction("Export", context.pageLabel)}>Export</ActionButton>
-            <ActionButton tone="primary" onClick={() => onAction("Add company", context.pageLabel)}>
-              + Add New
-            </ActionButton>
-          </PageIntro>
-          <HrOrgStructure onAction={onAction} />
+          <PageIntro context={context} />
+          <HrOrganizationStructureWorkspace />
         </>
       );
     }
@@ -2792,6 +2833,28 @@ export function PrototypeContent(props: PrototypeContentProps) {
         <>
           <PageIntro context={context} />
           <HrJobsWorkspace />
+        </>
+      );
+    if (context.pageId === "designations")
+      return (
+        <>
+          <PageIntro context={context} />
+          <HrMasterCatalogueWorkspace type="designation" label="Designations" singular="Designation" guidance="Designations identify an employee's formal title. Deactivation prevents new assignments while preserving employment history." />
+        </>
+      );
+    if (context.pageId === "job-grades")
+      return (
+        <>
+          <PageIntro context={context} />
+          <HrJobGradesWorkspace />
+        </>
+      );
+    const configuredMaster = configuredHrMasters[context.pageId];
+    if (configuredMaster)
+      return (
+        <>
+          <PageIntro context={context} />
+          <HrConfiguredMasterWorkspace definition={configuredMaster} />
         </>
       );
     if (isHrLifecyclePage(context.pageId)) {

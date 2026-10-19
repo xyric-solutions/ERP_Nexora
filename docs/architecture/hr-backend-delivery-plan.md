@@ -10,8 +10,57 @@ PostgreSQL, Redis or storage directly.
 
 ### Completed and API-backed
 
+- Organization Structure now reads the shared Platform organization authority
+  through a company-scoped HR API. Authorized maintainers can create child
+  units, edit their parent/code/name, and activate or deactivate unused units.
+  Mutations enforce company scope, `hr.organization.update`, CSRF/origin,
+  idempotency, hierarchy-cycle protection, usage guards and immutable audit
+  evidence. Company creation remains a Platform-administration responsibility.
+- Designations now use the company-scoped HR master API for live list/search,
+  creation, editing and activation/deactivation. Writes enforce `hr.master.create`
+  or `hr.master.update`, browser mutation controls, idempotency, uniqueness and
+  immutable audit evidence.
+- Job Grades now use a dedicated company-scoped catalogue for grade ordering,
+  ISO currency and optional minimum/midpoint/maximum compensation bands. Live
+  create/edit/status maintenance enforces permissions, company scope, unique
+  grade levels, coherent bands, browser mutation controls, idempotency and
+  immutable audit evidence. Grade bands are configuration only and do not post
+  payroll or change employee pay.
+- Cost Centres now use the live company-scoped master catalogue for search,
+  create, edit and status maintenance. The screen states the ownership boundary:
+  cost centre identity is shared by HR assignments and Finance, while payroll
+  nominal-account mapping remains a separate Finance-controlled concern.
+- Work Locations, Employment Types and Employee Categories now use the same
+  governed live catalogue while retaining their distinct ERP configuration:
+  working pattern, downstream payment route and pay cycle. New records require
+  these values; existing records remain visible and are explicitly flagged when
+  configuration has not yet been supplied.
+- HR Dashboard now uses a company-scoped live summary endpoint for effective
+  headcount, drafts, employee approvals, governed movement approvals, active
+  departments, recent joiners, employee-status distribution and master-data
+  configuration gaps. Recruitment, attendance, leave and payroll figures stay
+  explicitly unavailable until those backends are delivered.
+- Finance / Payroll Dashboard now reads effective salary coverage, payroll
+  periods, immutable result totals, journal proposals and governed payment
+  batches through a company-scoped payroll-reporting endpoint. It exposes
+  control gaps and empty states without calculating, approving, posting or
+  paying payroll and without substituting prototype totals.
 - Employee directory, company scope, HR master reads, employee draft creation,
   update, submission and maker/checker approval.
+- Employee Record now opens from the live directory by stable employee ID and
+  loads the secured detail projection. It presents current placement, work
+  profile, manager and account-link state without exposing private payroll,
+  bank, tax or document-storage fields.
+- Positions & Organisation now provides a live current-workforce position view
+  from effective employee assignments, approved jobs, designations, grades,
+  departments and reporting managers. It does not infer vacancies or budgeted
+  establishment where no position-authority record exists.
+- Manpower Requisitions now provide a company-scoped, governed recruitment
+  entry point. Creation validates active organisation and HR masters plus the
+  selected grade's configured salary band; submit and independent
+  approve/reject decisions use CSRF/origin checks, idempotency, company scope
+  and immutable audit evidence. Approval only authorizes headcount; it does
+  not create a job opening, candidate, employee or payroll transaction.
 - Profile-draft assignments, employee contacts, emergency contacts, restricted
   document metadata, assignment timeline and unified employee-history reads
   covering status changes, lifecycle events and non-sensitive profile versions.
@@ -110,20 +159,23 @@ sessions, permissions, company access, approvals and employee/user binding.
 - [x] Generate typed API-client methods for the HR foundation endpoints.
 - [x] Add a separate, company-scoped draft directory so unassigned draft
       employees never bypass the active-assignment directory's scope model.
-- [ ] The Employee Directory now uses the typed HR client to load the
-      server-authorized company scope and compact employee projection, while
-      retaining the existing prototype directory as a safe fallback. Verify it
-      against the deployed API before removing that fallback or switching master
-      data screens.
+- [x] The Employee Directory uses the typed HR client to load the
+      server-authorized company scope and compact employee projection. The
+      prototype fallback has been removed, API failures never substitute mock
+      people, and Open routes by stable employee ID to the live Employee Record.
 
 ## Phase 2 — employee master and organisation changes
 
+- [x] Live organization hierarchy: company-scoped tree reads include inactive
+      history, current organization heads and direct current-assignment counts.
+      Child-unit create/edit/status operations use the typed API and generated
+      client; active children or assignments prevent deactivation.
 - [x] Safe employee draft creation: CSRF/origin protection, tenant/company
       scope, `hr.employee.create`, request idempotency and immutable platform audit
       evidence. Draft creation intentionally excludes assignments, activation,
       payroll, identity and sensitive data. The Add Employee screen uses this
-      typed API boundary and retains the prototype form only as an unavailable-API
-      fallback until deployment verification.
+      typed API boundary and shows an explicit unavailable state without mock
+      employee data when the API or permission check fails.
 - [x] Draft profile update: draft-only, company-scoped, idempotent and
       immutably audited. It deliberately excludes employee number, assignment,
       lifecycle, payroll and sensitive-data changes.
@@ -623,10 +675,36 @@ sessions, permissions, company access, approvals and employee/user binding.
 
 Local web base: `http://127.0.0.1:3000` (API: `http://127.0.0.1:4000/api/v1`).
 
-- `/#/hr/employees` — server-scoped employee directory; prototype fallback is
-  still retained while deployed API acceptance remains open.
-- `/#/hr/add-employee` — governed employee draft creation; unavailable-API
-  fallback remains explicit.
+- `/#/hr/org-structure` — shared live company hierarchy with governed child
+  unit create/edit/status maintenance; legal-company creation remains under
+  Platform administration.
+- `/#/hr/designations` — live company-scoped designation catalogue with
+  governed create/edit/status maintenance.
+- `/#/hr/job-grades` — live company-scoped grade catalogue with governed
+  create/edit/status maintenance, ordered grade levels and optional coherent
+  compensation bands.
+- `/#/hr/cost-centres` — live shared finance-dimension catalogue with governed
+  create/edit/status maintenance; nominal-account mapping remains owned by
+  Finance.
+- `/#/hr/work-locations` — live location catalogue with a validated on-site,
+  hybrid, remote or client-site working pattern.
+- `/#/hr/employment-types` — live contractual-type catalogue with a validated
+  payroll, stipend or accounts-payable route.
+- `/#/hr/employee-categories` — live policy/reporting catalogue with a
+  validated monthly, fortnightly, weekly or stipend cycle.
+- `/#/hr/hr-dashboard` — live company-scoped workforce and action summary with
+  drill-through to the governed People and organisation workspaces.
+- `/#/hr/finance-payroll-dashboard` — live payroll coverage and control summary
+  over salary assignments, payroll periods, results, journals and payments.
+- `/#/hr/employees` — server-scoped employee directory with human-readable
+  branch and department names and live record navigation; no prototype fallback.
+- `/#/hr/employee-record/:employee-id` — permission-scoped employee overview
+  backed by the employee detail projection, with links to governed related
+  workspaces.
+- `/#/hr/positions-org` — current effective workforce positions, department
+  distribution and reporting lines with Employee Record drill-through.
+- `/#/hr/add-employee` — governed employee draft creation; API or permission
+  failures show an explicit unavailable state and never substitute a mock form.
 - `/#/hr/employee-drafts` — draft directory, detail, update and submission.
 - `/#/hr/employee-approvals` — employee draft, Hire, Transfer, Promotion,
   manager-change, work-location-change and organization-placement-change
@@ -643,7 +721,15 @@ Local web base: `http://127.0.0.1:3000` (API: `http://127.0.0.1:4000/api/v1`).
   independent approval and activation.
 - `/#/hr/jobs` — company-scoped job catalogue and governed job creation.
 
-Other HR prototype pages remain mock/prototype unless separately marked above.
+This makes 23 of the 76 HR menu screens API-connected. The remaining 53 are
+mock/prototype unless separately marked above. In Organisation & Masters,
+all 8 screens are now API-connected: Organisation Structure, Designations, Job
+Grades, Jobs, Cost Centres, Work Locations, Employment Types and Employee
+Categories. All 13 People screens and the first Recruitment screen are now
+API-connected, including both dashboards, Employee Record and Positions &
+Organisation. Payroll calculation, approval, posting and payment workspaces
+remain separate planned delivery slices even though their existing database
+authorities feed the live dashboard.
 
 ## Phase 4 — attendance and leave
 

@@ -4,7 +4,7 @@
   "counts": {
     "modules": 35,
     "groups": 146,
-    "pages": 792
+    "pages": 802
   },
   "modules": [
     {
@@ -285,6 +285,12 @@
               "id": "add-bank-account",
               "label": "Bank Account Setup",
               "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "bank-account-approvals",
+              "label": "Bank Account Approvals",
+              "archetype": "approval",
               "status": "prototype"
             },
             {
@@ -2735,43 +2741,49 @@
               "id": "org-structure",
               "label": "Organisation Structure",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "designations",
               "label": "Designations",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "job-grades",
               "label": "Job Grades",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
+            },
+            {
+              "id": "jobs",
+              "label": "Jobs",
+              "archetype": "list",
+              "status": "live"
             },
             {
               "id": "cost-centres",
               "label": "Cost Centres",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "work-locations",
               "label": "Work Locations",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "employment-types",
               "label": "Employment Types",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "employee-categories",
               "label": "Employee Categories",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         },
@@ -2783,37 +2795,79 @@
               "id": "hr-dashboard",
               "label": "HR Dashboard",
               "archetype": "dashboard",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "finance-payroll-dashboard",
               "label": "Finance / Payroll Dashboard",
               "archetype": "dashboard",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "employees",
               "label": "Employee Directory",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "add-employee",
               "label": "Add Employee",
               "archetype": "form",
-              "status": "prototype"
+              "status": "live"
+            },
+            {
+              "id": "employee-drafts",
+              "label": "Employee Drafts",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "employee-approvals",
+              "label": "Employee Approvals",
+              "archetype": "approval",
+              "status": "live"
+            },
+            {
+              "id": "employee-contacts",
+              "label": "Employee Contacts",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "employee-emergency-contacts",
+              "label": "Emergency Contacts",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "employee-documents",
+              "label": "Employee Documents",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "employee-assignments",
+              "label": "Employment Assignments",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "employee-status-history",
+              "label": "Employee History",
+              "archetype": "list",
+              "status": "live"
             },
             {
               "id": "employee-record",
               "label": "Employee Record",
               "archetype": "detail",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "positions-org",
               "label": "Positions & Organisation",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         },
@@ -2825,7 +2879,7 @@
               "id": "manpower-requisitions",
               "label": "Manpower Requisitions",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "job-openings",
@@ -3091,6 +3145,12 @@
           "id": "employee-lifecycle",
           "label": "Employee Lifecycle",
           "pages": [
+            {
+              "id": "lifecycle-policies",
+              "label": "Lifecycle Policies",
+              "archetype": "settings",
+              "status": "live"
+            },
             {
               "id": "onboarding",
               "label": "Onboarding",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { HrEmployeeDirectory } from "@nexora/contracts";
 
@@ -20,11 +20,9 @@ function employeeStatusVariant(status: HrEmployeeDirectory["items"][number]["sta
 }
 
 export function HrEmployeeDirectory({
-  onAction,
-  fallback,
+  onOpenEmployee,
 }: {
-  onAction: (action: string, subject?: string) => void;
-  fallback: ReactNode;
+  onOpenEmployee: (employeeId: string) => void;
 }) {
   const { api, session } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
@@ -83,11 +81,9 @@ export function HrEmployeeDirectory({
         <Alert>
           <AlertTitle>Live HR directory is unavailable</AlertTitle>
           <AlertDescription>
-            Your current session could not load an authorized company scope. The existing prototype directory remains
-            available while the API deployment or access is checked.
+            Your current session could not load an authorized company scope. Refresh the session or check HR access.
           </AlertDescription>
         </Alert>
-        {fallback}
       </>
     );
   }
@@ -165,15 +161,12 @@ export function HrEmployeeDirectory({
       ) : null}
 
       {directoryState === "unavailable" ? (
-        <>
-          <Alert>
-            <AlertTitle>Employee records could not be loaded</AlertTitle>
-            <AlertDescription>
-              The live directory is temporarily unavailable. No cached or unauthorized employee data is shown.
-            </AlertDescription>
-          </Alert>
-          {fallback}
-        </>
+        <Alert>
+          <AlertTitle>Employee records could not be loaded</AlertTitle>
+          <AlertDescription>
+            The live directory is temporarily unavailable. No cached or unauthorized employee data is shown.
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {directoryState === "ready" ? (
@@ -202,7 +195,10 @@ export function HrEmployeeDirectory({
                     </p>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{employee.designation}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{employee.department_id}</td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    <span className="block text-foreground">{employee.department}</span>
+                    <span className="text-xs">{employee.branch}</span>
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">{employee.joined_on}</td>
                   <td className="px-4 py-3">
                     <Badge variant={employeeStatusVariant(employee.status)}>
@@ -214,7 +210,7 @@ export function HrEmployeeDirectory({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => onAction("Open employee", employee.employee_number)}
+                      onClick={() => onOpenEmployee(employee.id)}
                     >
                       Open
                     </Button>

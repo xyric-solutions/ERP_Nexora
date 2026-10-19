@@ -8,7 +8,7 @@ import type { CompanyMode } from "@prototype/shared/fixtures/mock-data";
 export type PrototypePageArchetype =
   "dashboard" | "list" | "detail" | "form" | "approval" | "workflow" | "report" | "settings";
 
-export type PrototypePageStatus = "prototype" | "coming-soon" | "not-implemented";
+export type PrototypePageStatus = "live" | "prototype" | "coming-soon" | "not-implemented";
 export type PrototypeModuleCategory =
   "Command centre" | "Finance & trade" | "Operations & people" | "Platform & governance";
 
@@ -741,32 +741,32 @@ export const prototypeModules = [
     modes: allModes,
     groups: [
       g("organisation", "Organisation & Masters", [
-        p("org-structure", "Organisation Structure"),
-        p("designations", "Designations"),
-        p("job-grades", "Job Grades"),
-        p("jobs", "Jobs"),
-        p("cost-centres", "Cost Centres"),
-        p("work-locations", "Work Locations"),
-        p("employment-types", "Employment Types"),
-        p("employee-categories", "Employee Categories"),
+        p("org-structure", "Organisation Structure", "list", "live"),
+        p("designations", "Designations", "list", "live"),
+        p("job-grades", "Job Grades", "list", "live"),
+        p("jobs", "Jobs", "list", "live"),
+        p("cost-centres", "Cost Centres", "list", "live"),
+        p("work-locations", "Work Locations", "list", "live"),
+        p("employment-types", "Employment Types", "list", "live"),
+        p("employee-categories", "Employee Categories", "list", "live"),
       ]),
       g("people", "People", [
-        p("hr-dashboard", "HR Dashboard", "dashboard"),
-        p("finance-payroll-dashboard", "Finance / Payroll Dashboard", "dashboard"),
-        p("employees", "Employee Directory"),
-        p("add-employee", "Add Employee", "form"),
-        p("employee-drafts", "Employee Drafts"),
-        p("employee-approvals", "Employee Approvals", "approval"),
-        p("employee-contacts", "Employee Contacts"),
-        p("employee-emergency-contacts", "Emergency Contacts"),
-        p("employee-documents", "Employee Documents"),
-        p("employee-assignments", "Employment Assignments"),
-        p("employee-status-history", "Employee History"),
-        p("employee-record", "Employee Record", "detail"),
-        p("positions-org", "Positions & Organisation"),
+        p("hr-dashboard", "HR Dashboard", "dashboard", "live"),
+        p("finance-payroll-dashboard", "Finance / Payroll Dashboard", "dashboard", "live"),
+        p("employees", "Employee Directory", "list", "live"),
+        p("add-employee", "Add Employee", "form", "live"),
+        p("employee-drafts", "Employee Drafts", "list", "live"),
+        p("employee-approvals", "Employee Approvals", "approval", "live"),
+        p("employee-contacts", "Employee Contacts", "list", "live"),
+        p("employee-emergency-contacts", "Emergency Contacts", "list", "live"),
+        p("employee-documents", "Employee Documents", "list", "live"),
+        p("employee-assignments", "Employment Assignments", "list", "live"),
+        p("employee-status-history", "Employee History", "list", "live"),
+        p("employee-record", "Employee Record", "detail", "live"),
+        p("positions-org", "Positions & Organisation", "list", "live"),
       ]),
       g("recruitment", "Recruitment", [
-        p("manpower-requisitions", "Manpower Requisitions", "approval"),
+        p("manpower-requisitions", "Manpower Requisitions", "approval", "live"),
         p("job-openings", "Job Openings"),
         p("candidates", "Candidate Directory"),
         p("recruitment-pipeline", "Recruitment Pipeline", "workflow"),
@@ -817,7 +817,7 @@ export const prototypeModules = [
         p("training-completions", "Completion & Certificates", "workflow"),
       ]),
       g("employee-lifecycle", "Employee Lifecycle", [
-        p("lifecycle-policies", "Lifecycle Policies", "settings"),
+        p("lifecycle-policies", "Lifecycle Policies", "settings", "live"),
         p("onboarding", "Onboarding", "workflow"),
         p("probation-reviews", "Probation Reviews", "approval"),
         p("employee-movements", "Transfers, Promotions & Movements", "approval"),

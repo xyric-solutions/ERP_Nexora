@@ -292,7 +292,7 @@ export function PrototypeShell({
       moduleCode: page.moduleCode,
       label: page.label,
       context: `${page.moduleLabel} / ${page.groupLabel}`,
-      meta: page.status === "prototype" ? page.archetype : "Coming soon",
+      meta: page.status === "live" ? "Live API" : page.status === "prototype" ? page.archetype : "Coming soon",
       searchable: [page.label, page.groupLabel, page.moduleLabel, page.moduleCode, page.archetype]
         .join(" ")
         .toLowerCase(),
@@ -649,7 +649,7 @@ export function PrototypeShell({
               <span className="nx-sidebar__logo">N</span>
               <span className="nx-sidebar__identity">
                 <strong>Nexora ERP</strong>
-                <small>UI/UX prototype</small>
+                <small>{current.page.status === "live" ? "Connected workspace" : "UI/UX prototype"}</small>
               </span>
             </button>
             <button
@@ -745,7 +745,7 @@ export function PrototypeShell({
                                                 onClick={() => navigate(module.id, page.id)}
                                               >
                                                 <span>{page.label}</span>
-                                                {page.status !== "prototype" ? <small>Soon</small> : null}
+                                                {page.status === "live" ? <small>Live</small> : page.status !== "prototype" ? <small>Soon</small> : null}
                                               </button>
                                             </li>
                                           ))}
@@ -787,9 +787,9 @@ export function PrototypeShell({
             <div className="nx-sidebar__environment">
               <span className="nx-sidebar__environment-dot" />
               <span>
-                <strong>Isolated prototype</strong>
+                <strong>{current.page.status === "live" ? "Live API workspace" : "Isolated prototype"}</strong>
                 <small>
-                  {PROTOTYPE_MODULE_COUNT} modules · {PROTOTYPE_PAGE_COUNT} mock screens
+                  {current.page.status === "live" ? "Authenticated · tenant scoped" : <>{PROTOTYPE_MODULE_COUNT} modules · {PROTOTYPE_PAGE_COUNT} mock screens</>}
                 </small>
               </span>
             </div>
@@ -863,7 +863,7 @@ export function PrototypeShell({
               {headerControls}
             </div>
           </header>
-          <section className="nx-prototype-toolbar" aria-label="Prototype controls">
+          {current.page.status !== "live" ? <section className="nx-prototype-toolbar" aria-label="Prototype controls">
             <strong className="nx-prototype-toolbar__label">Mock-only review</strong>
             <div className="nx-prototype-toolbar__controls">
               <select
@@ -917,7 +917,7 @@ export function PrototypeShell({
               </select>
             </div>
             <span className="nx-prototype-toolbar__note">No APIs · no posting · no Demo Account data</span>
-          </section>
+          </section> : null}
 
           <div className="nx-content">
             {activeWorkspace === "identity" && identityContent ? identityContent : <>
@@ -984,7 +984,7 @@ export function PrototypeShell({
           <div className="nx-submenu-drawer__header">
             <div>
               <h2>{drawerModule.label}</h2>
-              <p>{pageCount(drawerModule)} prototype screens</p>
+              <p>{pageCount(drawerModule)} pages</p>
             </div>
             <button
               className="nx-icon-button"

@@ -21,10 +21,24 @@ function appForHr(
   repository: Pick<
     SourceHrRepository,
     | "listEmployees"
+    | "getDashboard"
+    | "getFinancePayrollDashboard"
+    | "getPositionsOrganization"
+    | "listCompanies"
+    | "listOrganizationUnits"
+    | "createOrganizationUnit"
+    | "updateOrganizationUnit"
+    | "changeOrganizationUnitStatus"
     | "getEmployee"
     | "listEmployeeDrafts"
     | "getEmployeeDraft"
     | "listMasters"
+    | "createMaster"
+    | "updateMaster"
+    | "changeMasterStatus"
+    | "listJobGrades"
+    | "createJobGrade"
+    | "updateJobGrade"
     | "createEmployeeDraft"
     | "updateEmployeeDraft"
     | "getEmployeeDraftApproval"
@@ -70,6 +84,66 @@ function appForHr(
 }
 
 describe("HR API foundation", () => {
+  it("exposes live Finance/Payroll and Positions summaries behind authenticated HR routes", async () => {
+    const financeSummary = {
+      company_id: "company-a",
+      generated_at: "2026-10-19T12:00:00.000Z",
+      metrics: {
+        current_employees: 2,
+        salary_covered_employees: 1,
+        salary_gaps: 1,
+        total_periods: 0,
+        review_queue: 0,
+        journal_queue: 0,
+        payment_exceptions: 0,
+      },
+      latest_period: null,
+      recent_periods: [],
+    };
+    const positionsSummary = {
+      company_id: "company-a",
+      generated_at: "2026-10-19T12:00:00.000Z",
+      metrics: {
+        current_assignments: 1,
+        active_departments: 1,
+        represented_jobs: 1,
+        reporting_managers: 0,
+        without_manager: 1,
+      },
+      departments: [],
+      items: [],
+    };
+    const repository = {
+      getFinancePayrollDashboard: vi.fn(async () => financeSummary),
+      getPositionsOrganization: vi.fn(async () => positionsSummary),
+    } as unknown as Pick<SourceHrRepository, "getFinancePayrollDashboard" | "getPositionsOrganization">;
+
+    const blocked = await request(appForHr(repository)).get(
+      "/api/v1/hr/finance_payroll_dashboard?company_id=company-a",
+    );
+    expect(blocked.status).toBe(401);
+
+    const finance = await request(appForHr(repository))
+      .get("/api/v1/hr/finance_payroll_dashboard?company_id=company-a")
+      .set("cookie", "nexora_session=token-hr");
+    expect(finance.status).toBe(200);
+    expect(finance.body).toEqual(financeSummary);
+    expect(repository.getFinancePayrollDashboard).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "company-a",
+    );
+
+    const positions = await request(appForHr(repository))
+      .get("/api/v1/hr/positions_organization?company_id=company-a&search=engineer&limit=25")
+      .set("cookie", "nexora_session=token-hr");
+    expect(positions.status).toBe(200);
+    expect(positions.body).toEqual(positionsSummary);
+    expect(repository.getPositionsOrganization).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      { company_id: "company-a", search: "engineer", limit: 25 },
+    );
+  });
+
   it("keeps the pending approval detail behind an authenticated HR route", async () => {
     const detail = {
       id: "employee-1",
@@ -122,8 +196,138 @@ describe("HR API foundation", () => {
     expect(repository.listOrganizationUnits).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), {
       company_id: "company-a",
       type: "branch",
+      include_inactive: false,
       limit: 100,
     });
+  });
+
+  it("protects organization-unit creation with browser mutation controls", async () => {
+    const repository = {
+      createOrganizationUnit: vi.fn(async () => ({
+        id: "org-unit-1",
+        company_id: "company-a",
+        audit_event_id: "audit-1",
+        replayed: false,
+      })),
+    } as unknown as Pick<SourceHrRepository, "createOrganizationUnit">;
+    const payload = { company_id: "company-a", parent_id: "company-a", type: "branch", code: "LHR", name: "Lahore" };
+    const response = await request(appForHr(repository))
+      .post("/api/v1/hr/organization_units")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "org-create-1")
+      .send(payload);
+    expect(response.status).toBe(201);
+    expect(repository.createOrganizationUnit).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      payload,
+      "org-create-1",
+      expect.any(String),
+    );
+  });
+
+  it("protects HR master creation with browser mutation controls", async () => {
+    const repository = {
+      createMaster: vi.fn(async () => ({ id: "designation-1", company_id: "company-a", audit_event_id: "audit-2", replayed: false })),
+    } as unknown as Pick<SourceHrRepository, "createMaster">;
+    const payload = { company_id: "company-a", type: "designation", code: "HRM", name: "HR Manager", description: "Leads HR operations" };
+    const response = await request(appForHr(repository))
+      .post("/api/v1/hr/masters")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "master-create-1")
+      .send(payload);
+    expect(response.status).toBe(201);
+    expect(repository.createMaster).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), payload, "master-create-1", expect.any(String));
+  });
+
+  it("validates type-specific HR master configuration before repository access", async () => {
+    const repository = {
+      createMaster: vi.fn(async () => ({ id: "location-1", company_id: "company-a", audit_event_id: "audit-location-1", replayed: false })),
+    } as unknown as Pick<SourceHrRepository, "createMaster">;
+    const payload = {
+      company_id: "company-a", type: "work_location", code: "REMOTE", name: "Remote Pakistan",
+      description: "Home-based work", configuration_key: "working_pattern", configuration_value: "remote",
+    };
+    const accepted = await request(appForHr(repository))
+      .post("/api/v1/hr/masters")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "configured-master-1")
+      .send(payload);
+    expect(accepted.status).toBe(201);
+    expect(repository.createMaster).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), payload, "configured-master-1", expect.any(String));
+
+    const rejected = await request(appForHr(repository))
+      .post("/api/v1/hr/masters")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "configured-master-2")
+      .send({ ...payload, configuration_key: "pay_cycle" });
+    expect(rejected.status).toBe(400);
+    expect(repository.createMaster).toHaveBeenCalledTimes(1);
+
+    const missing = await request(appForHr(repository))
+      .post("/api/v1/hr/masters")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "configured-master-3")
+      .send({ company_id: "company-a", type: "employee_category", code: "STAFF", name: "Staff", description: "Salaried staff" });
+    expect(missing.status).toBe(400);
+    expect(repository.createMaster).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns company-scoped job grades from the dedicated catalogue", async () => {
+    const directory = {
+      items: [{
+        id: "grade-1", company_id: "company-a", type: "job_grade", code: "G5", name: "Grade 5",
+        description: "Professional grade", status: "active", grade_level: 5, currency_code: "PKR",
+        band_minimum: "100000.0000", band_midpoint: "125000.0000", band_maximum: "150000.0000",
+      }],
+    } as const;
+    const repository = { listJobGrades: vi.fn(async () => directory) } as unknown as Pick<SourceHrRepository, "listJobGrades">;
+    const response = await request(appForHr(repository))
+      .get("/api/v1/hr/job_grades?company_id=company-a")
+      .set("cookie", "nexora_session=token-hr");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(directory);
+    expect(repository.listJobGrades).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), "company-a");
+  });
+
+  it("validates and protects job-grade creation with browser mutation controls", async () => {
+    const repository = {
+      createJobGrade: vi.fn(async () => ({ id: "grade-5", company_id: "company-a", audit_event_id: "audit-grade-5", replayed: false })),
+    } as unknown as Pick<SourceHrRepository, "createJobGrade">;
+    const payload = {
+      company_id: "company-a", code: "G5", name: "Grade 5", description: "Professional grade",
+      grade_level: 5, currency_code: "PKR", band_minimum: "100000", band_midpoint: "125000", band_maximum: "150000",
+    };
+    const response = await request(appForHr(repository))
+      .post("/api/v1/hr/job_grades")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "job-grade-create-1")
+      .send(payload);
+
+    expect(response.status).toBe(201);
+    expect(repository.createJobGrade).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), payload, "job-grade-create-1", expect.any(String));
+
+    const invalid = await request(appForHr(repository))
+      .post("/api/v1/hr/job_grades")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "job-grade-create-2")
+      .send({ ...payload, band_midpoint: null });
+    expect(invalid.status).toBe(400);
+    expect(repository.createJobGrade).toHaveBeenCalledTimes(1);
   });
 
   it("protects employee contact creation with the standard browser mutation controls", async () => {
@@ -1041,6 +1245,23 @@ describe("HR API foundation", () => {
     expect(repository.listCompanies).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: "tenant-hr", actor: expect.objectContaining({ userId: "user-hr" }) }),
     );
+  });
+
+  it("returns the company-scoped HR operational dashboard", async () => {
+    const summary = {
+      company_id: "company-a",
+      generated_at: "2026-10-19T10:00:00.000Z",
+      metrics: { active_headcount: 12, draft_profiles: 2, pending_employee_approvals: 1, pending_movements: 3, active_departments: 4, recent_joiners: 2, master_configuration_gaps: 1 },
+      status_distribution: [{ status: "active", count: 12 }],
+      action_items: [{ key: "approvals", label: "Employee approvals", count: 1, page_id: "employee-approvals", tone: "attention" }],
+    } as const;
+    const repository = { getDashboard: vi.fn(async () => summary) } as unknown as Pick<SourceHrRepository, "getDashboard">;
+    const response = await request(appForHr(repository))
+      .get("/api/v1/hr/dashboard?company_id=company-a")
+      .set("cookie", "nexora_session=token-hr");
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(summary);
+    expect(repository.getDashboard).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), "company-a");
   });
 
   it("rejects an invalid master-data query before it reaches the repository", async () => {

@@ -2,7 +2,19 @@ import type {
   CreateHrEmployeeDraftRequest,
   HrEmployeeDetail,
   HrCompanyDirectory,
+  HrDashboardSummary,
+  HrFinancePayrollDashboard,
+  HrPositionsOrganization,
+  HrManpowerRequisitionDirectory,
+  CreateHrManpowerRequisitionRequest,
+  HrManpowerRequisitionResult,
+  SubmitHrManpowerRequisitionRequest,
+  DecideHrManpowerRequisitionRequest,
   HrOrganizationUnitDirectory,
+  CreateHrOrganizationUnitRequest,
+  UpdateHrOrganizationUnitRequest,
+  ChangeHrOrganizationUnitStatusRequest,
+  HrOrganizationUnitMutationResult,
   HrEmployeeDraftDirectory,
   HrEmployeeDraftDetail,
   HrEmployeeDraftApprovalQueue,
@@ -37,6 +49,13 @@ import type {
   HrEmploymentLifecyclePolicyActivationResult,
   HrMasterDirectory,
   HrMasterType,
+  CreateHrMasterRequest,
+  UpdateHrMasterRequest,
+  ChangeHrMasterStatusRequest,
+  HrMasterMutationResult,
+  HrJobGradeDirectory,
+  CreateHrJobGradeRequest,
+  UpdateHrJobGradeRequest,
   CreateHrJobRequest,
   HrJobResult,
   CreateHrEmployeeHireRequest,
@@ -99,14 +118,57 @@ export class HrApiClient {
     return this.api.listHrCompanies();
   }
 
+  dashboard(companyId: string): Promise<HrDashboardSummary> {
+    return this.api.getHrDashboard(query({ company_id: companyId }));
+  }
+
+  financePayrollDashboard(companyId: string): Promise<HrFinancePayrollDashboard> {
+    return this.api.getHrFinancePayrollDashboard(query({ company_id: companyId }));
+  }
+
+  positionsOrganization(input: { companyId: string; search?: string; limit?: number }): Promise<HrPositionsOrganization> {
+    return this.api.getHrPositionsOrganization(
+      query({ company_id: input.companyId, search: input.search, limit: input.limit ?? 100 }),
+    );
+  }
+
+  manpowerRequisitions(input: { companyId: string; search?: string; state?: string; limit?: number }): Promise<HrManpowerRequisitionDirectory> {
+    return this.api.listHrManpowerRequisitions(query({ company_id: input.companyId, search: input.search, state: input.state, limit: input.limit ?? 50 }));
+  }
+
+  createManpowerRequisition(input: CreateHrManpowerRequisitionRequest, csrfToken: string, idempotencyKey: string): Promise<HrManpowerRequisitionResult> {
+    return this.api.createHrManpowerRequisition(input, csrfToken, idempotencyKey);
+  }
+
+  submitManpowerRequisition(id: string, input: SubmitHrManpowerRequisitionRequest, csrfToken: string, idempotencyKey: string): Promise<HrManpowerRequisitionResult> {
+    return this.api.submitHrManpowerRequisition(id, input, csrfToken, idempotencyKey);
+  }
+
+  decideManpowerRequisition(id: string, input: DecideHrManpowerRequisitionRequest, csrfToken: string, idempotencyKey: string): Promise<HrManpowerRequisitionResult> {
+    return this.api.decideHrManpowerRequisition(id, input, csrfToken, idempotencyKey);
+  }
+
   organizationUnits(input: {
     companyId: string;
-    type?: "branch" | "department";
+    type?: "business_unit" | "division" | "branch" | "department" | "warehouse";
+    includeInactive?: boolean;
     limit?: number;
   }): Promise<HrOrganizationUnitDirectory> {
     return this.api.listHrOrganizationUnits(
-      query({ company_id: input.companyId, type: input.type, limit: input.limit ?? 200 }),
+      query({ company_id: input.companyId, type: input.type, include_inactive: input.includeInactive, limit: input.limit ?? 200 }),
     );
+  }
+
+  createOrganizationUnit(input: CreateHrOrganizationUnitRequest, csrfToken: string, idempotencyKey: string): Promise<HrOrganizationUnitMutationResult> {
+    return this.api.createHrOrganizationUnit(input, csrfToken, idempotencyKey);
+  }
+
+  updateOrganizationUnit(unitId: string, input: UpdateHrOrganizationUnitRequest, csrfToken: string, idempotencyKey: string): Promise<HrOrganizationUnitMutationResult> {
+    return this.api.updateHrOrganizationUnit(unitId, input, csrfToken, idempotencyKey);
+  }
+
+  changeOrganizationUnitStatus(unitId: string, input: ChangeHrOrganizationUnitStatusRequest, csrfToken: string, idempotencyKey: string): Promise<HrOrganizationUnitMutationResult> {
+    return this.api.changeHrOrganizationUnitStatus(unitId, input, csrfToken, idempotencyKey);
   }
 
   employees(input: {
@@ -301,6 +363,30 @@ export class HrApiClient {
 
   createJob(input: CreateHrJobRequest, csrfToken: string, idempotencyKey: string): Promise<HrJobResult> {
     return this.api.createHrJob(input, csrfToken, idempotencyKey);
+  }
+
+  createMaster(input: CreateHrMasterRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
+    return this.api.createHrMaster(input, csrfToken, idempotencyKey);
+  }
+
+  updateMaster(masterId: string, input: UpdateHrMasterRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
+    return this.api.updateHrMaster(masterId, input, csrfToken, idempotencyKey);
+  }
+
+  changeMasterStatus(masterId: string, input: ChangeHrMasterStatusRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
+    return this.api.changeHrMasterStatus(masterId, input, csrfToken, idempotencyKey);
+  }
+
+  jobGrades(companyId: string): Promise<HrJobGradeDirectory> {
+    return this.api.listHrJobGrades(query({ company_id: companyId }));
+  }
+
+  createJobGrade(input: CreateHrJobGradeRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
+    return this.api.createHrJobGrade(input, csrfToken, idempotencyKey);
+  }
+
+  updateJobGrade(gradeId: string, input: UpdateHrJobGradeRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
+    return this.api.updateHrJobGrade(gradeId, input, csrfToken, idempotencyKey);
   }
 
   createHireRequest(

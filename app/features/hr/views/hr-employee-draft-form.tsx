@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -34,10 +34,8 @@ const initialValues: FormValues = {
 
 export function HrEmployeeDraftForm({
   onAction,
-  fallback,
 }: {
   onAction: (action: string, subject?: string) => void;
-  fallback: ReactNode;
 }) {
   const { api, csrfToken, session } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
@@ -119,16 +117,13 @@ export function HrEmployeeDraftForm({
 
   if (unavailable) {
     return (
-      <>
-        <Alert>
-          <AlertTitle>Live employee draft creation is unavailable</AlertTitle>
-          <AlertDescription>
-            Your account does not currently have HR draft-create access, or the deployed API is unavailable. The
-            existing prototype form remains available and will not create live records.
-          </AlertDescription>
-        </Alert>
-        {fallback}
-      </>
+      <Alert>
+        <AlertTitle>Live employee draft creation is unavailable</AlertTitle>
+        <AlertDescription>
+          Your account does not currently have HR draft-create access, or the live API is unavailable. No mock
+          employee form is shown.
+        </AlertDescription>
+      </Alert>
     );
   }
 

@@ -13,6 +13,11 @@ import {
   hrEmployeeDirectoryQuerySchema,
   hrEmployeeDraftDirectoryQuerySchema,
   hrMasterDirectoryQuerySchema,
+  createHrMasterRequestSchema,
+  updateHrMasterRequestSchema,
+  changeHrMasterStatusRequestSchema,
+  createHrJobGradeRequestSchema,
+  updateHrJobGradeRequestSchema,
   hrEmploymentLifecyclePolicyDirectoryQuerySchema,
   createHrEmploymentLifecyclePolicyRequestSchema,
   submitHrEmploymentLifecyclePolicyRequestSchema,
@@ -23,6 +28,9 @@ import {
   decideHrEmployeeHireRequestSchema,
   hrEmployeeHireRequestDirectoryQuerySchema,
   hrOrganizationUnitDirectoryQuerySchema,
+  createHrOrganizationUnitRequestSchema,
+  updateHrOrganizationUnitRequestSchema,
+  changeHrOrganizationUnitStatusRequestSchema,
   createHrEmployeeTransferRequestSchema,
   decideHrEmployeeTransferRequestSchema,
   hrEmployeeTransferRequestDirectoryQuerySchema,
@@ -39,6 +47,11 @@ import {
   decideHrEmployeeOrganizationPlacementChangeRequestSchema,
   hrEmployeeOrganizationPlacementChangeRequestDirectoryQuerySchema,
   hrEmployeeHistoryQuerySchema,
+  hrPositionsOrganizationQuerySchema,
+  hrManpowerRequisitionQuerySchema,
+  createHrManpowerRequisitionRequestSchema,
+  submitHrManpowerRequisitionRequestSchema,
+  decideHrManpowerRequisitionRequestSchema,
 } from "@nexora/contracts";
 
 import { HttpError } from "../../http/errors.js";
@@ -56,13 +69,29 @@ export interface HrRouterDependencies {
     SourceHrRepository,
     | "listCompanies"
     | "listOrganizationUnits"
+    | "createOrganizationUnit"
+    | "updateOrganizationUnit"
+    | "changeOrganizationUnitStatus"
     | "listEmployees"
+    | "getDashboard"
+    | "getFinancePayrollDashboard"
+    | "getPositionsOrganization"
+    | "listManpowerRequisitions"
+    | "createManpowerRequisition"
+    | "submitManpowerRequisition"
+    | "decideManpowerRequisition"
     | "getEmployee"
     | "listEmployeeDrafts"
     | "getEmployeeDraft"
     | "listEmployeeDraftApprovals"
     | "getEmployeeDraftApproval"
     | "listMasters"
+    | "createMaster"
+    | "updateMaster"
+    | "changeMasterStatus"
+    | "listJobGrades"
+    | "createJobGrade"
+    | "updateJobGrade"
     | "createEmployeeDraft"
     | "updateEmployeeDraft"
     | "submitEmployeeDraft"
@@ -156,15 +185,88 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
   router.get("/companies", async (req, res) => {
     res.json(await handle(async () => employees.listCompanies(await loadHrSessionContext(req, dependencies))));
   });
+  router.get("/dashboard", async (req, res) => {
+    const companyId = z.string().trim().min(1).max(128).parse(req.query.company_id);
+    res.json(await handle(async () => dependencies.repository.getDashboard(await loadHrSessionContext(req, dependencies), companyId)));
+  });
+  router.get("/finance_payroll_dashboard", async (req, res) => {
+    const companyId = z.string().trim().min(1).max(128).parse(req.query.company_id);
+    res.json(
+      await handle(async () =>
+        dependencies.repository.getFinancePayrollDashboard(
+          await loadHrSessionContext(req, dependencies),
+          companyId,
+        ),
+      ),
+    );
+  });
+  router.get("/positions_organization", async (req, res) => {
+    const query = hrPositionsOrganizationQuerySchema.parse({
+      company_id: req.query.company_id,
+      search: req.query.search,
+      limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+    });
+    res.json(
+      await handle(async () =>
+        dependencies.repository.getPositionsOrganization(await loadHrSessionContext(req, dependencies), query),
+      ),
+    );
+  });
+  router.get("/manpower_requisitions", async (req, res) => {
+    const query = hrManpowerRequisitionQuerySchema.parse({ company_id: req.query.company_id, search: req.query.search, state: req.query.state, limit: req.query.limit === undefined ? undefined : Number(req.query.limit) });
+    res.json(await handle(async () => dependencies.repository.listManpowerRequisitions(await loadHrSessionContext(req, dependencies), query)));
+  });
+  router.post("/manpower_requisitions", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const input = createHrManpowerRequisitionRequestSchema.parse(req.body);
+    const result = await handle(async () => dependencies.repository.createManpowerRequisition(await loadHrSessionContext(req, dependencies, true), input, idempotencyKey(req), currentRequestContext().correlationId));
+    res.status(result.replayed ? 200 : 201).json(result);
+  });
+  router.post("/manpower_requisitions/:requisitionId/submit", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const id = z.string().trim().min(1).max(128).parse(req.params.requisitionId), input = submitHrManpowerRequisitionRequestSchema.parse(req.body);
+    res.json(await handle(async () => dependencies.repository.submitManpowerRequisition(await loadHrSessionContext(req, dependencies, true), id, input, idempotencyKey(req), currentRequestContext().correlationId)));
+  });
+  router.post("/manpower_requisitions/:requisitionId/decision", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const id = z.string().trim().min(1).max(128).parse(req.params.requisitionId), input = decideHrManpowerRequisitionRequestSchema.parse(req.body);
+    res.json(await handle(async () => dependencies.repository.decideManpowerRequisition(await loadHrSessionContext(req, dependencies, true), id, input, idempotencyKey(req), currentRequestContext().correlationId)));
+  });
   router.get("/organization_units", async (req, res) => {
     const query = hrOrganizationUnitDirectoryQuerySchema.parse({
       company_id: req.query.company_id,
       type: req.query.type,
+      include_inactive: req.query.include_inactive === "true",
       limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
     });
     res.json(
       await handle(async () => employees.listOrganizationUnits(await loadHrSessionContext(req, dependencies), query)),
     );
+  });
+
+  router.post("/organization_units", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const input = createHrOrganizationUnitRequestSchema.parse(req.body);
+    const result = await handle(async () => dependencies.repository.createOrganizationUnit(
+      await loadHrSessionContext(req, dependencies, true), input, idempotencyKey(req), currentRequestContext().correlationId,
+    ));
+    res.status(result.replayed ? 200 : 201).json(result);
+  });
+
+  router.patch("/organization_units/:unitId", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const input = updateHrOrganizationUnitRequestSchema.parse(req.body);
+    res.json(await handle(async () => dependencies.repository.updateOrganizationUnit(
+      await loadHrSessionContext(req, dependencies, true), req.params.unitId, input, idempotencyKey(req), currentRequestContext().correlationId,
+    )));
+  });
+
+  router.post("/organization_units/:unitId/status", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const input = changeHrOrganizationUnitStatusRequestSchema.parse(req.body);
+    res.json(await handle(async () => dependencies.repository.changeOrganizationUnitStatus(
+      await loadHrSessionContext(req, dependencies, true), req.params.unitId, input, idempotencyKey(req), currentRequestContext().correlationId,
+    )));
   });
 
   router.get("/employees", async (req, res) => {
@@ -686,6 +788,42 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
       limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
     });
     res.json(await handle(async () => masters.list(await loadHrSessionContext(req, dependencies), query)));
+  });
+  router.post("/masters", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const input = createHrMasterRequestSchema.parse(req.body);
+    const result = await handle(async () => dependencies.repository.createMaster(await loadHrSessionContext(req, dependencies, true), input, idempotencyKey(req), currentRequestContext().correlationId));
+    res.status(result.replayed ? 200 : 201).json(result);
+  });
+  router.patch("/masters/:masterId", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const input = updateHrMasterRequestSchema.parse(req.body);
+    res.json(await handle(async () => dependencies.repository.updateMaster(await loadHrSessionContext(req, dependencies, true), req.params.masterId, input, idempotencyKey(req), currentRequestContext().correlationId)));
+  });
+  router.post("/masters/:masterId/status", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const input = changeHrMasterStatusRequestSchema.parse(req.body);
+    res.json(await handle(async () => dependencies.repository.changeMasterStatus(await loadHrSessionContext(req, dependencies, true), req.params.masterId, input, idempotencyKey(req), currentRequestContext().correlationId)));
+  });
+  router.get("/job_grades", async (req, res) => {
+    const companyId = z.string().trim().min(1).max(128).parse(req.query.company_id);
+    res.json(await handle(async () => dependencies.repository.listJobGrades(await loadHrSessionContext(req, dependencies), companyId)));
+  });
+  router.post("/job_grades", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const input = createHrJobGradeRequestSchema.parse(req.body);
+    const result = await handle(async () => dependencies.repository.createJobGrade(
+      await loadHrSessionContext(req, dependencies, true), input, idempotencyKey(req), currentRequestContext().correlationId,
+    ));
+    res.status(result.replayed ? 200 : 201).json(result);
+  });
+  router.patch("/job_grades/:gradeId", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const gradeId = z.string().trim().min(1).max(128).parse(req.params.gradeId);
+    const input = updateHrJobGradeRequestSchema.parse(req.body);
+    res.json(await handle(async () => dependencies.repository.updateJobGrade(
+      await loadHrSessionContext(req, dependencies, true), gradeId, input, idempotencyKey(req), currentRequestContext().correlationId,
+    )));
   });
   router.post("/jobs", async (req, res) => {
     trustedOrigin(req, dependencies.allowedOrigins);

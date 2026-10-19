@@ -35,7 +35,9 @@ export const hrEmployeeSummarySchema = z.strictObject({
   joined_on: isoDate,
   company_id: identifier,
   branch_id: identifier,
+  branch: z.string().min(1).max(200),
   department_id: identifier,
+  department: z.string().min(1).max(200),
   designation: z.string().min(1).max(160),
 });
 
@@ -58,6 +60,7 @@ export type HrCompanyDirectory = z.infer<typeof hrCompanyDirectorySchema>;
 export const hrOrganizationUnitDirectoryQuerySchema = z.strictObject({
   company_id: identifier,
   type: z.enum(["business_unit", "division", "branch", "department", "warehouse"]).optional(),
+  include_inactive: z.boolean().default(false),
   limit: z.number().int().min(1).max(200).default(200),
 });
 export const hrOrganizationUnitDirectorySchema = z.strictObject({
@@ -68,11 +71,44 @@ export const hrOrganizationUnitDirectorySchema = z.strictObject({
       type: z.enum(["business_unit", "division", "branch", "department", "warehouse"]),
       code: z.string().min(1).max(64),
       name: z.string().min(1).max(200),
+      status: z.enum(["active", "inactive"]),
+      created_at: z.string().datetime(),
+      head_name: z.string().nullable(),
+      employee_count: z.number().int().nonnegative(),
     }),
   ),
 });
 export type HrOrganizationUnitDirectoryQuery = z.infer<typeof hrOrganizationUnitDirectoryQuerySchema>;
 export type HrOrganizationUnitDirectory = z.infer<typeof hrOrganizationUnitDirectorySchema>;
+
+const hrOrganizationUnitTypeSchema = z.enum(["business_unit", "division", "branch", "department", "warehouse"]);
+export const createHrOrganizationUnitRequestSchema = z.strictObject({
+  company_id: identifier,
+  parent_id: identifier,
+  type: hrOrganizationUnitTypeSchema,
+  code: z.string().trim().min(1).max(64),
+  name: z.string().trim().min(1).max(200),
+});
+export const updateHrOrganizationUnitRequestSchema = z.strictObject({
+  company_id: identifier,
+  parent_id: identifier,
+  code: z.string().trim().min(1).max(64),
+  name: z.string().trim().min(1).max(200),
+});
+export const changeHrOrganizationUnitStatusRequestSchema = z.strictObject({
+  company_id: identifier,
+  status: z.enum(["active", "inactive"]),
+});
+export const hrOrganizationUnitMutationResultSchema = z.strictObject({
+  id: identifier,
+  company_id: identifier,
+  audit_event_id: identifier,
+  replayed: z.boolean(),
+});
+export type CreateHrOrganizationUnitRequest = z.infer<typeof createHrOrganizationUnitRequestSchema>;
+export type UpdateHrOrganizationUnitRequest = z.infer<typeof updateHrOrganizationUnitRequestSchema>;
+export type ChangeHrOrganizationUnitStatusRequest = z.infer<typeof changeHrOrganizationUnitStatusRequestSchema>;
+export type HrOrganizationUnitMutationResult = z.infer<typeof hrOrganizationUnitMutationResultSchema>;
 export const hrOrganizationPlacementSnapshotSchema = z.strictObject({
   business_unit_id: identifier.nullable(),
   division_id: identifier.nullable(),
@@ -381,6 +417,158 @@ export const hrMasterDirectoryQuerySchema = z.strictObject({
   limit: z.number().int().min(1).max(100).default(100),
 });
 
+export const hrDashboardSummarySchema = z.strictObject({
+  company_id: identifier,
+  generated_at: z.string().datetime({ offset: true }),
+  metrics: z.strictObject({
+    active_headcount: z.number().int().min(0),
+    draft_profiles: z.number().int().min(0),
+    pending_employee_approvals: z.number().int().min(0),
+    pending_movements: z.number().int().min(0),
+    active_departments: z.number().int().min(0),
+    recent_joiners: z.number().int().min(0),
+    master_configuration_gaps: z.number().int().min(0),
+  }),
+  status_distribution: z.array(z.strictObject({ status: z.string().min(1).max(40), count: z.number().int().min(0) })),
+  action_items: z.array(z.strictObject({
+    key: z.string().min(1).max(80),
+    label: z.string().min(1).max(160),
+    count: z.number().int().min(0),
+    page_id: z.string().min(1).max(128),
+    tone: z.enum(["neutral", "attention"]),
+  })),
+});
+export type HrDashboardSummary = z.infer<typeof hrDashboardSummarySchema>;
+
+const hrPayrollPeriodStateSchema = z.enum([
+  "open",
+  "processing",
+  "calculated",
+  "under_review",
+  "approved",
+  "posting_ready",
+  "posted",
+  "paid",
+  "closed",
+]);
+const hrPayrollMoneySchema = z.string().regex(/^-?\d+(?:\.\d{1,4})?$/);
+const hrFinancePayrollPeriodSummarySchema = z.strictObject({
+  id: identifier,
+  month: isoDate,
+  state: hrPayrollPeriodStateSchema,
+  run_number: z.number().int().min(0),
+  currency_code: z.string().regex(/^[A-Z]{3}$/),
+  employee_count: z.number().int().min(0),
+  gross: hrPayrollMoneySchema,
+  deductions: hrPayrollMoneySchema,
+  net: hrPayrollMoneySchema,
+  warning_count: z.number().int().min(0),
+  journal_state: z.enum(["prepared", "accepted", "posted", "rejected"]).nullable(),
+  journal_balanced: z.boolean().nullable(),
+  payment_state: z.string().min(1).max(40).nullable(),
+  payment_count: z.number().int().min(0),
+  confirmed_payment_count: z.number().int().min(0),
+  payment_total: hrPayrollMoneySchema,
+});
+export const hrFinancePayrollDashboardSchema = z.strictObject({
+  company_id: identifier,
+  generated_at: z.string().datetime({ offset: true }),
+  metrics: z.strictObject({
+    current_employees: z.number().int().min(0),
+    salary_covered_employees: z.number().int().min(0),
+    salary_gaps: z.number().int().min(0),
+    total_periods: z.number().int().min(0),
+    review_queue: z.number().int().min(0),
+    journal_queue: z.number().int().min(0),
+    payment_exceptions: z.number().int().min(0),
+  }),
+  latest_period: hrFinancePayrollPeriodSummarySchema.nullable(),
+  recent_periods: z.array(hrFinancePayrollPeriodSummarySchema),
+});
+export type HrFinancePayrollDashboard = z.infer<typeof hrFinancePayrollDashboardSchema>;
+
+export const hrPositionsOrganizationQuerySchema = z.strictObject({
+  company_id: identifier,
+  search: z.string().trim().max(160).optional(),
+  limit: z.number().int().min(1).max(250).default(100),
+});
+export const hrPositionsOrganizationSchema = z.strictObject({
+  company_id: identifier,
+  generated_at: z.string().datetime({ offset: true }),
+  metrics: z.strictObject({
+    current_assignments: z.number().int().min(0),
+    active_departments: z.number().int().min(0),
+    represented_jobs: z.number().int().min(0),
+    reporting_managers: z.number().int().min(0),
+    without_manager: z.number().int().min(0),
+  }),
+  departments: z.array(z.strictObject({
+    department_id: identifier,
+    department: z.string().min(1).max(200),
+    active_people: z.number().int().min(0),
+    job_count: z.number().int().min(0),
+    manager_count: z.number().int().min(0),
+  })),
+  items: z.array(z.strictObject({
+    assignment_id: identifier,
+    employee_id: identifier,
+    employee_number: z.string().min(1).max(32),
+    employee_name: z.string().min(1).max(320),
+    employee_status: hrEmployeeStatusSchema,
+    branch_id: identifier,
+    branch: z.string().min(1).max(200),
+    department_id: identifier,
+    department: z.string().min(1).max(200),
+    job: z.string().min(1).max(160),
+    designation: z.string().min(1).max(160),
+    job_grade: z.string().min(1).max(160),
+    reporting_manager: z.string().min(1).max(320).nullable(),
+    effective_from: isoDate,
+  })),
+});
+export type HrPositionsOrganizationQuery = z.infer<typeof hrPositionsOrganizationQuerySchema>;
+export type HrPositionsOrganization = z.infer<typeof hrPositionsOrganizationSchema>;
+
+const hrMoneySchema = z.string().regex(/^\d+(?:\.\d{1,4})?$/);
+export const hrManpowerRequisitionQuerySchema = z.strictObject({
+  company_id: identifier,
+  search: z.string().trim().max(160).optional(),
+  state: z.enum(["draft", "submitted", "approved", "rejected", "cancelled"]).optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+});
+export const hrManpowerRequisitionSchema = z.strictObject({
+  id: identifier, company_id: identifier, reference: z.string().min(1).max(32),
+  job_title: z.string().min(1).max(160), designation: z.string().min(1).max(160), job_grade: z.string().min(1).max(160),
+  employment_type: z.string().min(1).max(160), branch: z.string().min(1).max(200), department: z.string().min(1).max(200),
+  positions_requested: z.number().int().min(1), position_type: z.enum(["new_position", "replacement"]),
+  salary_minimum: hrMoneySchema, salary_maximum: hrMoneySchema, currency_code: z.string().regex(/^[A-Z]{3}$/),
+  target_start_date: isoDate, reason: z.string().min(1).max(2000), required_skills: z.array(z.string().min(1).max(100)).max(30),
+  state: z.enum(["draft", "submitted", "approved", "rejected", "cancelled"]), created_by: identifier,
+  submitted_by: identifier.nullable(), submitted_at: z.string().datetime().nullable(), decided_by: identifier.nullable(),
+  decided_at: z.string().datetime().nullable(), decision_reason: z.string().max(1000).nullable(), created_at: z.string().datetime(),
+});
+export const hrManpowerRequisitionDirectorySchema = z.strictObject({ items: z.array(hrManpowerRequisitionSchema) });
+export const createHrManpowerRequisitionRequestSchema = z.strictObject({
+  company_id: identifier, job_title: z.string().trim().min(1).max(160), designation_id: identifier, job_grade_id: identifier,
+  employment_type_id: identifier, branch_id: identifier, department_id: identifier, positions_requested: z.number().int().min(1).max(999),
+  position_type: z.enum(["new_position", "replacement"]), replacement_employee_id: identifier.optional(),
+  salary_minimum: hrMoneySchema, salary_maximum: hrMoneySchema, currency_code: z.string().regex(/^[A-Z]{3}$/), target_start_date: isoDate,
+  reason: z.string().trim().min(1).max(2000), required_skills: z.array(z.string().trim().min(1).max(100)).max(30).default([]),
+}).superRefine((value, context) => {
+  if (value.position_type === "replacement" && !value.replacement_employee_id) context.addIssue({ code: "custom", path: ["replacement_employee_id"], message: "Replacement employee is required." });
+  if (value.position_type === "new_position" && value.replacement_employee_id) context.addIssue({ code: "custom", path: ["replacement_employee_id"], message: "New positions cannot name a replacement employee." });
+  if (Number(value.salary_minimum) > Number(value.salary_maximum)) context.addIssue({ code: "custom", path: ["salary_maximum"], message: "Maximum salary must be at least the minimum." });
+});
+export const hrManpowerRequisitionResultSchema = z.strictObject({ id: identifier, reference: z.string().min(1).max(32), state: z.enum(["draft", "submitted", "approved", "rejected", "cancelled"]), company_id: identifier, audit_event_id: identifier, replayed: z.boolean() });
+export const submitHrManpowerRequisitionRequestSchema = z.strictObject({ reason: z.string().trim().min(1).max(1000) });
+export const decideHrManpowerRequisitionRequestSchema = z.strictObject({ decision: z.enum(["approved", "rejected"]), reason: z.string().trim().min(1).max(1000) });
+export type HrManpowerRequisitionQuery = z.infer<typeof hrManpowerRequisitionQuerySchema>;
+export type HrManpowerRequisitionDirectory = z.infer<typeof hrManpowerRequisitionDirectorySchema>;
+export type CreateHrManpowerRequisitionRequest = z.infer<typeof createHrManpowerRequisitionRequestSchema>;
+export type HrManpowerRequisitionResult = z.infer<typeof hrManpowerRequisitionResultSchema>;
+export type SubmitHrManpowerRequisitionRequest = z.infer<typeof submitHrManpowerRequisitionRequestSchema>;
+export type DecideHrManpowerRequisitionRequest = z.infer<typeof decideHrManpowerRequisitionRequestSchema>;
+
 export const hrMasterRecordSchema = z.strictObject({
   id: identifier,
   company_id: identifier,
@@ -389,6 +577,8 @@ export const hrMasterRecordSchema = z.strictObject({
   name: z.string().min(1).max(160),
   description: z.string().max(1000),
   status: z.enum(["active", "inactive"]),
+  configuration_key: z.enum(["default_nominal", "working_pattern", "payment_route", "pay_cycle"]).nullable(),
+  configuration_value: z.string().min(1).max(128).nullable(),
 });
 export const createHrJobRequestSchema = z.strictObject({
   company_id: identifier,
@@ -407,6 +597,80 @@ export const hrJobResultSchema = z.strictObject({
   audit_event_id: identifier,
   replayed: z.boolean(),
 });
+const hrMasterConfigurationFields = {
+  configuration_key: z.enum(["default_nominal", "working_pattern", "payment_route", "pay_cycle"]).nullable().optional(),
+  configuration_value: z.string().trim().min(1).max(128).nullable().optional(),
+};
+const coherentMasterConfiguration = (value: { configuration_key?: string | null | undefined; configuration_value?: string | null | undefined }) =>
+  (value.configuration_key == null) === (value.configuration_value == null);
+const validMasterConfiguration = (value: { type: z.infer<typeof hrMasterTypeSchema>; configuration_key?: string | null | undefined; configuration_value?: string | null | undefined }) => {
+  const expected = {
+    cost_center: "default_nominal",
+    work_location: "working_pattern",
+    employment_type: "payment_route",
+    employee_category: "pay_cycle",
+  } as const;
+  const expectedKey = expected[value.type as keyof typeof expected];
+  if (expectedKey) return value.configuration_key === expectedKey && value.configuration_value != null;
+  return value.configuration_key == null && value.configuration_value == null;
+};
+export const createHrMasterRequestSchema = z.strictObject({
+  company_id: identifier,
+  type: hrMasterTypeSchema,
+  code: z.string().trim().regex(/^[A-Z0-9][A-Z0-9._/-]{0,31}$/),
+  name: z.string().trim().min(1).max(160),
+  description: z.string().trim().max(1000).default(""),
+  ...hrMasterConfigurationFields,
+}).refine(coherentMasterConfiguration, "Provide both configuration key and value, or leave both blank.")
+  .refine(validMasterConfiguration, "The configuration field is not valid for this HR master type.");
+export const updateHrMasterRequestSchema = z.strictObject({
+  company_id: identifier,
+  code: z.string().trim().regex(/^[A-Z0-9][A-Z0-9._/-]{0,31}$/),
+  name: z.string().trim().min(1).max(160),
+  description: z.string().trim().max(1000).default(""),
+  ...hrMasterConfigurationFields,
+}).refine(coherentMasterConfiguration, "Provide both configuration key and value, or leave both blank.");
+export const changeHrMasterStatusRequestSchema = z.strictObject({
+  company_id: identifier,
+  status: z.enum(["active", "inactive"]),
+});
+export const hrMasterMutationResultSchema = z.strictObject({
+  id: identifier,
+  company_id: identifier,
+  audit_event_id: identifier,
+  replayed: z.boolean(),
+});
+const hrJobGradeAmountSchema = z.string().regex(/^\d{1,16}(\.\d{1,4})?$/);
+export const hrJobGradeRecordSchema = hrMasterRecordSchema.extend({
+  grade_level: z.number().int().min(1).max(999),
+  currency_code: z.string().regex(/^[A-Z]{3}$/),
+  band_minimum: z.string().nullable(),
+  band_midpoint: z.string().nullable(),
+  band_maximum: z.string().nullable(),
+});
+export const hrJobGradeDirectorySchema = z.strictObject({ items: z.array(hrJobGradeRecordSchema) });
+const hrJobGradeFields = {
+  company_id: identifier,
+  code: z.string().trim().regex(/^[A-Z0-9][A-Z0-9._/-]{0,31}$/),
+  name: z.string().trim().min(1).max(160),
+  description: z.string().trim().max(1000).default(""),
+  grade_level: z.number().int().min(1).max(999),
+  currency_code: z.string().trim().regex(/^[A-Z]{3}$/),
+  band_minimum: hrJobGradeAmountSchema.nullable().default(null),
+  band_midpoint: hrJobGradeAmountSchema.nullable().default(null),
+  band_maximum: hrJobGradeAmountSchema.nullable().default(null),
+};
+const coherentJobGradeBand = (value: { band_minimum: string | null; band_midpoint: string | null; band_maximum: string | null }) => {
+  const values = [value.band_minimum, value.band_midpoint, value.band_maximum];
+  if (values.every((item) => item === null)) return true;
+  if (values.some((item) => item === null)) return false;
+  return Number(value.band_minimum) <= Number(value.band_midpoint) && Number(value.band_midpoint) <= Number(value.band_maximum);
+};
+export const createHrJobGradeRequestSchema = z.strictObject(hrJobGradeFields).refine(coherentJobGradeBand, "Provide all band amounts in minimum-to-maximum order, or leave all three blank.");
+export const updateHrJobGradeRequestSchema = z.strictObject(hrJobGradeFields).refine(coherentJobGradeBand, "Provide all band amounts in minimum-to-maximum order, or leave all three blank.");
+export type HrJobGradeDirectory = z.infer<typeof hrJobGradeDirectorySchema>;
+export type CreateHrJobGradeRequest = z.infer<typeof createHrJobGradeRequestSchema>;
+export type UpdateHrJobGradeRequest = z.infer<typeof updateHrJobGradeRequestSchema>;
 
 /**
  * A hire request captures proposed employment context only. It must not be
@@ -987,6 +1251,10 @@ export type HrEmployeeDetail = z.infer<typeof hrEmployeeDetailSchema>;
 export type HrMasterDirectory = z.infer<typeof hrMasterDirectorySchema>;
 export type CreateHrJobRequest = z.infer<typeof createHrJobRequestSchema>;
 export type HrJobResult = z.infer<typeof hrJobResultSchema>;
+export type CreateHrMasterRequest = z.infer<typeof createHrMasterRequestSchema>;
+export type UpdateHrMasterRequest = z.infer<typeof updateHrMasterRequestSchema>;
+export type ChangeHrMasterStatusRequest = z.infer<typeof changeHrMasterStatusRequestSchema>;
+export type HrMasterMutationResult = z.infer<typeof hrMasterMutationResultSchema>;
 export type CreateHrEmployeeHireRequest = z.infer<typeof createHrEmployeeHireRequestSchema>;
 export type HrEmployeeHireRequestResult = z.infer<typeof hrEmployeeHireRequestResultSchema>;
 export type DecideHrEmployeeHireRequest = z.infer<typeof decideHrEmployeeHireRequestSchema>;
