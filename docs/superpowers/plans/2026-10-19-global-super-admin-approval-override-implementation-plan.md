@@ -4,7 +4,7 @@
 > `docs/superpowers/specs/2026-10-19-global-super-admin-approval-override-design.md`
 
 - Date: 2026-10-19
-- Status: ready for implementation
+- Status: implementation in progress
 - Scope: global same-actor approval override for governed super administrators
 - Initial acceptance actor: `shoaib`
 - Database: additive Security 0014, HR 0034 and Finance 0004 migrations
@@ -28,7 +28,10 @@ This phase finishes before Bank Payments begins.
    `platform.approval.override` permission.
 3. The actor must also possess the workflow's normal decision permission.
 4. Impersonated sessions cannot use or exercise the override.
-5. The existing decision reason becomes the mandatory override reason.
+5. An existing decision reason becomes the mandatory override reason where the
+   contract already provides one. Session-policy, access-review, delegation
+   and impersonation decisions receive a backward-compatible optional reason
+   field that is required server-side only when an override is exercised.
 6. Ordinary same-actor decisions remain forbidden.
 7. Override evidence is immutable, tenant scoped and transactionally coupled
    to the decision.
@@ -118,6 +121,10 @@ Create one pure, reusable server-side decision policy.
    treat impersonation as eligible.
 5. Do not perform database writes or accept browser claims in the pure policy.
 
+The policy applies only to the approval/decision actor-separation rule. It
+does not relax self-grant request creation, self-impersonation, delegation to
+self, access-review item reviewer separation, or HR self-reporting rules.
+
 **Tests**
 
 - Distinct authorized approver succeeds without override.
@@ -178,6 +185,11 @@ Where an existing constraint enforces different actors, replace it additively
 with `different actor OR valid override reference`. Do not weaken lifecycle or
 approval-evidence constraints.
 
+Session-policy approval and activation are independent governed decisions and
+must retain separate override-event references. Replace the current
+`security.authorization.administer` self-decision shortcut with the governed
+role-and-permission policy; do not preserve it as an unaudited bypass.
+
 **Tests**
 
 - Clean migration chain reaches Security version 14.
@@ -219,6 +231,11 @@ decision authorities:
 Change only constraints that directly prohibit same-actor approval. Leave
 Payroll/statutory tables without live decision services unchanged until their
 own production slice, as required by the design.
+
+Lifecycle-policy approval and activation are independent governed decisions
+and must retain separate override-event references. Additive replacements for
+existing immutability triggers must allow only the new evidence reference,
+without widening the set of mutable business fields.
 
 **Finance work**
 
@@ -318,6 +335,8 @@ Apply the shared policy and evidence to every current Security decision path.
 5. Attach the safe override marker to existing audit events.
 6. Cover role, assignment, user, session-policy, access-review, delegation and
    impersonation decisions.
+7. Include `submitted_by` in delegation and impersonation maker evidence and
+   require separate evidence for session-policy approval versus activation.
 
 **Tests**
 
@@ -348,8 +367,10 @@ Apply the shared policy consistently to current HR approval workflows.
 3. Persist override evidence/reference atomically for employee drafts,
    lifecycle policies, Hire, Transfer, Promotion, manager, work-location and
    organization-placement changes.
-4. Include the safe override marker in HR lifecycle/audit evidence.
-5. Do not extend this phase into inactive Payroll/statutory decision APIs.
+4. Treat lifecycle-policy approval and activation as separate decisions with
+   separate evidence references.
+5. Include the safe override marker in HR lifecycle/audit evidence.
+6. Do not extend this phase into inactive Payroll/statutory decision APIs.
 
 **Tests**
 
@@ -417,6 +438,11 @@ Add safe optional review fields where ownership is not already available:
 Do not expose role-policy IDs, unrestricted audit metadata or a client-writable
 override flag. Existing decision requests keep their current reason and
 expected-version fields.
+
+Add `reason?: string` to the session-policy, access-review campaign,
+delegation and impersonation decision schemas. This remains optional for an
+independent checker and is validated as nonblank by the server only for a
+same-actor override.
 
 ### SOA-11 — Add shared warning and update live review surfaces
 

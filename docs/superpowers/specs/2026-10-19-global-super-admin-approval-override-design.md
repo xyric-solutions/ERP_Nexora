@@ -1,6 +1,6 @@
 # Global Super-Administrator Approval Override Design
 
-- Status: approved design — pending written-spec review
+- Status: approved design — implementation in progress
 - Approved direction: 2026-10-19
 - Scope: all current and future governed Nexora approval workflows
 - Initial privileged role: `super_administrator`
@@ -27,7 +27,9 @@ that rule unchanged.
 - Banking, HR and Security repositories each implement their own same-actor
   rejection logic.
 - Current Security approvals include role/assignment administration, session
-  policies, access reviews, delegation and impersonation requests.
+  policies, access-review campaign approval, delegation and impersonation
+  requests. Access-review item certification remains a distinct reviewer
+  workflow and is not part of this override.
 - Current HR approvals include employee drafts, lifecycle policies, Hire,
   Transfer, Promotion, manager, work-location and organization-placement
   changes.
@@ -69,6 +71,11 @@ The override removes only the distinct-actor restriction. It does not bypass:
 - open-period, posting, reversal or idempotency controls;
 - immutable evidence and audit requirements; or
 - the existing prohibition on mutations during impersonation.
+
+It also does not relax request-creation or business-integrity prohibitions,
+including assigning a role to oneself through a self-grant request,
+delegating authority to oneself, self-impersonation, making a campaign owner
+its item reviewer, or making an employee report to themselves.
 
 An invalid record cannot become valid merely because the actor is a super
 administrator.
@@ -131,6 +138,11 @@ migration files are never edited. Workflows that already depend on immutable
 domain events also reference the override event from their decision evidence
 or safe audit snapshot.
 
+Rows that contain more than one governed decision use action-specific
+references. In particular, Security session-policy approval and activation,
+and HR lifecycle-policy approval and activation, cannot share one evidence
+reference.
+
 ## Transaction and failure behavior
 
 For a self-decision, the domain repository performs one transaction:
@@ -161,6 +173,11 @@ both the maker and an eligible super administrator:
 
 Ordinary users continue to see self-approval blocked. The UI is explanatory;
 the API and database remain authoritative.
+
+Where a current decision contract has no reason field (session policy,
+access-review campaign, delegation and impersonation), an optional reason is
+added compatibly and becomes required only when the server selects the
+override path.
 
 ## Current workflow rollout
 

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import type { AuthenticatedAccount } from "@nexora/auth";
+import { evaluateApprovalActor, type AuthenticatedAccount } from "@nexora/auth";
 import type {
   CreateHrEmployeeDraftRequest,
   HrEmployeeDraftResult,
@@ -92,6 +92,8 @@ import type {
   HrOrganizationPlacementSnapshot,
 } from "@nexora/contracts";
 import type { Pool, PoolClient } from "pg";
+
+import { ApprovalOverrideWriterError, writeApprovalOverrideEvent } from "../security/approval-override-writer.js";
 
 export class HrApiError extends Error {
   constructor(
@@ -1093,16 +1095,27 @@ export class SourceHrRepository {
           "HR_APPROVAL_NOT_PENDING",
           "The employee approval is not pending in your company scope.",
         );
-      if (before.submitted_by === context.actor.userId || before.created_by === context.actor.userId)
-        throw new HrApiError(
-          403,
-          "HR_SELF_APPROVAL_FORBIDDEN",
-          "A different HR approver must decide this employee draft.",
-        );
+      const approvalOverrideEventId = await this.resolveApprovalOverride(client, context, {
+        normalDecisionPermission: "hr.employee.approve",
+        makerActorIds: [before.created_by, before.submitted_by],
+        resourceType: "hr.employee_draft_approval",
+        resourceId: before.approval_id,
+        decisionAction: input.decision === "approved" ? "approve" : "reject",
+        reason: input.reason,
+        correlationId,
+        idempotencyKey,
+      });
       const employeeStatus = input.decision === "rejected" ? "draft" : "pending_approval";
       await client.query(
-        "update hr_employee_draft_approval set state=$3,decided_by=$4,decided_at=now(),decision_reason=$5 where tenant_id=$1 and id=$2",
-        [context.tenantId, before.approval_id, input.decision, context.actor.userId, input.reason],
+        "update hr_employee_draft_approval set state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,approval_override_event_id=$6 where tenant_id=$1 and id=$2",
+        [
+          context.tenantId,
+          before.approval_id,
+          input.decision,
+          context.actor.userId,
+          input.reason,
+          approvalOverrideEventId,
+        ],
       );
       if (input.decision === "rejected")
         await client.query(
@@ -1123,7 +1136,12 @@ export class SourceHrRepository {
       const audit = await this.appendPlatformAudit(client, context, correlationId, "hr.employee.approve", {
         entityId: employeeId,
         before: { status: "pending_approval", approval: "pending" },
-        after: { status: employeeStatus, approval: input.decision, reason: input.reason },
+        after: {
+          status: employeeStatus,
+          approval: input.decision,
+          reason: input.reason,
+          super_admin_override: approvalOverrideEventId !== null,
+        },
       });
       const result = {
         id: employeeId,
@@ -2012,17 +2030,22 @@ export class SourceHrRepository {
           "HR_LIFECYCLE_POLICY_NOT_PENDING",
           "The lifecycle policy is not pending in your company scope.",
         );
-      if (before.created_by === context.actor.userId || before.submitted_by === context.actor.userId)
-        throw new HrApiError(
-          403,
-          "HR_SELF_APPROVAL_FORBIDDEN",
-          "A different lifecycle-policy approver must decide this policy.",
-        );
+      const approvalOverrideEventId = await this.resolveApprovalOverride(client, context, {
+        normalDecisionPermission: "hr.employment_lifecycle_policy.approve",
+        makerActorIds: [before.created_by, before.submitted_by ?? ""],
+        resourceType: "hr.employment_lifecycle_policy",
+        resourceId: policyId,
+        decisionAction: "approve",
+        reason: input.reason,
+        correlationId,
+        idempotencyKey,
+      });
       await client.query(
         `update hr_employment_lifecycle_policy
-            set status='approved',approved_by=$3,approved_at=now(),updated_at=now()
+            set status='approved',approved_by=$3,approved_at=now(),updated_at=now(),
+                approval_override_event_id=$4
           where tenant_id=$1 and id=$2`,
-        [context.tenantId, policyId, context.actor.userId],
+        [context.tenantId, policyId, context.actor.userId, approvalOverrideEventId],
       );
       const audit = await this.appendPlatformAudit(
         client,
@@ -2033,7 +2056,12 @@ export class SourceHrRepository {
           entityId: policyId,
           entityType: "employment_lifecycle_policy",
           before: { ...before, status: "pending_approval" },
-          after: { ...before, status: "approved", reason: input.reason },
+          after: {
+            ...before,
+            status: "approved",
+            reason: input.reason,
+            super_admin_override: approvalOverrideEventId !== null,
+          },
         },
       );
       const result: HrEmploymentLifecyclePolicyApprovalResult = {
@@ -2121,12 +2149,16 @@ export class SourceHrRepository {
           "HR_LIFECYCLE_POLICY_NOT_ACTIVATABLE",
           "The policy must be approved, currently effective, and within your company scope.",
         );
-      if (before.created_by === context.actor.userId || before.submitted_by === context.actor.userId)
-        throw new HrApiError(
-          403,
-          "HR_SELF_ACTIVATION_FORBIDDEN",
-          "A policy creator or submitter cannot activate this policy.",
-        );
+      const activationOverrideEventId = await this.resolveApprovalOverride(client, context, {
+        normalDecisionPermission: "hr.employment_lifecycle_policy.approve",
+        makerActorIds: [before.created_by, before.submitted_by ?? ""],
+        resourceType: "hr.employment_lifecycle_policy",
+        resourceId: policyId,
+        decisionAction: "activate",
+        reason: input.reason,
+        correlationId,
+        idempotencyKey,
+      });
       const overlapping = await client.query(
         `select 1 from hr_employment_lifecycle_policy where tenant_id=$1 and legal_employer_id=$2 and status='active'
            and daterange(effective_from,effective_to,'[]') && daterange(current_date,current_date,'[]') limit 1`,
@@ -2139,8 +2171,11 @@ export class SourceHrRepository {
           "An active lifecycle policy already governs this company today.",
         );
       await client.query(
-        `update hr_employment_lifecycle_policy set status='active',activated_by=$3,activated_at=now(),updated_at=now() where tenant_id=$1 and id=$2`,
-        [context.tenantId, policyId, context.actor.userId],
+        `update hr_employment_lifecycle_policy
+            set status='active',activated_by=$3,activated_at=now(),updated_at=now(),
+                activation_override_event_id=$4
+          where tenant_id=$1 and id=$2`,
+        [context.tenantId, policyId, context.actor.userId, activationOverrideEventId],
       );
       const audit = await this.appendPlatformAudit(
         client,
@@ -2151,7 +2186,12 @@ export class SourceHrRepository {
           entityId: policyId,
           entityType: "employment_lifecycle_policy",
           before: { ...before, status: "approved" },
-          after: { ...before, status: "active", reason: input.reason },
+          after: {
+            ...before,
+            status: "active",
+            reason: input.reason,
+            super_admin_override: activationOverrideEventId !== null,
+          },
         },
       );
       const result: HrEmploymentLifecyclePolicyActivationResult = {
@@ -2443,15 +2483,22 @@ export class SourceHrRepository {
       const row = pending.rows[0];
       if (!row)
         throw new HrApiError(409, "HR_HIRE_NOT_PENDING", "The hire request is not pending in your company scope.");
-      if (row.requested_by === context.actor.userId)
-        throw new HrApiError(
-          403,
-          "HR_SELF_APPROVAL_FORBIDDEN",
-          "A different HR approver must decide this hire request.",
-        );
+      const approvalOverrideEventId = await this.resolveApprovalOverride(client, context, {
+        normalDecisionPermission: "hr.employment_lifecycle.approve",
+        makerActorIds: [row.requested_by],
+        resourceType: "hr.employment_lifecycle_request",
+        resourceId: requestId,
+        decisionAction: input.decision === "approved" ? "approve" : "reject",
+        reason: input.reason,
+        correlationId,
+        idempotencyKey,
+      });
       await client.query(
-        `update hr_employment_lifecycle_request set approval_state=$3,decided_by=$4,decided_at=now(),decision_comment=$5 where tenant_id=$1 and id=$2`,
-        [context.tenantId, requestId, input.decision, context.actor.userId, input.reason],
+        `update hr_employment_lifecycle_request
+            set approval_state=$3,decided_by=$4,decided_at=now(),decision_comment=$5,
+                approval_override_event_id=$6
+          where tenant_id=$1 and id=$2`,
+        [context.tenantId, requestId, input.decision, context.actor.userId, input.reason, approvalOverrideEventId],
       );
       let assignmentId: string | null = null;
       if (input.decision === "approved") {
@@ -2521,7 +2568,12 @@ export class SourceHrRepository {
           entityId: requestId,
           entityType: "employment_relationship",
           before: { status: "pending" },
-          after: { status: input.decision, relationship_id: row.relationship_id, assignment_id: assignmentId },
+          after: {
+            status: input.decision,
+            relationship_id: row.relationship_id,
+            assignment_id: assignmentId,
+            super_admin_override: approvalOverrideEventId !== null,
+          },
         },
       );
       const result: HrEmployeeHireDecisionResult = {
@@ -2834,12 +2886,16 @@ export class SourceHrRepository {
           "HR_TRANSFER_NOT_PENDING",
           "The transfer request is not pending in your company scope.",
         );
-      if (row.requested_by === context.actor.userId)
-        throw new HrApiError(
-          403,
-          "HR_SELF_APPROVAL_FORBIDDEN",
-          "A different HR approver must decide this transfer request.",
-        );
+      const approvalOverrideEventId = await this.resolveApprovalOverride(client, context, {
+        normalDecisionPermission: "hr.employee_assignment.change",
+        makerActorIds: [row.requested_by],
+        resourceType: "hr.employee_transfer_request",
+        resourceId: requestId,
+        decisionAction: input.decision === "approved" ? "approve" : "reject",
+        reason: input.reason,
+        correlationId,
+        idempotencyKey,
+      });
       const currentDate = (await client.query<{ current_date: string }>("select current_date::text as current_date"))
         .rows[0]?.current_date;
       if (row.effective_on !== currentDate)
@@ -2899,9 +2955,17 @@ export class SourceHrRepository {
       await client.query(
         `update hr_employee_transfer_request
             set request_state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,
-                projected_assignment_id=$6,row_version=row_version+1
+                projected_assignment_id=$6,approval_override_event_id=$7,row_version=row_version+1
           where tenant_id=$1 and id=$2`,
-        [context.tenantId, requestId, input.decision, context.actor.userId, input.reason, assignmentId],
+        [
+          context.tenantId,
+          requestId,
+          input.decision,
+          context.actor.userId,
+          input.reason,
+          assignmentId,
+          approvalOverrideEventId,
+        ],
       );
       const audit = await this.appendPlatformAudit(
         client,
@@ -2911,7 +2975,11 @@ export class SourceHrRepository {
         {
           entityId: requestId,
           before: { status: "pending", source_assignment_id: row.source_assignment_id },
-          after: { status: input.decision, assignment_id: assignmentId },
+          after: {
+            status: input.decision,
+            assignment_id: assignmentId,
+            super_admin_override: approvalOverrideEventId !== null,
+          },
         },
       );
       const result: HrEmployeeTransferDecisionResult = {
@@ -3248,12 +3316,16 @@ export class SourceHrRepository {
           "HR_PROMOTION_NOT_PENDING",
           "The promotion request is not pending in your company scope.",
         );
-      if (row.requested_by === context.actor.userId)
-        throw new HrApiError(
-          403,
-          "HR_SELF_APPROVAL_FORBIDDEN",
-          "A different HR approver must decide this promotion request.",
-        );
+      const approvalOverrideEventId = await this.resolveApprovalOverride(client, context, {
+        normalDecisionPermission: "hr.employee_assignment.change",
+        makerActorIds: [row.requested_by],
+        resourceType: "hr.employee_promotion_request",
+        resourceId: requestId,
+        decisionAction: input.decision === "approved" ? "approve" : "reject",
+        reason: input.reason,
+        correlationId,
+        idempotencyKey,
+      });
       const currentDate = (await client.query<{ current_date: string }>("select current_date::text as current_date"))
         .rows[0]?.current_date;
       if (row.effective_on !== currentDate)
@@ -3303,9 +3375,17 @@ export class SourceHrRepository {
       await client.query(
         `update hr_employee_promotion_request
             set request_state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,
-                projected_assignment_id=$6,row_version=row_version+1
+                projected_assignment_id=$6,approval_override_event_id=$7,row_version=row_version+1
           where tenant_id=$1 and id=$2`,
-        [context.tenantId, requestId, input.decision, context.actor.userId, input.reason, assignmentId],
+        [
+          context.tenantId,
+          requestId,
+          input.decision,
+          context.actor.userId,
+          input.reason,
+          assignmentId,
+          approvalOverrideEventId,
+        ],
       );
       const audit = await this.appendPlatformAudit(
         client,
@@ -3315,7 +3395,11 @@ export class SourceHrRepository {
         {
           entityId: requestId,
           before: { status: "pending", source_assignment_id: row.source_assignment_id },
-          after: { status: input.decision, assignment_id: assignmentId },
+          after: {
+            status: input.decision,
+            assignment_id: assignmentId,
+            super_admin_override: approvalOverrideEventId !== null,
+          },
         },
       );
       const result: HrEmployeePromotionDecisionResult = {
@@ -3703,12 +3787,16 @@ export class SourceHrRepository {
           "HR_MANAGER_CHANGE_NOT_PENDING",
           "The manager-change request is not pending in your company scope.",
         );
-      if (row.requested_by === context.actor.userId)
-        throw new HrApiError(
-          403,
-          "HR_SELF_APPROVAL_FORBIDDEN",
-          "A different HR approver must decide this manager-change request.",
-        );
+      const approvalOverrideEventId = await this.resolveApprovalOverride(client, context, {
+        normalDecisionPermission: "hr.employee_assignment.change",
+        makerActorIds: [row.requested_by],
+        resourceType: "hr.employee_manager_change_request",
+        resourceId: requestId,
+        decisionAction: input.decision === "approved" ? "approve" : "reject",
+        reason: input.reason,
+        correlationId,
+        idempotencyKey,
+      });
       const currentDate = (await client.query<{ current_date: string }>("select current_date::text as current_date"))
         .rows[0]?.current_date;
       if (row.effective_on !== currentDate)
@@ -3758,9 +3846,17 @@ export class SourceHrRepository {
       await client.query(
         `update hr_employee_manager_change_request
             set request_state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,
-                projected_assignment_id=$6,row_version=row_version+1
+                projected_assignment_id=$6,approval_override_event_id=$7,row_version=row_version+1
           where tenant_id=$1 and id=$2`,
-        [context.tenantId, requestId, input.decision, context.actor.userId, input.reason, assignmentId],
+        [
+          context.tenantId,
+          requestId,
+          input.decision,
+          context.actor.userId,
+          input.reason,
+          assignmentId,
+          approvalOverrideEventId,
+        ],
       );
       const audit = await this.appendPlatformAudit(
         client,
@@ -3774,6 +3870,7 @@ export class SourceHrRepository {
             status: input.decision,
             assignment_id: assignmentId,
             reporting_manager_id: row.proposed_reporting_manager_id,
+            super_admin_override: approvalOverrideEventId !== null,
           },
         },
       );
@@ -4148,12 +4245,16 @@ export class SourceHrRepository {
           "HR_WORK_LOCATION_CHANGE_NOT_PENDING",
           "The work-location-change request is not pending in your company scope.",
         );
-      if (row.requested_by === context.actor.userId)
-        throw new HrApiError(
-          403,
-          "HR_SELF_APPROVAL_FORBIDDEN",
-          "A different HR approver must decide this work-location-change request.",
-        );
+      const approvalOverrideEventId = await this.resolveApprovalOverride(client, context, {
+        normalDecisionPermission: "hr.employee_assignment.change",
+        makerActorIds: [row.requested_by],
+        resourceType: "hr.employee_work_location_change_request",
+        resourceId: requestId,
+        decisionAction: input.decision === "approved" ? "approve" : "reject",
+        reason: input.reason,
+        correlationId,
+        idempotencyKey,
+      });
       const currentDate = (await client.query<{ current_date: string }>("select current_date::text as current_date"))
         .rows[0]?.current_date;
       if (row.effective_on !== currentDate)
@@ -4222,9 +4323,17 @@ export class SourceHrRepository {
       await client.query(
         `update hr_employee_work_location_change_request
             set request_state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,
-                projected_assignment_id=$6,row_version=row_version+1
+                projected_assignment_id=$6,approval_override_event_id=$7,row_version=row_version+1
           where tenant_id=$1 and id=$2`,
-        [context.tenantId, requestId, input.decision, context.actor.userId, input.reason, assignmentId],
+        [
+          context.tenantId,
+          requestId,
+          input.decision,
+          context.actor.userId,
+          input.reason,
+          assignmentId,
+          approvalOverrideEventId,
+        ],
       );
       const audit = await this.appendPlatformAudit(
         client,
@@ -4239,6 +4348,7 @@ export class SourceHrRepository {
             assignment_id: assignmentId,
             work_location_id: row.proposed_work_location_id,
             jurisdiction_profile_id: row.proposed_work_location_profile_id,
+            super_admin_override: approvalOverrideEventId !== null,
           },
         },
       );
@@ -4623,12 +4733,16 @@ export class SourceHrRepository {
           "HR_ORGANIZATION_PLACEMENT_NOT_PENDING",
           "The organization-placement-change request is not pending in your company scope.",
         );
-      if (row.requested_by === context.actor.userId)
-        throw new HrApiError(
-          403,
-          "HR_SELF_APPROVAL_FORBIDDEN",
-          "A different HR approver must decide this organization-placement-change request.",
-        );
+      const approvalOverrideEventId = await this.resolveApprovalOverride(client, context, {
+        normalDecisionPermission: "hr.employee_assignment.change",
+        makerActorIds: [row.requested_by],
+        resourceType: "hr.employee_organization_placement_change_request",
+        resourceId: requestId,
+        decisionAction: input.decision === "approved" ? "approve" : "reject",
+        reason: input.reason,
+        correlationId,
+        idempotencyKey,
+      });
       const currentDate = (await client.query<{ current_date: string }>("select current_date::text as current_date"))
         .rows[0]?.current_date;
       if (row.effective_on !== currentDate)
@@ -4719,9 +4833,17 @@ export class SourceHrRepository {
       await client.query(
         `update hr_employee_organization_placement_change_request
             set request_state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,
-                projected_assignment_id=$6,row_version=row_version+1
+                projected_assignment_id=$6,approval_override_event_id=$7,row_version=row_version+1
           where tenant_id=$1 and id=$2`,
-        [context.tenantId, requestId, input.decision, context.actor.userId, input.reason, assignmentId],
+        [
+          context.tenantId,
+          requestId,
+          input.decision,
+          context.actor.userId,
+          input.reason,
+          assignmentId,
+          approvalOverrideEventId,
+        ],
       );
       const audit = await this.appendPlatformAudit(
         client,
@@ -4731,7 +4853,11 @@ export class SourceHrRepository {
         {
           entityId: requestId,
           before: { status: "pending", source_assignment_id: row.source_assignment_id },
-          after: { status: input.decision, assignment_id: assignmentId },
+          after: {
+            status: input.decision,
+            assignment_id: assignmentId,
+            super_admin_override: approvalOverrideEventId !== null,
+          },
         },
       );
       const result: HrEmployeeOrganizationPlacementChangeDecisionResult = {
@@ -5239,6 +5365,64 @@ export class SourceHrRepository {
         sourceReference,
       ],
     );
+  }
+
+  private async resolveApprovalOverride(
+    client: PoolClient,
+    context: HrActorContext,
+    input: {
+      normalDecisionPermission: string;
+      makerActorIds: readonly string[];
+      resourceType: string;
+      resourceId: string;
+      decisionAction: "approve" | "reject" | "activate";
+      reason: string;
+      correlationId: string;
+      idempotencyKey: string;
+    },
+  ): Promise<string | null> {
+    const impersonated = Boolean(
+      context.impersonationRequestId ||
+      (context.realActorId !== undefined && context.realActorId !== context.actor.userId),
+    );
+    const policy = evaluateApprovalActor({
+      account: context.actor,
+      normalDecisionPermission: input.normalDecisionPermission,
+      makerActorIds: input.makerActorIds,
+      impersonated,
+    });
+    if (policy.kind === "ordinary") return null;
+    if (policy.kind === "forbidden") {
+      const message =
+        policy.reason === "impersonation_forbidden"
+          ? "Approval overrides are unavailable during impersonation."
+          : "A different HR approver must decide this request.";
+      throw new HrApiError(403, "HR_SELF_APPROVAL_FORBIDDEN", message);
+    }
+    try {
+      const evidence = await writeApprovalOverrideEvent(client, {
+        tenantId: context.tenantId,
+        account: context.actor,
+        makerActorIds: input.makerActorIds,
+        normalDecisionPermission: input.normalDecisionPermission,
+        resourceType: input.resourceType,
+        resourceId: input.resourceId,
+        decisionAction: input.decisionAction,
+        reason: input.reason,
+        correlationId: input.correlationId,
+        idempotencyKey: input.idempotencyKey,
+        metadata: { module: "hr", super_admin_override: true },
+        impersonated,
+      });
+      return evidence.eventId;
+    } catch (error) {
+      if (!(error instanceof ApprovalOverrideWriterError)) throw error;
+      if (error.code === "INVALID_APPROVAL_OVERRIDE_EVIDENCE")
+        throw new HrApiError(400, "INVALID_APPROVAL_OVERRIDE_EVIDENCE", error.message);
+      if (error.code === "APPROVAL_OVERRIDE_IDEMPOTENCY_CONFLICT")
+        throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", error.message);
+      throw new HrApiError(403, "HR_SELF_APPROVAL_FORBIDDEN", error.message);
+    }
   }
 
   private async appendPlatformAudit(
