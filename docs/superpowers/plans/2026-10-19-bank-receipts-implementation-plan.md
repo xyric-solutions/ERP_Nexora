@@ -596,12 +596,13 @@ a duplicate accounting engine. Those require separate approved vertical slices.
 
 ## 18. Implementation checkpoint - 2026-10-19
 
-Status: **BR-00, BR-01 and BR-02 complete; resume at BR-03**.
+Status: **BR-00 through BR-03 complete; resume at BR-04**.
 
 Completed commits:
 
 - `f29d818 feat(banking): add bank receipt API contracts`
 - `8439520 feat(db): add governed bank receipt schema`
+- `139622a feat(banking): add governed bank receipt workflows`
 
 Observed baseline before receipt changes:
 
@@ -633,14 +634,32 @@ BR-02 evidence:
   lock, exact receipt permissions and immutable audit authority; and
 - full TypeScript and focused formatting checks passed.
 
+BR-03 evidence:
+
+- a separate Receipt repository/service now owns scoped list, options, nominal
+  directory, detail, create, update, submit, decision, post and reversal;
+- receipt payer snapshots and nullable references/narration are persisted in
+  PostgreSQL and returned through list/detail summaries;
+- Finance posting debits the Bank control account and credits each receipt
+  nominal line under source `banking.receipt`; reversal uses the existing
+  compensating-journal service;
+- focused Receipt, Finance and Payment-regression unit suites: 14/14 passed;
+- Finance and Receipt PostgreSQL integration suites: 9/9 passed, followed by a
+  second Receipt-only repeatability run: 2/2 passed;
+- integration evidence covered exact receipt methods, required dimensions,
+  payer search, idempotency conflict/replay, draft update, maker-checker denial,
+  distinct approval/posting, positive Bank ledger movement, reversal, governed
+  super-admin approval evidence and rollback after an injected Finance failure;
+- the full TypeScript check and `git diff --check` passed.
+
 The migration was observed as an additive upgrade of
 `nexora_bank_payments_uat_20261019_1510`. A new empty-database migration run is
 still required by BR-09 and has not been claimed.
 
-Safe resume point: implement `server/api/src/modules/banking/receipts` as a
-separate repository/service in BR-03. Reuse the existing Finance posting
-service with `banking.receipt`, `bank_receipt.posted` and
-`bank_receipt.reversed`; debit the Bank control account and credit each nominal
-line. Do not modify or generalize the accepted Payment repository, and do not
-start API/UI integration before the repository lifecycle and rollback tests
-pass.
+Safe resume point: begin BR-04 by registering the ten authenticated Receipt
+operations in the existing Banking router and production API composition.
+Follow the accepted Payment transport controls for session, trusted origin,
+CSRF, idempotency and ETags, but keep Receipt dependencies and route handling
+separate. Register `/receipts/options` and `/receipts/nominal_accounts` before
+`/receipts/:receiptId`. Do not begin browser integration until route tests and
+the existing Banking route regressions pass.
