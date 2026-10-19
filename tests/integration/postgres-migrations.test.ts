@@ -20,7 +20,7 @@ describe("production PostgreSQL source migrations", () => {
       platform: 8,
       security: 14,
       workflow: 1,
-      finance: 5,
+      finance: 6,
       hr: 34,
       runtime: 1,
     });
@@ -65,7 +65,7 @@ describe("production PostgreSQL source migrations", () => {
        order by module_name`,
     );
     expect(result.rows).toEqual([
-      { module_name: "finance", migration_count: "5", latest: 5 },
+      { module_name: "finance", migration_count: "6", latest: 6 },
       { module_name: "hr", migration_count: "34", latest: 34 },
       { module_name: "platform", migration_count: "8", latest: 8 },
       { module_name: "runtime", migration_count: "1", latest: 1 },
@@ -75,12 +75,36 @@ describe("production PostgreSQL source migrations", () => {
     const bankPaymentMigrations = await pool.query<{ module_name: string; version: number; name: string }>(
       `select module_name,version,name from nexora_schema_migration
         where (module_name='platform' and version=8)
-           or (module_name='finance' and version=5)
+           or (module_name='finance' and version in (5,6))
         order by module_name`,
     );
     expect(bankPaymentMigrations.rows).toEqual([
       { module_name: "finance", version: 5, name: "finance_posting_bank_payments" },
+      { module_name: "finance", version: 6, name: "currency_rate_authority_lock" },
       { module_name: "platform", version: 8, name: "idempotency_patch_method" },
+    ]);
+  });
+
+  it("enforces the Finance currency-rate authority lock at the database boundary", async () => {
+    const result = await pool.query<{ trigger_name: string; function_name: string }>(
+      `select trigger.tgname as trigger_name,procedure.proname as function_name
+         from pg_trigger trigger
+         join pg_proc procedure on procedure.oid=trigger.tgfoid
+        where trigger.tgrelid='currency_rate'::regclass
+          and trigger.tgname='currency_rate_authority_lock'
+          and not trigger.tgisinternal`,
+    );
+    expect(result.rows).toEqual([
+      { trigger_name: "currency_rate_authority_lock", function_name: "lock_currency_rate_authority" },
+    ]);
+    const functions = await pool.query<{ function_name: string }>(
+      `select proname as function_name from pg_proc
+        where proname in ('finance_currency_rate_lock_resource','finance_currency_rate_lock_key')
+        order by proname`,
+    );
+    expect(functions.rows.map((row) => row.function_name)).toEqual([
+      "finance_currency_rate_lock_key",
+      "finance_currency_rate_lock_resource",
     ]);
   });
 
