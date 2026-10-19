@@ -77,6 +77,10 @@ const makerPermissions = [
   "banking.payment.create",
   "banking.payment.update",
   "banking.payment.submit",
+  "banking.receipt.read",
+  "banking.receipt.create",
+  "banking.receipt.update",
+  "banking.receipt.submit",
 ] as const;
 
 const checkerPermissions = [
@@ -102,9 +106,18 @@ const checkerPermissions = [
   "banking.bank_account.status",
   "banking.payment.read",
   "banking.payment.approve",
+  "banking.receipt.read",
+  "banking.receipt.approve",
 ] as const;
 
-const posterPermissions = ["banking.payment.read", "banking.payment.post", "banking.payment.reverse"] as const;
+const posterPermissions = [
+  "banking.payment.read",
+  "banking.payment.post",
+  "banking.payment.reverse",
+  "banking.receipt.read",
+  "banking.receipt.post",
+  "banking.receipt.reverse",
+] as const;
 
 const roles = [
   {
@@ -298,12 +311,14 @@ export async function ensureSourceAuthorizationFixture(pool: DatabasePool): Prom
       );
       await client.query(
         `delete from security_role_scope_grant
-          where tenant_id=$1 and role_policy_id=$2 and permission_key like 'banking.payment.%'`,
+          where tenant_id=$1 and role_policy_id=$2
+            and (permission_key like 'banking.payment.%' or permission_key like 'banking.receipt.%')`,
         [sourceTestTenantId, role.policyId],
       );
       await client.query(
         `delete from security_role_permission_grant
-          where tenant_id=$1 and role_policy_id=$2 and permission_key like 'banking.payment.%'
+          where tenant_id=$1 and role_policy_id=$2
+            and (permission_key like 'banking.payment.%' or permission_key like 'banking.receipt.%')
             and not (permission_key=any($3::text[]))`,
         [sourceTestTenantId, role.policyId, role.permissions],
       );
@@ -314,7 +329,8 @@ export async function ensureSourceAuthorizationFixture(pool: DatabasePool): Prom
            values ($1,$2,$3,'all') on conflict do nothing`,
           [sourceTestTenantId, role.policyId, permission],
         );
-        const paymentPermission = permission.startsWith("banking.payment.");
+        const companyScopedBankingPermission =
+          permission.startsWith("banking.payment.") || permission.startsWith("banking.receipt.");
         await client.query(
           `insert into security_role_scope_grant
             (tenant_id,role_policy_id,permission_key,scope_kind,scope_value)
@@ -323,8 +339,8 @@ export async function ensureSourceAuthorizationFixture(pool: DatabasePool): Prom
             sourceTestTenantId,
             role.policyId,
             permission,
-            paymentPermission ? "company" : "tenant",
-            paymentPermission ? sourceTestCompanyId : sourceTestTenantId,
+            companyScopedBankingPermission ? "company" : "tenant",
+            companyScopedBankingPermission ? sourceTestCompanyId : sourceTestTenantId,
           ],
         );
       }

@@ -42,6 +42,7 @@
     "auth:backfill-user-company-access": "npm run auth:backfill-user-company-access --workspace @nexora/db",
     "uat:provision-c4-auth": "tsx scripts/provision-c4-uat-auth.ts",
     "uat:provision-bank-payments": "tsx scripts/provision-bank-payments-uat.ts",
+    "uat:provision-bank-receipts": "tsx scripts/provision-bank-receipts-uat.ts",
     "uat:provision-user-management": "tsx scripts/provision-user-management-uat.ts",
     "uat:provision-shoaib-admin": "tsx scripts/provision-shoaib-admin.ts",
     "api:generate": "npm run api:generate --workspace @nexora/contracts",
