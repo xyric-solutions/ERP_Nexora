@@ -20,7 +20,7 @@ describe("production PostgreSQL source migrations", () => {
       platform: 8,
       security: 15,
       workflow: 1,
-      finance: 7,
+      finance: 8,
       hr: 34,
       runtime: 1,
     });
@@ -40,6 +40,10 @@ describe("production PostgreSQL source migrations", () => {
       "bank_payment_event",
       "bank_payment_line",
       "bank_payment_sequence",
+      "bank_receipt",
+      "bank_receipt_event",
+      "bank_receipt_line",
+      "bank_receipt_sequence",
       "security_authentication_event",
       "security_tenant_role",
       "security_user_change_request",
@@ -65,24 +69,25 @@ describe("production PostgreSQL source migrations", () => {
        order by module_name`,
     );
     expect(result.rows).toEqual([
-      { module_name: "finance", migration_count: "7", latest: 7 },
+      { module_name: "finance", migration_count: "8", latest: 8 },
       { module_name: "hr", migration_count: "34", latest: 34 },
       { module_name: "platform", migration_count: "8", latest: 8 },
       { module_name: "runtime", migration_count: "1", latest: 1 },
       { module_name: "security", migration_count: "15", latest: 15 },
       { module_name: "workflow", migration_count: "1", latest: 1 },
     ]);
-    const bankPaymentMigrations = await pool.query<{ module_name: string; version: number; name: string }>(
+    const bankingMigrations = await pool.query<{ module_name: string; version: number; name: string }>(
       `select module_name,version,name from nexora_schema_migration
         where (module_name='platform' and version=8)
            or (module_name='security' and version=15)
-           or (module_name='finance' and version in (5,6,7))
+           or (module_name='finance' and version in (5,6,7,8))
         order by module_name,version`,
     );
-    expect(bankPaymentMigrations.rows).toEqual([
+    expect(bankingMigrations.rows).toEqual([
       { module_name: "finance", version: 5, name: "finance_posting_bank_payments" },
       { module_name: "finance", version: 6, name: "currency_rate_authority_lock" },
       { module_name: "finance", version: 7, name: "bank_payment_posting_override" },
+      { module_name: "finance", version: 8, name: "finance_posting_bank_receipts" },
       { module_name: "platform", version: 8, name: "idempotency_patch_method" },
       { module_name: "security", version: 15, name: "approval_override_post_action" },
     ]);
@@ -224,7 +229,7 @@ describe("production PostgreSQL source migrations", () => {
     const result = await pool.query<{ permission_count: string }>(
       "select count(*)::text as permission_count from security_permission_definition",
     );
-    expect(result.rows[0]?.permission_count).toBe("253");
+    expect(result.rows[0]?.permission_count).toBe("260");
     const overridePermission = await pool.query<{ permission_key: string }>(
       `select permission_key from security_permission_definition
         where permission_key='platform.approval.override' and status='active'`,
