@@ -596,13 +596,14 @@ a duplicate accounting engine. Those require separate approved vertical slices.
 
 ## 18. Implementation checkpoint - 2026-10-19
 
-Status: **BR-00 through BR-03 complete; resume at BR-04**.
+Status: **BR-00 through BR-04 complete; resume at BR-05**.
 
 Completed commits:
 
 - `f29d818 feat(banking): add bank receipt API contracts`
 - `8439520 feat(db): add governed bank receipt schema`
 - `139622a feat(banking): add governed bank receipt workflows`
+- `a6b4b70 feat(banking): expose bank receipt API routes`
 
 Observed baseline before receipt changes:
 
@@ -652,14 +653,29 @@ BR-03 evidence:
   super-admin approval evidence and rollback after an injected Finance failure;
 - the full TypeScript check and `git diff --check` passed.
 
+BR-04 evidence:
+
+- all ten versioned Receipt operations are registered under
+  `/api/v1/banking/receipts`, with static options and nominal-account routes
+  preceding the receipt identifier route;
+- reads require an authenticated session; mutations additionally enforce
+  trusted origin, CSRF, idempotency and strict request schemas;
+- detail and mutation responses expose strong version ETags, and optional
+  `If-Match` mismatches fail before repository execution;
+- production composition now requires Account, Payment and Receipt
+  repositories together and includes Receipt tables in Banking readiness;
+- focused Banking router/service unit suites: 18/18 passed, including 16/16
+  router tests after the final readiness assertions;
+- isolated Receipt and existing Payment PostgreSQL regressions: 4/4 passed;
+- generated API drift check and the full TypeScript check passed.
+
 The migration was observed as an additive upgrade of
 `nexora_bank_payments_uat_20261019_1510`. A new empty-database migration run is
 still required by BR-09 and has not been claimed.
 
-Safe resume point: begin BR-04 by registering the ten authenticated Receipt
-operations in the existing Banking router and production API composition.
-Follow the accepted Payment transport controls for session, trusted origin,
-CSRF, idempotency and ETags, but keep Receipt dependencies and route handling
-separate. Register `/receipts/options` and `/receipts/nominal_accounts` before
-`/receipts/:receiptId`. Do not begin browser integration until route tests and
-the existing Banking route regressions pass.
+Safe resume point: begin BR-05 at the browser data boundary. Add typed Receipt
+adapter methods that use only the generated API client, carry mutation security
+headers and preserve strong version identity. Add a receipt-specific persisted
+URL identity that cannot collide with Payment or legacy prototype references.
+Do not connect list, entry or detail views until the adapter and routing tests
+pass without raw feature-level fetch calls.
