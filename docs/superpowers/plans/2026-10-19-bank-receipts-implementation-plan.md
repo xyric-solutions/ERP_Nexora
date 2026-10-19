@@ -596,7 +596,7 @@ a duplicate accounting engine. Those require separate approved vertical slices.
 
 ## 18. Implementation checkpoint - 2026-10-19
 
-Status: **BR-00 through BR-04 complete; resume at BR-05**.
+Status: **BR-00 through BR-05 complete; resume at BR-06**.
 
 Completed commits:
 
@@ -604,6 +604,7 @@ Completed commits:
 - `8439520 feat(db): add governed bank receipt schema`
 - `139622a feat(banking): add governed bank receipt workflows`
 - `a6b4b70 feat(banking): expose bank receipt API routes`
+- `321278a feat(banking): add receipt browser adapter`
 
 Observed baseline before receipt changes:
 
@@ -669,13 +670,31 @@ BR-04 evidence:
 - isolated Receipt and existing Payment PostgreSQL regressions: 4/4 passed;
 - generated API drift check and the full TypeScript check passed.
 
+BR-05 evidence:
+
+- `BankingApiClient` now exposes typed Receipt directory, options, nominal
+  search, detail, create, update, submit, decision, post and reversal methods,
+  all delegated to the generated API client;
+- the generated client source now emits quoted `If-Match` values derived from
+  each Receipt mutation payload's `expected_version`; the generator and output
+  were changed together and regenerated;
+- persisted `bank-receipt-{uuid}` identities are discriminated separately from
+  persisted Payments and legacy prototype transaction references;
+- focused adapter, Receipt/Payment routing and API-router unit suites: 41/41
+  passed;
+- generated API drift check, full TypeScript check and `git diff --check`
+  passed;
+- the Next.js 16.3.8 local linking/navigation and client-data guidance was
+  reviewed before changing the browser boundary; no duplicate Next route or
+  direct database access was introduced.
+
 The migration was observed as an additive upgrade of
 `nexora_bank_payments_uat_20261019_1510`. A new empty-database migration run is
 still required by BR-09 and has not been claimed.
 
-Safe resume point: begin BR-05 at the browser data boundary. Add typed Receipt
-adapter methods that use only the generated API client, carry mutation security
-headers and preserve strong version identity. Add a receipt-specific persisted
-URL identity that cannot collide with Payment or legacy prototype references.
-Do not connect list, entry or detail views until the adapter and routing tests
-pass without raw feature-level fetch calls.
+Safe resume point: begin BR-06 by replacing the Bank Receipts list fixture with
+the typed `BankingApiClient.receipts` directory call. Preserve the approved
+prototype terminology and layout, add explicit loading/empty/error states,
+bounded filters and keyset continuation, and navigate persisted rows using the
+receipt-specific ID helper. Do not connect entry/detail lifecycle actions in
+the list phase, and do not fall back to fixtures on API errors.
