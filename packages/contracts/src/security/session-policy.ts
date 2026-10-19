@@ -34,6 +34,7 @@ export const securitySessionPolicyActionSchema = z.discriminatedUnion("action", 
     action: z.enum(["submit", "approve", "activate"]),
     policy_id: identifier,
     expected_version: z.number().int().positive(),
+    reason: reason.optional(),
   }),
   z.strictObject({
     action: z.literal("reject"),

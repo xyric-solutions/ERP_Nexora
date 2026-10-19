@@ -7,19 +7,23 @@ import {
   SourceSecurityAdministrationRepository,
   type SecurityActorContext,
 } from "../../server/api/src/modules/security/source-administration-repository.js";
-import { ensureSourceAuthorizationFixture, sourceTestTenantId } from "./source-security-fixture.js";
+import { ensureSourceSuperAdministratorFixture, sourceTestTenantId } from "./source-security-fixture.js";
 
 const databaseUrl = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL;
 const run = databaseUrl ? describe : describe.skip;
-function context(userId: string): SecurityActorContext {
+function context(
+  userId: string,
+  permissions: readonly string[] = [],
+  roles: readonly string[] = [],
+): SecurityActorContext {
   const actor: AuthenticatedAccount = {
     tenantId: sourceTestTenantId,
     organizationName: "Nexora R06 Controlled UAT",
     userId,
     email: `${userId}@uat.nexora.invalid`,
     displayName: userId,
-    roles: [],
-    permissions: [],
+    roles,
+    permissions,
     sessionVersion: 1,
   };
   return { tenantId: sourceTestTenantId, actor, correlationId: randomUUID() };
@@ -47,7 +51,7 @@ run("governed security session policy", () => {
   let version = 1;
   beforeAll(async () => {
     pool = createDatabasePool(databaseUrl!);
-    await ensureSourceAuthorizationFixture(pool);
+    await ensureSourceSuperAdministratorFixture(pool);
     repository = new SourceSecurityAdministrationRepository(pool, "d".repeat(32));
   });
   afterAll(async () => {
@@ -80,7 +84,7 @@ run("governed security session policy", () => {
     );
     version = Number((approved.projection.new_state as Record<string, unknown>).row_version);
     await repository.actOnSessionPolicy(
-      context("r06.last-admin-b"),
+      context("r06.override-admin"),
       { action: "activate", policy_id: policyId, expected_version: version },
       `policy-activate-${randomUUID()}`,
     );
@@ -97,42 +101,142 @@ run("governed security session policy", () => {
     expect(active.rows[0]?.count).toBe(1);
   });
 
-  it("allows the tenant-wide administrator to use the approved emergency exception without a second actor", async () => {
-    const admin = context("r06.last-admin-b");
+  it("removes the legacy tenant-wide administrator self-approval bypass", async () => {
+    await pool.query(
+      `insert into security_role_permission_grant
+        (tenant_id,role_policy_id,permission_key,field_allow_mode)
+       values ($1,'r06-uat-policy-approval-override','security.authorization.administer','all')
+       on conflict do nothing`,
+      [sourceTestTenantId],
+    );
+    await pool.query(
+      `insert into security_role_scope_grant
+        (tenant_id,role_policy_id,permission_key,scope_kind,scope_value)
+       values ($1,'r06-uat-policy-approval-override','security.authorization.administer','tenant',$1)
+       on conflict do nothing`,
+      [sourceTestTenantId],
+    );
+    try {
+      const admin = context("r06.override-admin");
+      const created = await repository.createSessionPolicy(
+        admin,
+        { values: { ...values, session_idle_minutes: 15 }, change_summary: "Emergency administrator hardening" },
+        `policy-admin-create-${randomUUID()}`,
+      );
+      const id = created.entity_id;
+      const submitted = await repository.actOnSessionPolicy(
+        admin,
+        { action: "submit", policy_id: id, expected_version: 1 },
+        `policy-admin-submit-${randomUUID()}`,
+      );
+      const submittedVersion = Number((submitted.projection.new_state as Record<string, unknown>).row_version);
+      await expect(
+        repository.actOnSessionPolicy(
+          admin,
+          {
+            action: "approve",
+            policy_id: id,
+            expected_version: submittedVersion,
+            reason: "Legacy administrator bypass must remain closed",
+          },
+          `policy-admin-approve-${randomUUID()}`,
+        ),
+      ).rejects.toMatchObject({ status: 403, code: "MAKER_CHECKER_VIOLATION" });
+    } finally {
+      await pool.query(
+        `delete from security_role_scope_grant
+          where tenant_id=$1 and role_policy_id='r06-uat-policy-approval-override'
+            and permission_key='security.authorization.administer'`,
+        [sourceTestTenantId],
+      );
+      await pool.query(
+        `delete from security_role_permission_grant
+          where tenant_id=$1 and role_policy_id='r06-uat-policy-approval-override'
+            and permission_key='security.authorization.administer'`,
+        [sourceTestTenantId],
+      );
+    }
+  });
+
+  it("requires a reason and records separate approval and activation override evidence", async () => {
+    const permissions = [
+      "platform.approval.override",
+      "security.session_policy.create",
+      "security.session_policy.submit",
+      "security.session_policy.approve",
+      "security.session_policy.activate",
+    ];
+    const admin = context("r06.override-admin", permissions, ["super_administrator"]);
     const created = await repository.createSessionPolicy(
       admin,
-      { values: { ...values, session_idle_minutes: 15 }, change_summary: "Emergency administrator hardening" },
-      `policy-admin-create-${randomUUID()}`,
+      { values: { ...values, session_idle_minutes: 15 }, change_summary: "Governed administrator hardening" },
+      `policy-override-create-${randomUUID()}`,
     );
     const id = created.entity_id;
     const submitted = await repository.actOnSessionPolicy(
       admin,
       { action: "submit", policy_id: id, expected_version: 1 },
-      `policy-admin-submit-${randomUUID()}`,
+      `policy-override-submit-${randomUUID()}`,
     );
     const submittedVersion = Number((submitted.projection.new_state as Record<string, unknown>).row_version);
+    await expect(
+      repository.actOnSessionPolicy(
+        admin,
+        { action: "approve", policy_id: id, expected_version: submittedVersion },
+        `policy-override-approve-missing-reason-${randomUUID()}`,
+      ),
+    ).rejects.toMatchObject({ status: 400, code: "APPROVAL_OVERRIDE_REASON_REQUIRED" });
     const approved = await repository.actOnSessionPolicy(
       admin,
-      { action: "approve", policy_id: id, expected_version: submittedVersion },
-      `policy-admin-approve-${randomUUID()}`,
+      {
+        action: "approve",
+        policy_id: id,
+        expected_version: submittedVersion,
+        reason: "Controlled self-approval for the isolated UAT policy",
+      },
+      `policy-override-approve-${randomUUID()}`,
     );
+    expect(approved.projection.authorization).toMatchObject({ maker_checker_override: true });
     const approvedVersion = Number((approved.projection.new_state as Record<string, unknown>).row_version);
     await expect(
       repository.actOnSessionPolicy(
         admin,
         { action: "activate", policy_id: id, expected_version: approvedVersion },
-        `policy-admin-activate-${randomUUID()}`,
+        `policy-override-activate-missing-reason-${randomUUID()}`,
       ),
-    ).resolves.toMatchObject({ entity_id: id });
+    ).rejects.toMatchObject({ status: 400, code: "APPROVAL_OVERRIDE_REASON_REQUIRED" });
+    const activated = await repository.actOnSessionPolicy(
+      admin,
+      {
+        action: "activate",
+        policy_id: id,
+        expected_version: approvedVersion,
+        reason: "Activate the governed UAT policy after documented review",
+      },
+      `policy-override-activate-${randomUUID()}`,
+    );
+    expect(activated.projection.authorization).toMatchObject({ maker_checker_override: true });
     const states = await pool.query<{ policy_id: string; lifecycle_state: string }>(
-      `select policy_id,lifecycle_state from security_session_policy where tenant_id=$1 and policy_id=any($2::text[]) order by policy_id`,
-      [sourceTestTenantId, [policyId, id]],
+      `select policy_id,lifecycle_state from security_session_policy where tenant_id=$1 and policy_id=$2`,
+      [sourceTestTenantId, id],
     );
-    expect(states.rows).toEqual(
-      expect.arrayContaining([
-        { policy_id: policyId, lifecycle_state: "superseded" },
-        { policy_id: id, lifecycle_state: "active" },
-      ]),
+    expect(states.rows).toEqual([{ policy_id: id, lifecycle_state: "active" }]);
+    const evidence = await pool.query<{
+      approval_override_event_id: string;
+      activation_override_event_id: string;
+      event_count: number;
+    }>(
+      `select policy.approval_override_event_id,policy.activation_override_event_id,
+              (select count(*)::int from approval_override_event event
+                where event.tenant_id=policy.tenant_id
+                  and event.resource_type='security.session_policy'
+                  and event.resource_id=policy.policy_id) as event_count
+         from security_session_policy policy where policy.tenant_id=$1 and policy.policy_id=$2`,
+      [sourceTestTenantId, id],
     );
+    expect(evidence.rows[0]?.approval_override_event_id).toBeTruthy();
+    expect(evidence.rows[0]?.activation_override_event_id).toBeTruthy();
+    expect(evidence.rows[0]?.approval_override_event_id).not.toBe(evidence.rows[0]?.activation_override_event_id);
+    expect(evidence.rows[0]?.event_count).toBe(2);
   });
 });

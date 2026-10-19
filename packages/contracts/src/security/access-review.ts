@@ -22,6 +22,7 @@ export const securityAccessReviewCampaignActionSchema = z.discriminatedUnion("ac
     action: z.enum(["submit", "approve", "activate", "close"]),
     campaign_id: identifier,
     expected_version: z.number().int().positive(),
+    reason: reason.optional(),
   }),
   z.strictObject({
     action: z.literal("reject"),

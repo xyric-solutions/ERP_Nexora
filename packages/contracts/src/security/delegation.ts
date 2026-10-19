@@ -24,6 +24,7 @@ export const securityDelegationActionSchema = z.discriminatedUnion("action", [
     action: z.enum(["submit", "approve", "activate"]),
     delegation_id: identifier,
     expected_version: z.number().int().positive(),
+    reason: reason.optional(),
   }),
   z.strictObject({
     action: z.enum(["reject", "revoke"]),

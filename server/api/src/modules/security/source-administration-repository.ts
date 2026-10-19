@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import { hashPassword, loginIdentifierHmac } from "@nexora/auth";
+import { evaluateApprovalActor, hashPassword, loginIdentifierHmac } from "@nexora/auth";
 import type { AuthenticatedAccount, TenantSecurityPolicy } from "@nexora/auth";
 import type {
   CreateSecurityUserRequest,
@@ -38,6 +38,7 @@ import {
   generateOneTimePassword,
   permissionForUserRequest,
 } from "./source-user-administration.js";
+import { ApprovalOverrideWriterError, writeApprovalOverrideEvent } from "./approval-override-writer.js";
 
 export class SecurityAdministrationError extends Error {
   constructor(
@@ -67,6 +68,7 @@ interface Mutation {
   before: unknown;
   after: unknown;
   approvalReference?: string | null;
+  approvalOverrideApplied?: boolean;
   outcome?: "completed" | "rejected";
 }
 
@@ -206,108 +208,103 @@ export class SourceSecurityAdministrationRepository {
     key: string,
   ): Promise<SecurityAdministrationResult> {
     const permission = action.action === "reject" ? "approve" : action.action;
-    return this.run(
-      context,
-      `security.session_policy.${permission}`,
-      key,
-      action,
-      [],
-      async (client, _commandId, fullAdmin) => {
-        const locked = await client.query<Record<string, unknown>>(
-          `select * from security_session_policy where tenant_id=$1 and policy_id=$2 for update`,
-          [context.tenantId, action.policy_id],
+    return this.run(context, `security.session_policy.${permission}`, key, action, [], async (client, commandId) => {
+      const locked = await client.query<Record<string, unknown>>(
+        `select * from security_session_policy where tenant_id=$1 and policy_id=$2 for update`,
+        [context.tenantId, action.policy_id],
+      );
+      const current = locked.rows[0];
+      if (!current)
+        throw new SecurityAdministrationError(404, "SESSION_POLICY_NOT_FOUND", "The session policy was not found.");
+      if (Number(current.row_version) !== action.expected_version)
+        throw this.conflict("The session policy version has changed.");
+      const before = cleanRow(current);
+      let eventType: string;
+      let approvalOverrideApplied = false;
+      const reason: string | null = "reason" in action ? (action.reason ?? null) : null;
+      if (action.action === "submit") {
+        if (current.lifecycle_state !== "draft" || current.created_by !== context.actor.userId)
+          throw this.conflict("Only the author can submit a current draft.");
+        await client.query(
+          `update security_session_policy set lifecycle_state='submitted',submitted_by=$3,submitted_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and policy_id=$2`,
+          [context.tenantId, action.policy_id, context.actor.userId],
         );
-        const current = locked.rows[0];
-        if (!current)
-          throw new SecurityAdministrationError(404, "SESSION_POLICY_NOT_FOUND", "The session policy was not found.");
-        if (Number(current.row_version) !== action.expected_version)
-          throw this.conflict("The session policy version has changed.");
-        const before = cleanRow(current);
-        let eventType: string;
-        const reason: string | null = "reason" in action ? action.reason : null;
-        if (action.action === "submit") {
-          if (current.lifecycle_state !== "draft" || current.created_by !== context.actor.userId)
-            throw this.conflict("Only the author can submit a current draft.");
+        eventType = "submitted";
+      } else if (action.action === "approve" || action.action === "reject") {
+        if (current.lifecycle_state !== "submitted") throw this.conflict("Only a submitted policy can be decided.");
+        const overrideEventId = await this.approvalOverrideEventId(client, context, commandId, {
+          normalDecisionPermission: "security.session_policy.approve",
+          resourceType: "security.session_policy",
+          resourceId: action.policy_id,
+          decisionAction: action.action,
+          makerActorIds: [current.created_by, current.submitted_by],
+          reason,
+        });
+        approvalOverrideApplied = overrideEventId !== null;
+        if (action.action === "approve") {
           await client.query(
-            `update security_session_policy set lifecycle_state='submitted',submitted_by=$3,submitted_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and policy_id=$2`,
-            [context.tenantId, action.policy_id, context.actor.userId],
+            `update security_session_policy set lifecycle_state='approved',approved_by=$3,approved_at=now(),approval_override_event_id=$4,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and policy_id=$2`,
+            [context.tenantId, action.policy_id, context.actor.userId, overrideEventId],
           );
-          eventType = "submitted";
-        } else if (action.action === "approve" || action.action === "reject") {
-          if (current.lifecycle_state !== "submitted") throw this.conflict("Only a submitted policy can be decided.");
-          if (
-            !fullAdmin &&
-            (current.created_by === context.actor.userId || current.submitted_by === context.actor.userId)
-          )
-            throw new SecurityAdministrationError(
-              403,
-              "MAKER_CHECKER_VIOLATION",
-              "The policy author cannot approve it.",
-            );
-          if (action.action === "approve") {
-            await client.query(
-              `update security_session_policy set lifecycle_state='approved',approved_by=$3,approved_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and policy_id=$2`,
-              [context.tenantId, action.policy_id, context.actor.userId],
-            );
-            eventType = "approved";
-          } else {
-            await client.query(
-              `update security_session_policy set lifecycle_state='rejected',rejected_by=$3,rejected_at=now(),rejection_reason=$4,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and policy_id=$2`,
-              [context.tenantId, action.policy_id, context.actor.userId, reason],
-            );
-            eventType = "rejected";
-          }
+          eventType = "approved";
         } else {
-          if (current.lifecycle_state !== "approved") throw this.conflict("Only an approved policy can be activated.");
-          if (
-            !fullAdmin &&
-            (current.created_by === context.actor.userId || current.submitted_by === context.actor.userId)
-          )
-            throw new SecurityAdministrationError(
-              403,
-              "MAKER_CHECKER_VIOLATION",
-              "The policy author cannot activate it.",
-            );
-          const active = await client.query<Record<string, unknown>>(
-            `select * from security_session_policy where tenant_id=$1 and lifecycle_state='active' for update`,
-            [context.tenantId],
-          );
-          for (const previous of active.rows) {
-            await client.query(
-              `update security_session_policy set lifecycle_state='superseded',superseded_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and policy_id=$2`,
-              [context.tenantId, previous.policy_id],
-            );
-            const superseded = await this.sessionPolicyState(client, context.tenantId, String(previous.policy_id));
-            await this.appendSessionPolicyEvent(
-              client,
-              context,
-              String(previous.policy_id),
-              "superseded",
-              `Superseded by ${action.policy_id}`,
-              superseded!,
-            );
-          }
           await client.query(
-            `update security_session_policy set lifecycle_state='active',activated_by=$3,activated_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and policy_id=$2`,
-            [context.tenantId, action.policy_id, context.actor.userId],
+            `update security_session_policy set lifecycle_state='rejected',rejected_by=$3,rejected_at=now(),rejection_reason=$4,approval_override_event_id=$5,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and policy_id=$2`,
+            [context.tenantId, action.policy_id, context.actor.userId, reason, overrideEventId],
           );
-          eventType = "activated";
+          eventType = "rejected";
+        }
+      } else {
+        if (current.lifecycle_state !== "approved") throw this.conflict("Only an approved policy can be activated.");
+        const overrideEventId = await this.approvalOverrideEventId(client, context, commandId, {
+          normalDecisionPermission: "security.session_policy.activate",
+          resourceType: "security.session_policy",
+          resourceId: action.policy_id,
+          decisionAction: "activate",
+          makerActorIds: [current.created_by, current.submitted_by],
+          reason,
+        });
+        approvalOverrideApplied = overrideEventId !== null;
+        const active = await client.query<Record<string, unknown>>(
+          `select * from security_session_policy where tenant_id=$1 and lifecycle_state='active' for update`,
+          [context.tenantId],
+        );
+        for (const previous of active.rows) {
           await client.query(
-            `update security_user_account set session_version=session_version+1,updated_at=now() where tenant_id=$1 and status='active'`,
-            [context.tenantId],
+            `update security_session_policy set lifecycle_state='superseded',superseded_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and policy_id=$2`,
+            [context.tenantId, previous.policy_id],
+          );
+          const superseded = await this.sessionPolicyState(client, context.tenantId, String(previous.policy_id));
+          await this.appendSessionPolicyEvent(
+            client,
+            context,
+            String(previous.policy_id),
+            "superseded",
+            `Superseded by ${action.policy_id}`,
+            superseded!,
           );
         }
-        const after = await this.sessionPolicyState(client, context.tenantId, action.policy_id);
-        await this.appendSessionPolicyEvent(client, context, action.policy_id, eventType, reason, after!);
-        return {
-          entityType: "session_policy",
-          entityId: action.policy_id,
-          before,
-          after,
-          outcome: action.action === "reject" ? "rejected" : "completed",
-        };
-      },
-    );
+        await client.query(
+          `update security_session_policy set lifecycle_state='active',activated_by=$3,activated_at=now(),activation_override_event_id=$4,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and policy_id=$2`,
+          [context.tenantId, action.policy_id, context.actor.userId, overrideEventId],
+        );
+        eventType = "activated";
+        await client.query(
+          `update security_user_account set session_version=session_version+1,updated_at=now() where tenant_id=$1 and status='active'`,
+          [context.tenantId],
+        );
+      }
+      const after = await this.sessionPolicyState(client, context.tenantId, action.policy_id);
+      await this.appendSessionPolicyEvent(client, context, action.policy_id, eventType, reason, after!);
+      return {
+        entityType: "session_policy",
+        entityId: action.policy_id,
+        before,
+        after,
+        approvalOverrideApplied,
+        outcome: action.action === "reject" ? "rejected" : "completed",
+      };
+    });
   }
 
   async loadEffectiveSecurityPolicy(tenantId: string): Promise<TenantSecurityPolicy | null> {
@@ -1356,7 +1353,7 @@ export class SourceSecurityAdministrationRepository {
     key: string,
   ): Promise<SecurityAdministrationResult> {
     const permission = action.action === "reject" ? "approve" : action.action;
-    return this.run(context, `security.access_review.${permission}`, key, action, [], async (client) => {
+    return this.run(context, `security.access_review.${permission}`, key, action, [], async (client, commandId) => {
       const locked = await client.query<Record<string, unknown>>(
         `select * from security_access_review_campaign where tenant_id=$1 and campaign_id=$2 for update`,
         [context.tenantId, action.campaign_id],
@@ -1367,6 +1364,7 @@ export class SourceSecurityAdministrationRepository {
       if (Number(current.row_version) !== action.expected_version)
         throw this.conflict("The access review version has changed.");
       const before = cleanRow(current);
+      let approvalOverrideApplied = false;
       if (action.action === "submit") {
         if (current.lifecycle_state !== "draft" || current.owner_id !== context.actor.userId)
           throw this.conflict("Only the campaign owner can submit a current draft.");
@@ -1376,21 +1374,25 @@ export class SourceSecurityAdministrationRepository {
         );
       } else if (action.action === "approve" || action.action === "reject") {
         if (current.lifecycle_state !== "submitted") throw this.conflict("Only submitted campaigns can be decided.");
-        if (current.owner_id === context.actor.userId)
-          throw new SecurityAdministrationError(
-            403,
-            "MAKER_CHECKER_VIOLATION",
-            "Campaign owners cannot approve their own campaign.",
-          );
+        const reason = action.reason ?? null;
+        const overrideEventId = await this.approvalOverrideEventId(client, context, commandId, {
+          normalDecisionPermission: "security.access_review.approve",
+          resourceType: "security.access_review_campaign",
+          resourceId: action.campaign_id,
+          decisionAction: action.action,
+          makerActorIds: [current.owner_id, current.submitted_by],
+          reason,
+        });
+        approvalOverrideApplied = overrideEventId !== null;
         if (action.action === "approve")
           await client.query(
-            `update security_access_review_campaign set lifecycle_state='approved',approved_by=$3,approved_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and campaign_id=$2`,
-            [context.tenantId, action.campaign_id, context.actor.userId],
+            `update security_access_review_campaign set lifecycle_state='approved',approved_by=$3,approved_at=now(),approval_override_event_id=$4,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and campaign_id=$2`,
+            [context.tenantId, action.campaign_id, context.actor.userId, overrideEventId],
           );
         else
           await client.query(
-            `update security_access_review_campaign set lifecycle_state='rejected',rejected_by=$3,rejected_at=now(),rejection_reason=$4,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and campaign_id=$2`,
-            [context.tenantId, action.campaign_id, context.actor.userId, "reason" in action ? action.reason : null],
+            `update security_access_review_campaign set lifecycle_state='rejected',rejected_by=$3,rejected_at=now(),rejection_reason=$4,approval_override_event_id=$5,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and campaign_id=$2`,
+            [context.tenantId, action.campaign_id, context.actor.userId, reason, overrideEventId],
           );
       } else if (action.action === "activate") {
         if (current.lifecycle_state !== "approved") throw this.conflict("Only approved campaigns can be activated.");
@@ -1421,6 +1423,7 @@ export class SourceSecurityAdministrationRepository {
         entityId: action.campaign_id,
         before,
         after: await this.accessReviewCampaignState(client, context.tenantId, action.campaign_id),
+        approvalOverrideApplied,
         outcome: action.action === "reject" ? "rejected" : "completed",
       };
     });
@@ -1702,7 +1705,7 @@ export class SourceSecurityAdministrationRepository {
       key,
       action,
       [],
-      async (client, _commandId, fullAdmin) => {
+      async (client, commandId, fullAdmin) => {
         const result = await client.query<Record<string, unknown>>(
           `select * from security_delegation where tenant_id=$1 and delegation_id=$2 for update`,
           [context.tenantId, action.delegation_id],
@@ -1713,7 +1716,8 @@ export class SourceSecurityAdministrationRepository {
         if (Number(current.row_version) !== action.expected_version)
           throw this.conflict("The delegation version has changed.");
         const before = cleanRow(current);
-        const eventReason: string | null = "reason" in action ? action.reason : null;
+        let approvalOverrideApplied = false;
+        const eventReason: string | null = "reason" in action ? (action.reason ?? null) : null;
         if (action.action === "submit") {
           if (current.lifecycle_state !== "draft" || (!fullAdmin && current.delegator_id !== context.actor.userId))
             throw this.conflict("Only the delegator can submit a current draft.");
@@ -1733,12 +1737,15 @@ export class SourceSecurityAdministrationRepository {
         } else if (action.action === "approve" || action.action === "reject") {
           if (current.lifecycle_state !== "submitted")
             throw this.conflict("Only submitted delegations can be decided.");
-          if (current.delegator_id === context.actor.userId)
-            throw new SecurityAdministrationError(
-              403,
-              "MAKER_CHECKER_VIOLATION",
-              "Delegators cannot approve their own request.",
-            );
+          const overrideEventId = await this.approvalOverrideEventId(client, context, commandId, {
+            normalDecisionPermission: "security.delegation.approve",
+            resourceType: "security.delegation",
+            resourceId: action.delegation_id,
+            decisionAction: action.action,
+            makerActorIds: [current.delegator_id, current.submitted_by],
+            reason: eventReason,
+          });
+          approvalOverrideApplied = overrideEventId !== null;
           if (action.action === "approve") {
             await this.validateDelegationSource(client, context.tenantId, String(current.delegator_id), {
               delegatee_id: String(current.delegatee_id),
@@ -1750,13 +1757,13 @@ export class SourceSecurityAdministrationRepository {
               reason: String(current.reason),
             });
             await client.query(
-              `update security_delegation set lifecycle_state='approved',approved_by=$3,approved_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and delegation_id=$2`,
-              [context.tenantId, action.delegation_id, context.actor.userId],
+              `update security_delegation set lifecycle_state='approved',approved_by=$3,approved_at=now(),approval_override_event_id=$4,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and delegation_id=$2`,
+              [context.tenantId, action.delegation_id, context.actor.userId, overrideEventId],
             );
           } else {
             await client.query(
-              `update security_delegation set lifecycle_state='rejected',rejected_by=$3,rejected_at=now(),rejection_reason=$4,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and delegation_id=$2`,
-              [context.tenantId, action.delegation_id, context.actor.userId, eventReason],
+              `update security_delegation set lifecycle_state='rejected',rejected_by=$3,rejected_at=now(),rejection_reason=$4,approval_override_event_id=$5,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and delegation_id=$2`,
+              [context.tenantId, action.delegation_id, context.actor.userId, eventReason, overrideEventId],
             );
           }
         } else if (action.action === "activate") {
@@ -1810,6 +1817,7 @@ export class SourceSecurityAdministrationRepository {
           entityId: action.delegation_id,
           before,
           after,
+          approvalOverrideApplied,
           outcome: action.action === "reject" ? "rejected" : "completed",
         };
       },
@@ -2056,7 +2064,7 @@ export class SourceSecurityAdministrationRepository {
       key,
       action,
       [],
-      async (client, _commandId, fullAdmin) => {
+      async (client, commandId, fullAdmin) => {
         const result = await client.query<Record<string, unknown>>(
           `select * from security_impersonation_request where tenant_id=$1 and request_id=$2 for update`,
           [context.tenantId, action.request_id],
@@ -2071,7 +2079,8 @@ export class SourceSecurityAdministrationRepository {
         if (Number(current.row_version) !== action.expected_version)
           throw this.conflict("The impersonation version has changed.");
         const before = cleanRow(current);
-        const reason = "reason" in action ? action.reason : null;
+        let approvalOverrideApplied = false;
+        const reason = "reason" in action ? (action.reason ?? null) : null;
         let eventType = "";
         if (action.action === "submit") {
           if (current.lifecycle_state !== "draft" || (!fullAdmin && current.actor_id !== context.actor.userId))
@@ -2091,12 +2100,15 @@ export class SourceSecurityAdministrationRepository {
         } else if (action.action === "approve" || action.action === "reject") {
           if (current.lifecycle_state !== "submitted")
             throw this.conflict("Only submitted impersonation can be decided.");
-          if (current.actor_id === context.actor.userId)
-            throw new SecurityAdministrationError(
-              403,
-              "MAKER_CHECKER_VIOLATION",
-              "The requesting actor cannot approve impersonation.",
-            );
+          const overrideEventId = await this.approvalOverrideEventId(client, context, commandId, {
+            normalDecisionPermission: "security.impersonation.approve",
+            resourceType: "security.impersonation_request",
+            resourceId: action.request_id,
+            decisionAction: action.action,
+            makerActorIds: [current.actor_id, current.submitted_by],
+            reason,
+          });
+          approvalOverrideApplied = overrideEventId !== null;
           if (action.action === "approve") {
             await this.validateImpersonationTarget(
               client,
@@ -2106,16 +2118,16 @@ export class SourceSecurityAdministrationRepository {
             );
             await client.query(
               `update security_impersonation_request set lifecycle_state='approved',approved_by=$3,
-                approved_at=now(),updated_at=now(),row_version=row_version+1 where tenant_id=$1 and request_id=$2`,
-              [context.tenantId, action.request_id, context.actor.userId],
+                approved_at=now(),approval_override_event_id=$4,updated_at=now(),row_version=row_version+1 where tenant_id=$1 and request_id=$2`,
+              [context.tenantId, action.request_id, context.actor.userId, overrideEventId],
             );
             eventType = "approved";
           } else {
             await client.query(
               `update security_impersonation_request set lifecycle_state='rejected',rejected_by=$3,
-                rejected_at=now(),rejection_reason=$4,updated_at=now(),row_version=row_version+1
+                rejected_at=now(),rejection_reason=$4,approval_override_event_id=$5,updated_at=now(),row_version=row_version+1
                where tenant_id=$1 and request_id=$2`,
-              [context.tenantId, action.request_id, context.actor.userId, reason],
+              [context.tenantId, action.request_id, context.actor.userId, reason, overrideEventId],
             );
             eventType = "rejected";
           }
@@ -2200,6 +2212,7 @@ export class SourceSecurityAdministrationRepository {
           entityId: action.request_id,
           before,
           after,
+          approvalOverrideApplied,
           outcome: action.action === "reject" ? "rejected" : "completed",
         };
       },
@@ -2488,6 +2501,7 @@ export class SourceSecurityAdministrationRepository {
         authorization: {
           permission: operation,
           tenant_wide_administrator: fullAdmin,
+          maker_checker_override: changed.approvalOverrideApplied === true,
           assurance: "password",
           target_tenant: context.tenantId,
         },
@@ -3070,20 +3084,24 @@ export class SourceSecurityAdministrationRepository {
     if (requestRow.request_state !== "submitted" || Number(requestRow.row_version) !== action.expected_version) {
       throw this.conflict("The user approval state or version has changed.");
     }
-    if (
-      [requestRow.requested_by, requestRow.submitted_by, requestRow.target_user_id]
-        .filter(Boolean)
-        .includes(context.actor.userId)
-    ) {
+    if (requestRow.target_user_id === context.actor.userId) {
       throw new SecurityAdministrationError(
         403,
         "MAKER_CHECKER_VIOLATION",
-        "User approval requires a distinct checker.",
+        "A user cannot approve a change to their own account.",
       );
     }
     if (action.decision === "rejected" && !action.reason) {
       throw new SecurityAdministrationError(400, "DECISION_REASON_REQUIRED", "A rejection reason is required.");
     }
+    const overrideEventId = await this.approvalOverrideEventId(client, context, commandId, {
+      normalDecisionPermission: "security.user_account.approve",
+      resourceType: "security.user_change_request",
+      resourceId: action.request_id,
+      decisionAction: action.decision === "approved" ? "approve" : "reject",
+      makerActorIds: [requestRow.requested_by, requestRow.submitted_by],
+      reason: action.reason,
+    });
     const request = requestRow.proposed_user as CreateSecurityUserRequest;
     const before =
       request.requested_action === "create"
@@ -3112,7 +3130,7 @@ export class SourceSecurityAdministrationRepository {
     await client.query(
       `update security_user_change_request
           set request_state=$3,applied_user_id=$4,decided_by=$5,decided_at=now(),
-              decision_reason=$6,row_version=row_version+1
+              decision_reason=$6,approval_override_event_id=$7,row_version=row_version+1
         where tenant_id=$1 and request_id=$2`,
       [
         context.tenantId,
@@ -3121,6 +3139,7 @@ export class SourceSecurityAdministrationRepository {
         request.requested_action === "create" ? userId : null,
         context.actor.userId,
         action.reason,
+        overrideEventId,
       ],
     );
     const after = userId
@@ -3133,6 +3152,7 @@ export class SourceSecurityAdministrationRepository {
         before,
         after,
         approvalReference: action.request_id,
+        approvalOverrideApplied: overrideEventId !== null,
         outcome: action.decision === "approved" ? "completed" : "rejected",
       },
       ...(credentialDelivery ? { credentialDelivery } : {}),
@@ -3440,12 +3460,14 @@ export class SourceSecurityAdministrationRepository {
     if (request.request_state !== "pending" || Number(request.row_version) !== action.expected_version)
       throw this.conflict("The role approval state or version has changed.");
     const current = await this.lockRole(client, context.tenantId, String(request.role_policy_id));
-    if ([request.requested_by, current.created_by, current.submitted_by].filter(Boolean).includes(context.actor.userId))
-      throw new SecurityAdministrationError(
-        403,
-        "MAKER_CHECKER_VIOLATION",
-        "Role approval requires a distinct checker.",
-      );
+    const overrideEventId = await this.approvalOverrideEventId(client, context, commandId, {
+      normalDecisionPermission: "security.authorization.role.approve",
+      resourceType: "security.role_approval_request",
+      resourceId: action.request_id,
+      decisionAction: action.decision === "approved" ? "approve" : "reject",
+      makerActorIds: [request.requested_by, current.created_by, current.submitted_by],
+      reason: action.reason,
+    });
     const policyId = String(request.role_policy_id);
     const before = await this.roleState(client, context.tenantId, policyId);
     const requestedAction = String(request.requested_action);
@@ -3502,8 +3524,8 @@ export class SourceSecurityAdministrationRepository {
       );
     }
     await client.query(
-      `update security_role_approval_request set request_state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,row_version=row_version+1 where tenant_id=$1 and request_id=$2`,
-      [context.tenantId, action.request_id, action.decision, context.actor.userId, action.reason],
+      `update security_role_approval_request set request_state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,approval_override_event_id=$6,row_version=row_version+1 where tenant_id=$1 and request_id=$2`,
+      [context.tenantId, action.request_id, action.decision, context.actor.userId, action.reason, overrideEventId],
     );
     return {
       entityType: "role_policy",
@@ -3511,6 +3533,7 @@ export class SourceSecurityAdministrationRepository {
       before,
       after: await this.roleState(client, context.tenantId, policyId),
       approvalReference: action.request_id,
+      approvalOverrideApplied: overrideEventId !== null,
       outcome: action.decision === "approved" ? "completed" : "rejected",
     };
   }
@@ -3528,16 +3551,20 @@ export class SourceSecurityAdministrationRepository {
       Number(request.row_version) !== action.expected_version
     )
       throw this.conflict("The assignment approval state or version has changed.");
-    if (
-      [request.requested_by, request.submitted_by, request.target_user_id]
-        .filter(Boolean)
-        .includes(context.actor.userId)
-    )
+    if (request.target_user_id === context.actor.userId)
       throw new SecurityAdministrationError(
         403,
         "MAKER_CHECKER_VIOLATION",
-        "Assignment approval requires a distinct checker.",
+        "A user cannot approve their own role assignment.",
       );
+    const overrideEventId = await this.approvalOverrideEventId(client, context, commandId, {
+      normalDecisionPermission: "security.authorization.assignment.approve",
+      resourceType: "security.assignment_approval_request",
+      resourceId: action.request_id,
+      decisionAction: action.decision === "approved" ? "approve" : "reject",
+      makerActorIds: [request.requested_by, request.submitted_by],
+      reason: action.reason,
+    });
     const before = cleanRow(request);
     let assignmentId = request.assignment_id ? String(request.assignment_id) : null;
     if (action.decision === "approved") {
@@ -3602,8 +3629,16 @@ export class SourceSecurityAdministrationRepository {
       if (requestedAction !== "create") await this.requireLastAdministrator(client, context.tenantId);
     }
     await client.query(
-      `update security_assignment_approval_request set request_state=$3,assignment_id=$4,decided_by=$5,decided_at=now(),decision_reason=$6,row_version=row_version+1 where tenant_id=$1 and request_id=$2`,
-      [context.tenantId, action.request_id, action.decision, assignmentId, context.actor.userId, action.reason],
+      `update security_assignment_approval_request set request_state=$3,assignment_id=$4,decided_by=$5,decided_at=now(),decision_reason=$6,approval_override_event_id=$7,row_version=row_version+1 where tenant_id=$1 and request_id=$2`,
+      [
+        context.tenantId,
+        action.request_id,
+        action.decision,
+        assignmentId,
+        context.actor.userId,
+        action.reason,
+        overrideEventId,
+      ],
     );
     const after = await this.assignmentRequestState(client, context.tenantId, action.request_id);
     return {
@@ -3612,6 +3647,7 @@ export class SourceSecurityAdministrationRepository {
       before,
       after,
       approvalReference: action.request_id,
+      approvalOverrideApplied: overrideEventId !== null,
       outcome: action.decision === "approved" ? "completed" : "rejected",
     };
   }
@@ -3821,7 +3857,9 @@ export class SourceSecurityAdministrationRepository {
       entity_id: mutation.entityId,
       before_hash: beforeHash,
       after_hash: afterHash,
-      source_reference: "governed_authorization_administration",
+      source_reference: mutation.approvalOverrideApplied
+        ? "governed_super_admin_approval_override"
+        : "governed_authorization_administration",
       approval_reference: mutation.approvalReference ?? null,
       occurred_at: occurredAt,
       sequence,
@@ -4053,6 +4091,73 @@ export class SourceSecurityAdministrationRepository {
     if (!result.rows[0])
       throw new SecurityAdministrationError(404, "APPROVAL_NOT_FOUND", "The assignment request was not found.");
     return result.rows[0];
+  }
+
+  private async approvalOverrideEventId(
+    client: PoolClient,
+    context: SecurityActorContext,
+    commandId: string,
+    input: {
+      normalDecisionPermission: string;
+      resourceType: string;
+      resourceId: string;
+      decisionAction: "approve" | "reject" | "activate";
+      makerActorIds: readonly unknown[];
+      reason: string | null | undefined;
+    },
+  ): Promise<string | null> {
+    const makerActorIds = input.makerActorIds.filter(
+      (actorId): actorId is string => typeof actorId === "string" && actorId.length > 0,
+    );
+    if (!makerActorIds.includes(context.actor.userId)) return null;
+
+    const policy = evaluateApprovalActor({
+      account: context.actor,
+      normalDecisionPermission: input.normalDecisionPermission,
+      makerActorIds,
+      impersonated: false,
+    });
+    if (policy.kind !== "override") {
+      throw new SecurityAdministrationError(
+        403,
+        "MAKER_CHECKER_VIOLATION",
+        "This decision requires an independent checker or a governed super-admin override.",
+      );
+    }
+    const reason = input.reason?.trim();
+    if (!reason) {
+      throw new SecurityAdministrationError(
+        400,
+        "APPROVAL_OVERRIDE_REASON_REQUIRED",
+        "A business reason is required for a super-admin approval override.",
+      );
+    }
+    try {
+      const result = await writeApprovalOverrideEvent(client, {
+        tenantId: context.tenantId,
+        account: context.actor,
+        makerActorIds,
+        normalDecisionPermission: input.normalDecisionPermission,
+        resourceType: input.resourceType,
+        resourceId: input.resourceId,
+        decisionAction: input.decisionAction,
+        reason,
+        correlationId: context.correlationId,
+        idempotencyKey: commandId,
+        metadata: { source: "security_administration", maker_checker_override: true },
+        impersonated: false,
+      });
+      return result.eventId;
+    } catch (error) {
+      if (!(error instanceof ApprovalOverrideWriterError)) throw error;
+      if (error.code === "INVALID_APPROVAL_OVERRIDE_EVIDENCE") {
+        throw new SecurityAdministrationError(400, error.code, error.message);
+      }
+      if (error.code === "APPROVAL_OVERRIDE_IDEMPOTENCY_CONFLICT") {
+        throw new SecurityAdministrationError(409, error.code, error.message);
+      }
+      throw new SecurityAdministrationError(403, error.code, error.message);
+    }
   }
 
   private conflict(message: string): SecurityAdministrationError {

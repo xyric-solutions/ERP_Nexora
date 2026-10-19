@@ -373,3 +373,142 @@ export async function ensureSourceAuthorizationFixture(pool: DatabasePool): Prom
     client.release();
   }
 }
+
+export async function ensureSourceSuperAdministratorFixture(pool: DatabasePool): Promise<void> {
+  await ensureSourceAuthorizationFixture(pool);
+  const client = await pool.connect();
+  const userId = "r06.override-admin";
+  const requestedRoleId = "r06-uat-role-super-administrator";
+  const policyId = "r06-uat-policy-approval-override";
+  const assignmentId = "r06-uat-assignment-approval-override";
+  const permissions = [
+    "platform.approval.override",
+    "security.authorization.role.create",
+    "security.authorization.role.submit",
+    "security.authorization.role.approve",
+    "security.authorization.assignment.create",
+    "security.user_account.create",
+    "security.user_account.submit",
+    "security.user_account.approve",
+    "security.access_review.create",
+    "security.access_review.submit",
+    "security.access_review.approve",
+    "security.delegation.create",
+    "security.delegation.submit",
+    "security.delegation.approve",
+    "security.impersonation.create",
+    "security.impersonation.submit",
+    "security.impersonation.approve",
+    "security.session_policy.create",
+    "security.session_policy.submit",
+    "security.session_policy.approve",
+    "security.session_policy.activate",
+    "security.authorization.audit.read",
+  ] as const;
+  try {
+    await client.query("begin");
+    await client.query("select set_config('nexora.tenant_id', $1, true)", [sourceTestTenantId]);
+    await client.query(
+      `insert into security_user_account
+        (id,tenant_id,identity_subject,email,status,mfa_state,created_at,updated_at,display_name)
+       values ($1,$2,$3,'override-admin@uat.nexora.invalid','active','disabled',now(),now(),'Override Administrator')
+       on conflict (tenant_id,id) do update set status='active',display_name='Override Administrator',updated_at=now()`,
+      [userId, sourceTestTenantId, `local:${userId}`],
+    );
+    await client.query(
+      `insert into security_tenant_role
+        (tenant_id,role_id,role_code,display_name,description,lifecycle_state,source_kind,source_reference)
+       values ($1,$2,'super_administrator','Super Administrator','Controlled override fixture',
+               'active','legacy_backfill','controlled-test-fixture')
+       on conflict (tenant_id,role_code) do nothing`,
+      [sourceTestTenantId, requestedRoleId],
+    );
+    const governedRole = await client.query<{ role_id: string }>(
+      `select role_id from security_tenant_role
+        where tenant_id=$1 and role_code='super_administrator' and lifecycle_state='active'`,
+      [sourceTestTenantId],
+    );
+    const roleId = governedRole.rows[0]?.role_id;
+    if (!roleId) throw new Error("The controlled super-administrator role is unavailable");
+    await client.query(
+      `insert into security_role_policy
+        (id,tenant_id,role,scope,permissions,field_rules,sod_rules,version,status,created_at,role_id,lifecycle_state)
+       values ($2,$1,'super_administrator',jsonb_build_object('mode','tenant'),$3::jsonb,
+               '{"allow":null,"deny":[]}'::jsonb,
+               '{"conflicting_roles":[],"distinct_actor_fields":[]}'::jsonb,
+               2147483647,'active',now(),$4,'active')
+       on conflict (tenant_id,id) do update
+         set permissions=excluded.permissions,status='active',lifecycle_state='active',archived_at=null`,
+      [sourceTestTenantId, policyId, JSON.stringify(permissions), roleId],
+    );
+    await client.query(
+      `delete from security_role_permission_grant where tenant_id=$1 and role_policy_id=$2
+        and permission_key<>all($3::text[])`,
+      [sourceTestTenantId, policyId, permissions],
+    );
+    await client.query(
+      `delete from security_role_scope_grant where tenant_id=$1 and role_policy_id=$2
+        and permission_key<>all($3::text[])`,
+      [sourceTestTenantId, policyId, permissions],
+    );
+    await client.query(
+      `insert into security_role_permission_grant
+        (tenant_id,role_policy_id,permission_key,field_allow_mode)
+       select $1,$2,permission_key,'all' from security_permission_definition
+        where status='active' and permission_key=any($3::text[])
+       on conflict do nothing`,
+      [sourceTestTenantId, policyId, permissions],
+    );
+    await client.query(
+      `insert into security_role_scope_grant
+        (tenant_id,role_policy_id,permission_key,scope_kind,scope_value)
+       select $1,$2,permission_key,'tenant',$1 from security_permission_definition
+        where status='active' and permission_key=any($3::text[])
+       on conflict do nothing`,
+      [sourceTestTenantId, policyId, permissions],
+    );
+    await client.query(
+      `insert into security_role_permission_delegation
+        (tenant_id,role_policy_id,permission_key,scope_kind,scope_value)
+       values ($1,$2,'security.authorization.audit.read','tenant',$1)
+       on conflict do nothing`,
+      [sourceTestTenantId, policyId],
+    );
+    await client.query(
+      `insert into security_user_role_assignment
+        (tenant_id,user_id,role_policy_id,assigned_by,assigned_at,assignment_id,lifecycle_state,valid_from)
+       values ($1,$2,$3,$2,now(),$4,'active',now())
+       on conflict (tenant_id,user_id,role_policy_id) do update
+         set lifecycle_state='active',revoked_by=null,revoked_at=null,revocation_reason=null`,
+      [sourceTestTenantId, userId, policyId, assignmentId],
+    );
+    await client.query(
+      `insert into security_user_role_assignment_version
+        (tenant_id,assignment_id,version,supersedes_version,user_id,role_policy_id,lifecycle_state,
+         valid_from,valid_until,assigned_by,administration_command_id,source_kind,source_reference)
+       select $1,$2,1,null,$3,$4,'active',assignment.valid_from,null,$3,null,
+              'legacy_backfill','controlled-test-fixture'
+         from security_user_role_assignment assignment
+        where assignment.tenant_id=$1 and assignment.assignment_id=$2
+       on conflict (tenant_id,assignment_id,version) do nothing`,
+      [sourceTestTenantId, assignmentId, userId, policyId],
+    );
+    await client.query(
+      `insert into security_user_company_access
+        (tenant_id,access_id,user_id,company_id,is_default,granted_by,source_kind,source_reference)
+       select $1,'r06-fixture-company-access-override-admin',$2,'nexora-r06-uat-company',true,$2,
+              'governed_administration','controlled-test-fixture'
+        where not exists (
+          select 1 from security_user_company_access
+           where tenant_id=$1 and user_id=$2 and company_id='nexora-r06-uat-company' and revoked_at is null
+        )`,
+      [sourceTestTenantId, userId],
+    );
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}

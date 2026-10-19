@@ -7,6 +7,10 @@ import {
   securityRoleAssignmentSchema,
   securitySodPolicySchema,
   createSecuritySessionPolicySchema,
+  securityAccessReviewCampaignActionSchema,
+  securityDelegationActionSchema,
+  securityImpersonationActionSchema,
+  securitySessionPolicyActionSchema,
 } from "../../packages/contracts/src/index.js";
 
 describe("security policy contracts", () => {
@@ -92,6 +96,48 @@ describe("security policy contracts", () => {
       createSecuritySessionPolicySchema.safeParse({
         ...valid,
         values: { ...valid.values, impersonation_maximum_minutes: 61 },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts bounded business reasons on approval actions without requiring them for independent checkers", () => {
+    expect(
+      securitySessionPolicyActionSchema.safeParse({
+        action: "approve",
+        policy_id: "policy-1",
+        expected_version: 2,
+        reason: "Governed super-admin override",
+      }).success,
+    ).toBe(true);
+    expect(
+      securityAccessReviewCampaignActionSchema.safeParse({
+        action: "approve",
+        campaign_id: "campaign-1",
+        expected_version: 2,
+      }).success,
+    ).toBe(true);
+    expect(
+      securityDelegationActionSchema.safeParse({
+        action: "approve",
+        delegation_id: "delegation-1",
+        expected_version: 2,
+        reason: "Governed super-admin override",
+      }).success,
+    ).toBe(true);
+    expect(
+      securityImpersonationActionSchema.safeParse({
+        action: "approve",
+        request_id: "impersonation-1",
+        expected_version: 2,
+        reason: "Governed super-admin override",
+      }).success,
+    ).toBe(true);
+    expect(
+      securitySessionPolicyActionSchema.safeParse({
+        action: "approve",
+        policy_id: "policy-1",
+        expected_version: 2,
+        reason: "x".repeat(513),
       }).success,
     ).toBe(false);
   });

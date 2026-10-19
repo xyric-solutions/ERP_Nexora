@@ -14,6 +14,7 @@ export const securityImpersonationActionSchema = z.discriminatedUnion("action", 
     action: z.enum(["submit", "approve", "activate", "emergency_activate"]),
     request_id: identifier,
     expected_version: z.number().int().positive(),
+    reason: reason.optional(),
   }),
   z.strictObject({
     action: z.enum(["reject", "end"]),
