@@ -46,6 +46,7 @@ import { HrEmployeeDirectory } from "@prototype/features/hr/views/hr-employee-di
 import { HrEmployeeRecordWorkspace } from "@prototype/features/hr/views/hr-employee-record-workspace";
 import { HrPositionsOrganizationWorkspace } from "@prototype/features/hr/views/hr-positions-organization-workspace";
 import { HrManpowerRequisitionsWorkspace } from "@prototype/features/hr/views/hr-manpower-requisitions-workspace";
+import { HrJobOpeningsWorkspace } from "@prototype/features/hr/views/hr-job-openings-workspace";
 import { HrEmployeeDraftForm } from "@prototype/features/hr/views/hr-employee-draft-form";
 import { HrEmployeeDraftsWorkspace } from "@prototype/features/hr/views/hr-employee-drafts-workspace";
 import { HrEmployeeApprovalsWorkspace } from "@prototype/features/hr/views/hr-employee-approvals-workspace";
@@ -2811,6 +2812,9 @@ export function PrototypeContent(props: PrototypeContentProps) {
     }
     if (context.pageId === "manpower-requisitions") {
       return <><PageIntro context={context} /><HrManpowerRequisitionsWorkspace /></>;
+    }
+    if (context.pageId === "job-openings") {
+      return <><PageIntro context={context} /><HrJobOpeningsWorkspace /></>;
     }
     if (context.pageId === "org-structure") {
       return (

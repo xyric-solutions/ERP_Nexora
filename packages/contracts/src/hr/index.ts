@@ -569,6 +569,22 @@ export type HrManpowerRequisitionResult = z.infer<typeof hrManpowerRequisitionRe
 export type SubmitHrManpowerRequisitionRequest = z.infer<typeof submitHrManpowerRequisitionRequestSchema>;
 export type DecideHrManpowerRequisitionRequest = z.infer<typeof decideHrManpowerRequisitionRequestSchema>;
 
+export const hrJobOpeningQuerySchema = z.strictObject({ company_id: identifier, search: z.string().trim().max(160).optional(), state: z.enum(["open", "on_hold", "closed", "cancelled"]).optional(), limit: z.number().int().min(1).max(100).default(50) });
+export const hrJobOpeningSchema = z.strictObject({
+  id: identifier, company_id: identifier, reference: z.string().min(1).max(32), requisition_id: identifier, requisition_reference: z.string().min(1).max(32),
+  title: z.string().min(1).max(160), positions_requested: z.number().int().min(1), filled_positions: z.number().int().min(0), remaining_positions: z.number().int().min(0),
+  channels: z.array(z.string().min(1).max(80)).max(10), closing_on: isoDate.nullable(), state: z.enum(["open", "on_hold", "closed", "cancelled"]), state_reason: z.string().max(1000), created_at: z.string().datetime(),
+});
+export const hrJobOpeningDirectorySchema = z.strictObject({ items: z.array(hrJobOpeningSchema) });
+export const createHrJobOpeningRequestSchema = z.strictObject({ company_id: identifier, requisition_id: identifier, title: z.string().trim().min(1).max(160), positions_requested: z.number().int().min(1).max(999), channels: z.array(z.string().trim().min(1).max(80)).min(1).max(10), closing_on: isoDate.optional() });
+export const changeHrJobOpeningStateRequestSchema = z.strictObject({ company_id: identifier, state: z.enum(["open", "on_hold", "closed", "cancelled"]), reason: z.string().trim().max(1000).default("") });
+export const hrJobOpeningResultSchema = z.strictObject({ id: identifier, reference: z.string().min(1).max(32), state: z.enum(["open", "on_hold", "closed", "cancelled"]), company_id: identifier, audit_event_id: identifier, replayed: z.boolean() });
+export type HrJobOpeningQuery = z.infer<typeof hrJobOpeningQuerySchema>;
+export type HrJobOpeningDirectory = z.infer<typeof hrJobOpeningDirectorySchema>;
+export type CreateHrJobOpeningRequest = z.infer<typeof createHrJobOpeningRequestSchema>;
+export type ChangeHrJobOpeningStateRequest = z.infer<typeof changeHrJobOpeningStateRequestSchema>;
+export type HrJobOpeningResult = z.infer<typeof hrJobOpeningResultSchema>;
+
 export const hrMasterRecordSchema = z.strictObject({
   id: identifier,
   company_id: identifier,

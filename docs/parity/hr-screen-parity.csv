@@ -21,7 +21,7 @@ hr,people,People,employee-status-history,Employee History,list,live,HrEmployeeHi
 hr,people,People,employee-record,Employee Record,detail,live,HrEmployeeRecordWorkspace,LIVE_API_AUDITED,M04 Employee Core
 hr,people,People,positions-org,Positions & Organisation,list,live,HrPositionsOrganizationWorkspace,LIVE_API_AUDITED,M04 Employee Core
 hr,recruitment,Recruitment,manpower-requisitions,Manpower Requisitions,approval,live,HrManpowerRequisitionsWorkspace,LIVE_API_AUDITED,M05 Manpower Planning
-hr,recruitment,Recruitment,job-openings,Job Openings,list,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
+hr,recruitment,Recruitment,job-openings,Job Openings,list,live,HrJobOpeningsWorkspace,LIVE_API_AUDITED,M06 Recruitment
 hr,recruitment,Recruitment,candidates,Candidate Directory,list,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
 hr,recruitment,Recruitment,recruitment-pipeline,Recruitment Pipeline,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
 hr,recruitment,Recruitment,interviews,Interviews & Evaluations,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment

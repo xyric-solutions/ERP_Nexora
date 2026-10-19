@@ -61,6 +61,10 @@ PostgreSQL, Redis or storage directly.
   approve/reject decisions use CSRF/origin checks, idempotency, company scope
   and immutable audit evidence. Approval only authorizes headcount; it does
   not create a job opening, candidate, employee or payroll transaction.
+- Job Openings now provide a company-scoped recruitment register. New openings
+  can only use an approved requisition, and server-side headcount control
+  prevents all non-cancelled openings from exceeding that approval. Opening
+  state changes are CSRF/origin protected, idempotent and immutably audited.
 - Profile-draft assignments, employee contacts, emergency contacts, restricted
   document metadata, assignment timeline and unified employee-history reads
   covering status changes, lifecycle events and non-sensitive profile versions.
@@ -721,12 +725,12 @@ Local web base: `http://127.0.0.1:3000` (API: `http://127.0.0.1:4000/api/v1`).
   independent approval and activation.
 - `/#/hr/jobs` — company-scoped job catalogue and governed job creation.
 
-This makes 23 of the 76 HR menu screens API-connected. The remaining 53 are
+This makes 24 of the 76 HR menu screens API-connected. The remaining 52 are
 mock/prototype unless separately marked above. In Organisation & Masters,
 all 8 screens are now API-connected: Organisation Structure, Designations, Job
 Grades, Jobs, Cost Centres, Work Locations, Employment Types and Employee
-Categories. All 13 People screens and the first Recruitment screen are now
-API-connected, including both dashboards, Employee Record and Positions &
+Categories. All 13 People screens and the first two Recruitment screens are
+now API-connected, including both dashboards, Employee Record and Positions &
 Organisation. Payroll calculation, approval, posting and payment workspaces
 remain separate planned delivery slices even though their existing database
 authorities feed the live dashboard.

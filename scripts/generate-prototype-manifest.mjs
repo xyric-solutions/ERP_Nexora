@@ -105,6 +105,7 @@ export async function buildHrParityRows() {
     else if (page.id === "employee-record") renderer = "HrEmployeeRecordWorkspace";
     else if (page.id === "positions-org") renderer = "HrPositionsOrganizationWorkspace";
     else if (page.id === "manpower-requisitions") renderer = "HrManpowerRequisitionsWorkspace";
+    else if (page.id === "job-openings") renderer = "HrJobOpeningsWorkspace";
     else if (page.id === "add-employee") renderer = "HrEmployeeDraftForm";
     else if (page.id === "employee-drafts") renderer = "HrEmployeeDraftsWorkspace";
     else if (page.id === "employee-approvals") renderer = "HrEmployeeApprovalsWorkspace";

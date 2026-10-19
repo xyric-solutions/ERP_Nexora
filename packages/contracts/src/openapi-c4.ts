@@ -50,6 +50,10 @@ import {
   hrManpowerRequisitionResultSchema,
   submitHrManpowerRequisitionRequestSchema,
   decideHrManpowerRequisitionRequestSchema,
+  hrJobOpeningDirectorySchema,
+  createHrJobOpeningRequestSchema,
+  changeHrJobOpeningStateRequestSchema,
+  hrJobOpeningResultSchema,
   hrOrganizationUnitDirectorySchema,
   createHrOrganizationUnitRequestSchema,
   updateHrOrganizationUnitRequestSchema,
@@ -1433,6 +1437,13 @@ export function buildOpenApiDocument() {
       },
       "/hr/manpower_requisitions/{requisitionId}/decision": {
         post: { operationId: "decideHrManpowerRequisition", security: [{ cookieAuth: [] }], parameters: [{ in: "path", name: "requisitionId", required: true, schema: { type: "string" } }, csrfParameter, idempotencyParameter], requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/DecideHrManpowerRequisitionRequest" } } } }, responses: { "200": { description: "Manpower requisition decision recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrManpowerRequisitionResult" } } } }, ...securityErrors } },
+      },
+      "/hr/job_openings": {
+        get: { operationId: "listHrJobOpenings", security: [{ cookieAuth: [] }], parameters: [{ in: "query", name: "company_id", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "query", name: "search", schema: { type: "string", maxLength: 160 } }, { in: "query", name: "state", schema: { type: "string" } }, { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 100 } }], responses: { "200": { description: "Company-scoped job openings", content: { "application/json": { schema: { $ref: "#/components/schemas/HrJobOpeningDirectory" } } } }, ...securityErrors } },
+        post: { operationId: "createHrJobOpening", security: [{ cookieAuth: [] }], parameters: [csrfParameter, idempotencyParameter], requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrJobOpeningRequest" } } } }, responses: { "201": { description: "Job opening created", content: { "application/json": { schema: { $ref: "#/components/schemas/HrJobOpeningResult" } } } }, ...securityErrors } },
+      },
+      "/hr/job_openings/{openingId}/state": {
+        post: { operationId: "changeHrJobOpeningState", security: [{ cookieAuth: [] }], parameters: [{ in: "path", name: "openingId", required: true, schema: { type: "string" } }, csrfParameter, idempotencyParameter], requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ChangeHrJobOpeningStateRequest" } } } }, responses: { "200": { description: "Job opening state changed", content: { "application/json": { schema: { $ref: "#/components/schemas/HrJobOpeningResult" } } } }, ...securityErrors } },
       },
       "/hr/organization_units": {
         get: {
@@ -3006,6 +3017,10 @@ export function buildOpenApiDocument() {
         HrManpowerRequisitionResult: schema(hrManpowerRequisitionResultSchema),
         SubmitHrManpowerRequisitionRequest: schema(submitHrManpowerRequisitionRequestSchema),
         DecideHrManpowerRequisitionRequest: schema(decideHrManpowerRequisitionRequestSchema),
+        HrJobOpeningDirectory: schema(hrJobOpeningDirectorySchema),
+        CreateHrJobOpeningRequest: schema(createHrJobOpeningRequestSchema),
+        ChangeHrJobOpeningStateRequest: schema(changeHrJobOpeningStateRequestSchema),
+        HrJobOpeningResult: schema(hrJobOpeningResultSchema),
         HrEmployeeDetail: schema(hrEmployeeDetailSchema),
         HrEmployeeDraftDirectory: schema(hrEmployeeDraftDirectorySchema),
         HrEmployeeDraftDetail: schema(hrEmployeeDraftDetailSchema),

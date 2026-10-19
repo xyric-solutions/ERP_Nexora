@@ -17,6 +17,11 @@ import type {
   HrManpowerRequisitionResult,
   SubmitHrManpowerRequisitionRequest,
   DecideHrManpowerRequisitionRequest,
+  HrJobOpeningDirectory,
+  HrJobOpeningQuery,
+  CreateHrJobOpeningRequest,
+  ChangeHrJobOpeningStateRequest,
+  HrJobOpeningResult,
   HrOrganizationUnitDirectory,
   HrOrganizationUnitDirectoryQuery,
   CreateHrOrganizationUnitRequest,
@@ -1042,6 +1047,22 @@ export class SourceHrRepository {
       if(input.decision==="submitted") await client.query("update hr_manpower_requisition set state='submitted',submitted_by=$3,submitted_at=now(),updated_at=now() where tenant_id=$1 and id=$2",[context.tenantId,id,context.actor.userId]); else await client.query("update hr_manpower_requisition set state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,approval_override_event_id=$6,updated_at=now() where tenant_id=$1 and id=$2",[context.tenantId,id,input.decision,context.actor.userId,input.reason,override]);
       const audit=await this.appendPlatformAudit(client,context,correlationId,`hr.manpower_requisition.${input.decision}`,{entityId:id,entityType:"hr_manpower_requisition",before:{state:before.state},after:{state:input.decision,reason:input.reason,super_admin_override:override!==null}}); const result:HrManpowerRequisitionResult={id,reference:before.reference,state:input.decision,company_id:before.company_id,audit_event_id:audit,replayed:false}; await client.query("insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,200,$6,$7)",[context.tenantId,context.actor.userId,path,idempotencyKey,fingerprint,result,stateHash(result)]); await client.query("commit");return result;
     } catch(error){await client.query("rollback").catch(()=>undefined);throw error;} finally{client.release();}
+  }
+
+  async listJobOpenings(context: HrActorContext, query: HrJobOpeningQuery): Promise<HrJobOpeningDirectory> {
+    return this.read(context, "hr.employee.read", async (client) => {
+      await this.requireCompanyAccess(client, context, query.company_id); const values: unknown[]=[context.tenantId,query.company_id]; const filters=["opening.tenant_id=$1","opening.company_id=$2"];
+      if(query.state){values.push(query.state);filters.push(`opening.state=$${values.length}`)} if(query.search){values.push(`%${query.search.replace(/[\\%_]/g,"\\$&")}%`);filters.push(`(opening.reference ilike $${values.length} escape '\\' or opening.title ilike $${values.length} escape '\\' or requisition.reference ilike $${values.length} escape '\\')`)} values.push(query.limit);
+      const result=await client.query<HrJobOpeningDirectory["items"][number] & {created_at:Date;closing_on:string|Date|null}>(`select opening.id,opening.company_id,opening.reference,opening.requisition_id,requisition.reference as requisition_reference,opening.title,opening.positions_requested,0::int as filled_positions,opening.positions_requested::int as remaining_positions,opening.channels,opening.closing_on,opening.state,opening.state_reason,opening.created_at from hr_job_opening opening join hr_manpower_requisition requisition on requisition.tenant_id=opening.tenant_id and requisition.id=opening.requisition_id where ${filters.join(" and ")} order by opening.created_at desc,opening.id desc limit $${values.length}`,values);
+      return {items:result.rows.map(row=>({...row,closing_on:row.closing_on===null?null:dateOnly(row.closing_on),created_at:row.created_at.toISOString()}))};
+    });
+  }
+  async createJobOpening(context: HrActorContext,input:CreateHrJobOpeningRequest,idempotencyKey:string,correlationId:string):Promise<HrJobOpeningResult>{
+    if(!validIdempotencyKey(idempotencyKey)) throw new HrApiError(400,"INVALID_IDEMPOTENCY_KEY","The idempotency key is invalid."); if(!context.actor.permissions.includes("hr.employee.create")) throw new HrApiError(403,"PERMISSION_DENIED","You are not permitted to create job openings."); const client=await this.pool.connect();
+    try{await client.query("begin");await client.query("select set_config('nexora.tenant_id',$1,true)",[context.tenantId]);await this.requireCompanyAccess(client,context,input.company_id);const path="/api/v1/hr/job_openings",fingerprint=stateHash(input);const replay=await client.query<{request_fingerprint:string;response_body:HrJobOpeningResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update",[context.tenantId,context.actor.userId,path,idempotencyKey]);if(replay.rows[0]){if(replay.rows[0].request_fingerprint!==fingerprint)throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","The idempotency key was already used for another request.");await client.query("commit");return {...replay.rows[0].response_body,replayed:true};}const id=`job-opening-${randomUUID()}`,reference=`JOP-${new Date().getUTCFullYear()}-${randomUUID().replaceAll("-","").slice(0,6).toUpperCase()}`;await client.query("insert into hr_job_opening (id,tenant_id,company_id,reference,requisition_id,title,positions_requested,channels,closing_on,created_by) values ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10)",[id,context.tenantId,input.company_id,reference,input.requisition_id,input.title,input.positions_requested,JSON.stringify(input.channels),input.closing_on??null,context.actor.userId]);const audit=await this.appendPlatformAudit(client,context,correlationId,"hr.job_opening.create",{entityId:id,entityType:"hr_job_opening",before:null,after:{reference,...input,state:"open"}});const result:HrJobOpeningResult={id,reference,state:"open",company_id:input.company_id,audit_event_id:audit,replayed:false};await client.query("insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,201,$6,$7)",[context.tenantId,context.actor.userId,path,idempotencyKey,fingerprint,result,stateHash(result)]);await client.query("commit");return result;}catch(error){await client.query("rollback").catch(()=>undefined);throw error;}finally{client.release();}
+  }
+  async changeJobOpeningState(context:HrActorContext,id:string,input:ChangeHrJobOpeningStateRequest,idempotencyKey:string,correlationId:string):Promise<HrJobOpeningResult>{
+    if(!validIdempotencyKey(idempotencyKey))throw new HrApiError(400,"INVALID_IDEMPOTENCY_KEY","The idempotency key is invalid.");if(!context.actor.permissions.includes("hr.employee.update"))throw new HrApiError(403,"PERMISSION_DENIED","You are not permitted to change job opening state.");const client=await this.pool.connect();try{await client.query("begin");await client.query("select set_config('nexora.tenant_id',$1,true)",[context.tenantId]);await this.requireCompanyAccess(client,context,input.company_id);const path=`/api/v1/hr/job_openings/${id}/state`,fingerprint=stateHash(input);const replay=await client.query<{request_fingerprint:string;response_body:HrJobOpeningResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update",[context.tenantId,context.actor.userId,path,idempotencyKey]);if(replay.rows[0]){if(replay.rows[0].request_fingerprint!==fingerprint)throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","The idempotency key was already used for another request.");await client.query("commit");return {...replay.rows[0].response_body,replayed:true};}const record=await client.query<{reference:string;company_id:string;state:HrJobOpeningResult["state"]}>("select reference,company_id,state from hr_job_opening where tenant_id=$1 and id=$2 and company_id=$3 for update",[context.tenantId,id,input.company_id]);const before=record.rows[0];if(!before)throw new HrApiError(404,"HR_JOB_OPENING_NOT_FOUND","The job opening is unavailable in your company scope.");if(before.state==="cancelled")throw new HrApiError(409,"HR_JOB_OPENING_FINAL","A cancelled job opening cannot change state.");await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_at=now() where tenant_id=$1 and id=$2",[context.tenantId,id,input.state,input.reason]);const audit=await this.appendPlatformAudit(client,context,correlationId,"hr.job_opening.state",{entityId:id,entityType:"hr_job_opening",before:{state:before.state},after:{state:input.state,reason:input.reason}});const result:HrJobOpeningResult={id,reference:before.reference,state:input.state,company_id:before.company_id,audit_event_id:audit,replayed:false};await client.query("insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,200,$6,$7)",[context.tenantId,context.actor.userId,path,idempotencyKey,fingerprint,result,stateHash(result)]);await client.query("commit");return result;}catch(error){await client.query("rollback").catch(()=>undefined);throw error;}finally{client.release();}
   }
 
   async getEmployee(context: HrActorContext, employeeId: string): Promise<HrEmployeeDetail> {
@@ -6294,10 +6315,12 @@ export class SourceHrRepository {
       | "hr.manpower_requisition.create"
       | "hr.manpower_requisition.submitted"
       | "hr.manpower_requisition.approved"
-      | "hr.manpower_requisition.rejected",
+      | "hr.manpower_requisition.rejected"
+      | "hr.job_opening.create"
+      | "hr.job_opening.state",
     mutation: {
       entityId: string;
-      entityType?: "employee" | "employment_lifecycle_policy" | "hr_master_record" | "employment_relationship" | "organization_unit" | "hr_manpower_requisition";
+      entityType?: "employee" | "employment_lifecycle_policy" | "hr_master_record" | "employment_relationship" | "organization_unit" | "hr_manpower_requisition" | "hr_job_opening";
       before: unknown;
       after: unknown;
     },

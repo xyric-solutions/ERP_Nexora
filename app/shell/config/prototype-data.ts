@@ -767,7 +767,7 @@ export const prototypeModules = [
       ]),
       g("recruitment", "Recruitment", [
         p("manpower-requisitions", "Manpower Requisitions", "approval", "live"),
-        p("job-openings", "Job Openings"),
+        p("job-openings", "Job Openings", "list", "live"),
         p("candidates", "Candidate Directory"),
         p("recruitment-pipeline", "Recruitment Pipeline", "workflow"),
         p("interviews", "Interviews & Evaluations", "workflow"),

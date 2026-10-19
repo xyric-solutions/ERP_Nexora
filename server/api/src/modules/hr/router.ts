@@ -52,6 +52,9 @@ import {
   createHrManpowerRequisitionRequestSchema,
   submitHrManpowerRequisitionRequestSchema,
   decideHrManpowerRequisitionRequestSchema,
+  hrJobOpeningQuerySchema,
+  createHrJobOpeningRequestSchema,
+  changeHrJobOpeningStateRequestSchema,
 } from "@nexora/contracts";
 
 import { HttpError } from "../../http/errors.js";
@@ -80,6 +83,9 @@ export interface HrRouterDependencies {
     | "createManpowerRequisition"
     | "submitManpowerRequisition"
     | "decideManpowerRequisition"
+    | "listJobOpenings"
+    | "createJobOpening"
+    | "changeJobOpeningState"
     | "getEmployee"
     | "listEmployeeDrafts"
     | "getEmployeeDraft"
@@ -231,6 +237,18 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
     trustedOrigin(req, dependencies.allowedOrigins);
     const id = z.string().trim().min(1).max(128).parse(req.params.requisitionId), input = decideHrManpowerRequisitionRequestSchema.parse(req.body);
     res.json(await handle(async () => dependencies.repository.decideManpowerRequisition(await loadHrSessionContext(req, dependencies, true), id, input, idempotencyKey(req), currentRequestContext().correlationId)));
+  });
+  router.get("/job_openings", async (req, res) => {
+    const query = hrJobOpeningQuerySchema.parse({ company_id: req.query.company_id, search: req.query.search, state: req.query.state, limit: req.query.limit === undefined ? undefined : Number(req.query.limit) });
+    res.json(await handle(async () => dependencies.repository.listJobOpenings(await loadHrSessionContext(req, dependencies), query)));
+  });
+  router.post("/job_openings", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins); const input=createHrJobOpeningRequestSchema.parse(req.body);
+    const result=await handle(async()=>dependencies.repository.createJobOpening(await loadHrSessionContext(req,dependencies,true),input,idempotencyKey(req),currentRequestContext().correlationId)); res.status(result.replayed?200:201).json(result);
+  });
+  router.post("/job_openings/:openingId/state", async (req,res) => {
+    trustedOrigin(req,dependencies.allowedOrigins); const id=z.string().trim().min(1).max(128).parse(req.params.openingId),input=changeHrJobOpeningStateRequestSchema.parse(req.body);
+    res.json(await handle(async()=>dependencies.repository.changeJobOpeningState(await loadHrSessionContext(req,dependencies,true),id,input,idempotencyKey(req),currentRequestContext().correlationId)));
   });
   router.get("/organization_units", async (req, res) => {
     const query = hrOrganizationUnitDirectoryQuerySchema.parse({

@@ -92,7 +92,6 @@ export function HrJobGradesWorkspace() {
       const result = await client.jobGrades(targetCompanyId);
       setRecords(result.items);
       setSelectedId((current) => result.items.some((record) => record.id === current) ? current : result.items[0]?.id ?? "");
-      setMessage("");
     } catch {
       setMessage("Job grades could not be loaded from the authorized API. Refresh your session and try again.");
     } finally {

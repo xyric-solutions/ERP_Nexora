@@ -10,6 +10,7 @@ import type {
   HrManpowerRequisitionResult,
   SubmitHrManpowerRequisitionRequest,
   DecideHrManpowerRequisitionRequest,
+  HrJobOpeningDirectory, CreateHrJobOpeningRequest, ChangeHrJobOpeningStateRequest, HrJobOpeningResult,
   HrOrganizationUnitDirectory,
   CreateHrOrganizationUnitRequest,
   UpdateHrOrganizationUnitRequest,
@@ -147,6 +148,10 @@ export class HrApiClient {
   decideManpowerRequisition(id: string, input: DecideHrManpowerRequisitionRequest, csrfToken: string, idempotencyKey: string): Promise<HrManpowerRequisitionResult> {
     return this.api.decideHrManpowerRequisition(id, input, csrfToken, idempotencyKey);
   }
+
+  jobOpenings(input: { companyId: string; search?: string; state?: string; limit?: number }): Promise<HrJobOpeningDirectory> { return this.api.listHrJobOpenings(query({ company_id: input.companyId, search: input.search, state: input.state, limit: input.limit ?? 50 })); }
+  createJobOpening(input: CreateHrJobOpeningRequest, csrfToken: string, idempotencyKey: string): Promise<HrJobOpeningResult> { return this.api.createHrJobOpening(input, csrfToken, idempotencyKey); }
+  changeJobOpeningState(id: string, input: ChangeHrJobOpeningStateRequest, csrfToken: string, idempotencyKey: string): Promise<HrJobOpeningResult> { return this.api.changeHrJobOpeningState(id, input, csrfToken, idempotencyKey); }
 
   organizationUnits(input: {
     companyId: string;
