@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import type { AuthenticatedAccount } from "@nexora/auth";
+import { evaluateApprovalActor, type AuthenticatedAccount } from "@nexora/auth";
 import type {
   BankAccountCurrencySummary,
   BankAccountDetail,
@@ -19,6 +19,10 @@ import type {
 import type { Pool, PoolClient } from "pg";
 
 import { BankingIdentifierCrypto } from "./crypto.js";
+import {
+  ApprovalOverrideWriterError,
+  writeApprovalOverrideEvent,
+} from "../security/approval-override-writer.js";
 
 export class BankingApiError extends Error {
   constructor(
@@ -70,6 +74,7 @@ interface BankAccountRow {
   rejected_by: string | null;
   rejected_at: string | Date | null;
   decision_reason: string | null;
+  approval_override_event_id: string | null;
   deactivated_by: string | null;
   deactivated_at: string | Date | null;
   closed_by: string | null;
@@ -150,6 +155,7 @@ function safeSnapshot(row: BankAccountRow): Record<string, unknown> {
     overdraft_limit: row.overdraft_limit,
     state: row.status,
     version: Number(row.row_version),
+    super_admin_override: row.approval_override_event_id !== null,
   };
 }
 
@@ -456,6 +462,7 @@ export class SourceBankingRepository {
              encryption_key_version=$17,swift_bic=$18,currency=$19,overdraft_limit=$20,status=$21,
              submitted_by=null,submitted_at=null,submission_reason=null,
              approved_by=null,approved_at=null,rejected_by=null,rejected_at=null,decision_reason=null,
+             approval_override_event_id=null,
              row_version=row_version+1,updated_at=clock_timestamp()
            where tenant_id=$1 and id=$2 and row_version=$3`,
           [
@@ -577,20 +584,58 @@ export class SourceBankingRepository {
       if (previous.status !== "pending_approval")
         throw new BankingApiError(409, "BANK_ACCOUNT_NOT_PENDING", "The bank account is not pending approval.");
       this.requireVersion(previous, input.expected_version);
-      if (previous.created_by === context.actor.userId || previous.submitted_by === context.actor.userId)
+      const approved = input.action === "approve";
+      const approvalActor = evaluateApprovalActor({
+        account: context.actor,
+        makerActorIds: [previous.created_by ?? "", previous.submitted_by ?? ""],
+        normalDecisionPermission: "banking.bank_account.approve",
+        impersonated: context.impersonationRequestId !== undefined,
+      });
+      if (approvalActor.kind === "forbidden")
         throw new BankingApiError(
           403,
-          "MAKER_CHECKER_REQUIRED",
-          "A different authorized actor must decide this bank account.",
+          approvalActor.reason === "maker_checker_required" ? "MAKER_CHECKER_REQUIRED" : "APPROVAL_OVERRIDE_FORBIDDEN",
+          approvalActor.reason === "maker_checker_required"
+            ? "A different authorized actor must decide this bank account."
+            : "The authenticated actor cannot exercise this approval decision.",
         );
-      const approved = input.action === "approve";
+      let approvalOverrideEventId: string | null = null;
+      if (approvalActor.kind === "override") {
+        try {
+          approvalOverrideEventId = (
+            await writeApprovalOverrideEvent(client, {
+              tenantId: context.tenantId,
+              account: context.actor,
+              makerActorIds: [previous.created_by ?? "", previous.submitted_by ?? ""],
+              normalDecisionPermission: "banking.bank_account.approve",
+              resourceType: "banking.bank_account",
+              resourceId: accountId,
+              decisionAction: input.action,
+              reason: input.reason,
+              correlationId,
+              idempotencyKey: `${idempotencyKey}:approval-override`,
+              metadata: { module: "banking", company_id: previous.company_id },
+              impersonated: context.impersonationRequestId !== undefined,
+            })
+          ).eventId;
+        } catch (error) {
+          if (error instanceof ApprovalOverrideWriterError)
+            throw new BankingApiError(
+              error.code === "APPROVAL_OVERRIDE_IDEMPOTENCY_CONFLICT" ? 409 : 403,
+              error.code,
+              error.message,
+            );
+          throw error;
+        }
+      }
       await client.query(
         `update bank_account set status=$4,
                 approved_by=case when $4='active' then $5 else null end,
                 approved_at=case when $4='active' then now() else null end,
                 rejected_by=case when $4='rejected' then $5 else null end,
                 rejected_at=case when $4='rejected' then now() else null end,
-                decision_reason=$6,row_version=row_version+1,updated_at=clock_timestamp()
+                decision_reason=$6,approval_override_event_id=$7,
+                row_version=row_version+1,updated_at=clock_timestamp()
           where tenant_id=$1 and id=$2 and row_version=$3`,
         [
           context.tenantId,
@@ -599,6 +644,7 @@ export class SourceBankingRepository {
           approved ? "active" : "rejected",
           context.actor.userId,
           input.reason,
+          approvalOverrideEventId,
         ],
       );
       const row = await this.loadAccountRow(client, context, accountId);
@@ -612,6 +658,7 @@ export class SourceBankingRepository {
         accountId,
         safeSnapshot(previous),
         safeSnapshot(row),
+        approvalOverrideEventId,
       );
       return {
         id: row.id,
@@ -901,6 +948,17 @@ export class SourceBankingRepository {
       [context.tenantId, accountId, context.actor.userId],
     );
     const row = result.rows[0];
+    const selfDecisionRequiresOverride = Boolean(
+      row && (row.created_by === context.actor.userId || row.submitted_by === context.actor.userId),
+    );
+    const approvalActor = row
+      ? evaluateApprovalActor({
+          account: context.actor,
+          makerActorIds: [row.created_by ?? "", row.submitted_by ?? ""],
+          normalDecisionPermission: "banking.bank_account.approve",
+          impersonated: context.impersonationRequestId !== undefined,
+        })
+      : null;
     return row
       ? {
           ...row,
@@ -910,6 +968,8 @@ export class SourceBankingRepository {
           submitted_at: iso(row.submitted_at),
           approved_at: iso(row.approved_at),
           rejected_at: iso(row.rejected_at),
+          self_decision_requires_override: selfDecisionRequiresOverride,
+          super_admin_override_allowed: selfDecisionRequiresOverride && approvalActor?.kind === "override",
         }
       : null;
   }
@@ -950,6 +1010,7 @@ export class SourceBankingRepository {
     entityId: string,
     before: unknown,
     after: unknown,
+    approvalReference: string | null = null,
   ): Promise<string> {
     await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
       `nexora:platform:audit:${context.tenantId}`,
@@ -974,7 +1035,7 @@ export class SourceBankingRepository {
       before_hash: stateHash(before),
       after_hash: stateHash(after),
       source_reference: "banking.bank_account",
-      approval_reference: null,
+      approval_reference: approvalReference,
       occurred_at: occurredAt,
       sequence,
       previous_event_hash: previousEventHash,
@@ -996,7 +1057,7 @@ export class SourceBankingRepository {
         payload.before_hash,
         payload.after_hash,
         payload.source_reference,
-        null,
+        approvalReference,
         occurredAt,
         previousEventHash,
         eventHash,

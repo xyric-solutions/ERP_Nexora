@@ -110,6 +110,8 @@ export const bankAccountDetailSchema = bankAccountSummarySchema.extend({
   submitted_at: isoDateTime.nullable(),
   approved_at: isoDateTime.nullable(),
   rejected_at: isoDateTime.nullable(),
+  self_decision_requires_override: z.boolean(),
+  super_admin_override_allowed: z.boolean(),
 });
 
 const accountNumber = z
