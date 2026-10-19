@@ -3,11 +3,20 @@ import { z } from "zod";
 
 import {
   bankAccountDirectoryQuerySchema,
+  bankPaymentDirectoryQuerySchema,
+  bankPaymentNominalAccountDirectoryQuerySchema,
+  bankPaymentOptionsQuerySchema,
   bankingLedgerAccountDirectoryQuerySchema,
   changeBankAccountStatusRequestSchema,
   createBankAccountRequestSchema,
+  createBankPaymentRequestSchema,
+  decideBankPaymentRequestSchema,
   decideBankAccountRequestSchema,
+  postBankPaymentRequestSchema,
+  reverseBankPaymentRequestSchema,
+  submitBankPaymentRequestSchema,
   submitBankAccountRequestSchema,
+  updateBankPaymentRequestSchema,
   updateBankAccountRequestSchema,
 } from "@nexora/contracts";
 
@@ -15,6 +24,8 @@ import { HttpError } from "../../http/errors.js";
 import { currentRequestContext } from "../../http/request-context.js";
 import type { TenantAuthApiService, TenantSessionApiService } from "../auth/tenant-router.js";
 import { BankingAccountService } from "./accounts/service.js";
+import { BankingPaymentService } from "./payments/service.js";
+import type { SourceBankPaymentRepository } from "./payments/source-repository.js";
 import { loadBankingSessionContext } from "./session-context.js";
 import { BankingApiError, type SourceBankingRepository } from "./source-repository.js";
 
@@ -32,8 +43,14 @@ export type BankingRepository = Pick<
   | "changeStatus"
 >;
 
+export type BankingPaymentRepository = Pick<
+  SourceBankPaymentRepository,
+  "list" | "options" | "listNominalAccounts" | "get" | "create" | "update" | "submit" | "decide" | "post" | "reverse"
+>;
+
 export interface BankingRouterDependencies {
   repository: BankingRepository;
+  paymentRepository: BankingPaymentRepository;
   authentication: TenantAuthApiService;
   sessions: TenantSessionApiService;
   secureCookies: boolean;
@@ -52,11 +69,32 @@ function idempotencyKey(req: Request): string {
   return key;
 }
 
+function paymentEtag(version: number): string {
+  return `"${version}"`;
+}
+
+function verifyPaymentPrecondition(req: Request, expectedVersion: number): void {
+  const supplied = req.get("if-match");
+  if (supplied === undefined) return;
+  const match = /^"([1-9]\d*)"$/.exec(supplied.trim());
+  if (!match) {
+    throw new HttpError(400, "INVALID_IF_MATCH", "The If-Match header must contain a quoted payment version.");
+  }
+  if (Number(match[1]) !== expectedVersion) {
+    throw new HttpError(
+      412,
+      "PAYMENT_PRECONDITION_FAILED",
+      "The payment version precondition does not match the request.",
+    );
+  }
+}
+
 const identifier = z.string().trim().min(1).max(128);
 
 export function createBankingRouter(dependencies: BankingRouterDependencies): Router {
   const router = Router();
   const accounts = new BankingAccountService(dependencies.repository);
+  const payments = new BankingPaymentService(dependencies.paymentRepository);
   router.use((_req, res, next) => {
     res.setHeader("cache-control", "no-store");
     next();
@@ -110,6 +148,152 @@ export function createBankingRouter(dependencies: BankingRouterDependencies): Ro
   router.get("/accounts/:accountId", async (req, res) => {
     const accountId = identifier.parse(req.params.accountId);
     res.json(await handle(async () => accounts.get(await loadBankingSessionContext(req, dependencies), accountId)));
+  });
+
+  router.get("/payments", async (req, res) => {
+    const query = bankPaymentDirectoryQuerySchema.parse({
+      company_id: req.query.company_id,
+      bank_account_id: req.query.bank_account_id,
+      state: req.query.state,
+      posting_date_from: req.query.posting_date_from,
+      posting_date_to: req.query.posting_date_to,
+      search: req.query.search,
+      sort_by: req.query.sort_by,
+      sort_direction: req.query.sort_direction,
+      limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+      cursor: req.query.cursor,
+    });
+    res.json(await handle(async () => payments.list(await loadBankingSessionContext(req, dependencies), query)));
+  });
+
+  router.get("/payments/options", async (req, res) => {
+    const query = bankPaymentOptionsQuerySchema.parse({ company_id: req.query.company_id });
+    res.json(await handle(async () => payments.options(await loadBankingSessionContext(req, dependencies), query)));
+  });
+
+  router.get("/payments/nominal_accounts", async (req, res) => {
+    const query = bankPaymentNominalAccountDirectoryQuerySchema.parse({
+      company_id: req.query.company_id,
+      search: req.query.search,
+      limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+    });
+    res.json(
+      await handle(async () => payments.listNominalAccounts(await loadBankingSessionContext(req, dependencies), query)),
+    );
+  });
+
+  router.get("/payments/:paymentId", async (req, res) => {
+    const paymentId = identifier.parse(req.params.paymentId);
+    const result = await handle(async () =>
+      payments.get(await loadBankingSessionContext(req, dependencies), paymentId),
+    );
+    res.setHeader("etag", paymentEtag(result.version));
+    res.json(result);
+  });
+
+  router.post("/payments", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const input = createBankPaymentRequestSchema.parse(req.body);
+    const result = await handle(async () =>
+      payments.create(
+        await loadBankingSessionContext(req, dependencies, true),
+        input,
+        idempotencyKey(req),
+        currentRequestContext().correlationId,
+      ),
+    );
+    res.setHeader("etag", paymentEtag(result.version));
+    res.status(201).json(result);
+  });
+
+  router.patch("/payments/:paymentId", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const paymentId = identifier.parse(req.params.paymentId);
+    const input = updateBankPaymentRequestSchema.parse(req.body);
+    verifyPaymentPrecondition(req, input.expected_version);
+    const result = await handle(async () =>
+      payments.update(
+        await loadBankingSessionContext(req, dependencies, true),
+        paymentId,
+        input,
+        idempotencyKey(req),
+        currentRequestContext().correlationId,
+      ),
+    );
+    res.setHeader("etag", paymentEtag(result.version));
+    res.json(result);
+  });
+
+  router.post("/payments/:paymentId/submit", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const paymentId = identifier.parse(req.params.paymentId);
+    const input = submitBankPaymentRequestSchema.parse(req.body);
+    verifyPaymentPrecondition(req, input.expected_version);
+    const result = await handle(async () =>
+      payments.submit(
+        await loadBankingSessionContext(req, dependencies, true),
+        paymentId,
+        input,
+        idempotencyKey(req),
+        currentRequestContext().correlationId,
+      ),
+    );
+    res.setHeader("etag", paymentEtag(result.version));
+    res.json(result);
+  });
+
+  router.post("/payments/:paymentId/decision", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const paymentId = identifier.parse(req.params.paymentId);
+    const input = decideBankPaymentRequestSchema.parse(req.body);
+    verifyPaymentPrecondition(req, input.expected_version);
+    const result = await handle(async () =>
+      payments.decide(
+        await loadBankingSessionContext(req, dependencies, true),
+        paymentId,
+        input,
+        idempotencyKey(req),
+        currentRequestContext().correlationId,
+      ),
+    );
+    res.setHeader("etag", paymentEtag(result.version));
+    res.json(result);
+  });
+
+  router.post("/payments/:paymentId/post", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const paymentId = identifier.parse(req.params.paymentId);
+    const input = postBankPaymentRequestSchema.parse(req.body);
+    verifyPaymentPrecondition(req, input.expected_version);
+    const result = await handle(async () =>
+      payments.post(
+        await loadBankingSessionContext(req, dependencies, true),
+        paymentId,
+        input,
+        idempotencyKey(req),
+        currentRequestContext().correlationId,
+      ),
+    );
+    res.setHeader("etag", paymentEtag(result.version));
+    res.json(result);
+  });
+
+  router.post("/payments/:paymentId/reverse", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const paymentId = identifier.parse(req.params.paymentId);
+    const input = reverseBankPaymentRequestSchema.parse(req.body);
+    verifyPaymentPrecondition(req, input.expected_version);
+    const result = await handle(async () =>
+      payments.reverse(
+        await loadBankingSessionContext(req, dependencies, true),
+        paymentId,
+        input,
+        idempotencyKey(req),
+        currentRequestContext().correlationId,
+      ),
+    );
+    res.setHeader("etag", paymentEtag(result.version));
+    res.json(result);
   });
 
   router.post("/accounts", async (req, res) => {

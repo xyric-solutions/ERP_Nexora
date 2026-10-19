@@ -20,7 +20,9 @@ import { RedisTenantSessionStore } from "./modules/auth/redis-session-store.js";
 import { RedisTenantSelectionStore } from "./modules/auth/redis-tenant-selection-store.js";
 import { SourceTenantAuthenticationRepository } from "./modules/auth/source-repository.js";
 import { BankingIdentifierCrypto } from "./modules/banking/crypto.js";
+import { SourceBankPaymentRepository } from "./modules/banking/payments/source-repository.js";
 import { SourceBankingRepository } from "./modules/banking/source-repository.js";
+import { FinancePostingService } from "./modules/finance/posting/index.js";
 import { SourceSecurityAdministrationRepository } from "./modules/security/source-administration-repository.js";
 import { SourceHrRepository } from "./modules/hr/source-repository.js";
 
@@ -78,6 +80,7 @@ const app = createApp({
     pool,
     new BankingIdentifierCrypto(config.bankingDataEncryptionKey, config.bankingDataEncryptionKeyVersion),
   ),
+  bankingPaymentRepository: new SourceBankPaymentRepository(pool, new FinancePostingService()),
   hrRepository: new SourceHrRepository(pool),
   readiness: {
     service: async () => {
@@ -101,7 +104,14 @@ const app = createApp({
     },
     banking_foundation: async () => {
       const result = await pool.query<{ available: boolean }>(
-        "select to_regclass('public.bank_account') is not null and to_regclass('public.bank_account_event') is not null as available",
+        `select to_regclass('public.bank_account') is not null
+          and to_regclass('public.bank_account_event') is not null
+          and to_regclass('public.bank_payment') is not null
+          and to_regclass('public.bank_payment_line') is not null
+          and to_regclass('public.bank_payment_event') is not null
+          and to_regclass('public.accounting_event') is not null
+          and to_regclass('public.journal_entry') is not null
+          and to_regclass('public.journal_line') is not null as available`,
       );
       if (!result.rows[0]?.available) throw new Error("The current Banking foundation migration is required");
     },

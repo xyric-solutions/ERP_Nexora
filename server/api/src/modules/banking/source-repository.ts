@@ -112,7 +112,13 @@ function iso(value: string | Date | null): string | null {
 }
 
 function dateOnly(value: string | Date | null): string | null {
-  return value === null ? null : value instanceof Date ? value.toISOString().slice(0, 10) : value.slice(0, 10);
+  if (value === null) return null;
+  if (typeof value === "string") return value.slice(0, 10);
+  return [
+    value.getFullYear().toString().padStart(4, "0"),
+    (value.getMonth() + 1).toString().padStart(2, "0"),
+    value.getDate().toString().padStart(2, "0"),
+  ].join("-");
 }
 
 function escapeSearch(value: string): string {
@@ -283,10 +289,10 @@ export class SourceBankingRepository {
         `select bank.id,bank.reference,bank.account_name,bank.account_type,bank.bank_name,bank.branch,
                 bank.account_number_masked,bank.currency,bank.account_id as ledger_account_id,
                 ledger.code as ledger_account_code,ledger.name as ledger_account_name,
-                coalesce(sum(case when journal.status='posted' and line.currency=bank.currency
+                coalesce(sum(case when journal.status in ('posted','reversed') and line.currency=bank.currency
                                   then line.debit-line.credit else 0 end),0)::text as ledger_balance,
                 null::text as available_balance,null::integer as unreconciled_count,
-                max(journal.posting_date) filter (where journal.status='posted') as last_movement_on,
+                max(journal.posting_date) filter (where journal.status in ('posted','reversed')) as last_movement_on,
                 bank.status as state,bank.row_version as version
            from bank_account bank
            join account ledger on ledger.tenant_id=bank.tenant_id and ledger.id=bank.account_id
@@ -320,7 +326,7 @@ export class SourceBankingRepository {
       const result = await client.query<BankAccountCurrencySummary["items"][number]>(
         `with balances as (
            select bank.id,bank.currency,
-                  coalesce(sum(case when journal.status='posted' and line.currency=bank.currency
+                  coalesce(sum(case when journal.status in ('posted','reversed') and line.currency=bank.currency
                                     then line.debit-line.credit else 0 end),0) as ledger_balance
              from bank_account bank
              left join journal_line line on line.tenant_id=bank.tenant_id and line.account_id=bank.account_id
@@ -928,10 +934,10 @@ export class SourceBankingRepository {
       `select bank.id,bank.reference,bank.account_name,bank.account_type,bank.bank_name,bank.branch,
               bank.account_number_masked,bank.currency,bank.account_id as ledger_account_id,
               ledger.code as ledger_account_code,ledger.name as ledger_account_name,
-              coalesce(sum(case when journal.status='posted' and line.currency=bank.currency
+              coalesce(sum(case when journal.status in ('posted','reversed') and line.currency=bank.currency
                                 then line.debit-line.credit else 0 end),0)::text as ledger_balance,
               null::text as available_balance,null::integer as unreconciled_count,
-              max(journal.posting_date) filter (where journal.status='posted') as last_movement_on,
+              max(journal.posting_date) filter (where journal.status in ('posted','reversed')) as last_movement_on,
               bank.status as state,bank.row_version as version,bank.company_id,bank.iban_masked,
               bank.swift_bic,bank.overdraft_limit::text,bank.created_by,bank.submitted_by,
               bank.approved_by,bank.rejected_by,bank.created_at,bank.submitted_at,bank.approved_at,bank.rejected_at

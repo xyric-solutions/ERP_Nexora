@@ -18,9 +18,9 @@ describe("production PostgreSQL source migrations", () => {
     await expect(migrateSourceSchema(pool)).resolves.toEqual([]);
     await expect(inspectSourceMigrationState(pool)).resolves.toEqual({
       platform: 8,
-      security: 14,
+      security: 15,
       workflow: 1,
-      finance: 6,
+      finance: 7,
       hr: 34,
       runtime: 1,
     });
@@ -65,23 +65,26 @@ describe("production PostgreSQL source migrations", () => {
        order by module_name`,
     );
     expect(result.rows).toEqual([
-      { module_name: "finance", migration_count: "6", latest: 6 },
+      { module_name: "finance", migration_count: "7", latest: 7 },
       { module_name: "hr", migration_count: "34", latest: 34 },
       { module_name: "platform", migration_count: "8", latest: 8 },
       { module_name: "runtime", migration_count: "1", latest: 1 },
-      { module_name: "security", migration_count: "14", latest: 14 },
+      { module_name: "security", migration_count: "15", latest: 15 },
       { module_name: "workflow", migration_count: "1", latest: 1 },
     ]);
     const bankPaymentMigrations = await pool.query<{ module_name: string; version: number; name: string }>(
       `select module_name,version,name from nexora_schema_migration
         where (module_name='platform' and version=8)
-           or (module_name='finance' and version in (5,6))
-        order by module_name`,
+           or (module_name='security' and version=15)
+           or (module_name='finance' and version in (5,6,7))
+        order by module_name,version`,
     );
     expect(bankPaymentMigrations.rows).toEqual([
       { module_name: "finance", version: 5, name: "finance_posting_bank_payments" },
       { module_name: "finance", version: 6, name: "currency_rate_authority_lock" },
+      { module_name: "finance", version: 7, name: "bank_payment_posting_override" },
       { module_name: "platform", version: 8, name: "idempotency_patch_method" },
+      { module_name: "security", version: 15, name: "approval_override_post_action" },
     ]);
   });
 

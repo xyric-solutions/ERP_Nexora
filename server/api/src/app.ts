@@ -21,7 +21,11 @@ import {
   type TenantSessionApiService,
 } from "./modules/auth/tenant-router.js";
 import { createJobsRouter, type JobPublisher } from "./modules/jobs/router.js";
-import { createBankingRouter, type BankingRepository } from "./modules/banking/router.js";
+import {
+  createBankingRouter,
+  type BankingPaymentRepository,
+  type BankingRepository,
+} from "./modules/banking/router.js";
 import { createHrRouter } from "./modules/hr/router.js";
 import type { SourceHrRepository } from "./modules/hr/source-repository.js";
 import { createSecurityRouter } from "./modules/security/router.js";
@@ -39,6 +43,7 @@ export interface AppDependencies {
   securityRepository?: SecurityAdministrationApiRepository;
   invalidateSecurityPolicy?: (tenantId: string) => void;
   bankingRepository?: BankingRepository;
+  bankingPaymentRepository?: BankingPaymentRepository;
   hrRepository?: Pick<
     SourceHrRepository,
     | "listCompanies"
@@ -111,6 +116,9 @@ function status(version: string, checks?: HealthStatus["checks"]): HealthStatus 
 }
 
 export function createApp(dependencies: AppDependencies): Express {
+  if (Boolean(dependencies.bankingRepository) !== Boolean(dependencies.bankingPaymentRepository)) {
+    throw new Error("Banking account and payment repositories must be configured together.");
+  }
   const app = express();
   app.disable("x-powered-by");
   if (dependencies.config.trustProxyHops) app.set("trust proxy", dependencies.config.trustProxyHops);
@@ -154,11 +162,17 @@ export function createApp(dependencies: AppDependencies): Express {
       }),
     );
   }
-  if (dependencies.bankingRepository && dependencies.authService && dependencies.sessionService) {
+  if (
+    dependencies.bankingRepository &&
+    dependencies.bankingPaymentRepository &&
+    dependencies.authService &&
+    dependencies.sessionService
+  ) {
     app.use(
       "/api/v1/banking",
       createBankingRouter({
         repository: dependencies.bankingRepository,
+        paymentRepository: dependencies.bankingPaymentRepository,
         authentication: dependencies.authService,
         sessions: dependencies.sessionService,
         secureCookies: dependencies.config.nodeEnv === "production",

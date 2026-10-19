@@ -2,6 +2,17 @@ import type { DatabasePool } from "../../packages/db/src/index.js";
 import { migrateSourceSchema } from "../../packages/db/src/source-migrations.js";
 
 export const sourceTestTenantId = "nexora-r06-uat";
+export const sourceTestCompanyId = "nexora-r06-uat-company";
+
+export const bankPaymentPermissions = [
+  "banking.payment.read",
+  "banking.payment.create",
+  "banking.payment.update",
+  "banking.payment.submit",
+  "banking.payment.approve",
+  "banking.payment.post",
+  "banking.payment.reverse",
+] as const;
 
 const users = ["r06.maker", "r06.checker", "r06.target", "r06.restricted", "r06.last-admin-a", "r06.last-admin-b"];
 
@@ -52,6 +63,10 @@ const makerPermissions = [
   "banking.bank_account.update",
   "banking.bank_account.submit",
   "banking.bank_account.status",
+  "banking.payment.read",
+  "banking.payment.create",
+  "banking.payment.update",
+  "banking.payment.submit",
 ] as const;
 
 const checkerPermissions = [
@@ -75,9 +90,20 @@ const checkerPermissions = [
   "banking.bank_account.read",
   "banking.bank_account.approve",
   "banking.bank_account.status",
+  "banking.payment.read",
+  "banking.payment.approve",
 ] as const;
 
+const posterPermissions = ["banking.payment.read", "banking.payment.post", "banking.payment.reverse"] as const;
+
 const roles = [
+  {
+    roleId: "r06-uat-role-payment-poster",
+    policyId: "r06-uat-policy-payment-poster",
+    code: "r06_uat_payment_poster",
+    name: "Bank Payment Poster",
+    permissions: posterPermissions,
+  },
   {
     roleId: "r06-uat-role-maker",
     policyId: "r06-uat-policy-maker",
@@ -111,6 +137,7 @@ const roles = [
 const assignments = [
   ["r06-fixture-assignment-maker", "r06.maker", "r06-uat-policy-maker"],
   ["r06-fixture-assignment-checker", "r06.checker", "r06-uat-policy-checker"],
+  ["r06-fixture-assignment-payment-poster", "r06.target", "r06-uat-policy-payment-poster"],
   ["r06-fixture-assignment-restricted", "r06.restricted", "r06-uat-policy-restricted"],
   ["r06-fixture-assignment-last-admin", "r06.last-admin-b", "r06-uat-policy-administrator"],
 ] as const;
@@ -259,6 +286,17 @@ export async function ensureSourceAuthorizationFixture(pool: DatabasePool): Prom
           where tenant_id=$1 and id=$2 and lifecycle_state='active'`,
         [sourceTestTenantId, role.policyId, JSON.stringify(role.permissions)],
       );
+      await client.query(
+        `delete from security_role_scope_grant
+          where tenant_id=$1 and role_policy_id=$2 and permission_key like 'banking.payment.%'`,
+        [sourceTestTenantId, role.policyId],
+      );
+      await client.query(
+        `delete from security_role_permission_grant
+          where tenant_id=$1 and role_policy_id=$2 and permission_key like 'banking.payment.%'
+            and not (permission_key=any($3::text[]))`,
+        [sourceTestTenantId, role.policyId, role.permissions],
+      );
       for (const permission of role.permissions) {
         await client.query(
           `insert into security_role_permission_grant
@@ -266,11 +304,18 @@ export async function ensureSourceAuthorizationFixture(pool: DatabasePool): Prom
            values ($1,$2,$3,'all') on conflict do nothing`,
           [sourceTestTenantId, role.policyId, permission],
         );
+        const paymentPermission = permission.startsWith("banking.payment.");
         await client.query(
           `insert into security_role_scope_grant
             (tenant_id,role_policy_id,permission_key,scope_kind,scope_value)
-           values ($1,$2,$3,'tenant',$1) on conflict do nothing`,
-          [sourceTestTenantId, role.policyId, permission],
+           values ($1,$2,$3,$4,$5) on conflict do nothing`,
+          [
+            sourceTestTenantId,
+            role.policyId,
+            permission,
+            paymentPermission ? "company" : "tenant",
+            paymentPermission ? sourceTestCompanyId : sourceTestTenantId,
+          ],
         );
       }
     }
@@ -305,7 +350,11 @@ export async function ensureSourceAuthorizationFixture(pool: DatabasePool): Prom
       `insert into security_role_assignment_sod_rule (tenant_id,role_policy_id,conflicting_role_id)
        values
          ($1,'r06-uat-policy-maker','r06-uat-role-checker'),
-         ($1,'r06-uat-policy-checker','r06-uat-role-maker')
+         ($1,'r06-uat-policy-maker','r06-uat-role-payment-poster'),
+         ($1,'r06-uat-policy-checker','r06-uat-role-maker'),
+         ($1,'r06-uat-policy-checker','r06-uat-role-payment-poster'),
+         ($1,'r06-uat-policy-payment-poster','r06-uat-role-maker'),
+         ($1,'r06-uat-policy-payment-poster','r06-uat-role-checker')
        on conflict do nothing`,
       [sourceTestTenantId],
     );
@@ -404,6 +453,7 @@ export async function ensureSourceSuperAdministratorFixture(pool: DatabasePool):
     "security.session_policy.approve",
     "security.session_policy.activate",
     "security.authorization.audit.read",
+    ...bankPaymentPermissions,
   ] as const;
   try {
     await client.query("begin");

@@ -32,7 +32,7 @@ export interface WriteApprovalOverrideEventInput {
   normalDecisionPermission: string;
   resourceType: string;
   resourceId: string;
-  decisionAction: "approve" | "reject" | "activate";
+  decisionAction: "approve" | "reject" | "activate" | "post";
   reason: string;
   correlationId: string;
   idempotencyKey: string;
@@ -75,6 +75,12 @@ function validateInput(input: WriteApprovalOverrideEventInput): {
     );
   }
   requireBoundedIdentity(input.normalDecisionPermission, "normalDecisionPermission", 255);
+  if (!(["approve", "reject", "activate", "post"] as const).includes(input.decisionAction)) {
+    throw new ApprovalOverrideWriterError(
+      "INVALID_APPROVAL_OVERRIDE_EVIDENCE",
+      "decisionAction is not a supported approval override action.",
+    );
+  }
   requireBoundedIdentity(input.correlationId, "correlationId", 128);
   requireBoundedIdentity(input.idempotencyKey, "idempotencyKey", 255);
   const reason = input.reason.trim();
