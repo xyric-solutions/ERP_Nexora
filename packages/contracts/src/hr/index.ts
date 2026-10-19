@@ -2,6 +2,10 @@ import { z } from "zod";
 
 const identifier = z.string().trim().min(1).max(128);
 const isoDate = z.string().date();
+const approvalOverrideReviewFields = {
+  self_decision_requires_override: z.boolean().optional(),
+  super_admin_override_allowed: z.boolean().optional(),
+};
 
 export const hrEmployeeStatusSchema = z.enum([
   "draft",
@@ -470,6 +474,7 @@ export const hrEmployeeHireRequestReviewSchema = z.strictObject({
   decided_by: identifier.nullable(),
   decided_at: z.string().datetime().nullable(),
   decision_reason: z.string().max(1000).nullable(),
+  ...approvalOverrideReviewFields,
 });
 
 export const hrEmployeeHireRequestDirectorySchema = z.strictObject({
@@ -545,6 +550,7 @@ export const hrEmployeeTransferRequestReviewSchema = z.strictObject({
   decided_by: identifier.nullable(),
   decided_at: z.string().datetime().nullable(),
   decision_reason: z.string().max(1000).nullable(),
+  ...approvalOverrideReviewFields,
 });
 export const hrEmployeeTransferRequestDirectorySchema = z.strictObject({
   items: z.array(hrEmployeeTransferRequestReviewSchema),
@@ -610,6 +616,7 @@ export const hrEmployeePromotionRequestReviewSchema = z.strictObject({
   decided_by: identifier.nullable(),
   decided_at: z.string().datetime().nullable(),
   decision_reason: z.string().max(1000).nullable(),
+  ...approvalOverrideReviewFields,
 });
 export const hrEmployeePromotionRequestDirectorySchema = z.strictObject({
   items: z.array(hrEmployeePromotionRequestReviewSchema),
@@ -685,6 +692,7 @@ export const hrEmployeeManagerChangeRequestReviewSchema = z.strictObject({
   decided_by: identifier.nullable(),
   decided_at: z.string().datetime().nullable(),
   decision_reason: z.string().max(1000).nullable(),
+  ...approvalOverrideReviewFields,
 });
 export const hrEmployeeManagerChangeRequestDirectorySchema = z.strictObject({
   items: z.array(hrEmployeeManagerChangeRequestReviewSchema),
@@ -750,6 +758,7 @@ export const hrEmployeeWorkLocationChangeRequestReviewSchema = z.strictObject({
   decided_by: identifier.nullable(),
   decided_at: z.string().datetime().nullable(),
   decision_reason: z.string().max(1000).nullable(),
+  ...approvalOverrideReviewFields,
 });
 export const hrEmployeeWorkLocationChangeRequestDirectorySchema = z.strictObject({
   items: z.array(hrEmployeeWorkLocationChangeRequestReviewSchema),
@@ -797,6 +806,7 @@ export const hrEmployeeOrganizationPlacementChangeRequestReviewSchema = z.strict
   decided_by: identifier.nullable(),
   decided_at: z.string().datetime().nullable(),
   decision_reason: z.string().max(1000).nullable(),
+  ...approvalOverrideReviewFields,
 });
 export const hrEmployeeOrganizationPlacementChangeRequestDirectorySchema = z.strictObject({
   items: z.array(hrEmployeeOrganizationPlacementChangeRequestReviewSchema),
@@ -836,6 +846,7 @@ export const hrEmploymentLifecyclePolicySchema = z.strictObject({
   status: z.enum(["draft", "pending_approval", "approved", "active", "inactive"]),
   effective_from: isoDate,
   effective_to: isoDate.nullable(),
+  ...approvalOverrideReviewFields,
 });
 export const hrEmploymentLifecyclePolicyDirectorySchema = z.strictObject({
   items: z.array(hrEmploymentLifecyclePolicySchema),
@@ -932,6 +943,7 @@ export const hrEmployeeDraftApprovalDetailSchema = hrEmployeeDraftDetailSchema.e
   created_by: identifier,
   submitted_by: identifier,
   submitted_at: z.string().datetime(),
+  ...approvalOverrideReviewFields,
 });
 export type HrEmployeeDraftApprovalQueueQuery = z.infer<typeof hrEmployeeDraftApprovalQueueQuerySchema>;
 export type HrEmployeeDraftApprovalQueue = z.infer<typeof hrEmployeeDraftApprovalQueueSchema>;

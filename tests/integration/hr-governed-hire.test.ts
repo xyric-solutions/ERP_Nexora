@@ -252,7 +252,30 @@ run("governed employee Hire repository", () => {
       }),
     ]);
     const detail = await repository.getEmployeeHireRequest(hireApprover(), fixture.employee.id, fixture.request.id);
-    expect(detail).toMatchObject({ id: fixture.request.id, company_id: companyId, status: "pending" });
+    expect(detail).toMatchObject({
+      id: fixture.request.id,
+      company_id: companyId,
+      status: "pending",
+      self_decision_requires_override: false,
+      super_admin_override_allowed: false,
+    });
+    const ordinaryMakerReview = maker();
+    ordinaryMakerReview.actor.permissions.push("hr.employment_lifecycle.approve");
+    expect(
+      await repository.getEmployeeHireRequest(ordinaryMakerReview, fixture.employee.id, fixture.request.id),
+    ).toMatchObject({
+      self_decision_requires_override: true,
+      super_admin_override_allowed: false,
+    });
+    const superAdminMakerReview = maker();
+    superAdminMakerReview.actor.roles = ["super_administrator"];
+    superAdminMakerReview.actor.permissions.push("hr.employment_lifecycle.approve", "platform.approval.override");
+    expect(
+      await repository.getEmployeeHireRequest(superAdminMakerReview, fixture.employee.id, fixture.request.id),
+    ).toMatchObject({
+      self_decision_requires_override: true,
+      super_admin_override_allowed: true,
+    });
     expect(JSON.stringify(detail)).not.toContain("work_email");
     await expect(
       repository.listEmployeeHireRequests(

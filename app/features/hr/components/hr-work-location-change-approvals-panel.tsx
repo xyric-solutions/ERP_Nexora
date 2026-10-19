@@ -21,8 +21,10 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warning";
 
 import { HrApiClient } from "../api/hr-client";
+import { approvalOverrideReviewState } from "../approval-override-ui";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -35,12 +37,14 @@ export function HrWorkLocationChangeApprovalsPanel({
   csrfToken,
   companyId,
   userId,
+  canUseApprovalOverride,
   onAction,
 }: {
   client: HrApiClient;
   csrfToken: () => string;
   companyId: string;
   userId: string | undefined;
+  canUseApprovalOverride: boolean;
   onAction: (action: string, subject?: string) => void;
 }) {
   const [queue, setQueue] = useState<Awaited<ReturnType<HrApiClient["workLocationChangeRequests"]>>["items"]>([]);
@@ -55,6 +59,7 @@ export function HrWorkLocationChangeApprovalsPanel({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const retry = useRef<{ fingerprint: string; key: string } | null>(null);
+  const approvalOverride = approvalOverrideReviewState(detail, detail?.requested_by === userId, canUseApprovalOverride);
 
   useEffect(() => {
     if (!companyId) return;
@@ -122,6 +127,11 @@ export function HrWorkLocationChangeApprovalsPanel({
     const trimmed = reason.trim();
     if (!trimmed || trimmed.length > 1000) {
       setError("Enter a decision reason of 1 to 1000 characters.");
+      setDecision(null);
+      return;
+    }
+    if (approvalOverride.independentApproverRequired) {
+      setError("A different HR approver must decide this work-location-change request.");
       setDecision(null);
       return;
     }
@@ -285,7 +295,8 @@ export function HrWorkLocationChangeApprovalsPanel({
                     from the authoritative source assignment.
                   </AlertDescription>
                 </Alert>
-                {detail.requested_by === userId ? (
+                {approvalOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
+                {approvalOverride.independentApproverRequired ? (
                   <Alert>
                     <AlertTitle>Independent approver required</AlertTitle>
                     <AlertDescription>

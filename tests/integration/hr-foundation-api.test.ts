@@ -316,8 +316,33 @@ run("HR foundation API repository", () => {
       limit: 25,
     });
     expect(policies.items).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: policyId, status: "draft" })]),
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: policyId,
+          status: "draft",
+          self_decision_requires_override: false,
+          super_admin_override_allowed: false,
+        }),
+      ]),
     );
+    const superAdminMaker = context("r06.maker");
+    superAdminMaker.actor.roles = ["super_administrator"];
+    superAdminMaker.actor.permissions = [
+      "hr.employment_lifecycle_policy.read",
+      "hr.employment_lifecycle_policy.approve",
+      "platform.approval.override",
+    ];
+    expect(
+      (
+        await repository.listEmploymentLifecyclePolicies(superAdminMaker, {
+          company_id: "nexora-r06-uat-company",
+          limit: 25,
+        })
+      ).items.find((item) => item.id === policyId),
+    ).toMatchObject({
+      self_decision_requires_override: true,
+      super_admin_override_allowed: true,
+    });
     await expect(
       repository.listEmploymentLifecyclePolicies(context("r06.maker"), {
         company_id: "nexora-r06-uat-company",
@@ -330,6 +355,50 @@ run("HR foundation API repository", () => {
         limit: 25,
       }),
     ).rejects.toMatchObject({ status: 403, code: "COMPANY_ACCESS_DENIED" } satisfies Partial<HrApiError>);
+  });
+
+  it("projects lifecycle-policy override eligibility without exposing maker identifiers", async () => {
+    const suffix = randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase();
+    const policyId = `r06-lifecycle-override-${suffix}`;
+    await pool.query(
+      `insert into hr_employment_lifecycle_policy
+        (id,tenant_id,legal_employer_id,code,name,version,status,effective_from,created_by,submitted_by,submitted_at)
+       values ($1,$2,'nexora-r06-uat-company',$3,'Override metadata policy',1,'pending_approval',current_date,'r06.maker','r06.maker',now())`,
+      [policyId, sourceTestTenantId, `OVERRIDE-${suffix}`],
+    );
+
+    const ordinaryMaker = context("r06.maker");
+    ordinaryMaker.actor.permissions = ["hr.employment_lifecycle_policy.read", "hr.employment_lifecycle_policy.approve"];
+    const ordinary = (
+      await repository.listEmploymentLifecyclePolicies(ordinaryMaker, {
+        company_id: "nexora-r06-uat-company",
+        limit: 100,
+      })
+    ).items.find((item) => item.id === policyId);
+    expect(ordinary).toMatchObject({
+      self_decision_requires_override: true,
+      super_admin_override_allowed: false,
+    });
+
+    const superAdminMaker = context("r06.maker");
+    superAdminMaker.actor.roles = ["super_administrator"];
+    superAdminMaker.actor.permissions = [
+      "hr.employment_lifecycle_policy.read",
+      "hr.employment_lifecycle_policy.approve",
+      "platform.approval.override",
+    ];
+    const governedOverride = (
+      await repository.listEmploymentLifecyclePolicies(superAdminMaker, {
+        company_id: "nexora-r06-uat-company",
+        limit: 100,
+      })
+    ).items.find((item) => item.id === policyId);
+    expect(governedOverride).toMatchObject({
+      self_decision_requires_override: true,
+      super_admin_override_allowed: true,
+    });
+    expect(JSON.stringify(governedOverride)).not.toContain("created_by");
+    expect(JSON.stringify(governedOverride)).not.toContain("submitted_by");
   });
 
   it("creates an idempotent draft lifecycle policy with only its fixed initial hire definition", async () => {
@@ -765,6 +834,8 @@ run("HR foundation API repository", () => {
       created_by: "r06.maker",
       submitted_by: "r06.maker",
       company_id: "nexora-r06-uat-company",
+      self_decision_requires_override: false,
+      super_admin_override_allowed: false,
     });
     expect(detail.submitted_at).toEqual(expect.any(String));
     const approverOnly = context("r06.checker", sourceTestTenantId, true);
@@ -773,6 +844,18 @@ run("HR foundation API repository", () => {
       expect.arrayContaining([expect.objectContaining({ id: "nexora-r06-uat-company" })]),
     );
     expect((await repository.getEmployeeDraftApproval(approverOnly, employee.id)).id).toBe(employee.id);
+    const ordinaryMakerReview = context("r06.maker", sourceTestTenantId, true);
+    expect(await repository.getEmployeeDraftApproval(ordinaryMakerReview, employee.id)).toMatchObject({
+      self_decision_requires_override: true,
+      super_admin_override_allowed: false,
+    });
+    const superAdminMakerReview = context("r06.maker", sourceTestTenantId, true);
+    superAdminMakerReview.actor.roles = ["super_administrator"];
+    superAdminMakerReview.actor.permissions.push("platform.approval.override");
+    expect(await repository.getEmployeeDraftApproval(superAdminMakerReview, employee.id)).toMatchObject({
+      self_decision_requires_override: true,
+      super_admin_override_allowed: true,
+    });
     await expect(repository.getEmployeeDraftApproval(context("r06.checker"), employee.id)).rejects.toMatchObject({
       status: 403,
       code: "PERMISSION_DENIED",

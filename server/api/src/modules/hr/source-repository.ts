@@ -152,10 +152,12 @@ type EmployeeProfileVersionRow = Omit<
 };
 type EmploymentLifecyclePolicyRow = Omit<
   HrEmploymentLifecyclePolicyDirectory["items"][number],
-  "effective_from" | "effective_to"
+  "effective_from" | "effective_to" | "self_decision_requires_override" | "super_admin_override_allowed"
 > & {
   effective_from: string | Date;
   effective_to: string | Date | null;
+  created_by: string;
+  submitted_by: string | null;
 };
 type EmployeeHireRequestReviewRow = Omit<
   HrEmployeeHireRequestReview,
@@ -214,63 +216,102 @@ function employeeSummary(row: EmployeeSummaryRow): HrEmployeeDirectory["items"][
   return { ...row, joined_on: dateOnly(row.joined_on) };
 }
 
-function employeeHireRequestReview(row: EmployeeHireRequestReviewRow): HrEmployeeHireRequestReview {
+function approvalOverrideReviewMetadata(
+  context: HrActorContext,
+  makerActorIds: readonly string[],
+  normalDecisionPermission: string,
+): { self_decision_requires_override: boolean; super_admin_override_allowed: boolean } {
+  const selfDecisionRequiresOverride = makerActorIds.includes(context.actor.userId);
+  const policy = evaluateApprovalActor({
+    account: context.actor,
+    makerActorIds,
+    normalDecisionPermission,
+    impersonated: Boolean(
+      context.impersonationRequestId ||
+      (context.realActorId !== undefined && context.realActorId !== context.actor.userId),
+    ),
+  });
   return {
-    ...row,
-    effective_on: dateOnly(row.effective_on),
-    requested_at: new Date(row.requested_at).toISOString(),
-    decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
+    self_decision_requires_override: selfDecisionRequiresOverride,
+    super_admin_override_allowed: selfDecisionRequiresOverride && policy.kind === "override",
   };
 }
 
-function employeeTransferRequestReview(row: EmployeeTransferRequestReviewRow): HrEmployeeTransferRequestReview {
+function employeeHireRequestReview(
+  row: EmployeeHireRequestReviewRow,
+  context: HrActorContext,
+): HrEmployeeHireRequestReview {
   return {
     ...row,
     effective_on: dateOnly(row.effective_on),
     requested_at: new Date(row.requested_at).toISOString(),
     decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
+    ...approvalOverrideReviewMetadata(context, [row.requested_by], "hr.employment_lifecycle.approve"),
   };
 }
 
-function employeePromotionRequestReview(row: EmployeePromotionRequestReviewRow): HrEmployeePromotionRequestReview {
+function employeeTransferRequestReview(
+  row: EmployeeTransferRequestReviewRow,
+  context: HrActorContext,
+): HrEmployeeTransferRequestReview {
   return {
     ...row,
     effective_on: dateOnly(row.effective_on),
     requested_at: new Date(row.requested_at).toISOString(),
     decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
+    ...approvalOverrideReviewMetadata(context, [row.requested_by], "hr.employee_assignment.change"),
+  };
+}
+
+function employeePromotionRequestReview(
+  row: EmployeePromotionRequestReviewRow,
+  context: HrActorContext,
+): HrEmployeePromotionRequestReview {
+  return {
+    ...row,
+    effective_on: dateOnly(row.effective_on),
+    requested_at: new Date(row.requested_at).toISOString(),
+    decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
+    ...approvalOverrideReviewMetadata(context, [row.requested_by], "hr.employee_assignment.change"),
   };
 }
 
 function employeeManagerChangeRequestReview(
   row: EmployeeManagerChangeRequestReviewRow,
+  context: HrActorContext,
 ): HrEmployeeManagerChangeRequestReview {
   return {
     ...row,
     effective_on: dateOnly(row.effective_on),
     requested_at: new Date(row.requested_at).toISOString(),
     decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
+    ...approvalOverrideReviewMetadata(context, [row.requested_by], "hr.employee_assignment.change"),
   };
 }
 
 function employeeWorkLocationChangeRequestReview(
   row: EmployeeWorkLocationChangeRequestReviewRow,
+  context: HrActorContext,
 ): HrEmployeeWorkLocationChangeRequestReview {
   return {
     ...row,
     effective_on: dateOnly(row.effective_on),
     requested_at: new Date(row.requested_at).toISOString(),
     decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
+    ...approvalOverrideReviewMetadata(context, [row.requested_by], "hr.employee_assignment.change"),
   };
 }
 
 function employeeOrganizationPlacementChangeRequestReview(
   row: EmployeeOrganizationPlacementChangeRequestReviewRow,
+  context: HrActorContext,
 ): HrEmployeeOrganizationPlacementChangeRequestReview {
   return {
     ...row,
     effective_on: dateOnly(row.effective_on),
     requested_at: new Date(row.requested_at).toISOString(),
     decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
+    ...approvalOverrideReviewMetadata(context, [row.requested_by], "hr.employee_assignment.change"),
   };
 }
 
@@ -1032,6 +1073,7 @@ export class SourceHrRepository {
         joined_on: dateOnly(row.joined_on),
         created_at: new Date(row.created_at).toISOString(),
         submitted_at: new Date(row.submitted_at).toISOString(),
+        ...approvalOverrideReviewMetadata(context, [row.created_by, row.submitted_by], "hr.employee.approve"),
       };
     });
   }
@@ -1728,7 +1770,8 @@ export class SourceHrRepository {
     return this.read(context, "hr.employment_lifecycle_policy.read", async (client) => {
       await this.requireCompanyAccess(client, context, query.company_id);
       const result = await client.query<EmploymentLifecyclePolicyRow>(
-        `select id,legal_employer_id as company_id,code,name,version,status,effective_from,effective_to
+        `select id,legal_employer_id as company_id,code,name,version,status,effective_from,effective_to,
+                created_by,submitted_by
            from hr_employment_lifecycle_policy
           where tenant_id=$1 and legal_employer_id=$2
           order by effective_from desc,version desc,code,id
@@ -1736,11 +1779,19 @@ export class SourceHrRepository {
         [context.tenantId, query.company_id, query.limit],
       );
       return {
-        items: result.rows.map((row) => ({
-          ...row,
-          effective_from: dateOnly(row.effective_from),
-          effective_to: row.effective_to ? dateOnly(row.effective_to) : null,
-        })),
+        items: result.rows.map((row) => {
+          const { created_by, submitted_by, ...policy } = row;
+          return {
+            ...policy,
+            effective_from: dateOnly(row.effective_from),
+            effective_to: row.effective_to ? dateOnly(row.effective_to) : null,
+            ...approvalOverrideReviewMetadata(
+              context,
+              [created_by, submitted_by ?? ""],
+              "hr.employment_lifecycle_policy.approve",
+            ),
+          };
+        }),
       };
     });
   }
@@ -2389,7 +2440,7 @@ export class SourceHrRepository {
           limit $${values.length}`,
         values,
       );
-      return { items: result.rows.map(employeeHireRequestReview) };
+      return { items: result.rows.map((row) => employeeHireRequestReview(row, context)) };
     });
   }
 
@@ -2416,7 +2467,7 @@ export class SourceHrRepository {
           "HR_HIRE_REQUEST_NOT_FOUND",
           "The employee Hire request is unavailable in your company scope.",
         );
-      return employeeHireRequestReview(row);
+      return employeeHireRequestReview(row, context);
     });
   }
 
@@ -2622,7 +2673,7 @@ export class SourceHrRepository {
           limit $${values.length}`,
         values,
       );
-      return { items: result.rows.map(employeeTransferRequestReview) };
+      return { items: result.rows.map((row) => employeeTransferRequestReview(row, context)) };
     });
   }
 
@@ -2648,7 +2699,7 @@ export class SourceHrRepository {
           "HR_TRANSFER_NOT_FOUND",
           "The transfer request is unavailable in your company scope.",
         );
-      return employeeTransferRequestReview(result.rows[0]);
+      return employeeTransferRequestReview(result.rows[0], context);
     });
   }
 
@@ -3030,7 +3081,7 @@ export class SourceHrRepository {
           limit $${values.length}`,
         values,
       );
-      return { items: result.rows.map(employeePromotionRequestReview) };
+      return { items: result.rows.map((row) => employeePromotionRequestReview(row, context)) };
     });
   }
 
@@ -3056,7 +3107,7 @@ export class SourceHrRepository {
           "HR_PROMOTION_NOT_FOUND",
           "The promotion request is unavailable in your company scope.",
         );
-      return employeePromotionRequestReview(result.rows[0]);
+      return employeePromotionRequestReview(result.rows[0], context);
     });
   }
 
@@ -3457,7 +3508,7 @@ export class SourceHrRepository {
           limit $${values.length}`,
         values,
       );
-      return { items: result.rows.map(employeeManagerChangeRequestReview) };
+      return { items: result.rows.map((row) => employeeManagerChangeRequestReview(row, context)) };
     });
   }
 
@@ -3483,7 +3534,7 @@ export class SourceHrRepository {
           "HR_MANAGER_CHANGE_NOT_FOUND",
           "The manager-change request is unavailable in your company scope.",
         );
-      return employeeManagerChangeRequestReview(result.rows[0]);
+      return employeeManagerChangeRequestReview(result.rows[0], context);
     });
   }
 
@@ -3929,7 +3980,7 @@ export class SourceHrRepository {
           limit $${values.length}`,
         values,
       );
-      return { items: result.rows.map(employeeWorkLocationChangeRequestReview) };
+      return { items: result.rows.map((row) => employeeWorkLocationChangeRequestReview(row, context)) };
     });
   }
 
@@ -3955,7 +4006,7 @@ export class SourceHrRepository {
           "HR_WORK_LOCATION_CHANGE_NOT_FOUND",
           "The work-location-change request is unavailable in your company scope.",
         );
-      return employeeWorkLocationChangeRequestReview(result.rows[0]);
+      return employeeWorkLocationChangeRequestReview(result.rows[0], context);
     });
   }
 
@@ -4407,7 +4458,9 @@ export class SourceHrRepository {
           limit $${values.length}`,
         values,
       );
-      return { items: result.rows.map(employeeOrganizationPlacementChangeRequestReview) };
+      return {
+        items: result.rows.map((row) => employeeOrganizationPlacementChangeRequestReview(row, context)),
+      };
     });
   }
 
@@ -4433,7 +4486,7 @@ export class SourceHrRepository {
           "HR_ORGANIZATION_PLACEMENT_CHANGE_NOT_FOUND",
           "The organization-placement-change request is unavailable in your company scope.",
         );
-      return employeeOrganizationPlacementChangeRequestReview(result.rows[0]);
+      return employeeOrganizationPlacementChangeRequestReview(result.rows[0], context);
     });
   }
 

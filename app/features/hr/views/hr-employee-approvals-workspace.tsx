@@ -19,8 +19,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
+import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warning";
 
 import { HrApiClient } from "../api/hr-client";
+import { approvalOverrideReviewState } from "../approval-override-ui";
 import { HrHireApprovalsPanel } from "../components/hr-hire-approvals-panel";
 import { HrTransferApprovalsPanel } from "../components/hr-transfer-approvals-panel";
 import { HrPromotionApprovalsPanel } from "../components/hr-promotion-approvals-panel";
@@ -56,6 +58,10 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
   const canApproveWorkLocationChange = session?.user.permissions.includes("hr.employee_assignment.change") ?? false;
   const canApproveOrganizationPlacementChange =
     session?.user.permissions.includes("hr.employee_assignment.change") ?? false;
+  const canUseApprovalOverride =
+    session?.user.roles.includes("super_administrator") === true &&
+    session.user.permissions.includes("platform.approval.override") &&
+    session.impersonation === undefined;
   const canApprove =
     canApproveDraft ||
     canApproveHire ||
@@ -65,6 +71,11 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
     canApproveWorkLocationChange ||
     canApproveOrganizationPlacementChange;
   const userId = session?.user.id;
+  const draftOverride = approvalOverrideReviewState(
+    detail,
+    detail ? detail.submitted_by === userId || detail.created_by === userId : false,
+    canUseApprovalOverride && canApproveDraft,
+  );
 
   useEffect(() => {
     if (sessionLoading || !canApprove) return;
@@ -145,7 +156,12 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
       setDecision(null);
       return;
     }
-    if (detail.submitted_by === userId || detail.created_by === userId) {
+    const override = approvalOverrideReviewState(
+      detail,
+      detail.submitted_by === userId || detail.created_by === userId,
+      canUseApprovalOverride && canApproveDraft,
+    );
+    if (override.independentApproverRequired) {
       setError("A different HR approver must decide this draft.");
       setDecision(null);
       return;
@@ -331,7 +347,8 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
                     <dd>{new Date(detail.submitted_at).toLocaleString()}</dd>
                   </div>
                 </dl>
-                {detail.submitted_by === userId || detail.created_by === userId ? (
+                {draftOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
+                {draftOverride.independentApproverRequired ? (
                   <Alert>
                     <AlertTitle>Independent approver required</AlertTitle>
                     <AlertDescription>
@@ -410,6 +427,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           csrfToken={csrfToken}
           companyId={companyId}
           userId={userId}
+          canUseApprovalOverride={canUseApprovalOverride}
           onAction={onAction}
         />
       )}
@@ -420,6 +438,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           csrfToken={csrfToken}
           companyId={companyId}
           userId={userId}
+          canUseApprovalOverride={canUseApprovalOverride}
           onAction={onAction}
         />
       )}
@@ -430,6 +449,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           csrfToken={csrfToken}
           companyId={companyId}
           userId={userId}
+          canUseApprovalOverride={canUseApprovalOverride}
           onAction={onAction}
         />
       )}
@@ -440,6 +460,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           csrfToken={csrfToken}
           companyId={companyId}
           userId={userId}
+          canUseApprovalOverride={canUseApprovalOverride}
           onAction={onAction}
         />
       )}
@@ -450,6 +471,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           csrfToken={csrfToken}
           companyId={companyId}
           userId={userId}
+          canUseApprovalOverride={canUseApprovalOverride}
           onAction={onAction}
         />
       )}
@@ -461,6 +483,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           companyId={companyId}
           canApprove={canApproveOrganizationPlacementChange}
           userId={userId}
+          canUseApprovalOverride={canUseApprovalOverride}
           onAction={onAction}
         />
       )}

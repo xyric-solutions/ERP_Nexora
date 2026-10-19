@@ -18,8 +18,10 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warning";
 
 import { HrApiClient } from "../api/hr-client";
+import { approvalOverrideReviewState } from "../approval-override-ui";
 
 type Decision = "approved" | "rejected";
 const placementLabels: Record<string, string> = {
@@ -40,6 +42,7 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
   companyId,
   canApprove,
   userId,
+  canUseApprovalOverride,
   onAction,
 }: {
   client: HrApiClient;
@@ -47,6 +50,7 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
   companyId: string;
   canApprove: boolean;
   userId?: string;
+  canUseApprovalOverride: boolean;
   onAction: (action: string, subject?: string) => void;
 }) {
   const [queue, setQueue] = useState<HrEmployeeOrganizationPlacementChangeRequestReview[]>([]);
@@ -115,7 +119,7 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
 
   const loading = loadedCompanyId !== companyId;
   const detailLoading = Boolean(selectedId && detailId !== selectedId);
-  const selfApproval = detail?.requested_by === userId;
+  const approvalOverride = approvalOverrideReviewState(detail, detail?.requested_by === userId, canUseApprovalOverride);
 
   const decide = async () => {
     if (!detail || !decision || saving) return;
@@ -125,7 +129,7 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
       setDecision(null);
       return;
     }
-    if (selfApproval) {
+    if (approvalOverride.independentApproverRequired) {
       setError("A different HR approver must decide this request.");
       setDecision(null);
       return;
@@ -254,7 +258,8 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
               <dd className="font-medium">{detail.reason}</dd>
             </div>
           </dl>
-          {selfApproval && (
+          {approvalOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
+          {approvalOverride.independentApproverRequired && (
             <Alert variant="destructive">
               <AlertTitle>Independent approver required</AlertTitle>
               <AlertDescription>You requested this change and cannot decide it.</AlertDescription>
@@ -276,7 +281,9 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              disabled={saving || selfApproval || !detail.hierarchy_ready || !reason.trim()}
+              disabled={
+                saving || approvalOverride.independentApproverRequired || !detail.hierarchy_ready || !reason.trim()
+              }
               onClick={() => setDecision("approved")}
             >
               Approve organization change
@@ -284,7 +291,7 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
             <Button
               type="button"
               variant="outline"
-              disabled={saving || selfApproval || !reason.trim()}
+              disabled={saving || approvalOverride.independentApproverRequired || !reason.trim()}
               onClick={() => setDecision("rejected")}
             >
               Reject

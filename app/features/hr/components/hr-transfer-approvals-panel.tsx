@@ -18,8 +18,10 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warning";
 
 import { HrApiClient } from "../api/hr-client";
+import { approvalOverrideReviewState } from "../approval-override-ui";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -32,12 +34,14 @@ export function HrTransferApprovalsPanel({
   csrfToken,
   companyId,
   userId,
+  canUseApprovalOverride,
   onAction,
 }: {
   client: HrApiClient;
   csrfToken: () => string;
   companyId: string;
   userId: string | undefined;
+  canUseApprovalOverride: boolean;
   onAction: (action: string, subject?: string) => void;
 }) {
   const [queue, setQueue] = useState<Awaited<ReturnType<HrApiClient["transferRequests"]>>["items"]>([]);
@@ -52,6 +56,7 @@ export function HrTransferApprovalsPanel({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const retry = useRef<{ fingerprint: string; key: string } | null>(null);
+  const approvalOverride = approvalOverrideReviewState(detail, detail?.requested_by === userId, canUseApprovalOverride);
 
   useEffect(() => {
     if (!companyId) return;
@@ -113,6 +118,11 @@ export function HrTransferApprovalsPanel({
       setDecision(null);
       return;
     }
+    if (approvalOverride.independentApproverRequired) {
+      setError("A different HR approver must decide this Transfer request.");
+      setDecision(null);
+      return;
+    }
     const fingerprint = `${detail.id}:${decision}:${trimmed}`;
     if (retry.current?.fingerprint !== fingerprint) retry.current = { fingerprint, key: crypto.randomUUID() };
     setSaving(true);
@@ -152,7 +162,10 @@ export function HrTransferApprovalsPanel({
   };
 
   return (
-    <section className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm" aria-label="Transfer approvals">
+    <section
+      className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm"
+      aria-label="Transfer approvals"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -182,7 +195,9 @@ export function HrTransferApprovalsPanel({
       )}
       {state === "loading" && <Skeleton className="h-28 w-full" />}
       {state === "error" && (
-        <p className="text-sm text-muted-foreground">No prototype Transfer records are shown while live data is unavailable.</p>
+        <p className="text-sm text-muted-foreground">
+          No prototype Transfer records are shown while live data is unavailable.
+        </p>
       )}
       {state === "ready" && (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,.8fr)]">
@@ -193,7 +208,9 @@ export function HrTransferApprovalsPanel({
                   <th className="px-4 py-3">Employee</th>
                   <th className="px-4 py-3">Proposed placement</th>
                   <th className="px-4 py-3">Effective</th>
-                  <th className="px-4 py-3"><span className="sr-only">Action</span></th>
+                  <th className="px-4 py-3">
+                    <span className="sr-only">Action</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -231,7 +248,9 @@ export function HrTransferApprovalsPanel({
               <p className="text-sm text-muted-foreground">Select another pending request or refresh the queue.</p>
             )}
             {!selected && (
-              <p className="text-sm text-muted-foreground">Select a pending Transfer to compare its placement change.</p>
+              <p className="text-sm text-muted-foreground">
+                Select a pending Transfer to compare its placement change.
+              </p>
             )}
             {detail && detailState === "ready" && (
               <div className="grid gap-4">
@@ -243,21 +262,39 @@ export function HrTransferApprovalsPanel({
                   <Badge variant="secondary">Pending</Badge>
                 </div>
                 <dl className="grid gap-2 text-sm">
-                  <ReviewField label="Current placement" value={`${detail.source_branch || "No branch"} · ${detail.source_department || "No department"}`} />
-                  <ReviewField label="Proposed placement" value={`${detail.proposed_branch || "No branch"} · ${detail.proposed_department || "No department"}`} />
-                  <ReviewField label="Job and designation" value={`${detail.proposed_job} · ${detail.proposed_designation}`} />
-                  <ReviewField label="Grade and work location" value={`${detail.proposed_job_grade} · ${detail.proposed_work_location}`} />
+                  <ReviewField
+                    label="Current placement"
+                    value={`${detail.source_branch || "No branch"} · ${detail.source_department || "No department"}`}
+                  />
+                  <ReviewField
+                    label="Proposed placement"
+                    value={`${detail.proposed_branch || "No branch"} · ${detail.proposed_department || "No department"}`}
+                  />
+                  <ReviewField
+                    label="Job and designation"
+                    value={`${detail.proposed_job} · ${detail.proposed_designation}`}
+                  />
+                  <ReviewField
+                    label="Grade and work location"
+                    value={`${detail.proposed_job_grade} · ${detail.proposed_work_location}`}
+                  />
                   <ReviewField label="Effective date" value={detail.effective_on} />
                   <ReviewField label="Business reason" value={detail.reason} />
                 </dl>
-                {detail.requested_by === userId ? (
+                {approvalOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
+                {approvalOverride.independentApproverRequired ? (
                   <Alert>
                     <AlertTitle>Independent approver required</AlertTitle>
-                    <AlertDescription>You submitted this Transfer, so another HR checker must decide it.</AlertDescription>
+                    <AlertDescription>
+                      You submitted this Transfer, so another HR checker must decide it.
+                    </AlertDescription>
                   </Alert>
                 ) : (
                   <>
-                    <label htmlFor="transfer-decision-reason" className="grid gap-1.5 text-sm font-medium text-foreground">
+                    <label
+                      htmlFor="transfer-decision-reason"
+                      className="grid gap-1.5 text-sm font-medium text-foreground"
+                    >
                       Decision reason
                       <Textarea
                         id="transfer-decision-reason"
@@ -275,7 +312,12 @@ export function HrTransferApprovalsPanel({
                       <Button type="button" disabled={saving || !reason.trim()} onClick={() => setDecision("approved")}>
                         Approve Transfer
                       </Button>
-                      <Button type="button" variant="destructive" disabled={saving || !reason.trim()} onClick={() => setDecision("rejected")}>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        disabled={saving || !reason.trim()}
+                        onClick={() => setDecision("rejected")}
+                      >
                         Reject Transfer
                       </Button>
                     </div>
@@ -299,7 +341,12 @@ export function HrTransferApprovalsPanel({
           <p className="rounded-md bg-muted p-3 text-sm">Reason: {reason.trim()}</p>
           <DialogFooter>
             <DialogClose render={<Button type="button" variant="outline" disabled={saving} />}>Cancel</DialogClose>
-            <Button type="button" variant={decision === "rejected" ? "destructive" : "default"} disabled={saving} onClick={decide}>
+            <Button
+              type="button"
+              variant={decision === "rejected" ? "destructive" : "default"}
+              disabled={saving}
+              onClick={decide}
+            >
               {saving ? "Saving decision..." : "Confirm decision"}
             </Button>
           </DialogFooter>
