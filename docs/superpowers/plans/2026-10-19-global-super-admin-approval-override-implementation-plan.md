@@ -4,7 +4,7 @@
 > `docs/superpowers/specs/2026-10-19-global-super-admin-approval-override-design.md`
 
 - Date: 2026-10-19
-- Status: implementation in progress
+- Status: implementation complete — SOA-12 destructive browser decision acceptance pending
 - Scope: global same-actor approval override for governed super administrators
 - Initial acceptance actor: `shoaib`
 - Database: additive Security 0014, HR 0034 and Finance 0004 migrations
@@ -550,3 +550,39 @@ Ordinary users must remain unable to self-approve, impersonation must remain
 read-only for mutations, all domain invariants must remain enforced, focused
 automated suites and production build must pass, and Banking/Identity/HR
 browser acceptance must be observed.
+
+## 8. Implementation verification record — 2026-10-19
+
+Implemented Security 0014, HR 0034 and Finance 0004. The governed capability,
+transactional evidence writer, Security/Identity decisions, every currently
+live HR decision path and Bank Account decisions are wired through the shared
+server-side policy. Corresponding live review surfaces display the explicit
+super-admin override warning and require a business reason.
+
+Observed automated evidence:
+
+- generated OpenAPI/client check passed;
+- full TypeScript check passed;
+- contract suites passed: 9 assertions;
+- focused frontend/unit suites passed: 33 assertions;
+- fresh PostgreSQL migration/integration chain passed: 23 assertions;
+- override database security suite passed: 2 assertions; and
+- the Next.js production build passed.
+
+Observed runtime evidence against the migrated `nexora_source_test` database:
+
+- API readiness reported service, Redis, object storage, database, HR and
+  Banking checks healthy;
+- a fresh real-web login authenticated `shoaib` with the active
+  `super_administrator` role, all 246 active permissions and
+  `platform.approval.override`;
+- Identity approvals, HR employee approvals, HR lifecycle policies and Bank
+  Account approvals rendered without returning to login; and
+- their live Security, HR and Banking list endpoints returned HTTP 200.
+
+SOA-12 is intentionally still open for destructive browser decision
+acceptance: create, submit and self-decide representative Banking, Identity
+and HR records through the UI, inspect the persisted override/domain/audit
+evidence, and repeat the denial case with an ordinary maker. The automated
+PostgreSQL integration suites already verify the same decision/evidence
+transaction rules, but they do not replace this final UI acceptance gate.

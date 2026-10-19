@@ -1,6 +1,6 @@
 # Global Super-Administrator Approval Override Design
 
-- Status: approved design — implementation in progress
+- Status: implementation complete — destructive browser decision acceptance pending
 - Approved direction: 2026-10-19
 - Scope: all current and future governed Nexora approval workflows
 - Initial privileged role: `super_administrator`
@@ -285,3 +285,9 @@ workflow; every such decision has atomic immutable override evidence; ordinary
 users remain subject to maker/checker separation; security and database
 isolation tests pass; and real Banking, Identity and HR browser acceptance is
 recorded.
+
+Implementation evidence is recorded in the corresponding implementation plan.
+Automated transaction, denial, isolation and immutable-evidence gates pass,
+and authenticated route/API smoke acceptance has been observed. The final
+controlled browser create/submit/self-decision run remains pending, so this
+document does not claim full acceptance yet.

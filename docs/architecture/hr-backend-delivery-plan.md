@@ -745,3 +745,45 @@ and require all of the following before persistence:
 HR must not update Banking master data or write accounting journals directly.
 The next safe HR development slice remains the cross-workflow audit-evidence
 view described above; the payroll-to-Banking consumer belongs to Phase 5.
+
+## Global super-administrator approval override handoff — 2026-10-19
+
+The cross-module override implementation is complete through Security 0014,
+HR 0034 and Finance 0004. HR now uses the shared governed policy for employee
+drafts, lifecycle-policy approval and activation, Hire, Transfer, Promotion,
+manager changes, work-location changes and organization-placement changes.
+Each accepted same-actor decision requires the active `super_administrator`
+role, `platform.approval.override`, the normal workflow permission and a
+business reason. The decision and immutable override evidence commit in one
+database transaction. Ordinary maker/checker separation, company/tenant
+scope, jurisdiction and hierarchy validation, and the impersonation mutation
+block remain enforced.
+
+Verification observed on 2026-10-19:
+
+- contract: 9 focused assertions passed;
+- frontend/unit: 33 focused assertions passed;
+- fresh-database migration/integration: 23 focused assertions passed;
+- database isolation/immutability: 2 assertions passed;
+- full TypeScript check and production web build passed;
+- the running API readiness endpoint reported all dependencies healthy; and
+- a fresh web login authenticated `shoaib` as `super_administrator` with all
+  246 active permissions including `platform.approval.override`.
+
+The live HR routes `/#/hr/employee-approvals` and
+`/#/hr/lifecycle-policies` rendered through the authenticated web shell. The
+employee approval page received HTTP 200 responses from employee-draft, Hire,
+Transfer, Promotion, manager, work-location and organization-placement review
+endpoints. The lifecycle page received HTTP 200 from the lifecycle-policy
+endpoint.
+
+The remaining acceptance gate is a controlled synthetic UI mutation run:
+self-decide representative HR, Identity and Bank Account records as `shoaib`,
+inspect the domain event, platform audit and immutable override event, then
+repeat an ordinary-maker denial. Automated PostgreSQL integration tests cover
+these transaction and denial rules, but the destructive browser decision run
+has not been claimed as completed.
+
+After that acceptance gate, resume HR at the cross-workflow audit-evidence
+view already identified above. Bank Payments remains prototype-only and is the
+next Banking slice after the override gate is accepted.
