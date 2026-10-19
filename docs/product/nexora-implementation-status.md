@@ -1,0 +1,113 @@
+# Nexora ERP — Implementation Status Register
+
+- Last updated: 2026-08-18
+- Scope: Blueprint Session 1, modules 01–11
+- Authority: live application, contracts, migrations, and tests for implementation claims
+
+## Rules
+
+Allowed statuses are `IMPLEMENTED`, `PARTIAL`, `PLANNED`, and `NOT STARTED`. A planned blueprint entry is not an implemented feature. Target phases for unimplemented work remain provisional until Session 8 establishes the approved roadmap.
+
+## Part A capability register
+
+| ID | Module | Function | Status | Evidence | Dependencies | Target phase | Notes |
+|---|---|---|---|---|---|---|---|
+| NEX-DSH-OVW-001 | Dashboard | Executive overview | PARTIAL | `web/src/app/(shell)/dashboard/page.tsx`; Finance KPI service/tests | Reporting and all source modules | Existing + post-approval | Finance/setup are live; other cards are placeholders |
+| NEX-DSH-KPI-001 | Dashboard | Role-aware KPI cards/trends | PARTIAL | `app/finance/reporting.py`; `web/src/components/dashboard/finance-kpi-widget.tsx` | Identity, reporting models | Existing + post-approval | Finance permissions exist; complete role packs do not |
+| NEX-DSH-TSK-001 | Dashboard | Tasks, approvals, exceptions | PLANNED | Blueprint Part A | Workflow, Notifications, source modules | Session 8 roadmap | No unified work queue |
+| NEX-DSH-DRL-001 | Dashboard | End-to-end drill-through | PARTIAL | `ReportingService.drilldown`; reporting tests | Source document modules | Existing + post-approval | Stops at source type/id where source modules do not exist |
+| NEX-DSH-PER-001 | Dashboard | Saved layouts/filters/context | PLANNED | Blueprint Part A | User preferences, company directory | Session 8 roadmap | Finance company context is a local free-text cache |
+| NEX-BNK-ACC-001 | Banking | Bank/cash account master | PARTIAL | `BankAccount` in `app/finance/ledger.py`; demo seed | Company directory, permissions | Existing + post-approval | Repository master exists; normal API/UI absent |
+| NEX-BNK-PAY-001 | Banking | Bank payments | PLANNED | Blueprint Part A | AP/Expenses, approval, bank integration | Session 8 roadmap | Demo supplier-payment label is only a Finance journal |
+| NEX-BNK-RCT-001 | Banking | Bank receipts | PLANNED | Blueprint Part A | AR/Sales, approval, bank integration | Session 8 roadmap | Demo receipt label is only a Finance journal |
+| NEX-BNK-TRF-001 | Banking | Account transfers | PLANNED | Blueprint Part A | Bank accounts, FX, posting | Session 8 roadmap | No transfer transaction model |
+| NEX-BNK-STM-001 | Banking | Statement import | PLANNED | Blueprint Part A | File/API connector, idempotency | Session 8 roadmap | No statement model/parser |
+| NEX-BNK-REC-001 | Banking | Matching/reconciliation | PLANNED | Blueprint Part A | Statements, payments, receipts, GL | Session 8 roadmap | No reconciliation subledger |
+| NEX-BNK-RVL-001 | Banking | FX bank revaluation | PLANNED | Blueprint Part A | FX policy and bank subledger | Session 8 roadmap | Generic FX posting exists only |
+| NEX-BNK-CSH-001 | Banking | Cash management | PLANNED | Blueprint Part A | Cash master, controls, Finance | Session 8 roadmap | GL cash accounts are not a cash module |
+| NEX-BNK-TRS-001 | Banking | Treasury instruments | PLANNED | Blueprint Part A | Banking, risk, documents | Session 8 roadmap | No treasury model |
+| NEX-SAL-QUO-001 | Sales | Quotations | PLANNED | Blueprint Part A; `docs/business/sales-hr-projects-design.md` | CRM, customer/product masters | Session 8 roadmap | No source implementation |
+| NEX-SAL-ORD-001 | Sales | Sales orders | PLANNED | Same | Inventory/Projects, credit control | Session 8 roadmap | No source implementation |
+| NEX-SAL-DEL-001 | Sales | Delivery/service confirmation | PLANNED | Blueprint Part A | Inventory/Projects/acceptance | Session 8 roadmap | No source implementation |
+| NEX-SAL-INV-001 | Sales | Sales invoicing | PLANNED | Blueprint Part A | AR, Tax, Revenue, Finance | Session 8 roadmap | No invoice/subledger implementation |
+| NEX-SAL-CRN-001 | Sales | Credit/debit notes | PLANNED | Blueprint Part A | Sales invoice, AR, Tax | Session 8 roadmap | No source implementation |
+| NEX-SAL-RET-001 | Sales | Customer returns | PLANNED | Blueprint Part A | Sales, Inventory, Quality | Session 8 roadmap | No source implementation |
+| NEX-SAL-PRC-001 | Sales | Pricing and discounts | PLANNED | Blueprint Part A | Product/customer/channel masters | Session 8 roadmap | No pricing engine |
+| NEX-SAL-COM-001 | Sales | Commissions | PLANNED | Blueprint Part A | Sales, HR/AP, Finance | Session 8 roadmap | No commission engine |
+| NEX-REV-CTR-001 | Revenue Recognition | Revenue contracts | PLANNED | Blueprint Part A | Sales/Projects/Subscriptions | Session 8 roadmap | No contract subledger |
+| NEX-REV-POB-001 | Revenue Recognition | Performance obligations | PLANNED | Blueprint Part A | Accounting-policy approval | Session 8 roadmap | No source implementation |
+| NEX-REV-ALC-001 | Revenue Recognition | Transaction-price allocation | PLANNED | Blueprint Part A | Pricing and policy | Session 8 roadmap | No allocation engine |
+| NEX-REV-SCH-001 | Revenue Recognition | Recognition schedules | PLANNED | Blueprint Part A | Obligations and evidence | Session 8 roadmap | No schedule engine |
+| NEX-REV-RUN-001 | Revenue Recognition | Recognition runs | PLANNED | Blueprint Part A | Schedules, Accounting Events | Session 8 roadmap | No source implementation |
+| NEX-REV-ADJ-001 | Revenue Recognition | Modifications/adjustments | PLANNED | Blueprint Part A | Contract versions and Finance | Session 8 roadmap | No source implementation |
+| NEX-REV-DSC-001 | Revenue Recognition | Disclosures/roll-forwards | PLANNED | Blueprint Part A | Revenue subledger/reporting | Session 8 roadmap | No source implementation |
+| NEX-SUB-PLN-001 | Subscription Billing | Plans and pricing versions | PLANNED | Blueprint Part A | Product/pricing masters | Session 8 roadmap | Recurring journals are not subscriptions |
+| NEX-SUB-CTR-001 | Subscription Billing | Subscription contracts | PLANNED | Blueprint Part A | Sales/customer/product | Session 8 roadmap | No source implementation |
+| NEX-SUB-USG-001 | Subscription Billing | Usage ingestion/rating | PLANNED | Blueprint Part A | Meter integrations and pricing | Session 8 roadmap | No source implementation |
+| NEX-SUB-BIL-001 | Subscription Billing | Billing schedules/runs | PLANNED | Blueprint Part A | Subscription, Sales invoice | Session 8 roadmap | No source implementation |
+| NEX-SUB-AMD-001 | Subscription Billing | Amend/pause/cancel | PLANNED | Blueprint Part A | Contract versioning/workflow | Session 8 roadmap | No source implementation |
+| NEX-SUB-REN-001 | Subscription Billing | Renewal/churn | PLANNED | Blueprint Part A | CRM/Notifications | Session 8 roadmap | No source implementation |
+| NEX-SUB-MET-001 | Subscription Billing | Subscription metrics | PLANNED | Blueprint Part A | Contract/billing source data | Session 8 roadmap | No source implementation |
+| NEX-AR-CUS-001 | Accounts Receivable | Customer financial profile | PLANNED | Blueprint Part A; generic `Party` only | Customer master, Tax | Session 8 roadmap | Generic party is insufficient for AR |
+| NEX-AR-LED-001 | Accounts Receivable | Open-item subledger | PLANNED | Blueprint Part A | Sales invoices, Finance control account | Session 8 roadmap | `JournalLine` has no party/open-item relation |
+| NEX-AR-RCT-001 | Accounts Receivable | Customer receipts | PLANNED | Blueprint Part A | Banking, AR subledger | Session 8 roadmap | No receipt transaction |
+| NEX-AR-ALC-001 | Accounts Receivable | Receipt/credit allocation | PLANNED | Blueprint Part A | Open-item subledger | Session 8 roadmap | No allocation model |
+| NEX-AR-CRD-001 | Accounts Receivable | Credits/refunds/write-offs | PLANNED | Blueprint Part A | AR, Sales, Banking | Session 8 roadmap | No source implementation |
+| NEX-AR-DSP-001 | Accounts Receivable | Disputes and collections | PLANNED | Blueprint Part A | AR, CRM/Helpdesk | Session 8 roadmap | No source implementation |
+| NEX-AR-DUN-001 | Accounts Receivable | Dunning | PLANNED | Blueprint Part A | AR, Notifications | Session 8 roadmap | No source implementation |
+| NEX-AR-REC-001 | Accounts Receivable | AR-to-GL reconciliation | PLANNED | Blueprint Part A | AR subledger, GL | Session 8 roadmap | No AR subledger |
+| NEX-PUR-PR-001 | Procurement | Purchase requisitions | PARTIAL | `app/operations/service.py`; API/demo E2E | Budget commitment/check | S3.1 in progress | Create/submit is live; budget check and RFQ sourcing remain |
+| NEX-PUR-RFQ-001 | Procurement | RFQ and quotations | PLANNED | Same | Supplier sourcing | Session 8 roadmap | No source implementation |
+| NEX-PUR-EVL-001 | Procurement | Bid/supplier evaluation | PLANNED | Same | RFQ, supplier master | Session 8 roadmap | No source implementation |
+| NEX-PUR-PO-001 | Procurement | Purchase orders | PARTIAL | `app/operations/service.py`; Workflow; API/demo E2E | RFQ, amendment/close | S3.1 in progress | Create, source trace, submit and distinct-actor approval are live |
+| NEX-PUR-GRN-001 | Procurement | Gate/receipt | PARTIAL | `OperationsService.post_receipt`; Demo v2 trace | Inspection/gate workflow | S3.1 in progress | PO quantity, bin, tracked lot, approval, event, journal and stock posting are live |
+| NEX-PUR-QIN-001 | Procurement | Quality inspection | PLANNED | Same | GRN, Quality | Session 8 roadmap | No source implementation |
+| NEX-PUR-SRV-001 | Procurement | Service entry | PLANNED | Blueprint Part A | PO, Projects/Operations | Session 8 roadmap | No source implementation |
+| NEX-PUR-BIL-001 | Procurement | Supplier bill/matching | PARTIAL | `OperationsService.create_invoice_match`; Demo v2 | Supplier bill/AP subledger | S3.1 + AP roadmap | Receipt-value tolerance match exists; no payable obligation is fabricated |
+| NEX-PUR-RTN-001 | Procurement | Supplier returns | PLANNED | Blueprint Part A | Receipt, Inventory, AP | Session 8 roadmap | No source implementation |
+| NEX-AP-SUP-001 | Accounts Payable | Supplier financial profile | PLANNED | Blueprint Part A; generic `Party` only | Supplier onboarding, Tax | Session 8 roadmap | Generic party is insufficient for AP |
+| NEX-AP-LED-001 | Accounts Payable | Open-item subledger | PLANNED | Blueprint Part A | Purchase bills, Finance | Session 8 roadmap | No party/open-item linkage |
+| NEX-AP-BIL-001 | Accounts Payable | Payable obligation | PLANNED | Blueprint Part A | Procurement/Expenses/Assets | Session 8 roadmap | No AP bill model |
+| NEX-AP-PAY-001 | Accounts Payable | Payment proposals | PLANNED | Blueprint Part A | AP, Banking | Session 8 roadmap | No proposal/payment transaction |
+| NEX-AP-ALC-001 | Accounts Payable | Advance/credit allocation | PLANNED | Blueprint Part A | AP subledger | Session 8 roadmap | No allocation model |
+| NEX-AP-WHT-001 | Accounts Payable | Withholding | PLANNED | Blueprint Part A; generic Pakistan tax pack | AP, localisation | Session 8 roadmap | Tax rules are not an AP withholding process |
+| NEX-AP-DSP-001 | Accounts Payable | Holds/disputes | PLANNED | Blueprint Part A | AP and Procurement | Session 8 roadmap | No source implementation |
+| NEX-AP-REC-001 | Accounts Payable | AP-to-GL reconciliation | PLANNED | Blueprint Part A | AP subledger, GL | Session 8 roadmap | No AP subledger |
+| NEX-INV-ITM-001 | Inventory | Item master behavior | PARTIAL | `app/operations/models.py`; API/UI/demo | Categories/UOM/product governance | S3.1 in progress | Inventory/service type, tracking and valuation policies are live |
+| NEX-INV-WHS-001 | Inventory | Warehouse/location controls | PARTIAL | `OrganizationUnit(type=warehouse)`; `InventoryBin`; API/UI | Zones/put-away | S3.1 in progress | Warehouse and scoped active-bin validation are live |
+| NEX-INV-MOV-001 | Inventory | Stock movement ledger | PARTIAL | `stock_ledger_entry`; immutable triggers; API/UI/tests | Transfers/issues/adjustments | S3.1 in progress | Receipt movement is append-only with source/event lineage |
+| NEX-INV-RES-001 | Inventory | Reservation/pick/pack/deliver | PLANNED | Blueprint Part A | Sales, stock ledger | Session 8 roadmap | No source implementation |
+| NEX-INV-TRF-001 | Inventory | Stock transfers | PLANNED | Blueprint Part A | Stock ledger, locations | Session 8 roadmap | No source implementation |
+| NEX-INV-CNT-001 | Inventory | Counts/adjustments | PLANNED | Blueprint Part A | Stock ledger, Workflow | Session 8 roadmap | No source implementation |
+| NEX-INV-TRC-001 | Inventory | Batch/serial/expiry trace | PARTIAL | tracking modes, lot/expiry validation, stock lineage | Recall/serial uniqueness/scan UX | S3.1 in progress | Receipt trace exists; full recall/scanning does not |
+| NEX-INV-VAL-001 | Inventory | Valuation and reconciliation | PARTIAL | stock quantity/value; Inventory/GRNI journal; demo verifier | Outbound layers/revaluation | S3.1 + Costing roadmap | Receipt value reconciles to GL; full FIFO/weighted-average release is not claimed |
+| NEX-CST-POL-001 | Costing | Cost/valuation policies | PLANNED | Blueprint Part A | Inventory/accounting decision | Session 8 roadmap | No source implementation |
+| NEX-CST-LND-001 | Costing | Landed-cost capture | PLANNED | Blueprint Part A | Procurement/AP/logistics | Session 8 roadmap | No source implementation |
+| NEX-CST-ALC-001 | Costing | Cost allocation | PLANNED | Blueprint Part A | Landed cost/valuation | Session 8 roadmap | No source implementation |
+| NEX-CST-VAL-001 | Costing | Valuation layers/cost release | PLANNED | Blueprint Part A | Inventory movement ledger | Session 8 roadmap | No source implementation |
+| NEX-CST-STD-001 | Costing | Standard-cost versions | PLANNED | Blueprint Part A | Items/BOM/routings | Session 8 roadmap | No source implementation |
+| NEX-CST-VAR-001 | Costing | Cost variances | PLANNED | Blueprint Part A | Actual/standard costs | Session 8 roadmap | No source implementation |
+| NEX-CST-REC-001 | Costing | Cost-to-GL reconciliation | PLANNED | Blueprint Part A | Cost/Inventory subledgers, GL | Session 8 roadmap | No subledger exists |
+| NEX-FIN-COA-001 | Finance | Chart of accounts and controls | PARTIAL | `Account`; `PostingService`; account UI/tests | Company directory, approved classification | Existing | Hierarchy/controls and posted-line type immutability are live |
+| NEX-FIN-EVT-001 | Finance | Accounting Event ledger | IMPLEMENTED | `AccountingEventService`; API/migration/service tests | Tenant, authorization, audit | Existing | Idempotency, lifecycle, compensation implemented |
+| NEX-FIN-JE-001 | Finance | Journal create/validate/post | PARTIAL | `PostingService.create_manual_journal/post_journal`; API/tests | Workflow, numbering decision | Existing + remediation | Strong posting controls; HTTP creates/posts without full submit lifecycle |
+| NEX-FIN-REV-001 | Finance | Journal reversal | IMPLEMENTED | `PostingService.reverse_journal`; economic/FX/sequence regression tests | Period policy | Existing | Original and reversal evidence remains effective and cancels economically |
+| NEX-FIN-PER-001 | Finance | Period management | IMPLEMENTED | `close_period/reopen_period`; API/tests | Fiscal calendar, authorization | Existing | Close orchestration/reconciliations remain separate planned work |
+| NEX-FIN-FX-001 | Finance | Currency/rate resolution | PARTIAL | `_resolve_amounts`; FX posting/reversal tests | FX source/policy | Existing | Normal posting works; reversals preserve original base values/rate |
+| NEX-FIN-REC-001 | Finance | Recurring journal templates | PARTIAL | `RecurringJournalService`; API/tests | Scheduler/worker | Existing + post-approval | Draft generation live; no scheduler |
+| NEX-FIN-BUD-001 | Finance | Budgets and variance | PARTIAL | `BudgetService`; reporting/tests | Budget UI/API and dimensions | Existing + post-approval | Backend service/report live; normal management surface incomplete |
+| NEX-FIN-IC-001 | Finance | Intercompany/consolidation | PARTIAL | `post_intercompany_pair`; `ConsolidationService`; tests | Configuration API/UI, elimination policy | Existing + post-approval | Backend paths exist; complete administration and eliminations do not |
+| NEX-FIN-RPT-001 | Finance | Financial reports | PARTIAL | `ReportingService`; API/UI/tests | Approved account classification | Existing | Reports and reversal economics are live; P&L/Cash Flow classifications remain coarse |
+| NEX-FIN-DRL-001 | Finance | Drill-down and finance audit | PARTIAL | `drilldown`, `finance_audit_trail`; tests | Source modules, audit filter expansion | Existing + post-approval | Full source document absent for future modules |
+| NEX-FIN-CLS-001 | Finance | Close orchestration | PLANNED | Blueprint Part A | Reconciliations, subledgers, Workflow | Session 8 roadmap | Period close exists; close checklist/orchestration does not |
+
+## Status summary
+
+| Status | Count |
+|---|---:|
+| IMPLEMENTED | 3 |
+| PARTIAL | 21 |
+| PLANNED | 64 |
+| NOT STARTED | 0 |
+
+The summary is scoped to the 88 permanent Part A capability IDs, not to files, screens, or previously closed delivery batches.
