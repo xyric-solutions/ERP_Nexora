@@ -8,7 +8,13 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { ApiError } from "../../lib/api/generated";
 import { useSession } from "../../lib/session/session-provider";
+import { SuperAdminOverrideWarning } from "../../shared/ui/super-admin-override-warning";
 import { ActionSelect, RecordDetails, SelectionCheckbox, type RowAction } from "./administration-controls";
+import {
+  INDEPENDENT_APPROVER_REQUIRED,
+  actorMatchesAny,
+  canUseSuperAdminApprovalOverride,
+} from "./approval-override-ui";
 import RoleForm, { roleDraftFromRow } from "./role-form";
 import type { IdentitySection } from "./identity-navigation";
 
@@ -68,6 +74,30 @@ export default function GovernedTable({
   const [validUntil, setValidUntil] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const actorId = session?.user.id;
+  const approvalPermission =
+    approvalType === "user" ? "security.user_account.approve" : `security.authorization.${approvalType}.approve`;
+
+  function isApprovalMaker(row: Row): boolean {
+    return actorMatchesAny(row, actorId, ["requested_by", "submitted_by"]);
+  }
+
+  function isOwnProtectedTarget(row: Row): boolean {
+    return (
+      tab === "approvals" &&
+      (approvalType === "user" || approvalType === "assignment") &&
+      row.target_user_id != null &&
+      String(row.target_user_id) === actorId
+    );
+  }
+
+  function canOverrideApproval(row: Row): boolean {
+    return (
+      isApprovalMaker(row) &&
+      !isOwnProtectedTarget(row) &&
+      canUseSuperAdminApprovalOverride(session, permissions, approvalPermission)
+    );
+  }
   const visible = useMemo(
     () =>
       rows.filter(
@@ -121,13 +151,10 @@ export default function GovernedTable({
     } else if (
       tab === "approvals" &&
       ["pending", "submitted"].includes(String(row.request_state)) &&
-      row.requested_by !== session?.user.id
+      !isOwnProtectedTarget(row) &&
+      (!isApprovalMaker(row) || canOverrideApproval(row))
     ) {
-      if (
-        permissions.has(
-          approvalType === "user" ? "security.user_account.approve" : `security.authorization.${approvalType}.approve`,
-        )
-      ) {
+      if (permissions.has(approvalPermission)) {
         result.push({ value: "approved", label: "Approve" }, { value: "rejected", label: "Reject" });
       }
     }
@@ -142,6 +169,10 @@ export default function GovernedTable({
           chosen.every((row) => actions(row).some((candidate) => candidate.value === action.value)),
       )
     : [];
+  const pendingRequiresOverride = Boolean(pending?.rows.some((row) => canOverrideApproval(row)));
+  const pendingReasonRequired = Boolean(
+    pending && (pending.action === "revoke" || pending.action === "rejected" || pendingRequiresOverride),
+  );
 
   function start(action: string, targets: Row[]) {
     setMessage("");
@@ -172,7 +203,7 @@ export default function GovernedTable({
 
   async function confirm(event: FormEvent) {
     event.preventDefault();
-    if (!pending || busy || ((pending.action === "revoke" || pending.action === "rejected") && !reason.trim())) return;
+    if (!pending || busy || (pendingReasonRequired && !reason.trim())) return;
     setBusy(true);
     let completed = 0;
     let failure = "";
@@ -259,7 +290,10 @@ export default function GovernedTable({
   return (
     <>
       {message ? (
-        <Alert className="m-5 border-[var(--nx-info-border)] bg-[var(--nx-info-soft)] text-[var(--nx-info)]" role="status">
+        <Alert
+          className="m-5 border-[var(--nx-info-border)] bg-[var(--nx-info-soft)] text-[var(--nx-info)]"
+          role="status"
+        >
           <AlertDescription className="text-[var(--nx-info)]">{message}</AlertDescription>
         </Alert>
       ) : null}
@@ -352,9 +386,10 @@ export default function GovernedTable({
               <li key={rowId(tab, row)}>{display(row.display_name ?? row.role_code ?? row.request_id)}</li>
             ))}
           </ul>
-          {pending.action === "revoke" || pending.action === "rejected" ? (
+          {pendingRequiresOverride ? <SuperAdminOverrideWarning className="mt-4" /> : null}
+          {pendingReasonRequired ? (
             <Label className="mt-4 grid gap-2 text-sm text-muted-foreground">
-              Reason
+              Business reason
               <Input
                 required
                 maxLength={512}
@@ -385,10 +420,7 @@ export default function GovernedTable({
             <Button type="button" variant="outline" disabled={busy} onClick={() => setPending(null)}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={busy || ((pending.action === "revoke" || pending.action === "rejected") && !reason.trim())}
-            >
+            <Button type="submit" disabled={busy || (pendingReasonRequired && !reason.trim())}>
               Confirm{tab === "approvals" ? " decision" : " and submit"}
             </Button>
           </div>
@@ -398,7 +430,10 @@ export default function GovernedTable({
         <table className="w-full min-w-180 border-collapse text-sm">
           <thead className="bg-muted/60">
             <tr>
-              <th className="px-3.5 py-3 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase" scope="col">
+              <th
+                className="px-3.5 py-3 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                scope="col"
+              >
                 <SelectionCheckbox
                   label="Select all visible records"
                   checked={visible.length > 0 && chosen.length === visible.length}
@@ -408,11 +443,20 @@ export default function GovernedTable({
                 />
               </th>
               {columns[tab].map((column) => (
-                <th className="px-3.5 py-3 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase" scope="col" key={column}>
+                <th
+                  className="px-3.5 py-3 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                  scope="col"
+                  key={column}
+                >
                   {column.replaceAll("_", " ")}
                 </th>
               ))}
-              <th className="px-3.5 py-3 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase" scope="col">Action</th>
+              <th
+                className="px-3.5 py-3 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                scope="col"
+              >
+                Action
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -431,7 +475,9 @@ export default function GovernedTable({
                   />
                 </td>
                 {columns[tab].map((column) => (
-                  <td className="max-w-80 truncate px-3.5 py-3 align-top" key={column}>{display(row[column])}</td>
+                  <td className="max-w-80 truncate px-3.5 py-3 align-top" key={column}>
+                    {display(row[column])}
+                  </td>
                 ))}
                 <td className="max-w-80 px-3.5 py-3 align-top">
                   <ActionSelect
@@ -440,13 +486,22 @@ export default function GovernedTable({
                     disabled={busy || !!pending}
                     onAction={(action) => start(action, [row])}
                   />
+                  {tab === "approvals" && isOwnProtectedTarget(row) ? (
+                    <p className="mt-2 max-w-64 text-xs text-muted-foreground">
+                      You cannot approve changes to your own account or role assignment.
+                    </p>
+                  ) : tab === "approvals" && isApprovalMaker(row) && !canOverrideApproval(row) ? (
+                    <p className="mt-2 max-w-64 text-xs text-muted-foreground">{INDEPENDENT_APPROVER_REQUIRED}</p>
+                  ) : null}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
         {visible.length === 0 ? (
-          <p className="p-9 text-center text-sm text-muted-foreground">No current records. Enable historical records to view retained entries.</p>
+          <p className="p-9 text-center text-sm text-muted-foreground">
+            No current records. Enable historical records to view retained entries.
+          </p>
         ) : null}
       </div>
     </>

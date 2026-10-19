@@ -8,6 +8,12 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { ApiError } from "../../lib/api/generated";
 import { useSession } from "../../lib/session/session-provider";
+import { SuperAdminOverrideWarning } from "../../shared/ui/super-admin-override-warning";
+import {
+  INDEPENDENT_APPROVER_REQUIRED,
+  actorMatchesAny,
+  canUseSuperAdminApprovalOverride,
+} from "./approval-override-ui";
 
 type Row = Record<string, unknown>;
 
@@ -22,7 +28,7 @@ function localDateTime(days: number): string {
 }
 
 export default function AccessReviewPanel({ permissions }: { permissions: ReadonlySet<string> }) {
-  const { api, csrfToken } = useSession();
+  const { api, csrfToken, session } = useSession();
   const [campaigns, setCampaigns] = useState<Row[]>([]);
   const [items, setItems] = useState<Row[]>([]);
   const [users, setUsers] = useState<Row[]>([]);
@@ -38,6 +44,7 @@ export default function AccessReviewPanel({ permissions }: { permissions: Readon
   const [reviewerId, setReviewerId] = useState("");
   const [startsAt, setStartsAt] = useState(() => localDateTime(0));
   const [endsAt, setEndsAt] = useState(() => localDateTime(30));
+  const [approvalReason, setApprovalReason] = useState("");
   const [decisions, setDecisions] = useState<
     Record<string, { decision: "retain" | "revoke" | "remediate"; reason: string }>
   >({});
@@ -138,7 +145,7 @@ export default function AccessReviewPanel({ permissions }: { permissions: Readon
     }
   }
 
-  async function transition(action: "submit" | "approve" | "reject" | "activate" | "close") {
+  async function transition(action: "submit" | "approve" | "reject" | "activate" | "close", reason = "") {
     if (!selected || busy) return;
     setBusy(true);
     setMessage("");
@@ -149,12 +156,13 @@ export default function AccessReviewPanel({ permissions }: { permissions: Readon
               action,
               campaign_id: String(selected.campaign_id),
               expected_version: Number(selected.row_version),
-              reason: "Rejected during access certification",
+              reason: reason.trim() || "Rejected during access certification",
             }
           : {
               action,
               campaign_id: String(selected.campaign_id),
               expected_version: Number(selected.row_version),
+              ...(reason.trim() ? { reason: reason.trim() } : {}),
             },
         csrfToken(),
         `web-access-review-${action}-${crypto.randomUUID()}`,
@@ -205,6 +213,12 @@ export default function AccessReviewPanel({ permissions }: { permissions: Readon
       </p>
     );
   }
+
+  const selfApproval = selected ? actorMatchesAny(selected, session?.user.id, ["owner_id", "submitted_by"]) : false;
+  const overrideAllowed =
+    selfApproval && canUseSuperAdminApprovalOverride(session, permissions, "security.access_review.approve");
+  const independentDecisionBlocked =
+    selfApproval && permissions.has("security.access_review.approve") && !overrideAllowed;
 
   return (
     <div className="grid gap-0">
@@ -304,46 +318,73 @@ export default function AccessReviewPanel({ permissions }: { permissions: Readon
           </div>
           <div className="min-w-0">
             {selected ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
-                <div>
-                  <strong>{String(selected.name)}</strong>
-                  <p className="text-xs text-muted-foreground">
-                    State: {String(selected.lifecycle_state)} · Version {String(selected.row_version)}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {selected.lifecycle_state === "draft" && permissions.has("security.access_review.submit") ? (
-                    <Button type="button" disabled={busy} onClick={() => void transition("submit")}>
-                      Submit
-                    </Button>
-                  ) : null}
-                  {selected.lifecycle_state === "submitted" && permissions.has("security.access_review.approve") ? (
-                    <>
-                      <Button type="button" disabled={busy} onClick={() => void transition("approve")}>
-                        Approve
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
+                  <div>
+                    <strong>{String(selected.name)}</strong>
+                    <p className="text-xs text-muted-foreground">
+                      State: {String(selected.lifecycle_state)} · Version {String(selected.row_version)}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {selected.lifecycle_state === "draft" && permissions.has("security.access_review.submit") ? (
+                      <Button type="button" disabled={busy} onClick={() => void transition("submit")}>
+                        Submit
                       </Button>
-                      <Button
-                        type="button"
-                        variant="destructive"
+                    ) : null}
+                    {selected.lifecycle_state === "submitted" &&
+                    permissions.has("security.access_review.approve") &&
+                    (!selfApproval || overrideAllowed) ? (
+                      <>
+                        <Button
+                          type="button"
+                          disabled={busy || (overrideAllowed && !approvalReason.trim())}
+                          onClick={() => void transition("approve", approvalReason)}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          disabled={busy || (overrideAllowed && !approvalReason.trim())}
+                          onClick={() => void transition("reject", approvalReason)}
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    ) : null}
+                    {selected.lifecycle_state === "approved" && permissions.has("security.access_review.activate") ? (
+                      <Button type="button" disabled={busy} onClick={() => void transition("activate")}>
+                        Activate and snapshot
+                      </Button>
+                    ) : null}
+                    {selected.lifecycle_state === "active" && permissions.has("security.access_review.close") ? (
+                      <Button type="button" disabled={busy} onClick={() => void transition("close")}>
+                        Close campaign
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+                {selected.lifecycle_state === "submitted" && overrideAllowed ? (
+                  <div className="grid gap-3 border-b border-border p-4">
+                    <SuperAdminOverrideWarning />
+                    <Label className="grid gap-2 text-sm">
+                      Business reason
+                      <Input
+                        required
+                        maxLength={512}
+                        value={approvalReason}
+                        onChange={(event) => setApprovalReason(event.target.value)}
                         disabled={busy}
-                        onClick={() => void transition("reject")}
-                      >
-                        Reject
-                      </Button>
-                    </>
-                  ) : null}
-                  {selected.lifecycle_state === "approved" && permissions.has("security.access_review.activate") ? (
-                    <Button type="button" disabled={busy} onClick={() => void transition("activate")}>
-                      Activate and snapshot
-                    </Button>
-                  ) : null}
-                  {selected.lifecycle_state === "active" && permissions.has("security.access_review.close") ? (
-                    <Button type="button" disabled={busy} onClick={() => void transition("close")}>
-                      Close campaign
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
+                      />
+                    </Label>
+                  </div>
+                ) : selected.lifecycle_state === "submitted" && independentDecisionBlocked ? (
+                  <p className="border-b border-border p-4 text-sm text-muted-foreground">
+                    {INDEPENDENT_APPROVER_REQUIRED}
+                  </p>
+                ) : null}
+              </>
             ) : null}
             {selected?.lifecycle_state === "active" || selected?.lifecycle_state === "closed" ? (
               items.length ? (

@@ -8,6 +8,12 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { ApiError } from "../../lib/api/generated";
 import { useSession } from "../../lib/session/session-provider";
+import { SuperAdminOverrideWarning } from "../../shared/ui/super-admin-override-warning";
+import {
+  INDEPENDENT_APPROVER_REQUIRED,
+  actorMatchesAny,
+  canUseSuperAdminApprovalOverride,
+} from "./approval-override-ui";
 
 type Row = Record<string, unknown>;
 
@@ -47,6 +53,7 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
   const [validFrom, setValidFrom] = useState(() => localDateTime(0));
   const [validUntil, setValidUntil] = useState(() => localDateTime(7));
   const [reason, setReason] = useState("");
+  const [decisionReasons, setDecisionReasons] = useState<Record<string, string>>({});
 
   const actorId = session?.user.id ?? "";
   const isFullAdmin = permissions.has("security.authorization.administer");
@@ -121,7 +128,11 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
     }
   }
 
-  async function transition(row: Row, action: "submit" | "approve" | "reject" | "activate" | "revoke") {
+  async function transition(
+    row: Row,
+    action: "submit" | "approve" | "reject" | "activate" | "revoke",
+    decisionReason = "",
+  ) {
     setBusy(true);
     setMessage("");
     try {
@@ -133,9 +144,15 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
               action,
               delegation_id: delegationId,
               expected_version: expectedVersion,
-              reason: action === "reject" ? "Delegation request rejected" : "Delegation ended",
+              reason:
+                decisionReason.trim() || (action === "reject" ? "Delegation request rejected" : "Delegation ended"),
             }
-          : { action, delegation_id: delegationId, expected_version: expectedVersion };
+          : {
+              action,
+              delegation_id: delegationId,
+              expected_version: expectedVersion,
+              ...(decisionReason.trim() ? { reason: decisionReason.trim() } : {}),
+            };
       await api.actOnSecurityDelegation(payload, csrfToken(), `web-delegation-${action}-${crypto.randomUUID()}`);
       await load();
       setMessage(`Delegation ${action} recorded and audited.`);
@@ -156,7 +173,9 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
   );
 
   if (!canRead) {
-    return <p className="p-9 text-center text-sm text-muted-foreground">You do not have permission to view delegations.</p>;
+    return (
+      <p className="p-9 text-center text-sm text-muted-foreground">You do not have permission to view delegations.</p>
+    );
   }
 
   return (
@@ -177,7 +196,9 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
         </div>
       </div>
       {message ? (
-        <Alert className="m-5" role="status"><AlertDescription>{message}</AlertDescription></Alert>
+        <Alert className="m-5" role="status">
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
       ) : null}
       {showCreate ? (
         <form className="grid gap-4 border-b border-border bg-muted/40 p-5 md:grid-cols-2" onSubmit={create}>
@@ -185,14 +206,22 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
             Delegate to
             <select value={delegateeId} onChange={(event) => setDelegateeId(event.target.value)} required>
               <option value="">Select an active user</option>
-              {users.map((user) => <option key={String(user.id)} value={String(user.id)}>{String(user.display_name)} · {String(user.email)}</option>)}
+              {users.map((user) => (
+                <option key={String(user.id)} value={String(user.id)}>
+                  {String(user.display_name)} · {String(user.email)}
+                </option>
+              ))}
             </select>
           </Label>
           <Label className="grid gap-2 text-sm">
             Permission
             <select value={permissionKey} onChange={(event) => setPermissionKey(event.target.value)} required>
               <option value="">Select bounded authority</option>
-              {permissionOptions.map((permission) => <option key={permission} value={permission}>{permission}</option>)}
+              {permissionOptions.map((permission) => (
+                <option key={permission} value={permission}>
+                  {permission}
+                </option>
+              ))}
             </select>
           </Label>
           <Label className="grid gap-2 text-sm">
@@ -206,45 +235,170 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
             <Label className="grid gap-2 text-sm">
               Company
               <select value={companyId} onChange={(event) => setCompanyId(event.target.value)} required>
-                {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
               </select>
             </Label>
           ) : null}
-          <Label className="grid gap-2 text-sm">Valid from<Input type="datetime-local" value={validFrom} onChange={(event) => setValidFrom(event.target.value)} required /></Label>
-          <Label className="grid gap-2 text-sm">Valid until<Input type="datetime-local" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} required /></Label>
-          <Label className="grid gap-2 text-sm md:col-span-2">Business reason<Input value={reason} onChange={(event) => setReason(event.target.value)} required maxLength={512} /></Label>
-          <div className="md:col-span-2"><Button type="submit" disabled={busy || permissionOptions.length === 0}>Create draft</Button></div>
+          <Label className="grid gap-2 text-sm">
+            Valid from
+            <Input
+              type="datetime-local"
+              value={validFrom}
+              onChange={(event) => setValidFrom(event.target.value)}
+              required
+            />
+          </Label>
+          <Label className="grid gap-2 text-sm">
+            Valid until
+            <Input
+              type="datetime-local"
+              value={validUntil}
+              onChange={(event) => setValidUntil(event.target.value)}
+              required
+            />
+          </Label>
+          <Label className="grid gap-2 text-sm md:col-span-2">
+            Business reason
+            <Input value={reason} onChange={(event) => setReason(event.target.value)} required maxLength={512} />
+          </Label>
+          <div className="md:col-span-2">
+            <Button type="submit" disabled={busy || permissionOptions.length === 0}>
+              Create draft
+            </Button>
+          </div>
         </form>
       ) : null}
-      {loading ? <p className="p-9 text-center text-sm text-muted-foreground">Loading governed delegations…</p> : rows.length === 0 ? <p className="p-9 text-center text-sm text-muted-foreground">No delegation records are available.</p> : (
+      {loading ? (
+        <p className="p-9 text-center text-sm text-muted-foreground">Loading governed delegations…</p>
+      ) : rows.length === 0 ? (
+        <p className="p-9 text-center text-sm text-muted-foreground">No delegation records are available.</p>
+      ) : (
         <div className="grid gap-6 p-5">
-          {Object.entries(grouped).map(([group, items]) => items.length ? (
-            <section key={group} aria-labelledby={`delegation-${group}`}>
-              <h3 id={`delegation-${group}`} className="mb-3 text-sm font-semibold capitalize">{group}</h3>
-              <div className="grid gap-3">
-                {items.map((row) => {
-                  const state = String(row.effective_state);
-                  const owns = row.delegator_id === actorId || isFullAdmin;
-                  return (
-                    <article key={String(row.delegation_id)} className="rounded-lg border border-border bg-card p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div><p className="font-medium">{String(row.permission_key)}</p><p className="mt-1 text-sm text-muted-foreground">{String(row.delegator_id)} → {String(row.delegatee_id)} · {String(row.scope_kind)}:{String(row.scope_value)}</p></div>
-                        <Badge variant="outline">{state}</Badge>
-                      </div>
-                      <p className="mt-3 text-sm">{String(row.reason)}</p>
-                      <p className="mt-2 text-xs text-muted-foreground">{new Date(String(row.valid_from)).toLocaleString()} — {new Date(String(row.valid_until)).toLocaleString()}</p>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {state === "draft" && owns && (isFullAdmin || permissions.has("security.delegation.submit")) ? <Button type="button" size="sm" disabled={busy} onClick={() => void transition(row, "submit")}>Submit</Button> : null}
-                        {state === "submitted" && !owns && (isFullAdmin || permissions.has("security.delegation.approve")) ? <><Button type="button" size="sm" disabled={busy} onClick={() => void transition(row, "approve")}>Approve</Button><Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => void transition(row, "reject")}>Reject</Button></> : null}
-                        {state === "approved" && owns && (isFullAdmin || permissions.has("security.delegation.activate")) ? <Button type="button" size="sm" disabled={busy} onClick={() => void transition(row, "activate")}>Activate</Button> : null}
-                        {(state === "active" || state === "upcoming") && owns && (isFullAdmin || permissions.has("security.delegation.revoke")) ? <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => void transition(row, "revoke")}>Revoke</Button> : null}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          ) : null)}
+          {Object.entries(grouped).map(([group, items]) =>
+            items.length ? (
+              <section key={group} aria-labelledby={`delegation-${group}`}>
+                <h3 id={`delegation-${group}`} className="mb-3 text-sm font-semibold capitalize">
+                  {group}
+                </h3>
+                <div className="grid gap-3">
+                  {items.map((row) => {
+                    const state = String(row.effective_state);
+                    const owns = row.delegator_id === actorId;
+                    const maker = actorMatchesAny(row, actorId, ["delegator_id", "submitted_by"]);
+                    const overrideAllowed =
+                      maker && canUseSuperAdminApprovalOverride(session, permissions, "security.delegation.approve");
+                    const decisionReason = decisionReasons[String(row.delegation_id)] ?? "";
+                    const canApprove = isFullAdmin || permissions.has("security.delegation.approve");
+                    return (
+                      <article key={String(row.delegation_id)} className="rounded-lg border border-border bg-card p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="font-medium">{String(row.permission_key)}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {String(row.delegator_id)} → {String(row.delegatee_id)} · {String(row.scope_kind)}:
+                              {String(row.scope_value)}
+                            </p>
+                          </div>
+                          <Badge variant="outline">{state}</Badge>
+                        </div>
+                        <p className="mt-3 text-sm">{String(row.reason)}</p>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {new Date(String(row.valid_from)).toLocaleString()} —{" "}
+                          {new Date(String(row.valid_until)).toLocaleString()}
+                        </p>
+                        {state === "submitted" && overrideAllowed ? (
+                          <div className="mt-4 grid gap-3">
+                            <SuperAdminOverrideWarning />
+                            <Label className="grid gap-2 text-sm">
+                              Business reason
+                              <Input
+                                required
+                                maxLength={512}
+                                value={decisionReason}
+                                onChange={(event) =>
+                                  setDecisionReasons((current) => ({
+                                    ...current,
+                                    [String(row.delegation_id)]: event.target.value,
+                                  }))
+                                }
+                                disabled={busy}
+                              />
+                            </Label>
+                          </div>
+                        ) : state === "submitted" && maker && canApprove ? (
+                          <p className="mt-4 text-sm text-muted-foreground">{INDEPENDENT_APPROVER_REQUIRED}</p>
+                        ) : null}
+                        <div className="mt-4 flex flex-wrap gap-2">
+                        {state === "draft" &&
+                        (owns || isFullAdmin) &&
+                          (isFullAdmin || permissions.has("security.delegation.submit")) ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => void transition(row, "submit")}
+                            >
+                              Submit
+                            </Button>
+                          ) : null}
+                          {state === "submitted" && canApprove && (!maker || overrideAllowed) ? (
+                            <>
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={busy || (overrideAllowed && !decisionReason.trim())}
+                                onClick={() => void transition(row, "approve", decisionReason)}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="destructive"
+                                disabled={busy || (overrideAllowed && !decisionReason.trim())}
+                                onClick={() => void transition(row, "reject", decisionReason)}
+                              >
+                                Reject
+                              </Button>
+                            </>
+                          ) : null}
+                          {state === "approved" &&
+                          (owns || isFullAdmin) &&
+                          (isFullAdmin || permissions.has("security.delegation.activate")) ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => void transition(row, "activate")}
+                            >
+                              Activate
+                            </Button>
+                          ) : null}
+                          {(state === "active" || state === "upcoming") &&
+                          (owns || isFullAdmin) &&
+                          (isFullAdmin || permissions.has("security.delegation.revoke")) ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              disabled={busy}
+                              onClick={() => void transition(row, "revoke")}
+                            >
+                              Revoke
+                            </Button>
+                          ) : null}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null,
+          )}
         </div>
       )}
     </div>

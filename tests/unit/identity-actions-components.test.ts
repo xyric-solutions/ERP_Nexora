@@ -14,8 +14,13 @@ const api = vi.hoisted(() => ({
   actOnSecurityAssignmentRequest: vi.fn(),
   decideSecurityApproval: vi.fn(),
 }));
+const sessionState = vi.hoisted(() => ({
+  session: {
+    user: { id: "maker-ui", roles: [] as string[], permissions: [] as string[] },
+  },
+}));
 vi.mock("../../app/lib/session/session-provider", () => ({
-  useSession: () => ({ api, csrfToken: () => "synthetic-csrf", session: { user: { id: "maker-ui" } } }),
+  useSession: () => ({ api, csrfToken: () => "synthetic-csrf", session: sessionState.session }),
 }));
 const definitions = [
   { permission_key: "hr.employee.read", module: "hr", resource: "employee", description: "View employees" },
@@ -69,6 +74,9 @@ describe("Identity & Access actions and permissions", () => {
     vi.stubGlobal("PointerEvent", MouseEvent);
     api.listSecurityPermissions.mockResolvedValue({ items: definitions, next_cursor: null });
     api.actOnSecurityRole.mockResolvedValue({});
+    api.decideSecurityApproval.mockResolvedValue({ credential_delivery_available: false });
+    sessionState.session.user.roles = [];
+    sessionState.session.user.permissions = [];
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -268,6 +276,49 @@ describe("Identity & Access actions and permissions", () => {
     const bulk = container.querySelector<HTMLSelectElement>('[aria-label="Action for selected records"]');
     expect(bulk?.textContent).toContain("Reject");
     expect(bulk?.textContent).not.toContain("Approve");
+    expect(container.textContent).toContain("Independent approver required");
+  });
+
+  it("requires an audited reason before a super administrator can decide their own request", async () => {
+    sessionState.session.user.roles = ["super_administrator"];
+    sessionState.session.user.permissions = ["platform.approval.override", "security.authorization.role.approve"];
+    await act(async () =>
+      root.render(
+        createElement(GovernedTable, {
+          tab: "approvals",
+          rows: [
+            {
+              request_id: "own-role",
+              requested_by: "maker-ui",
+              submitted_by: "maker-ui",
+              request_state: "pending",
+              row_version: 2,
+            },
+          ],
+          permissions: new Set(sessionState.session.user.permissions),
+          approvalType: "role",
+          onChanged: vi.fn(),
+          onCredential: vi.fn(),
+        }),
+      ),
+    );
+    await choose("Action for own-role", "approved");
+    expect(container.textContent).toContain("Super-admin override");
+    const confirm = button("Confirm decision");
+    expect(confirm.disabled).toBe(true);
+    const reason = container.querySelector<HTMLInputElement>('form[aria-label="Confirm administration action"] input')!;
+    await input(reason, "Emergency access recovery approved by the tenant owner.");
+    expect(confirm.disabled).toBe(false);
+    await click(confirm);
+    expect(api.decideSecurityApproval).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request_id: "own-role",
+        decision: "approved",
+        reason: "Emergency access recovery approved by the tenant owner.",
+      }),
+      "synthetic-csrf",
+      expect.any(String),
+    );
   });
 
   it("opens role-specific assignment/history views without offering contextual bulk mutations", async () => {

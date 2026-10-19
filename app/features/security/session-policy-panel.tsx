@@ -9,6 +9,12 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { ApiError } from "../../lib/api/generated";
 import { useSession } from "../../lib/session/session-provider";
+import { SuperAdminOverrideWarning } from "../../shared/ui/super-admin-override-warning";
+import {
+  INDEPENDENT_APPROVER_REQUIRED,
+  actorMatchesAny,
+  canUseSuperAdminApprovalOverride,
+} from "./approval-override-ui";
 
 type Row = Record<string, unknown>;
 const defaults: SecuritySessionPolicyValues = {
@@ -49,6 +55,7 @@ export default function SessionPolicyPanel({ permissions }: { permissions: Reado
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [overrideReasons, setOverrideReasons] = useState<Record<string, string>>({});
   const load = useCallback(async () => {
     if (!canRead) return;
     setLoading(true);
@@ -86,19 +93,19 @@ export default function SessionPolicyPanel({ permissions }: { permissions: Reado
       setBusy(false);
     }
   }
-  async function transition(row: Row, action: "submit" | "approve" | "reject" | "activate") {
+  async function transition(row: Row, action: "submit" | "approve" | "reject" | "activate", reason = "") {
     setBusy(true);
     try {
       const identity = { policy_id: String(row.policy_id), expected_version: Number(row.row_version) };
       if (action === "reject")
         await api.actOnSecuritySessionPolicy(
-          { ...identity, action: "reject", reason: "Policy rejected during independent review" },
+          { ...identity, action: "reject", reason: reason.trim() || "Policy rejected during independent review" },
           csrfToken(),
           `web-session-policy-${action}-${crypto.randomUUID()}`,
         );
       else
         await api.actOnSecuritySessionPolicy(
-          { ...identity, action },
+          { ...identity, action, ...(reason.trim() ? { reason: reason.trim() } : {}) },
           csrfToken(),
           `web-session-policy-${action}-${crypto.randomUUID()}`,
         );
@@ -198,9 +205,25 @@ export default function SessionPolicyPanel({ permissions }: { permissions: Reado
         ) : (
           rows.map((row) => {
             const state = String(row.lifecycle_state);
-            const mine = String(row.created_by) === session?.user.id;
+            const policyId = String(row.policy_id);
+            const mine = actorMatchesAny(row, session?.user.id, ["created_by", "submitted_by"]);
+            const decisionPermission =
+              state === "submitted"
+                ? "security.session_policy.approve"
+                : state === "approved"
+                  ? "security.session_policy.activate"
+                  : null;
+            const overrideAllowed = Boolean(
+              mine && decisionPermission && canUseSuperAdminApprovalOverride(session, permissions, decisionPermission),
+            );
+            const overrideReason = overrideReasons[policyId] ?? "";
+            const independentDecisionBlocked =
+              mine &&
+              ((state === "submitted" && (fullAdmin || permissions.has("security.session_policy.approve"))) ||
+                (state === "approved" && (fullAdmin || permissions.has("security.session_policy.activate")))) &&
+              !overrideAllowed;
             return (
-              <article key={String(row.policy_id)} className="rounded-lg border border-border p-4">
+              <article key={policyId} className="rounded-lg border border-border p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <strong>Version {String(row.policy_version)}</strong>{" "}
@@ -218,35 +241,58 @@ export default function SessionPolicyPanel({ permissions }: { permissions: Reado
                       </Button>
                     ) : null}
                     {state === "submitted" && (fullAdmin || permissions.has("security.session_policy.approve")) ? (
-                      <>
-                        <Button
-                          size="sm"
-                          disabled={busy || (!fullAdmin && mine)}
-                          onClick={() => void transition(row, "approve")}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={busy || (!fullAdmin && mine)}
-                          onClick={() => void transition(row, "reject")}
-                        >
-                          Reject
-                        </Button>
-                      </>
+                      !mine || overrideAllowed ? (
+                        <>
+                          <Button
+                            size="sm"
+                            disabled={busy || (overrideAllowed && !overrideReason.trim())}
+                            onClick={() => void transition(row, "approve", overrideReason)}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busy || (overrideAllowed && !overrideReason.trim())}
+                            onClick={() => void transition(row, "reject", overrideReason)}
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      ) : null
                     ) : null}
                     {state === "approved" && (fullAdmin || permissions.has("security.session_policy.activate")) ? (
-                      <Button
-                        size="sm"
-                        disabled={busy || (!fullAdmin && mine)}
-                        onClick={() => void transition(row, "activate")}
-                      >
-                        Activate
-                      </Button>
+                      !mine || overrideAllowed ? (
+                        <Button
+                          size="sm"
+                          disabled={busy || (overrideAllowed && !overrideReason.trim())}
+                          onClick={() => void transition(row, "activate", overrideReason)}
+                        >
+                          Activate
+                        </Button>
+                      ) : null
                     ) : null}
                   </div>
                 </div>
+                {overrideAllowed ? (
+                  <div className="mt-4 grid gap-3">
+                    <SuperAdminOverrideWarning />
+                    <Label className="grid gap-2 text-sm">
+                      Business reason
+                      <Input
+                        required
+                        maxLength={512}
+                        value={overrideReason}
+                        onChange={(event) =>
+                          setOverrideReasons((current) => ({ ...current, [policyId]: event.target.value }))
+                        }
+                        disabled={busy}
+                      />
+                    </Label>
+                  </div>
+                ) : independentDecisionBlocked ? (
+                  <p className="mt-4 text-sm text-muted-foreground">{INDEPENDENT_APPROVER_REQUIRED}</p>
+                ) : null}
                 <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
                   <div>
                     <dt className="text-muted-foreground">Password</dt>
