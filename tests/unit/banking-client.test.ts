@@ -227,6 +227,158 @@ describe("Banking browser API adapter", () => {
     expect(api.reverseBankPayment).toHaveBeenCalledWith("payment-1", reversePayload, "csrf", "payment-reverse-key");
   });
 
+  it("adapts receipt directories, options, bounded nominal search, and detail reads", async () => {
+    const api = {
+      listBankReceipts: vi.fn(async () => ({ items: [], next_cursor: null })),
+      listBankReceiptOptions: vi.fn(async () => ({ bank_accounts: [], receipt_methods: [] })),
+      listBankReceiptNominalAccounts: vi.fn(async () => ({ items: [] })),
+      getBankReceipt: vi.fn(async () => ({ id: "receipt/1" })),
+    } as unknown as NexoraApiClient;
+    const client = new BankingApiClient(api);
+
+    await client.receipts({
+      company_id: "company/a",
+      bank_account_id: "bank account/1",
+      state: "approved",
+      posting_date_from: "2026-10-01",
+      posting_date_to: "2026-10-31",
+      search: "Atlas & receipt",
+      sort_by: "total_amount",
+      sort_direction: "asc",
+      limit: 25,
+      cursor: "cursor/value",
+    });
+    await client.receiptOptions({ company_id: "company/a" });
+    await client.receiptNominalAccounts({ company_id: "company/a", search: "revenue & income", limit: 50 });
+    await client.receipt("receipt/1");
+
+    const directoryQuery = vi.mocked(api.listBankReceipts).mock.calls[0]?.[0] ?? "";
+    expect(Object.fromEntries(new URLSearchParams(directoryQuery.slice(1)))).toEqual({
+      company_id: "company/a",
+      bank_account_id: "bank account/1",
+      state: "approved",
+      posting_date_from: "2026-10-01",
+      posting_date_to: "2026-10-31",
+      search: "Atlas & receipt",
+      sort_by: "total_amount",
+      sort_direction: "asc",
+      limit: "25",
+      cursor: "cursor/value",
+    });
+    expect(api.listBankReceiptOptions).toHaveBeenCalledWith("?company_id=company%2Fa");
+    const nominalQuery = vi.mocked(api.listBankReceiptNominalAccounts).mock.calls[0]?.[0] ?? "";
+    expect(Object.fromEntries(new URLSearchParams(nominalQuery.slice(1)))).toEqual({
+      company_id: "company/a",
+      search: "revenue & income",
+      limit: "50",
+    });
+    expect(api.getBankReceipt).toHaveBeenCalledWith("receipt/1");
+  });
+
+  it("passes receipt payloads and mutation safeguards only through generated methods", async () => {
+    const mutation = {
+      id: "receipt-1",
+      reference: "BR-2026-000001",
+      state: "draft" as const,
+      version: 1,
+      audit_event_id: "audit-1",
+      replayed: false,
+    };
+    const api = {
+      createBankReceipt: vi.fn(async () => mutation),
+      updateBankReceipt: vi.fn(async () => mutation),
+      submitBankReceipt: vi.fn(async () => mutation),
+      decideBankReceipt: vi.fn(async () => mutation),
+      postBankReceipt: vi.fn(async () => ({
+        ...mutation,
+        accounting_event_id: "accounting-event-1",
+        journal_id: "journal-1",
+        journal_entry_number: "JE-000001",
+      })),
+      reverseBankReceipt: vi.fn(async () => ({
+        ...mutation,
+        original_accounting_event_id: "accounting-event-1",
+        original_journal_id: "journal-1",
+        reversal_accounting_event_id: "accounting-event-2",
+        reversal_journal_id: "journal-2",
+        reversal_journal_entry_number: "JE-000002",
+      })),
+    } as unknown as NexoraApiClient;
+    const client = new BankingApiClient(api);
+    const createPayload = {
+      company_id: "company-a",
+      bank_account_id: "bank-account-1",
+      posting_date: "2026-10-19",
+      lines: [
+        {
+          line_order: 1,
+          document_date: "2026-10-19",
+          external_reference: "RCPT-1001",
+          receipt_method: "bank_transfer" as const,
+          payer_name: "Nexora Customer",
+          nominal_account_id: "nominal-1",
+          narration: "Customer receipt",
+          amount: "125.00",
+          dimensions: {},
+        },
+      ],
+    };
+    const updatePayload = { expected_version: 1, posting_date: "2026-10-20" };
+    const submitPayload = { expected_version: 2 };
+    const decisionPayload = { action: "approve" as const, expected_version: 3 };
+    const postPayload = { expected_version: 4 };
+    const reversePayload = { expected_version: 5, reason: "Duplicate customer receipt" };
+
+    await client.createReceipt(createPayload, "csrf", "receipt-create-key");
+    await client.updateReceipt("receipt-1", updatePayload, "csrf", "receipt-update-key");
+    await client.submitReceipt("receipt-1", submitPayload, "csrf", "receipt-submit-key");
+    await client.decideReceipt("receipt-1", decisionPayload, "csrf", "receipt-decision-key");
+    await client.postReceipt("receipt-1", postPayload, "csrf", "receipt-post-key");
+    await client.reverseReceipt("receipt-1", reversePayload, "csrf", "receipt-reverse-key");
+
+    expect(api.createBankReceipt).toHaveBeenCalledWith(createPayload, "csrf", "receipt-create-key");
+    expect(api.updateBankReceipt).toHaveBeenCalledWith("receipt-1", updatePayload, "csrf", "receipt-update-key");
+    expect(api.submitBankReceipt).toHaveBeenCalledWith("receipt-1", submitPayload, "csrf", "receipt-submit-key");
+    expect(api.decideBankReceipt).toHaveBeenCalledWith("receipt-1", decisionPayload, "csrf", "receipt-decision-key");
+    expect(api.postBankReceipt).toHaveBeenCalledWith("receipt-1", postPayload, "csrf", "receipt-post-key");
+    expect(api.reverseBankReceipt).toHaveBeenCalledWith("receipt-1", reversePayload, "csrf", "receipt-reverse-key");
+  });
+
+  it("emits quoted Receipt versions through generated If-Match headers", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id: "receipt-1",
+            reference: "BR-2026-000001",
+            state: "draft",
+            version: 2,
+            audit_event_id: "audit-2",
+            replayed: false,
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const api = new NexoraApiClient("http://127.0.0.1:4000");
+      await api.updateBankReceipt(
+        "receipt-1",
+        { expected_version: 7, value_date: null },
+        "csrf-token",
+        "receipt-update-key",
+      );
+      const init = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+      expect(init?.headers).toMatchObject({
+        "x-csrf-token": "csrf-token",
+        "idempotency-key": "receipt-update-key",
+        "if-match": '"7"',
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("preserves generated ApiError identity, code, and correlation ID", async () => {
     const error = new ApiError(409, "Payment version conflict", "PAYMENT_VERSION_CONFLICT", "correlation-1");
     const api = { postBankPayment: vi.fn(async () => Promise.reject(error)) } as unknown as NexoraApiClient;

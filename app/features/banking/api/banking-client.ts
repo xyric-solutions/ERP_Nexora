@@ -26,6 +26,22 @@ import type {
   ReverseBankPaymentRequest,
   SubmitBankPaymentRequest,
   UpdateBankPaymentRequest,
+  BankReceiptDetail,
+  BankReceiptDirectory,
+  BankReceiptDirectoryQuery,
+  BankReceiptMutationResult,
+  BankReceiptNominalAccountDirectory,
+  BankReceiptNominalAccountDirectoryQuery,
+  BankReceiptOptions,
+  BankReceiptOptionsQuery,
+  BankReceiptPostingResult,
+  BankReceiptReversalResult,
+  CreateBankReceiptRequest,
+  DecideBankReceiptRequest,
+  PostBankReceiptRequest,
+  ReverseBankReceiptRequest,
+  SubmitBankReceiptRequest,
+  UpdateBankReceiptRequest,
 } from "@nexora/contracts";
 
 import type { NexoraApiClient } from "@/lib/api/generated";
@@ -207,5 +223,89 @@ export class BankingApiClient {
     idempotencyKey: string,
   ): Promise<BankPaymentReversalResult> {
     return this.api.reverseBankPayment(paymentId, input, csrfToken, idempotencyKey);
+  }
+
+  receipts(input: BankReceiptDirectoryQuery): Promise<BankReceiptDirectory> {
+    return this.api.listBankReceipts(
+      query({
+        company_id: input.company_id,
+        bank_account_id: input.bank_account_id,
+        state: input.state,
+        posting_date_from: input.posting_date_from,
+        posting_date_to: input.posting_date_to,
+        search: input.search,
+        sort_by: input.sort_by,
+        sort_direction: input.sort_direction,
+        limit: input.limit,
+        cursor: input.cursor,
+      }),
+    );
+  }
+
+  receiptOptions(input: BankReceiptOptionsQuery): Promise<BankReceiptOptions> {
+    return this.api.listBankReceiptOptions(query({ company_id: input.company_id }));
+  }
+
+  receiptNominalAccounts(input: BankReceiptNominalAccountDirectoryQuery): Promise<BankReceiptNominalAccountDirectory> {
+    return this.api.listBankReceiptNominalAccounts(
+      query({ company_id: input.company_id, search: input.search, limit: input.limit }),
+    );
+  }
+
+  receipt(receiptId: string): Promise<BankReceiptDetail> {
+    return this.api.getBankReceipt(receiptId);
+  }
+
+  createReceipt(
+    input: CreateBankReceiptRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<BankReceiptMutationResult> {
+    return this.api.createBankReceipt(input, csrfToken, idempotencyKey);
+  }
+
+  updateReceipt(
+    receiptId: string,
+    input: UpdateBankReceiptRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<BankReceiptMutationResult> {
+    return this.api.updateBankReceipt(receiptId, input, csrfToken, idempotencyKey);
+  }
+
+  submitReceipt(
+    receiptId: string,
+    input: SubmitBankReceiptRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<BankReceiptMutationResult> {
+    return this.api.submitBankReceipt(receiptId, input, csrfToken, idempotencyKey);
+  }
+
+  decideReceipt(
+    receiptId: string,
+    input: DecideBankReceiptRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<BankReceiptMutationResult> {
+    return this.api.decideBankReceipt(receiptId, input, csrfToken, idempotencyKey);
+  }
+
+  postReceipt(
+    receiptId: string,
+    input: PostBankReceiptRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<BankReceiptPostingResult> {
+    return this.api.postBankReceipt(receiptId, input, csrfToken, idempotencyKey);
+  }
+
+  reverseReceipt(
+    receiptId: string,
+    input: ReverseBankReceiptRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<BankReceiptReversalResult> {
+    return this.api.reverseBankReceipt(receiptId, input, csrfToken, idempotencyKey);
   }
 }
