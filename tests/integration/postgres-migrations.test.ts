@@ -18,7 +18,7 @@ describe("production PostgreSQL source migrations", () => {
     await expect(migrateSourceSchema(pool)).resolves.toEqual([]);
     await expect(inspectSourceMigrationState(pool)).resolves.toEqual({
       platform: 7,
-      security: 13,
+      security: 14,
       workflow: 1,
       finance: 3,
       hr: 33,
@@ -35,6 +35,7 @@ describe("production PostgreSQL source migrations", () => {
       "job_execution",
       "security_permission_definition",
       "security_login_identifier",
+      "approval_override_event",
       "security_authentication_event",
       "security_tenant_role",
       "security_user_change_request",
@@ -64,7 +65,7 @@ describe("production PostgreSQL source migrations", () => {
       { module_name: "hr", migration_count: "33", latest: 33 },
       { module_name: "platform", migration_count: "7", latest: 7 },
       { module_name: "runtime", migration_count: "1", latest: 1 },
-      { module_name: "security", migration_count: "13", latest: 13 },
+      { module_name: "security", migration_count: "14", latest: 14 },
       { module_name: "workflow", migration_count: "1", latest: 1 },
     ]);
   });
@@ -136,7 +137,49 @@ describe("production PostgreSQL source migrations", () => {
     const result = await pool.query<{ permission_count: string }>(
       "select count(*)::text as permission_count from security_permission_definition",
     );
-    expect(result.rows[0]?.permission_count).toBe("245");
+    expect(result.rows[0]?.permission_count).toBe("246");
+    const overridePermission = await pool.query<{ permission_key: string }>(
+      `select permission_key from security_permission_definition
+        where permission_key='platform.approval.override' and status='active'`,
+    );
+    expect(overridePermission.rows).toEqual([{ permission_key: "platform.approval.override" }]);
+  });
+
+  it("installs immutable tenant-scoped approval override evidence and nullable Security references", async () => {
+    const relation = await pool.query<{
+      relrowsecurity: boolean;
+      relforcerowsecurity: boolean;
+    }>(
+      `select relrowsecurity,relforcerowsecurity from pg_class
+        where oid='approval_override_event'::regclass`,
+    );
+    expect(relation.rows[0]).toEqual({ relrowsecurity: true, relforcerowsecurity: true });
+
+    const columns = await pool.query<{ table_name: string; column_name: string; is_nullable: string }>(
+      `select table_name,column_name,is_nullable from information_schema.columns
+        where table_schema='public'
+          and table_name=any($1::text[])
+          and column_name in ('approval_override_event_id','activation_override_event_id')
+        order by table_name,column_name`,
+      [
+        [
+          "security_role_approval_request",
+          "security_assignment_approval_request",
+          "security_user_change_request",
+          "security_session_policy",
+          "security_access_review_campaign",
+          "security_delegation",
+          "security_impersonation_request",
+        ],
+      ],
+    );
+    expect(columns.rows).toHaveLength(8);
+    expect(columns.rows.every((row) => row.is_nullable === "YES")).toBe(true);
+    expect(columns.rows).toContainEqual({
+      table_name: "security_session_policy",
+      column_name: "activation_override_event_id",
+      is_nullable: "YES",
+    });
   });
 
   it("installs governed user lifecycle and credential compatibility safeguards", async () => {
@@ -180,6 +223,7 @@ describe("production PostgreSQL source migrations", () => {
        order by tgname`,
     );
     expect(guards.rows.map((row) => row.trigger_name)).toEqual([
+      "security_user_change_override_guard",
       "security_user_change_request_guard",
       "security_user_company_access_guard",
     ]);
