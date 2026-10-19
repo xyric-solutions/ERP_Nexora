@@ -14,6 +14,16 @@ export const bankPaymentPermissions = [
   "banking.payment.reverse",
 ] as const;
 
+export const bankReceiptPermissions = [
+  "banking.receipt.read",
+  "banking.receipt.create",
+  "banking.receipt.update",
+  "banking.receipt.submit",
+  "banking.receipt.approve",
+  "banking.receipt.post",
+  "banking.receipt.reverse",
+] as const;
+
 const users = ["r06.maker", "r06.checker", "r06.target", "r06.restricted", "r06.last-admin-a", "r06.last-admin-b"];
 
 const makerPermissions = [
@@ -454,6 +464,7 @@ export async function ensureSourceSuperAdministratorFixture(pool: DatabasePool):
     "security.session_policy.activate",
     "security.authorization.audit.read",
     ...bankPaymentPermissions,
+    ...bankReceiptPermissions,
   ] as const;
   try {
     await client.query("begin");
