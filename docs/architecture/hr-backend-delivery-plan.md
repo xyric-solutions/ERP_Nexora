@@ -784,6 +784,14 @@ repeat an ordinary-maker denial. Automated PostgreSQL integration tests cover
 these transaction and denial rules, but the destructive browser decision run
 has not been claimed as completed.
 
-After that acceptance gate, resume HR at the cross-workflow audit-evidence
-view already identified above. Bank Payments remains prototype-only and is the
-next Banking slice after the override gate is accepted.
+The Bank Payments acceptance gate is now complete. Its list, entry and
+persisted transaction-detail routes use the versioned Banking API, PostgreSQL
+and the shared Finance posting service through Platform 0008, Security 0015 and
+Finance 0007. Chromium verified distinct maker/checker/poster actions,
+compensating reversal, restricted denial and the governed `shoaib`
+self-approval override. No HR mutation or direct HR-to-Banking write path was
+added.
+
+Resume HR at the cross-workflow audit-evidence view already identified above.
+The next Banking slice is Bank Receipts; payroll-to-Banking consumption remains
+deferred to the HR Phase 5 governed payment-profile/payment-batch work.

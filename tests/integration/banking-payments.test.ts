@@ -296,6 +296,26 @@ run("Bank Payment governed repository", () => {
     await expect(repository.options(scopeDenied, { company_id: companyId })).rejects.toMatchObject<
       Partial<BankingApiError>
     >({ status: 403, code: "PERMISSION_DENIED" });
+    await expect(repository.listNominalAccounts(maker, { company_id: companyId, limit: 100 })).resolves.toEqual({
+      items: [
+        expect.objectContaining({
+          id: expenseId,
+          account_type: "expense",
+          required_dimensions: ["department"],
+        }),
+      ],
+    });
+    await expect(
+      repository.create(
+        maker,
+        {
+          ...input,
+          lines: [{ ...input.lines[0]!, nominal_account_id: foreignBankLedgerId, dimensions: {} }],
+        },
+        `payment-bank-control-create-${suffix}`,
+        `payment-corr-bank-control-create-${suffix}`,
+      ),
+    ).rejects.toMatchObject<Partial<BankingApiError>>({ status: 400, code: "PAYMENT_ACCOUNT_INVALID" });
     await expect(
       repository.create(
         scopeDenied,

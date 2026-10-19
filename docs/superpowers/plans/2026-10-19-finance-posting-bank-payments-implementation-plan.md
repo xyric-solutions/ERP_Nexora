@@ -867,7 +867,7 @@ git diff --check
 **Documentation handoff**
 
 - Mark only Bank Payments list/entry/detail backend connected after all gates.
-- Record Platform version 8, Finance version 5, exact commands/results,
+- Record Platform version 8, Security version 15 and Finance version 7, exact commands/results,
   refresh-safe routes (`/#/banking/add-bank-payment/{paymentId}` and
   `/#/banking/transaction-detail/{paymentId}`) and safe resume point.
 - State explicitly that Bank Receipts, Transfers, statements/import,
@@ -885,7 +885,7 @@ existing database, then point every repository/runtime consumer—including the
 plain migration CLI—at the same isolated authority:
 
 ```powershell
-$bankPaymentsDb = 'nexora_bank_payments_' + (Get-Date -Format 'yyyyMMddHHmmss')
+$bankPaymentsDb = 'nexora_bank_payments_uat_' + (Get-Date -Format 'yyyyMMddHHmmss')
 createdb --host 127.0.0.1 --port 55433 --username nexora $bankPaymentsDb
 $env:DATABASE_URL = "postgresql://nexora@127.0.0.1:55433/$bankPaymentsDb"
 $env:TEST_SOURCE_DATABASE_URL = $env:DATABASE_URL
@@ -1061,3 +1061,57 @@ upload/import, reconciliation, charges, interest, cheques, deposits, Treasury
 instruments, a public manual-journal API or a second accounting engine. Those
 surfaces remain prototype-only until their own vertical slices reuse this
 Finance boundary and pass equivalent acceptance.
+
+## 16. Implementation completion record — 2026-10-19
+
+Status: **FUNCTIONALLY INTEGRATED — ACCEPTANCE VERIFIED FOR THE BANK PAYMENTS SLICE**.
+
+The delivered migration ledger is Platform 0008, Security 0015 and Finance
+0007. Finance 0006/0007 and Security 0015 are additive corrections required by
+the implemented transaction-locking and auditable super-admin posting model;
+the earlier Finance 0005 references above remain historical planning context
+and must not be used as the final runtime version claim.
+
+Implemented routes:
+
+- `/#/banking/bank-payments` — live company-scoped directory with bounded
+  server filtering, sorting and cursor pagination;
+- `/#/banking/add-bank-payment` and
+  `/#/banking/add-bank-payment/{paymentId}` — persisted multi-line draft,
+  reload-safe editing and independent submission; and
+- `/#/banking/transaction-detail/{paymentId}` — persisted lifecycle detail,
+  independent decision, explicit Finance posting and compensating reversal.
+  Legacy receipt, transfer and cheque references on the shared transaction
+  detail route remain on the approved prototype implementation.
+
+Observed verification:
+
+- focused frontend/browser-adapter unit suite: 34/34 passed;
+- Bank Payment lifecycle integration: 2/2 passed;
+- shoaib provisioner role-reuse regression: 1/1 passed;
+- Chromium Bank Payments acceptance: 3/3 passed against
+  `nexora_bank_payments_uat_20261019_1510`;
+- production web build and full TypeScript check passed; and
+- API readiness returned `ok` with the web on `http://127.0.0.1:3000` and the
+  isolated acceptance API on `http://127.0.0.1:4010/api/v1`.
+
+Read-only PostgreSQL evidence showed two independently approved payments fully
+posted and reversed with linked compensating journals. Each original and
+reversal journal balanced at XBP 200.00000000 debit and credit. Separate
+`shoaib` self-approvals contained an `approval_override_event` linked to the
+platform audit event and the normal `banking.payment.approve` permission.
+
+Runtime findings corrected during acceptance:
+
+- the UAT database name must contain an explicit safety word such as `uat`;
+  the sample command above now satisfies the provisioner gate;
+- `provision-shoaib-admin.ts` now reuses an existing governed
+  `super_administrator` role instead of assuming ownership of a fixed role ID;
+  and
+- payment nominal-account reads and writes exclude reconciliation-required
+  bank-control accounts, preventing an ordinary payment line from bypassing
+  the deferred transfer workflow.
+
+Safe resume point: start Bank Receipts as a separate vertical slice reusing the
+Finance posting boundary. Do not treat Transfers, statements/import,
+reconciliation, charges/interest, cheques/deposits or Treasury as live.

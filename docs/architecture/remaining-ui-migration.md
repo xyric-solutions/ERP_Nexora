@@ -340,9 +340,23 @@ They expose loading, empty, error, success and permission states and are marked
 **Backend connected** only after the real Chromium maker/checker acceptance
 flow passed. Export remains disabled because there is no export API.
 
-Other Banking pages, including payments, receipts, transfers, statement
-import, reconciliation and transaction posting, remain explicitly prototype
-surfaces. Their legacy UI must not be presented as persisted functionality.
-The next production Banking slice is Bank Payments, but it must first reuse or
-establish the Finance posting/approval/reversal/period-lock boundary; it must
-not create a second accounting engine.
+Bank Payments is now production-integrated for its list, entry and persisted
+detail routes:
+
+- `/#/banking/bank-payments` uses the live company-scoped API directory;
+- `/#/banking/add-bank-payment` persists reload-safe multi-line drafts and
+  submits them for independent approval; and
+- `/#/banking/transaction-detail/{bank-payment-id}` performs governed approval,
+  explicit Finance posting and compensating reversal with immutable audit and
+  journal links.
+
+Chromium acceptance passed with distinct maker, checker and poster identities,
+the governed `shoaib` self-approval override, restricted-session denial and a
+390px viewport. The production build also passed. The shared transaction-detail
+page intentionally retains its prototype path for legacy receipt, transfer,
+charge, interest, cheque and deposit references.
+
+Other Banking pages, including receipts, transfers, statement import,
+reconciliation, charges/interest, cheques/deposits and Treasury, remain
+explicitly prototype surfaces. The next production Banking slice is Bank
+Receipts and must reuse the delivered Finance posting boundary.

@@ -5,7 +5,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createDatabasePool, type DatabasePool } from "../../packages/db/src/index.js";
 import { SourceTenantAuthenticationRepository } from "../../server/api/src/modules/auth/source-repository.js";
-import { ensureSourceAuthorizationFixture, sourceTestTenantId } from "./source-security-fixture.js";
+import {
+  ensureSourceAuthorizationFixture,
+  ensureSourceSuperAdministratorFixture,
+  sourceTestTenantId,
+} from "./source-security-fixture.js";
 
 const databaseUrl = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL;
 const run = databaseUrl ? describe : describe.skip;
@@ -24,6 +28,7 @@ run("Shoaib super-administrator provisioning", () => {
   });
 
   it("reconciles one active assignment and one governed override grant across repeated runs", async () => {
+    await ensureSourceSuperAdministratorFixture(pool);
     const environment = {
       ...process.env,
       DATABASE_URL: databaseUrl!,

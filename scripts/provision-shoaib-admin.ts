@@ -7,7 +7,7 @@ const tenantId = "nexora-r06-uat";
 const userId = "user-shoaib-super-admin";
 const username = "shoaib";
 const email = "shoaib@nexora.ai";
-const roleId = "role-super-administrator";
+const requestedRoleId = "role-super-administrator";
 const roleCode = "super_administrator";
 const policyId = "policy-super-administrator";
 const assignmentId = "assignment-shoaib-super-administrator";
@@ -149,18 +149,21 @@ try {
     );
   }
 
-  await client.query(
+  const governedRole = await client.query<{ role_id: string }>(
     `insert into security_tenant_role
       (tenant_id,role_id,role_code,display_name,description,lifecycle_state,source_kind,source_reference)
      values ($1,$2,$3,'Super Administrator','Tenant-wide access to every active module permission.',
              'active','legacy_backfill',$4)
-     on conflict (tenant_id,role_id) do update
-       set role_code=excluded.role_code,display_name=excluded.display_name,
+     on conflict (tenant_id,role_code) do update
+       set display_name=excluded.display_name,
            description=excluded.description,lifecycle_state='active',
            archived_by=null,archived_at=null,source_kind='legacy_backfill',
-           source_reference=excluded.source_reference,row_version=security_tenant_role.row_version+1`,
-    [tenantId, roleId, roleCode, sourceReference],
+           source_reference=excluded.source_reference,row_version=security_tenant_role.row_version+1
+     returning role_id`,
+    [tenantId, requestedRoleId, roleCode, sourceReference],
   );
+  const governedRoleId = governedRole.rows[0]?.role_id;
+  if (!governedRoleId) throw new Error("The governed super-administrator role is unavailable");
 
   await client.query(
     `insert into security_role_policy
@@ -180,7 +183,7 @@ try {
       JSON.stringify(permissionKeys),
       JSON.stringify({ allow: null, deny: [] }),
       JSON.stringify({ conflicting_roles: [], distinct_actor_fields: [] }),
-      roleId,
+      governedRoleId,
     ],
   );
 

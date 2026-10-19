@@ -397,7 +397,7 @@ export class SourceBankPaymentRepository {
         `select account.id,account.code,account.name,account.type as account_type,account.required_dimensions
            from account
           where account.tenant_id=$1 and account.company_id=$2 and account.status='active'
-            and not account.is_header and account.manual_posting_allowed
+            and not account.is_header and account.manual_posting_allowed and not account.reconciliation_required
             and not exists (select 1 from bank_account bank where bank.tenant_id=account.tenant_id
                              and bank.company_id=account.company_id and bank.account_id=account.id and bank.status='active')
             ${search}
@@ -1349,7 +1349,7 @@ export class SourceBankPaymentRepository {
     const accounts = await client.query<{ id: string; required_dimensions: unknown }>(
       `select id,required_dimensions from account
         where tenant_id=$1 and company_id=$2 and id=any($3::text[]) and status='active'
-          and not is_header and manual_posting_allowed for share`,
+          and not is_header and manual_posting_allowed and not reconciliation_required for share`,
       [tenantId, companyId, ids],
     );
     if (accounts.rows.length !== ids.length || ids.includes(controlAccountId))
