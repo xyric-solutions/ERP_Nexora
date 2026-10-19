@@ -20,8 +20,8 @@ describe("production PostgreSQL source migrations", () => {
       platform: 7,
       security: 14,
       workflow: 1,
-      finance: 3,
-      hr: 33,
+      finance: 4,
+      hr: 34,
       runtime: 1,
     });
   });
@@ -61,8 +61,8 @@ describe("production PostgreSQL source migrations", () => {
        order by module_name`,
     );
     expect(result.rows).toEqual([
-      { module_name: "finance", migration_count: "3", latest: 3 },
-      { module_name: "hr", migration_count: "33", latest: 33 },
+      { module_name: "finance", migration_count: "4", latest: 4 },
+      { module_name: "hr", migration_count: "34", latest: 34 },
       { module_name: "platform", migration_count: "7", latest: 7 },
       { module_name: "runtime", migration_count: "1", latest: 1 },
       { module_name: "security", migration_count: "14", latest: 14 },

@@ -59,8 +59,7 @@ describe("ImpersonationPanel", () => {
     await act(async () =>
       root.render(createElement(ImpersonationPanel, { permissions: new Set(["security.authorization.administer"]) })),
     );
-    await act(async () => Promise.resolve());
-    await act(async () => Promise.resolve());
+    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 5)));
     expect(state.api.listSecurityImpersonations).toHaveBeenCalledWith("?limit=100");
     const button = [...container.querySelectorAll("button")].find(
       (item) => item.textContent === "Request impersonation",
@@ -102,8 +101,7 @@ describe("ImpersonationPanel", () => {
     await act(async () =>
       root.render(createElement(ImpersonationPanel, { permissions: new Set(state.session.user.permissions) })),
     );
-    await act(async () => Promise.resolve());
-    await act(async () => Promise.resolve());
+    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 5)));
     expect(container.textContent).toContain("Super-admin override");
     const approve = [...container.querySelectorAll("button")].find((button) => button.textContent === "Approve")!;
     expect(approve.disabled).toBe(true);
