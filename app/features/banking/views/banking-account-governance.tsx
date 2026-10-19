@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
+import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warning";
 import { BankingApiClient } from "../api/banking-client";
 
 function failure(error: unknown): string {
@@ -461,8 +462,10 @@ export function BankAccountApprovals() {
     );
 
   const selfApproval = selected
-    ? selected.created_by === session?.user.id || selected.submitted_by === session?.user.id
+    ? (selected.self_decision_requires_override ??
+      (selected.created_by === session?.user.id || selected.submitted_by === session?.user.id))
     : false;
+  const superAdminOverride = selfApproval && selected?.super_admin_override_allowed === true;
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
       <Card>
@@ -584,7 +587,8 @@ export function BankAccountApprovals() {
                   onChange={(event) => setReason(event.target.value)}
                 />
               </Field>
-              {selfApproval ? (
+              {superAdminOverride ? <SuperAdminOverrideWarning /> : null}
+              {selfApproval && !superAdminOverride ? (
                 <Alert variant="destructive">
                   <AlertTitle>Independent checker required</AlertTitle>
                   <AlertDescription>You created or submitted this record and cannot decide it.</AlertDescription>
@@ -593,7 +597,7 @@ export function BankAccountApprovals() {
               <div className="flex gap-3">
                 <Button
                   type="button"
-                  disabled={busy || selfApproval || reason.trim().length < 3}
+                  disabled={busy || (selfApproval && !superAdminOverride) || reason.trim().length < 3}
                   onClick={() => void decide("approve")}
                 >
                   Approve and activate
@@ -601,7 +605,7 @@ export function BankAccountApprovals() {
                 <Button
                   variant="destructive"
                   type="button"
-                  disabled={busy || selfApproval || reason.trim().length < 3}
+                  disabled={busy || (selfApproval && !superAdminOverride) || reason.trim().length < 3}
                   onClick={() => void decide("reject")}
                 >
                   Reject
