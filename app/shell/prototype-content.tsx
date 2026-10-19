@@ -15,10 +15,10 @@ import type { ModulePageProfile } from "@prototype/shared/types/module-profile-t
 import { bankAccounts } from "@prototype/features/banking/model/banking-master-data";
 import { BankingTransactionForm } from "@prototype/features/banking/views/banking-transaction-form";
 import { BankingTransactionDetail } from "@prototype/features/banking/views/banking-transaction-detail";
-import { BankingBatchEntry } from "@prototype/features/banking/views/banking-batch-entry";
 import { BankingPayments } from "@prototype/features/banking/views/banking-payments";
 import { BankingReceipts } from "@prototype/features/banking/views/banking-receipts";
 import { BankingPaymentEntry } from "@prototype/features/banking/views/banking-payment-entry";
+import { BankingReceiptEntry } from "@prototype/features/banking/views/banking-receipt-entry";
 import { BankingPaymentDetail } from "@prototype/features/banking/views/banking-payment-detail";
 import { isPersistedBankPaymentId } from "@prototype/features/banking/model/bank-payment-routing";
 import { isPersistedBankReceiptId } from "@prototype/features/banking/model/bank-receipt-routing";
@@ -121,6 +121,7 @@ interface PrototypeContentProps {
     options?: { replace?: boolean; bypassUnsavedGuard?: boolean },
   ) => void;
   onPaymentEntryDirtyChange?: (dirty: boolean) => void;
+  onReceiptEntryDirtyChange?: (dirty: boolean) => void;
 }
 
 const chartHeights = [38, 54, 46, 70, 63, 78, 69, 92, 82, 108, 94, 116];
@@ -2637,6 +2638,7 @@ export function PrototypeContent(props: PrototypeContentProps) {
     (context.pageId === "bank-payments" ||
       context.pageId === "bank-receipts" ||
       context.pageId === "add-bank-payment" ||
+      context.pageId === "add-bank-receipt" ||
       (context.pageId === "transaction-detail" &&
         (isPersistedBankPaymentId(context.recordRef) || isPersistedBankReceiptId(context.recordRef))));
   if (!isLiveBankingTransactionPage && viewState !== "data")
@@ -2895,22 +2897,18 @@ export function PrototypeContent(props: PrototypeContentProps) {
       );
     }
 
-    // Receipts remain on the approved prototype batch grid until their own
-    // persisted Banking/Finance slice is delivered.
     if (context.pageId === "add-bank-receipt") {
-      // Deliberately no PageIntro: this screen mirrors the dense entry
-      // format, which carries its own compact title.
       return (
-        <BankingBatchEntry
-          key={context.pageId}
-          kind="receipt"
-          onAction={onAction}
-          onBack={() => props.onNavigate("banking", "bank-receipts")}
-          onOpenTransaction={(reference) => {
-            setSelectedBankingRecord(null);
-            setSelectedBankingReference(reference);
-            props.onNavigate("banking", "transaction-detail");
-          }}
+        <BankingReceiptEntry
+          receiptId={context.recordRef}
+          onBack={() => props.onNavigate("banking", "bank-receipts", undefined, { bypassUnsavedGuard: true })}
+          onDirtyChange={props.onReceiptEntryDirtyChange}
+          onNavigate={(pageId, receiptId, options) =>
+            props.onNavigate("banking", pageId, receiptId, {
+              ...options,
+              bypassUnsavedGuard: true,
+            })
+          }
         />
       );
     }

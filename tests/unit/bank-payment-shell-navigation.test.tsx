@@ -13,6 +13,7 @@ const harness = vi.hoisted(() => ({
       options?: { replace?: boolean; bypassUnsavedGuard?: boolean },
     ) => void;
     onPaymentEntryDirtyChange?: (dirty: boolean) => void;
+    onReceiptEntryDirtyChange?: (dirty: boolean) => void;
   },
 }));
 
@@ -87,5 +88,15 @@ describe("Bank Payment shell navigation", () => {
 
     expect(confirm).toHaveBeenCalledOnce();
     expect(window.location.hash).toBe("#/banking/add-bank-payment");
+  });
+
+  it("uses the same discard guard for a dirty Bank Receipt entry", () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    act(() => harness.contentProps?.onReceiptEntryDirtyChange?.(true));
+
+    act(() => harness.contentProps?.onNavigate("banking", "bank-receipts"));
+
+    expect(window.location.hash).toBe("#/banking/add-bank-payment");
+    expect(confirm).toHaveBeenCalledOnce();
   });
 });

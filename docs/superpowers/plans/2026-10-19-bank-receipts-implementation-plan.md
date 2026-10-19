@@ -1,6 +1,6 @@
 # Bank Receipts Production Integration Implementation Plan
 
-- Status: BR-00 through BR-06 complete; BR-07 is the safe resume point
+- Status: BR-00 through BR-07 complete; BR-08 is the safe resume point
 - Date: 2026-10-19
 - Approved design: `../specs/2026-10-19-bank-receipts-design.md`
 - Production surface: Banking & Treasury - Bank Receipts, Add Bank Receipt and
@@ -25,6 +25,26 @@
 - Safe resume point: BR-07, replacing the approved receipt batch-entry fixture
   with draft create/update/submit through `BankingApiClient` while retaining
   the multi-line layout and unsaved-data safeguards.
+
+### Implementation checkpoint - 2026-10-19 (BR-07)
+
+- Add Bank Receipt now loads authenticated companies, governed receiving Bank
+  Accounts and eligible nominal accounts through the typed receipt adapter.
+- Multi-line draft create/update preserves payer snapshots, optional external
+  references, required dimensions and fixed-scale display arithmetic; totals
+  remain server-authoritative.
+- Save Draft and Submit for Approval are separate idempotent operations with
+  optimistic versions. Approval and posting remain exclusively on persisted
+  detail, and attachments are accurately labelled unavailable.
+- Direct draft URLs reload persisted content without fixture fallback, while
+  denied, missing, conflict, validation, success and unsaved-navigation states
+  fail safely.
+- The accounting preview reflects the receipt direction: debit Bank control,
+  credit nominal accounts. Finance still revalidates at explicit posting.
+- BR-07 verification observed: 17 focused tests passed, repository typecheck
+  passed and the Next 16 production web build completed successfully.
+- Safe resume point: BR-08, replacing legacy transaction detail for persisted
+  receipt IDs with live detail, timeline and governed lifecycle actions.
 
 ## 1. Outcome
 

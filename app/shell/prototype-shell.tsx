@@ -973,6 +973,7 @@ export function PrototypeShell({
                 navigate(moduleId, pageId, recordRef, options)
               }
               onPaymentEntryDirtyChange={setPaymentEntryDirty}
+              onReceiptEntryDirtyChange={setPaymentEntryDirty}
             />
             </>}
           </div>
