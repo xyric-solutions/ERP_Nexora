@@ -10,6 +10,22 @@ import type {
   DecideBankAccountRequest,
   SubmitBankAccountRequest,
   UpdateBankAccountRequest,
+  BankPaymentDetail,
+  BankPaymentDirectory,
+  BankPaymentDirectoryQuery,
+  BankPaymentMutationResult,
+  BankPaymentNominalAccountDirectory,
+  BankPaymentNominalAccountDirectoryQuery,
+  BankPaymentOptions,
+  BankPaymentOptionsQuery,
+  BankPaymentPostingResult,
+  BankPaymentReversalResult,
+  CreateBankPaymentRequest,
+  DecideBankPaymentRequest,
+  PostBankPaymentRequest,
+  ReverseBankPaymentRequest,
+  SubmitBankPaymentRequest,
+  UpdateBankPaymentRequest,
 } from "@nexora/contracts";
 
 import type { NexoraApiClient } from "@/lib/api/generated";
@@ -107,5 +123,89 @@ export class BankingApiClient {
     idempotencyKey: string,
   ): Promise<BankAccountMutationResult> {
     return this.api.changeBankAccountStatus(accountId, input, csrfToken, idempotencyKey);
+  }
+
+  payments(input: BankPaymentDirectoryQuery): Promise<BankPaymentDirectory> {
+    return this.api.listBankPayments(
+      query({
+        company_id: input.company_id,
+        bank_account_id: input.bank_account_id,
+        state: input.state,
+        posting_date_from: input.posting_date_from,
+        posting_date_to: input.posting_date_to,
+        search: input.search,
+        sort_by: input.sort_by,
+        sort_direction: input.sort_direction,
+        limit: input.limit,
+        cursor: input.cursor,
+      }),
+    );
+  }
+
+  paymentOptions(input: BankPaymentOptionsQuery): Promise<BankPaymentOptions> {
+    return this.api.listBankPaymentOptions(query({ company_id: input.company_id }));
+  }
+
+  paymentNominalAccounts(input: BankPaymentNominalAccountDirectoryQuery): Promise<BankPaymentNominalAccountDirectory> {
+    return this.api.listBankPaymentNominalAccounts(
+      query({ company_id: input.company_id, search: input.search, limit: input.limit }),
+    );
+  }
+
+  payment(paymentId: string): Promise<BankPaymentDetail> {
+    return this.api.getBankPayment(paymentId);
+  }
+
+  createPayment(
+    input: CreateBankPaymentRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<BankPaymentMutationResult> {
+    return this.api.createBankPayment(input, csrfToken, idempotencyKey);
+  }
+
+  updatePayment(
+    paymentId: string,
+    input: UpdateBankPaymentRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<BankPaymentMutationResult> {
+    return this.api.updateBankPayment(paymentId, input, csrfToken, idempotencyKey);
+  }
+
+  submitPayment(
+    paymentId: string,
+    input: SubmitBankPaymentRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<BankPaymentMutationResult> {
+    return this.api.submitBankPayment(paymentId, input, csrfToken, idempotencyKey);
+  }
+
+  decidePayment(
+    paymentId: string,
+    input: DecideBankPaymentRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<BankPaymentMutationResult> {
+    return this.api.decideBankPayment(paymentId, input, csrfToken, idempotencyKey);
+  }
+
+  postPayment(
+    paymentId: string,
+    input: PostBankPaymentRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<BankPaymentPostingResult> {
+    return this.api.postBankPayment(paymentId, input, csrfToken, idempotencyKey);
+  }
+
+  reversePayment(
+    paymentId: string,
+    input: ReverseBankPaymentRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<BankPaymentReversalResult> {
+    return this.api.reverseBankPayment(paymentId, input, csrfToken, idempotencyKey);
   }
 }
