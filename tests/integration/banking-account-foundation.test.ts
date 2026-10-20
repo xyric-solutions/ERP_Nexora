@@ -232,7 +232,7 @@ run("Banking account foundation repository", () => {
     const revised = await repository.updateAccount(
       maker,
       created.id,
-      { expected_version: 1, iban: null, swift_bic: null },
+      { expected_version: 1, account_name: "Revised Legacy Operating Account", iban: null, swift_bic: null },
       `bank-update-${suffix}`,
       `corr-${suffix}-3`,
     );
@@ -242,6 +242,32 @@ run("Banking account foundation repository", () => {
       [sourceTestTenantId, created.id],
     );
     expect(cleared.rows[0]).toEqual({ iban_ciphertext: null, swift_bic: "" });
+
+    // Legacy Banking names are independent of their existing Finance mapping.
+    // Nominal-only synchronization must not retroactively rewrite that identity.
+    const mapping = await pool.query<{
+      bank_id: string;
+      account_id: string;
+      account_name: string;
+      nominal_name: string;
+      nominal_status: string;
+    }>(
+      `select bank.id as bank_id, bank.account_id, bank.account_name,
+              nominal.name as nominal_name, nominal.status as nominal_status
+         from bank_account bank
+         join account nominal on nominal.tenant_id=bank.tenant_id and nominal.id=bank.account_id
+        where bank.tenant_id=$1 and bank.id=$2`,
+      [sourceTestTenantId, created.id],
+    );
+    expect(mapping.rows).toEqual([
+      {
+        bank_id: created.id,
+        account_id: ledgerAccountId,
+        account_name: "Revised Legacy Operating Account",
+        nominal_name: "Bank Operating Test",
+        nominal_status: "active",
+      },
+    ]);
 
     const submitted = await repository.submitAccount(
       maker,
@@ -274,6 +300,8 @@ run("Banking account foundation repository", () => {
     const detail = await repository.getAccount(maker, created.id);
     expect(detail).toMatchObject({
       id: created.id,
+      ledger_account_id: ledgerAccountId,
+      account_name: "Revised Legacy Operating Account",
       state: "active",
       ledger_balance: "0",
       available_balance: null,
