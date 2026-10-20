@@ -188,6 +188,21 @@ export async function ensureSourceTestTenant(pool: DatabasePool): Promise<void> 
      on conflict (id) do nothing`,
     [sourceTestTenantId],
   );
+  // Bank Account currency FKs use real Currency Master authority, including
+  // for synthetic legacy-account regression fixtures.
+  await pool.query(
+    `insert into currency (tenant_id,code,name,decimal_places,is_base,status)
+     values ($1,'USD','Synthetic US Dollar',2,
+               not exists (select 1 from currency where tenant_id=$1 and is_base and status='active'),'active'),
+            ($1,'PKR','Synthetic Pakistani Rupee',2,false,'active')
+     on conflict (tenant_id,code) do nothing`,
+    [sourceTestTenantId],
+  );
+  await pool.query(
+    `update currency set is_base=true where tenant_id=$1 and code='USD' and status='active'
+       and not exists (select 1 from currency where tenant_id=$1 and is_base and status='active')`,
+    [sourceTestTenantId],
+  );
   await pool.query(
     `insert into organization_unit (id,tenant_id,parent_id,type,code,name,status)
      values ('nexora-r06-uat-company',$1,null,'company','R06-UAT','Nexora R06 UAT Company','active')

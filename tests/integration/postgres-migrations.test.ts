@@ -20,7 +20,7 @@ describe("production PostgreSQL source migrations", () => {
       platform: 8,
       security: 15,
       workflow: 1,
-      finance: 8,
+      finance: 9,
       hr: 34,
       runtime: 1,
     });
@@ -44,6 +44,8 @@ describe("production PostgreSQL source migrations", () => {
       "bank_receipt_event",
       "bank_receipt_line",
       "bank_receipt_sequence",
+      "finance_nominal_section_policy",
+      "finance_nominal_event",
       "security_authentication_event",
       "security_tenant_role",
       "security_user_change_request",
@@ -69,7 +71,7 @@ describe("production PostgreSQL source migrations", () => {
        order by module_name`,
     );
     expect(result.rows).toEqual([
-      { module_name: "finance", migration_count: "8", latest: 8 },
+      { module_name: "finance", migration_count: "9", latest: 9 },
       { module_name: "hr", migration_count: "34", latest: 34 },
       { module_name: "platform", migration_count: "8", latest: 8 },
       { module_name: "runtime", migration_count: "1", latest: 1 },
@@ -80,7 +82,7 @@ describe("production PostgreSQL source migrations", () => {
       `select module_name,version,name from nexora_schema_migration
         where (module_name='platform' and version=8)
            or (module_name='security' and version=15)
-           or (module_name='finance' and version in (5,6,7,8))
+           or (module_name='finance' and version in (5,6,7,8,9))
         order by module_name,version`,
     );
     expect(bankingMigrations.rows).toEqual([
@@ -88,6 +90,7 @@ describe("production PostgreSQL source migrations", () => {
       { module_name: "finance", version: 6, name: "currency_rate_authority_lock" },
       { module_name: "finance", version: 7, name: "bank_payment_posting_override" },
       { module_name: "finance", version: 8, name: "finance_posting_bank_receipts" },
+      { module_name: "finance", version: 9, name: "bank_nominal_master_data" },
       { module_name: "platform", version: 8, name: "idempotency_patch_method" },
       { module_name: "security", version: 15, name: "approval_override_post_action" },
     ]);
@@ -229,7 +232,7 @@ describe("production PostgreSQL source migrations", () => {
     const result = await pool.query<{ permission_count: string }>(
       "select count(*)::text as permission_count from security_permission_definition",
     );
-    expect(result.rows[0]?.permission_count).toBe("260");
+    expect(result.rows[0]?.permission_count).toBe("266");
     const overridePermission = await pool.query<{ permission_key: string }>(
       `select permission_key from security_permission_definition
         where permission_key='platform.approval.override' and status='active'`,

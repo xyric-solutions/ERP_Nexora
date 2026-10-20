@@ -1,12 +1,78 @@
 # Bank Nominal and Master Data Production Integration Implementation Plan
 
-- Status: Implementation approved and started; BN-00 baseline verified, BN-02 Finance contract boundary implemented; schema, services and UI pending
+- Status: BN-00 and BN-01 verified; BN-02 Finance contract boundary implemented; Banking compatibility, services, API wiring and UI pending
 - Date: 2026-10-20
 - Approved design: `../specs/2026-10-19-bank-nominal-master-data-design.md`
 - Canonical accounting authority: Finance Chart of Accounts
 - Operational capability authority: Banking Bank Account extension
 - Production entry points: Finance/Master Data Nominals and Banking Add Bank Account
-- Expected migration: next additive Finance migration after Finance 0008
+- Delivered migration: Finance 0009, `bank_nominal_master_data`
+
+### Implementation checkpoint - 2026-10-20 (BN-01 database authority)
+
+- Added Finance `0009_bank_nominal_master_data.forward.sql`; migrations
+  `0001` through `0008` remain unchanged. No shared application or HR database
+  was migrated. `.env` and running application configuration were not changed.
+- Added bounded Finance description and the `account.managed_bank_nominal`
+  marker. This server-controlled marker distinguishes new managed leaves from
+  existing Finance accounts and prevents the new synchronization rules from
+  reclassifying legacy records.
+- Added company-safe parent foreign keys, section-specific code policies with
+  a stable `cash_and_bank` role, row-locked allocation, immutable allocation
+  identity, exhaustion/collision checks and managed-name uniqueness.
+- Added default `legacy_detailed` and explicit `nominal_only` Banking modes.
+  Legacy encrypted identity and lifecycle checks remain intact. Nominal-only
+  capabilities require absent bank/branch/account-number/IBAN/SWIFT values;
+  their writer must explicitly insert null branch/SWIFT values instead of the
+  legacy empty-string defaults.
+- Added a tenant Currency Master foreign key, active-currency approval guards,
+  a currency-deactivation guard, and deferred Finance/Banking hierarchy, name,
+  one-to-one and state consistency checks. Draft creation, activation and
+  deactivation must use one transaction client on both sides.
+- Added immutable Finance Nominal events bound to the Banking capability,
+  actor, lifecycle version and existing canonical Banking override evidence.
+  New authorities enable and force tenant RLS. Six explicit permissions bring
+  the normalized permission catalogue to 266 without granting roles implicitly.
+- Reused existing Finance and Banking guards. The allocator does not scan all
+  existing nominal leaves when only advancing its counter; dependency checks
+  run when the relevant header/policy authority changes.
+- Added `tests/integration/finance-nominal-schema.test.ts` and
+  `tests/security/finance-nominal-database-security.test.ts`. Coverage includes
+  eight simultaneous allocations, collision/exhaustion, rollback of orphaned
+  mappings, actual migration preflight rejection of bad legacy parents and
+  currencies, partial activation/deactivation, duplicate mappings/names/roles,
+  immutable evidence, and populated RLS checks under a non-owner PostgreSQL role.
+- Final SQL applied from an empty disposable database,
+  `nexora_bank_nominals_test_final_20261020060038`. All 31 migration/Finance/
+  Banking integration tests and 26 database-security tests passed there.
+  Repeat migration returned no changes.
+- Separately upgraded the earlier populated disposable Finance 0008 baseline
+  to 0009. Read-only before/after snapshots of Banking IDs/mappings, encrypted
+  identifiers, lifecycle versions, journals and journal lines were identical;
+  the repeat migration returned an empty result.
+- Existing Payment and Receipt UAT provisioner suites each passed four tests
+  on separate appropriately named local disposable UAT databases. Their first
+  attempt correctly refused a database name lacking an isolation marker;
+  restrictions were preserved, not weakened.
+- A first broader regression exposed a synthetic-fixture base-currency
+  conflict. The fixture now creates Currency Master rows for its legacy Bank
+  Accounts and establishes USD as base only when no active base exists. The
+  Finance/Banking regressions then passed, including on a fresh database.
+- `npm.cmd run typecheck`, phase-owned ESLint, `npm.cmd run build:web` and
+  `git diff --check` passed. The full repository lint gate remains as previously
+  recorded; no claim of repository-wide test/lint cleanliness is made.
+- Broader HR verification on a clean separate database observed 21 passing
+  assertions and one unresolved test/projection mismatch at
+  `tests/integration/hr-foundation-api.test.ts:264`: the test expects no
+  `reporting_manager_id`, while the unchanged assignment projection includes
+  `reporting_manager_id: null`. An earlier extra-company assertion failure on
+  the reused Banking test database disappeared on the clean HR database. No HR
+  implementation or HR assertions were changed to conceal these results.
+- This is the database foundation, not a live browser Nominal workflow.
+  BN-03/BN-04 server persistence and API wiring, BN-05 Banking projections and
+  BN-06 onward UI/acceptance remain outstanding. Resume with BN-03, using
+  `allocate_finance_nominal_code` and the same `PoolClient` for the inactive
+  managed Finance leaf, nominal-only capability and lifecycle/audit writes.
 
 ### Implementation checkpoint - 2026-10-20 (BN-00 and BN-02 contract boundary)
 
@@ -251,6 +317,8 @@ section 17.
 
 - Create: `packages/db/source-migrations/finance/0009_bank_nominal_master_data.forward.sql`
 - Modify: `tests/integration/postgres-migrations.test.ts`
+- Create: `tests/integration/finance-nominal-schema.test.ts`
+- Modify: `tests/integration/source-security-fixture.ts`
 - Create: `tests/security/finance-nominal-database-security.test.ts`
 
 **Work**
@@ -301,6 +369,7 @@ section 17.
 
 ```powershell
 npm.cmd exec vitest -- run --config vitest.integration.config.ts tests/integration/postgres-migrations.test.ts
+npm.cmd exec vitest -- run --config vitest.integration.config.ts tests/integration/finance-nominal-schema.test.ts
 npm.cmd exec vitest -- run --config vitest.security.config.ts tests/security/finance-nominal-database-security.test.ts tests/security/bank-account-database-security.test.ts
 ```
 
@@ -906,9 +975,10 @@ Those items require separate approved designs if they become requirements.
 
 ## 19. Safe resume point
 
-BN-00 baseline evidence and the Finance contract portion of BN-02 are captured
-in the checkpoint above. Continue with BN-01 after rechecking the worktree and
-Finance migration head. Complete nominal-only Banking response compatibility
+BN-00 and BN-01 database evidence and the Finance contract portion of BN-02 are
+captured in the checkpoints above. Continue with BN-03 atomic persistence after
+rechecking the worktree and Finance 0009 migration head. Complete nominal-only
+Banking response compatibility
 alongside BN-05 before marking BN-02 fully complete. The user has approved
 implementation; no additional design-approval round is required for these
 planned slices. Keep unfinished Finance UI routes visibly prototype-only until
