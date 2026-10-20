@@ -52,6 +52,17 @@ import {
 } from "./banking/index.js";
 import { healthStatusSchema } from "./health.js";
 import {
+  changeFinanceNominalStatusRequestSchema,
+  createFinanceNominalRequestSchema,
+  decideFinanceNominalRequestSchema,
+  financeNominalDetailSchema,
+  financeNominalDirectorySchema,
+  financeNominalMutationResultSchema,
+  financeNominalOptionsSchema,
+  submitFinanceNominalRequestSchema,
+  updateFinanceNominalRequestSchema,
+} from "./finance/index.js";
+import {
   hrEmployeeDetailSchema,
   hrEmployeeDirectorySchema,
   hrCompanyDirectorySchema,
@@ -205,6 +216,44 @@ const securityPageResponse = {
   },
   ...securityErrors,
 } as const;
+
+const nominalIdParameter = {
+  in: "path",
+  name: "nominalId",
+  required: true,
+  schema: { type: "string", minLength: 1, maxLength: 128 },
+} as const;
+const nominalVersionParameter = {
+  in: "header",
+  name: "if-match",
+  required: true,
+  description: "Quoted expected_version; must agree with the request body.",
+  schema: { type: "string", pattern: '^"[1-9][0-9]*"$' },
+} as const;
+
+function nominalMutationOperation(operationId: string, requestSchema: string, create = false) {
+  return {
+    operationId,
+    description: "Requires the exact Finance Nominal permission and corresponding Banking permission for Cash & Bank.",
+    security: [{ cookieAuth: [] }],
+    parameters: create
+      ? [csrfParameter, idempotencyParameter]
+      : [nominalIdParameter, csrfParameter, idempotencyParameter, nominalVersionParameter],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: { $ref: `#/components/schemas/${requestSchema}` } } },
+    },
+    responses: {
+      [create ? "201" : "200"]: {
+        description: "Persisted governed Nominal lifecycle result",
+        content: { "application/json": { schema: { $ref: "#/components/schemas/FinanceNominalMutationResult" } } },
+      },
+      "404": problemResponse,
+      "412": problemResponse,
+      ...securityErrors,
+    },
+  } as const;
+}
 
 export function buildOpenApiDocument() {
   return {
@@ -920,6 +969,124 @@ export function buildOpenApiDocument() {
             ...securityErrors,
           },
         },
+      },
+      "/finance/nominals/options": {
+        get: {
+          operationId: "listFinanceNominalOptions",
+          description:
+            "Returns authorized companies independently of Banking read permissions; selected-company options require company access.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: false,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Authorized companies, Finance hierarchy, active currencies and setup readiness",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/FinanceNominalOptions" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/finance/nominals": {
+        get: {
+          operationId: "listFinanceNominals",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            {
+              in: "query",
+              name: "category_id",
+              required: false,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            {
+              in: "query",
+              name: "section_id",
+              required: false,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            { in: "query", name: "currency", required: false, schema: { type: "string", pattern: "^[A-Z]{3}$" } },
+            {
+              in: "query",
+              name: "state",
+              required: false,
+              schema: {
+                type: "string",
+                enum: ["draft", "pending_approval", "active", "rejected", "inactive", "closed", "review_required"],
+              },
+            },
+            {
+              in: "query",
+              name: "account_status",
+              required: false,
+              schema: { type: "string", enum: ["active", "inactive"] },
+            },
+            {
+              in: "query",
+              name: "sort_by",
+              required: false,
+              schema: { type: "string", enum: ["code", "name", "currency", "state"], default: "code" },
+            },
+            {
+              in: "query",
+              name: "sort_direction",
+              required: false,
+              schema: { type: "string", enum: ["asc", "desc"], default: "asc" },
+            },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            },
+            { in: "query", name: "cursor", required: false, schema: { type: "string", minLength: 1, maxLength: 512 } },
+          ],
+          responses: {
+            "200": {
+              description: "Company-scoped Finance Nominals without external bank identifiers",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/FinanceNominalDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+        post: nominalMutationOperation("createFinanceNominal", "CreateFinanceNominalRequest", true),
+      },
+      "/finance/nominals/{nominalId}": {
+        get: {
+          operationId: "getFinanceNominal",
+          security: [{ cookieAuth: [] }],
+          parameters: [nominalIdParameter],
+          responses: {
+            "200": {
+              description: "Persisted Nominal, lifecycle evidence and authorized actions",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/FinanceNominalDetail" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+        patch: nominalMutationOperation("updateFinanceNominal", "UpdateFinanceNominalRequest"),
+      },
+      "/finance/nominals/{nominalId}/submit": {
+        post: nominalMutationOperation("submitFinanceNominal", "SubmitFinanceNominalRequest"),
+      },
+      "/finance/nominals/{nominalId}/decision": {
+        post: nominalMutationOperation("decideFinanceNominal", "DecideFinanceNominalRequest"),
+      },
+      "/finance/nominals/{nominalId}/status": {
+        post: nominalMutationOperation("changeFinanceNominalStatus", "ChangeFinanceNominalStatusRequest"),
       },
       "/banking/companies": {
         get: {
@@ -3099,6 +3266,15 @@ export function buildOpenApiDocument() {
         cookieAuth: { type: "apiKey", in: "cookie", name: "__Host-nexora_session" },
       },
       schemas: {
+        FinanceNominalOptions: schema(financeNominalOptionsSchema),
+        FinanceNominalDirectory: schema(financeNominalDirectorySchema),
+        FinanceNominalDetail: schema(financeNominalDetailSchema),
+        FinanceNominalMutationResult: schema(financeNominalMutationResultSchema),
+        CreateFinanceNominalRequest: schema(createFinanceNominalRequestSchema),
+        UpdateFinanceNominalRequest: schema(updateFinanceNominalRequestSchema),
+        SubmitFinanceNominalRequest: schema(submitFinanceNominalRequestSchema),
+        DecideFinanceNominalRequest: schema(decideFinanceNominalRequestSchema),
+        ChangeFinanceNominalStatusRequest: schema(changeFinanceNominalStatusRequestSchema),
         PasswordLoginRequest: schema(passwordLoginRequestSchema),
         PasswordLoginResponse: schema(passwordLoginResponseSchema),
         PasswordChangeRequiredResponse: schema(passwordChangeRequiredResponseSchema),

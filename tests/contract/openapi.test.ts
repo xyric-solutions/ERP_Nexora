@@ -48,6 +48,12 @@ describe("OpenAPI contract", () => {
       "/security/user_request_actions",
       "/security/user_emergency_actions",
       "/hr/employees",
+      "/finance/nominals/options",
+      "/finance/nominals",
+      "/finance/nominals/{nominalId}",
+      "/finance/nominals/{nominalId}/submit",
+      "/finance/nominals/{nominalId}/decision",
+      "/finance/nominals/{nominalId}/status",
       "/banking/companies",
       "/banking/ledger_accounts",
       "/banking/accounts",
@@ -123,6 +129,39 @@ describe("OpenAPI contract", () => {
       "/health/ready",
       "/jobs/sample",
     ]);
+  });
+
+  it("documents minimal Finance Nominal input and governed lifecycle operations", () => {
+    const document = buildOpenApiDocument();
+    expect(document.paths["/finance/nominals/options"].get.operationId).toBe("listFinanceNominalOptions");
+    expect(document.paths["/finance/nominals"].get.operationId).toBe("listFinanceNominals");
+    expect(document.paths["/finance/nominals"].post.operationId).toBe("createFinanceNominal");
+    expect(document.paths["/finance/nominals/{nominalId}"].get.operationId).toBe("getFinanceNominal");
+    expect(document.paths["/finance/nominals/{nominalId}"].patch.operationId).toBe("updateFinanceNominal");
+    expect(document.paths["/finance/nominals/{nominalId}/submit"].post.operationId).toBe("submitFinanceNominal");
+    expect(document.paths["/finance/nominals/{nominalId}/decision"].post.operationId).toBe("decideFinanceNominal");
+    expect(document.paths["/finance/nominals/{nominalId}/status"].post.operationId).toBe("changeFinanceNominalStatus");
+    const create = document.components.schemas.CreateFinanceNominalRequest as {
+      properties?: Record<string, unknown>;
+      additionalProperties?: boolean;
+    };
+    expect(create.additionalProperties).toBe(false);
+    expect(Object.keys(create.properties ?? {})).toEqual([
+      "company_id",
+      "category_id",
+      "section_id",
+      "name",
+      "currency",
+      "description",
+    ]);
+    const update = document.paths["/finance/nominals/{nominalId}"].patch;
+    expect(update.parameters.map((parameter) => parameter.name)).toEqual([
+      "nominalId",
+      "x-csrf-token",
+      "idempotency-key",
+      "if-match",
+    ]);
+    expect(update.security).toEqual([{ cookieAuth: [] }]);
   });
 
   it("documents the governed Bank Payment lifecycle without browser-controlled accounting authority", () => {

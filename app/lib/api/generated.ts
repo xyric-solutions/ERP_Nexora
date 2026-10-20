@@ -3,6 +3,15 @@ import type {
   AuthenticationCompletionResponse,
   ChangeInitialPasswordRequest,
   HealthStatus,
+  FinanceNominalOptions,
+  FinanceNominalDirectory,
+  FinanceNominalDetail,
+  FinanceNominalMutationResult,
+  CreateFinanceNominalRequest,
+  UpdateFinanceNominalRequest,
+  SubmitFinanceNominalRequest,
+  DecideFinanceNominalRequest,
+  ChangeFinanceNominalStatusRequest,
   BankingCompanyDirectory,
   BankingLedgerAccountDirectory,
   BankAccountDirectory,
@@ -242,6 +251,24 @@ export class NexoraApiClient {
   listSecuritySessionPolicies(): Promise<SecurityPage> { return this.request("/api/v1/security/session_policies"); }
   listBankingCompanies(): Promise<BankingCompanyDirectory> { return this.request("/api/v1/banking/companies"); }
   listBankingLedgerAccounts(query: string): Promise<BankingLedgerAccountDirectory> { return this.request(`/api/v1/banking/ledger_accounts${query}`); }
+  listFinanceNominalOptions(query: string): Promise<FinanceNominalOptions> { return this.request(`/api/v1/finance/nominals/options${query}`); }
+  listFinanceNominals(query: string): Promise<FinanceNominalDirectory> { return this.request(`/api/v1/finance/nominals${query}`); }
+  getFinanceNominal(nominalId: string): Promise<FinanceNominalDetail> { return this.request(`/api/v1/finance/nominals/${encodeURIComponent(nominalId)}`); }
+  createFinanceNominal(payload: CreateFinanceNominalRequest, csrfToken: string, idempotencyKey: string): Promise<FinanceNominalMutationResult> {
+    return this.request("/api/v1/finance/nominals", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  updateFinanceNominal(nominalId: string, payload: UpdateFinanceNominalRequest, csrfToken: string, idempotencyKey: string): Promise<FinanceNominalMutationResult> {
+    return this.request(`/api/v1/finance/nominals/${encodeURIComponent(nominalId)}`, { method: "PATCH", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey, "if-match": `"${payload.expected_version}"` }, body: JSON.stringify(payload) });
+  }
+  submitFinanceNominal(nominalId: string, payload: SubmitFinanceNominalRequest, csrfToken: string, idempotencyKey: string): Promise<FinanceNominalMutationResult> {
+    return this.request(`/api/v1/finance/nominals/${encodeURIComponent(nominalId)}/submit`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey, "if-match": `"${payload.expected_version}"` }, body: JSON.stringify(payload) });
+  }
+  decideFinanceNominal(nominalId: string, payload: DecideFinanceNominalRequest, csrfToken: string, idempotencyKey: string): Promise<FinanceNominalMutationResult> {
+    return this.request(`/api/v1/finance/nominals/${encodeURIComponent(nominalId)}/decision`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey, "if-match": `"${payload.expected_version}"` }, body: JSON.stringify(payload) });
+  }
+  changeFinanceNominalStatus(nominalId: string, payload: ChangeFinanceNominalStatusRequest, csrfToken: string, idempotencyKey: string): Promise<FinanceNominalMutationResult> {
+    return this.request(`/api/v1/finance/nominals/${encodeURIComponent(nominalId)}/status`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey, "if-match": `"${payload.expected_version}"` }, body: JSON.stringify(payload) });
+  }
   listBankAccounts(query: string): Promise<BankAccountDirectory> { return this.request(`/api/v1/banking/accounts${query}`); }
   getBankAccountSummary(query: string): Promise<BankAccountCurrencySummary> { return this.request(`/api/v1/banking/accounts/summary${query}`); }
   getBankAccount(accountId: string): Promise<BankAccountDetail> { return this.request(`/api/v1/banking/accounts/${encodeURIComponent(accountId)}`); }

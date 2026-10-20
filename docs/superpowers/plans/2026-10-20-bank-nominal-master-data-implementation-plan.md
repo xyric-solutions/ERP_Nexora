@@ -1,12 +1,56 @@
 # Bank Nominal and Master Data Production Integration Implementation Plan
 
-- Status: Ready for implementation approval; no production code started
+- Status: Implementation approved and started; BN-00 baseline verified, BN-02 Finance contract boundary implemented; schema, services and UI pending
 - Date: 2026-10-20
 - Approved design: `../specs/2026-10-19-bank-nominal-master-data-design.md`
 - Canonical accounting authority: Finance Chart of Accounts
 - Operational capability authority: Banking Bank Account extension
 - Production entry points: Finance/Master Data Nominals and Banking Add Bank Account
 - Expected migration: next additive Finance migration after Finance 0008
+
+### Implementation checkpoint - 2026-10-20 (BN-00 and BN-02 contract boundary)
+
+- User approved implementation. The starting worktree was clean and Finance
+  migration `0008` remains the verified repository head.
+- BN-00 baseline observed 60 unit tests, four OpenAPI assertions, 25 PostgreSQL
+  integration assertions and 15 database-security assertions passing.
+- All database checks used the newly created disposable database
+  `nexora_bank_nominals_test_20261020053150` on the repository's local test
+  PostgreSQL service. No shared application/HR database was changed.
+- Extended the existing Bank Account integration scenario to rename a legacy
+  draft and prove that its Banking ID, mapped Finance ID, independent legacy
+  name and existing active Finance account remain intact through approval.
+- Implemented `packages/contracts/src/finance/index.ts` with strict options,
+  directory, detail, minimal draft, update, submit, decision, deactivation and
+  mutation-result schemas. Company discovery belongs to Finance options.
+- Creation accepts only company, Category, Section, name, currency and optional
+  description. Caller-provided codes, actors, lifecycle/posting authority,
+  bank names, external account numbers and opening balances are rejected.
+- Registered eight planned operations under six `/api/v1/finance/nominals`
+  paths in OpenAPI and regenerated the browser client. Existing-record
+  mutations use quoted `If-Match`, CSRF and idempotency headers; edits use
+  `PATCH`.
+- Observed expected failures before implementation: the Finance schema module
+  was absent and three generated-client transport tests lacked their methods.
+  Those tests now pass; no failing or skipped placeholder tests were committed.
+- Final focused verification so far: 86 unit tests and five OpenAPI assertions
+  passed; TypeScript and generated API drift checks passed. A separate
+  read-only semantic comparison proved every existing OpenAPI path and schema
+  unchanged. The changed legacy-account regression and migration repeatability
+  suite passed 14 assertions on the disposable database.
+- Phase-owned ESLint, the production `build:web` and `git diff --check` passed.
+  ESLint initially identified two unused parameters in the new fetch mock;
+  those were corrected and both lint and its three transport tests reran
+  successfully. Repository-wide lint was not rerun in this contract-only batch;
+  its previously recorded unrelated failures remain an external final gate.
+- The Bank Account/Payment/Receipt response projections remain unchanged in
+  this batch. BN-02's nominal-only Banking compatibility work remains pending
+  with BN-01 and BN-05; do not mark all of BN-02 complete yet.
+- These are contracts and generated client methods, not mounted server routes.
+  There is no new persisted Nominal workflow or changed creation screen yet.
+- Safe resume point: BN-01 additive schema and database guards, followed by
+  BN-03/BN-04 repository, service, security and runtime wiring. Recheck the
+  migration head before adding `0009`; implementation approval already exists.
 
 ## 1. Outcome
 
@@ -855,9 +899,12 @@ This plan does not implement:
 
 Those items require separate approved designs if they become requirements.
 
-## 19. Safe start point
+## 19. Safe resume point
 
-After implementation approval, begin with BN-00 only. Recheck the worktree,
-Finance migration head, current Next 16 local documentation and the baseline
-Finance/Banking suites. Do not create migration `0009` or change contracts until
-the characterization evidence is captured.
+BN-00 baseline evidence and the Finance contract portion of BN-02 are captured
+in the checkpoint above. Continue with BN-01 after rechecking the worktree and
+Finance migration head. Complete nominal-only Banking response compatibility
+alongside BN-05 before marking BN-02 fully complete. The user has approved
+implementation; no additional design-approval round is required for these
+planned slices. Keep unfinished Finance UI routes visibly prototype-only until
+their server and browser acceptance gates pass.
