@@ -51,6 +51,11 @@
 - Safe resume point: BN-01 additive schema and database guards, followed by
   BN-03/BN-04 repository, service, security and runtime wiring. Recheck the
   migration head before adding `0009`; implementation approval already exists.
+- Local implementation commits: `8e56f67` (legacy mapping characterization)
+  and `e5a5c93` (Finance contracts/generated client). Final `api:check` passed
+  again before commit. Push to `origin/shoaib_nexora` was attempted and rejected
+  with HTTP 403: GitHub identity `Shoaib6558` lacks repository write access.
+  Preserve the local commits; do not alter repository history or credentials.
 
 ## 1. Outcome
 
