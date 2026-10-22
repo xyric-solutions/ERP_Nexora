@@ -82,7 +82,11 @@ export interface PersistedFinanceLine {
 export interface FinancePostingRepository {
   assertTenantContext(client: FinancePostingClient, tenantId: string): Promise<boolean>;
   lockSource(client: FinancePostingClient, tenantId: string, sourceType: string, sourceId: string): Promise<void>;
-  findEventByKey(client: FinancePostingClient, tenantId: string, idempotencyKey: string): Promise<FinanceEventRow | null>;
+  findEventByKey(
+    client: FinancePostingClient,
+    tenantId: string,
+    idempotencyKey: string,
+  ): Promise<FinanceEventRow | null>;
   findSourceEvent(
     client: FinancePostingClient,
     tenantId: string,
@@ -90,11 +94,12 @@ export interface FinancePostingRepository {
     sourceId: string,
     operation: "post" | "reverse",
   ): Promise<FinanceEventRow | null>;
-  loadBaseCurrencies(client: FinancePostingClient, tenantId: string): Promise<FinanceCurrencyRow[]>;
+  loadBaseCurrencies(client: FinancePostingClient, tenantId: string, lock?: boolean): Promise<FinanceCurrencyRow[]>;
   loadTransactionCurrency(
     client: FinancePostingClient,
     tenantId: string,
     currency: string,
+    lock?: boolean,
   ): Promise<FinanceCurrencyRow | null>;
   loadDirectRate(
     client: FinancePostingClient,
@@ -102,6 +107,7 @@ export interface FinancePostingRepository {
     sourceCurrency: string,
     targetCurrency: string,
     postingDate: string,
+    lock?: boolean,
   ): Promise<FinanceRateRow | null>;
   lockRateAuthority(
     client: FinancePostingClient,
@@ -115,6 +121,7 @@ export interface FinancePostingRepository {
     tenantId: string,
     companyId: string,
     postingDate: string,
+    lock?: boolean,
   ): Promise<FinancePeriodRow[]>;
   loadAccounts(
     client: FinancePostingClient,
@@ -279,11 +286,11 @@ export class SourceFinancePostingRepository implements FinancePostingRepository 
     );
   }
 
-  async loadBaseCurrencies(client: FinancePostingClient, tenantId: string): Promise<FinanceCurrencyRow[]> {
+  async loadBaseCurrencies(client: FinancePostingClient, tenantId: string, lock = true): Promise<FinanceCurrencyRow[]> {
     return (
       await client.query<FinanceCurrencyRow>(
         `select code,decimal_places from currency
-          where tenant_id=$1 and status='active' and is_base for share`,
+          where tenant_id=$1 and status='active' and is_base${lock ? " for share" : ""}`,
         [tenantId],
       )
     ).rows;
@@ -293,11 +300,12 @@ export class SourceFinancePostingRepository implements FinancePostingRepository 
     client: FinancePostingClient,
     tenantId: string,
     currency: string,
+    lock = true,
   ): Promise<FinanceCurrencyRow | null> {
     return one(
       await client.query<FinanceCurrencyRow>(
         `select code,decimal_places from currency
-          where tenant_id=$1 and code=$2 and status='active' for share`,
+          where tenant_id=$1 and code=$2 and status='active'${lock ? " for share" : ""}`,
         [tenantId, currency],
       ),
     );
@@ -309,12 +317,13 @@ export class SourceFinancePostingRepository implements FinancePostingRepository 
     sourceCurrency: string,
     targetCurrency: string,
     postingDate: string,
+    lock = true,
   ): Promise<FinanceRateRow | null> {
     return one(
       await client.query<FinanceRateRow>(
         `select id,rate::text as rate from currency_rate
           where tenant_id=$1 and source_currency=$2 and target_currency=$3 and effective_date<=$4::date
-          order by effective_date desc,id desc limit 1 for share`,
+          order by effective_date desc,id desc limit 1${lock ? " for share" : ""}`,
         [tenantId, sourceCurrency, targetCurrency, postingDate],
       ),
     );
@@ -341,6 +350,7 @@ export class SourceFinancePostingRepository implements FinancePostingRepository 
     tenantId: string,
     companyId: string,
     postingDate: string,
+    lock = true,
   ): Promise<FinancePeriodRow[]> {
     return (
       await client.query<FinancePeriodRow>(
@@ -351,7 +361,7 @@ export class SourceFinancePostingRepository implements FinancePostingRepository 
             and calendar.company_id=period.company_id
           where period.tenant_id=$1 and period.company_id=$2
             and $3::date between period.period_start and period.period_end
-          order by period.id for share of period,calendar`,
+          order by period.id${lock ? " for share of period,calendar" : ""}`,
         [tenantId, companyId, postingDate],
       )
     ).rows;

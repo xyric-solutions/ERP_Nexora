@@ -106,6 +106,23 @@ export async function buildHrParityRows() {
     else if (page.id === "positions-org") renderer = "HrPositionsOrganizationWorkspace";
     else if (page.id === "manpower-requisitions") renderer = "HrManpowerRequisitionsWorkspace";
     else if (page.id === "job-openings") renderer = "HrJobOpeningsWorkspace";
+    else if (page.id === "create-employee-from-offer") renderer = "HrOfferEmployeeWorkspace";
+    else if (['overtime','attendance-period','attendance-payroll-inputs'].includes(page.id)) renderer = "HrAttendanceCompletionWorkspace";
+    else if (['leave-types','leave-balances','leave-requests','leave-request','leave-approval'].includes(page.id)) renderer = "HrTimeLeaveWorkspace";
+    else if (['payroll-runs','payroll-validation'].includes(page.id)) renderer = "HrPayrollRunsWorkspace";
+    else if (page.id === "payslips") renderer = "HrPayslipsWorkspace";
+    else if (page.id === "payroll-journal") renderer = "HrPayrollJournalWorkspace";
+    else if (['payroll-setup','salary-structures','salary-revisions','payroll-inputs','employee-loans','payroll-runs','payroll-validation','payroll-journal','payment-batch','payslips'].includes(page.id)) renderer = "HrPayrollWorkspace";
+      else if (page.id === 'attendance') renderer = "HrDailyAttendanceWorkspace";
+    else if (page.id === "attendance-corrections") renderer = "HrAttendanceCorrectionsWorkspace";
+    else if (page.id === "monthly-attendance") renderer = "HrMonthlyAttendanceWorkspace";
+    else if (page.id === "daily-attendance") renderer = "HrDailyAttendanceWorkspace";
+    else if (page.id === "shift-assignments") renderer = "HrShiftAssignmentsWorkspace";
+    else if (page.id === "shifts") renderer = "HrShiftsWorkspace";
+    else if (page.id === "offers") renderer = "HrOfferManagementWorkspace";
+    else if (page.id === "interviews") renderer = "HrInterviewsWorkspace";
+    else if (page.id === "recruitment-pipeline") renderer = "HrRecruitmentPipelineWorkspace";
+    else if (page.id === "candidates") renderer = "HrCandidateDirectoryWorkspace";
     else if (page.id === "add-employee") renderer = "HrEmployeeDraftForm";
     else if (page.id === "employee-drafts") renderer = "HrEmployeeDraftsWorkspace";
     else if (page.id === "employee-approvals") renderer = "HrEmployeeApprovalsWorkspace";
@@ -119,6 +136,9 @@ export async function buildHrParityRows() {
     else if (page.id === "jobs") renderer = "HrJobsWorkspace";
     else if (["cost-centres", "work-locations", "employment-types", "employee-categories"].includes(page.id)) renderer = "HrConfiguredMasterWorkspace";
     else if (sets.masters.has(page.id)) renderer = "HrMasterScreen";
+    else if (["performance-cycles","goals-kpis","performance-reviews","performance-outcomes"].includes(page.id)) renderer = "HrPerformanceWorkspace";
+    else if (["onboarding","probation-reviews","resignations","terminations","clearance","final-settlements","offboarding"].includes(page.id)) renderer = "HrLifecycleCasesWorkspace";
+    else if (page.id === "employee-movements") renderer = "HrLifecycleMovementsWorkspace";
     else if (sets.lifecycle.has(page.id)) renderer = "HrLifecycleScreen";
     else if (sets.payroll.has(page.id)) renderer = "HrPayrollScreen";
     else if (sets.attendance.has(page.id)) renderer = "HrAttendanceScreen";
@@ -132,7 +152,7 @@ export async function buildHrParityRows() {
       archetype: page.archetype,
       catalogue_status: page.status,
       current_renderer: renderer,
-      audit_status: page.status === "live" ? "LIVE_API_AUDITED" : renderer.includes("generic fallback") ? "GENERIC_FALLBACK" : "DEDICATED_MOCK",
+      audit_status: page.status === "in-progress" ? "CONNECTED_API_IN_PROGRESS" : page.status === "live" ? "LIVE_API_AUDITED" : page.status === "read-only" ? "READ_ONLY_API_AUDITED" : renderer.includes("generic fallback") ? "GENERIC_FALLBACK" : "DEDICATED_MOCK",
       production_module: productionModuleFor(group.id, page.id),
     };
   }));

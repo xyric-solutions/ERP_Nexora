@@ -22,56 +22,56 @@ hr,people,People,employee-record,Employee Record,detail,live,HrEmployeeRecordWor
 hr,people,People,positions-org,Positions & Organisation,list,live,HrPositionsOrganizationWorkspace,LIVE_API_AUDITED,M04 Employee Core
 hr,recruitment,Recruitment,manpower-requisitions,Manpower Requisitions,approval,live,HrManpowerRequisitionsWorkspace,LIVE_API_AUDITED,M05 Manpower Planning
 hr,recruitment,Recruitment,job-openings,Job Openings,list,live,HrJobOpeningsWorkspace,LIVE_API_AUDITED,M06 Recruitment
-hr,recruitment,Recruitment,candidates,Candidate Directory,list,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
-hr,recruitment,Recruitment,recruitment-pipeline,Recruitment Pipeline,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
-hr,recruitment,Recruitment,interviews,Interviews & Evaluations,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
-hr,recruitment,Recruitment,offers,Offer Management,approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
-hr,recruitment,Recruitment,create-employee-from-offer,Create Employee from Offer,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M06 Recruitment
-hr,attendance-shifts,Attendance & Shifts,shifts,Shifts & Rules,settings,prototype,HrAttendanceScreen,DEDICATED_MOCK,M11 Time & Attendance
-hr,attendance-shifts,Attendance & Shifts,shift-assignments,Shift Assignments,list,prototype,HrAttendanceScreen,DEDICATED_MOCK,M11 Time & Attendance
-hr,attendance-shifts,Attendance & Shifts,daily-attendance,Daily Attendance,list,prototype,HrAttendanceScreen,DEDICATED_MOCK,M11 Time & Attendance
-hr,attendance-shifts,Attendance & Shifts,monthly-attendance,Monthly Attendance,list,prototype,HrAttendanceScreen,DEDICATED_MOCK,M11 Time & Attendance
-hr,attendance-shifts,Attendance & Shifts,attendance-corrections,Attendance Corrections,approval,prototype,HrAttendanceScreen,DEDICATED_MOCK,M11 Time & Attendance
-hr,attendance-shifts,Attendance & Shifts,overtime,Overtime,approval,prototype,HrAttendanceScreen,DEDICATED_MOCK,M11 Time & Attendance
-hr,attendance-shifts,Attendance & Shifts,attendance-period,Attendance Period Close,workflow,prototype,HrAttendanceScreen,DEDICATED_MOCK,M11 Time & Attendance
-hr,attendance-shifts,Attendance & Shifts,attendance-payroll-inputs,Attendance → Payroll Inputs,report,prototype,HrAttendanceScreen,DEDICATED_MOCK,M11 Time & Attendance
-hr,time-leave,Time & Leave,leave-types,Leave Types,settings,prototype,HrAttendanceScreen,DEDICATED_MOCK,M12 Leave
-hr,time-leave,Time & Leave,leave-balances,Leave Balances,list,prototype,HrAttendanceScreen,DEDICATED_MOCK,M12 Leave
-hr,time-leave,Time & Leave,attendance,Attendance,list,prototype,ListView (generic fallback),GENERIC_FALLBACK,M11 Time & Attendance
-hr,time-leave,Time & Leave,leave-requests,Leave Requests,list,prototype,ListView (generic fallback),GENERIC_FALLBACK,M12 Leave
-hr,time-leave,Time & Leave,leave-request,Add Leave Request,form,prototype,ListView (generic fallback),GENERIC_FALLBACK,M12 Leave
-hr,time-leave,Time & Leave,leave-approval,Leave Approval,approval,prototype,ListView (generic fallback),GENERIC_FALLBACK,M12 Leave
-hr,payroll,Payroll,payroll-setup,Pay Components,settings,prototype,HrPayrollScreen,DEDICATED_MOCK,M13 Payroll & Statutory
-hr,payroll,Payroll,salary-structures,Salary Structures,list,prototype,HrPayrollScreen,DEDICATED_MOCK,M13 Payroll & Statutory
-hr,payroll,Payroll,salary-revisions,Salary Revisions,approval,prototype,HrPayrollScreen,DEDICATED_MOCK,M13 Payroll & Statutory
-hr,payroll,Payroll,payroll-inputs,Payroll Inputs,form,prototype,ListView (generic fallback),GENERIC_FALLBACK,M13 Payroll & Statutory
-hr,payroll,Payroll,payroll-runs,Payroll Runs,list,prototype,HrPayrollScreen,DEDICATED_MOCK,M13 Payroll & Statutory
-hr,payroll,Payroll,payroll-validation,Payroll Review & Approval,approval,prototype,HrPayrollScreen,DEDICATED_MOCK,M13 Payroll & Statutory
-hr,payroll,Payroll,employee-loans,Loans & Advances,list,prototype,HrPayrollScreen,DEDICATED_MOCK,M13 Payroll & Statutory
-hr,payroll,Payroll,payroll-journal,Payroll Journal,report,prototype,HrPayrollScreen,DEDICATED_MOCK,M15 Payments & Finance
-hr,payroll,Payroll,payment-batch,Payment Batch,workflow,prototype,HrPayrollScreen,DEDICATED_MOCK,M15 Payments & Finance
-hr,payroll,Payroll,payslips,Payslips & Payment Handoff,workflow,prototype,HrPayrollScreen,DEDICATED_MOCK,M13 Payroll & Statutory
-hr,performance,Performance Management,performance-cycles,Performance Cycles,settings,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
-hr,performance,Performance Management,goals-kpis,Goals & KPIs,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
-hr,performance,Performance Management,performance-reviews,Performance Reviews,approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
-hr,performance,Performance Management,performance-outcomes,Performance Outcomes,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
-hr,learning,Learning & Development,training-programs,Training Programmes,settings,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
-hr,learning,Learning & Development,training-requests,Training Requests,approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
-hr,learning,Learning & Development,training-sessions,Training Sessions,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
-hr,learning,Learning & Development,training-completions,Completion & Certificates,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M08 Manage & Develop
+hr,recruitment,Recruitment,candidates,Candidate Directory,list,live,HrCandidateDirectoryWorkspace,LIVE_API_AUDITED,M06 Recruitment
+hr,recruitment,Recruitment,recruitment-pipeline,Recruitment Pipeline,workflow,live,HrRecruitmentPipelineWorkspace,LIVE_API_AUDITED,M06 Recruitment
+hr,recruitment,Recruitment,interviews,Interviews & Evaluations,workflow,live,HrInterviewsWorkspace,LIVE_API_AUDITED,M06 Recruitment
+hr,recruitment,Recruitment,offers,Offer Management,approval,live,HrOfferManagementWorkspace,LIVE_API_AUDITED,M06 Recruitment
+hr,recruitment,Recruitment,create-employee-from-offer,Create Employee from Offer,workflow,live,HrOfferEmployeeWorkspace,LIVE_API_AUDITED,M06 Recruitment
+hr,attendance-shifts,Attendance & Shifts,shifts,Shifts & Rules,settings,live,HrShiftsWorkspace,LIVE_API_AUDITED,M11 Time & Attendance
+hr,attendance-shifts,Attendance & Shifts,shift-assignments,Shift Assignments,list,live,HrShiftAssignmentsWorkspace,LIVE_API_AUDITED,M11 Time & Attendance
+hr,attendance-shifts,Attendance & Shifts,daily-attendance,Daily Attendance,list,live,HrDailyAttendanceWorkspace,LIVE_API_AUDITED,M11 Time & Attendance
+hr,attendance-shifts,Attendance & Shifts,monthly-attendance,Monthly Attendance,list,live,HrMonthlyAttendanceWorkspace,LIVE_API_AUDITED,M11 Time & Attendance
+hr,attendance-shifts,Attendance & Shifts,attendance-corrections,Attendance Corrections,approval,live,HrAttendanceCorrectionsWorkspace,LIVE_API_AUDITED,M11 Time & Attendance
+hr,attendance-shifts,Attendance & Shifts,overtime,Overtime,approval,live,HrAttendanceCompletionWorkspace,LIVE_API_AUDITED,M11 Time & Attendance
+hr,attendance-shifts,Attendance & Shifts,attendance-period,Attendance Period Close,workflow,live,HrAttendanceCompletionWorkspace,LIVE_API_AUDITED,M11 Time & Attendance
+hr,attendance-shifts,Attendance & Shifts,attendance-payroll-inputs,Attendance → Payroll Inputs,report,live,HrAttendanceCompletionWorkspace,LIVE_API_AUDITED,M11 Time & Attendance
+hr,time-leave,Time & Leave,leave-types,Leave Types,settings,live,HrTimeLeaveWorkspace,LIVE_API_AUDITED,M12 Leave
+hr,time-leave,Time & Leave,leave-balances,Leave Balances,list,live,HrTimeLeaveWorkspace,LIVE_API_AUDITED,M12 Leave
+hr,time-leave,Time & Leave,attendance,Attendance,list,live,HrDailyAttendanceWorkspace,LIVE_API_AUDITED,M11 Time & Attendance
+hr,time-leave,Time & Leave,leave-requests,Leave Requests,list,live,HrTimeLeaveWorkspace,LIVE_API_AUDITED,M12 Leave
+hr,time-leave,Time & Leave,leave-request,Add Leave Request,form,live,HrTimeLeaveWorkspace,LIVE_API_AUDITED,M12 Leave
+hr,time-leave,Time & Leave,leave-approval,Leave Approval,approval,live,HrTimeLeaveWorkspace,LIVE_API_AUDITED,M12 Leave
+hr,payroll,Payroll,payroll-setup,Pay Components,settings,live,HrPayrollWorkspace,LIVE_API_AUDITED,M13 Payroll & Statutory
+hr,payroll,Payroll,salary-structures,Salary Structures,list,live,HrPayrollWorkspace,LIVE_API_AUDITED,M13 Payroll & Statutory
+hr,payroll,Payroll,salary-revisions,Salary Revisions,approval,live,HrPayrollWorkspace,LIVE_API_AUDITED,M13 Payroll & Statutory
+hr,payroll,Payroll,payroll-inputs,Payroll Inputs,form,live,HrPayrollWorkspace,LIVE_API_AUDITED,M13 Payroll & Statutory
+hr,payroll,Payroll,payroll-runs,Payroll Runs,list,live,HrPayrollRunsWorkspace,LIVE_API_AUDITED,M13 Payroll & Statutory
+hr,payroll,Payroll,payroll-validation,Payroll Review & Approval,approval,live,HrPayrollRunsWorkspace,LIVE_API_AUDITED,M13 Payroll & Statutory
+hr,payroll,Payroll,employee-loans,Loans & Advances,list,live,HrPayrollWorkspace,LIVE_API_AUDITED,M13 Payroll & Statutory
+hr,payroll,Payroll,payroll-journal,Payroll Journal,report,live,HrPayrollJournalWorkspace,LIVE_API_AUDITED,M15 Payments & Finance
+hr,payroll,Payroll,payment-batch,Payment Batch,workflow,read-only,HrPayrollWorkspace,READ_ONLY_API_AUDITED,M15 Payments & Finance
+hr,payroll,Payroll,payslips,Payslips,workflow,live,HrPayslipsWorkspace,LIVE_API_AUDITED,M13 Payroll & Statutory
+hr,performance,Performance Management,performance-cycles,Performance Cycles,settings,live,HrPerformanceWorkspace,LIVE_API_AUDITED,M08 Manage & Develop
+hr,performance,Performance Management,goals-kpis,Goals & KPIs,workflow,live,HrPerformanceWorkspace,LIVE_API_AUDITED,M08 Manage & Develop
+hr,performance,Performance Management,performance-reviews,Performance Reviews,approval,live,HrPerformanceWorkspace,LIVE_API_AUDITED,M08 Manage & Develop
+hr,performance,Performance Management,performance-outcomes,Performance Outcomes,workflow,live,HrPerformanceWorkspace,LIVE_API_AUDITED,M08 Manage & Develop
+hr,learning,Learning & Development,training-programs,Training Programmes,settings,live,HrLifecycleScreen,LIVE_API_AUDITED,M08 Manage & Develop
+hr,learning,Learning & Development,training-requests,Training Requests,approval,live,HrLifecycleScreen,LIVE_API_AUDITED,M08 Manage & Develop
+hr,learning,Learning & Development,training-sessions,Training Sessions,workflow,live,HrLifecycleScreen,LIVE_API_AUDITED,M08 Manage & Develop
+hr,learning,Learning & Development,training-completions,Completion & Certificates,workflow,live,HrLifecycleScreen,LIVE_API_AUDITED,M08 Manage & Develop
 hr,employee-lifecycle,Employee Lifecycle,lifecycle-policies,Lifecycle Policies,settings,live,ListView (generic fallback),LIVE_API_AUDITED,M10 Separation & Settlement
-hr,employee-lifecycle,Employee Lifecycle,onboarding,Onboarding,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,"M07 Hire, Onboard & Probation"
-hr,employee-lifecycle,Employee Lifecycle,probation-reviews,Probation Reviews,approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,"M07 Hire, Onboard & Probation"
-hr,employee-lifecycle,Employee Lifecycle,employee-movements,"Transfers, Promotions & Movements",approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,M09 Move & Reward
-hr,employee-lifecycle,Employee Lifecycle,resignations,Resignations,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M10 Separation & Settlement
-hr,employee-lifecycle,Employee Lifecycle,terminations,Termination Cases,approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,M10 Separation & Settlement
-hr,employee-lifecycle,Employee Lifecycle,clearance,Exit Clearance,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M10 Separation & Settlement
-hr,employee-lifecycle,Employee Lifecycle,final-settlements,Final Settlements,approval,prototype,HrLifecycleScreen,DEDICATED_MOCK,M10 Separation & Settlement
-hr,employee-lifecycle,Employee Lifecycle,offboarding,Offboarding Control Centre,workflow,prototype,HrLifecycleScreen,DEDICATED_MOCK,M10 Separation & Settlement
-hr,benefits-self-service,Benefits & Self-service,loans-benefits,"Loans, Benefits & Gratuity",list,prototype,ListView (generic fallback),GENERIC_FALLBACK,M14 Benefits & Loans
-hr,benefits-self-service,Benefits & Self-service,statutory-deductions,Statutory Deductions,settings,prototype,ListView (generic fallback),GENERIC_FALLBACK,M14 Benefits & Loans
-hr,benefits-self-service,Benefits & Self-service,employee-self-service,Employee Self-service,dashboard,prototype,ListView (generic fallback),GENERIC_FALLBACK,M16 Self-service
-hr,benefits-self-service,Benefits & Self-service,hr-report-centre,HR & Payroll Report Centre,report,prototype,HrReportingWorkspace,DEDICATED_MOCK,M17 Reporting & Compliance
-hr,hr-compliance,"Reporting, Compliance & Audit",hr-compliance-configuration,Compliance Configuration,settings,prototype,HrReportingWorkspace,DEDICATED_MOCK,M17 Reporting & Compliance
-hr,hr-compliance,"Reporting, Compliance & Audit",hr-report-audit-log,Report Audit Log,report,prototype,HrReportingWorkspace,DEDICATED_MOCK,M02 Workflow & Audit
-hr,hr-compliance,"Reporting, Compliance & Audit",hr-export-centre,Secure Export Centre,workflow,prototype,HrReportingWorkspace,DEDICATED_MOCK,M17 Reporting & Compliance
+hr,employee-lifecycle,Employee Lifecycle,onboarding,Onboarding,workflow,live,HrLifecycleCasesWorkspace,LIVE_API_AUDITED,"M07 Hire, Onboard & Probation"
+hr,employee-lifecycle,Employee Lifecycle,probation-reviews,Probation Reviews,approval,live,HrLifecycleCasesWorkspace,LIVE_API_AUDITED,"M07 Hire, Onboard & Probation"
+hr,employee-lifecycle,Employee Lifecycle,employee-movements,"Transfers, Promotions & Movements",approval,live,HrLifecycleMovementsWorkspace,LIVE_API_AUDITED,M09 Move & Reward
+hr,employee-lifecycle,Employee Lifecycle,resignations,Resignations,workflow,live,HrLifecycleCasesWorkspace,LIVE_API_AUDITED,M10 Separation & Settlement
+hr,employee-lifecycle,Employee Lifecycle,terminations,Termination Cases,approval,live,HrLifecycleCasesWorkspace,LIVE_API_AUDITED,M10 Separation & Settlement
+hr,employee-lifecycle,Employee Lifecycle,clearance,Exit Clearance,workflow,live,HrLifecycleCasesWorkspace,LIVE_API_AUDITED,M10 Separation & Settlement
+hr,employee-lifecycle,Employee Lifecycle,final-settlements,Final Settlements,approval,live,HrLifecycleCasesWorkspace,LIVE_API_AUDITED,M10 Separation & Settlement
+hr,employee-lifecycle,Employee Lifecycle,offboarding,Offboarding Control Centre,workflow,live,HrLifecycleCasesWorkspace,LIVE_API_AUDITED,M10 Separation & Settlement
+hr,benefits-self-service,Benefits & Self-service,loans-benefits,"Loans, Benefits & Gratuity",list,live,ListView (generic fallback),LIVE_API_AUDITED,M14 Benefits & Loans
+hr,benefits-self-service,Benefits & Self-service,statutory-deductions,Statutory Deductions,settings,live,ListView (generic fallback),LIVE_API_AUDITED,M14 Benefits & Loans
+hr,benefits-self-service,Benefits & Self-service,employee-self-service,Employee Self-service,dashboard,live,ListView (generic fallback),LIVE_API_AUDITED,M16 Self-service
+hr,benefits-self-service,Benefits & Self-service,hr-report-centre,HR & Payroll Report Centre,report,live,HrReportingWorkspace,LIVE_API_AUDITED,M17 Reporting & Compliance
+hr,hr-compliance,"Reporting, Compliance & Audit",hr-compliance-configuration,Compliance Configuration,settings,live,HrReportingWorkspace,LIVE_API_AUDITED,M17 Reporting & Compliance
+hr,hr-compliance,"Reporting, Compliance & Audit",hr-report-audit-log,Report Audit Log,report,live,HrReportingWorkspace,LIVE_API_AUDITED,M02 Workflow & Audit
+hr,hr-compliance,"Reporting, Compliance & Audit",hr-export-centre,Secure Export Centre,workflow,live,HrReportingWorkspace,LIVE_API_AUDITED,M17 Reporting & Compliance

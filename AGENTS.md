@@ -13,6 +13,18 @@ more specific instruction.
 4. Retire legacy feature CSS only when no active selector depends on it.
 5. Keep the application buildable after every meaningful migration batch.
 
+## ERP workspace boundary
+
+- Before any Nexora task, resolve this repository root from this AGENTS.md file.
+- Keep Nexora source, documentation, temporary scripts, browser evidence and local
+  runtime helpers inside this repository. Never use a sibling project as staging.
+- Use tmp/recovered-hr-work only for the preserved historical recovery archive;
+  its installer scripts are consumed history, not modules to execute or copy over
+  the active app/server/packages sources. New temporary work belongs under tmp/.
+- If the active workspace is a sibling repository, target this ERP repository
+  explicitly using the available authorization mechanism; do not create ERP files
+  in the sibling workspace.
+
 ## Repository ownership
 
 - The repository root is the Next.js application; `app/` is its App Router
@@ -100,6 +112,28 @@ boundaries unless a requested refactor needs a clearly shared abstraction.
   selector can no longer match.
 - Retain data attributes needed by `app/shared/styles/print.css` when migrating
   printable layouts.
+
+## Global font, theme and colour consistency
+
+- On every page or component task, inspect its own styles and the shared controls,
+  dialogs, tables, charts and stylesheets it uses for font/theme/colour overrides.
+- Use app/shared/styles/typography.css for font tokens, app/shared/styles/theme-colors.css
+  for semantic colours and app/globals.css for Tailwind mappings. Keep font loading
+  in app/layout.tsx. Existing serif/display aliases resolve to the global sans font;
+  code and identifiers may use the global mono token.
+- Use semantic Tailwind utilities or --nx-* tokens. Do not introduce page-specific
+  font families, a second theme palette, fixed Tailwind palette utilities or literal
+  colours for ordinary UI states. Add a reusable semantic role centrally when needed.
+- Preserve deliberate brand artwork, chart encodings and monochrome print output;
+  document any necessary exception instead of replacing it blindly.
+- When changing a screen, resolve its affected overrides without breaking existing
+  behavior. Check light/dark, hover/focus/disabled/error/empty states and desktop,
+  tablet and mobile widths. Never mark the screen complete from appearance alone.
+- Run node scripts/audit-ui-theme.mjs --write after UI changes, review its findings,
+  and run node scripts/audit-ui-theme.mjs --check before handoff. Record remaining
+  exceptions and browser evidence in docs/architecture/remaining-ui-migration.md.
+- The audit percentage uses feature view source files. Do not call it a percentage
+  of all menu screens; shared renderers and dependencies require route-level checks.
 
 ## Centralization rules
 

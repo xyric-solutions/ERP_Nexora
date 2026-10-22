@@ -1,4 +1,15 @@
 "use client";
+import {HrLearningWorkspace,learningPages} from "@prototype/features/hr/views/hr-learning-workspace";
+import {HrReportGovernanceWorkspace,hrGovernancePages} from "@prototype/features/hr/views/hr-report-governance-workspace";
+
+import {HrLifecycleCasesWorkspace,HrLifecycleMovementsWorkspace,lifecycleCasePages} from "@prototype/features/hr/views/hr-lifecycle-cases-workspace";
+import {HrPerformanceWorkspace,performancePages} from '@prototype/features/hr/views/hr-performance-workspace';
+import {HrPayslipsWorkspace} from '@prototype/features/hr/views/hr-payslips-workspace';
+import {HrPayrollJournalWorkspace} from '@prototype/features/hr/views/hr-payroll-journal-workspace';
+
+import {HrPayrollRunsWorkspace} from '@prototype/features/hr/views/hr-payroll-runs-workspace';
+import {HrPayrollWorkspace,payrollPages} from '@prototype/features/hr/views/hr-payroll-workspace';
+
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -47,19 +58,31 @@ import { HrEmployeeRecordWorkspace } from "@prototype/features/hr/views/hr-emplo
 import { HrPositionsOrganizationWorkspace } from "@prototype/features/hr/views/hr-positions-organization-workspace";
 import { HrManpowerRequisitionsWorkspace } from "@prototype/features/hr/views/hr-manpower-requisitions-workspace";
 import { HrJobOpeningsWorkspace } from "@prototype/features/hr/views/hr-job-openings-workspace";
+import {HrTimeLeaveWorkspace} from '@prototype/features/hr/views/hr-time-leave-workspace';
+import {HrAttendanceCompletionWorkspace} from '@prototype/features/hr/views/hr-attendance-completion-workspace';
+import { HrAttendanceCorrectionsWorkspace } from "@prototype/features/hr/views/hr-attendance-corrections-workspace";
+import { HrMonthlyAttendanceWorkspace } from "@prototype/features/hr/views/hr-monthly-attendance-workspace";
+import { HrDailyAttendanceWorkspace } from "@prototype/features/hr/views/hr-daily-attendance-workspace";
+import { HrShiftAssignmentsWorkspace } from "@prototype/features/hr/views/hr-shift-assignments-workspace";
+import { HrShiftsWorkspace } from "@prototype/features/hr/views/hr-shifts-workspace";
+import { HrOfferEmployeeWorkspace } from "@prototype/features/hr/views/hr-offer-employee-workspace";
+import { HrOfferManagementWorkspace } from "@prototype/features/hr/views/hr-offer-management-workspace";
+import { HrInterviewsWorkspace } from "@prototype/features/hr/views/hr-interviews-workspace";
+import { HrRecruitmentPipelineWorkspace } from "@prototype/features/hr/views/hr-recruitment-pipeline-workspace";
+import { HrCandidateDirectoryWorkspace } from "@prototype/features/hr/views/hr-candidate-directory-workspace";
 import { HrEmployeeDraftForm } from "@prototype/features/hr/views/hr-employee-draft-form";
 import { HrEmployeeDraftsWorkspace } from "@prototype/features/hr/views/hr-employee-drafts-workspace";
-import { HrEmployeeApprovalsWorkspace } from "@prototype/features/hr/views/hr-employee-approvals-workspace";
+import { HrPeopleApprovalsWorkspace as HrEmployeeApprovalsWorkspace } from "@prototype/features/hr/views/hr-personal-corrections";
 import { HrEmployeeContactsWorkspace } from "@prototype/features/hr/views/hr-employee-contacts-workspace";
 import { HrEmployeeEmergencyContactsWorkspace } from "@prototype/features/hr/views/hr-employee-emergency-contacts-workspace";
 import { HrEmployeeDocumentsWorkspace } from "@prototype/features/hr/views/hr-employee-documents-workspace";
 import { HrEmployeeAssignmentsWorkspace } from "@prototype/features/hr/views/hr-employee-assignments-workspace";
 import { HrEmployeeHistoryWorkspace } from "@prototype/features/hr/views/hr-employee-history-workspace";
 import { HrAttendanceScreen, isHrAttendancePage } from "@prototype/features/hr/views/hr-attendance-screens";
-import { HrPayrollScreen, isHrPayrollPage } from "@prototype/features/hr/views/hr-payroll-screens";
 import { HrLifecycleScreen, isHrLifecyclePage } from "@prototype/features/hr/views/hr-lifecycle-screens";
 import { HrLifecyclePoliciesWorkspace } from "@prototype/features/hr/views/hr-lifecycle-policies-workspace";
 import { HrJobsWorkspace } from "@prototype/features/hr/views/hr-jobs-workspace";
+import { HrBenefitsWorkspace, benefitsPages } from '@prototype/features/hr/views/hr-benefits-workspace';
 import { HrReportingWorkspace, isHrReportingPage } from "@prototype/features/hr/views/hr-reporting-workspace";
 import { CommercialWorkspace, isCommercialMaturityPage } from "@prototype/features/commerce/views/commercial-workspace";
 import { MasterDataForm, isMatureMasterDataForm } from "@prototype/features/master-data/views/master-data-form";
@@ -169,14 +192,14 @@ function StatusChip({ status }: { status: string }) {
   return <span className={`nx-status nx-status-${tone}`}>{status}</span>;
 }
 
-function PageIntro({ context, children }: { context: PrototypePageContext; children?: React.ReactNode }) {
+function PageIntro({ context, children, statusLabel }: { context: PrototypePageContext; children?: React.ReactNode; statusLabel?:string }) {
   return (
     <div className="nx-page-intro">
       <div>
         <span className="nx-eyebrow">{context.moduleLabel}</span>
         <div className="nx-title-row">
           <h1>{context.pageLabel}</h1>
-          <StatusChip status={context.status === "prototype" ? "Prototype only" : titleCase(context.status)} />
+          <StatusChip status={statusLabel??(context.status === "prototype" ? "Prototype only" : titleCase(context.status))} />
         </div>
         <p>{context.moduleDescription}</p>
       </div>
@@ -2671,7 +2694,7 @@ export function PrototypeContent(props: PrototypeContentProps) {
     (context.pageId === "bank-payments" ||
       context.pageId === "add-bank-payment" ||
       (context.pageId === "transaction-detail" && isPersistedBankPaymentId(context.recordRef)));
-  if (!isLiveBankPaymentPage && viewState !== "data")
+  if (!isLiveBankPaymentPage && context.status !== "live" && context.status !== "read-only" && context.status !== "in-progress" && viewState !== "data")
     return (
       <>
         <PageIntro context={context} />
@@ -2697,6 +2720,12 @@ export function PrototypeContent(props: PrototypeContentProps) {
     return <HrFinancePayrollDashboardWorkspace onNavigate={props.onNavigate} />;
   }
 
+  if (context.moduleId === 'hr' && (benefitsPages as readonly string[]).includes(context.pageId)) {
+    return <HrBenefitsWorkspace key={context.pageId} page={context.pageId as typeof benefitsPages[number]} onNavigate={props.onNavigate}/>;
+  }
+
+  if(context.moduleId==='hr'&&learningPages.includes(context.pageId as typeof learningPages[number]))return <HrLearningWorkspace key={context.pageId} page={context.pageId as typeof learningPages[number]} onNavigate={props.onNavigate}/>;
+  if (context.moduleId === "hr" && hrGovernancePages.includes(context.pageId as typeof hrGovernancePages[number])) {return <HrReportGovernanceWorkspace key={context.pageId} page={context.pageId as typeof hrGovernancePages[number]} onNavigate={props.onNavigate}/>;}
   if (["hr", "reports"].includes(context.moduleId) && isHrReportingPage(context.pageId)) {
     return <HrReportingWorkspace context={context} onAction={onAction} onNavigate={props.onNavigate} />;
   }
@@ -2816,6 +2845,21 @@ export function PrototypeContent(props: PrototypeContentProps) {
     if (context.pageId === "job-openings") {
       return <><PageIntro context={context} /><HrJobOpeningsWorkspace /></>;
     }
+    if (context.pageId === "create-employee-from-offer") {
+      return <><PageIntro context={context} /><HrOfferEmployeeWorkspace onNavigate={props.onNavigate} /></>;
+    }
+    if (context.pageId === "offers") {
+      return <><PageIntro context={context} /><HrOfferManagementWorkspace /></>;
+    }
+    if (context.pageId === "interviews") {
+      return <><PageIntro context={context} /><HrInterviewsWorkspace /></>;
+    }
+    if (context.pageId === "recruitment-pipeline") {
+      return <><PageIntro context={context} /><HrRecruitmentPipelineWorkspace /></>;
+    }
+    if (context.pageId === "candidates") {
+      return <><PageIntro context={context} /><HrCandidateDirectoryWorkspace /></>;
+    }
     if (context.pageId === "org-structure") {
       return (
         <>
@@ -2861,6 +2905,9 @@ export function PrototypeContent(props: PrototypeContentProps) {
           <HrConfiguredMasterWorkspace definition={configuredMaster} />
         </>
       );
+    if(context.pageId in lifecycleCasePages){return <><PageIntro context={context} statusLabel="Connected · governed employment cases"/><HrLifecycleCasesWorkspace key={context.pageId} page={context.pageId as keyof typeof lifecycleCasePages} onNavigate={props.onNavigate}/></>;}
+    if(context.pageId==='employee-movements'){return <><PageIntro context={context} statusLabel="Connected · effective-dated movements"/><HrLifecycleMovementsWorkspace onAction={onAction}/></>;}
+    if(context.pageId in performancePages){return <><PageIntro context={context} statusLabel="Connected · governed Performance"/><HrPerformanceWorkspace key={context.pageId} page={context.pageId as keyof typeof performancePages} onNavigate={props.onNavigate}/></>;}
     if (isHrLifecyclePage(context.pageId)) {
       return (
         <>
@@ -2874,18 +2921,21 @@ export function PrototypeContent(props: PrototypeContentProps) {
         </>
       );
     }
-    if (isHrPayrollPage(context.pageId)) {
-      return (
-        <>
-          <PageIntro context={context}>
-            <ActionButton onClick={() => onAction("Export", context.pageLabel)}>Export</ActionButton>
-            <ActionButton tone="primary" onClick={() => onAction("Add", context.pageLabel)}>
-              + Add New
-            </ActionButton>
-          </PageIntro>
-          <HrPayrollScreen key={context.pageId} pageId={context.pageId} onAction={onAction} />
-        </>
-      );
+    if(['payroll-runs','payroll-validation'].includes(context.pageId)){return <><PageIntro context={context} statusLabel="Connected · payroll workflow"/><HrPayrollRunsWorkspace key={context.pageId} review={context.pageId==='payroll-validation'} onNavigate={props.onNavigate}/></>;}
+    if(context.pageId==='payslips'){return <><PageIntro context={context} statusLabel="Connected · controlled payslip publication"/><HrPayslipsWorkspace onNavigate={props.onNavigate}/></>;}
+    if(context.pageId==='payroll-journal'){return <><PageIntro context={context} statusLabel="Connected · governed Finance accrual"/><HrPayrollJournalWorkspace key={context.recordRef} initialReference={context.recordRef} onNavigate={props.onNavigate}/></>;}
+    if(context.pageId in payrollPages){return <><PageIntro context={context} statusLabel={['payroll-runs','payroll-validation','payroll-journal','payment-batch','payslips'].includes(context.pageId)?'Connected · read only':undefined}/><HrPayrollWorkspace initialReference={context.recordRef} key={context.pageId+context.recordRef} page={context.pageId as keyof typeof payrollPages} onNavigate={props.onNavigate}/></>;}
+    if (['overtime','attendance-period','attendance-payroll-inputs'].includes(context.pageId)) {return <><PageIntro context={context}/><HrAttendanceCompletionWorkspace key={context.pageId+context.recordRef} mode={context.pageId as 'overtime'|'attendance-period'|'attendance-payroll-inputs'} initialReference={context.recordRef} onNavigate={props.onNavigate}/></>;}
+    if(['leave-types','leave-balances','leave-request','leave-requests','leave-approval'].includes(context.pageId)){return <><PageIntro context={context}/><HrTimeLeaveWorkspace key={context.pageId+context.recordRef} mode={context.pageId as 'leave-types'|'leave-balances'|'leave-request'|'leave-requests'|'leave-approval'} initialReference={context.recordRef} onNavigate={props.onNavigate}/></>;}
+    if(context.pageId==='attendance'){return <><PageIntro context={context}/><HrDailyAttendanceWorkspace key={context.recordRef} initialReference={context.recordRef} onNavigate={props.onNavigate}/></>;}
+    if (context.pageId === "attendance-corrections") {return <><PageIntro context={context}/><HrAttendanceCorrectionsWorkspace onNavigate={props.onNavigate}/></>;}
+    if (context.pageId === "monthly-attendance") {return <><PageIntro context={context}/><HrMonthlyAttendanceWorkspace onNavigate={props.onNavigate}/></>;}
+    if (context.pageId === "daily-attendance") {return <><PageIntro context={context} /><HrDailyAttendanceWorkspace key={context.recordRef??"daily"} initialReference={context.recordRef} onNavigate={props.onNavigate}/></>;}
+    if (context.pageId === "shift-assignments") {
+      return <><PageIntro context={context} /><HrShiftAssignmentsWorkspace onNavigate={props.onNavigate} /></>;
+    }
+    if (context.pageId === "shifts") {
+      return <><PageIntro context={context} /><HrShiftsWorkspace onNavigate={props.onNavigate} /></>;
     }
     if (isHrAttendancePage(context.pageId)) {
       return (

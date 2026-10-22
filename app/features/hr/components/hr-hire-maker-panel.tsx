@@ -22,6 +22,7 @@ type Props = {
   canCreateAssignment: boolean;
   canRequestHire: boolean;
   onAssignmentCreated: () => void;
+  onHireRequested?: () => void;
 };
 
 type LoadState = "idle" | "loading" | "ready" | "error";
@@ -39,6 +40,7 @@ export function HrHireMakerPanel({
   canCreateAssignment,
   canRequestHire,
   onAssignmentCreated,
+  onHireRequested,
 }: Props) {
   const [masters, setMasters] = useState<HrMasterDirectory["items"]>([]);
   const [placements, setPlacements] = useState<HrOrganizationUnitDirectory["items"]>([]);
@@ -62,6 +64,9 @@ export function HrHireMakerPanel({
   const hireRetry = useRef<{ fingerprint: string; key: string } | null>(null);
 
   const profileAssignment = assignments.find((item) => item.assignment_status === "profile_draft") ?? null;
+  useEffect(() => {
+    if (profileAssignment) setEffectiveOn(profileAssignment.effective_from);
+  }, [profileAssignment?.id, profileAssignment?.effective_from]);
   const branches = placements.filter((item) => item.type === "branch");
   const departments = placements.filter(
     (item) => item.type === "department" && (!branchId || item.parent_id === branchId),
@@ -163,6 +168,7 @@ export function HrHireMakerPanel({
       hireRetry.current = null;
       setNotice(`Hire request ${result.id} is pending independent approval. Employment is not active yet.`);
       setReason("");
+      onHireRequested?.();
     } catch (cause) {
       setError(message(cause, "The Hire request could not be submitted."));
     } finally {
@@ -355,7 +361,12 @@ export function HrHireMakerPanel({
                 />
               </label>
               <div>
-                <Button type="button" onClick={requestHire} disabled={submitting || !jobId || !reason.trim()}>
+                <Button
+                  type="button"
+                  className="text-primary-foreground!"
+                  onClick={requestHire}
+                  disabled={submitting || !jobId || !reason.trim()}
+                >
                   {submitting ? "Submitting Hire request..." : "Submit Hire request"}
                 </Button>
               </div>

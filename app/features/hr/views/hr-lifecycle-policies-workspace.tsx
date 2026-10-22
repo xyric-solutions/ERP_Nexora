@@ -1,4 +1,5 @@
 "use client";
+import { HrEmploymentPolicyUpgrades } from "./hr-employment-policy-upgrades";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -53,6 +54,7 @@ export function HrLifecyclePoliciesWorkspace() {
       .then((result) => {
         if (!active) return;
         setCompanies(result.items);
+        if (!result.items.length) setState("ready");
         setCompanyId((current) =>
           result.items.some((company) => company.id === current) ? current : (result.items[0]?.id ?? ""),
         );
@@ -63,12 +65,11 @@ export function HrLifecyclePoliciesWorkspace() {
     return () => {
       active = false;
     };
-  }, [canReadPolicies, client, sessionLoading]);
+  }, [canReadPolicies, client, sessionLoading, refreshKey]);
 
   useEffect(() => {
     if (!companyId) return;
     let active = true;
-    setState("loading");
     client
       .employmentLifecyclePolicies({ companyId, limit: 50 })
       .then((result) => {
@@ -98,10 +99,13 @@ export function HrLifecyclePoliciesWorkspace() {
         csrfToken(),
         crypto.randomUUID(),
       );
-      setNotice(`${result.code} v${result.version} was created as a draft with the standard initial hire definition.`);
+      setNotice(
+        `${result.code} v${result.version} was created as a draft with the standard Hire, confirmation and exit definitions.`,
+      );
       setCode("");
       setName("");
       setEffectiveFrom("");
+      setState("loading");
       setRefreshKey((current) => current + 1);
     } catch {
       setError("The policy could not be created. Check its code, company scope, and your lifecycle-policy permission.");
@@ -129,6 +133,7 @@ export function HrLifecyclePoliciesWorkspace() {
         `${result.code} is pending independent approval. It is not active and cannot govern employee transitions.`,
       );
       setSubmissionReason("");
+      setState("loading");
       setRefreshKey((current) => current + 1);
     } catch {
       setError(
@@ -161,6 +166,7 @@ export function HrLifecyclePoliciesWorkspace() {
       );
       setNotice(`${result.code} is approved but remains inactive until the separate activation step is completed.`);
       setApprovalReason("");
+      setState("loading");
       setRefreshKey((current) => current + 1);
     } catch {
       setError(`Unable to approve ${policyCode}. Check its current state, your access, and maker/checker authority.`);
@@ -191,6 +197,7 @@ export function HrLifecyclePoliciesWorkspace() {
       );
       setNotice(`${result.code} is now active. This does not create or activate any employee.`);
       setActivationReason("");
+      setState("loading");
       setRefreshKey((current) => current + 1);
     } catch {
       setError(
@@ -211,7 +218,15 @@ export function HrLifecyclePoliciesWorkspace() {
     );
 
   return (
-    <section className="grid min-w-0 gap-4" aria-label="Employment lifecycle policies">
+    <section
+      className="grid min-w-0 gap-4 [&_.overflow-x-auto]:relative [&_button.bg-primary]:text-primary-foreground!"
+      aria-label="Employment lifecycle policies"
+    >
+      <p className="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">
+        New policy drafts include Hire, employment confirmation, resignation and termination transitions. Existing
+        approved policies retain their original definitions; unsupported transitions remain blocked until a governed
+        policy upgrade.
+      </p>
       <Alert>
         <AlertTitle>Employment lifecycle policies</AlertTitle>
         <AlertDescription>
@@ -234,11 +249,24 @@ export function HrLifecyclePoliciesWorkspace() {
       <label className="grid max-w-xl gap-1.5 rounded-lg border border-border bg-card p-3 text-sm font-medium shadow-sm">
         Company
         <select
-          className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
+          className="h-9 w-full min-w-0 rounded-md border border-input bg-background px-2.5 text-sm"
           value={companyId}
-          onChange={(event) => setCompanyId(event.target.value)}
-          disabled={state === "loading"}
+          onChange={(event) => {
+            setState("loading");
+            setPolicies([]);
+            setCompanyId(event.target.value);
+          }}
+          disabled={state === "loading" || !companies.length}
         >
+          {!companies.length && (
+            <option value="">
+              {state === "loading"
+                ? "Loading authorized companies…"
+                : state === "error"
+                  ? "Companies could not be loaded"
+                  : "No authorized companies"}
+            </option>
+          )}
           {companies.map((company) => (
             <option key={company.id} value={company.id}>
               {company.name} ({company.code})
@@ -251,11 +279,31 @@ export function HrLifecyclePoliciesWorkspace() {
         <Alert variant="destructive">
           <AlertTitle>Lifecycle policies unavailable</AlertTitle>
           <AlertDescription>
-            No mock policy data is shown when the authorized API data cannot be loaded.
+            Authorized companies or policies could not be loaded. Retry the request; if your access has changed, sign in
+            again.
+          </AlertDescription>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3"
+            onClick={() => {
+              setState("loading");
+              setRefreshKey((v) => v + 1);
+            }}
+          >
+            Retry companies and policies
+          </Button>
+        </Alert>
+      )}
+      {state === "ready" && !companies.length && (
+        <Alert>
+          <AlertTitle>No company access</AlertTitle>
+          <AlertDescription>
+            No companies are assigned to your account. Ask your administrator to review company access.
           </AlertDescription>
         </Alert>
       )}
-      {state === "ready" && (
+      {state === "ready" && companies.length > 0 && (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,.6fr)]">
           <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
             <table className="w-full min-w-[760px] text-left text-sm">
@@ -364,37 +412,49 @@ export function HrLifecyclePoliciesWorkspace() {
               <div>
                 <h2 className="font-semibold">Create draft policy</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Creates fixed pre-employment and employed states plus an approval-required hire transition.
+                  Creates pre-employment, employed, confirmed and ended states, with independently approved Hire,
+                  confirmation and exit transitions.
                 </p>
               </div>
-              <label className="grid gap-1.5 text-sm font-medium">
+              <label htmlFor="lifecycle-policy-code" className="grid min-w-0 gap-1.5 text-sm font-medium">
                 Policy code
                 <Input
+                  id="lifecycle-policy-code"
                   value={code}
                   onChange={(event) => setCode(event.target.value)}
                   maxLength={32}
                   placeholder="HR-LIFECYCLE"
                 />
               </label>
-              <label className="grid gap-1.5 text-sm font-medium">
+              <label htmlFor="lifecycle-policy-name" className="grid min-w-0 gap-1.5 text-sm font-medium">
                 Policy name
                 <Input
+                  id="lifecycle-policy-name"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   maxLength={160}
                   placeholder="Standard employment lifecycle"
                 />
               </label>
-              <label className="grid gap-1.5 text-sm font-medium">
+              <label htmlFor="lifecycle-policy-effectiveFrom" className="grid min-w-0 gap-1.5 text-sm font-medium">
                 Effective from
-                <Input type="date" value={effectiveFrom} onChange={(event) => setEffectiveFrom(event.target.value)} />
+                <Input
+                  id="lifecycle-policy-effectiveFrom"
+                  type="date"
+                  value={effectiveFrom}
+                  onChange={(event) => setEffectiveFrom(event.target.value)}
+                />
               </label>
               <Button type="button" onClick={() => void createPolicy()} disabled={saving}>
                 {saving ? "Creating…" : "Create draft policy"}
               </Button>
-              <label className="grid gap-1.5 border-t pt-3 text-sm font-medium">
+              <label
+                htmlFor="lifecycle-policy-submissionReason"
+                className="grid min-w-0 gap-1.5 border-t pt-3 text-sm font-medium"
+              >
                 Submission reason
                 <Input
+                  id="lifecycle-policy-submissionReason"
                   value={submissionReason}
                   onChange={(event) => setSubmissionReason(event.target.value)}
                   maxLength={1000}
@@ -415,18 +475,20 @@ export function HrLifecyclePoliciesWorkspace() {
                   super-admin override.
                 </p>
               </div>
-              <label className="grid gap-1.5 text-sm font-medium">
+              <label htmlFor="lifecycle-policy-approvalReason" className="grid min-w-0 gap-1.5 text-sm font-medium">
                 Approval reason
                 <Input
+                  id="lifecycle-policy-approvalReason"
                   value={approvalReason}
                   onChange={(event) => setApprovalReason(event.target.value)}
                   maxLength={1000}
                   placeholder="Reason for approval"
                 />
               </label>
-              <label className="grid gap-1.5 text-sm font-medium">
+              <label htmlFor="lifecycle-policy-activationReason" className="grid min-w-0 gap-1.5 text-sm font-medium">
                 Activation reason
                 <Input
+                  id="lifecycle-policy-activationReason"
                   value={activationReason}
                   onChange={(event) => setActivationReason(event.target.value)}
                   maxLength={1000}
@@ -440,6 +502,7 @@ export function HrLifecyclePoliciesWorkspace() {
           )}
         </div>
       )}
+      <HrEmploymentPolicyUpgrades key={companyId} companyId={companyId} policyRevision={refreshKey} />
     </section>
   );
 }

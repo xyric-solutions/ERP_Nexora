@@ -1,0 +1,58 @@
+CREATE TABLE hr_learning_record(
+ tenant_id text NOT NULL,company_id text NOT NULL,id text NOT NULL,kind text NOT NULL CHECK(kind IN('programme','request','session','participation','completion')),
+ programme_id text,parent_id text,employee_id text,version integer NOT NULL DEFAULT 1 CHECK(version>0),state text NOT NULL DEFAULT 'draft',terms jsonb NOT NULL,
+ created_by text NOT NULL,updated_by text NOT NULL,manager_user_id text,manager_decided_by text,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+ PRIMARY KEY(tenant_id,id),UNIQUE(tenant_id,company_id,id),FOREIGN KEY(tenant_id,company_id) REFERENCES organization_unit(tenant_id,id),FOREIGN KEY(tenant_id,company_id,programme_id) REFERENCES hr_learning_record(tenant_id,company_id,id),FOREIGN KEY(tenant_id,company_id,parent_id) REFERENCES hr_learning_record(tenant_id,company_id,id),FOREIGN KEY(tenant_id,employee_id) REFERENCES employee(tenant_id,id),
+ FOREIGN KEY(tenant_id,created_by) REFERENCES security_user_account(tenant_id,id),FOREIGN KEY(tenant_id,updated_by) REFERENCES security_user_account(tenant_id,id),FOREIGN KEY(tenant_id,manager_user_id) REFERENCES security_user_account(tenant_id,id),FOREIGN KEY(tenant_id,manager_decided_by) REFERENCES security_user_account(tenant_id,id),
+ CHECK(terms->>'kind'=kind),CHECK((kind='programme' AND programme_id IS NULL AND parent_id IS NULL AND employee_id IS NULL AND state IN('draft','active','archived')) OR(kind='request' AND programme_id IS NOT NULL AND parent_id IS NULL AND employee_id IS NOT NULL AND state IN('draft','pending_manager','pending_hr','approved','fulfilled','rejected','cancelled')) OR(kind='session' AND programme_id IS NOT NULL AND parent_id IS NULL AND employee_id IS NULL AND state IN('draft','scheduled','closed','cancelled')) OR(kind='participation' AND programme_id IS NOT NULL AND parent_id IS NOT NULL AND employee_id IS NOT NULL AND state IN('enrolled','completed','withdrawn')) OR(kind='completion' AND programme_id IS NOT NULL AND parent_id IS NOT NULL AND employee_id IS NOT NULL AND state IN('submitted','issued','failed','revoked','voided')))
+);
+CREATE UNIQUE INDEX learning_programme_code ON hr_learning_record(tenant_id,company_id,lower(terms->>'code')) WHERE kind='programme';
+CREATE UNIQUE INDEX learning_request_pending ON hr_learning_record(tenant_id,company_id,employee_id,programme_id) WHERE kind='request' AND state IN('draft','pending_manager','pending_hr','approved');
+CREATE UNIQUE INDEX learning_participation_request ON hr_learning_record(tenant_id,(terms->>'request_id')) WHERE kind='participation' AND state<>'withdrawn';
+CREATE UNIQUE INDEX learning_session_employee ON hr_learning_record(tenant_id,parent_id,employee_id) WHERE kind='participation' AND state<>'withdrawn';
+CREATE UNIQUE INDEX learning_completion_participant ON hr_learning_record(tenant_id,parent_id) WHERE kind='completion' AND state<>'voided';
+CREATE INDEX learning_company_queue ON hr_learning_record(tenant_id,company_id,kind,state,created_at DESC,id);
+CREATE TABLE hr_learning_event(tenant_id text NOT NULL,company_id text NOT NULL,id text NOT NULL,record_id text NOT NULL,version integer NOT NULL,action text NOT NULL,reason text NOT NULL CHECK(length(btrim(reason)) BETWEEN 12 AND 1000),actor_id text NOT NULL,occurred_at timestamptz NOT NULL DEFAULT clock_timestamp(),before_json jsonb,after_json jsonb NOT NULL,
+ PRIMARY KEY(tenant_id,id),UNIQUE(tenant_id,record_id,version),FOREIGN KEY(tenant_id,company_id,record_id) REFERENCES hr_learning_record(tenant_id,company_id,id),FOREIGN KEY(tenant_id,actor_id) REFERENCES security_user_account(tenant_id,id));
+CREATE FUNCTION guard_hr_learning_record() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE p hr_learning_record%ROWTYPE;
+BEGIN
+ IF TG_OP='DELETE' THEN RAISE EXCEPTION 'Learning history is retained';END IF;
+ IF TG_OP='INSERT' THEN
+  IF NEW.version<>1 OR NEW.state<>(CASE NEW.kind WHEN 'participation' THEN 'enrolled' WHEN 'completion' THEN 'submitted' ELSE 'draft' END) OR NEW.created_by<>NEW.updated_by OR NEW.manager_decided_by IS NOT NULL THEN RAISE EXCEPTION 'Learning records start with governed initial state';END IF;
+ ELSE
+  IF NEW.version<>OLD.version+1 OR (to_jsonb(NEW)-ARRAY['version','state','terms','updated_by','updated_at','manager_user_id','manager_decided_by']) IS DISTINCT FROM(to_jsonb(OLD)-ARRAY['version','state','terms','updated_by','updated_at','manager_user_id','manager_decided_by']) THEN RAISE EXCEPTION 'Learning identity is immutable and changes are versioned';END IF;
+  IF NEW.terms IS DISTINCT FROM OLD.terms AND NOT(OLD.state='draft' AND NEW.state='draft' AND OLD.kind IN('programme','request','session') OR OLD.kind='participation' AND OLD.state='enrolled' AND NEW.state='enrolled') THEN RAISE EXCEPTION 'Published learning terms and completion evidence are immutable';END IF;
+  IF NOT(CASE OLD.kind WHEN 'programme' THEN (OLD.state='draft' AND NEW.state IN('draft','active') OR OLD.state='active' AND NEW.state='archived') WHEN 'request' THEN (OLD.state='draft' AND NEW.state IN('draft','pending_manager','cancelled') OR OLD.state='pending_manager' AND NEW.state IN('pending_hr','rejected','cancelled') OR OLD.state='pending_hr' AND NEW.state IN('approved','rejected','cancelled') OR OLD.state='approved' AND NEW.state IN('cancelled','fulfilled')) WHEN 'session' THEN (OLD.state='draft' AND NEW.state IN('draft','scheduled','cancelled') OR OLD.state='scheduled' AND NEW.state IN('closed','cancelled')) WHEN 'participation' THEN (OLD.state='enrolled' AND NEW.state IN('enrolled','completed','withdrawn')) WHEN 'completion' THEN (OLD.state='submitted' AND NEW.state IN('issued','failed','voided') OR OLD.state='issued' AND NEW.state='revoked') ELSE false END) THEN RAISE EXCEPTION 'Unsupported learning transition';END IF;
+  IF NEW.kind='programme' AND NEW.state='active' AND NEW.updated_by=NEW.created_by OR NEW.kind='request' AND NEW.state IN('pending_hr','approved') AND(NEW.updated_by=NEW.created_by OR NEW.state='approved' AND NEW.updated_by=NEW.manager_decided_by) OR NEW.kind='completion' AND NEW.state IN('issued','failed') AND NEW.updated_by=NEW.created_by THEN RAISE EXCEPTION 'Independent learning approval is required';END IF;
+  IF NEW.kind IN('request','completion') AND NEW.state IN('pending_hr','approved','issued','failed') AND EXISTS(SELECT 1 FROM employee_user_binding b WHERE b.tenant_id=NEW.tenant_id AND b.employee_id=NEW.employee_id AND b.user_id=NEW.updated_by AND b.ended_at IS NULL AND b.effective_from<=current_date AND(b.effective_to IS NULL OR b.effective_to>=current_date)) THEN RAISE EXCEPTION 'An employee cannot approve their own learning';END IF;
+ END IF;
+ IF NEW.programme_id IS NOT NULL THEN SELECT * INTO p FROM hr_learning_record WHERE tenant_id=NEW.tenant_id AND company_id=NEW.company_id AND id=NEW.programme_id;IF p.kind IS DISTINCT FROM 'programme' THEN RAISE EXCEPTION 'Learning programme source is required';END IF;END IF;
+ IF NEW.kind IN('participation','completion') THEN SELECT * INTO p FROM hr_learning_record WHERE tenant_id=NEW.tenant_id AND company_id=NEW.company_id AND id=NEW.parent_id;IF p.kind IS DISTINCT FROM (CASE NEW.kind WHEN 'participation' THEN 'session' ELSE 'participation' END) OR p.programme_id<>NEW.programme_id OR NEW.kind='completion' AND p.employee_id<>NEW.employee_id THEN RAISE EXCEPTION 'Learning parent and employee provenance must match';END IF;END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER learning_record_guard BEFORE INSERT OR UPDATE OR DELETE ON hr_learning_record FOR EACH ROW EXECUTE FUNCTION guard_hr_learning_record();
+CREATE FUNCTION check_hr_learning_event() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM hr_learning_event e WHERE e.tenant_id=NEW.tenant_id AND e.record_id=NEW.id AND e.version=NEW.version AND e.actor_id=NEW.updated_by AND e.after_json=to_jsonb(NEW)) THEN RAISE EXCEPTION 'Learning changes require matching immutable evidence';END IF;
+ RETURN NULL;
+END $$;
+CREATE CONSTRAINT TRIGGER learning_evidence AFTER INSERT OR UPDATE ON hr_learning_record DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION check_hr_learning_event();
+CREATE FUNCTION guard_hr_learning_event() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Learning decisions and evidence are immutable';END $$;
+CREATE TRIGGER learning_event_immutable BEFORE UPDATE OR DELETE ON hr_learning_event FOR EACH ROW EXECUTE FUNCTION guard_hr_learning_event();
+ALTER TABLE hr_learning_record ENABLE ROW LEVEL SECURITY;ALTER TABLE hr_learning_record FORCE ROW LEVEL SECURITY;
+CREATE POLICY learning_record_tenant ON hr_learning_record USING(tenant_id=current_setting('nexora.tenant_id',true)) WITH CHECK(tenant_id=current_setting('nexora.tenant_id',true));
+ALTER TABLE hr_learning_event ENABLE ROW LEVEL SECURITY;ALTER TABLE hr_learning_event FORCE ROW LEVEL SECURITY;
+CREATE POLICY learning_event_tenant ON hr_learning_event USING(tenant_id=current_setting('nexora.tenant_id',true)) WITH CHECK(tenant_id=current_setting('nexora.tenant_id',true));
+INSERT INTO security_permission_definition(permission_key,module,resource,action,description,required_assurance,sensitivity) SELECT 'hr.learning.'||a,'hr','learning',a,'Learning and Development: '||a,'password','sensitive' FROM unnest(ARRAY['read','manage','request','manager_decide','hr_decide','attendance','certify'])a ON CONFLICT DO NOTHING;
+ALTER TABLE tenant NO FORCE ROW LEVEL SECURITY;
+DO $$ DECLARE t text;scope text:=current_setting('nexora.tenant_id',true);BEGIN
+ FOR t IN SELECT id FROM tenant ORDER BY id LOOP
+  PERFORM set_config('nexora.tenant_id',t,true);
+  INSERT INTO security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) SELECT p.tenant_id,p.id,d.permission_key,'all' FROM security_role_policy p JOIN security_tenant_role r ON r.tenant_id=p.tenant_id AND r.role_id=p.role_id CROSS JOIN security_permission_definition d WHERE p.tenant_id=t AND r.role_code='super_administrator' AND r.lifecycle_state='active' AND p.status='active' AND p.lifecycle_state='active' AND d.permission_key IN('hr.learning.read','hr.learning.manage','hr.learning.request','hr.learning.manager_decide','hr.learning.hr_decide','hr.learning.attendance','hr.learning.certify') ON CONFLICT DO NOTHING;
+  INSERT INTO security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) SELECT p.tenant_id,p.id,d.permission_key,'tenant',p.tenant_id FROM security_role_policy p JOIN security_tenant_role r ON r.tenant_id=p.tenant_id AND r.role_id=p.role_id CROSS JOIN security_permission_definition d WHERE p.tenant_id=t AND r.role_code='super_administrator' AND r.lifecycle_state='active' AND p.status='active' AND p.lifecycle_state='active' AND d.permission_key IN('hr.learning.read','hr.learning.manage','hr.learning.request','hr.learning.manager_decide','hr.learning.hr_decide','hr.learning.attendance','hr.learning.certify') ON CONFLICT DO NOTHING;
+  UPDATE security_role_policy p SET permissions=(SELECT jsonb_agg(g.permission_key ORDER BY g.permission_key) FROM security_role_permission_grant g WHERE g.tenant_id=p.tenant_id AND g.role_policy_id=p.id),row_version=p.row_version+1 FROM security_tenant_role r WHERE p.tenant_id=t AND r.tenant_id=p.tenant_id AND r.role_id=p.role_id AND r.role_code='super_administrator' AND r.lifecycle_state='active' AND p.status='active' AND p.lifecycle_state='active';
+ END LOOP;PERFORM set_config('nexora.tenant_id',coalesce(scope,''),true);
+END $$;
+ALTER TABLE tenant FORCE ROW LEVEL SECURITY;
+INSERT INTO nexora_schema_migration(module_name,version,name) VALUES('hr',121,'learning_and_development');
