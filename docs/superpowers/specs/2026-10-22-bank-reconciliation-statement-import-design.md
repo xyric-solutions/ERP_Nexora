@@ -132,9 +132,11 @@ A partial unique constraint prevents more than one non-approved reconciliation f
 
 Confirmed matches are unique on both statement line and journal line within active reconciliations. Reversed journal entries are ineligible and invalidate unapproved proposals.
 
-### 4.6 Adjustment reference
+### 4.6 Bank-only adjustment
 
-`bank_reconciliation_adjustment` does not post directly. It links a bank-only statement line to the separately approved adjustment/accounting transaction and records its readiness state. Reconciliation approval requires the referenced accounting entry to be posted and eligible.
+`bank_reconciliation_adjustment` is a separate governed transaction for one unmatched included statement line. It captures adjustment kind, eligible offset nominal and narrative while taking the bank direction/amount immutably from the statement line. Its lifecycle is `draft`, `submitted`, `approved`, `posted` or `reversed`.
+
+Approval and posting are separate actions. Posting uses the existing Finance posting authority to create one balanced accounting event/journal: money-in debits the governed Bank nominal and credits the offset; money-out credits Bank and debits the offset. Reversal is compensating. Reconciliation approval requires the adjustment to be posted and its Bank journal line to be matched normally.
 
 ### 4.7 Events
 
@@ -156,7 +158,7 @@ The server validates:
 - one selected worksheet and at most 1,000 data rows;
 - bounded column count and cell length.
 
-Formula cells are read as inert values only. No formula, macro, hyperlink or external workbook reference is evaluated.
+Formula cells are read as inert values only. No formula, macro, hyperlink or external workbook reference is evaluated. Before workbook materialization, the server applies bounded ZIP controls for compressed and expanded bytes, entry counts, individual-entry size, compression ratio and XML/shared-string/style size, and rejects traversal, entity expansion, encryption, macros and external relationships.
 
 ### 5.2 Mapping and preview
 
@@ -220,6 +222,10 @@ Users can manually select one eligible statement row and one eligible journal li
 3. Exact matches are confirmed; suggestions and unmatched rows remain visible.
 4. The user confirms/rejects suggestions, creates manual matches, excludes permitted non-transaction rows with a reason, or routes bank-only rows through the separate adjustment workflow.
 5. The server recalculates counts, balances and difference after every mutation.
+   - Bank-nominal debit is money-in and credit is money-out.
+   - Statement reconstruction is opening statement balance plus statement money-in less statement money-out.
+   - Adjusted ledger balance is ledger balance at cutoff less unmatched ledger money-in plus unmatched ledger money-out.
+   - Difference is closing statement balance less adjusted ledger balance, rounded once to the Bank Account currency precision.
 6. Submission is allowed only when:
    - difference is zero to the Bank Account currency precision;
    - every included statement row is matched or resolved by a posted approved adjustment;
@@ -279,6 +285,7 @@ Contracts are added to `packages/contracts`, exposed through OpenAPI, and consum
 - `GET /api/v1/banking/statement_imports`
 - `GET /api/v1/banking/statement_imports/{id}`
 - `PATCH /api/v1/banking/statement_imports/{id}/mapping`
+- `PATCH /api/v1/banking/statement_imports/{id}/lines/{lineId}`
 - `POST /api/v1/banking/statement_imports/{id}/validate`
 - `POST /api/v1/banking/statement_imports/{id}/finalize`
 - `GET/POST/PATCH /api/v1/banking/statement_mapping_profiles`
@@ -286,7 +293,14 @@ Contracts are added to `packages/contracts`, exposed through OpenAPI, and consum
 - `POST /api/v1/banking/reconciliations`
 - `GET /api/v1/banking/reconciliations/{id}`
 - `POST /api/v1/banking/reconciliations/{id}/matches`
+- `POST /api/v1/banking/reconciliations/{id}/matches/{matchId}/decision`
 - `DELETE /api/v1/banking/reconciliations/{id}/matches/{matchId}`
+- `POST /api/v1/banking/reconciliations/{id}/adjustments`
+- `PATCH /api/v1/banking/reconciliations/{id}/adjustments/{adjustmentId}`
+- `POST /api/v1/banking/reconciliations/{id}/adjustments/{adjustmentId}/submit`
+- `POST /api/v1/banking/reconciliations/{id}/adjustments/{adjustmentId}/decision`
+- `POST /api/v1/banking/reconciliations/{id}/adjustments/{adjustmentId}/post`
+- `POST /api/v1/banking/reconciliations/{id}/adjustments/{adjustmentId}/reverse`
 - `POST /api/v1/banking/reconciliations/{id}/submit`
 - `POST /api/v1/banking/reconciliations/{id}/decision`
 
@@ -308,6 +322,13 @@ Add distinct permission definitions without implicitly granting them:
 - `banking.reconciliation.match`
 - `banking.reconciliation.submit`
 - `banking.reconciliation.approve`
+- `banking.reconciliation_adjustment.read`
+- `banking.reconciliation_adjustment.create`
+- `banking.reconciliation_adjustment.update`
+- `banking.reconciliation_adjustment.submit`
+- `banking.reconciliation_adjustment.approve`
+- `banking.reconciliation_adjustment.post`
+- `banking.reconciliation_adjustment.reverse`
 
 Every repository query and mutation rechecks tenant, company, Bank Account and permission scope. UI visibility is not authorization. Shoaib receives a local company-scoped overlay for testing; shared production roles are not broadened automatically.
 
