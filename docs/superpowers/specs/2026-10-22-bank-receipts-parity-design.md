@@ -1,7 +1,8 @@
 # Bank Receipts parity with Bank Payments
 
-Status: design direction approved by the user on 2026-10-22. This written
-specification is awaiting the required review checkpoint before implementation.
+Status: the original parity specification was reviewed and implemented on
+2026-10-22. The single-Details-control refinement below is direction-approved
+and awaiting written-amendment review before implementation.
 
 ## Objective
 
@@ -143,3 +144,27 @@ approved reference; receipt-specific fields and accounting direction remain;
 posting and reversal safeguards are unchanged; Bank Transfer is deferred. After
 written-spec approval, create the implementation plan and begin the focused gap
 analysis.
+
+## Approved refinement — single Receipt Details control
+
+The user approved this refinement on 2026-10-22 after reviewing the implemented
+Receipt entry grid. The Details column must show one control, not separate
+Received from and optional receipt-details controls.
+
+- Replace both visible controls with one required textarea labelled `Details *`.
+- Initialize the textarea from persisted narration when present, otherwise from
+  persisted payer name.
+- On create or edit, store the single Details value in both the existing required
+  `payer_name` field and the existing optional `narration` field. This preserves
+  the current API/database contract, payer summaries, directory search/detail
+  projections and historical compatibility without a migration.
+- Validation reports one required Details error. The UI no longer exposes a
+  separate Received from label or a second optional narration box.
+- Existing reference, amount, nominal, dimensions, workflow context, accounting
+  direction, approval, posting, reversal and audit behavior remain unchanged.
+- Update focused component and browser selectors to use `Line <n> details` and
+  verify that the single value is persisted to both compatible receipt fields.
+
+Rejected alternatives: storing the value only as payer name would leave Receipt
+narration/search/detail projections inconsistent; replacing both backend fields
+with a new schema field would add an unnecessary contract and migration change.
