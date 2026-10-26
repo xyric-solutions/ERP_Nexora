@@ -2,9 +2,9 @@ import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { hrMasters } from "../app/hr-core-data.ts";
-import { phase5ReportIds } from "../app/hr-reporting-data.ts";
-import { prototypeModules } from "../app/prototype-data.ts";
+import { hrMasters } from "../app/features/hr/model/hr-core-data.ts";
+import { phase5ReportIds } from "../app/features/hr/model/hr-reporting-data.ts";
+import { prototypeModules } from "../app/shell/config/prototype-data.ts";
 
 const parityDirectoryUrl = new URL("../docs/parity/", import.meta.url);
 const manifestUrl = new URL("prototype-manifest.json", parityDirectoryUrl);
@@ -29,9 +29,9 @@ async function extractStringArray(relativePath, exportName) {
 
 async function rendererPageSets() {
   const [attendance, lifecycle, payroll] = await Promise.all([
-    extractStringArray("../app/hr-attendance-screens.tsx", "HR_ATTENDANCE_PAGES"),
-    extractStringArray("../app/hr-lifecycle-screens.tsx", "HR_LIFECYCLE_PAGES"),
-    extractStringArray("../app/hr-payroll-screens.tsx", "HR_PAYROLL_PAGES"),
+    extractStringArray("../app/features/hr/views/hr-attendance-screens.tsx", "HR_ATTENDANCE_PAGES"),
+    extractStringArray("../app/features/hr/views/hr-lifecycle-screens.tsx", "HR_LIFECYCLE_PAGES"),
+    extractStringArray("../app/features/hr/views/hr-payroll-screens.tsx", "HR_PAYROLL_PAGES"),
   ]);
   return {
     attendance: new Set(attendance),
@@ -98,8 +98,47 @@ export async function buildHrParityRows() {
   const sets = await rendererPageSets();
   return hrModule.groups.flatMap((group) => group.pages.map((page) => {
     let renderer = "ListView (generic fallback)";
-    if (page.id === "org-structure") renderer = "HrOrgStructure";
+    if (page.id === "org-structure") renderer = "HrOrganizationStructureWorkspace";
+    else if (page.id === "hr-dashboard") renderer = "HrDashboardWorkspace";
+    else if (page.id === "finance-payroll-dashboard") renderer = "HrFinancePayrollDashboardWorkspace";
+    else if (page.id === "employees") renderer = "HrEmployeeDirectory";
+    else if (page.id === "employee-record") renderer = "HrEmployeeRecordWorkspace";
+    else if (page.id === "positions-org") renderer = "HrPositionsOrganizationWorkspace";
+    else if (page.id === "manpower-requisitions") renderer = "HrManpowerRequisitionsWorkspace";
+    else if (page.id === "job-openings") renderer = "HrJobOpeningsWorkspace";
+    else if (page.id === "create-employee-from-offer") renderer = "HrOfferEmployeeWorkspace";
+    else if (['overtime','attendance-period','attendance-payroll-inputs'].includes(page.id)) renderer = "HrAttendanceCompletionWorkspace";
+    else if (['leave-types','leave-balances','leave-requests','leave-request','leave-approval'].includes(page.id)) renderer = "HrTimeLeaveWorkspace";
+    else if (['payroll-runs','payroll-validation'].includes(page.id)) renderer = "HrPayrollRunsWorkspace";
+    else if (page.id === "payslips") renderer = "HrPayslipsWorkspace";
+    else if (page.id === "payroll-journal") renderer = "HrPayrollJournalWorkspace";
+    else if (['payroll-setup','salary-structures','salary-revisions','payroll-inputs','employee-loans','payroll-runs','payroll-validation','payroll-journal','payment-batch','payslips'].includes(page.id)) renderer = "HrPayrollWorkspace";
+      else if (page.id === 'attendance') renderer = "HrDailyAttendanceWorkspace";
+    else if (page.id === "attendance-corrections") renderer = "HrAttendanceCorrectionsWorkspace";
+    else if (page.id === "monthly-attendance") renderer = "HrMonthlyAttendanceWorkspace";
+    else if (page.id === "daily-attendance") renderer = "HrDailyAttendanceWorkspace";
+    else if (page.id === "shift-assignments") renderer = "HrShiftAssignmentsWorkspace";
+    else if (page.id === "shifts") renderer = "HrShiftsWorkspace";
+    else if (page.id === "offers") renderer = "HrOfferManagementWorkspace";
+    else if (page.id === "interviews") renderer = "HrInterviewsWorkspace";
+    else if (page.id === "recruitment-pipeline") renderer = "HrRecruitmentPipelineWorkspace";
+    else if (page.id === "candidates") renderer = "HrCandidateDirectoryWorkspace";
+    else if (page.id === "add-employee") renderer = "HrEmployeeDraftForm";
+    else if (page.id === "employee-drafts") renderer = "HrEmployeeDraftsWorkspace";
+    else if (page.id === "employee-approvals") renderer = "HrEmployeeApprovalsWorkspace";
+    else if (page.id === "employee-contacts") renderer = "HrEmployeeContactsWorkspace";
+    else if (page.id === "employee-emergency-contacts") renderer = "HrEmployeeEmergencyContactsWorkspace";
+    else if (page.id === "employee-documents") renderer = "HrEmployeeDocumentsWorkspace";
+    else if (page.id === "employee-assignments") renderer = "HrEmployeeAssignmentsWorkspace";
+    else if (page.id === "employee-status-history") renderer = "HrEmployeeHistoryWorkspace";
+    else if (page.id === "designations") renderer = "HrMasterCatalogueWorkspace";
+    else if (page.id === "job-grades") renderer = "HrJobGradesWorkspace";
+    else if (page.id === "jobs") renderer = "HrJobsWorkspace";
+    else if (["cost-centres", "work-locations", "employment-types", "employee-categories"].includes(page.id)) renderer = "HrConfiguredMasterWorkspace";
     else if (sets.masters.has(page.id)) renderer = "HrMasterScreen";
+    else if (["performance-cycles","goals-kpis","performance-reviews","performance-outcomes"].includes(page.id)) renderer = "HrPerformanceWorkspace";
+    else if (["onboarding","probation-reviews","resignations","terminations","clearance","final-settlements","offboarding"].includes(page.id)) renderer = "HrLifecycleCasesWorkspace";
+    else if (page.id === "employee-movements") renderer = "HrLifecycleMovementsWorkspace";
     else if (sets.lifecycle.has(page.id)) renderer = "HrLifecycleScreen";
     else if (sets.payroll.has(page.id)) renderer = "HrPayrollScreen";
     else if (sets.attendance.has(page.id)) renderer = "HrAttendanceScreen";
@@ -113,7 +152,7 @@ export async function buildHrParityRows() {
       archetype: page.archetype,
       catalogue_status: page.status,
       current_renderer: renderer,
-      audit_status: renderer.includes("generic fallback") ? "GENERIC_FALLBACK" : "DEDICATED_MOCK",
+      audit_status: page.status === "in-progress" ? "CONNECTED_API_IN_PROGRESS" : page.status === "live" ? "LIVE_API_AUDITED" : page.status === "read-only" ? "READ_ONLY_API_AUDITED" : renderer.includes("generic fallback") ? "GENERIC_FALLBACK" : "DEDICATED_MOCK",
       production_module: productionModuleFor(group.id, page.id),
     };
   }));

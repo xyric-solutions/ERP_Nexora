@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { HrEmployeeDraftDetail } from "@nexora/contracts";
 
@@ -18,10 +18,8 @@ type LoadState = "loading" | "ready" | "unavailable";
 
 export function HrEmployeeDraftsWorkspace({
   onAction,
-  fallback,
 }: {
   onAction: (action: string, subject?: string) => void;
-  fallback: ReactNode;
 }) {
   const { api, csrfToken, session } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
@@ -129,15 +127,12 @@ export function HrEmployeeDraftsWorkspace({
 
   if (state === "unavailable") {
     return (
-      <>
-        <Alert>
-          <AlertTitle>Live employee drafts are unavailable</AlertTitle>
-          <AlertDescription>
-            The existing prototype screen remains available until the API deployment and HR access are verified.
-          </AlertDescription>
-        </Alert>
-        {fallback}
-      </>
+      <Alert>
+        <AlertTitle>Live employee drafts are unavailable</AlertTitle>
+        <AlertDescription>
+          The live draft directory could not be loaded. No cached or prototype employee records are shown.
+        </AlertDescription>
+      </Alert>
     );
   }
 

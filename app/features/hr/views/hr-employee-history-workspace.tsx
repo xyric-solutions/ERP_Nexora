@@ -233,11 +233,11 @@ export function HrEmployeeHistoryWorkspace() {
           Status, lifecycle and profile evidence is read-only. Changes must continue through their governed workflows.
         </AlertDescription>
       </Alert>
-      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 shadow-sm md:grid-cols-2">
-        <label className="grid gap-1.5 text-sm font-medium">
+      <div className="grid min-w-0 gap-3 rounded-lg border border-border bg-card p-3 shadow-sm md:grid-cols-2">
+        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
           Company
           <select
-            className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
+            className="h-9 w-full min-w-0 max-w-full rounded-md border border-input bg-background px-2.5 text-sm"
             value={companyId}
             onChange={(event) => chooseCompany(event.target.value)}
             disabled={directoryState === "loading"}
@@ -249,10 +249,10 @@ export function HrEmployeeHistoryWorkspace() {
             ))}
           </select>
         </label>
-        <label className="grid gap-1.5 text-sm font-medium">
+        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
           Employee
           <select
-            className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
+            className="h-9 w-full min-w-0 max-w-full rounded-md border border-input bg-background px-2.5 text-sm"
             value={employeeId}
             onChange={(event) => chooseEmployee(event.target.value)}
             disabled={directoryState !== "ready"}

@@ -1,3 +1,4 @@
+import { hrEmployeeAssignmentDirectorySchema } from "../../packages/contracts/src/hr/index.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 
@@ -261,7 +262,9 @@ run("HR foundation API repository", () => {
         }),
       ]),
     );
-    expect(JSON.stringify(assignments)).not.toContain("reporting_manager_id");
+    expect(hrEmployeeAssignmentDirectorySchema.safeParse(assignments).success).toBe(true);
+    for (const field of ["personal_email", "salary", "bank_account", "tax_identifier"])
+      expect(JSON.stringify(assignments)).not.toContain(field);
     await expect(
       repository.listEmployeeAssignments(context("r06.maker"), "r06-uat-employee-target"),
     ).rejects.toMatchObject({
@@ -527,64 +530,81 @@ run("HR foundation API repository", () => {
 
   it("requires an independent approver and separately activates a current lifecycle policy", async () => {
     const suffix = randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase();
-    const manager = context("r06.maker");
-    manager.actor.permissions = ["hr.employment_lifecycle_policy.manage"];
-    const created = await repository.createEmploymentLifecyclePolicy(
-      manager,
-      {
-        company_id: "nexora-r06-uat-company",
-        code: `R06-APPROVE-${suffix}`,
-        name: "Approval-controlled lifecycle",
-        effective_from: "2026-10-15",
-      },
-      `lifecycle-policy-create-approval-${suffix}`,
-      "hr-test-correlation",
+    const companyId = `policy-fixture-${suffix}`;
+    await pool.query(
+      "insert into organization_unit (id,tenant_id,parent_id,type,code,name,status) values ($1,$2,null,'company',$3,'Isolated policy approval test','active')",
+      [companyId, sourceTestTenantId, `POL-${suffix}`],
     );
-    await repository.submitEmploymentLifecyclePolicy(
-      manager,
-      created.id,
-      { reason: "Ready for independent approval." },
-      `lifecycle-policy-submit-approval-${suffix}`,
-      "hr-test-correlation",
-    );
-    manager.actor.permissions = ["hr.employment_lifecycle_policy.manage", "hr.employment_lifecycle_policy.approve"];
-    const approver = context("r06.checker");
-    approver.actor.permissions = ["hr.employment_lifecycle_policy.approve"];
-    await expect(
-      repository.approveEmploymentLifecyclePolicy(
+    for (const userId of ["r06.maker", "r06.checker"])
+      await pool.query(
+        "insert into security_user_company_access (tenant_id,access_id,user_id,company_id,is_default,granted_by,source_kind,source_reference) values ($1,$2,$3,$4,false,'r06.last-admin-a','governed_administration','isolated-policy-regression-fixture')",
+        [sourceTestTenantId, `policy-access-${suffix}-${userId}`, userId, companyId],
+      );
+    try {
+      const manager = context("r06.maker");
+      manager.actor.permissions = ["hr.employment_lifecycle_policy.manage"];
+      const created = await repository.createEmploymentLifecyclePolicy(
+        manager,
+        {
+          company_id: companyId,
+          code: `R06-APPROVE-${suffix}`,
+          name: "Approval-controlled lifecycle",
+          effective_from: (await pool.query<{ today: string }>("select current_date::text as today")).rows[0]!.today,
+        },
+        `lifecycle-policy-create-approval-${suffix}`,
+        "hr-test-correlation",
+      );
+      await repository.submitEmploymentLifecyclePolicy(
         manager,
         created.id,
-        { reason: "Self approval attempt." },
-        `lifecycle-policy-self-${suffix}`,
+        { reason: "Ready for independent approval." },
+        `lifecycle-policy-submit-approval-${suffix}`,
         "hr-test-correlation",
-      ),
-    ).rejects.toMatchObject({ status: 403, code: "HR_SELF_APPROVAL_FORBIDDEN" } satisfies Partial<HrApiError>);
-    const approved = await repository.approveEmploymentLifecyclePolicy(
-      approver,
-      created.id,
-      { reason: "Independently reviewed and approved." },
-      `lifecycle-policy-approve-${suffix}`,
-      "hr-test-correlation",
-    );
-    expect(approved).toMatchObject({ id: created.id, status: "approved", replayed: false });
-    const policy = await pool.query<{ status: string; approved_by: string | null; activated_by: string | null }>(
-      "select status,approved_by,activated_by from hr_employment_lifecycle_policy where tenant_id=$1 and id=$2",
-      [sourceTestTenantId, created.id],
-    );
-    expect(policy.rows).toEqual([{ status: "approved", approved_by: "r06.checker", activated_by: null }]);
-    const activated = await repository.activateEmploymentLifecyclePolicy(
-      approver,
-      created.id,
-      { reason: "Approved policy is effective today." },
-      `lifecycle-policy-activate-${suffix}`,
-      "hr-test-correlation",
-    );
-    expect(activated).toMatchObject({ id: created.id, status: "active", replayed: false });
-    const active = await pool.query<{ status: string; activated_by: string | null }>(
-      "select status,activated_by from hr_employment_lifecycle_policy where tenant_id=$1 and id=$2",
-      [sourceTestTenantId, created.id],
-    );
-    expect(active.rows).toEqual([{ status: "active", activated_by: "r06.checker" }]);
+      );
+      manager.actor.permissions = ["hr.employment_lifecycle_policy.manage", "hr.employment_lifecycle_policy.approve"];
+      const approver = context("r06.checker");
+      approver.actor.permissions = ["hr.employment_lifecycle_policy.approve"];
+      await expect(
+        repository.approveEmploymentLifecyclePolicy(
+          manager,
+          created.id,
+          { reason: "Self approval attempt." },
+          `lifecycle-policy-self-${suffix}`,
+          "hr-test-correlation",
+        ),
+      ).rejects.toMatchObject({ status: 403, code: "HR_SELF_APPROVAL_FORBIDDEN" } satisfies Partial<HrApiError>);
+      const approved = await repository.approveEmploymentLifecyclePolicy(
+        approver,
+        created.id,
+        { reason: "Independently reviewed and approved." },
+        `lifecycle-policy-approve-${suffix}`,
+        "hr-test-correlation",
+      );
+      expect(approved).toMatchObject({ id: created.id, status: "approved", replayed: false });
+      const policy = await pool.query<{ status: string; approved_by: string | null; activated_by: string | null }>(
+        "select status,approved_by,activated_by from hr_employment_lifecycle_policy where tenant_id=$1 and id=$2",
+        [sourceTestTenantId, created.id],
+      );
+      expect(policy.rows).toEqual([{ status: "approved", approved_by: "r06.checker", activated_by: null }]);
+      const activated = await repository.activateEmploymentLifecyclePolicy(
+        approver,
+        created.id,
+        { reason: "Approved policy is effective today." },
+        `lifecycle-policy-activate-${suffix}`,
+        "hr-test-correlation",
+      );
+      expect(activated).toMatchObject({ id: created.id, status: "active", replayed: false });
+      const active = await pool.query<{ status: string; activated_by: string | null }>(
+        "select status,activated_by from hr_employment_lifecycle_policy where tenant_id=$1 and id=$2",
+        [sourceTestTenantId, created.id],
+      );
+      expect(active.rows).toEqual([{ status: "active", activated_by: "r06.checker" }]);
+    } finally {
+      await pool.query(
+        "update security_user_company_access set revoked_by='r06.last-admin-a',revoked_at=now(),revocation_reason='Isolated policy regression fixture completed' where tenant_id=$1 and company_id=$2 and revoked_at is null",
+        [sourceTestTenantId, companyId],
+      );
+    }
   });
 
   it("rejects a company outside the authenticated user's access and an unknown tenant", async () => {

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { HrEmployeeAssignmentDirectory, HrEmployeeDirectory } from "@nexora/contracts";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
@@ -27,6 +28,7 @@ function assignmentVariant(status: HrEmployeeAssignmentDirectory["items"][number
 export function HrEmployeeAssignmentsWorkspace() {
   const { api, csrfToken, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
+  const [companyRevision, setCompanyRevision] = useState(0);
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [employees, setEmployees] = useState<HrEmployeeDirectory["items"]>([]);
@@ -67,14 +69,11 @@ export function HrEmployeeAssignmentsWorkspace() {
     return () => {
       active = false;
     };
-  }, [canReadAssignments, canReadEmployees, client, sessionLoading]);
+  }, [canReadAssignments, canReadEmployees, client, sessionLoading, companyRevision]);
 
   useEffect(() => {
     if (!companyId) return;
     let active = true;
-    setState("loading");
-    setEmployeeId("");
-    setAssignments([]);
     client
       .employees({ companyId, limit: 100 })
       .then((result) => {
@@ -93,7 +92,6 @@ export function HrEmployeeAssignmentsWorkspace() {
   useEffect(() => {
     if (!employeeId) return;
     let active = true;
-    setAssignmentState("loading");
     client
       .employeeAssignments(employeeId)
       .then((result) => {
@@ -128,14 +126,29 @@ export function HrEmployeeAssignmentsWorkspace() {
         </AlertDescription>
       </Alert>
       <div className="grid gap-3 rounded-lg border border-border bg-card p-3 shadow-sm md:grid-cols-2">
-        <label className="grid gap-1.5 text-sm font-medium">
+        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
           Company
           <select
-            className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
+            className="h-9 w-full min-w-0 rounded-md border border-input bg-background px-2.5 text-sm"
             value={companyId}
-            onChange={(event) => setCompanyId(event.target.value)}
-            disabled={state === "loading"}
+            onChange={(event) => {
+              setState("loading");
+              setEmployeeId("");
+              setAssignments([]);
+              setAssignmentState("ready");
+              setCompanyId(event.target.value);
+            }}
+            disabled={state === "loading" || !companies.length}
           >
+            {!companies.length && (
+              <option value="">
+                {state === "loading"
+                  ? "Loading authorized companies…"
+                  : state === "error"
+                    ? "Companies could not be loaded"
+                    : "No authorized companies"}
+              </option>
+            )}
             {companies.map((company) => (
               <option key={company.id} value={company.id}>
                 {company.name} ({company.code})
@@ -143,12 +156,16 @@ export function HrEmployeeAssignmentsWorkspace() {
             ))}
           </select>
         </label>
-        <label className="grid gap-1.5 text-sm font-medium">
+        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
           Employee
           <select
-            className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
+            className="h-9 w-full min-w-0 rounded-md border border-input bg-background px-2.5 text-sm"
             value={employeeId}
-            onChange={(event) => setEmployeeId(event.target.value)}
+            onChange={(event) => {
+              setAssignmentState(event.target.value ? "loading" : "ready");
+              setAssignments([]);
+              setEmployeeId(event.target.value);
+            }}
             disabled={state !== "ready"}
           >
             <option value="">Select an employee</option>
@@ -163,7 +180,21 @@ export function HrEmployeeAssignmentsWorkspace() {
       {state === "error" && (
         <Alert variant="destructive">
           <AlertTitle>Live HR data unavailable</AlertTitle>
-          <AlertDescription>No mock assignment history is shown.</AlertDescription>
+          <AlertDescription>
+            Authorized companies or employees could not be loaded. Retry the request or select another authorized
+            company.
+          </AlertDescription>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3"
+            onClick={() => {
+              setState("loading");
+              setCompanyRevision((v) => v + 1);
+            }}
+          >
+            Retry movement companies
+          </Button>
         </Alert>
       )}
       {state === "loading" && <Skeleton className="h-20 w-full" />}
@@ -231,7 +262,10 @@ export function HrEmployeeAssignmentsWorkspace() {
             assignments={assignments}
             canCreateAssignment={canCreateAssignment}
             canRequestHire={canRequestHire}
-            onAssignmentCreated={() => setAssignmentRefreshKey((current) => current + 1)}
+            onAssignmentCreated={() => {
+              setAssignmentState("loading");
+              setAssignmentRefreshKey((current) => current + 1);
+            }}
           />
           <HrTransferMakerPanel
             key={`transfer:${companyId}:${employeeId}:${assignmentRefreshKey}`}

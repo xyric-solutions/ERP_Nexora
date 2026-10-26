@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type {
   AuthenticationCompletionResponse,
   CancelTenantSelectionRequest,
@@ -33,9 +33,9 @@ interface SessionContextValue {
 const SessionContext = createContext<SessionContextValue | null>(null);
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
-  const api = useMemo(() => new NexoraApiClient(apiBaseUrl()), []);
-  const client = useMemo(() => new BrowserSessionClient(api), [api]);
   const [session, setSession] = useState<SessionResponse | null>(null);
+  const api = useMemo(() => new NexoraApiClient(apiBaseUrl(), 20_000, () => setSession(null)), []);
+  const client = useMemo(() => new BrowserSessionClient(api), [api]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
@@ -92,8 +92,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         return result;
       },
       async logout() {
-        await client.logout();
-        setSession(null);
+        try {
+          await client.logout();
+        } finally {
+          setSession(null);
+        }
       },
       async endImpersonation() {
         if (!session?.impersonation) return;
@@ -120,14 +123,30 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   return (
     <SessionContext.Provider value={value}>
       {session?.impersonation ? (
-        <div className="sticky top-0 z-[100] flex flex-wrap items-center justify-between gap-3 border-b border-amber-700 bg-amber-100 px-4 py-3 text-sm text-amber-950" role="alert">
+        <div
+          className="sticky top-0 z-[100] flex flex-wrap items-center justify-between gap-3 border-b border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] px-4 py-3 text-sm text-[var(--nx-warning)]"
+          role="alert"
+        >
           <p>
-            <strong>{session.impersonation.real_user.display_name} is impersonating {session.user.display_name}.</strong> Read-only operational access ends at {new Date(session.impersonation.expires_at).toLocaleTimeString()}.
+            <strong>
+              {session.impersonation.real_user.display_name} is impersonating {session.user.display_name}.
+            </strong>{" "}
+            Read-only operational access ends at {new Date(session.impersonation.expires_at).toLocaleTimeString()}.
           </p>
-          <Button type="button" variant="destructive" size="sm" onClick={() => void value.endImpersonation()}>End session</Button>
+          <Button type="button" variant="destructive" size="sm" onClick={() => void value.endImpersonation()}>
+            End session
+          </Button>
         </div>
       ) : null}
-      {children}
+      <Fragment
+        key={
+          session
+            ? session.tenant_id + ":" + session.user.id + ":" + (session.impersonation?.request_id ?? "")
+            : "anonymous"
+        }
+      >
+        {children}
+      </Fragment>
     </SessionContext.Provider>
   );
 }

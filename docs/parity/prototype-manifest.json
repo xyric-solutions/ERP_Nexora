@@ -4,6 +4,7 @@
   "counts": {
     "modules": 35,
     "groups": 146,
+    "pages": 802
     "pages": 791
   },
   "modules": [
@@ -279,6 +280,12 @@
               "id": "add-bank-account",
               "label": "Bank Account Setup",
               "archetype": "form",
+              "status": "prototype"
+            },
+            {
+              "id": "bank-account-approvals",
+              "label": "Bank Account Approvals",
+              "archetype": "approval",
               "status": "prototype"
             },
             {
@@ -2729,43 +2736,49 @@
               "id": "org-structure",
               "label": "Organisation Structure",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "designations",
               "label": "Designations",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "job-grades",
               "label": "Job Grades",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
+            },
+            {
+              "id": "jobs",
+              "label": "Jobs",
+              "archetype": "list",
+              "status": "live"
             },
             {
               "id": "cost-centres",
               "label": "Cost Centres",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "work-locations",
               "label": "Work Locations",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "employment-types",
               "label": "Employment Types",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "employee-categories",
               "label": "Employee Categories",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         },
@@ -2777,37 +2790,79 @@
               "id": "hr-dashboard",
               "label": "HR Dashboard",
               "archetype": "dashboard",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "finance-payroll-dashboard",
               "label": "Finance / Payroll Dashboard",
               "archetype": "dashboard",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "employees",
               "label": "Employee Directory",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "add-employee",
               "label": "Add Employee",
               "archetype": "form",
-              "status": "prototype"
+              "status": "live"
+            },
+            {
+              "id": "employee-drafts",
+              "label": "Employee Drafts",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "employee-approvals",
+              "label": "Employee Approvals",
+              "archetype": "approval",
+              "status": "live"
+            },
+            {
+              "id": "employee-contacts",
+              "label": "Employee Contacts",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "employee-emergency-contacts",
+              "label": "Emergency Contacts",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "employee-documents",
+              "label": "Employee Documents",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "employee-assignments",
+              "label": "Employment Assignments",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "employee-status-history",
+              "label": "Employee History",
+              "archetype": "list",
+              "status": "live"
             },
             {
               "id": "employee-record",
               "label": "Employee Record",
               "archetype": "detail",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "positions-org",
               "label": "Positions & Organisation",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         },
@@ -2819,43 +2874,43 @@
               "id": "manpower-requisitions",
               "label": "Manpower Requisitions",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "job-openings",
               "label": "Job Openings",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "candidates",
               "label": "Candidate Directory",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "recruitment-pipeline",
               "label": "Recruitment Pipeline",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "interviews",
               "label": "Interviews & Evaluations",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "offers",
               "label": "Offer Management",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "create-employee-from-offer",
               "label": "Create Employee from Offer",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         },
@@ -2867,49 +2922,49 @@
               "id": "shifts",
               "label": "Shifts & Rules",
               "archetype": "settings",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "shift-assignments",
               "label": "Shift Assignments",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "daily-attendance",
               "label": "Daily Attendance",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "monthly-attendance",
               "label": "Monthly Attendance",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "attendance-corrections",
               "label": "Attendance Corrections",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "overtime",
               "label": "Overtime",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "attendance-period",
               "label": "Attendance Period Close",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "attendance-payroll-inputs",
               "label": "Attendance → Payroll Inputs",
               "archetype": "report",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         },
@@ -2921,37 +2976,37 @@
               "id": "leave-types",
               "label": "Leave Types",
               "archetype": "settings",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "leave-balances",
               "label": "Leave Balances",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "attendance",
               "label": "Attendance",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "leave-requests",
               "label": "Leave Requests",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "leave-request",
               "label": "Add Leave Request",
               "archetype": "form",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "leave-approval",
               "label": "Leave Approval",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         },
@@ -2963,61 +3018,61 @@
               "id": "payroll-setup",
               "label": "Pay Components",
               "archetype": "settings",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "salary-structures",
               "label": "Salary Structures",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "salary-revisions",
               "label": "Salary Revisions",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "payroll-inputs",
               "label": "Payroll Inputs",
               "archetype": "form",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "payroll-runs",
               "label": "Payroll Runs",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "payroll-validation",
               "label": "Payroll Review & Approval",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "employee-loans",
               "label": "Loans & Advances",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "payroll-journal",
               "label": "Payroll Journal",
               "archetype": "report",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "payment-batch",
               "label": "Payment Batch",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "read-only"
             },
             {
               "id": "payslips",
-              "label": "Payslips & Payment Handoff",
+              "label": "Payslips",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         },
@@ -3029,25 +3084,25 @@
               "id": "performance-cycles",
               "label": "Performance Cycles",
               "archetype": "settings",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "goals-kpis",
               "label": "Goals & KPIs",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "performance-reviews",
               "label": "Performance Reviews",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "performance-outcomes",
               "label": "Performance Outcomes",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         },
@@ -3059,25 +3114,25 @@
               "id": "training-programs",
               "label": "Training Programmes",
               "archetype": "settings",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "training-requests",
               "label": "Training Requests",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "training-sessions",
               "label": "Training Sessions",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "training-completions",
               "label": "Completion & Certificates",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         },
@@ -3086,52 +3141,58 @@
           "label": "Employee Lifecycle",
           "pages": [
             {
+              "id": "lifecycle-policies",
+              "label": "Lifecycle Policies",
+              "archetype": "settings",
+              "status": "live"
+            },
+            {
               "id": "onboarding",
               "label": "Onboarding",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "probation-reviews",
               "label": "Probation Reviews",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "employee-movements",
               "label": "Transfers, Promotions & Movements",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "resignations",
               "label": "Resignations",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "terminations",
               "label": "Termination Cases",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "clearance",
               "label": "Exit Clearance",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "final-settlements",
               "label": "Final Settlements",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "offboarding",
               "label": "Offboarding Control Centre",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         },
@@ -3143,25 +3204,25 @@
               "id": "loans-benefits",
               "label": "Loans, Benefits & Gratuity",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "statutory-deductions",
               "label": "Statutory Deductions",
               "archetype": "settings",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "employee-self-service",
               "label": "Employee Self-service",
               "archetype": "dashboard",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "hr-report-centre",
               "label": "HR & Payroll Report Centre",
               "archetype": "report",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         },
@@ -3173,19 +3234,19 @@
               "id": "hr-compliance-configuration",
               "label": "Compliance Configuration",
               "archetype": "settings",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "hr-report-audit-log",
               "label": "Report Audit Log",
               "archetype": "report",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "hr-export-centre",
               "label": "Secure Export Centre",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         }

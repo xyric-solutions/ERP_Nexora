@@ -16,6 +16,7 @@ const eslintConfig = defineConfig([
     "**/coverage/**",
     "**/playwright-report/**",
     "**/test-results/**",
+    "tmp/**",
     "next-env.d.ts",
   ]),
   eslint.configs.recommended,

@@ -58,7 +58,11 @@
     "catalogue:check": "node scripts/generate-prototype-manifest.mjs --check",
     "legacy:dev": "vinext dev",
     "legacy:build": "vinext build",
-    "legacy:start": "vinext start"
+    "legacy:start": "vinext start",
+    "payroll:publish": "node server/api/dist/cli/publish-payroll-pack.js",
+    "local:api": "node scripts/run-local.mjs api",
+    "local:web": "node scripts/run-local.mjs web",
+    "local:worker": "node scripts/run-local.mjs worker"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

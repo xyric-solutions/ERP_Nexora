@@ -71,11 +71,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={`${nexoraSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <head>
         <script id="nexora-theme-init" dangerouslySetInnerHTML={{ __html: themeInitializationScript }} />
       </head>
-      <body className={`${nexoraSans.variable} ${geistMono.variable} antialiased`}>
+      <body className="font-sans antialiased">
         <ThemeProvider>
           <TooltipProvider>
             <SessionProvider>{children}</SessionProvider>

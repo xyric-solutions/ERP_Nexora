@@ -12,6 +12,9 @@
 @source "./";
 
 @theme inline {
+  --font-sans: var(--nx-font-sans);
+  --font-serif: var(--nx-font-sans);
+  --font-mono: var(--nx-font-mono);
   --color-background: var(--nx-canvas);
   --color-foreground: var(--nx-text);
   --color-card: var(--nx-surface);

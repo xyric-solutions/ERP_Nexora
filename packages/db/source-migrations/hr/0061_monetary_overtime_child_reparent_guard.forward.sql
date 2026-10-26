@@ -1,0 +1,7 @@
+DROP TRIGGER hr_ot_option_insert_seal ON hr_ot_monetary_policy_option;
+DROP TRIGGER hr_ot_option_component_insert_seal ON hr_ot_monetary_option_component;
+DROP TRIGGER hr_ot_arrangement_component_insert_seal ON hr_employee_ot_arrangement_component;
+CREATE TRIGGER hr_ot_option_insert_seal BEFORE INSERT OR UPDATE ON hr_ot_monetary_policy_option FOR EACH ROW EXECUTE FUNCTION protect_hr_ot_authority_insertion();
+CREATE TRIGGER hr_ot_option_component_insert_seal BEFORE INSERT OR UPDATE ON hr_ot_monetary_option_component FOR EACH ROW EXECUTE FUNCTION protect_hr_ot_authority_insertion();
+CREATE TRIGGER hr_ot_arrangement_component_insert_seal BEFORE INSERT OR UPDATE ON hr_employee_ot_arrangement_component FOR EACH ROW EXECUTE FUNCTION protect_hr_ot_authority_insertion();
+INSERT INTO nexora_schema_migration(module_name,version,name) VALUES('hr',61,'monetary_overtime_child_reparent_guard');

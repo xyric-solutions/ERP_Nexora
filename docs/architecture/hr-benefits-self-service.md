@@ -1,0 +1,35 @@
+# Benefits & Self-service
+
+Current checkpoint: Employee Self-service supports employee-owned leave drafts, calendar/balance review, submission into the existing manager/HR approval workflow, and cancellation of pending requests. Benefits & Self-service has four API-backed routes; Employee Lifecycle remains 9/9 Live in the agreed non-Banking scope (HR116). Personal-data corrections, governed bulk compliance exports, Banking integration and deferred Learning & Development remain separate work.
+
+
+## 2026-10-21 — Benefits & Self-service connected phase
+
+The four Benefits & Self-service menu routes now render API-backed workspaces:
+
+- Loans, Benefits & Gratuity reuses the existing governed loan and repayment schedule workflow and the same independently approved company/country benefit rules used by Final Settlements. Standalone rule maintenance opens on Benefit rules; employee calculations remain attached to actual approved exits and retained salary evidence.
+- Statutory Deductions reuses the governed legal-employer, work-jurisdiction, declaration, contribution-base, pack publication and activation workflow. No duplicate rates, invented legislation or separate deduction calculation is introduced.
+- Employee Self-service uses a new employee-owned API boundary. Active account, effective Security employee binding, explicit current company access and actual employment relationship are checked on each read. Caller-selected employee IDs are rejected, including for administrators. Only immutable, hash-verified published payslips can be opened/downloaded; employer-wide Payroll permissions are not required. Current exact leave balances, overlapping monthly requests, approved loans and published monthly pay use the existing source ledgers. Pagination, empty/error/unbound states and refresh are supported.
+- HR & Payroll Report Centre exposes live workforce and Payroll overviews and permission-filtered links to the owning detailed operational workspaces. It does not expose the prototype report catalogue or fake export buttons. The separate Compliance/Secure Export section remains the next delivery.
+
+Delivery bounds: self-service is a personal viewing/download workspace in this phase. Employee-initiated leave submission and personal-data changes still use the existing HR process; the screen states this explicitly. Secure bulk report exports and wider compliance reports are not represented as delivered. Banking integrations remain with the other developer; Learning & Development remains deferred. No Banking or Finance posting files were changed in this phase. No new database migration was required (existing HR116 sources reused).
+
+Validation: 36 integration checks across self-service (7), loans, localization setup and benefits; 12 HTTP/session unit checks; focused lint; full typecheck; generated API/catalogue parity; global theme audit; production build. Chrome verified all four routes, actual published payslip Open/Download and light/dark layouts at 1440, 768, 390 and 320 pixels. No route/root horizontal overflow or JavaScript errors. Shared workforce and Finance company selectors were corrected for narrow widths. Global font tokens are inherited; no feature stylesheet, literal palette or page-specific font was added.
+
+
+## 2026-10-21 - Employee leave self-service
+
+Employees can now review their own effective shift calendar, policy and exact available balance; select full or half days; save an immutable draft; submit it to the existing reporting-manager/HR queue; and cancel their own draft or pending request. The personal screen opens request detail, displays allowed actions and decision history, refreshes its company/month records after mutations, and explains why approved leave must be cancelled by an independent HR officer.
+
+The four new /api/v1/hr/self_service leave endpoints reuse TimeLeave and AttendanceCompletion instead of adding a parallel request or ledger. Contracts, OpenAPI and generated clients are updated together. Employee IDs, HR approval actions and self-approval overrides are rejected on the personal boundary. Server-side authority checks require the same active user, effective employee binding, current company access and approved employment. Writes check ownership inside the transaction before idempotent replay, lock the current binding/account/access rows, reject impersonated writes, and use existing Attendance serialization, evidence hashes, expected versions, immutable audit and idempotency records. No HR permission is injected into the employee actor.
+
+Only the owned employee appears in personal calendar options. Same-company requests belonging to other employees return 404. Active employment eligibility is explicit in the personal workspace response; historical or impersonated sessions cannot be shown actionable personal controls. Ended/archived reporting-manager account bindings are excluded from routing. Existing manager/HR decisions remain independent, post actual daily leave usage atomically, and use the same employee/company records as Attendance and Payroll. Pending cancellation releases reservations; approved leave does not gain a personal reversal path.
+
+Verified-document policies remain enforced. Where a document is required, the personal form explains the requirement and directs the employee to the existing HR verification workflow. Employees cannot attach arbitrary document IDs or self-verify evidence. Personal-data corrections and governed bulk compliance exports remain next work. Banking and Finance posting files were not modified; Learning & Development remains deferred. Existing HR116 tables, triggers and runtime privileges were sufficient; no applied migration was changed.
+
+Validation: 32 integration checks across personal leave (9), existing Time & Leave (16) and the personal portal (7); 22 HTTP/session unit checks; full typecheck, focused lint, generated API/catalogue parity, theme audit and production build. Browser acceptance used a newly provisioned isolated employee with no HR permissions: actual full-day draft, submission, pending cancellation, exact restoration to 10.0000 days, half-day draft and denied employer-wide read. Light/dark at 1440/768/390/320 had no root/section horizontal overflow, JavaScript errors or font overrides. New UI uses shared Tailwind/shadcn controls and semantic global tokens. Normal-company checks remain read-only.
+
+
+### Normal environment verification - 2026-10-21
+
+The pending normal API restart is complete. Web remains on port 3000 and the updated API serves port 4000. Read-only Chrome checks against the normal environment verified the personal portal returns 200 with no-store and explicit leave eligibility, unauthorized company calendar access returns 403, anonymous personal leave endpoints return 401, and the screen renders without JavaScript errors. The unbound administrator sees the employee-account linking guidance; no other employee is selected through administrator authority. No normal business records were created or modified. The isolated API used for acceptance testing was stopped after verification.

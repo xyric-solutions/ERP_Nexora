@@ -1095,6 +1095,19 @@ export class SourceBankPaymentRepository {
       this.requireVersion(previous, input.expected_version);
       if (previous.state !== "posted" || !previous.original_accounting_event_id || !previous.original_journal_entry_id)
         throw new BankingApiError(409, "PAYMENT_NOT_REVERSIBLE", "Only a posted Bank Payment can be reversed.");
+      if (
+        (
+          await client.query(
+            "select 1 from hr_loan_disbursement where tenant_id=$1 and company_id=$2 and payment_id=$3 limit 1",
+            [context.tenantId, previous.company_id, paymentId],
+          )
+        ).rowCount
+      )
+        throw new BankingApiError(
+          409,
+          "PAYMENT_FUNDS_EMPLOYEE_LOAN",
+          "This payment funds an employee loan. A governed loan reversal must resolve its recovery evidence before Bank Payment reversal.",
+        );
       const financeClient = await createFinanceTransactionClient(client);
       let reversed;
       try {
@@ -1295,48 +1308,7 @@ export class SourceBankPaymentRepository {
     permission: string,
     companyId: string,
   ): Promise<void> {
-    if (context.actor.tenantId !== context.tenantId)
-      throw new BankingApiError(403, "TENANT_ACCESS_DENIED", "The tenant boundary was rejected.");
-    const result = await client.query(
-      `select 1
-         from security_user_role_assignment_version assignment
-         join security_user_account actor
-           on actor.tenant_id=assignment.tenant_id and actor.id=assignment.user_id
-          and actor.status='active' and actor.archived_at is null
-         join security_role_policy policy
-           on policy.tenant_id=assignment.tenant_id and policy.id=assignment.role_policy_id
-          and policy.status='active' and policy.lifecycle_state='active'
-         join security_tenant_role role
-           on role.tenant_id=policy.tenant_id and role.role_id=policy.role_id
-          and role.lifecycle_state='active'
-         join security_role_permission_grant permission_grant
-           on permission_grant.tenant_id=policy.tenant_id
-          and permission_grant.role_policy_id=policy.id
-          and permission_grant.permission_key=$3
-         join security_permission_definition definition
-           on definition.permission_key=permission_grant.permission_key and definition.status='active'
-         join security_role_scope_grant scope
-           on scope.tenant_id=permission_grant.tenant_id
-          and scope.role_policy_id=permission_grant.role_policy_id
-          and scope.permission_key=permission_grant.permission_key
-        where assignment.tenant_id=$1 and assignment.user_id=$2
-          and assignment.version=(select max(latest.version)
-            from security_user_role_assignment_version latest
-           where latest.tenant_id=assignment.tenant_id
-             and latest.assignment_id=assignment.assignment_id)
-          and assignment.lifecycle_state='active' and assignment.valid_from<=now()
-          and (assignment.valid_until is null or assignment.valid_until>now())
-          and ((scope.scope_kind='tenant' and scope.scope_value=$1)
-            or (scope.scope_kind='company' and scope.scope_value=$4))
-        limit 1`,
-      [context.tenantId, context.actor.userId, permission, companyId],
-    );
-    if (!result.rowCount)
-      throw new BankingApiError(
-        403,
-        "PERMISSION_DENIED",
-        "You are not permitted to perform this Banking operation for the company.",
-      );
+    return requireBankPaymentCompanyPermission(client, context, permission, companyId);
   }
 
   private async revalidateReplayAuthority(
@@ -1871,4 +1843,54 @@ export class SourceBankPaymentRepository {
     };
     return new BankingApiError(error.status, mapping[error.code] ?? "PAYMENT_POSTING_FAILED", error.message);
   }
+}
+
+export async function requireBankPaymentCompanyPermission(
+  client: PoolClient,
+  context: BankingActorContext,
+  permission: string,
+  companyId: string,
+): Promise<void> {
+  if (context.actor.tenantId !== context.tenantId)
+    throw new BankingApiError(403, "TENANT_ACCESS_DENIED", "The tenant boundary was rejected.");
+  const result = await client.query(
+    `select 1
+         from security_user_role_assignment_version assignment
+         join security_user_account actor
+           on actor.tenant_id=assignment.tenant_id and actor.id=assignment.user_id
+          and actor.status='active' and actor.archived_at is null
+         join security_role_policy policy
+           on policy.tenant_id=assignment.tenant_id and policy.id=assignment.role_policy_id
+          and policy.status='active' and policy.lifecycle_state='active'
+         join security_tenant_role role
+           on role.tenant_id=policy.tenant_id and role.role_id=policy.role_id
+          and role.lifecycle_state='active'
+         join security_role_permission_grant permission_grant
+           on permission_grant.tenant_id=policy.tenant_id
+          and permission_grant.role_policy_id=policy.id
+          and permission_grant.permission_key=$3
+         join security_permission_definition definition
+           on definition.permission_key=permission_grant.permission_key and definition.status='active'
+         join security_role_scope_grant scope
+           on scope.tenant_id=permission_grant.tenant_id
+          and scope.role_policy_id=permission_grant.role_policy_id
+          and scope.permission_key=permission_grant.permission_key
+        where assignment.tenant_id=$1 and assignment.user_id=$2
+          and assignment.version=(select max(latest.version)
+            from security_user_role_assignment_version latest
+           where latest.tenant_id=assignment.tenant_id
+             and latest.assignment_id=assignment.assignment_id)
+          and assignment.lifecycle_state='active' and assignment.valid_from<=now()
+          and (assignment.valid_until is null or assignment.valid_until>now())
+          and ((scope.scope_kind='tenant' and scope.scope_value=$1)
+            or (scope.scope_kind='company' and scope.scope_value=$4))
+        limit 1`,
+    [context.tenantId, context.actor.userId, permission, companyId],
+  );
+  if (!result.rowCount)
+    throw new BankingApiError(
+      403,
+      "PERMISSION_DENIED",
+      "You are not permitted to perform this Banking operation for the company.",
+    );
 }
