@@ -1,0 +1,1404 @@
+"use client";
+import { BankWorkflowControls, emptyBankWorkflowSelection } from "../components/bank-workflow-controls";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type {
+  BankReceiptDetail,
+  BankReceiptMethod,
+  BankReceiptNominalAccountDirectory,
+  BankReceiptOptions,
+  CreateBankReceiptRequest,
+  UpdateBankReceiptRequest,
+} from "@nexora/contracts";
+
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/shared/ui/searchable-select";
+import { Textarea } from "@/components/ui/textarea";
+import { ApiError } from "@/lib/api/generated";
+import { useSession } from "@/lib/session/session-provider";
+import { useActionFeedback } from "@/shared/ui/action-feedback";
+import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warning";
+import { BankEntryActions } from "../components/bank-entry-actions";
+import { bankPeriodFailure } from "../components/bank-period-failure";
+import { BankNominalAvailability } from "../components/bank-nominal-availability";
+import { BankingApiClient } from "../api/banking-client";
+
+type NominalAccount = BankReceiptNominalAccountDirectory["items"][number];
+type BankAccountOption = BankReceiptOptions["bank_accounts"][number];
+
+interface EditableLine {
+  id: string;
+  documentDate: string;
+  externalReference: string;
+  documentReference: string;
+  receiptMethod: BankReceiptMethod | "";
+  details: string;
+  nominalAccountId: string;
+  amount: string;
+  dimensions: Record<string, string>;
+}
+
+interface RetryAttempt {
+  fingerprint: string;
+  key: string;
+}
+
+interface ValidationResult {
+  issues: string[];
+  lineIssues: Record<string, Record<string, string>>;
+}
+
+interface FailureState {
+  kind: "conflict" | "denied" | "not-found" | "error";
+  message: string;
+}
+
+export interface BankingReceiptEntryProps {
+  receiptId?: string;
+  onBack?: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
+  onReviewNominals?: () => void;
+  onNavigate?: (
+    pageId: "bank-receipts" | "add-bank-receipt" | "transaction-detail",
+    receiptId?: string,
+    options?: { replace?: boolean },
+  ) => void;
+}
+
+const receiptMethods: ReadonlyArray<{ value: BankReceiptMethod; label: string }> = [
+  { value: "bank_transfer", label: "Bank transfer" },
+  { value: "cheque", label: "Cheque" },
+  { value: "cash", label: "Cash" },
+  { value: "online", label: "Online" },
+  { value: "direct_debit", label: "Direct debit" },
+  { value: "card", label: "Card" },
+];
+
+const amountPattern = /^(0|[1-9]\d{0,29})(?:\.(\d{1,8}))?$/;
+const fixedScale = 100_000_000n;
+
+function today(): string {
+  const value = new Date();
+  const offset = value.getTimezoneOffset() * 60_000;
+  return new Date(value.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function validIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return parsed.toISOString().slice(0, 10) === value;
+}
+
+function newLine(documentDate = today()): EditableLine {
+  return {
+    id: crypto.randomUUID(),
+    documentDate,
+    externalReference: "",
+    documentReference: "",
+    receiptMethod: "",
+    details: "",
+    nominalAccountId: "",
+    amount: "",
+    dimensions: {},
+  };
+}
+
+function decimalUnits(value: string): bigint | null {
+  const match = amountPattern.exec(value.trim());
+  if (!match) return null;
+  const whole = BigInt(match[1] ?? "0");
+  const fraction = BigInt((match[2] ?? "").padEnd(8, "0"));
+  return whole * fixedScale + fraction;
+}
+
+function displayAmount(units: bigint): string {
+  const whole = units / fixedScale;
+  const fraction = (units % fixedScale).toString().padStart(8, "0").replace(/0+$/, "").padEnd(2, "0");
+  return `${whole.toLocaleString("en-US")}.${fraction}`;
+}
+
+function failure(error: unknown): FailureState {
+  if (error instanceof ApiError) {
+    const suffix = error.correlationId ? ` Reference: ${error.correlationId}` : "";
+    if (error.status === 409 && /VERSION|CONCURRENT|NOT_EDITABLE/.test(error.code))
+      return { kind: "conflict", message: `${error.message}${suffix}` };
+    if (error.status === 401 || error.status === 403) return { kind: "denied", message: `${error.message}${suffix}` };
+    return { kind: "error", message: `${error.message}${suffix}` };
+  }
+  return { kind: "error", message: "The Bank Receipt request could not be completed. Try again safely." };
+}
+
+function routeFailure(error: unknown): FailureState {
+  const suffix = error instanceof ApiError && error.correlationId ? ` Reference: ${error.correlationId}` : "";
+  if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+    return {
+      kind: "denied",
+      message: `The API denied access to this Bank Receipt or one of its company-scoped directories.${suffix}`,
+    };
+  }
+  if (error instanceof ApiError && error.status === 404) {
+    return {
+      kind: "not-found",
+      message: `This Bank Receipt was not found within your permitted company scope.${suffix}`,
+    };
+  }
+  return {
+    kind: "error",
+    message: `The persisted Bank Receipt and its server-owned options could not be loaded safely.${suffix}`,
+  };
+}
+
+function keyFor(attempt: RetryAttempt | null, action: string, payload: unknown): RetryAttempt {
+  const fingerprint = JSON.stringify(payload);
+  if (attempt?.fingerprint === fingerprint) return attempt;
+  return { fingerprint, key: `web-bank-receipt-${action}-${crypto.randomUUID()}` };
+}
+
+function validate(
+  companyId: string,
+  bankAccountId: string,
+  postingDate: string,
+  valueDate: string,
+  lines: EditableLine[],
+  nominalAccounts: NominalAccount[],
+): ValidationResult {
+  const issues: string[] = [];
+  const lineIssues: ValidationResult["lineIssues"] = {};
+  if (!companyId) issues.push("Company is required.");
+  if (!bankAccountId) issues.push("Select an eligible Bank Account.");
+  if (!validIsoDate(postingDate)) issues.push("Posting date must be a valid date.");
+  if (valueDate && !validIsoDate(valueDate)) issues.push("Value date must be a valid date.");
+  if (lines.length === 0) issues.push("Enter at least one receipt line.");
+
+  lines.forEach((line, index) => {
+    const current: Record<string, string> = {};
+    if (!validIsoDate(line.documentDate)) current.documentDate = "Document date must be valid.";
+    if (!line.receiptMethod) current.receiptMethod = "Receipt method is required.";
+    if (!line.details.trim()) current.details = "Details are required.";
+    if (!line.nominalAccountId) current.nominalAccountId = "Nominal account is required.";
+    const amount = decimalUnits(line.amount);
+    if (amount === null || amount <= 0n) current.amount = "Amount must be a positive decimal with at most 8 places.";
+    const nominal = nominalAccounts.find((account) => account.id === line.nominalAccountId);
+    for (const dimension of nominal?.required_dimensions ?? []) {
+      if (!line.dimensions[dimension]?.trim()) current[`dimension:${dimension}`] = `${dimension} is required.`;
+    }
+    if (Object.keys(current).length > 0) {
+      lineIssues[line.id] = current;
+      issues.push(`Line ${index + 1} has ${Object.keys(current).length} issue(s).`);
+    }
+  });
+  return { issues, lineIssues };
+}
+
+function editableFromDetail(detail: BankReceiptDetail): EditableLine[] {
+  return detail.lines.map((line) => ({
+    id: line.id,
+    documentDate: line.document_date,
+    externalReference: line.external_reference ?? "",
+    documentReference: line.document_reference ?? "",
+    receiptMethod: line.receipt_method,
+    details: line.narration?.trim() || line.payer_name,
+    nominalAccountId: line.nominal_account_id,
+    amount: line.amount,
+    dimensions: { ...line.dimensions },
+  }));
+}
+
+function directoryFallbacks(detail: BankReceiptDetail): {
+  bank: BankAccountOption;
+  nominal: NominalAccount[];
+} {
+  const bankLine = detail.accounting_preview.lines.find((line) => line.is_bank_control);
+  const nominal = detail.lines.map((line) => {
+    const preview = detail.accounting_preview.lines.find(
+      (candidate) => !candidate.is_bank_control && candidate.line_order === line.line_order,
+    );
+    return {
+      id: line.nominal_account_id,
+      code: preview?.account_code ?? line.nominal_account_id,
+      name: preview?.account_name ?? "Persisted nominal account",
+      account_type: "persisted",
+      required_dimensions: Object.keys(line.dimensions),
+    };
+  });
+  return {
+    bank: {
+      id: detail.bank_account_id,
+      reference: detail.bank_account_id,
+      account_name: detail.bank_account_name,
+      bank_name: detail.bank_name,
+      account_number_masked: detail.account_number_masked,
+      currency: detail.currency,
+      ledger_account_code: bankLine?.account_code ?? "Unavailable",
+      ledger_account_name: bankLine?.account_name ?? "Persisted Bank Account control",
+    },
+    nominal: [...new Map(nominal.map((account) => [account.id, account])).values()],
+  };
+}
+
+export function BankingReceiptEntry({
+  receiptId,
+  onBack,
+  onDirtyChange,
+  onNavigate,
+  onReviewNominals,
+}: BankingReceiptEntryProps) {
+  const { api, session, loading: sessionLoading, csrfToken } = useSession();
+  const notify = useActionFeedback();
+  const client = useMemo(() => new BankingApiClient(api), [api]);
+  const permissions = session?.user.permissions ?? [];
+  const canRead = permissions.includes("banking.receipt.read");
+  const canCreate = permissions.includes("banking.receipt.create");
+  const canUpdate = permissions.includes("banking.receipt.update");
+  const canSubmit = permissions.includes("banking.receipt.submit");
+  const readOnlySession = Boolean(session?.impersonation);
+
+  const [companies, setCompanies] = useState<Array<{ id: string; code: string; name: string }>>([]);
+  const [companyId, setCompanyId] = useState("");
+  const [bankAccounts, setBankAccounts] = useState<BankAccountOption[]>([]);
+  const [nominalAccounts, setNominalAccounts] = useState<NominalAccount[]>([]);
+  const [nominalAvailability, setNominalAvailability] = useState<
+    BankReceiptNominalAccountDirectory["availability"] | null
+  >(null);
+  const [nominalSearch, setNominalSearch] = useState("");
+  const [nominalSearching, setNominalSearching] = useState(false);
+  const lastNominalSearch = useRef("");
+  const [bankAccountId, setBankAccountId] = useState("");
+  const [postingDate, setPostingDate] = useState(today);
+  const [valueDate, setValueDate] = useState("");
+  const [workflow, setWorkflow] = useState(emptyBankWorkflowSelection);
+  const [selectedSelfApproval, setSelectedSelfApproval] = useState(false);
+  const globalApproval =
+    Boolean(session?.user.roles.includes("super_administrator")) && permissions.includes("platform.approval.override");
+  const canApproveAndClose =
+    permissions.includes("banking.receipt.approve") &&
+    canSubmit &&
+    (globalApproval || (selectedSelfApproval && workflow.approver_user_id === session?.user.id));
+  const [lines, setLines] = useState<EditableLine[]>(() => [newLine()]);
+  const [persistedId, setPersistedId] = useState("");
+  const [loadedReceiptId, setLoadedReceiptId] = useState<string | null>(null);
+  const [reference, setReference] = useState("");
+  const [version, setVersion] = useState<number | null>(null);
+  const [state, setState] = useState<BankReceiptDetail["state"]>("draft");
+  const [loading, setLoading] = useState(true);
+  const [pageReady, setPageReady] = useState(false);
+  const [directoriesLoading, setDirectoriesLoading] = useState(false);
+  const [directoriesCompanyId, setDirectoriesCompanyId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [showValidation, setShowValidation] = useState(false);
+  const [initialFailure, setInitialFailure] = useState<FailureState | null>(null);
+  const [requestFailure, setRequestFailure] = useState<FailureState | null>(null);
+  const [directoryFailure, setDirectoryFailure] = useState<FailureState | null>(null);
+  const [success, setSuccess] = useState("");
+  const createRetry = useRef<RetryAttempt | null>(null);
+  const updateRetry = useRef<RetryAttempt | null>(null);
+  const submitRetry = useRef<RetryAttempt | null>(null);
+  const approveRetry = useRef<RetryAttempt | null>(null);
+  const operationLock = useRef(false);
+  const persistedIdRef = useRef("");
+  const loadedReceiptIdRef = useRef<string | null>(null);
+  const pageRequest = useRef(0);
+
+  const invalidateRetries = useCallback(() => {
+    createRetry.current = null;
+    updateRetry.current = null;
+    submitRetry.current = null;
+    approveRetry.current = null;
+  }, []);
+
+  const resetReceipt = useCallback(() => {
+    persistedIdRef.current = "";
+    loadedReceiptIdRef.current = null;
+    setPersistedId("");
+    setLoadedReceiptId(null);
+    setReference("");
+    setVersion(null);
+    setState("draft");
+    setBankAccountId("");
+    setPostingDate(today());
+    setValueDate("");
+    setWorkflow(emptyBankWorkflowSelection);
+    setLines([newLine()]);
+    setBankAccounts([]);
+    setNominalAccounts([]);
+    setNominalAvailability(null);
+    setDirectoriesCompanyId("");
+    setDirty(false);
+    setShowValidation(false);
+    invalidateRetries();
+  }, [invalidateRetries]);
+
+  const edit = useCallback(
+    (change: () => void) => {
+      change();
+      setDirty(true);
+      setSuccess("");
+      setRequestFailure(null);
+      invalidateRetries();
+    },
+    [invalidateRetries],
+  );
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => onDirtyChange?.(false);
+  }, [dirty, onDirtyChange]);
+
+  const loadPage = useCallback(async () => {
+    if (!session || !canRead) {
+      setLoading(false);
+      return;
+    }
+    if (receiptId && persistedIdRef.current === receiptId && loadedReceiptIdRef.current === receiptId) {
+      setInitialFailure(null);
+      setPageReady(true);
+      setLoading(false);
+      return;
+    }
+    const request = ++pageRequest.current;
+    setLoading(true);
+    setPageReady(false);
+    setInitialFailure(null);
+    try {
+      const [companyDirectory, detail] = await Promise.all([
+        client.companies(),
+        receiptId ? client.receipt(receiptId) : Promise.resolve(null),
+      ]);
+      if (request !== pageRequest.current) return;
+      setCompanies(companyDirectory.items);
+      if (detail) {
+        const fallback = directoryFallbacks(detail);
+        const [options, nominalDirectory] = await Promise.all([
+          client.receiptOptions({ company_id: detail.company_id }),
+          client.receiptNominalAccounts({ company_id: detail.company_id, limit: 100 }),
+        ]);
+        if (request !== pageRequest.current) return;
+        if (!companyDirectory.items.some((company) => company.id === detail.company_id)) {
+          throw new Error("The persisted company is outside the loaded company directory");
+        }
+        const banks = options.bank_accounts.some((account) => account.id === fallback.bank.id)
+          ? options.bank_accounts
+          : [fallback.bank, ...options.bank_accounts];
+        const nominals = [
+          ...fallback.nominal.filter(
+            (account) => !nominalDirectory.items.some((directoryAccount) => directoryAccount.id === account.id),
+          ),
+          ...nominalDirectory.items,
+        ];
+        persistedIdRef.current = detail.id;
+        loadedReceiptIdRef.current = detail.id;
+        setPersistedId(detail.id);
+        setLoadedReceiptId(detail.id);
+        setReference(detail.reference);
+        setVersion(detail.version);
+        setState(detail.state);
+        setCompanyId(detail.company_id);
+        setBankAccountId(detail.bank_account_id);
+        setPostingDate(detail.posting_date);
+        setValueDate(detail.value_date ?? "");
+        setWorkflow({
+          project_id: detail.project_id ?? "",
+          location_id: detail.location_id ?? "",
+          approver_user_id: detail.approver_user_id ?? "",
+        });
+        setLines(editableFromDetail(detail));
+        setBankAccounts(banks);
+        setNominalAccounts(nominals);
+        setNominalAvailability(nominalDirectory.availability ?? null);
+        setDirectoriesCompanyId(detail.company_id);
+      } else {
+        resetReceipt();
+        setCompanyId(companyDirectory.items[0]?.id || "");
+      }
+      setDirty(false);
+      setShowValidation(false);
+      invalidateRetries();
+      setPageReady(true);
+    } catch (caught) {
+      if (request !== pageRequest.current) return;
+      resetReceipt();
+      setCompanies([]);
+      setCompanyId("");
+      setInitialFailure(routeFailure(caught));
+      setPageReady(false);
+    } finally {
+      if (request === pageRequest.current) setLoading(false);
+    }
+  }, [canRead, client, invalidateRetries, receiptId, resetReceipt, session]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadPage(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadPage]);
+
+  useEffect(() => {
+    if (!session || !canRead || !companyId || directoriesCompanyId === companyId) {
+      return;
+    }
+    let active = true;
+    const timer = window.setTimeout(() => {
+      setDirectoriesLoading(true);
+      setDirectoryFailure(null);
+      Promise.all([
+        client.receiptOptions({ company_id: companyId }),
+        client.receiptNominalAccounts({ company_id: companyId, limit: 100 }),
+      ])
+        .then(([options, nominalDirectory]) => {
+          if (!active) return;
+          setBankAccounts((current) => {
+            const persisted = current.find((account) => !options.bank_accounts.some((item) => item.id === account.id));
+            return persisted ? [persisted, ...options.bank_accounts] : options.bank_accounts;
+          });
+          setNominalAccounts((current) => {
+            const persisted = current.filter(
+              (account) => !nominalDirectory.items.some((item) => item.id === account.id),
+            );
+            return [...persisted, ...nominalDirectory.items];
+          });
+          setNominalAvailability(nominalDirectory.availability ?? null);
+          setBankAccountId((current) => current || options.bank_accounts[0]?.id || "");
+          setDirectoriesCompanyId(companyId);
+        })
+        .catch((caught) => {
+          if (!active) return;
+          setBankAccounts([]);
+          setNominalAccounts([]);
+          setNominalAvailability(null);
+          setDirectoryFailure(failure(caught));
+        })
+        .finally(() => {
+          if (active) setDirectoriesLoading(false);
+        });
+    }, 0);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [canRead, client, companyId, directoriesCompanyId, session]);
+
+  const selectedBank = bankAccounts.find((account) => account.id === bankAccountId);
+  const selectedNominalIds = lines
+    .map((line) => line.nominalAccountId)
+    .filter(Boolean)
+    .join("|");
+  useEffect(() => {
+    if (!session || !canRead || !companyId || directoriesCompanyId !== companyId) return;
+    if (!nominalSearch && !lastNominalSearch.current) return;
+    let active = true;
+    const timer = window.setTimeout(() => {
+      lastNominalSearch.current = nominalSearch;
+      setNominalSearching(true);
+      setDirectoryFailure(null);
+      client
+        .receiptNominalAccounts({ company_id: companyId, search: nominalSearch.trim(), limit: 100 })
+        .then((result) => {
+          if (!active) return;
+          setNominalAvailability(result.availability ?? null);
+          const selected = new Set(selectedNominalIds.split("|"));
+          setNominalAccounts((current) => [
+            ...current.filter((item) => selected.has(item.id) && !result.items.some((found) => found.id === item.id)),
+            ...result.items,
+          ]);
+        })
+        .catch((caught) => {
+          if (!active) return;
+          const selected = new Set(selectedNominalIds.split("|"));
+          setNominalAccounts((current) => current.filter((item) => selected.has(item.id)));
+          setNominalAvailability(null);
+          setDirectoryFailure(failure(caught));
+        })
+        .finally(() => {
+          if (active) setNominalSearching(false);
+        });
+    }, 250);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [session, canRead, companyId, directoriesCompanyId, client, nominalSearch, selectedNominalIds]);
+  const nominalById = useMemo(
+    () => new Map(nominalAccounts.map((account) => [account.id, account])),
+    [nominalAccounts],
+  );
+  const validation = useMemo(
+    () =>
+      validate(
+        companyId,
+        bankAccountId,
+        postingDate,
+        valueDate,
+        lines.map((line) => ({
+          ...line,
+          dimensions: {
+            ...line.dimensions,
+            ...(workflow.project_id ? { project: workflow.project_id } : {}),
+            ...(workflow.location_id ? { location: workflow.location_id } : {}),
+          },
+        })),
+        nominalAccounts,
+      ),
+    [bankAccountId, companyId, lines, nominalAccounts, postingDate, valueDate, workflow],
+  );
+  const totalUnits = useMemo(
+    () => lines.reduce((total, line) => total + (decimalUnits(line.amount) ?? 0n), 0n),
+    [lines],
+  );
+  const editable = state === "draft" && !readOnlySession;
+
+  const payloadLines = useCallback(
+    () =>
+      lines.map((line, index) => ({
+        line_order: index + 1,
+        document_date: line.documentDate,
+        external_reference: line.externalReference.trim() || null,
+        document_reference: line.documentReference.trim() || null,
+        receipt_method: line.receiptMethod as BankReceiptMethod,
+        payer_name: line.details.trim(),
+        nominal_account_id: line.nominalAccountId,
+        narration: line.details.trim(),
+        amount: line.amount.trim(),
+        dimensions: Object.fromEntries(
+          Object.entries(line.dimensions)
+            .map(([key, value]) => [key, value.trim()])
+            .filter(([, value]) => value.length > 0),
+        ),
+      })),
+    [lines],
+  );
+
+  const persistDraft = useCallback(async () => {
+    const id = persistedId;
+    if (id) {
+      if (version === null) throw new Error("Persisted draft version is unavailable");
+      const payload: UpdateBankReceiptRequest = {
+        expected_version: version,
+        bank_account_id: bankAccountId,
+        posting_date: postingDate,
+        value_date: valueDate || null,
+        project_id: workflow.project_id || null,
+        location_id: workflow.location_id || null,
+        approver_user_id: workflow.approver_user_id || null,
+        lines: payloadLines(),
+      };
+      const attempt = keyFor(updateRetry.current, "update", payload);
+      updateRetry.current = attempt;
+      const result = await client.updateReceipt(id, payload, csrfToken(), attempt.key);
+      updateRetry.current = null;
+      setReference(result.reference);
+      setVersion(result.version);
+      setState(result.state);
+      setDirty(false);
+      notify("Bank Receipt updated successfully.");
+      return result;
+    }
+    const payload: CreateBankReceiptRequest = {
+      company_id: companyId,
+      bank_account_id: bankAccountId,
+      posting_date: postingDate,
+      value_date: valueDate || null,
+      project_id: workflow.project_id || null,
+      location_id: workflow.location_id || null,
+      approver_user_id: workflow.approver_user_id || null,
+      lines: payloadLines(),
+    };
+    const attempt = keyFor(createRetry.current, "create", payload);
+    createRetry.current = attempt;
+    const result = await client.createReceipt(payload, csrfToken(), attempt.key);
+    createRetry.current = null;
+    persistedIdRef.current = result.id;
+    loadedReceiptIdRef.current = result.id;
+    setPersistedId(result.id);
+    setLoadedReceiptId(result.id);
+    setReference(result.reference);
+    setVersion(result.version);
+    setState(result.state);
+    setDirty(false);
+    setPageReady(true);
+    onDirtyChange?.(false);
+    notify("Bank Receipt created successfully.");
+    onNavigate?.("add-bank-receipt", result.id, { replace: true });
+    return result;
+  }, [
+    bankAccountId,
+    workflow,
+    client,
+    companyId,
+    csrfToken,
+    onNavigate,
+    onDirtyChange,
+    notify,
+    payloadLines,
+    persistedId,
+    postingDate,
+    valueDate,
+    version,
+  ]);
+
+  async function save() {
+    if (operationLock.current || !editable || (persistedId ? !canUpdate : !canCreate)) return;
+    setShowValidation(true);
+    setRequestFailure(null);
+    setSuccess("");
+    if (validation.issues.length > 0) return;
+    operationLock.current = true;
+    setBusy(true);
+    try {
+      const result = await persistDraft();
+      setShowValidation(false);
+      setSuccess(`Draft ${result.reference} saved in PostgreSQL.`);
+    } catch (caught) {
+      setRequestFailure(failure(caught));
+    } finally {
+      operationLock.current = false;
+      setBusy(false);
+    }
+  }
+
+  async function submit(approveAndClose = false) {
+    if (operationLock.current || readOnlySession || !canSubmit) return;
+    if (approveAndClose && !canApproveAndClose) return;
+    if (state !== "draft" && !(approveAndClose && state === "submitted")) return;
+    if (state === "draft" && (persistedId ? dirty && !canUpdate : !canCreate)) return;
+    setShowValidation(true);
+    setRequestFailure(null);
+    setSuccess("");
+    if (state === "draft" && validation.issues.length > 0) return;
+    operationLock.current = true;
+    setBusy(true);
+    let draftReference = reference;
+    try {
+      const saved = state === "draft" && (dirty || !persistedId) ? await persistDraft() : null;
+      draftReference = saved?.reference ?? reference;
+      const id = saved?.id ?? persistedId;
+      const expectedVersion = saved?.version ?? version;
+      if (!id || expectedVersion === null) throw new Error("Persisted draft identity is unavailable");
+      const payload = { expected_version: expectedVersion };
+      const attempt = keyFor(submitRetry.current, "submit", payload);
+      submitRetry.current = attempt;
+      const result =
+        state === "submitted"
+          ? { id, reference, state, version: expectedVersion }
+          : await client.submitReceipt(id, payload, csrfToken(), attempt.key);
+      submitRetry.current = null;
+      setVersion(result.version);
+      setState(result.state);
+      setDirty(false);
+      setShowValidation(false);
+      setSuccess(`${result.reference} is submitted. Approval and posting are separate actions.`);
+      if (state !== "submitted") notify("Bank Receipt submitted for approval successfully.");
+      onDirtyChange?.(false);
+      if (approveAndClose) {
+        const detail = await client.receipt(id);
+        // Read authoritative eligibility; a lost approval response may already have committed.
+        if (detail.state !== "approved") {
+          if (
+            detail.state !== "submitted" ||
+            (detail.self_decision_requires_override &&
+              !detail.super_admin_override_allowed &&
+              !detail.delegated_self_approval_allowed)
+          ) {
+            setRequestFailure({
+              kind: "denied",
+              message:
+                "The transaction is saved, but approval is not available to this session. Review its detail with an authorized checker.",
+            });
+            return;
+          }
+          const decision = { action: "approve" as const, expected_version: detail.version };
+          const approvalAttempt = keyFor(approveRetry.current, "approve", decision);
+          approveRetry.current = approvalAttempt;
+          const approved = await client.decideReceipt(id, decision, csrfToken(), approvalAttempt.key);
+          setVersion(approved.version);
+          setState(approved.state);
+        } else {
+          setVersion(detail.version);
+          setState(detail.state);
+        }
+        approveRetry.current = null;
+        setSuccess(`${result.reference} approved successfully. It has not been posted by this action.`);
+        notify("Bank Receipt approved successfully.");
+        if (onBack) onBack();
+        else onNavigate?.("bank-receipts");
+        return;
+      }
+      onNavigate?.("transaction-detail", result.id);
+    } catch (caught) {
+      const periodMessage = bankPeriodFailure(caught, draftReference);
+      setRequestFailure(periodMessage ? { kind: "error", message: periodMessage } : failure(caught));
+    } finally {
+      operationLock.current = false;
+      setBusy(false);
+    }
+  }
+
+  function updateLine(lineId: string, patch: Partial<EditableLine>) {
+    edit(() => setLines((current) => current.map((line) => (line.id === lineId ? { ...line, ...patch } : line))));
+  }
+
+  function leave(action: () => void) {
+    if (dirty && !window.confirm("You have unsaved Bank Receipt changes. Leave without saving them?")) return;
+    action();
+  }
+
+  if (sessionLoading) return <EntryState title="Loading session" detail="Confirming your Banking permissions." />;
+  if (!session) return <EntryState title="Sign in required" detail="A valid Nexora session is required." />;
+  if (!canRead)
+    return <EntryState title="Permission required" detail="Your account does not have banking.receipt.read." />;
+  if (!receiptId && !canCreate)
+    return <EntryState title="Permission required" detail="Your account does not have banking.receipt.create." />;
+  if (loading)
+    return <EntryState title="Loading Bank Receipt" detail="Reading the persisted draft and company access." />;
+  if (initialFailure)
+    return (
+      <EntryState
+        title={
+          initialFailure.kind === "denied"
+            ? "Permission required"
+            : initialFailure.kind === "not-found"
+              ? "Bank Receipt not found"
+              : "Bank Receipt unavailable"
+        }
+        detail={initialFailure.message}
+        retry={() => void loadPage()}
+      />
+    );
+  if (!pageReady || (receiptId !== undefined && loadedReceiptId !== receiptId))
+    return (
+      <EntryState
+        title="Bank Receipt unavailable"
+        detail="The persisted draft did not finish loading with its server-owned company and accounting options."
+        retry={() => void loadPage()}
+      />
+    );
+
+  return (
+    <div className="grid min-w-0 gap-3.5" aria-busy={busy}>
+      <nav className="flex items-center gap-2 text-xs text-muted-foreground" aria-label="Breadcrumb">
+        <button
+          className="text-primary hover:underline"
+          type="button"
+          onClick={() =>
+            leave(() => {
+              if (onBack) onBack();
+              else onNavigate?.("bank-receipts");
+            })
+          }
+        >
+          Bank Receipts
+        </button>
+        <span aria-hidden="true">/</span>
+        <span className="text-foreground">Add Bank Receipt</span>
+      </nav>
+
+      <header className="flex items-start justify-between gap-4 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3.5 shadow-[inset_4px_0_0_var(--color-primary)] max-sm:flex-col">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-primary">Money in · Batch entry</p>
+          <h1 className="mt-1 text-xl font-semibold">Add Bank Receipt</h1>
+          <p className="mt-1 max-w-prose text-xs leading-relaxed text-muted-foreground">
+            Enter one or more incoming-fund lines for a single Bank Account, review the accounting preview, then submit
+            the persisted draft for independent approval.
+          </p>
+        </div>
+        <Badge variant="outline" className="capitalize">
+          {state.replaceAll("_", " ")}
+        </Badge>
+      </header>
+
+      {success ? (
+        <Alert role="status">
+          <AlertTitle>Saved successfully</AlertTitle>
+          <AlertDescription>{success}</AlertDescription>
+        </Alert>
+      ) : null}
+      {requestFailure ? (
+        <Alert variant="destructive">
+          <AlertTitle>
+            {requestFailure.kind === "conflict"
+              ? "Draft changed elsewhere"
+              : requestFailure.kind === "denied"
+                ? "Permission denied"
+                : "Request failed"}
+          </AlertTitle>
+          <AlertDescription>
+            {requestFailure.message}
+            {requestFailure.kind === "conflict" ? " Reload the draft before trying again." : ""}
+          </AlertDescription>
+          {requestFailure.kind === "conflict" ? (
+            <Button
+              className="mt-2 w-fit"
+              variant="outline"
+              size="sm"
+              type="button"
+              onClick={() => leave(() => void loadPage())}
+            >
+              Reload persisted draft
+            </Button>
+          ) : null}
+        </Alert>
+      ) : null}
+      {directoryFailure ? (
+        <Alert variant="destructive">
+          <AlertTitle>Receipt options unavailable</AlertTitle>
+          <AlertDescription>{directoryFailure.message}</AlertDescription>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2 w-fit"
+            disabled={directoriesLoading || nominalSearching || busy}
+            onClick={() => {
+              setDirectoryFailure(null);
+              setNominalSearch("");
+              lastNominalSearch.current = "";
+              setNominalSearching(false);
+              setDirectoriesCompanyId("");
+            }}
+          >
+            Retry account options
+          </Button>
+        </Alert>
+      ) : null}
+      {!directoryFailure && companies.length === 0 ? (
+        <Alert>
+          <AlertTitle>No accessible companies</AlertTitle>
+          <AlertDescription>No company is currently available for Bank Receipt entry.</AlertDescription>
+        </Alert>
+      ) : null}
+      {!directoryFailure && companyId && !directoriesLoading && bankAccounts.length === 0 ? (
+        <Alert>
+          <AlertTitle>No eligible Bank Accounts</AlertTitle>
+          <AlertDescription>This company has no active governed Bank Account available for receipts.</AlertDescription>
+        </Alert>
+      ) : null}
+      {!directoryFailure &&
+      companyId &&
+      directoriesCompanyId === companyId &&
+      !directoriesLoading &&
+      !nominalSearching ? (
+        <BankNominalAvailability
+          availability={nominalAvailability}
+          search={nominalSearch}
+          empty={nominalAccounts.length === 0}
+          canReview={permissions.includes("finance.nominal.read")}
+          onReview={onReviewNominals ? () => leave(onReviewNominals) : undefined}
+          onRefresh={() => {
+            setNominalAccounts((current) =>
+              current.filter((item) => lines.some((line) => line.nominalAccountId === item.id)),
+            );
+            setDirectoriesCompanyId("");
+          }}
+        />
+      ) : null}
+      {showValidation && validation.issues.length > 0 ? (
+        <Alert variant="destructive">
+          <AlertTitle>{validation.issues.length} validation issue(s)</AlertTitle>
+          <AlertDescription>{validation.issues.join(" ")}</AlertDescription>
+        </Alert>
+      ) : null}
+      {readOnlySession ? (
+        <Alert>
+          <AlertTitle>Read-only impersonation session</AlertTitle>
+          <AlertDescription>Saving and submission are disabled while impersonating another user.</AlertDescription>
+        </Alert>
+      ) : null}
+      {state !== "draft" ? (
+        <Alert>
+          <AlertTitle>This receipt is no longer editable</AlertTitle>
+          <AlertDescription>
+            Open the Bank Transaction Detail workspace to review its {state.replaceAll("_", " ")} lifecycle state.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <section
+        className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-card p-4 shadow-xs max-sm:grid-cols-1"
+        aria-label="Receipt controls"
+      >
+        <Field label="Company" helper="Authenticated company scope">
+          {companies.length === 1 ? (
+            <p
+              className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
+              aria-label="Authenticated company"
+            >
+              {companies[0].code} · {companies[0].name}
+            </p>
+          ) : (
+            <select
+              aria-label="Company"
+              className={selectClass}
+              value={companyId}
+              disabled={busy || Boolean(persistedId)}
+              onChange={(event) =>
+                edit(() => {
+                  setCompanyId(event.target.value);
+                  setWorkflow(emptyBankWorkflowSelection);
+                  setNominalSearch("");
+                  lastNominalSearch.current = "";
+                  setNominalSearching(false);
+                  setDirectoriesCompanyId("");
+                  setBankAccountId("");
+                  setBankAccounts([]);
+                  setNominalAccounts([]);
+                  setNominalAvailability(null);
+                  setLines((current) => current.map((line) => ({ ...line, nominalAccountId: "", dimensions: {} })));
+                })
+              }
+            >
+              <option value="">Select company</option>
+              {companies.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.code} · {company.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+        <Field label="Posting date" helper="Controls the financial period">
+          <Input
+            aria-label="Posting date"
+            type="date"
+            value={postingDate}
+            disabled={!editable || busy}
+            aria-invalid={showValidation && !postingDate}
+            onChange={(event) => edit(() => setPostingDate(event.target.value))}
+          />
+        </Field>
+        <Field label="Value date" helper="Optional bank value date">
+          <Input
+            aria-label="Value date"
+            type="date"
+            value={valueDate}
+            disabled={!editable || busy}
+            onChange={(event) => edit(() => setValueDate(event.target.value))}
+          />
+        </Field>
+        <div className="col-span-full max-w-xl">
+          <Field
+            label="Bank"
+            helper={
+              selectedBank
+                ? `${selectedBank.currency} · ${selectedBank.ledger_account_code} ${selectedBank.ledger_account_name}`
+                : "Only active governed Bank Accounts are eligible"
+            }
+          >
+            <select
+              aria-label="Receive into"
+              className={selectClass}
+              value={bankAccountId}
+              disabled={!editable || busy || directoriesLoading}
+              aria-invalid={showValidation && !bankAccountId}
+              onChange={(event) => edit(() => setBankAccountId(event.target.value))}
+            >
+              <option value="">{directoriesLoading ? "Loading eligible accounts…" : "Select Bank Account"}</option>
+              {bankAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {[account.account_name, account.bank_name, account.account_number_masked, account.currency]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+      </section>
+
+      <BankWorkflowControls
+        onSelfApprovalChange={setSelectedSelfApproval}
+        transaction="receipts"
+        company={companyId}
+        value={workflow}
+        disabled={!editable || busy}
+        onChange={(next) =>
+          edit(() => {
+            setWorkflow(next);
+            if (next.project_id !== workflow.project_id || next.location_id !== workflow.location_id)
+              setLines((current) =>
+                current.map((line) => ({
+                  ...line,
+                  dimensions: Object.fromEntries(
+                    Object.entries(line.dimensions).filter(([key]) => key !== "project" && key !== "location"),
+                  ),
+                })),
+              );
+          })
+        }
+      />
+      <details className="rounded-lg border border-border bg-card px-4 py-3">
+        <summary className="cursor-pointer text-sm font-medium focus-visible:outline-ring">Receipt reference</summary>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <Field label="Receipt reference" helper="Generated by the server after first save">
+            <Input readOnly value={reference || "Generated when saved"} aria-label="Receipt reference" />
+          </Field>
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Secure document upload, scanning and retention are not implemented yet.
+        </p>
+      </details>
+
+      <section
+        className="min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-xs"
+        aria-labelledby="receipt-lines-heading"
+      >
+        <header className="border-b border-border bg-muted/30 px-4 py-3">
+          <p className="text-xs font-bold uppercase tracking-wider text-primary">Receipt lines</p>
+          <h2 id="receipt-lines-heading" className="mt-1 text-sm font-bold">
+            Credit allocation
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Each positive line credits its selected nominal account. Required dimensions come from that account.
+          </p>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1080px] table-fixed border-collapse text-xs">
+            <colgroup>
+              <col className="w-[12%]" />
+              <col className="w-[13%]" />
+              <col className="w-[13%]" />
+              <col className="w-[23%]" />
+              <col className="w-[24%]" />
+              <col className="w-[11%]" />
+              <col className="w-[4%]" />
+            </colgroup>
+            <thead className="bg-primary text-primary-foreground">
+              <tr>
+                {["Date *", "Ref. No.", "Mode *", "Nominal Account *", "Details *", "Amount *", ""].map((heading) => (
+                  <th key={heading} scope="col" className="px-2 py-2 text-left font-semibold last:w-10">
+                    {heading || <span className="sr-only">Remove</span>}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((line, index) => {
+                const lineError = validation.lineIssues[line.id] ?? {};
+                const nominal = nominalById.get(line.nominalAccountId);
+                return (
+                  <tr
+                    key={line.id}
+                    className="align-top [&>td]:border-b [&>td]:border-border [&>td]:p-2 [&_input]:h-10 [&_select]:h-10"
+                  >
+                    <td>
+                      <Input
+                        aria-label={`Line ${index + 1} document date`}
+                        type="date"
+                        value={line.documentDate}
+                        disabled={!editable || busy}
+                        aria-invalid={showValidation && Boolean(lineError.documentDate)}
+                        onChange={(event) => updateLine(line.id, { documentDate: event.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <Input
+                        aria-label={`Line ${index + 1} external reference`}
+                        maxLength={128}
+                        value={line.externalReference}
+                        disabled={!editable || busy}
+                        aria-invalid={showValidation && Boolean(lineError.externalReference)}
+                        onChange={(event) => updateLine(line.id, { externalReference: event.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <select
+                        aria-label={`Line ${index + 1} receipt method`}
+                        className={selectClass}
+                        value={line.receiptMethod}
+                        disabled={!editable || busy}
+                        aria-invalid={showValidation && Boolean(lineError.receiptMethod)}
+                        onChange={(event) =>
+                          updateLine(line.id, { receiptMethod: event.target.value as BankReceiptMethod })
+                        }
+                      >
+                        <option value="">Select</option>
+                        {receiptMethods.map((method) => (
+                          <option key={method.value} value={method.value}>
+                            {method.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="min-w-56">
+                      <SearchableSelect
+                        label={`Line ${index + 1} nominal account`}
+                        value={line.nominalAccountId}
+                        options={nominalAccounts.map((account) => ({
+                          value: account.id,
+                          label: `${account.code} · ${account.name}`,
+                        }))}
+                        placeholder={
+                          directoriesLoading
+                            ? "Loading nominal accounts…"
+                            : directoryFailure
+                              ? "Nominal accounts unavailable"
+                              : "Select nominal account"
+                        }
+                        disabled={!editable || busy || directoriesLoading || !!directoryFailure}
+                        loading={nominalSearching}
+                        invalid={showValidation && Boolean(lineError.nominalAccountId)}
+                        required
+                        searchLabel="Search nominal accounts"
+                        search={nominalSearch}
+                        onSearchChange={(next) => {
+                          if (next === nominalSearch) return;
+                          setNominalSearch(next);
+                          // Hide old results during debounce as well as the request.
+                          setNominalSearching(Boolean(next || lastNominalSearch.current));
+                        }}
+                        onValueChange={(value) => updateLine(line.id, { nominalAccountId: value, dimensions: {} })}
+                        footer={
+                          <p className="p-2 text-xs text-muted-foreground">
+                            Search by code or name. Up to 100 matches; saved selections are retained.
+                          </p>
+                        }
+                      />
+                      {nominal?.required_dimensions
+                        .filter((dimension) => dimension !== "project" && dimension !== "location")
+                        .map((dimension) => (
+                          <Input
+                            key={dimension}
+                            className="mt-2"
+                            aria-label={`Line ${index + 1} ${dimension}`}
+                            placeholder={dimension}
+                            maxLength={128}
+                            value={line.dimensions[dimension] ?? ""}
+                            disabled={!editable || busy}
+                            aria-invalid={showValidation && Boolean(lineError[`dimension:${dimension}`])}
+                            onChange={(event) =>
+                              updateLine(line.id, {
+                                dimensions: { ...line.dimensions, [dimension]: event.target.value },
+                              })
+                            }
+                          />
+                        ))}
+                    </td>
+                    <td className="min-w-64">
+                      <Textarea
+                        className="h-10 min-h-10 resize-y"
+                        rows={1}
+                        aria-label={`Line ${index + 1} details`}
+                        placeholder="Receipt details"
+                        maxLength={200}
+                        value={line.details}
+                        disabled={!editable || busy}
+                        aria-invalid={showValidation && Boolean(lineError.details)}
+                        onChange={(event) => updateLine(line.id, { details: event.target.value })}
+                      />
+                    </td>
+                    <td className="min-w-32">
+                      <Input
+                        aria-label={`Line ${index + 1} amount`}
+                        className="text-right tabular-nums"
+                        inputMode="decimal"
+                        value={line.amount}
+                        disabled={!editable || busy}
+                        aria-invalid={showValidation && Boolean(lineError.amount)}
+                        placeholder="0.00"
+                        onChange={(event) => updateLine(line.id, { amount: event.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Remove line ${index + 1}`}
+                        disabled={!editable || busy || lines.length === 1}
+                        type="button"
+                        onClick={() => edit(() => setLines((current) => current.filter((item) => item.id !== line.id)))}
+                      >
+                        ×
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot className="bg-muted/50">
+              <tr>
+                <th scope="row" className="px-3 py-2 text-left" colSpan={5}>
+                  Total
+                </th>
+                <td className="px-3 py-2 text-right font-semibold">
+                  {selectedBank?.currency ?? "—"} {displayAmount(totalUnits)}
+                </td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button
+          variant="outline"
+          type="button"
+          disabled={!editable || busy || lines.length >= 200}
+          onClick={() =>
+            edit(() => setLines((current) => [...current, newLine(current.at(-1)?.documentDate || postingDate)]))
+          }
+        >
+          + Add More
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          {lines.length} {lines.length === 1 ? "line" : "lines"} · {selectedBank?.currency ?? "currency pending"}{" "}
+          {displayAmount(totalUnits)}
+        </span>
+      </div>
+
+      <details className="rounded-lg border border-border bg-card">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-medium focus-visible:outline-ring">
+          Accounting preview — no posting
+        </summary>
+        <section
+          className="min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-xs"
+          aria-labelledby="journal-preview-heading"
+        >
+          <header className="border-b border-primary/30 bg-primary/10 px-4 py-3 shadow-[inset_4px_0_0_var(--color-primary)]">
+            <p className="text-xs font-bold uppercase tracking-wider text-primary">Accounting effect · Preview only</p>
+            <h2 id="journal-preview-heading" className="mt-1 text-sm font-bold">
+              Journal this receipt would post after approval
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              The server-projected Bank Account ledger is debited; nominal accounts are credited. Saving or submitting
+              does not post this journal.
+            </p>
+          </header>
+          <table className="w-full border-collapse text-xs">
+            <thead className="bg-primary text-primary-foreground">
+              <tr>
+                <th className="px-3 py-2 text-left">Account</th>
+                <th className="px-3 py-2 text-right">Debit</th>
+                <th className="px-3 py-2 text-right">Credit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((line, index) => {
+                const nominal = nominalById.get(line.nominalAccountId);
+                const units = decimalUnits(line.amount);
+                if (!nominal || units === null || units <= 0n) return null;
+                return (
+                  <tr key={line.id} className="border-b border-border">
+                    <td className="px-3 py-2">
+                      <strong>{nominal.code}</strong>
+                      <span className="block text-muted-foreground">
+                        {nominal.name} · {line.details || `line ${index + 1}`}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right">—</td>
+                    <td className="px-3 py-2 text-right">
+                      {selectedBank?.currency ?? ""} {displayAmount(units)}
+                    </td>
+                  </tr>
+                );
+              })}
+              {totalUnits > 0n && selectedBank ? (
+                <tr className="border-b border-border">
+                  <td className="px-3 py-2">
+                    <strong>{selectedBank.ledger_account_code}</strong>
+                    <span className="block text-muted-foreground">
+                      {selectedBank.ledger_account_name} · Bank Account control
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {selectedBank.currency} {displayAmount(totalUnits)}
+                  </td>
+                  <td className="px-3 py-2 text-right">—</td>
+                </tr>
+              ) : null}
+              {totalUnits <= 0n ? (
+                <tr>
+                  <td className="px-3 py-5 text-center text-muted-foreground" colSpan={3}>
+                    Enter a positive line amount to preview the journal.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+            <tfoot className="bg-muted/50 font-semibold">
+              <tr>
+                <th className="px-3 py-2 text-left">Preview totals</th>
+                <td className="px-3 py-2 text-right">
+                  {selectedBank?.currency ?? "—"} {displayAmount(totalUnits)}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {selectedBank?.currency ?? "—"} {displayAmount(totalUnits)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+          <p className="bg-amber-50 px-4 py-2 text-xs font-medium text-amber-900">
+            Preview only — Finance revalidates accounts, currency, rate, period and balance during explicit posting.
+          </p>
+        </section>
+      </details>
+      {canApproveAndClose && globalApproval && !readOnlySession ? (
+        <SuperAdminOverrideWarning reasonRequired={false} />
+      ) : null}
+      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3.5">
+        <Button
+          variant="ghost"
+          type="button"
+          disabled={busy}
+          onClick={() =>
+            leave(() => {
+              if (onBack) onBack();
+              else onNavigate?.("bank-receipts");
+            })
+          }
+        >
+          Cancel
+        </Button>
+        <BankEntryActions
+          busy={busy}
+          saveDisabled={!editable || (persistedId ? !canUpdate : !canCreate)}
+          submitDisabled={!editable || !canSubmit || (persistedId ? !canUpdate && dirty : !canCreate)}
+          showApproval={canApproveAndClose && !readOnlySession}
+          approveDisabled={
+            readOnlySession ||
+            !canApproveAndClose ||
+            (state !== "submitted" && (!editable || (persistedId ? !canUpdate && dirty : !canCreate)))
+          }
+          onSave={() => void save()}
+          onSubmit={() => void submit()}
+          onApprove={() => void submit(true)}
+        />
+      </footer>
+    </div>
+  );
+}
+
+const selectClass =
+  "min-h-10 w-full rounded-lg border border-input bg-card px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20";
+
+function Field({ label, helper, children }: { label: string; helper: string; children: React.ReactNode }) {
+  return (
+    <label className="grid min-w-0 gap-1.5">
+      <span className="text-xs font-bold">{label}</span>
+      {children}
+      <small className="text-xs leading-snug text-muted-foreground">{helper}</small>
+    </label>
+  );
+}
+
+function EntryState({ title, detail, retry }: { title: string; detail: string; retry?: () => void }) {
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-muted/20 p-10 text-center">
+      <strong className="text-lg text-foreground">{title}</strong>
+      <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
+      {retry ? (
+        <Button className="mt-4" variant="outline" type="button" onClick={retry}>
+          Retry
+        </Button>
+      ) : null}
+    </div>
+  );
+}

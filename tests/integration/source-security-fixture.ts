@@ -14,6 +14,16 @@ export const bankPaymentPermissions = [
   "banking.payment.reverse",
 ] as const;
 
+export const bankReceiptPermissions = [
+  "banking.receipt.read",
+  "banking.receipt.create",
+  "banking.receipt.update",
+  "banking.receipt.submit",
+  "banking.receipt.approve",
+  "banking.receipt.post",
+  "banking.receipt.reverse",
+] as const;
+
 const users = ["r06.maker", "r06.checker", "r06.target", "r06.restricted", "r06.last-admin-a", "r06.last-admin-b"];
 
 const makerPermissions = [
@@ -67,6 +77,10 @@ const makerPermissions = [
   "banking.payment.create",
   "banking.payment.update",
   "banking.payment.submit",
+  "banking.receipt.read",
+  "banking.receipt.create",
+  "banking.receipt.update",
+  "banking.receipt.submit",
 ] as const;
 
 const checkerPermissions = [
@@ -92,9 +106,18 @@ const checkerPermissions = [
   "banking.bank_account.status",
   "banking.payment.read",
   "banking.payment.approve",
+  "banking.receipt.read",
+  "banking.receipt.approve",
 ] as const;
 
-const posterPermissions = ["banking.payment.read", "banking.payment.post", "banking.payment.reverse"] as const;
+const posterPermissions = [
+  "banking.payment.read",
+  "banking.payment.post",
+  "banking.payment.reverse",
+  "banking.receipt.read",
+  "banking.receipt.post",
+  "banking.receipt.reverse",
+] as const;
 
 const roles = [
   {
@@ -165,6 +188,21 @@ export async function ensureSourceTestTenant(pool: DatabasePool): Promise<void> 
      on conflict (id) do nothing`,
     [sourceTestTenantId],
   );
+  // Bank Account currency FKs use real Currency Master authority, including
+  // for synthetic legacy-account regression fixtures.
+  await pool.query(
+    `insert into currency (tenant_id,code,name,decimal_places,is_base,status)
+     values ($1,'USD','Synthetic US Dollar',2,
+               not exists (select 1 from currency where tenant_id=$1 and is_base and status='active'),'active'),
+            ($1,'PKR','Synthetic Pakistani Rupee',2,false,'active')
+     on conflict (tenant_id,code) do nothing`,
+    [sourceTestTenantId],
+  );
+  await pool.query(
+    `update currency set is_base=true where tenant_id=$1 and code='USD' and status='active'
+       and not exists (select 1 from currency where tenant_id=$1 and is_base and status='active')`,
+    [sourceTestTenantId],
+  );
   await pool.query(
     `insert into organization_unit (id,tenant_id,parent_id,type,code,name,status)
      values ('nexora-r06-uat-company',$1,null,'company','R06-UAT','Nexora R06 UAT Company','active')
@@ -186,6 +224,26 @@ export async function ensureSourceTestTenant(pool: DatabasePool): Promise<void> 
     `insert into organization_unit (id,tenant_id,parent_id,type,code,name,status)
      values ('nexora-r06-uat-company-two',$1,null,'company','R06-UAT-2','Nexora R06 UAT Company Two','active')
      on conflict (tenant_id,id) do nothing`,
+    [sourceTestTenantId],
+  );
+  await pool.query(
+    `insert into company_currency_profile
+       (tenant_id,company_id,id,base_currency,base_country_code,status,row_version,created_by,updated_by)
+     values
+       ($1,'nexora-r06-uat-company','r06-company-currency-profile','USD','US','active',1,'r06.last-admin-a','r06.last-admin-a'),
+       ($1,'nexora-r06-uat-company-two','r06-company-two-currency-profile','USD','US','active',1,'r06.last-admin-a','r06.last-admin-a')
+     on conflict(tenant_id,company_id) do nothing`,
+    [sourceTestTenantId],
+  );
+  await pool.query(
+    `insert into company_currency
+       (tenant_id,company_id,id,currency_code,selected_country_code,is_base,status,row_version,created_by,updated_by)
+     values
+       ($1,'nexora-r06-uat-company','r06-company-currency-usd','USD','US',true,'active',1,'r06.last-admin-a','r06.last-admin-a'),
+       ($1,'nexora-r06-uat-company','r06-company-currency-pkr','PKR','PK',false,'active',1,'r06.last-admin-a','r06.last-admin-a'),
+       ($1,'nexora-r06-uat-company-two','r06-company-two-currency-usd','USD','US',true,'active',1,'r06.last-admin-a','r06.last-admin-a'),
+       ($1,'nexora-r06-uat-company-two','r06-company-two-currency-pkr','PKR','PK',false,'active',1,'r06.last-admin-a','r06.last-admin-a')
+     on conflict(tenant_id,company_id,currency_code) do nothing`,
     [sourceTestTenantId],
   );
   for (const [id, number, firstName, lastName] of [
@@ -242,6 +300,52 @@ export async function ensureSourceTestTenant(pool: DatabasePool): Promise<void> 
   }
 }
 
+export async function ensureCompanyCurrencyFixture(
+  pool: DatabasePool,
+  companyId: string,
+  baseCurrency: string,
+  currencies: readonly string[],
+): Promise<void> {
+  const allCurrencies = [...new Set([baseCurrency, ...currencies])];
+  const profile = await pool.query<{ country_code: string }>(
+    `select country_code from country_currency_catalog
+      where currency_code=$1 and status='active'
+      order by is_primary desc,country_code limit 1`,
+    [baseCurrency],
+  );
+  if (!profile.rows[0]) throw new Error(`No country mapping exists for test base currency ${baseCurrency}.`);
+  await pool.query(
+    `insert into company_currency_profile
+       (tenant_id,company_id,id,base_currency,base_country_code,status,row_version,created_by,updated_by)
+     values($1,$2,$3,$4,$5,'active',1,'r06.last-admin-a','r06.last-admin-a')
+     on conflict(tenant_id,company_id) do nothing`,
+    [sourceTestTenantId, companyId, `test-profile-${companyId}`.slice(0, 128), baseCurrency, profile.rows[0].country_code],
+  );
+  for (const currency of allCurrencies) {
+    const mapping = await pool.query<{ country_code: string }>(
+      `select country_code from country_currency_catalog
+        where currency_code=$1 and status='active'
+        order by is_primary desc,country_code limit 1`,
+      [currency],
+    );
+    if (!mapping.rows[0]) throw new Error(`No country mapping exists for test currency ${currency}.`);
+    await pool.query(
+      `insert into company_currency
+       (tenant_id,company_id,id,currency_code,selected_country_code,is_base,status,row_version,created_by,updated_by)
+       values($1,$2,$3,$4,$5,$6,'active',1,'r06.last-admin-a','r06.last-admin-a')
+       on conflict(tenant_id,company_id,currency_code) do nothing`,
+      [
+        sourceTestTenantId,
+        companyId,
+        `test-currency-${companyId}-${currency}`.slice(0, 128),
+        currency,
+        mapping.rows[0].country_code,
+        currency === baseCurrency,
+      ],
+    );
+  }
+}
+
 export async function ensureSourceAuthorizationFixture(pool: DatabasePool): Promise<void> {
   await ensureSourceTestTenant(pool);
   const client = await pool.connect();
@@ -288,12 +392,14 @@ export async function ensureSourceAuthorizationFixture(pool: DatabasePool): Prom
       );
       await client.query(
         `delete from security_role_scope_grant
-          where tenant_id=$1 and role_policy_id=$2 and permission_key like 'banking.payment.%'`,
+          where tenant_id=$1 and role_policy_id=$2
+            and (permission_key like 'banking.payment.%' or permission_key like 'banking.receipt.%')`,
         [sourceTestTenantId, role.policyId],
       );
       await client.query(
         `delete from security_role_permission_grant
-          where tenant_id=$1 and role_policy_id=$2 and permission_key like 'banking.payment.%'
+          where tenant_id=$1 and role_policy_id=$2
+            and (permission_key like 'banking.payment.%' or permission_key like 'banking.receipt.%')
             and not (permission_key=any($3::text[]))`,
         [sourceTestTenantId, role.policyId, role.permissions],
       );
@@ -304,7 +410,8 @@ export async function ensureSourceAuthorizationFixture(pool: DatabasePool): Prom
            values ($1,$2,$3,'all') on conflict do nothing`,
           [sourceTestTenantId, role.policyId, permission],
         );
-        const paymentPermission = permission.startsWith("banking.payment.");
+        const companyScopedBankingPermission =
+          permission.startsWith("banking.payment.") || permission.startsWith("banking.receipt.");
         await client.query(
           `insert into security_role_scope_grant
             (tenant_id,role_policy_id,permission_key,scope_kind,scope_value)
@@ -313,8 +420,8 @@ export async function ensureSourceAuthorizationFixture(pool: DatabasePool): Prom
             sourceTestTenantId,
             role.policyId,
             permission,
-            paymentPermission ? "company" : "tenant",
-            paymentPermission ? sourceTestCompanyId : sourceTestTenantId,
+            companyScopedBankingPermission ? "company" : "tenant",
+            companyScopedBankingPermission ? sourceTestCompanyId : sourceTestTenantId,
           ],
         );
       }
@@ -454,6 +561,7 @@ export async function ensureSourceSuperAdministratorFixture(pool: DatabasePool):
     "security.session_policy.activate",
     "security.authorization.audit.read",
     ...bankPaymentPermissions,
+    ...bankReceiptPermissions,
   ] as const;
   try {
     await client.query("begin");
@@ -492,12 +600,12 @@ export async function ensureSourceSuperAdministratorFixture(pool: DatabasePool):
       [sourceTestTenantId, policyId, JSON.stringify(permissions), roleId],
     );
     await client.query(
-      `delete from security_role_permission_grant where tenant_id=$1 and role_policy_id=$2
+      `delete from security_role_scope_grant where tenant_id=$1 and role_policy_id=$2
         and permission_key<>all($3::text[])`,
       [sourceTestTenantId, policyId, permissions],
     );
     await client.query(
-      `delete from security_role_scope_grant where tenant_id=$1 and role_policy_id=$2
+      `delete from security_role_permission_grant where tenant_id=$1 and role_policy_id=$2
         and permission_key<>all($3::text[])`,
       [sourceTestTenantId, policyId, permissions],
     );

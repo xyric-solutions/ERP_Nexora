@@ -494,7 +494,7 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
                     <td className="px-4 py-3.5">
                       <span className="block font-medium text-foreground">{payment.bank_account_name}</span>
                       <small className="mt-1 block text-muted-foreground">
-                        {payment.bank_name} · {payment.account_number_masked}
+                        {[payment.bank_name, payment.account_number_masked].filter(Boolean).join(" · ") || "Nominal account"}
                       </small>
                     </td>
                     <td className="max-w-80 px-4 py-3.5 text-muted-foreground">

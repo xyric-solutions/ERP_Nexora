@@ -6,12 +6,16 @@ import type pg from "pg";
 
 const sourceMigrationsRoot = fileURLToPath(new URL("../source-migrations/", import.meta.url));
 const filePattern = /^(?<version>\d{4})_(?<name>[a-z0-9_]+?)(?:\.forward)?\.sql$/;
-const sourceModuleOrder = ["platform", "security", "workflow", "finance", "hr", "runtime"] as const;
+const sourceModuleOrder = ["platform", "security", "workflow", "master_data", "finance", "hr", "runtime"] as const;
 
 interface SourceMigration {
   version: number;
   name: string;
   sql: string;
+}
+
+export interface SourceMigrationOptions {
+  throughVersion?: number;
 }
 
 async function loadSourceMigrations(moduleName: string): Promise<SourceMigration[]> {
@@ -49,7 +53,15 @@ async function sourceMigrationLedger(pool: pg.Pool | pg.PoolClient, moduleName: 
   return new Map(ledger.rows.map((row) => [Number(row.version), row.name]));
 }
 
-export async function migrateSourceModule(pool: pg.Pool, moduleName: string): Promise<boolean> {
+export async function migrateSourceModule(
+  pool: pg.Pool,
+  moduleName: string,
+  options: SourceMigrationOptions = {},
+): Promise<boolean> {
+  const throughVersion = options.throughVersion ?? Number.POSITIVE_INFINITY;
+  if (throughVersion !== Number.POSITIVE_INFINITY && (!Number.isSafeInteger(throughVersion) || throughVersion < 1)) {
+    throw new Error("Source migration ceiling must be a positive safe integer");
+  }
   const migrations = await loadSourceMigrations(moduleName);
   const client = await pool.connect();
   let changed = false;
@@ -57,6 +69,7 @@ export async function migrateSourceModule(pool: pg.Pool, moduleName: string): Pr
     await client.query("select pg_advisory_lock(hashtextextended($1, 0))", [`nexora:source-migration:${moduleName}`]);
     const applied = await sourceMigrationLedger(client, moduleName);
     for (const migration of migrations) {
+      if (migration.version > throughVersion) break;
       const appliedName = applied.get(migration.version);
       if (appliedName) {
         if (appliedName !== migration.name) {

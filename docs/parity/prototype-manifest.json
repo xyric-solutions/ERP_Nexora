@@ -5,6 +5,7 @@
     "modules": 35,
     "groups": 146,
     "pages": 802
+    "pages": 791
   },
   "modules": [
     {
@@ -201,12 +202,6 @@
               "id": "revaluation",
               "label": "Revaluation",
               "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "one-bill",
-              "label": "1Bill",
-              "archetype": "list",
               "status": "prototype"
             }
           ]

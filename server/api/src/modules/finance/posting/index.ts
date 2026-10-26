@@ -1,4 +1,4 @@
-export { FinancePostingService } from "./service.js";
+export { FinancePostingService, convertFinanceAmountToBase, parseFinanceDecimal } from "./service.js";
 export {
   financeRateAuthorityLockResource,
   lockFinanceRateAuthority,
@@ -8,6 +8,8 @@ export {
   assertFinanceTransactionClient,
   createFinanceTransactionClient,
   type FinancePostCommand,
+  type FinanceMultiCurrencyPostCommand,
+  type FinanceMultiCurrencyPostingLine,
   type FinanceTransactionClient,
   type FinancePostingLine,
   type FinancePostingResult,

@@ -242,10 +242,36 @@ run("Bank Payment database security controls", () => {
         `insert into bank_payment
           (id,tenant_id,company_id,reference,bank_account_id,posting_date,transaction_currency,
            base_currency,exchange_rate_value,total_amount,state,row_version,created_by,created_at,
-           updated_at,submitted_by,submitted_at,approved_by,approved_at)
-         values ($1,$2,$3,$4,$5,current_date,$6,$6,1,10,'approved',4,$7,now(),now(),$7,now(),
-                 'r06.checker',now())`,
+           updated_at,approver_user_id)
+         values ($1,$2,$3,$4,$5,current_date,$6,$6,1,10,'draft',1,$7,now(),now(),'r06.checker')`,
         [paymentId, sourceTestTenantId, sourceTestCompanyId, `BP-${suffix}`, bankAccountId, baseCurrency, actorId],
+      );
+      // Build the security fixture through valid financial lifecycle transitions;
+      // never bypass the production guard by inserting an approved transaction.
+      await client.query(
+        `insert into account(id,tenant_id,company_id,code,name,type,is_header,required_dimensions,status,manual_posting_allowed,is_system_account,reconciliation_required,created_at)
+        values($1,$2,$3,$4,'Synthetic security expense','expense',false,'[]','active',true,false,false,now())`,
+        [`${paymentId}-expense`, sourceTestTenantId, sourceTestCompanyId, `EXP-${suffix}`],
+      );
+      await client.query(
+        `insert into bank_payment_line(id,tenant_id,company_id,payment_id,line_number,document_date,external_reference,payment_method,nominal_account_id,narration,amount,dimensions)
+        values($1,$2,$3,$4,1,current_date,$5,'bank_transfer',$6,'Synthetic governed security fixture',10,'{}')`,
+        [
+          `${paymentId}-line`,
+          sourceTestTenantId,
+          sourceTestCompanyId,
+          paymentId,
+          `REF-${suffix}`,
+          `${paymentId}-expense`,
+        ],
+      );
+      await client.query(
+        `update bank_payment set state='submitted',row_version=2,updated_at=clock_timestamp(),submitted_by=$3,submitted_at=clock_timestamp() where tenant_id=$1 and id=$2`,
+        [sourceTestTenantId, paymentId, actorId],
+      );
+      await client.query(
+        `update bank_payment set state='approved',row_version=3,updated_at=clock_timestamp(),approved_by='r06.checker',approved_at=clock_timestamp() where tenant_id=$1 and id=$2`,
+        [sourceTestTenantId, paymentId],
       );
 
       const writeOverride = (normalDecisionPermission: string, overrideCorrelationId: string, key: string) =>

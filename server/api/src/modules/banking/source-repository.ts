@@ -19,6 +19,7 @@ import type {
 import type { Pool, PoolClient } from "pg";
 
 import { BankingIdentifierCrypto } from "./crypto.js";
+import { bankDecisionEvidence } from "./decision-evidence.js";
 import {
   ApprovalOverrideWriterError,
   writeApprovalOverrideEvent,
@@ -42,6 +43,7 @@ export interface BankingActorContext {
 }
 
 interface BankAccountRow {
+  identity_mode: "legacy_detailed" | "nominal_only";
   id: string;
   tenant_id: string;
   company_id: string;
@@ -49,9 +51,9 @@ interface BankAccountRow {
   reference: string;
   account_name: string;
   account_type: "current" | "deposit" | "escrow" | "cash";
-  bank_name: string;
-  branch: string;
-  account_number_masked: string;
+  bank_name: string | null;
+  branch: string | null;
+  account_number_masked: string | null;
   account_number_ciphertext: Buffer;
   account_number_nonce: Buffer;
   account_number_hash: string;
@@ -60,7 +62,7 @@ interface BankAccountRow {
   iban_nonce: Buffer | null;
   iban_hash: string | null;
   encryption_key_version: string;
-  swift_bic: string;
+  swift_bic: string | null;
   currency: string;
   status: BankAccountDetail["state"];
   overdraft_limit: string;
@@ -251,7 +253,7 @@ export class SourceBankingRepository {
       if (query.search) {
         const parameter = values.push(`%${escapeSearch(query.search)}%`);
         filters.push(
-          `(bank.account_name ilike $${parameter} escape '\\' or bank.bank_name ilike $${parameter} escape '\\' or bank.reference ilike $${parameter} escape '\\' or bank.account_number_masked ilike $${parameter} escape '\\')`,
+          `(bank.account_name ilike $${parameter} escape '\\' or bank.bank_name ilike $${parameter} escape '\\' or bank.reference ilike $${parameter} escape '\\' or bank.account_number_masked ilike $${parameter} escape '\\' or ledger.code ilike $${parameter} escape '\\' or bank.currency ilike $${parameter} escape '\\')`,
         );
       }
       if (query.bank) filters.push(`bank.bank_name=$${values.push(query.bank)}`);
@@ -272,9 +274,10 @@ export class SourceBankingRepository {
         reference: string;
         account_name: string;
         account_type: BankAccountDetail["account_type"];
-        bank_name: string;
-        branch: string;
-        account_number_masked: string;
+        identity_mode: "legacy_detailed" | "nominal_only";
+        bank_name: string | null;
+        branch: string | null;
+        account_number_masked: string | null;
         currency: string;
         ledger_account_id: string;
         ledger_account_code: string;
@@ -286,7 +289,7 @@ export class SourceBankingRepository {
         state: BankAccountDetail["state"];
         version: string | number;
       }>(
-        `select bank.id,bank.reference,bank.account_name,bank.account_type,bank.bank_name,bank.branch,
+        `select bank.id,bank.reference,bank.account_name,bank.account_type,bank.identity_mode,bank.bank_name,bank.branch,
                 bank.account_number_masked,bank.currency,bank.account_id as ledger_account_id,
                 ledger.code as ledger_account_code,ledger.name as ledger_account_name,
                 coalesce(sum(case when journal.status in ('posted','reversed') and line.currency=bank.currency
@@ -591,6 +594,7 @@ export class SourceBankingRepository {
         throw new BankingApiError(409, "BANK_ACCOUNT_NOT_PENDING", "The bank account is not pending approval.");
       this.requireVersion(previous, input.expected_version);
       const approved = input.action === "approve";
+      const evidence = bankDecisionEvidence(input, "Bank account");
       const approvalActor = evaluateApprovalActor({
         account: context.actor,
         makerActorIds: [previous.created_by ?? "", previous.submitted_by ?? ""],
@@ -617,10 +621,10 @@ export class SourceBankingRepository {
               resourceType: "banking.bank_account",
               resourceId: accountId,
               decisionAction: input.action,
-              reason: input.reason,
+              reason: evidence.reason,
               correlationId,
               idempotencyKey: `${idempotencyKey}:approval-override`,
-              metadata: { module: "banking", company_id: previous.company_id },
+              metadata: { module: "banking", company_id: previous.company_id, reason_source: evidence.source },
               impersonated: context.impersonationRequestId !== undefined,
             })
           ).eventId;
@@ -649,13 +653,13 @@ export class SourceBankingRepository {
           input.expected_version,
           approved ? "active" : "rejected",
           context.actor.userId,
-          input.reason,
+          evidence.reason,
           approvalOverrideEventId,
         ],
       );
       const row = await this.loadAccountRow(client, context, accountId);
       if (!row) throw new Error("Decided bank account could not be reloaded.");
-      await this.appendEvent(client, context, row, approved ? "approved" : "rejected", input.reason);
+      await this.appendEvent(client, context, row, approved ? "approved" : "rejected", evidence.reason);
       const audit = await this.appendPlatformAudit(
         client,
         context,
@@ -865,6 +869,8 @@ export class SourceBankingRepository {
         "BANK_ACCOUNT_NOT_FOUND",
         "The bank account is unavailable in your company scope.",
       );
+    if (row.identity_mode === "nominal_only")
+      throw new BankingApiError(409, "BANK_NOMINAL_WORKFLOW_REQUIRED", "Use the governed Nominal workflow to change this account.");
     return row;
   }
 
@@ -905,9 +911,10 @@ export class SourceBankingRepository {
       reference: string;
       account_name: string;
       account_type: BankAccountDetail["account_type"];
-      bank_name: string;
-      branch: string;
-      account_number_masked: string;
+      identity_mode: "legacy_detailed" | "nominal_only";
+      bank_name: string | null;
+      branch: string | null;
+      account_number_masked: string | null;
       currency: string;
       ledger_account_id: string;
       ledger_account_code: string;
@@ -931,7 +938,7 @@ export class SourceBankingRepository {
       approved_at: string | Date | null;
       rejected_at: string | Date | null;
     }>(
-      `select bank.id,bank.reference,bank.account_name,bank.account_type,bank.bank_name,bank.branch,
+      `select bank.id,bank.reference,bank.account_name,bank.account_type,bank.identity_mode,bank.bank_name,bank.branch,
               bank.account_number_masked,bank.currency,bank.account_id as ledger_account_id,
               ledger.code as ledger_account_code,ledger.name as ledger_account_name,
               coalesce(sum(case when journal.status in ('posted','reversed') and line.currency=bank.currency

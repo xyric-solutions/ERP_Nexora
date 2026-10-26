@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { ActionFeedbackProvider } from "@/shared/ui/action-feedback";
 import { Input } from "@/components/ui/input";
 import {
   PROTOTYPE_MODULE_COUNT,
@@ -21,7 +22,10 @@ import {
 } from "@prototype/shared/fixtures/mock-data";
 import { PrototypeContent, type PrototypeRow, type PrototypeViewState } from "./prototype-content";
 import { savedBankingTransactions } from "@prototype/features/banking/views/banking-transaction-detail";
-import { NexoraIntelligenceLayer, type IntelligenceSurface } from "@prototype/features/ai/components/nexora-intelligence";
+import {
+  NexoraIntelligenceLayer,
+  type IntelligenceSurface,
+} from "@prototype/features/ai/components/nexora-intelligence";
 
 type RouteState = { moduleId: string; pageId: string; recordRef?: string };
 type DialogState =
@@ -257,6 +261,21 @@ export function PrototypeShell({
 
   const current = useMemo(() => findPrototypePage(route.moduleId, route.pageId), [route]);
   const connectedWorkspace=current.page.status==='live'||current.page.status==='read-only'||current.page.status==='in-progress';
+  const isCentralChartPage =
+    current.module.id === "finance" && ["central-chart-template", "section-management"].includes(current.page.id);
+  const isFiscalPeriodPage = current.module.id === "finance" && ["fiscal-periods", "period-close"].includes(current.page.id);
+  const isReferenceMasterPage =
+    current.module.id === "finance" && ["reporting-projects", "reporting-locations"].includes(current.page.id);
+  const isLiveFinanceChartPage =
+    isFiscalPeriodPage ||
+    isReferenceMasterPage ||
+    isCentralChartPage ||
+    (current.module.id === "finance" &&
+      ["chart-of-accounts", "nominals", "nominal-detail", "add-nominal"].includes(current.page.id));
+  const isLiveBankMasterDataPage =
+    current.module.id === "banking" &&
+    ["bank-accounts", "add-bank-account", "bank-account-detail", "bank-account-approvals"].includes(current.page.id);
+  const isLiveMasterDataPage = isLiveFinanceChartPage || isLiveBankMasterDataPage;
   const currentRole = roleOptions.find((role) => role.id === roleId) ?? roleOptions[0];
   const currentCompany = companies.find((company) => company.mode === companyMode) ?? companies[0];
   const currentMode = companyModeOptions.find((mode) => mode.id === companyMode) ?? companyModeOptions[0];
@@ -308,7 +327,7 @@ export function PrototypeShell({
 
   const confirmPaymentEntryDiscard = useCallback((bypass = false) => {
     if (bypass || !paymentEntryDirtyRef.current || typeof window === "undefined") return true;
-    if (!window.confirm("You have unsaved Bank Payment changes. Leave this page and discard them?")) return false;
+    if (!window.confirm("You have unsaved Bank changes. Leave this page and discard them?")) return false;
     paymentEntryDirtyRef.current = false;
     setPaymentEntryDirty(false);
     return true;
@@ -679,9 +698,10 @@ export function PrototypeShell({
               <small>Designation view &middot; theme follows the desk</small>
             </span>
           </div>
-          <label className="nx-sidebar__search">
+          <label className="nx-sidebar__search" htmlFor="erp-module-search">
             <span aria-hidden="true">⌕</span>
             <Input
+              id="erp-module-search"
               value={sidebarQuery}
               onChange={(event) => setSidebarQuery(event.target.value)}
               aria-label="Search prototype modules"
@@ -866,37 +886,66 @@ export function PrototypeShell({
           </header>
           {!connectedWorkspace ? <section className="nx-prototype-toolbar" aria-label="Prototype controls">
             <strong className="nx-prototype-toolbar__label">Mock-only review</strong>
+          <section
+            className="nx-prototype-toolbar"
+            aria-label={isLiveMasterDataPage ? "Account master data controls" : "Prototype controls"}
+          >
+            <strong className="nx-prototype-toolbar__label">
+              {isReferenceMasterPage
+                ? "Live Master Data API"
+                : isCentralChartPage
+                  ? "Central Master Data"
+                  : isLiveFinanceChartPage
+                    ? "Live Finance API"
+                    : isLiveBankMasterDataPage
+                      ? "Live Bank API"
+                      : "Mock-only review"}
+            </strong>
             <div className="nx-prototype-toolbar__controls">
-              <select
-                className="nx-context-control"
-                value={companyMode}
-                onChange={(event) => changeCompanyMode(event.target.value as CompanyMode)}
-                aria-label="Company navigation variant"
-              >
-                {companyModeOptions.map((mode) => (
-                  <option key={mode.id} value={mode.id}>
-                    Company: {mode.shortLabel}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="nx-context-control"
-                value={roleId}
-                onChange={(event) => changeRole(event.target.value)}
-                aria-label="Role visibility prototype"
-              >
-                {roleOptions.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    Role: {role.shortLabel}
-                  </option>
-                ))}
-              </select>
-              <button className="nx-context-control" type="button" aria-pressed={modeScoped} onClick={toggleModeScope}>
-                Company menus: {modeScoped ? "Scoped" : "All"}
-              </button>
-              <button className="nx-context-control" type="button" aria-pressed={roleScoped} onClick={toggleRoleScope}>
-                Role menus: {roleScoped ? "Scoped" : "All"}
-              </button>
+              {!isLiveMasterDataPage && (
+                <>
+                  <select
+                    className="nx-context-control"
+                    value={companyMode}
+                    onChange={(event) => changeCompanyMode(event.target.value as CompanyMode)}
+                    aria-label="Company navigation variant"
+                  >
+                    {companyModeOptions.map((mode) => (
+                      <option key={mode.id} value={mode.id}>
+                        Company: {mode.shortLabel}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="nx-context-control"
+                    value={roleId}
+                    onChange={(event) => changeRole(event.target.value)}
+                    aria-label="Role visibility prototype"
+                  >
+                    {roleOptions.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        Role: {role.shortLabel}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="nx-context-control"
+                    type="button"
+                    aria-pressed={modeScoped}
+                    onClick={toggleModeScope}
+                  >
+                    Company menus: {modeScoped ? "Scoped" : "All"}
+                  </button>
+                  <button
+                    className="nx-context-control"
+                    type="button"
+                    aria-pressed={roleScoped}
+                    onClick={toggleRoleScope}
+                  >
+                    Role menus: {roleScoped ? "Scoped" : "All"}
+                  </button>
+                </>
+              )}
               <button
                 className="nx-context-control"
                 type="button"
@@ -910,6 +959,7 @@ export function PrototypeShell({
                 value={viewState}
                 onChange={(event) => setViewState(event.target.value as PrototypeViewState)}
                 aria-label="Preview page state"
+                disabled={isLiveMasterDataPage}
               >
                 <option value="data">State: Data</option>
                 <option value="loading">State: Loading</option>
@@ -919,63 +969,95 @@ export function PrototypeShell({
             </div>
             <span className="nx-prototype-toolbar__note">No APIs · no posting · no Demo Account data</span>
           </section> : null}
+            <span className="nx-prototype-toolbar__note">
+              {isFiscalPeriodPage
+                ? "Company fiscal calendar API · PostgreSQL · audited date controls"
+                : isCentralChartPage
+                ? "Central reference API · PostgreSQL · no company posting"
+                : isLiveMasterDataPage
+                  ? "Company account API · PostgreSQL · approval required before use"
+                  : "No APIs · no posting · no Demo Account data"}
+            </span>
+          </section>
 
           <div className="nx-content">
-            {activeWorkspace === "identity" && identityContent ? identityContent : <>
-            <ol className="nx-breadcrumbs" aria-label="Breadcrumb">
-              <li>
-                <button type="button" onClick={() => navigate("dashboard", currentRole.dashboardPageId)}>
-                  Workspace
-                </button>
-              </li>
-              <li>
-                <button type="button" onClick={() => navigate(current.module.id, current.module.groups[0].pages[0].id)}>
-                  {current.module.shortLabel}
-                </button>
-              </li>
-              <li>{current.group.label}</li>
-              <li aria-current="page">{current.page.label}</li>
-            </ol>
-            <div className="nx-context-summary" role="note">
-              <span>
-                <b>{currentCompany.shortName}</b>
-                {currentCompany.name}
-              </span>
-              <span>
-                <b>{currentRole.shortLabel}</b>
-                {currentRole.label}
-              </span>
-              <span>
-                <b>{currentMode.shortLabel}</b>
-                {currentMode.description}
-              </span>
-            </div>
-            <PrototypeContent
-              context={{
-                moduleId: current.module.id,
-                moduleLabel: current.module.label,
-                moduleCode: current.module.code,
-                moduleDescription: current.module.description,
-                pageLabel: current.page.label,
-                pageId: current.page.id,
-                archetype: current.page.archetype,
-                status: current.page.status,
-                mode: currentMode.label,
-                role: currentRole.label,
-                roleId: currentRole.id,
-                companyMode,
-                recordRef: route.recordRef,
-              }}
-              rows={rows}
-              viewState={viewState}
-              onAction={handleAction}
-              onOpenPage={(pageId) => navigate(current.module.id, pageId)}
-              onNavigate={(moduleId, pageId, recordRef, options) =>
-                navigate(moduleId, pageId, recordRef, options)
-              }
-              onPaymentEntryDirtyChange={setPaymentEntryDirty}
-            />
-            </>}
+            {activeWorkspace === "identity" && identityContent ? (
+              identityContent
+            ) : (
+              <>
+                <ol className="nx-breadcrumbs" aria-label="Breadcrumb">
+                  <li>
+                    <button type="button" onClick={() => navigate("dashboard", currentRole.dashboardPageId)}>
+                      Workspace
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => navigate(current.module.id, current.module.groups[0].pages[0].id)}
+                    >
+                      {current.module.shortLabel}
+                    </button>
+                  </li>
+                  <li>{current.group.label}</li>
+                  <li aria-current="page">{current.page.label}</li>
+                </ol>
+                <div className="nx-context-summary" role="note">
+                  <span>
+                    <b>{isLiveMasterDataPage ? "ERP" : currentCompany.shortName}</b>
+                    {isCentralChartPage
+                      ? "Central master data · no company selected"
+                      : isLiveMasterDataPage
+                        ? "Company scope shown in account or form"
+                        : currentCompany.name}
+                  </span>
+                  <span>
+                    <b>{isLiveMasterDataPage ? "AUTH" : currentRole.shortLabel}</b>
+                    {isLiveMasterDataPage ? "Permissions enforced by API" : currentRole.label}
+                  </span>
+                  <span>
+                    <b>{isLiveMasterDataPage ? "DB" : currentMode.shortLabel}</b>
+                    {isLiveMasterDataPage ? "Persisted PostgreSQL records" : currentMode.description}
+                  </span>
+                </div>
+                <ActionFeedbackProvider
+                  onSuccess={(message) =>
+                    pushToast(
+                      "success",
+                      isLiveFinanceChartPage ? "Finance updated successfully" : "Bank updated successfully",
+                      message,
+                    )
+                  }
+                >
+                  <PrototypeContent
+                    context={{
+                      moduleId: current.module.id,
+                      moduleLabel: current.module.label,
+                      moduleCode: current.module.code,
+                      moduleDescription: current.module.description,
+                      pageLabel: current.page.label,
+                      pageId: current.page.id,
+                      archetype: current.page.archetype,
+                      status: current.page.status,
+                      mode: currentMode.label,
+                      role: currentRole.label,
+                      roleId: currentRole.id,
+                      companyMode,
+                      recordRef: route.recordRef,
+                    }}
+                    rows={rows}
+                    viewState={viewState}
+                    onAction={handleAction}
+                    onOpenPage={(pageId) => navigate(current.module.id, pageId)}
+                    onNavigate={(moduleId, pageId, recordRef, options) =>
+                      navigate(moduleId, pageId, recordRef, options)
+                    }
+                    onPaymentEntryDirtyChange={setPaymentEntryDirty}
+                    onReceiptEntryDirtyChange={setPaymentEntryDirty}
+                  />
+                </ActionFeedbackProvider>
+              </>
+            )}
           </div>
         </main>
       </div>
@@ -1059,9 +1141,10 @@ export function PrototypeShell({
               </button>
             </div>
             <div className="nx-modal__body">
-              <label className="nx-command-search">
+              <label className="nx-command-search" htmlFor="erp-command-search">
                 <span>⌕</span>
                 <Input
+                  id="erp-command-search"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Try ‘PAY-2026-0418’, ‘Atlas’, ‘approved’, ‘invoice’ or ‘nominals’"
@@ -1293,7 +1376,7 @@ export function PrototypeShell({
         </div>
       ) : null}
 
-      <div className="nx-toast-stack" aria-live="polite">
+      <div className="nx-toast-stack" role="region" aria-label="Action notifications" aria-live="polite">
         {toasts.map((toast) => (
           <div className={`nx-toast nx-toast--${toast.tone}`} key={toast.id}>
             <span className="nx-toast__symbol">

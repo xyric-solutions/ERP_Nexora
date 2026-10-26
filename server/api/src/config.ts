@@ -13,6 +13,11 @@ const environmentSchema = z
     DATABASE_AUTO_MIGRATE: z.enum(["true", "false"]).default("false"),
     REDIS_URL: z.string().url(),
     S3_ENDPOINT: z.string().url().default("http://127.0.0.1:9000"),
+    S3_REGION: z.string().trim().min(1).max(128).default("us-east-1"),
+    S3_BUCKET: z.string().trim().min(3).max(63),
+    S3_ACCESS_KEY_ID: z.string().trim().min(1).max(512),
+    S3_SECRET_ACCESS_KEY: z.string().min(1).max(512),
+    S3_FORCE_PATH_STYLE: z.enum(["true", "false"]).default("true"),
     AUTH_THROTTLE_SECRET: z.string().min(32).max(512),
     AUTH_LOGIN_DIRECTORY_SECRET: z.string().min(32).max(512),
     AUTH_SESSION_SECRET: z.string().min(32).max(512),
@@ -53,6 +58,11 @@ export interface ApiConfig {
   databaseAutoMigrate: boolean;
   redisUrl: string;
   s3Endpoint: string;
+  s3Region: string;
+  s3Bucket: string;
+  s3AccessKeyId: string;
+  s3SecretAccessKey: string;
+  s3ForcePathStyle: boolean;
   authThrottleSecret: string;
   authLoginDirectorySecret: string;
   authSessionSecret: string;
@@ -79,6 +89,11 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): ApiCon
     databaseAutoMigrate: value.DATABASE_AUTO_MIGRATE === "true",
     redisUrl: value.REDIS_URL,
     s3Endpoint: value.S3_ENDPOINT,
+    s3Region: value.S3_REGION,
+    s3Bucket: value.S3_BUCKET,
+    s3AccessKeyId: value.S3_ACCESS_KEY_ID,
+    s3SecretAccessKey: value.S3_SECRET_ACCESS_KEY,
+    s3ForcePathStyle: value.S3_FORCE_PATH_STYLE === "true",
     authThrottleSecret: value.AUTH_THROTTLE_SECRET,
     authLoginDirectorySecret: value.AUTH_LOGIN_DIRECTORY_SECRET,
     authSessionSecret: value.AUTH_SESSION_SECRET,

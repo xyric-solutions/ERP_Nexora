@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 
 import type { QueryResult, QueryResultRow } from "pg";
 
+import {
+  resolveCompanyCurrencyAuthority,
+  type CompanyCurrencyAuthority,
+} from "../currencies/company-authority.js";
 import type { FinanceJsonValue, FinanceTransactionClient } from "./types.js";
 
 type FinancePostingClient = FinanceTransactionClient;
@@ -95,6 +99,16 @@ export interface FinancePostingRepository {
     operation: "post" | "reverse",
   ): Promise<FinanceEventRow | null>;
   loadBaseCurrencies(client: FinancePostingClient, tenantId: string, lock?: boolean): Promise<FinanceCurrencyRow[]>;
+  resolveCompanyCurrency(
+    client: FinancePostingClient,
+    input: {
+      tenantId: string;
+      companyId: string;
+      sourceCurrency: string;
+      effectiveOnOrBefore: string;
+    },
+  ): Promise<CompanyCurrencyAuthority>;
+  loadBaseCurrencies(client: FinancePostingClient, tenantId: string): Promise<FinanceCurrencyRow[]>;
   loadTransactionCurrency(
     client: FinancePostingClient,
     tenantId: string,
@@ -287,6 +301,19 @@ export class SourceFinancePostingRepository implements FinancePostingRepository 
   }
 
   async loadBaseCurrencies(client: FinancePostingClient, tenantId: string, lock = true): Promise<FinanceCurrencyRow[]> {
+  resolveCompanyCurrency(
+    client: FinancePostingClient,
+    input: {
+      tenantId: string;
+      companyId: string;
+      sourceCurrency: string;
+      effectiveOnOrBefore: string;
+    },
+  ): Promise<CompanyCurrencyAuthority> {
+    return resolveCompanyCurrencyAuthority(client, input);
+  }
+
+  async loadBaseCurrencies(client: FinancePostingClient, tenantId: string): Promise<FinanceCurrencyRow[]> {
     return (
       await client.query<FinanceCurrencyRow>(
         `select code,decimal_places from currency
@@ -324,6 +351,8 @@ export class SourceFinancePostingRepository implements FinancePostingRepository 
         `select id,rate::text as rate from currency_rate
           where tenant_id=$1 and source_currency=$2 and target_currency=$3 and effective_date<=$4::date
           order by effective_date desc,id desc limit 1${lock ? " for share" : ""}`,
+          where tenant_id=$1 and source_currency=$2 and target_currency=$3 and effective_date<=$4::date and status='active'
+          order by effective_date desc,id desc limit 1 for share`,
         [tenantId, sourceCurrency, targetCurrency, postingDate],
       ),
     );

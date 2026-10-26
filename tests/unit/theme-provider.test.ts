@@ -4,8 +4,8 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ThemeProvider, ThemeSelector } from "../../app/theme-provider.js";
-import { LEGACY_PREFERENCES_KEY, THEME_STORAGE_KEY, themeInitializationScript } from "../../app/theme-config.js";
+import { ThemeProvider, ThemeSelector } from "../../app/shared/theme/provider.js";
+import { LEGACY_PREFERENCES_KEY, THEME_STORAGE_KEY, themeInitializationScript } from "../../app/shared/theme/config.js";
 
 let container: HTMLDivElement;
 let root: Root;

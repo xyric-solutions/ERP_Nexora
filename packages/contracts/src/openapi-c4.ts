@@ -19,6 +19,35 @@ import {hrPayrollWorkspaceQuerySchema,hrPayrollWorkspaceSchema,hrPayrollOptionsQ
 import {hrLeaveQuerySchema,hrLeaveTypeDirectorySchema,createHrLeaveTypeRequestSchema,updateHrLeavePolicyRequestSchema,hrLeaveTypeStatusRequestSchema,hrLeaveBalanceQuerySchema,hrLeaveBalanceDirectorySchema,hrLeaveLedgerQuerySchema,hrLeaveLedgerSchema,hrLeaveBalancePostingRequestSchema,hrLeaveContextQuerySchema,hrLeaveContextSchema,hrLeaveRequestQuerySchema,hrLeaveRequestDirectorySchema,hrLeaveRequestDetailSchema,createHrLeaveRequestSchema,hrLeaveRequestActionRequestSchema} from './hr/index.js';
 import {hrOvertimeQuerySchema,hrOvertimeContextQuerySchema,createHrOvertimeRequestSchema,hrOvertimeRuleRequestSchema,hrOvertimeActionRequestSchema,hrAttendancePeriodQuerySchema,hrAttendancePeriodActionRequestSchema,hrOvertimeDirectorySchema,hrOvertimeContextSchema,hrOvertimeDetailSchema,hrAttendanceCompletionResultSchema,hrAttendancePeriodWorkspaceSchema,hrAttendancePayrollInputsSchema} from './hr/index.js';
 import { z } from "zod";
+import { fiscalCalendarPaths } from "./finance/periods-openapi.js";
+import { bankTransferPaths } from "./banking/transfers-openapi.js";
+import { bankRevaluationPaths } from "./banking/revaluations-openapi.js";
+import { companyCurrencyPaths } from "./finance/company-currencies-openapi.js";
+import { financeCurrencyPaths } from "./finance/currencies-openapi.js";
+import { bankWorkflowOptionsSchema, reassignBankApproverRequestSchema } from "./banking/workflow-context.js";
+import { bankGovernancePaths } from "./security/bank-self-approval-openapi.js";
+import {
+  financeHierarchyDirectorySchema,
+  financeHierarchyItemSchema,
+  createFinanceHierarchyRequestSchema,
+  changeFinanceHierarchyRequestSchema,
+} from "./finance/hierarchy.js";
+import {
+  bankSelfApprovalDirectorySchema,
+  bankSelfApprovalGrantSchema,
+  bankSelfApprovalMutationSchema,
+  bankSelfApprovalOptionsSchema,
+  changeBankSelfApprovalRequestSchema,
+} from "./security/bank-self-approval.js";
+import { referenceMasterPaths } from "./master-data/openapi.js";
+import {
+  referenceMasterSchema,
+  referenceMasterDirectorySchema,
+  referenceMasterMutationSchema,
+  createReferenceMasterRequestSchema,
+  updateReferenceMasterRequestSchema,
+  changeReferenceMasterStatusRequestSchema,
+} from "./master-data/index.js";
 
 import {
   authenticationCompletionResponseSchema,
@@ -43,21 +72,91 @@ import {
   bankPaymentOptionsSchema,
   bankPaymentPostingResultSchema,
   bankPaymentReversalResultSchema,
+  bankReceiptDetailSchema,
+  bankReceiptDirectorySchema,
+  bankReceiptMutationResultSchema,
+  bankReceiptNominalAccountDirectorySchema,
+  bankReceiptOptionsSchema,
+  bankReceiptPostingResultSchema,
+  bankReceiptReversalResultSchema,
+  bankReconciliationAdjustmentSchema,
+  bankReconciliationAdjustmentMutationResultSchema,
+  bankReconciliationDetailSchema,
+  bankReconciliationDirectorySchema,
+  bankReconciliationMatchMutationResultSchema,
+  bankReconciliationManualSelectionMutationResultSchema,
+  bankReconciliationMutationResultSchema,
+  bankReconciliationSetupSchema,
+  bankStatementImportDetailSchema,
+  bankStatementImportDirectorySchema,
+  bankStatementImportMutationResultSchema,
+  bankStatementImportOptionsSchema,
+  bankStatementMappingProfileDirectorySchema,
+  bankStatementMappingProfileSchema,
   bankingCompanyDirectorySchema,
   bankingLedgerAccountDirectorySchema,
   changeBankAccountStatusRequestSchema,
   createBankPaymentRequestSchema,
+  createBankReconciliationAdjustmentRequestSchema,
+  createBankReconciliationMatchRequestSchema,
+  createBankReconciliationRequestSchema,
+  createBankReceiptRequestSchema,
+  createBankStatementMappingProfileRequestSchema,
   createBankAccountRequestSchema,
+  decideBankReconciliationAdjustmentRequestSchema,
+  decideBankReconciliationMatchRequestSchema,
+  decideBankReconciliationRequestSchema,
   decideBankPaymentRequestSchema,
+  decideBankReceiptRequestSchema,
   decideBankAccountRequestSchema,
   postBankPaymentRequestSchema,
+  postBankReconciliationAdjustmentRequestSchema,
+  postBankReceiptRequestSchema,
   reverseBankPaymentRequestSchema,
+  reverseBankReconciliationAdjustmentRequestSchema,
+  setBankReconciliationManualSelectionRequestSchema,
+  reverseBankReceiptRequestSchema,
   submitBankPaymentRequestSchema,
+  submitBankReconciliationAdjustmentRequestSchema,
+  submitBankReconciliationRequestSchema,
+  submitBankReceiptRequestSchema,
   submitBankAccountRequestSchema,
   updateBankPaymentRequestSchema,
+  updateBankReconciliationAdjustmentRequestSchema,
+  updateBankReceiptRequestSchema,
+  updateBankStatementImportMappingRequestSchema,
+  updateBankStatementLineRequestSchema,
+  updateBankStatementMappingProfileRequestSchema,
   updateBankAccountRequestSchema,
+  unmatchBankReconciliationRequestSchema,
+  validateBankStatementImportRequestSchema,
+  finalizeBankStatementImportRequestSchema,
 } from "./banking/index.js";
 import { healthStatusSchema } from "./health.js";
+import {
+  importChartTemplateRequestSchema,
+  publishChartTemplateRequestSchema,
+  chartTemplateSummarySchema,
+  chartTemplateDirectorySchema,
+  chartTemplateNodesSchema,
+  chartTemplateMutationSchema,
+  chartCompanyPreviewSchema,
+  adoptCompanyChartRequestSchema,
+  adoptCompanyChartResultSchema,
+  classifyChartNominalRequestSchema,
+  classifyChartNominalResultSchema,
+} from "./finance/chart-templates.js";
+import {
+  changeFinanceNominalStatusRequestSchema,
+  createFinanceNominalRequestSchema,
+  decideFinanceNominalRequestSchema,
+  financeNominalDetailSchema,
+  financeNominalDirectorySchema,
+  financeNominalMutationResultSchema,
+  financeNominalOptionsSchema,
+  submitFinanceNominalRequestSchema,
+  updateFinanceNominalRequestSchema,
+} from "./finance/index.js";
 import {
   hrEmployeeDetailSchema,
   hrEmployeeDirectorySchema,
@@ -249,12 +348,566 @@ const securityPageResponse = {
   ...securityErrors,
 } as const;
 
+const nominalIdParameter = {
+  in: "path",
+  name: "nominalId",
+  required: true,
+  schema: { type: "string", minLength: 1, maxLength: 128 },
+} as const;
+const nominalVersionParameter = {
+  in: "header",
+  name: "if-match",
+  required: true,
+  description: "Quoted expected_version; must agree with the request body.",
+  schema: { type: "string", pattern: '^"[1-9][0-9]*"$' },
+} as const;
+
+function nominalMutationOperation(operationId: string, requestSchema: string, create = false) {
+  return {
+    operationId,
+    description:
+      "Requires live global Super Admin authority, company access and exact Finance/Bank master permissions. Direct activation creates audit evidence, never a journal. Ordinary master approval endpoints are retired.",
+    security: [{ cookieAuth: [] }],
+    parameters: create
+      ? [csrfParameter, idempotencyParameter]
+      : [nominalIdParameter, csrfParameter, idempotencyParameter, nominalVersionParameter],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: { $ref: `#/components/schemas/${requestSchema}` } } },
+    },
+    responses: {
+      [create ? "201" : "200"]: {
+        description: "Persisted governed Nominal lifecycle result",
+        content: { "application/json": { schema: { $ref: "#/components/schemas/FinanceNominalMutationResult" } } },
+      },
+      "404": problemResponse,
+      "412": problemResponse,
+      ...securityErrors,
+    },
+  } as const;
+}
+
+function bankStatementAndReconciliationPaths() {
+  const pathParameter = (name: string) => ({
+    in: "path",
+    name,
+    required: true,
+    schema: { type: "string", minLength: 1, maxLength: 128 },
+  });
+  const queryParameter = (name: string, valueSchema: Record<string, unknown>, required = false) => ({
+    in: "query",
+    name,
+    required,
+    schema: valueSchema,
+  });
+  const companyParameter = queryParameter("company_id", { type: "string", minLength: 1, maxLength: 128 }, true);
+  const cursorParameters = [
+    queryParameter("limit", { type: "integer", minimum: 1, maximum: 100, default: 50 }),
+    queryParameter("cursor", { type: "string", minLength: 1, maxLength: 512 }),
+  ];
+  const errors = {
+    "400": problemResponse,
+    "401": problemResponse,
+    "403": problemResponse,
+    "404": problemResponse,
+    "409": problemResponse,
+    "412": problemResponse,
+    "413": problemResponse,
+    "415": problemResponse,
+    "422": problemResponse,
+    "428": problemResponse,
+    "503": problemResponse,
+  };
+  const jsonResponse = (description: string, responseSchema: z.ZodType, status = "200") => ({
+    [status]: {
+      description,
+      content: { "application/json": { schema: schema(responseSchema) } },
+    },
+    ...errors,
+  });
+  const mutation = (
+    operationId: string,
+    requestSchema: z.ZodType,
+    responseSchema: z.ZodType,
+    description: string,
+    parameters: Array<Record<string, unknown>>,
+    methodStatus = "200",
+  ) => ({
+    operationId,
+    security: [{ cookieAuth: [] }],
+    parameters: [...parameters, csrfParameter, idempotencyParameter, nominalVersionParameter],
+    requestBody: { required: true, content: { "application/json": { schema: schema(requestSchema) } } },
+    responses: jsonResponse(description, responseSchema, methodStatus),
+  });
+  const createMutation = (
+    operationId: string,
+    requestSchema: z.ZodType,
+    responseSchema: z.ZodType,
+    description: string,
+    parameters: Array<Record<string, unknown>> = [],
+  ) => ({
+    operationId,
+    security: [{ cookieAuth: [] }],
+    parameters: [...parameters, csrfParameter, idempotencyParameter],
+    requestBody: { required: true, content: { "application/json": { schema: schema(requestSchema) } } },
+    responses: jsonResponse(description, responseSchema, "201"),
+  });
+
+  const importId = pathParameter("id");
+  const lineId = pathParameter("lineId");
+  const profileId = pathParameter("profileId");
+  const reconciliationId = pathParameter("id");
+  const matchId = pathParameter("matchId");
+  const adjustmentId = pathParameter("adjustmentId");
+
+  return {
+    "/banking/statement_import_options": {
+      get: {
+        operationId: "listBankStatementImportOptions",
+        security: [{ cookieAuth: [] }],
+        parameters: [companyParameter],
+        responses: jsonResponse("Company-scoped statement import options", bankStatementImportOptionsSchema),
+      },
+    },
+    "/banking/statement_import_templates/{format}": {
+      get: {
+        operationId: "downloadBankStatementImportTemplate",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          {
+            in: "path",
+            name: "format",
+            required: true,
+            schema: { type: "string", enum: ["csv", "xlsx"] },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Bounded sample statement file with the canonical import columns",
+            content: {
+              "text/csv": { schema: { type: "string", format: "binary" } },
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                schema: { type: "string", format: "binary" },
+              },
+            },
+          },
+          ...errors,
+        },
+      },
+    },
+    "/banking/statement_imports": {
+      get: {
+        operationId: "listBankStatementImports",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          companyParameter,
+          queryParameter("bank_account_id", { type: "string", minLength: 1, maxLength: 128 }),
+          queryParameter("state", {
+            type: "string",
+            enum: ["uploaded", "draft", "validated", "finalized", "rejected"],
+          }),
+          queryParameter("statement_date_from", { type: "string", format: "date" }),
+          queryParameter("statement_date_to", { type: "string", format: "date" }),
+          queryParameter("search", { type: "string", maxLength: 160 }),
+          ...cursorParameters,
+        ],
+        responses: jsonResponse("Company-scoped statement import directory", bankStatementImportDirectorySchema),
+      },
+      post: {
+        operationId: "uploadBankStatementImport",
+        description:
+          "Streams one bounded CSV or XLSX file to protected object storage while calculating SHA-256. No object-storage URL is returned.",
+        security: [{ cookieAuth: [] }],
+        parameters: [csrfParameter, idempotencyParameter],
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["company_id", "bank_account_id", "statement_reference", "date_format", "file"],
+                properties: {
+                  company_id: { type: "string", minLength: 1, maxLength: 128 },
+                  bank_account_id: { type: "string", minLength: 1, maxLength: 128 },
+                  statement_reference: { type: "string", minLength: 1, maxLength: 128 },
+                  date_format: {
+                    type: "string",
+                    enum: ["dd/MM/yyyy", "MM/dd/yyyy", "yyyy-MM-dd", "dd-MM-yyyy"],
+                  },
+                  mapping_profile_id: { type: ["string", "null"], minLength: 1, maxLength: 128 },
+                  supersedes_import_id: { type: ["string", "null"], minLength: 1, maxLength: 128 },
+                  file: {
+                    type: "string",
+                    format: "binary",
+                    description: "CSV or XLSX only; maximum 25 MiB and 1,000 parsed data rows.",
+                  },
+                },
+              },
+              encoding: {
+                file: { contentType: "text/csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+              },
+            },
+          },
+        },
+        responses: jsonResponse(
+          "Statement upload accepted and parsed into a recoverable draft",
+          bankStatementImportMutationResultSchema,
+          "201",
+        ),
+      },
+    },
+    "/banking/statement_imports/{id}": {
+      get: {
+        operationId: "getBankStatementImport",
+        security: [{ cookieAuth: [] }],
+        parameters: [importId],
+        responses: jsonResponse(
+          "Persisted statement import detail and bounded preview",
+          bankStatementImportDetailSchema,
+        ),
+      },
+    },
+    "/banking/statement_imports/{id}/mapping": {
+      patch: mutation(
+        "updateBankStatementImportMapping",
+        updateBankStatementImportMappingRequestSchema,
+        bankStatementImportMutationResultSchema,
+        "Statement mapping updated and rows revalidated",
+        [importId],
+      ),
+    },
+    "/banking/statement_imports/{id}/lines/{lineId}": {
+      patch: mutation(
+        "updateBankStatementLine",
+        updateBankStatementLineRequestSchema,
+        bankStatementImportMutationResultSchema,
+        "Statement row resolution updated with audit evidence",
+        [importId, lineId],
+      ),
+    },
+    "/banking/statement_imports/{id}/validate": {
+      post: mutation(
+        "validateBankStatementImport",
+        validateBankStatementImportRequestSchema,
+        bankStatementImportMutationResultSchema,
+        "Statement import revalidated",
+        [importId],
+      ),
+    },
+    "/banking/statement_imports/{id}/finalize": {
+      post: mutation(
+        "finalizeBankStatementImport",
+        finalizeBankStatementImportRequestSchema,
+        bankStatementImportMutationResultSchema,
+        "Validated import finalized as immutable reconciliation evidence",
+        [importId],
+      ),
+    },
+    "/banking/statement_mapping_profiles": {
+      get: {
+        operationId: "listBankStatementMappingProfiles",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          companyParameter,
+          queryParameter("bank_account_id", { type: "string", minLength: 1, maxLength: 128 }),
+          queryParameter("state", { type: "string", enum: ["active", "inactive"] }),
+          queryParameter("search", { type: "string", maxLength: 160 }),
+          ...cursorParameters,
+        ],
+        responses: jsonResponse(
+          "Company-scoped statement mapping profiles",
+          bankStatementMappingProfileDirectorySchema,
+        ),
+      },
+      post: createMutation(
+        "createBankStatementMappingProfile",
+        createBankStatementMappingProfileRequestSchema,
+        bankStatementMappingProfileSchema,
+        "Versioned statement mapping profile created",
+      ),
+    },
+    "/banking/statement_mapping_profiles/{profileId}": {
+      patch: mutation(
+        "updateBankStatementMappingProfile",
+        updateBankStatementMappingProfileRequestSchema,
+        bankStatementMappingProfileSchema,
+        "Versioned statement mapping profile updated",
+        [profileId],
+      ),
+    },
+    "/banking/reconciliations": {
+      get: {
+        operationId: "listBankReconciliations",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          companyParameter,
+          queryParameter("bank_account_id", { type: "string", minLength: 1, maxLength: 128 }),
+          queryParameter("state", { type: "string", enum: ["draft", "in_progress", "submitted", "approved"] }),
+          queryParameter("method", { type: "string", enum: ["statement_import", "manual_tick"] }),
+          queryParameter("statement_date_from", { type: "string", format: "date" }),
+          queryParameter("statement_date_to", { type: "string", format: "date" }),
+          queryParameter("search", { type: "string", maxLength: 160 }),
+          ...cursorParameters,
+        ],
+        responses: jsonResponse("Company-scoped bank reconciliation directory", bankReconciliationDirectorySchema),
+      },
+      post: createMutation(
+        "createBankReconciliation",
+        createBankReconciliationRequestSchema,
+        bankReconciliationMutationResultSchema,
+        "Bank reconciliation draft created from captured evidence",
+      ),
+    },
+    "/banking/reconciliation_setup": {
+      get: {
+        operationId: "getBankReconciliationSetup",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          companyParameter,
+          queryParameter("bank_account_id", { type: "string", minLength: 1, maxLength: 128 }, true),
+          queryParameter("period_start", { type: "string", format: "date" }, true),
+          queryParameter("period_end", { type: "string", format: "date" }, true),
+          queryParameter("statement_date", { type: "string", format: "date" }, true),
+        ],
+        responses: jsonResponse(
+          "Server-derived reconciliation opening balance and available totals",
+          bankReconciliationSetupSchema,
+        ),
+      },
+    },
+    "/banking/reconciliations/{id}": {
+      get: {
+        operationId: "getBankReconciliation",
+        security: [{ cookieAuth: [] }],
+        parameters: [reconciliationId],
+        responses: jsonResponse("Persisted reconciliation workspace", bankReconciliationDetailSchema),
+      },
+    },
+    "/banking/reconciliations/{id}/matches": {
+      post: mutation(
+        "createBankReconciliationMatch",
+        createBankReconciliationMatchRequestSchema,
+        bankReconciliationMatchMutationResultSchema,
+        "Exact matches proposed or one match confirmed",
+        [reconciliationId],
+      ),
+    },
+    "/banking/reconciliations/{id}/manual_selections": {
+      post: mutation(
+        "setBankReconciliationManualSelection",
+        setBankReconciliationManualSelectionRequestSchema,
+        bankReconciliationManualSelectionMutationResultSchema,
+        "Manual reconciliation selection persisted with audit evidence",
+        [reconciliationId],
+      ),
+    },
+    "/banking/reconciliations/{id}/matches/{matchId}/decision": {
+      post: mutation(
+        "decideBankReconciliationMatch",
+        decideBankReconciliationMatchRequestSchema,
+        bankReconciliationMatchMutationResultSchema,
+        "Suggested match confirmed or rejected",
+        [reconciliationId, matchId],
+      ),
+    },
+    "/banking/reconciliations/{id}/matches/{matchId}": {
+      delete: mutation(
+        "unmatchBankReconciliation",
+        unmatchBankReconciliationRequestSchema,
+        bankReconciliationMatchMutationResultSchema,
+        "Confirmed match reversed with immutable audit evidence",
+        [reconciliationId, matchId],
+      ),
+    },
+    "/banking/reconciliations/{id}/adjustments": {
+      post: mutation(
+        "createBankReconciliationAdjustment",
+        createBankReconciliationAdjustmentRequestSchema,
+        bankReconciliationAdjustmentMutationResultSchema,
+        "Bank-only adjustment draft created",
+        [reconciliationId],
+        "201",
+      ),
+    },
+    "/banking/reconciliations/{id}/adjustments/{adjustmentId}": {
+      get: {
+        operationId: "getBankReconciliationAdjustment",
+        security: [{ cookieAuth: [] }],
+        parameters: [reconciliationId, adjustmentId],
+        responses: jsonResponse("Persisted bank-only adjustment detail", bankReconciliationAdjustmentSchema),
+      },
+      patch: mutation(
+        "updateBankReconciliationAdjustment",
+        updateBankReconciliationAdjustmentRequestSchema,
+        bankReconciliationAdjustmentMutationResultSchema,
+        "Draft bank-only adjustment updated",
+        [reconciliationId, adjustmentId],
+      ),
+    },
+    "/banking/reconciliations/{id}/adjustments/{adjustmentId}/submit": {
+      post: mutation(
+        "submitBankReconciliationAdjustment",
+        submitBankReconciliationAdjustmentRequestSchema,
+        bankReconciliationAdjustmentMutationResultSchema,
+        "Adjustment submitted for a separate decision",
+        [reconciliationId, adjustmentId],
+      ),
+    },
+    "/banking/reconciliations/{id}/adjustments/{adjustmentId}/decision": {
+      post: mutation(
+        "decideBankReconciliationAdjustment",
+        decideBankReconciliationAdjustmentRequestSchema,
+        bankReconciliationAdjustmentMutationResultSchema,
+        "Adjustment approved or rejected under maker-checker controls",
+        [reconciliationId, adjustmentId],
+      ),
+    },
+    "/banking/reconciliations/{id}/adjustments/{adjustmentId}/post": {
+      post: mutation(
+        "postBankReconciliationAdjustment",
+        postBankReconciliationAdjustmentRequestSchema,
+        bankReconciliationAdjustmentMutationResultSchema,
+        "Approved bank-only adjustment posted atomically",
+        [reconciliationId, adjustmentId],
+      ),
+    },
+    "/banking/reconciliations/{id}/adjustments/{adjustmentId}/reverse": {
+      post: mutation(
+        "reverseBankReconciliationAdjustment",
+        reverseBankReconciliationAdjustmentRequestSchema,
+        bankReconciliationAdjustmentMutationResultSchema,
+        "Posted bank-only adjustment reversed with audit evidence",
+        [reconciliationId, adjustmentId],
+      ),
+    },
+    "/banking/reconciliations/{id}/submit": {
+      post: mutation(
+        "submitBankReconciliation",
+        submitBankReconciliationRequestSchema,
+        bankReconciliationMutationResultSchema,
+        "Zero-difference reconciliation submitted for approval",
+        [reconciliationId],
+      ),
+    },
+    "/banking/reconciliations/{id}/decision": {
+      post: mutation(
+        "decideBankReconciliation",
+        decideBankReconciliationRequestSchema,
+        bankReconciliationMutationResultSchema,
+        "Reconciliation approved or returned under maker-checker controls",
+        [reconciliationId],
+      ),
+    },
+  };
+}
+
 export function buildOpenApiDocument() {
   return {
     openapi: "3.1.0",
     info: { title: "Nexora ERP API", version: "1.0.0" },
     servers: [{ url: "/api/v1" }],
     paths: {
+      ...fiscalCalendarPaths(),
+      ...financeCurrencyPaths(),
+      ...companyCurrencyPaths(),
+      ...bankTransferPaths(),
+      ...bankRevaluationPaths(),
+      ...bankStatementAndReconciliationPaths(),
+      ...bankGovernancePaths(),
+      "/finance/hierarchy": {
+        get: {
+          operationId: "listFinanceHierarchy",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "query", name: "company_id", required: true, schema: { type: "string", maxLength: 128 } },
+            { in: "query", name: "cursor", schema: { type: "string", maxLength: 512 } },
+            { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 100, default: 100 } },
+          ],
+          responses: {
+            "200": {
+              description: "Company-scoped category and section masters",
+              content: { "application/json": { schema: schema(financeHierarchyDirectorySchema) } },
+            },
+            ...securityErrors,
+          },
+        },
+        post: {
+          operationId: "createFinanceHierarchy",
+          description: "Super Admin direct category/section creation; no approval or posting.",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: schema(createFinanceHierarchyRequestSchema) } },
+          },
+          responses: {
+            "201": {
+              description: "Persisted active hierarchy master",
+              content: { "application/json": { schema: schema(financeHierarchyItemSchema) } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/finance/hierarchy/{headerId}": {
+        patch: {
+          operationId: "changeFinanceHierarchy",
+          description:
+            "Super Admin audited rename/activation/deactivation; codes, accounting type and parents are immutable; dependencies protected.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "headerId", required: true, schema: { type: "string", maxLength: 128 } },
+            { in: "query", name: "company_id", required: true, schema: { type: "string", maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+            nominalVersionParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: schema(changeFinanceHierarchyRequestSchema) } },
+          },
+          responses: {
+            "200": {
+              description: "Persisted versioned master",
+              content: { "application/json": { schema: schema(financeHierarchyItemSchema) } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      ...Object.fromEntries(
+        ["payments", "receipts"].map((kind) => [
+          `/banking/${kind}/workflow_options`,
+          {
+            get: {
+              operationId: kind === "payments" ? "listPaymentWorkflowOptions" : "listReceiptWorkflowOptions",
+              security: [{ cookieAuth: [] }],
+              parameters: [
+                { in: "query", name: "company_id", required: true, schema: { type: "string", maxLength: 128 } },
+                {
+                  in: "query",
+                  name: "kind",
+                  required: true,
+                  schema: { type: "string", enum: ["project", "location", "approver"] },
+                },
+                { in: "query", name: "search", schema: { type: "string", maxLength: 160 } },
+                { in: "query", name: "selected_id", schema: { type: "string", maxLength: 128 } },
+                { in: "query", name: "cursor", schema: { type: "string", maxLength: 512 } },
+                { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 100, default: 50 } },
+              ],
+              responses: {
+                "200": {
+                  description: "Company-scoped active references or live eligible checkers",
+                  content: { "application/json": { schema: { $ref: "#/components/schemas/BankWorkflowOptions" } } },
+                },
+                ...securityErrors,
+              },
+            },
+          },
+        ]),
+      ),
+      ...referenceMasterPaths(),
       "/auth/login": {
         post: {
           operationId: "loginWithPassword",
@@ -964,6 +1617,305 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/finance/chart_templates": {
+        get: {
+          operationId: "listChartTemplates",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 100, default: 50 } },
+            { in: "query", name: "cursor", schema: { type: "string", pattern: "^\\d{1,7}$" } },
+          ],
+          responses: {
+            "200": {
+              description: "Tenant-owned central revisions",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ChartTemplateDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+        post: {
+          operationId: "importChartTemplate",
+          security: [{ cookieAuth: [] }],
+          description:
+            "Import immutable central definitions as a draft. Requires tenant-scoped finance.chart_template.admin; creates no company accounts.",
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ImportChartTemplateRequest" } } },
+          },
+          responses: {
+            "201": {
+              description: "Persisted template import",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ChartTemplateMutation" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/finance/chart_templates/{templateId}": {
+        get: {
+          operationId: "getChartTemplate",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "templateId", required: true, schema: { type: "string", maxLength: 128 } }],
+          responses: {
+            "200": {
+              description: "Central revision metadata",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ChartTemplateSummary" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/finance/chart_templates/{templateId}/company_adoption": {
+        post: {
+          operationId: "adoptCompanyChart",
+          security: [{ cookieAuth: [] }],
+          description:
+            "Atomically adopt a published chart as company drafts. Requires company adoption/create permissions and a current preview hash. Does not approve or post.",
+          parameters: [
+            { in: "path", name: "templateId", required: true, schema: { type: "string", maxLength: 128 } },
+            ...["x-csrf-token", "idempotency-key", "if-match"].map((name) => ({
+              in: "header",
+              name,
+              required: true,
+              schema: { type: "string" },
+            })),
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/AdoptCompanyChartRequest" } } },
+          },
+          responses: {
+            "201": {
+              description: "Company drafts and source mappings persisted atomically",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/AdoptCompanyChartResult" } } },
+            },
+            "412": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/finance/chart_templates/company_nominals/{nominalId}/classification": {
+        post: {
+          operationId: "classifyChartNominal",
+          security: [{ cookieAuth: [] }],
+          description:
+            "Explicit posting review of the latest adopted draft. Module-controlled definitions remain blocked from manual approval/posting.",
+          parameters: [
+            { in: "path", name: "nominalId", required: true, schema: { type: "string", maxLength: 128 } },
+            ...["x-csrf-token", "idempotency-key", "if-match"].map((name) => ({
+              in: "header",
+              name,
+              required: true,
+              schema: { type: "string" },
+            })),
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ClassifyChartNominalRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Posting review recorded; no activation",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ClassifyChartNominalResult" } } },
+            },
+            "404": problemResponse,
+            "412": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/finance/chart_templates/{templateId}/company_preview": {
+        get: {
+          operationId: "previewChartCompanyAdoption",
+          security: [{ cookieAuth: [] }],
+          description:
+            "Read-only company adoption preview. Requires tenant template read and live company-scoped Finance read authority. Creates no accounts.",
+          parameters: [
+            { in: "path", name: "templateId", required: true, schema: { type: "string", maxLength: 128 } },
+            { in: "query", name: "company_id", required: true, schema: { type: "string", maxLength: 128 } },
+            { in: "query", name: "currency", required: true, schema: { type: "string", pattern: "^[A-Z]{3}$" } },
+            { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 100, default: 50 } },
+            { in: "query", name: "cursor", schema: { type: "string", pattern: "^\\d{1,7}$" } },
+          ],
+          responses: {
+            "200": {
+              description: "Consistent read-only conflict preview",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ChartCompanyPreview" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/finance/chart_templates/{templateId}/nodes": {
+        get: {
+          operationId: "listChartTemplateNodes",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "templateId", required: true, schema: { type: "string", maxLength: 128 } },
+            { in: "query", name: "kind", schema: { type: "string", enum: ["category", "section", "nominal"] } },
+            { in: "query", name: "parent_key", schema: { type: "string", maxLength: 140 } },
+            { in: "query", name: "category_key", schema: { type: "string", maxLength: 140 } },
+            { in: "query", name: "search", schema: { type: "string", maxLength: 160 } },
+            { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 100, default: 50 } },
+            { in: "query", name: "cursor", schema: { type: "string", pattern: "^\\d{1,7}$" } },
+          ],
+          responses: {
+            "200": {
+              description: "Scoped definition page",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ChartTemplateNodes" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/finance/chart_templates/{templateId}/publish": {
+        post: {
+          operationId: "publishChartTemplate",
+          security: [{ cookieAuth: [] }],
+          description: "Publish a central reference revision only; does not approve or activate company accounts.",
+          parameters: [
+            { in: "path", name: "templateId", required: true, schema: { type: "string", maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+            nominalVersionParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/PublishChartTemplateRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Published immutable revision",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ChartTemplateMutation" } } },
+            },
+            "404": problemResponse,
+            "412": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/finance/nominals/options": {
+        get: {
+          operationId: "listFinanceNominalOptions",
+          description:
+            "Returns authorized companies independently of Banking read permissions; selected-company options require company access.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: false,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Authorized companies, Finance hierarchy, active currencies and setup readiness",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/FinanceNominalOptions" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/finance/nominals": {
+        get: {
+          operationId: "listFinanceNominals",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            {
+              in: "query",
+              name: "category_id",
+              required: false,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            {
+              in: "query",
+              name: "section_id",
+              required: false,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            { in: "query", name: "currency", required: false, schema: { type: "string", pattern: "^[A-Z]{3}$" } },
+            {
+              in: "query",
+              name: "state",
+              required: false,
+              schema: {
+                type: "string",
+                enum: ["draft", "pending_approval", "active", "rejected", "inactive", "closed", "review_required"],
+              },
+            },
+            {
+              in: "query",
+              name: "account_status",
+              required: false,
+              schema: { type: "string", enum: ["active", "inactive"] },
+            },
+            {
+              in: "query",
+              name: "sort_by",
+              required: false,
+              schema: { type: "string", enum: ["code", "name", "currency", "state"], default: "code" },
+            },
+            {
+              in: "query",
+              name: "sort_direction",
+              required: false,
+              schema: { type: "string", enum: ["asc", "desc"], default: "asc" },
+            },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            },
+            { in: "query", name: "cursor", required: false, schema: { type: "string", minLength: 1, maxLength: 512 } },
+          ],
+          responses: {
+            "200": {
+              description: "Company-scoped Finance Nominals without external bank identifiers",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/FinanceNominalDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+        post: nominalMutationOperation("createFinanceNominal", "CreateFinanceNominalRequest", true),
+      },
+      "/finance/nominals/{nominalId}": {
+        get: {
+          operationId: "getFinanceNominal",
+          security: [{ cookieAuth: [] }],
+          parameters: [nominalIdParameter],
+          responses: {
+            "200": {
+              description: "Persisted Nominal, lifecycle evidence and authorized actions",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/FinanceNominalDetail" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+        patch: nominalMutationOperation("updateFinanceNominal", "UpdateFinanceNominalRequest"),
+      },
+      "/finance/nominals/{nominalId}/submit": {
+        post: nominalMutationOperation("submitFinanceNominal", "SubmitFinanceNominalRequest"),
+      },
+      "/finance/nominals/{nominalId}/decision": {
+        post: nominalMutationOperation("decideFinanceNominal", "DecideFinanceNominalRequest"),
+      },
+      "/finance/nominals/{nominalId}/status": {
+        post: nominalMutationOperation("changeFinanceNominalStatus", "ChangeFinanceNominalStatusRequest"),
+      },
       "/banking/companies": {
         get: {
           operationId: "listBankingCompanies",
@@ -1199,8 +2151,18 @@ export function buildOpenApiDocument() {
           operationId: "listBankPayments",
           security: [{ cookieAuth: [] }],
           parameters: [
-            { in: "query", name: "company_id", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
-            { in: "query", name: "bank_account_id", required: false, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            {
+              in: "query",
+              name: "bank_account_id",
+              required: false,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
             {
               in: "query",
               name: "state",
@@ -1226,7 +2188,12 @@ export function buildOpenApiDocument() {
               required: false,
               schema: { type: "string", enum: ["asc", "desc"], default: "desc" },
             },
-            { in: "query", name: "limit", required: false, schema: { type: "integer", minimum: 1, maximum: 100, default: 50 } },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            },
             { in: "query", name: "cursor", required: false, schema: { type: "string", minLength: 1, maxLength: 512 } },
           ],
           responses: {
@@ -1259,7 +2226,12 @@ export function buildOpenApiDocument() {
           operationId: "listBankPaymentOptions",
           security: [{ cookieAuth: [] }],
           parameters: [
-            { in: "query", name: "company_id", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
           ],
           responses: {
             "200": {
@@ -1275,9 +2247,19 @@ export function buildOpenApiDocument() {
           operationId: "listBankPaymentNominalAccounts",
           security: [{ cookieAuth: [] }],
           parameters: [
-            { in: "query", name: "company_id", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
             { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
-            { in: "query", name: "limit", required: false, schema: { type: "integer", minimum: 1, maximum: 100, default: 50 } },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            },
           ],
           responses: {
             "200": {
@@ -1414,6 +2396,262 @@ export function buildOpenApiDocument() {
             "200": {
               description: "Posted Bank Payment reversed through a compensating journal",
               content: { "application/json": { schema: { $ref: "#/components/schemas/BankPaymentReversalResult" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/receipts": {
+        get: {
+          operationId: "listBankReceipts",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            {
+              in: "query",
+              name: "bank_account_id",
+              required: false,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            {
+              in: "query",
+              name: "state",
+              required: false,
+              schema: { type: "string", enum: ["draft", "submitted", "approved", "rejected", "posted", "reversed"] },
+            },
+            { in: "query", name: "posting_date_from", required: false, schema: { type: "string", format: "date" } },
+            { in: "query", name: "posting_date_to", required: false, schema: { type: "string", format: "date" } },
+            { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            {
+              in: "query",
+              name: "sort_by",
+              required: false,
+              schema: {
+                type: "string",
+                enum: ["posting_date", "reference", "total_amount", "state"],
+                default: "posting_date",
+              },
+            },
+            {
+              in: "query",
+              name: "sort_direction",
+              required: false,
+              schema: { type: "string", enum: ["asc", "desc"], default: "desc" },
+            },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            },
+            { in: "query", name: "cursor", required: false, schema: { type: "string", minLength: 1, maxLength: 512 } },
+          ],
+          responses: {
+            "200": {
+              description: "Company-scoped Bank Receipt directory",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+        post: {
+          operationId: "createBankReceipt",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/CreateBankReceiptRequest" } } },
+          },
+          responses: {
+            "201": {
+              description: "Bank Receipt draft created",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptMutationResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/receipts/options": {
+        get: {
+          operationId: "listBankReceiptOptions",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Eligible active Bank Accounts and receipt methods",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptOptions" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/receipts/nominal_accounts": {
+        get: {
+          operationId: "listBankReceiptNominalAccounts",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            {
+              in: "query",
+              name: "limit",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Bounded active nominal-account directory for Bank Receipts",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/BankReceiptNominalAccountDirectory" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/receipts/{receiptId}": {
+        get: {
+          operationId: "getBankReceipt",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "receiptId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+          ],
+          responses: {
+            "200": {
+              description: "Company-scoped governed Bank Receipt detail",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptDetail" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+        patch: {
+          operationId: "updateBankReceipt",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "receiptId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateBankReceiptRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Bank Receipt draft updated",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptMutationResult" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/receipts/{receiptId}/submit": {
+        post: {
+          operationId: "submitBankReceipt",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "receiptId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SubmitBankReceiptRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Bank Receipt submitted for independent approval",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptMutationResult" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/receipts/{receiptId}/decision": {
+        post: {
+          operationId: "decideBankReceipt",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "receiptId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/DecideBankReceiptRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Bank Receipt independently approved or rejected",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptMutationResult" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/receipts/{receiptId}/post": {
+        post: {
+          operationId: "postBankReceipt",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "receiptId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/PostBankReceiptRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Approved Bank Receipt posted to an immutable journal",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptPostingResult" } } },
+            },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/banking/receipts/{receiptId}/reverse": {
+        post: {
+          operationId: "reverseBankReceipt",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "receiptId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ReverseBankReceiptRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Posted Bank Receipt reversed through a compensating journal",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BankReceiptReversalResult" } } },
             },
             "404": problemResponse,
             ...securityErrors,
@@ -3091,6 +4329,39 @@ export function buildOpenApiDocument() {
         cookieAuth: { type: "apiKey", in: "cookie", name: "__Host-nexora_session" },
       },
       schemas: {
+        BankWorkflowOptions: schema(bankWorkflowOptionsSchema),
+        ReassignBankApproverRequest: schema(reassignBankApproverRequestSchema),
+        BankSelfApprovalGrant: schema(bankSelfApprovalGrantSchema),
+        BankSelfApprovalDirectory: schema(bankSelfApprovalDirectorySchema),
+        BankSelfApprovalOptions: schema(bankSelfApprovalOptionsSchema),
+        BankSelfApprovalMutation: schema(bankSelfApprovalMutationSchema),
+        ChangeBankSelfApprovalRequest: schema(changeBankSelfApprovalRequestSchema),
+        ReferenceMaster: schema(referenceMasterSchema),
+        ReferenceMasterDirectory: schema(referenceMasterDirectorySchema),
+        ReferenceMasterMutation: schema(referenceMasterMutationSchema),
+        CreateReferenceMasterRequest: schema(createReferenceMasterRequestSchema),
+        UpdateReferenceMasterRequest: schema(updateReferenceMasterRequestSchema),
+        ChangeReferenceMasterStatusRequest: schema(changeReferenceMasterStatusRequestSchema),
+        ImportChartTemplateRequest: schema(importChartTemplateRequestSchema),
+        PublishChartTemplateRequest: schema(publishChartTemplateRequestSchema),
+        ChartTemplateSummary: schema(chartTemplateSummarySchema),
+        ChartTemplateDirectory: schema(chartTemplateDirectorySchema),
+        ChartTemplateNodes: schema(chartTemplateNodesSchema),
+        ChartTemplateMutation: schema(chartTemplateMutationSchema),
+        ChartCompanyPreview: schema(chartCompanyPreviewSchema),
+        AdoptCompanyChartRequest: schema(adoptCompanyChartRequestSchema),
+        AdoptCompanyChartResult: schema(adoptCompanyChartResultSchema),
+        ClassifyChartNominalRequest: schema(classifyChartNominalRequestSchema),
+        ClassifyChartNominalResult: schema(classifyChartNominalResultSchema),
+        FinanceNominalOptions: schema(financeNominalOptionsSchema),
+        FinanceNominalDirectory: schema(financeNominalDirectorySchema),
+        FinanceNominalDetail: schema(financeNominalDetailSchema),
+        FinanceNominalMutationResult: schema(financeNominalMutationResultSchema),
+        CreateFinanceNominalRequest: schema(createFinanceNominalRequestSchema),
+        UpdateFinanceNominalRequest: schema(updateFinanceNominalRequestSchema),
+        SubmitFinanceNominalRequest: schema(submitFinanceNominalRequestSchema),
+        DecideFinanceNominalRequest: schema(decideFinanceNominalRequestSchema),
+        ChangeFinanceNominalStatusRequest: schema(changeFinanceNominalStatusRequestSchema),
         PasswordLoginRequest: schema(passwordLoginRequestSchema),
         PasswordLoginResponse: schema(passwordLoginResponseSchema),
         PasswordChangeRequiredResponse: schema(passwordChangeRequiredResponseSchema),
@@ -3125,6 +4396,37 @@ export function buildOpenApiDocument() {
         BankPaymentMutationResult: schema(bankPaymentMutationResultSchema),
         BankPaymentPostingResult: schema(bankPaymentPostingResultSchema),
         BankPaymentReversalResult: schema(bankPaymentReversalResultSchema),
+        BankStatementImportOptions: schema(bankStatementImportOptionsSchema),
+        BankStatementImportDirectory: schema(bankStatementImportDirectorySchema),
+        BankStatementImportDetail: schema(bankStatementImportDetailSchema),
+        BankStatementImportMutationResult: schema(bankStatementImportMutationResultSchema),
+        BankStatementMappingProfileDirectory: schema(bankStatementMappingProfileDirectorySchema),
+        BankStatementMappingProfile: schema(bankStatementMappingProfileSchema),
+        CreateBankStatementMappingProfileRequest: schema(createBankStatementMappingProfileRequestSchema),
+        UpdateBankStatementMappingProfileRequest: schema(updateBankStatementMappingProfileRequestSchema),
+        UpdateBankStatementImportMappingRequest: schema(updateBankStatementImportMappingRequestSchema),
+        UpdateBankStatementLineRequest: schema(updateBankStatementLineRequestSchema),
+        ValidateBankStatementImportRequest: schema(validateBankStatementImportRequestSchema),
+        FinalizeBankStatementImportRequest: schema(finalizeBankStatementImportRequestSchema),
+        BankReconciliationDirectory: schema(bankReconciliationDirectorySchema),
+        BankReconciliationDetail: schema(bankReconciliationDetailSchema),
+        BankReconciliationMutationResult: schema(bankReconciliationMutationResultSchema),
+        BankReconciliationMatchMutationResult: schema(bankReconciliationMatchMutationResultSchema),
+        BankReconciliationSetup: schema(bankReconciliationSetupSchema),
+        BankReconciliationManualSelectionMutationResult: schema(bankReconciliationManualSelectionMutationResultSchema),
+        BankReconciliationAdjustmentMutationResult: schema(bankReconciliationAdjustmentMutationResultSchema),
+        CreateBankReconciliationRequest: schema(createBankReconciliationRequestSchema),
+        CreateBankReconciliationMatchRequest: schema(createBankReconciliationMatchRequestSchema),
+        DecideBankReconciliationMatchRequest: schema(decideBankReconciliationMatchRequestSchema),
+        UnmatchBankReconciliationRequest: schema(unmatchBankReconciliationRequestSchema),
+        CreateBankReconciliationAdjustmentRequest: schema(createBankReconciliationAdjustmentRequestSchema),
+        UpdateBankReconciliationAdjustmentRequest: schema(updateBankReconciliationAdjustmentRequestSchema),
+        SubmitBankReconciliationAdjustmentRequest: schema(submitBankReconciliationAdjustmentRequestSchema),
+        DecideBankReconciliationAdjustmentRequest: schema(decideBankReconciliationAdjustmentRequestSchema),
+        PostBankReconciliationAdjustmentRequest: schema(postBankReconciliationAdjustmentRequestSchema),
+        ReverseBankReconciliationAdjustmentRequest: schema(reverseBankReconciliationAdjustmentRequestSchema),
+        SubmitBankReconciliationRequest: schema(submitBankReconciliationRequestSchema),
+        DecideBankReconciliationRequest: schema(decideBankReconciliationRequestSchema),
         HrEmployeeDirectory: schema(hrEmployeeDirectorySchema),
         HrCompanyDirectory: schema(hrCompanyDirectorySchema),
         HrDashboardSummary: schema(hrDashboardSummarySchema),
@@ -3320,6 +4622,19 @@ HrOvertimeMoneyQuery:schema(hrOvertimeMoneyQuerySchema),CreateHrOvertimeMoney:sc
         SecurityUserDetail: schema(securityUserDetailSchema),
         SecurityUserOptions: schema(securityUserOptionsSchema),
         SecurityUserAdministrationResult: schema(securityUserAdministrationResultSchema),
+        BankReceiptDirectory: schema(bankReceiptDirectorySchema),
+        BankReceiptDetail: schema(bankReceiptDetailSchema),
+        BankReceiptOptions: schema(bankReceiptOptionsSchema),
+        BankReceiptNominalAccountDirectory: schema(bankReceiptNominalAccountDirectorySchema),
+        CreateBankReceiptRequest: schema(createBankReceiptRequestSchema),
+        UpdateBankReceiptRequest: schema(updateBankReceiptRequestSchema),
+        SubmitBankReceiptRequest: schema(submitBankReceiptRequestSchema),
+        DecideBankReceiptRequest: schema(decideBankReceiptRequestSchema),
+        PostBankReceiptRequest: schema(postBankReceiptRequestSchema),
+        ReverseBankReceiptRequest: schema(reverseBankReceiptRequestSchema),
+        BankReceiptMutationResult: schema(bankReceiptMutationResultSchema),
+        BankReceiptPostingResult: schema(bankReceiptPostingResultSchema),
+        BankReceiptReversalResult: schema(bankReceiptReversalResultSchema),
       },
     },
   } as const;

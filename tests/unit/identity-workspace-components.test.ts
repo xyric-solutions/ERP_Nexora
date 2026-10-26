@@ -81,6 +81,7 @@ describe("Users and Roles administrative workspace", () => {
       "Access Reviews",
       "Delegation & Impersonation",
       "Security & Session Policies",
+      "Bank Self-approval",
     ]);
     await click("Permissions");
     expect(window.location.hash).toBe("#/identity/access?tab=roles&section=permissions");

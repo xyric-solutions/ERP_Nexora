@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warning";
+import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { BankingApiClient } from "../api/banking-client";
 
 function failure(error: unknown): string {
@@ -354,6 +355,7 @@ export function BankAccountSetup({ onCreated }: { onCreated?: (accountId: string
 }
 
 export function BankAccountApprovals() {
+  const notify = useActionFeedback();
   const { api, csrfToken, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new BankingApiClient(api), [api]);
   const canRead = session?.user.permissions.includes("banking.bank_account.read") ?? false;
@@ -362,7 +364,8 @@ export function BankAccountApprovals() {
   const [companyId, setCompanyId] = useState("");
   const [rows, setRows] = useState<BankAccountSummary[]>([]);
   const [selected, setSelected] = useState<BankAccountDetail | null>(null);
-  const [reason, setReason] = useState("Independent bank-account verification completed.");
+  const [reason, setReason] = useState("");
+  const [rejecting, setRejecting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -403,7 +406,7 @@ export function BankAccountApprovals() {
         sort_direction: "asc",
         limit: 100,
       });
-      setRows(result.items);
+      setRows(result.items.filter((row) => row.identity_mode !== "nominal_only"));
       setSelected((current) => (current && !result.items.some((row) => row.id === current.id) ? null : current));
       setError("");
     } catch (caught) {
@@ -419,6 +422,8 @@ export function BankAccountApprovals() {
   }, [refresh]);
 
   async function open(accountId: string) {
+    setRejecting(false);
+    setReason("");
     setBusy(true);
     try {
       setSelected(await client.account(accountId));
@@ -431,17 +436,18 @@ export function BankAccountApprovals() {
   }
 
   async function decide(action: "approve" | "reject") {
-    if (!selected || !reason.trim()) return;
+    if (!selected || (action === "reject" && reason.trim().length < 3)) return;
     setBusy(true);
     setNotice("");
     try {
       const result = await client.decide(
         selected.id,
-        { action, expected_version: selected.version, reason: reason.trim() },
+        { action, expected_version: selected.version, ...(action === "reject" ? { reason: reason.trim() } : {}) },
         csrfToken(),
         keyFor(`web-bank-account-${action}`),
       );
       setNotice(`${result.reference} ${action === "approve" ? "activated" : "returned to the maker"}.`);
+      notify(action === "approve" ? "Bank account approved successfully." : "Bank account rejected successfully.");
       setSelected(null);
       await refresh();
     } catch (caught) {
@@ -579,15 +585,17 @@ export function BankAccountApprovals() {
                 <dt className="text-muted-foreground">Opening balance</dt>
                 <dd>0.00 (no journal created)</dd>
               </dl>
-              <Field label="Decision reason">
-                <Textarea
-                  maxLength={500}
-                  disabled={busy}
-                  value={reason}
-                  onChange={(event) => setReason(event.target.value)}
-                />
-              </Field>
-              {superAdminOverride ? <SuperAdminOverrideWarning /> : null}
+              {rejecting && (
+                <Field label="Rejection reason">
+                  <Textarea
+                    maxLength={500}
+                    disabled={busy}
+                    value={reason}
+                    onChange={(event) => setReason(event.target.value)}
+                  />
+                </Field>
+              )}
+              {superAdminOverride ? <SuperAdminOverrideWarning reasonRequired={rejecting} /> : null}
               {selfApproval && !superAdminOverride ? (
                 <Alert variant="destructive">
                   <AlertTitle>Independent checker required</AlertTitle>
@@ -597,18 +605,18 @@ export function BankAccountApprovals() {
               <div className="flex gap-3">
                 <Button
                   type="button"
-                  disabled={busy || (selfApproval && !superAdminOverride) || reason.trim().length < 3}
+                  disabled={busy || (selfApproval && !superAdminOverride)}
                   onClick={() => void decide("approve")}
                 >
-                  Approve and activate
+                  Approve &amp; Close
                 </Button>
                 <Button
                   variant="destructive"
                   type="button"
-                  disabled={busy || (selfApproval && !superAdminOverride) || reason.trim().length < 3}
-                  onClick={() => void decide("reject")}
+                  disabled={busy || (selfApproval && !superAdminOverride) || (rejecting && reason.trim().length < 3)}
+                  onClick={() => (rejecting ? void decide("reject") : setRejecting(true))}
                 >
-                  Reject
+                  {rejecting ? "Confirm rejection" : "Reject"}
                 </Button>
               </div>
             </>
@@ -624,12 +632,12 @@ export function BankAccountApprovals() {
 }
 
 export function BankAccountDetailWorkspace({ accountId, onBack }: { accountId: string; onBack: () => void }) {
+  const notify = useActionFeedback();
   const { api, csrfToken, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new BankingApiClient(api), [api]);
   const canRead = session?.user.permissions.includes("banking.bank_account.read") ?? false;
   const canChangeStatus = session?.user.permissions.includes("banking.bank_account.status") ?? false;
   const [account, setAccount] = useState<BankAccountDetail | null>(null);
-  const [reason, setReason] = useState("Bank account status changed after treasury review.");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -653,15 +661,20 @@ export function BankAccountDetailWorkspace({ accountId, onBack }: { accountId: s
   }, [loadAccount]);
 
   async function changeStatus(action: "deactivate" | "close") {
-    if (!account || reason.trim().length < 3) return;
+    if (!account) return;
     setBusy(true);
     try {
       await client.changeStatus(
         account.id,
-        { action, expected_version: account.version, reason: reason.trim() },
+        {
+          action,
+          expected_version: account.version,
+          reason: `Bank account ${action} confirmed by the authorized user.`,
+        },
         csrfToken(),
         keyFor(`web-bank-account-${action}`),
       );
+      notify(action === "close" ? "Bank account closed successfully." : "Bank account deactivated successfully.");
       await loadAccount();
     } catch (caught) {
       setError(failure(caught));
@@ -738,17 +751,9 @@ export function BankAccountDetailWorkspace({ accountId, onBack }: { accountId: s
             </Alert>
             {canChangeStatus && (account.state === "active" || account.state === "inactive") ? (
               <div className="max-w-xl space-y-3">
-                <Field label="Status change reason">
-                  <Textarea
-                    value={reason}
-                    maxLength={500}
-                    disabled={busy}
-                    onChange={(event) => setReason(event.target.value)}
-                  />
-                </Field>
                 <Button
                   variant="destructive"
-                  disabled={busy || reason.trim().length < 3}
+                  disabled={busy}
                   type="button"
                   onClick={() => void changeStatus(account.state === "active" ? "deactivate" : "close")}
                 >

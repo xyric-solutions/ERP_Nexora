@@ -26,24 +26,39 @@ import type { ModulePageProfile } from "@prototype/shared/types/module-profile-t
 import { bankAccounts } from "@prototype/features/banking/model/banking-master-data";
 import { BankingTransactionForm } from "@prototype/features/banking/views/banking-transaction-form";
 import { BankingTransactionDetail } from "@prototype/features/banking/views/banking-transaction-detail";
-import { BankingBatchEntry } from "@prototype/features/banking/views/banking-batch-entry";
 import { BankingPayments } from "@prototype/features/banking/views/banking-payments";
+import { BankingReceipts } from "@prototype/features/banking/views/banking-receipts";
 import { BankingPaymentEntry } from "@prototype/features/banking/views/banking-payment-entry";
+import { BankingReceiptEntry } from "@prototype/features/banking/views/banking-receipt-entry";
 import { BankingPaymentDetail } from "@prototype/features/banking/views/banking-payment-detail";
+import { BankingReceiptDetail } from "@prototype/features/banking/views/banking-receipt-detail";
+import { BankingTransfers } from "@prototype/features/banking/views/banking-transfers";
+import { BankingTransferEntry } from "@prototype/features/banking/views/banking-transfer-entry";
+import { BankingTransferDetail } from "@prototype/features/banking/views/banking-transfer-detail";
 import { isPersistedBankPaymentId } from "@prototype/features/banking/model/bank-payment-routing";
-import { BankStatement } from "@prototype/features/banking/views/banking-statement";
+import { isPersistedBankReceiptId } from "@prototype/features/banking/model/bank-receipt-routing";
+import { isPersistedBankTransferId } from "@prototype/features/banking/model/bank-transfer-routing";
+import {
+  resolveBankReconciliationRoute,
+  resolveBankStatementImportRoute,
+} from "@prototype/features/banking/model/bank-reconciliation-routing";
+import { BankingStatementImport } from "@prototype/features/banking/views/banking-statement-import";
+import { BankingStatementImportRegister } from "@prototype/features/banking/views/banking-statement-import-register";
+import { LiveBankStatement as BankStatement } from "@prototype/features/banking/views/banking-statement-live";
 import { BankingAccountBalances } from "@prototype/features/banking/views/banking-account-balances";
+import { BankAccountApprovals } from "@prototype/features/banking/views/banking-account-governance";
 import {
-  BankAccountApprovals,
-  BankAccountDetailWorkspace,
-  BankAccountSetup,
-} from "@prototype/features/banking/views/banking-account-governance";
-import { BankingReconciliation } from "@prototype/features/banking/views/banking-reconciliation";
-import {
-  findReconciliation,
-  reconciliationRegister,
-  type ReconciliationRecord,
-} from "@prototype/features/banking/model/banking-reconciliation-data";
+  FinanceNominals,
+  FinanceNominalForm,
+  FinanceNominalDetail,
+  BankNominalDetailBridge,
+} from "@/features/finance/views/finance-nominals";
+import { FinanceChartTemplates } from "@/features/finance/views/finance-chart-templates";
+import { FinanceHierarchy } from "@/features/finance/views/finance-hierarchy";
+import { FinanceFiscalPeriods } from "@/features/finance/views/finance-fiscal-periods";
+import { FinanceCurrencies } from "@/features/finance/views/company-currencies-workspace";
+import { ReferenceMasterWorkspace } from "@/features/master-data/views/reference-master-workspace";
+import { BankingReconciliationWorkspace } from "@prototype/features/banking/views/banking-reconciliation-live";
 import { BankingReconciliationRegister } from "@prototype/features/banking/views/banking-reconciliation-register";
 import { BankingReconciliationWorksheet } from "@prototype/features/banking/views/banking-reconciliation-worksheet";
 import { HrMasterScreen, hrMasterForPage } from "@prototype/features/hr/views/hr-master-screens";
@@ -53,6 +68,8 @@ import { HrJobGradesWorkspace } from "@prototype/features/hr/views/hr-job-grades
 import { HrConfiguredMasterWorkspace, type HrConfiguredMasterDefinition } from "@prototype/features/hr/views/hr-configured-master-workspace";
 import { HrDashboardWorkspace } from "@prototype/features/hr/views/hr-dashboard-workspace";
 import { HrFinancePayrollDashboardWorkspace } from "@prototype/features/hr/views/hr-finance-payroll-dashboard-workspace";
+import { BankingRevaluationWorkspace } from "@prototype/features/banking/views/banking-revaluation-workspace";
+import { HrMasterScreen, HrOrgStructure, hrMasterForPage } from "@prototype/features/hr/views/hr-master-screens";
 import { HrEmployeeDirectory } from "@prototype/features/hr/views/hr-employee-directory";
 import { HrEmployeeRecordWorkspace } from "@prototype/features/hr/views/hr-employee-record-workspace";
 import { HrPositionsOrganizationWorkspace } from "@prototype/features/hr/views/hr-positions-organization-workspace";
@@ -178,6 +195,7 @@ interface PrototypeContentProps {
     options?: { replace?: boolean; bypassUnsavedGuard?: boolean },
   ) => void;
   onPaymentEntryDirtyChange?: (dirty: boolean) => void;
+  onReceiptEntryDirtyChange?: (dirty: boolean) => void;
 }
 
 const chartHeights = [38, 54, 46, 70, 63, 78, 69, 92, 82, 108, 94, 116];
@@ -2587,13 +2605,11 @@ const bankingEntryPages: Readonly<Record<string, string>> = {
   "add-bank-account": "bank-account-setup",
   "add-bank-payment": "bank-payment",
   "add-bank-receipt": "bank-receipt",
-  "add-transfer": "bank-transfer",
   "add-deposit": "bank-deposit",
   "add-bank-charge": "bank-charges",
   "add-bank-interest": "bank-interest",
   "issue-cheque": "cheque-issued",
   "receive-cheque": "cheque-received",
-  revaluation: "bank-revaluation",
 };
 
 /**
@@ -2607,75 +2623,48 @@ const bankingEntryPages: Readonly<Record<string, string>> = {
 function BankingReconciliationPage({
   context,
   onAction,
-  onOpenTransaction,
   onImportStatement,
+  onNavigate,
 }: {
   context: PrototypePageContext;
   onAction: (action: string, subject?: string) => void;
-  onOpenTransaction: (reference: string) => void;
   onImportStatement: () => void;
+  onNavigate: (recordRef?: string) => void;
 }) {
-  type ReconciliationView = { kind: "register" } | { kind: "new" } | { kind: "open"; recordId: string };
   /** The route can address the create panel or one record directly, the same
       way a transaction reference addresses a transaction. */
-  const routed: ReconciliationView =
-    (context.recordRef?.startsWith("new") ?? false)
-      ? { kind: "new" }
-      : context.recordRef && findReconciliation(context.recordRef, reconciliationRegister)
-        ? { kind: "open", recordId: context.recordRef }
-        : { kind: "register" };
-  const [view, setView] = useState<ReconciliationView>(routed);
-  const [created, setCreated] = useState<readonly ReconciliationRecord[]>([]);
-  const records = [...created, ...reconciliationRegister];
+  const persistedRoute = resolveBankReconciliationRoute(context.recordRef);
 
-  if (view.kind === "open") {
-    const record = findReconciliation(view.recordId, records);
-    if (record) {
-      return (
-        <BankingReconciliation
-          key={record.id}
-          mode="reconciliation"
-          record={record}
-          onAction={onAction}
-          onOpenTransaction={onOpenTransaction}
-          onImportStatement={onImportStatement}
-          onBack={() => setView({ kind: "register" })}
-        />
-      );
-    }
+  if (persistedRoute.kind === "detail") {
+    return (
+      <BankingReconciliationWorkspace
+        reconciliationId={persistedRoute.reconciliationId}
+        onBack={() => onNavigate()}
+        onOpen={onNavigate}
+        onImportStatement={onImportStatement}
+      />
+    );
   }
 
   return (
     <>
-      <PageIntro context={context}>
+      <PageIntro context={{ ...context, status: "backend connected" }}>
         <ActionButton onClick={() => onAction("Export", context.pageLabel)}>Export</ActionButton>
         <ActionButton onClick={onImportStatement}>Import statement</ActionButton>
-        <ActionButton tone="primary" onClick={() => setView({ kind: "new" })}>
+        <ActionButton tone="primary" onClick={() => onNavigate("new")}>
           + Add New
         </ActionButton>
       </PageIntro>
-      {view.kind === "new" ? (
-        <BankingReconciliationWorksheet
-          initialAccountId={context.recordRef?.split("/")[1]}
-          records={records}
-          onAction={onAction}
-          onCreate={(record, submitted) => {
-            setCreated((current) => [record, ...current]);
-            setView({ kind: "register" });
-            onAction(
-              submitted ? "Reconciliation submitted" : "Reconciliation saved",
-              `${record.id} · ${record.periodLabel}`,
-            );
-          }}
-          onCancel={() => setView({ kind: "register" })}
+      {persistedRoute.kind === "new" ? (
+        <BankingReconciliationWorkspace
+          initialBankAccountId={persistedRoute.bankAccountId}
+          initialStatementImportId={persistedRoute.statementImportId}
+          onBack={() => onNavigate()}
+          onOpen={onNavigate}
           onImportStatement={onImportStatement}
         />
       ) : (
-        <BankingReconciliationRegister
-          records={records}
-          onAction={onAction}
-          onOpen={(recordId) => setView({ kind: "open", recordId })}
-        />
+        <BankingReconciliationRegister onAction={onAction} onOpen={onNavigate} />
       )}
     </>
   );
@@ -2695,6 +2684,38 @@ export function PrototypeContent(props: PrototypeContentProps) {
       context.pageId === "add-bank-payment" ||
       (context.pageId === "transaction-detail" && isPersistedBankPaymentId(context.recordRef)));
   if (!isLiveBankPaymentPage && context.status !== "live" && context.status !== "read-only" && context.status !== "in-progress" && viewState !== "data")
+  const isLiveBankingTransactionPage =
+    (context.moduleId === "finance" &&
+      [
+        "chart-of-accounts",
+        "nominals",
+        "nominal-detail",
+        "add-nominal",
+        "central-chart-template",
+        "section-management",
+        "reporting-projects",
+        "reporting-locations",
+      ].includes(context.pageId)) ||
+    (context.moduleId === "banking" &&
+      (context.pageId === "bank-payments" ||
+        context.pageId === "bank-receipts" ||
+        context.pageId === "revaluation" ||
+        context.pageId === "import-statement" ||
+        context.pageId === "add-bank-payment" ||
+        context.pageId === "add-bank-receipt" ||
+        [
+          "account-balances",
+          "bank-accounts",
+          "add-bank-account",
+          "bank-account-detail",
+          "bank-account-approvals",
+        ].includes(context.pageId) ||
+        (context.pageId === "transaction-detail" &&
+          (isPersistedBankPaymentId(context.recordRef) || isPersistedBankReceiptId(context.recordRef)))));
+  const isLiveCompanyCurrencyPage =
+    (context.moduleId === "finance" && context.pageId === "currencies-fx") ||
+    (context.moduleId === "configuration" && context.pageId === "company-fiscal-currency");
+  if (!isLiveBankingTransactionPage && !isLiveCompanyCurrencyPage && viewState !== "data")
     return (
       <>
         <PageIntro context={context} />
@@ -2708,6 +2729,61 @@ export function PrototypeContent(props: PrototypeContentProps) {
   if (["coming-soon", "not-implemented"].includes(context.status))
     return <ComingSoonView context={context} onAction={onAction} />;
 
+  if (context.moduleId === "finance" && context.pageId === "section-management") return <FinanceHierarchy />;
+  if (context.moduleId === "finance" && context.pageId === "currencies-fx") return <FinanceCurrencies />;
+  if (context.moduleId === "configuration" && context.pageId === "company-fiscal-currency")
+    return <FinanceCurrencies />;
+  if (context.moduleId === "finance" && ["fiscal-periods", "period-close"].includes(context.pageId))
+    return <FinanceFiscalPeriods closeWorkbench={context.pageId === "period-close"} />;
+  if (context.moduleId === "finance" && context.pageId === "central-chart-template") {
+    return (
+      <FinanceChartTemplates
+        key={context.pageId}
+        initialKind="category"
+        onCompanyAccounts={() => props.onNavigate("finance", "chart-of-accounts")}
+      />
+    );
+  }
+  if (context.moduleId === "finance" && ["reporting-projects", "reporting-locations"].includes(context.pageId)) {
+    return (
+      <ReferenceMasterWorkspace
+        kind={context.pageId === "reporting-projects" ? "projects" : "locations"}
+        onDirtyChange={props.onPaymentEntryDirtyChange}
+      />
+    );
+  }
+  if (
+    context.moduleId === "finance" &&
+    ["chart-of-accounts", "nominals", "nominal-detail", "add-nominal"].includes(context.pageId)
+  ) {
+    if (context.pageId === "add-nominal")
+      return (
+        <FinanceNominalForm
+          key={context.recordRef ?? "new"}
+          nominalId={context.recordRef}
+          onDirtyChange={props.onPaymentEntryDirtyChange}
+          onSaved={(id) => props.onNavigate("finance", "nominal-detail", id, { bypassUnsavedGuard: true })}
+          onCancel={() => props.onNavigate("finance", "nominals")}
+        />
+      );
+    if (context.pageId === "nominal-detail" && context.recordRef)
+      return (
+        <FinanceNominalDetail
+          key={context.recordRef}
+          nominalId={context.recordRef}
+          onBack={() => props.onNavigate("finance", "nominals")}
+          onEdit={(id) => props.onNavigate("finance", "add-nominal", id)}
+        />
+      );
+    return (
+      <FinanceNominals
+        title={context.pageId === "chart-of-accounts" ? "Chart of Accounts" : "Nominal accounts"}
+        onCreate={() => props.onNavigate("finance", "add-nominal")}
+        onCentralTemplate={() => props.onNavigate("finance", "central-chart-template")}
+        onOpen={(id) => props.onNavigate("finance", "nominal-detail", id)}
+      />
+    );
+  }
   if (context.moduleId === "ai" && isNexoraAiWorkspacePage(context.pageId)) {
     return <NexoraAiWorkspace context={context} onAction={onAction} onNavigate={props.onNavigate} />;
   }
@@ -2974,11 +3050,53 @@ export function PrototypeContent(props: PrototypeContentProps) {
   }
 
   if (context.moduleId === "banking") {
+    if (context.pageId === "revaluation") {
+      return (
+        <BankingRevaluationWorkspace
+          key={context.recordRef ?? "register"}
+          recordRef={context.recordRef}
+          onNavigate={(recordRef) => props.onNavigate("banking", "revaluation", recordRef)}
+        />
+      );
+    }
+
+    if (context.pageId === "transfers") {
+      return (
+        <BankingTransfers
+          onCreate={() => props.onNavigate("banking", "add-transfer")}
+          onOpen={(transferId) => props.onNavigate("banking", "transaction-detail", transferId)}
+        />
+      );
+    }
+
+    if (context.pageId === "add-transfer") {
+      return (
+        <BankingTransferEntry
+          key={context.recordRef ?? "new"}
+          transferId={context.recordRef}
+          onBack={() => props.onNavigate("banking", "transfers", undefined, { bypassUnsavedGuard: true })}
+          onDirtyChange={props.onPaymentEntryDirtyChange}
+          onOpen={(transferId) =>
+            props.onNavigate("banking", "transaction-detail", transferId, { bypassUnsavedGuard: true })
+          }
+        />
+      );
+    }
+
     if (context.pageId === "bank-payments") {
       return (
         <BankingPayments
           onCreatePayment={() => props.onNavigate("banking", "add-bank-payment")}
           onOpenPayment={(paymentId) => props.onNavigate("banking", "transaction-detail", paymentId)}
+        />
+      );
+    }
+
+    if (context.pageId === "bank-receipts") {
+      return (
+        <BankingReceipts
+          onCreateReceipt={() => props.onNavigate("banking", "add-bank-receipt")}
+          onOpenReceipt={(receiptId) => props.onNavigate("banking", "transaction-detail", receiptId)}
         />
       );
     }
@@ -2989,6 +3107,9 @@ export function PrototypeContent(props: PrototypeContentProps) {
           paymentId={context.recordRef}
           onBack={() => props.onNavigate("banking", "bank-payments", undefined, { bypassUnsavedGuard: true })}
           onDirtyChange={props.onPaymentEntryDirtyChange}
+          onReviewNominals={() =>
+            props.onNavigate("finance", "chart-of-accounts", undefined, { bypassUnsavedGuard: true })
+          }
           onNavigate={(pageId, paymentId, options) =>
             props.onNavigate("banking", pageId, paymentId, {
               ...options,
@@ -2999,22 +3120,21 @@ export function PrototypeContent(props: PrototypeContentProps) {
       );
     }
 
-    // Receipts remain on the approved prototype batch grid until their own
-    // persisted Banking/Finance slice is delivered.
     if (context.pageId === "add-bank-receipt") {
-      // Deliberately no PageIntro: this screen mirrors the dense entry
-      // format, which carries its own compact title.
       return (
-        <BankingBatchEntry
-          key={context.pageId}
-          kind="receipt"
-          onAction={onAction}
-          onBack={() => props.onNavigate("banking", "bank-receipts")}
-          onOpenTransaction={(reference) => {
-            setSelectedBankingRecord(null);
-            setSelectedBankingReference(reference);
-            props.onNavigate("banking", "transaction-detail");
-          }}
+        <BankingReceiptEntry
+          receiptId={context.recordRef}
+          onBack={() => props.onNavigate("banking", "bank-receipts", undefined, { bypassUnsavedGuard: true })}
+          onDirtyChange={props.onReceiptEntryDirtyChange}
+          onReviewNominals={() =>
+            props.onNavigate("finance", "chart-of-accounts", undefined, { bypassUnsavedGuard: true })
+          }
+          onNavigate={(pageId, receiptId, options) =>
+            props.onNavigate("banking", pageId, receiptId, {
+              ...options,
+              bypassUnsavedGuard: true,
+            })
+          }
         />
       );
     }
@@ -3033,7 +3153,7 @@ export function PrototypeContent(props: PrototypeContentProps) {
           <BankingAccountBalances
             onOpenAccount={(accountId) => {
               setSelectedBankAccountId(accountId);
-              props.onNavigate("banking", "bank-account-detail");
+              props.onNavigate("banking", "bank-account-detail", accountId);
             }}
           />
         </>
@@ -3044,7 +3164,14 @@ export function PrototypeContent(props: PrototypeContentProps) {
       return (
         <>
           <PageIntro context={{ ...context, status: "backend connected" }} />
-          <BankAccountSetup onCreated={(accountId) => setSelectedBankAccountId(accountId)} />
+          <FinanceNominalForm
+            bankOnly
+            key={context.recordRef ?? "new"}
+            nominalId={context.recordRef}
+            onDirtyChange={props.onPaymentEntryDirtyChange}
+            onSaved={(id) => props.onNavigate("banking", "bank-account-detail", id, { bypassUnsavedGuard: true })}
+            onCancel={() => props.onNavigate("banking", "account-balances")}
+          />
         </>
       );
     }
@@ -3053,6 +3180,11 @@ export function PrototypeContent(props: PrototypeContentProps) {
       return (
         <>
           <PageIntro context={{ ...context, status: "backend connected" }} />
+          <FinanceNominals
+            approvals
+            onCreate={() => props.onNavigate("banking", "add-bank-account")}
+            onOpen={(id) => props.onNavigate("banking", "bank-account-detail", id)}
+          />
           <BankAccountApprovals />
         </>
       );
@@ -3062,8 +3194,10 @@ export function PrototypeContent(props: PrototypeContentProps) {
       return (
         <>
           <PageIntro context={{ ...context, status: "backend connected" }} />
-          <BankAccountDetailWorkspace
-            accountId={selectedBankAccountId}
+          <BankNominalDetailBridge
+            key={context.recordRef ?? selectedBankAccountId}
+            accountId={context.recordRef ?? selectedBankAccountId}
+            onEdit={(id) => props.onNavigate("banking", "add-bank-account", id)}
             onBack={() => props.onNavigate("banking", "account-balances")}
           />
         </>
@@ -3075,9 +3209,13 @@ export function PrototypeContent(props: PrototypeContentProps) {
         <BankStatement
           accountId={selectedBankAccountId}
           onAction={onAction}
-          onReconcile={(accountId) => {
+          onReconcile={(accountId, statementImportId) => {
             setSelectedBankAccountId(accountId);
-            props.onNavigate("banking", "bank-reconciliation");
+            props.onNavigate(
+              "banking",
+              "bank-reconciliation",
+              statementImportId ? `new/import/${statementImportId}/${accountId}` : `new/${accountId}`,
+            );
           }}
           onOpenTransaction={(reference) => {
             setSelectedBankingRecord(null);
@@ -3090,21 +3228,37 @@ export function PrototypeContent(props: PrototypeContentProps) {
       );
     }
 
+    if (context.pageId === "import-statement") {
+      const statementImportRoute = resolveBankStatementImportRoute(context.recordRef);
+      if (statementImportRoute.kind === "register") {
+        return (
+          <BankingStatementImportRegister
+            onAddNew={() => props.onNavigate("banking", "import-statement", "new")}
+            onOpen={(statementImportId) => props.onNavigate("banking", "import-statement", statementImportId)}
+          />
+        );
+      }
+      return (
+        <BankingStatementImport
+          key={statementImportRoute.kind === "detail" ? statementImportRoute.importId : "new"}
+          importId={statementImportRoute.kind === "detail" ? statementImportRoute.importId : undefined}
+          onCancel={() => props.onNavigate("banking", "import-statement")}
+          onOpenImport={(statementImportId) => props.onNavigate("banking", "import-statement", statementImportId)}
+          onStartReconciliation={({ importId: statementImportId, bankAccountId }) =>
+            props.onNavigate("banking", "bank-reconciliation", `new/import/${statementImportId}/${bankAccountId}`)
+          }
+        />
+      );
+    }
+
     if (context.pageId === "bank-reconciliation" || context.pageId === "statement-matching") {
-      const openTransaction = (reference: string) => {
-        setSelectedBankingRecord(null);
-        setSelectedBankingReference(reference);
-        props.onNavigate("banking", "transaction-detail");
-        onAction("Open transaction", reference);
-      };
       const importStatement = () => props.onNavigate("banking", "import-statement");
 
       if (context.pageId === "statement-matching") {
         return (
-          <BankingReconciliation
-            mode="matching"
-            onAction={onAction}
-            onOpenTransaction={openTransaction}
+          <BankingReconciliationWorkspace
+            onBack={() => props.onNavigate("banking", "bank-reconciliation")}
+            onOpen={(recordRef) => props.onNavigate("banking", "bank-reconciliation", recordRef)}
             onImportStatement={importStatement}
           />
         );
@@ -3114,8 +3268,8 @@ export function PrototypeContent(props: PrototypeContentProps) {
         <BankingReconciliationPage
           context={context}
           onAction={onAction}
-          onOpenTransaction={openTransaction}
           onImportStatement={importStatement}
+          onNavigate={(recordRef) => props.onNavigate("banking", "bank-reconciliation", recordRef)}
         />
       );
     }
@@ -3149,6 +3303,26 @@ export function PrototypeContent(props: PrototypeContentProps) {
       );
     }
     if (context.pageId === "transaction-detail") {
+      if (isPersistedBankTransferId(context.recordRef)) {
+        return (
+          <BankingTransferDetail
+            key={context.recordRef}
+            transferId={context.recordRef}
+            onBack={() => props.onNavigate("banking", "transfers")}
+            onEdit={(transferId) => props.onNavigate("banking", "add-transfer", transferId)}
+          />
+        );
+      }
+      if (isPersistedBankReceiptId(context.recordRef)) {
+        return (
+          <BankingReceiptDetail
+            key={context.recordRef}
+            receiptId={context.recordRef}
+            onBack={() => props.onNavigate("banking", "bank-receipts")}
+            onEdit={(receiptId) => props.onNavigate("banking", "add-bank-receipt", receiptId)}
+          />
+        );
+      }
       if (isPersistedBankPaymentId(context.recordRef)) {
         return (
           <BankingPaymentDetail

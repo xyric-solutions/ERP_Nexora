@@ -1,4 +1,6 @@
 import type {
+  BankWorkflowOptionQuery,
+  ReassignBankApproverRequest,
   BankPaymentDirectoryQuery,
   BankPaymentNominalAccountDirectoryQuery,
   BankPaymentOptionsQuery,
@@ -19,6 +21,7 @@ export class BankingPaymentService {
       SourceBankPaymentRepository,
       | "list"
       | "options"
+      | "workflowOptions"
       | "listNominalAccounts"
       | "get"
       | "create"
@@ -27,11 +30,15 @@ export class BankingPaymentService {
       | "decide"
       | "post"
       | "reverse"
+      | "reassign"
     >,
   ) {}
 
   list(context: BankingActorContext, query: BankPaymentDirectoryQuery) {
     return this.repository.list(context, query);
+  }
+  workflowOptions(context: BankingActorContext, query: BankWorkflowOptionQuery) {
+    return this.repository.workflowOptions(context, query);
   }
 
   options(context: BankingActorContext, query: BankPaymentOptionsQuery) {
@@ -78,6 +85,16 @@ export class BankingPaymentService {
     correlationId: string,
   ) {
     return this.repository.decide(context, paymentId, input, idempotencyKey, correlationId);
+  }
+
+  reassign(
+    context: BankingActorContext,
+    id: string,
+    input: ReassignBankApproverRequest,
+    key: string,
+    correlation: string,
+  ) {
+    return this.repository.reassign(context, id, input, key, correlation);
   }
 
   post(

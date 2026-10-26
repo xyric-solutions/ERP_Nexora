@@ -1,30 +1,173 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { randomBytes, randomUUID } from "node:crypto";
 
 import { createDatabasePool } from "../../packages/db/src/pool.js";
-import { inspectSourceMigrationState, migrateSourceSchema } from "../../packages/db/src/source-migrations.js";
+import {
+  inspectSourceMigrationState,
+  migrateSourceModule,
+  migrateSourceSchema,
+} from "../../packages/db/src/source-migrations.js";
 
-const databaseUrl = process.env.TEST_SOURCE_DATABASE_URL ?? "postgresql://nexora@127.0.0.1:55433/nexora_source_test";
-const pool = createDatabasePool(databaseUrl);
+const bootstrapDatabaseUrl =
+  process.env.TEST_SOURCE_DATABASE_URL ?? "postgresql://nexora@127.0.0.1:55433/nexora_source_test";
+const suiteDatabase = `migration_suite_${randomUUID().replaceAll("-", "")}`;
+let suiteDatabaseUrl = "";
+let bootstrap: ReturnType<typeof createDatabasePool>;
+let pool: ReturnType<typeof createDatabasePool>;
 
 describe("production PostgreSQL source migrations", () => {
   beforeAll(async () => {
+    expect(suiteDatabase).toMatch(/^migration_suite_[a-f0-9]{32}$/);
+    bootstrap = createDatabasePool(bootstrapDatabaseUrl);
+    await bootstrap.query(`create database ${suiteDatabase}`);
+    const isolatedUrl = new URL(bootstrapDatabaseUrl);
+    isolatedUrl.pathname = `/${suiteDatabase}`;
+    suiteDatabaseUrl = isolatedUrl.toString();
+    pool = createDatabasePool(suiteDatabaseUrl);
     await migrateSourceSchema(pool);
-  });
+  }, 60_000);
   afterAll(async () => {
-    await pool.end();
+    await pool?.end();
+    if (bootstrap) {
+      await bootstrap.query(`drop database if exists ${suiteDatabase}`);
+      await bootstrap.end();
+    }
   });
 
   it("is deterministic and idempotent", async () => {
     await expect(migrateSourceSchema(pool)).resolves.toEqual([]);
     await expect(inspectSourceMigrationState(pool)).resolves.toEqual({
-      platform: 8,
-      security: 15,
+      platform: 11,
+      security: 19,
       workflow: 1,
-      finance: 7,
+      master_data: 2,
+      finance: 30,
       hr: 34,
       runtime: 1,
     });
   });
+
+  it("migrates a fresh isolated database through Statement and Reconciliation authority", async () => {
+    const database = `transfer_fresh_${randomUUID().replaceAll("-", "")}`;
+    expect(database).toMatch(/^transfer_fresh_[a-f0-9]{32}$/);
+    const freshUrl = new URL(suiteDatabaseUrl);
+    freshUrl.pathname = `/${database}`;
+    await pool.query(`create database ${database}`);
+    const fresh = createDatabasePool(freshUrl.toString());
+    try {
+      await migrateSourceSchema(fresh);
+      await expect(inspectSourceMigrationState(fresh)).resolves.toMatchObject({
+        platform: 11,
+        security: 19,
+        finance: 30,
+      });
+      const columns = await fresh.query<{ column_name: string }>(
+        `select column_name from information_schema.columns
+          where table_schema='public' and table_name='bank_transfer'
+            and column_name in ('posting_date','value_date','delegated_decision_id')
+          order by column_name`,
+      );
+      expect(columns.rows.map((row) => row.column_name)).toEqual([
+        "delegated_decision_id",
+        "posting_date",
+        "value_date",
+      ]);
+      await expect(migrateSourceSchema(fresh)).resolves.toEqual([]);
+    } finally {
+      await fresh.end();
+      await pool.query(`drop database ${database}`);
+    }
+  });
+
+  it("upgrades Finance 27 to 28 without changing an existing Bank Account row", async () => {
+    const database = `reconciliation_upgrade_${randomUUID().replaceAll("-", "")}`;
+    expect(database).toMatch(/^reconciliation_upgrade_[a-f0-9]{32}$/);
+    const upgradeUrl = new URL(suiteDatabaseUrl);
+    upgradeUrl.pathname = `/${database}`;
+    await pool.query(`create database ${database}`);
+    const upgrade = createDatabasePool(upgradeUrl.toString());
+    const tenantId = "br02-upgrade-tenant";
+    const companyId = "br02-upgrade-company";
+    const ledgerId = "br02-upgrade-ledger";
+    const bankAccountId = "br02-upgrade-bank";
+    try {
+      for (const moduleName of ["platform", "security", "workflow", "master_data"] as const) {
+        await migrateSourceModule(upgrade, moduleName);
+      }
+      await migrateSourceModule(upgrade, "finance", { throughVersion: 27 });
+      await expect(inspectSourceMigrationState(upgrade)).resolves.toMatchObject({ finance: 27 });
+      await upgrade.query(
+        `insert into tenant (id,name,plan,region,status,default_locale)
+         values ($1,'BR-02 upgrade tenant','enterprise','test','active','en')`,
+        [tenantId],
+      );
+      await upgrade.query(
+        `insert into organization_unit (id,tenant_id,parent_id,type,code,name,status)
+         values ($1,$2,null,'company','BR02-UPGRADE','BR-02 upgrade company','active')`,
+        [companyId, tenantId],
+      );
+      await upgrade.query(
+        `insert into currency (tenant_id,code,name,decimal_places,is_base,status)
+         values ($1,'USD','US Dollar',2,true,'active')`,
+        [tenantId],
+      );
+      for (const userId of ["br02.upgrade.maker", "br02.upgrade.checker"] as const) {
+        await upgrade.query(
+          `insert into security_user_account
+            (id,tenant_id,identity_subject,email,status,mfa_state,created_at,updated_at)
+           values ($1,$2,$3,$4,'active','disabled',now(),now())`,
+          [userId, tenantId, `br02:${userId}`, `${userId}@example.invalid`],
+        );
+      }
+      await upgrade.query(
+        `insert into account
+          (id,tenant_id,company_id,code,name,type,is_header,required_dimensions,status,
+           manual_posting_allowed,is_system_account,reconciliation_required,created_at)
+         values ($1,$2,$3,'BR02-BANK','BR-02 existing Bank Account','asset',false,'[]','active',
+                 true,false,true,now())`,
+        [ledgerId, tenantId, companyId],
+      );
+      await upgrade.query(
+        `insert into bank_account
+          (id,tenant_id,company_id,account_id,bank_name,currency,status,created_at,reference,
+           account_name,account_type,account_number_masked,account_number_ciphertext,
+           account_number_nonce,account_number_hash,encryption_key_version,overdraft_limit,
+           row_version,created_by,submitted_by,submitted_at,submission_reason,approved_by,
+           approved_at,decision_reason,updated_at)
+         values ($1,$2,$3,$4,'Existing Upgrade Bank','USD','active',now(),'BR02-UPGRADE-BANK',
+                 'Existing operating account','current','.... 0028',$5,$6,$7,'upgrade-test-v1',0,
+                 1,'br02.upgrade.maker','br02.upgrade.maker',now(),'Pre-28 controlled record',
+                 'br02.upgrade.checker',now(),'Pre-28 independent approval',now())`,
+        [
+          bankAccountId,
+          tenantId,
+          companyId,
+          ledgerId,
+          Buffer.alloc(24, 28),
+          Buffer.alloc(12, 28),
+          randomBytes(32).toString("hex"),
+        ],
+      );
+      const before = await upgrade.query(
+        `select id,company_id,account_id,bank_name,currency,status,row_version
+           from bank_account where tenant_id=$1 and id=$2`,
+        [tenantId, bankAccountId],
+      );
+
+      await migrateSourceModule(upgrade, "finance");
+
+      await expect(inspectSourceMigrationState(upgrade)).resolves.toMatchObject({ finance: 30 });
+      const after = await upgrade.query(
+        `select id,company_id,account_id,bank_name,currency,status,row_version
+           from bank_account where tenant_id=$1 and id=$2`,
+        [tenantId, bankAccountId],
+      );
+      expect(after.rows).toEqual(before.rows);
+    } finally {
+      await upgrade.end();
+      await pool.query(`drop database ${database}`);
+    }
+  }, 60_000);
 
   it("creates the canonical production domains and operational runtime table", async () => {
     const expected = [
@@ -40,6 +183,60 @@ describe("production PostgreSQL source migrations", () => {
       "bank_payment_event",
       "bank_payment_line",
       "bank_payment_sequence",
+      "bank_receipt",
+      "bank_receipt_event",
+      "bank_receipt_line",
+      "bank_receipt_sequence",
+      "bank_transfer",
+      "bank_transfer_event",
+      "bank_transfer_fx_policy",
+      "bank_transfer_fx_policy_event",
+      "bank_transfer_line",
+      "bank_transfer_sequence",
+      "bank_statement_mapping_profile",
+      "bank_statement_mapping_profile_event",
+      "bank_statement_import",
+      "bank_statement_line",
+      "bank_statement_import_event",
+      "bank_reconciliation",
+      "bank_reconciliation_ledger_line",
+      "bank_reconciliation_match",
+      "bank_reconciliation_adjustment",
+      "bank_reconciliation_adjustment_event",
+      "bank_reconciliation_event",
+      "currency_catalog",
+      "currency_master_event",
+      "country_currency_catalog",
+      "company_currency_profile",
+      "company_currency",
+      "company_currency_event",
+      "bank_revaluation_policy",
+      "bank_revaluation_policy_event",
+      "bank_revaluation",
+      "bank_revaluation_line",
+      "bank_revaluation_event",
+      "bank_revaluation_reversal_schedule",
+      "finance_nominal_section_policy",
+      "finance_nominal_event",
+      "finance_general_nominal",
+      "finance_general_nominal_policy",
+      "finance_general_nominal_event",
+      "finance_chart_template",
+      "finance_chart_template_node",
+      "finance_chart_template_event",
+      "finance_chart_hierarchy_maintenance",
+      "finance_chart_company_adoption",
+      "finance_chart_company_node",
+      "finance_chart_company_event",
+      "finance_chart_bank_binding",
+      "erp_project",
+      "erp_location",
+      "erp_reference_master_event",
+      "bank_assignment_intervention",
+      "bank_self_approval_grant_version",
+      "bank_delegated_decision",
+      "fiscal_calendar_event",
+      "bank_approver_reassignment",
       "security_authentication_event",
       "security_tenant_role",
       "security_user_change_request",
@@ -65,27 +262,69 @@ describe("production PostgreSQL source migrations", () => {
        order by module_name`,
     );
     expect(result.rows).toEqual([
-      { module_name: "finance", migration_count: "7", latest: 7 },
+      { module_name: "finance", migration_count: "30", latest: 30 },
       { module_name: "hr", migration_count: "34", latest: 34 },
-      { module_name: "platform", migration_count: "8", latest: 8 },
+      { module_name: "master_data", migration_count: "2", latest: 2 },
+      { module_name: "platform", migration_count: "11", latest: 11 },
       { module_name: "runtime", migration_count: "1", latest: 1 },
-      { module_name: "security", migration_count: "15", latest: 15 },
+      { module_name: "security", migration_count: "19", latest: 19 },
       { module_name: "workflow", migration_count: "1", latest: 1 },
     ]);
-    const bankPaymentMigrations = await pool.query<{ module_name: string; version: number; name: string }>(
+    const bankingMigrations = await pool.query<{ module_name: string; version: number; name: string }>(
       `select module_name,version,name from nexora_schema_migration
-        where (module_name='platform' and version=8)
-           or (module_name='security' and version=15)
-           or (module_name='finance' and version in (5,6,7))
+        where (module_name='platform' and version in (8,10,11))
+           or (module_name='security' and version in (15,17,18,19))
+           or (module_name='finance' and version in (5,6,7,8,9,10,11,12,13,14,15,16,17,18,26,27,28,29,30))
         order by module_name,version`,
     );
-    expect(bankPaymentMigrations.rows).toEqual([
+    expect(bankingMigrations.rows).toEqual([
       { module_name: "finance", version: 5, name: "finance_posting_bank_payments" },
       { module_name: "finance", version: 6, name: "currency_rate_authority_lock" },
       { module_name: "finance", version: 7, name: "bank_payment_posting_override" },
+      { module_name: "finance", version: 8, name: "finance_posting_bank_receipts" },
+      { module_name: "finance", version: 9, name: "bank_nominal_master_data" },
+      { module_name: "finance", version: 10, name: "bank_account_override_variable_fix" },
+      { module_name: "finance", version: 11, name: "general_nominal_master" },
+      { module_name: "finance", version: 12, name: "general_nominal_dependency_guards" },
+      { module_name: "finance", version: 13, name: "central_chart_templates" },
+      { module_name: "finance", version: 14, name: "chart_hierarchy_maintenance_evidence" },
+      { module_name: "finance", version: 15, name: "company_chart_adoption" },
+      { module_name: "finance", version: 16, name: "chart_adoption_validation_bounds" },
+      { module_name: "finance", version: 17, name: "chart_validation_record_names" },
+      { module_name: "finance", version: 18, name: "company_bank_definition_binding" },
+      { module_name: "finance", version: 26, name: "bank_transfers_and_fx_policy" },
+      { module_name: "finance", version: 27, name: "bank_transfer_date_columns" },
+      { module_name: "finance", version: 28, name: "bank_statement_reconciliation" },
+      { module_name: "finance", version: 29, name: "bank_reconciliation_manual_workflow" },
+      { module_name: "finance", version: 30, name: "bank_fx_revaluation" },
       { module_name: "platform", version: 8, name: "idempotency_patch_method" },
+      { module_name: "platform", version: 10, name: "currency_master_governance" },
+      { module_name: "platform", version: 11, name: "company_currency_profiles" },
       { module_name: "security", version: 15, name: "approval_override_post_action" },
+      { module_name: "security", version: 17, name: "bank_transfer_permissions" },
+      { module_name: "security", version: 18, name: "bank_reconciliation_permissions" },
+      { module_name: "security", version: 19, name: "bank_revaluation_permissions" },
     ]);
+  });
+
+  it("keeps Bank Transfer posting/value dates and the posting-date directory index", async () => {
+    const columns = await pool.query<{ column_name: string; is_nullable: string }>(
+      `select column_name,is_nullable
+         from information_schema.columns
+        where table_schema='public' and table_name='bank_transfer'
+          and column_name in ('posting_date','value_date')
+        order by column_name`,
+    );
+    expect(columns.rows).toEqual([
+      { column_name: "posting_date", is_nullable: "NO" },
+      { column_name: "value_date", is_nullable: "YES" },
+    ]);
+    const index = await pool.query<{ definition: string }>(
+      `select pg_get_indexdef(indexrelid) as definition
+         from pg_index
+        where indexrelid='bank_transfer_directory'::regclass`,
+    );
+    expect(index.rows[0]?.definition).toContain("posting_date DESC");
   });
 
   it("enforces the Finance currency-rate authority lock at the database boundary", async () => {
@@ -224,7 +463,7 @@ describe("production PostgreSQL source migrations", () => {
     const result = await pool.query<{ permission_count: string }>(
       "select count(*)::text as permission_count from security_permission_definition",
     );
-    expect(result.rows[0]?.permission_count).toBe("253");
+    expect(result.rows[0]?.permission_count).toBe("322");
     const overridePermission = await pool.query<{ permission_key: string }>(
       `select permission_key from security_permission_definition
         where permission_key='platform.approval.override' and status='active'`,
@@ -244,6 +483,25 @@ describe("production PostgreSQL source migrations", () => {
       "banking.payment.submit",
       "banking.payment.update",
     ]);
+    const transferPermissions = await pool.query<{ permission_key: string }>(
+      `select permission_key from security_permission_definition
+        where permission_key like 'banking.transfer.%' and status='active'
+        order by permission_key`,
+    );
+    expect(transferPermissions.rows.map((row) => row.permission_key)).toEqual([
+      "banking.transfer.approve",
+      "banking.transfer.create",
+      "banking.transfer.post",
+      "banking.transfer.read",
+      "banking.transfer.reassign",
+      "banking.transfer.reverse",
+      "banking.transfer.submit",
+      "banking.transfer.update",
+    ]);
+    const catalog = await pool.query<{ code: string }>("select code from currency_catalog order by code");
+    expect(catalog.rows).toHaveLength(20);
+    expect(catalog.rows).toContainEqual({ code: "PKR" });
+    expect(catalog.rows).toContainEqual({ code: "USD" });
   });
 
   it("installs immutable tenant-scoped approval override evidence and nullable Security references", async () => {

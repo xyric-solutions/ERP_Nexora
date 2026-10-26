@@ -4,10 +4,16 @@ import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/shared/ui/searchable-select", async () => ({
+  SearchableSelect: (await import("./searchable-select-double.js")).SearchableSelectDouble,
+}));
+
 import { ApiError } from "../../app/lib/api/generated.js";
+import { ActionFeedbackProvider } from "../../app/shared/ui/action-feedback.js";
 
 const harness = vi.hoisted(() => ({
   api: {
+    listBankWorkflowOptions: vi.fn(async () => ({ items: [], selected: null, next_cursor: null })),
     listBankingCompanies: vi.fn(),
     listBankPaymentOptions: vi.fn(),
     listBankPaymentNominalAccounts: vi.fn(),
@@ -15,6 +21,8 @@ const harness = vi.hoisted(() => ({
     createBankPayment: vi.fn(),
     updateBankPayment: vi.fn(),
     submitBankPayment: vi.fn(),
+    decideBankPayment: vi.fn(),
+    postBankPayment: vi.fn(),
   },
   session: {
     status: "authenticated",
@@ -207,6 +215,7 @@ function directDraft() {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  harness.session.user.roles.splice(0, harness.session.user.roles.length, "payment_maker");
   harness.session.user.permissions.splice(
     0,
     harness.session.user.permissions.length,
@@ -228,6 +237,426 @@ afterEach(() => {
 });
 
 describe("BankingPaymentEntry", () => {
+  it("retains the newly saved draft and explains a closed-period submission failure without approving or duplicating it", async () => {
+    const navigate = vi.fn();
+    harness.api.createBankPayment.mockResolvedValue({
+      id: "payment-created",
+      reference: "BP-2026-000008",
+      state: "draft",
+      version: 1,
+      audit_event_id: "audit-create",
+      replayed: false,
+    });
+    harness.api.submitBankPayment.mockRejectedValue(
+      new ApiError(
+        409,
+        "The Finance period for this posting date is not open.",
+        "PAYMENT_PERIOD_LOCKED",
+        "closed-period-reference",
+      ),
+    );
+    await act(async () => root.render(<BankingPaymentEntry onNavigate={navigate} />));
+    await settle();
+    await settle();
+    change("Line 1 external reference", "PERIOD-REGRESSION");
+    change("Line 1 payment method", "bank_transfer");
+    change("Line 1 nominal account", "nominal-1");
+    change("Line 1 department", "SERVICES");
+    change("Line 1 narration", "Save before period validation");
+    change("Line 1 amount", "25.50");
+    click("Submit for Approval");
+    await settle();
+    await settle();
+    expect(container.textContent).toContain("Draft BP-2026-000008 is saved");
+    expect(container.textContent).toContain("closed-period-reference");
+    expect(container.textContent).toContain("Nothing was approved or posted");
+    expect(control("Payment reference").getAttribute("value")).toBe("BP-2026-000008");
+    expect(navigate).not.toHaveBeenCalledWith("transaction-detail", "payment-created");
+    const key = harness.api.submitBankPayment.mock.calls[0]?.[3];
+    click("Submit for Approval");
+    await settle();
+    expect(harness.api.createBankPayment).toHaveBeenCalledOnce();
+    expect(harness.api.submitBankPayment.mock.calls[1]?.[3]).toBe(key);
+    expect(harness.api.decideBankPayment).not.toHaveBeenCalled();
+    expect(harness.api.postBankPayment).not.toHaveBeenCalled();
+  });
+  it("preserves an existing document reference when editing Details without a reference input", async () => {
+    const original = directDraft();
+    const draft = {
+      ...original,
+      lines: original.lines.map((line) => ({ ...line, document_reference: "LEGACY-PAY-7" })),
+    };
+    harness.api.getBankPayment.mockResolvedValue(draft);
+    harness.api.updateBankPayment.mockResolvedValue({
+      id: draft.id,
+      reference: draft.reference,
+      state: "draft",
+      version: 5,
+      audit_event_id: "audit-update",
+      replayed: false,
+    });
+    await act(async () => root.render(<BankingPaymentEntry paymentId={draft.id} />));
+    await settle();
+    await settle();
+    expect(container.querySelector('[aria-label="Line 1 document reference"]')).toBeNull();
+    change("Line 1 narration", "Updated details only");
+    click("Save Draft");
+    await settle();
+    expect(harness.api.updateBankPayment).toHaveBeenCalledWith(
+      draft.id,
+      expect.objectContaining({
+        lines: [expect.objectContaining({ document_reference: "LEGACY-PAY-7", narration: "Updated details only" })],
+      }),
+      "csrf-token",
+      expect.any(String),
+    );
+  });
+  it("explains pending company nominals and refreshes without inventing selectable options", async () => {
+    const availability = {
+      eligible_count: 0,
+      matching_count: 0,
+      pending_approval_count: 227,
+      inactive_count: 4,
+      protected_count: 14,
+      has_more: false,
+    };
+    harness.api.listBankPaymentNominalAccounts.mockResolvedValueOnce({ items: [], availability });
+    const review = vi.fn();
+    harness.session.user.permissions.push("finance.nominal.read");
+    await act(async () => root.render(<BankingPaymentEntry onReviewNominals={review} />));
+    await settle();
+    await settle();
+    expect(container.textContent).toContain("227 awaiting Super Admin review/activation");
+    expect(container.textContent).toContain("The company Chart of Accounts is connected");
+    expect((control("Line 1 nominal account") as HTMLSelectElement).options).toHaveLength(1);
+    click("Review Chart of Accounts");
+    expect(review).toHaveBeenCalledOnce();
+    click("Refresh nominal accounts");
+    await settle();
+    await settle();
+    expect(harness.api.listBankPaymentNominalAccounts).toHaveBeenCalledTimes(2);
+    expect((control("Line 1 nominal account") as HTMLSelectElement).options[1]?.textContent).toContain(
+      "Travel expense",
+    );
+  });
+
+  it("distinguishes failed directory access and permits a real retry without clearing the form", async () => {
+    harness.api.listBankPaymentNominalAccounts.mockRejectedValueOnce(
+      new ApiError(503, "Directory temporarily unavailable", "UNAVAILABLE"),
+    );
+    await act(async () => root.render(<BankingPaymentEntry />));
+    await settle();
+    await settle();
+    expect(container.textContent).toContain("Payment options unavailable");
+    expect(container.textContent).not.toContain("No eligible nominal accounts");
+    expect(control("Line 1 nominal account").disabled).toBe(true);
+    change("Line 1 narration", "Keep this unsaved description");
+    click("Retry account options");
+    await settle();
+    await settle();
+    expect(control("Line 1 narration").value).toBe("Keep this unsaved description");
+    expect(control("Line 1 nominal account").disabled).toBe(false);
+    expect(harness.api.createBankPayment).not.toHaveBeenCalled();
+  });
+
+  it("shows search misses separately and retains the selected nominal across search errors", async () => {
+    await act(async () => root.render(<BankingPaymentEntry />));
+    await settle();
+    await settle();
+    change("Line 1 nominal account", "nominal-1");
+    harness.api.listBankPaymentNominalAccounts.mockResolvedValueOnce({
+      items: [],
+      availability: {
+        eligible_count: 1,
+        matching_count: 0,
+        pending_approval_count: 0,
+        inactive_count: 0,
+        protected_count: 1,
+        has_more: false,
+      },
+    });
+    change("Search nominal accounts", "NoMatch");
+    expect(control("Line 1 nominal account").disabled).toBe(true);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    expect(container.textContent).toContain("No matching nominal accounts");
+    expect(container.textContent).not.toContain("No eligible nominal accounts");
+    expect(control("Line 1 nominal account").value).toBe("nominal-1");
+    harness.api.listBankPaymentNominalAccounts.mockRejectedValueOnce(
+      new ApiError(503, "Temporary directory failure", "UNAVAILABLE"),
+    );
+    change("Search nominal accounts", "Unavailable");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    expect(control("Line 1 nominal account").value).toBe("nominal-1");
+    expect(control("Line 1 nominal account").disabled).toBe(true);
+  });
+
+  it("searches the server directory beyond the initial page and retains selected account identities", async () => {
+    harness.api.listBankPaymentNominalAccounts.mockImplementation(async (query: string) => ({
+      items: query.includes("search=Remote")
+        ? [
+            {
+              id: "remote-nominal",
+              code: "REMOTE-250",
+              name: "Remote nominal",
+              account_type: "expense",
+              required_dimensions: [],
+            },
+          ]
+        : [
+            {
+              id: "nominal-1",
+              code: "INITIAL-1",
+              name: "Initial nominal",
+              account_type: "expense",
+              required_dimensions: ["department"],
+            },
+          ],
+    }));
+    await act(async () => root.render(<BankingPaymentEntry />));
+    await settle();
+    await settle();
+    change("Line 1 nominal account", "nominal-1");
+    change("Search nominal accounts", "Remote 250");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    expect(harness.api.listBankPaymentNominalAccounts).toHaveBeenLastCalledWith(
+      expect.stringContaining("search=Remote"),
+    );
+    const nominal = control("Line 1 nominal account") as HTMLSelectElement;
+    expect([...nominal.options].map((option) => option.value)).toContain("remote-nominal");
+    expect(nominal.value).toBe("nominal-1");
+    expect([...nominal.options].map((option) => option.value)).toContain("nominal-1");
+  });
+
+  it("retains a newly saved transaction after approval failure and reports only confirmed phases", async () => {
+    const draft = directDraft();
+    harness.session.user.roles.splice(0, harness.session.user.roles.length, "super_administrator");
+    harness.session.user.permissions.push("banking.payment.approve", "platform.approval.override");
+    harness.api.createBankPayment.mockResolvedValue({
+      id: draft.id,
+      reference: draft.reference,
+      state: "draft",
+      version: 1,
+    });
+    harness.api.submitBankPayment.mockResolvedValue({
+      id: draft.id,
+      reference: draft.reference,
+      state: "submitted",
+      version: 2,
+    });
+    harness.api.getBankPayment.mockResolvedValue({
+      ...draft,
+      state: "submitted",
+      version: 2,
+      self_decision_requires_override: true,
+      super_admin_override_allowed: true,
+    });
+    harness.api.decideBankPayment
+      .mockRejectedValueOnce(new ApiError(503, "Approval unavailable", "SERVICE_UNAVAILABLE"))
+      .mockResolvedValue({ id: draft.id, reference: draft.reference, state: "approved", version: 3 });
+    const navigate = vi.fn(),
+      notify = vi.fn();
+    await act(async () =>
+      root.render(
+        <ActionFeedbackProvider onSuccess={notify}>
+          <BankingPaymentEntry onNavigate={navigate} />
+        </ActionFeedbackProvider>,
+      ),
+    );
+    await settle();
+    await settle();
+    change("Line 1 external reference", "SYNTHETIC-REF");
+    change("Line 1 payment method", "bank_transfer");
+    change("Line 1 nominal account", "nominal-1");
+    change("Line 1 department", "SERVICES");
+    change("Line 1 narration", "Synthetic entry acceptance");
+    change("Line 1 amount", "12.50");
+    click("Approve & Close");
+    await settle();
+    expect(notify).toHaveBeenCalledWith("Bank Payment created successfully.");
+    expect(notify).toHaveBeenCalledWith("Bank Payment submitted for approval successfully.");
+    expect(notify).not.toHaveBeenCalledWith("Bank Payment approved successfully.");
+    expect(navigate).not.toHaveBeenCalledWith("bank-payments");
+    click("Approve & Close");
+    await settle();
+    expect(harness.api.createBankPayment).toHaveBeenCalledOnce();
+    expect(harness.api.submitBankPayment).toHaveBeenCalledOnce();
+    expect(harness.api.updateBankPayment).not.toHaveBeenCalled();
+    expect(harness.api.postBankPayment).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith("Bank Payment approved successfully.");
+    expect(navigate).toHaveBeenLastCalledWith("bank-payments");
+  });
+
+  it("does not offer self-approval to an ordinary maker even with approval permission", async () => {
+    harness.session.user.permissions.push("banking.payment.approve", "platform.approval.override");
+    await act(async () => root.render(<BankingPaymentEntry />));
+    await settle();
+    await settle();
+    expect(container.textContent).not.toContain("Approve & Close");
+    expect(container.textContent).toContain("Submit for Approval");
+    expect(harness.api.decideBankPayment).not.toHaveBeenCalled();
+  });
+
+  function configureApproval(overrideAllowed = true) {
+    const draft = directDraft();
+    harness.session.user.roles.splice(0, harness.session.user.roles.length, "super_administrator");
+    harness.session.user.permissions.push("banking.payment.approve", "platform.approval.override");
+    harness.api.getBankPayment.mockResolvedValueOnce(draft).mockResolvedValue({
+      ...draft,
+      state: "submitted",
+      version: 5,
+      self_decision_requires_override: true,
+      super_admin_override_allowed: overrideAllowed,
+    });
+    harness.api.submitBankPayment.mockResolvedValue({
+      id: draft.id,
+      reference: draft.reference,
+      state: "submitted",
+      version: 5,
+    });
+    harness.api.decideBankPayment.mockResolvedValue({
+      id: draft.id,
+      reference: draft.reference,
+      state: "approved",
+      version: 6,
+    });
+    return draft;
+  }
+
+  it("uses the reference grid with visible dates and plain details, and adds/removes rows", async () => {
+    await act(async () => root.render(<BankingPaymentEntry />));
+    await settle();
+    await settle();
+    const table = container.querySelector('[aria-labelledby="payment-lines-heading"] table');
+    expect([...table!.querySelectorAll("thead th")].map((cell) => cell.textContent)).toEqual([
+      "Date *",
+      "Ref. No. *",
+      "Mode *",
+      "Nominal Account *",
+      "Details *",
+      "Amount *",
+      "Remove",
+    ]);
+    expect(control("Pay through").closest("label")?.textContent).toContain("Bank");
+    expect(control("Posting date").closest("details")).toBeNull();
+    expect(control("Value date").closest("details")).toBeNull();
+    expect(control("Line 1 narration")).toBeInstanceOf(HTMLTextAreaElement);
+    expect(container.querySelector('[aria-label="Line 1 document reference"]')).toBeNull();
+    expect(control("Line 1 narration").classList.contains("h-10")).toBe(true);
+    expect(table?.classList.contains("table-fixed")).toBe(true);
+    change("Value date", "2026-10-21");
+    expect(control("Value date").value).toBe("2026-10-21");
+    expect(control("Payment reference").closest("details")?.open).toBe(false);
+    expect(container.querySelector('[aria-labelledby="journal-preview-heading"]')?.closest("details")?.open).toBe(
+      false,
+    );
+    expect(container.textContent).not.toContain("WHT Payments");
+    change("Line 1 amount", "10.25");
+    click("+ Add More");
+    change("Line 2 amount", "2.50");
+    expect(table!.querySelector("tfoot")?.textContent).toContain("12.75");
+    const remove = container.querySelector('[aria-label="Remove line 2"]') as HTMLButtonElement;
+    act(() => remove.click());
+    expect(table!.querySelectorAll("tbody tr")).toHaveLength(1);
+    expect(table!.querySelector("tfoot")?.textContent).toContain("10.25");
+  });
+
+  it("approves and closes only after server eligibility and never posts", async () => {
+    const draft = configureApproval();
+    const navigate = vi.fn();
+    await act(async () => root.render(<BankingPaymentEntry paymentId={draft.id} onNavigate={navigate} />));
+    await settle();
+    await settle();
+    click("Approve & Close");
+    await settle();
+    expect(harness.api.submitBankPayment).toHaveBeenCalledWith(
+      draft.id,
+      { expected_version: 4 },
+      "csrf-token",
+      expect.any(String),
+    );
+    expect(harness.api.decideBankPayment).toHaveBeenCalledWith(
+      draft.id,
+      { action: "approve", expected_version: 5 },
+      "csrf-token",
+      expect.stringContaining("web-bank-payment-approve-"),
+    );
+    expect(navigate).toHaveBeenLastCalledWith("bank-payments");
+    expect(harness.api.postBankPayment).not.toHaveBeenCalled();
+  });
+
+  it("keeps a submitted transaction open when the API denies self-approval", async () => {
+    const draft = configureApproval(false);
+    const navigate = vi.fn();
+    await act(async () => root.render(<BankingPaymentEntry paymentId={draft.id} onNavigate={navigate} />));
+    await settle();
+    await settle();
+    click("Approve & Close");
+    await settle();
+    expect(container.textContent).toContain("approval is not available to this session");
+    expect(harness.api.decideBankPayment).not.toHaveBeenCalled();
+    expect(harness.api.createBankPayment).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("retries approval with the same key without saving or submitting again", async () => {
+    const draft = configureApproval();
+    harness.api.decideBankPayment
+      .mockRejectedValueOnce(
+        new ApiError(503, "Temporary approval failure", "SERVICE_UNAVAILABLE", "synthetic-approval"),
+      )
+      .mockResolvedValue({ id: draft.id, reference: draft.reference, state: "approved", version: 6 });
+    const navigate = vi.fn();
+    await act(async () => root.render(<BankingPaymentEntry paymentId={draft.id} onNavigate={navigate} />));
+    await settle();
+    await settle();
+    click("Approve & Close");
+    await settle();
+    expect(container.textContent).toContain("Temporary approval failure");
+    expect(navigate).not.toHaveBeenCalled();
+    const first = harness.api.decideBankPayment.mock.calls[0];
+    click("Approve & Close");
+    await settle();
+    expect(harness.api.decideBankPayment.mock.calls[1]).toEqual(first);
+    expect(harness.api.submitBankPayment).toHaveBeenCalledOnce();
+    expect(harness.api.createBankPayment).not.toHaveBeenCalled();
+    expect(harness.api.updateBankPayment).not.toHaveBeenCalled();
+    expect(harness.api.postBankPayment).not.toHaveBeenCalled();
+    expect(navigate).toHaveBeenLastCalledWith("bank-payments");
+  });
+
+  it("recovers an approval whose response was lost by reading the committed state", async () => {
+    const draft = configureApproval();
+    harness.api.getBankPayment.mockResolvedValueOnce({
+      ...draft,
+      state: "submitted",
+      version: 5,
+      self_decision_requires_override: true,
+      super_admin_override_allowed: true,
+    });
+    harness.api.decideBankPayment.mockRejectedValueOnce(
+      new ApiError(503, "Response lost", "SERVICE_UNAVAILABLE", "synthetic-lost"),
+    );
+    const navigate = vi.fn();
+    await act(async () => root.render(<BankingPaymentEntry paymentId={draft.id} onNavigate={navigate} />));
+    await settle();
+    await settle();
+    click("Approve & Close");
+    await settle();
+    harness.api.getBankPayment.mockResolvedValue({ ...draft, state: "approved", version: 6 });
+    click("Approve & Close");
+    await settle();
+    expect(harness.api.decideBankPayment).toHaveBeenCalledOnce();
+    expect(harness.api.submitBankPayment).toHaveBeenCalledOnce();
+    expect(harness.api.postBankPayment).not.toHaveBeenCalled();
+    expect(navigate).toHaveBeenLastCalledWith("bank-payments");
+  });
+
   it("keeps an exact create retry key, persists edits before submit, and never approves or posts", async () => {
     const navigate = vi.fn();
     harness.api.createBankPayment
@@ -311,8 +740,8 @@ describe("BankingPaymentEntry", () => {
       expect.stringContaining("web-bank-payment-submit-"),
     );
     expect(navigate).toHaveBeenLastCalledWith("transaction-detail", "payment-1");
-    expect(Object.keys(harness.api)).not.toContain("decideBankPayment");
-    expect(Object.keys(harness.api)).not.toContain("postBankPayment");
+    expect(harness.api.decideBankPayment).not.toHaveBeenCalled();
+    expect(harness.api.postBankPayment).not.toHaveBeenCalled();
   });
 
   it("reloads a persisted draft and uses the server Bank Account ledger projection in the preview", async () => {

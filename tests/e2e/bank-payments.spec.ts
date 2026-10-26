@@ -108,7 +108,7 @@ test.describe("bank payments governed lifecycle", () => {
     await expect(checker.page.getByRole("heading", { level: 1, name: reference })).toBeVisible();
     await expect(checker.page.getByText("Accounting preview", { exact: true })).toBeVisible();
     await expect(checker.page.getByText("Recorded accounting linkage")).toHaveCount(0);
-    await checker.page.getByLabel(/Decision reason/).fill("Independent checker acceptance");
+    await expect(checker.page.getByLabel(/Decision reason|Rejection reason/)).toHaveCount(0);
     await checker.page.getByRole("button", { name: "Approve" }).click();
     await expect(checker.page.getByText("Approved", { exact: true })).toBeVisible();
     await expect(checker.page.getByText("Accounting preview", { exact: true })).toBeVisible();
@@ -158,7 +158,7 @@ test.describe("bank payments governed lifecycle", () => {
     await expect(admin.page).toHaveURL(/transaction-detail\/bank-payment-[0-9a-f-]{36}$/i);
     const paymentId = paymentIdFromUrl(admin.page);
     await expect(admin.page.getByText("Super-admin override")).toBeVisible();
-    await admin.page.getByLabel(/Decision reason/).fill("Controlled UAT maker-checker override");
+    await expect(admin.page.getByLabel(/Decision reason|Rejection reason/)).toHaveCount(0);
     await admin.page.getByRole("button", { name: "Approve" }).click();
     await expect(admin.page.getByText("Approved", { exact: true })).toBeVisible();
     await expect(admin.page.getByText("Controlled UAT maker-checker override")).toBeVisible();
