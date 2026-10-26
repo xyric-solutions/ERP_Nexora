@@ -17,6 +17,7 @@ import AccessReviewPanel from "./access-review-panel";
 import DelegationPanel from "./delegation-panel";
 import ImpersonationPanel from "./impersonation-panel";
 import SessionPolicyPanel from "./session-policy-panel";
+import BankSelfApprovalPanel from "./bank-self-approval-panel";
 import { identityHashLocation, identityHref, type IdentityLocation, type IdentitySection } from "./identity-navigation";
 
 const labels = {
@@ -29,6 +30,7 @@ const labels = {
   "access-reviews": "Access Reviews",
   delegation: "Delegation & Impersonation",
   policies: "Security & Session Policies",
+  "bank-approval": "Bank Self-approval",
 };
 
 const capabilityTabs = [
@@ -38,6 +40,7 @@ const capabilityTabs = [
   { id: "access-reviews", label: "Access Reviews" },
   { id: "delegation", label: "Delegation & Impersonation" },
   { id: "policies", label: "Security & Session Policies" },
+  { id: "bank-approval", label: "Bank Self-approval" },
 ] as const;
 
 type IdentityCapability = (typeof capabilityTabs)[number]["id"];
@@ -61,11 +64,15 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
   const { tab: workspace, section, approvalType, userId, rolePolicyId, userMode } = location;
   const tab = section === "records" ? workspace : section;
   const activeCapability: IdentityCapability =
-    section === "assignments" || section === "access-reviews" || section === "delegation" || section === "policies"
+    section === "assignments" ||
+    section === "access-reviews" ||
+    section === "delegation" ||
+    section === "policies" ||
+    section === "bank-approval"
       ? section
       : workspace;
   const sections: IdentitySection[] =
-    section === "policies"
+    section === "policies" || section === "bank-approval"
       ? []
       : workspace === "users"
         ? ["records", "assignments", "approvals", "audit"]
@@ -337,9 +344,11 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
                             ? "Periodic access certification"
                             : tab === "delegation"
                               ? "Time-bound delegated and impersonated access"
-                              : tab === "policies"
-                                ? "Tenant authentication and session controls"
-                                : "Governed user accounts"}
+                              : tab === "bank-approval"
+                                ? "Company-scoped Bank self-approval authority"
+                                : tab === "policies"
+                                  ? "Tenant authentication and session controls"
+                                  : "Governed user accounts"}
               </h2>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -366,7 +375,11 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
               {tab === "roles" && permissions.has("security.authorization.role.create") ? (
                 <Button onClick={() => setShowCreate((value) => !value)}>{showCreate ? "Close" : "Create role"}</Button>
               ) : null}
-              {tab !== "users" && tab !== "access-reviews" && tab !== "delegation" && tab !== "policies" ? (
+              {tab !== "users" &&
+              tab !== "access-reviews" &&
+              tab !== "delegation" &&
+              tab !== "policies" &&
+              tab !== "bank-approval" ? (
                 <Button variant="outline" onClick={() => void load()}>
                   Refresh
                 </Button>
@@ -430,7 +443,9 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
               <AlertDescription className="text-[var(--nx-info)]">{message}</AlertDescription>
             </Alert>
           ) : null}
-          {tab === "access-reviews" ? (
+          {tab === "bank-approval" ? (
+            <BankSelfApprovalPanel />
+          ) : tab === "access-reviews" ? (
             <AccessReviewPanel permissions={permissions} />
           ) : tab === "delegation" ? (
             <>

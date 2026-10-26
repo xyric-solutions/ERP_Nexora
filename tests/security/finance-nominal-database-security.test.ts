@@ -238,9 +238,11 @@ run("Finance Bank Nominal database security", () => {
       ).rejects.toMatchObject({ code: "23503" });
       await client.query("rollback to savepoint wrong_company");
       const { id, bankId } = await draft(client);
-      await client.query("update currency set status='inactive' where tenant_id=$1 and code='XBN'", [
-        sourceTestTenantId,
-      ]);
+      await client.query(
+        `update currency set status='inactive',row_version=row_version+1,updated_at=clock_timestamp()
+          where tenant_id=$1 and code='XBN'`,
+        [sourceTestTenantId],
+      );
       await submit(client, bankId);
       await approve(client, bankId);
       await client.query("update account set status='active' where tenant_id=$1 and id=$2", [sourceTestTenantId, id]);

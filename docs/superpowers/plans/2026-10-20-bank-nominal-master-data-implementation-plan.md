@@ -1,12 +1,235 @@
 # Bank Nominal and Master Data Production Integration Implementation Plan
 
-- Status: BN-00 and BN-01 verified; BN-02 Finance contract boundary implemented; Banking compatibility, services, API wiring and UI pending
+- Status: BN-00/BN-01 verified; BN-02 through BN-04 implemented and tested; BN-05 through BN-08 implemented in part; BN-09 browser acceptance pending
 - Date: 2026-10-20
 - Approved design: `../specs/2026-10-19-bank-nominal-master-data-design.md`
 - Canonical accounting authority: Finance Chart of Accounts
 - Operational capability authority: Banking Bank Account extension
 - Production entry points: Finance/Master Data Nominals and Banking Add Bank Account
-- Delivered migration: Finance 0009, `bank_nominal_master_data`
+- Delivered migrations: Finance 0009 `bank_nominal_master_data` and 0010 `bank_account_override_variable_fix`
+
+### Approved Bank action feedback delivery - 2026-10-20
+
+- User reviewed and confirmed the Bank-only action feedback design (51dc3d0).
+  Approval no longer requests a reason, including governed super-admin approval.
+  Rejection requires a meaningful reason. Existing reversal controls are unchanged.
+  This Bank-specific update supersedes earlier UI instructions requiring the user
+  to type an approval business reason; all other modules retain their own rules.
+- Finance nominal and legacy Bank account decision contracts accept approvals
+  without a reason and reject missing/blank rejection reasons. Payment/Receipt
+  approval repositories now follow the same behavior. The server generates an
+  explicit approval-confirmation audit note, marked `reason_source` as
+  `system_confirmation` in override metadata; previously supplied reasons remain
+  backward-compatible and are identified as user-entered. Maker/checker, exact
+  permissions, transaction/idempotency/version controls and immutable evidence
+  remain enforced. Approval never posts a financial transaction.
+- Added shared `app/shared/ui/action-feedback.tsx`, backed by the existing shell
+  toast stack. Active Bank account and Payment/Receipt views notify only after
+  their API operation succeeds, including create/update/submit/approve/reject/
+  status/post/reverse. Feedback survives feature navigation. Existing inline errors
+  and financial no-posting safeguards remain. No new UI library or stylesheet.
+- Nominal approval uses “Approve & Close” and closes its dialog after success.
+  Reason inputs appear only for rejection in approval controls. Submission and
+  account status controls no longer require interactive reason entry. Shared
+  override-warning changes are opt-in for Bank; HR/security behavior is unchanged.
+- Browser acceptance exposed missing local runtime prerequisites: source DB had
+  Platform 7 (idempotency allowed POST only), so PATCH draft updates correctly
+  failed and produced no success toast. Backed up to ignored
+  `tmp/bank-readiness-20261020/feedback-before-prerequisites.dump`, applied existing
+  Platform 8/Security 15 first on the isolated reproduction and then locally.
+  Source now has platform 8/security 15/finance 10/HR 34. Bank readiness also checks
+  these migration-ledger prerequisites, not merely table existence.
+- Observed final focused results: 58 unit/API/client/component tests passed;
+  29 integration tests passed across migrations, historical trigger repair,
+  nominal services, Bank accounts, Payments and Receipts; 26 database security
+  tests passed; one Chromium action-feedback workflow passed. Typecheck,
+  `api:check`, Bank-owned lint, production build and `git diff --check` passed.
+  Broader shell lint still has the previously recorded pre-existing issues.
+- Chromium verified real persisted account creation/update/submission, reason-free
+  super-admin approval, closed approval dialog, reload persistence, deactivation,
+  mandatory rejection input and a real reasoned rejection. An injected denied
+  update produced no success notification and retained editable state for retry.
+  Component tests separately verified Payment/Receipt approvals submit no reason,
+  failed actions notify no success, and rejection inputs appear only on Reject.
+  Their full independent-actor Chromium suites were updated but not rerun in this
+  batch because those credentials remain unavailable; database lifecycle tests ran.
+- Tests created only clearly named synthetic Bank accounts, retained their audit
+  history and deactivated the successful approved test accounts. Earlier failed
+  test drafts remain synthetic drafts; no records were deleted. The user's
+  original pending account was not approved or posted by this work.
+- Resume remaining Bank work from the existing plan: Reconciliation selector and
+  broader BN acceptance gates still remain. Do not call the whole Bank module
+  production-ready based on this completed approval/feedback slice.
+
+### Approval error repair - 2026-10-20
+
+- Reported nominal self-approval returned a generic error. Reproduced against a
+  fresh isolated copy of the actual local source database, without modifying the
+  user's pending account. PostgreSQL reported 42702: ambiguous `decision_action`
+  inside the installed `validate_bank_account_approval_override()` function.
+  Its historical body differed from the current migration 0004 source. Fresh
+  database tests alone had not exercised this installed-function drift.
+- Added Finance 0010 `bank_account_override_variable_fix`: CREATE OR REPLACE
+  with unambiguous decision variables. All evidence matching, actor/resource/
+  action/permission checks remain intact. No historical migration was edited.
+- New regression reconstructs the historical ambiguity inside a rolled-back
+  transaction, applies the new function body, and verifies mismatched audit
+  evidence still fails with 23514. Migration ledger tests now expect Finance 10.
+- Observed 25 focused integration tests pass across migration chain, historical
+  trigger upgrade, nominal service and Bank account foundation. Isolated replay
+  of the user's failed approval then returned active/version 3.
+- Backed up the pre-fix database to ignored
+  `tmp/bank-readiness-20261020/approval-before.dump`, then applied only Finance 10
+  to the local API 4000 database. User record remains pending/version 2; no actual
+  user Bank account was approved or posted by the diagnostic workflow. HR remains
+  34; no HR implementation or schema changes.
+- User clarified: approval must not request a business reason; rejection must.
+  The written feedback/approval design is
+  `docs/superpowers/specs/2026-10-20-bank-action-feedback-design.md` (51dc3d0).
+  Written design review was requested asynchronously. Reason-free approval and
+  persistent Bank action-success notifications are NOT implemented yet; do not
+  report those UI changes as delivered until their implementation and tests pass.
+
+### Local readiness repair checkpoint - 2026-10-20
+
+- User requested readiness repair and working test credentials. Local API 4000
+  used `nexora_source_test`, whose Finance head was 4 and Currency Master empty;
+  its ten synthetic Bank records referenced USD. Took a logical backup under
+  ignored `tmp/bank-readiness-20261020/before.dump`, restored a preview, added
+  the reviewed USD UAT master, and applied official Finance migrations to head 9.
+  Compared pre-existing Bank, employee, organization and journal fields; unchanged.
+  HR stayed at 34. No migration file or `.env` value was edited.
+- Browser testing revealed that the old web process actually targeted API 4010,
+  an older running Payment-only build using
+  `nexora_bank_payments_uat_20261019_1510`. Its login lacked Receipt permissions,
+  and Receipt HTTP routes returned 404 even though its health check said ready.
+  Backed up that isolated database to `connected-before.dump`, previewed and
+  applied Finance 9, and added Bank permissions there too. Existing Bank/HR/
+  accounting records were preserved; its old API process was not stopped.
+- Extended guarded `uat:provision-bank-nominals` with additive company-scoped
+  Payment/Receipt grants: maker read/create/update/submit, checker read/approve,
+  and existing governed super-admin policies all seven lifecycle permissions.
+  Other permissions are preserved. This creates no financial transaction.
+- Restarted only the verified local Next dev process with process-local
+  `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:4000`. Web remains 3000 and uses the
+  current source API 4000, not the obsolete 4010 runtime. Repeat this environment
+  override when restarting web; `.env` was not changed. Current web startup:
+
+  ```powershell
+  $env:NEXT_PUBLIC_API_BASE_URL='http://127.0.0.1:4000'
+  npm.cmd run dev:web
+  ```
+
+- Observed successful real Chromium login as existing `shoaib`, and rendered
+  Account Balances, Bank Payments and Bank Receipts, each with its authenticated
+  data request returning HTTP 200 from API 4000. Readiness 4000 reports all six
+  checks healthy. Temporary smoke script/screenshots/logs are in the ignored
+  backup directory; no password or session token is written into tracked docs.
+- Only the previously supplied Shoaib demo credential was verified. The same
+  password did NOT authenticate maker/checker; their passwords were not reset.
+  Do not hand out unverified maker/checker credentials.
+- This is login/list-page smoke acceptance, NOT financial posting or full nominal
+  Chromium lifecycle acceptance. The local source UAT company currently has no
+  financial period or non-bank offset nominal setup. Configure these before
+  testing Payment/Receipt posting; do not bypass period/account validation.
+- Observed checks: real browser smoke passed; API readiness and five authenticated
+  read endpoints passed; UAT setup script lint and `git diff --check` passed.
+  Earlier failed smoke attempts correctly exposed the stale origin and missing
+  Receipt permissions/routes; they are not counted as passes.
+
+### Implementation checkpoint - 2026-10-20 (Bank-only service, API and UI batch)
+
+- Scope remains Bank only. No HR code, existing migration, `.env`, shared
+  application database, or running service configuration was changed.
+- Added Finance Nominal repository/service/router and API composition. Creation,
+  draft update, submission, independent approval/rejection, governed super-admin
+  decision and deactivation persist Finance/Bank records, lifecycle events,
+  idempotency and platform audit evidence in one PostgreSQL transaction.
+- Reads and mutations enforce tenant, company membership and persisted active
+  role permission scopes. Mutations require both Finance and Banking permissions;
+  HTTP mutation boundaries enforce session/CSRF, origin, idempotency and quoted
+  If-Match versions. Impersonated mutations are denied.
+- Added one shared Bank Nominal form, live directory and detail/history views.
+  Finance and Banking use the same form. Only name, description and Currency
+  Master selection are entered; company Cash & Bank policy generates the code.
+- Existing Bank account projections now represent absent legacy banking details
+  as null. Account Balances, Payment and Receipt views handle nominal-only
+  identities; legacy Bank mutation endpoints reject these records rather than
+  bypassing the Finance workflow. Existing detailed Bank records retain their path.
+- Added guarded `npm.cmd run uat:provision-bank-nominals`. It requires an
+  explicitly named local isolated database, the controlled UAT tenant confirmation,
+  an existing UAT company/auth fixture and active base currency. It prepares only
+  synthetic hierarchy/code policy and additive company-scoped permissions; it
+  creates no Bank account or journal. Two consecutive executions were observed
+  successful on the isolated Bank test database.
+- Added `tests/integration/finance-nominals.test.ts` (ten tests),
+  `tests/unit/finance-nominal-api.test.ts` (four tests), and
+  `tests/e2e/bank-nominals.spec.ts` (authentic browser acceptance, NOT executed).
+  Fixed the controlled super-admin fixture to remove dependent scope grants before
+  permission grants; combined tests exposed its former FK cleanup failure.
+- Observed final database run: 23 tests passed across nominal workflow/schema,
+  Bank account foundation, Payments and Receipts; 26 database security tests passed
+  across Finance nominal and Bank account/Payment/Receipt suites. Ten nominal
+  workflow tests include canonical-code Bank search and legacy-endpoint bypass
+  denial, concurrent allocation,
+  stale writes, duplicate retry/conflict, company-scope denial, rejection,
+  deactivation, one canonical self-approval override event, a new repository read,
+  and real balanced Payment/Receipt posting against a new nominal-only account.
+  The first versions of new test assertions had incorrect column/property/type
+  names; these were corrected against the existing schema/contracts and rerun.
+- Focused HTTP/contracts/client/Bank-router run: 46 tests passed. `api:check`,
+  typecheck, phase-owned lint, production web build and whitespace checks passed.
+  Expanding lint to the shared shell finds 13 existing label-association errors;
+  read-only lint of the committed HEAD versions reproduced the same 11 in
+  prototype-content and two in prototype-shell. These are not newly introduced
+  Bank errors and were not changed in this Bank-only batch.
+- Browser test credentials were absent in the current process. No successful
+  Chromium run, browser refresh/new-login persistence, API restart persistence,
+  or manual acceptance is claimed. Production/shared DB migration is NOT applied.
+
+#### Safe next steps — do not mark the whole Bank module complete
+
+1. Complete BN-05's live Reconciliation Bank Account selector without mapping
+   live IDs to mock account/statement data or enabling prototype financial actions.
+2. Use a dedicated nominal UAT database and the existing auth/Bank UAT setup.
+   Apply normal migrations, provision Bank nominal setup, start its API/web using
+   process-local configuration, then run the new Chromium acceptance with existing
+   synthetic credentials. Do not print passwords or modify `.env`.
+3. Verify both form entry points, validation/errors, authorization denial, 390px
+   usability, reload/new authenticated session and API restart persistence.
+4. Add adversarial injected-failure and permission-revocation replay tests where
+   existing database authority tests do not yet cover the service boundary.
+5. Only then close BN-08/BN-09. Wider Bank Transfers, statement import/history,
+   reconciliation matching/posting, charges/interest, cheques/deposits and Treasury
+   remain separate prototype workflows. The user's Bank-only completion request
+   does not make these implemented or authorize mixing mock data with live posting.
+
+Bank entry points wired in this batch (on the configured local web origin):
+
+- `/#/banking/account-balances`
+- `/#/banking/add-bank-account`
+- `/#/banking/bank-account-approvals`
+- `/#/banking/bank-account-detail/{bank-id-or-nominal-id}`
+- `/#/finance/nominals`, `/#/finance/add-nominal`,
+  `/#/finance/nominal-detail/{nominal-id}` (Bank master-data integration only)
+
+Local commands, after selecting and verifying a dedicated isolated database:
+
+```powershell
+npm.cmd run db:migrate:source
+# Requires NEXORA_ENVIRONMENT=uat and NEXORA_UAT_CONFIRM=nexora-r06-uat;
+# DATABASE_URL must identify the isolated UAT database, not a shared database.
+npm.cmd run uat:provision-bank-nominals
+npm.cmd run dev:api
+npm.cmd run dev:web
+# In a configured acceptance terminal, with synthetic maker/checker credentials:
+npm.cmd exec playwright -- test tests/e2e/bank-nominals.spec.ts --project=chromium
+```
+
+The API defaults to 127.0.0.1:4000 and web dev defaults to 127.0.0.1:3000;
+Playwright defaults to 127.0.0.1:3200. Confirm the browser's configured API origin
+and use PLAYWRIGHT_BASE_URL/PLAYWRIGHT_USE_EXISTING_WEB when targeting an existing
+isolated web process. These defaults are not claims that services are running.
 
 ### Implementation checkpoint - 2026-10-20 (BN-01 database authority)
 
@@ -733,9 +956,11 @@ npm.cmd run build:web
 2. Apply state and permission gating from server-returned capabilities while
    retaining server-side enforcement as authority.
 3. Show the ordinary maker/checker prohibition. For the governed `shoaib`
-   override, show a clear warning and require a business reason.
-4. Require confirmation and reason for rejection/deactivation; accurately
-   display stale-version and permission failures.
+   override, show a clear warning and retain explicit system-generated approval
+   confirmation evidence; no interactive approval reason is required.
+4. Require a user reason for rejection and confirmation for status changes;
+   accurately display stale-version and permission failures. Account status
+   confirmation notes may be generated without prompting for a user justification.
 5. Show immutable lifecycle and audit summaries without exposing secrets or
    internal infrastructure.
 6. Prove the approved nominal-only capability appears in live Payment, Receipt
@@ -790,7 +1015,8 @@ npm.cmd run build:web
    confirm distinct nominal IDs/codes, common hierarchy and one extension each.
 6. Reload and open a new authenticated session to prove persistence.
 7. Exercise independent maker/checker approval and the governed `shoaib`
-   override with reason.
+   override without a reason input, preserving canonical audit evidence. Verify
+   that rejection requires a user-entered reason.
 8. Verify a restricted user receives a permission-denied state and cannot
    mutate by direct API request.
 9. Verify duplicate, cross-company, concurrent allocation, idempotency replay,
@@ -975,11 +1201,25 @@ Those items require separate approved designs if they become requirements.
 
 ## 19. Safe resume point
 
-BN-00 and BN-01 database evidence and the Finance contract portion of BN-02 are
-captured in the checkpoints above. Continue with BN-03 atomic persistence after
-rechecking the worktree and Finance 0009 migration head. Complete nominal-only
-Banking response compatibility
-alongside BN-05 before marking BN-02 fully complete. The user has approved
-implementation; no additional design-approval round is required for these
-planned slices. Keep unfinished Finance UI routes visibly prototype-only until
-their server and browser acceptance gates pass.
+Newer shared-master checkpoint: ordinary Finance nominal creation/lifecycle,
+live Chart of Accounts and Bank nominal search are implemented and verified.
+See docs/superpowers/plans/2026-10-20-shared-nominal-master-implementation-plan.md
+for exact tests and the pending business catalog review. Local UAT has explicit
+synthetic ordinary sections but no imported prototype balances or open posting
+periods. The older missing-ordinary-master limitation below is now resolved in
+code; business account setup/import still requires the reviewed catalog.
+
+Latest entry-screen follow-up: Payment and Receipt reference-aligned workspaces
+are implemented; scope, evidence and deferrals are recorded in
+docs/superpowers/specs/2026-10-20-bank-entry-workspace-design.md. This does not
+replace the BN reconciliation/acceptance work below. The current default local
+company has no eligible offset nominal, so configure its Finance test setup
+before claiming browser financial workflow acceptance. WHT belongs to the
+future Supplier Payment/remittance phases, not a mock Bank dropdown.
+
+Use the newest Bank-only implementation checkpoint above. BN-03/BN-04 are no
+longer unimplemented. Finish the Reconciliation selector and isolated Chromium
+acceptance, preserving the current worktree and immutable migration history.
+The user has approved implementation; no further approval round is required for
+these planned slices. Do not equate implemented UI with accepted production
+readiness or claim the entire Bank module is complete.

@@ -1,6 +1,14 @@
 export type IdentityWorkspaceTab = "users" | "roles";
 export type IdentitySection =
-  "records" | "assignments" | "approvals" | "permissions" | "audit" | "access-reviews" | "delegation" | "policies";
+  | "records"
+  | "assignments"
+  | "approvals"
+  | "permissions"
+  | "audit"
+  | "access-reviews"
+  | "delegation"
+  | "policies"
+  | "bank-approval";
 export type IdentityApprovalType = "user" | "role" | "assignment";
 export type IdentityUserMode = "list" | "create";
 export interface IdentityLocation {
@@ -25,7 +33,8 @@ export function identityLocation(search: Pick<URLSearchParams, "get">): Identity
     sectionValue === "audit" ||
     sectionValue === "access-reviews" ||
     sectionValue === "delegation" ||
-    sectionValue === "policies"
+    sectionValue === "policies" ||
+    sectionValue === "bank-approval"
       ? sectionValue
       : sectionValue === "permissions" && tab === "roles"
         ? "permissions"
@@ -50,7 +59,9 @@ export function identityHashLocation(hash: string): IdentityLocation {
     const section = params.get("section");
     params.set(
       "tab",
-      section === "access-reviews" || section === "delegation" || section === "policies" ? "roles" : "users",
+      section === "access-reviews" || section === "delegation" || section === "policies" || section === "bank-approval"
+        ? "roles"
+        : "users",
     );
   }
   return identityLocation(params);

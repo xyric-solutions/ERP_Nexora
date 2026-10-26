@@ -419,3 +419,27 @@ The feature is complete only when:
 - contracts, migrations, permissions, audit, API, generated client and UI are
   verified together; and
 - isolated browser-to-PostgreSQL-to-ledger evidence passes.
+
+## Implementation evidence — 2026-10-22
+
+- BT-01 through BT-09 are implemented in the repository. Transfer list, entry
+  and detail no longer route through fixture fallbacks; Currency Master, rates
+  and Transfer/FX policy use the versioned API and PostgreSQL authority.
+- The final parity pass added Project, Location / City and assigned Approver to
+  Transfer entry, persisted assignment facts/history, governed reassignment,
+  immutable FX-rate correction and bounded directory pagination.
+- Fresh disposable databases prove Transfer create, submit, independent approve,
+  post and compensating reversal, plus currency adoption, rate correction and FX
+  policy persistence. The lifecycle run exposed and fixed journal amount
+  normalization at the currency-scale boundary.
+- Verification passed: unit 480/480, contracts 12/12, selected fresh-database
+  integration 15/15, database-enabled security 46/46 (excluding the separate
+  fiscal-calendar isolated-fixture suite), generated API consistency, TypeScript,
+  scoped ESLint, production Next.js build and `git diff --check`.
+- `tests/e2e/bank-transfers.spec.ts` records the 390px directory/entry acceptance
+  and compiles under Playwright. Execution requires the existing synthetic Banking
+  maker credentials and a deliberately isolated target.
+- Environment rollout is not a source-code task: an operator must select the
+  target, apply migrations, assign the explicit permissions, adopt intended
+  currencies, configure approved company nominals/policy and run credentialed UAT.
+  No shared or live tenant was mutated while completing this plan.

@@ -10,6 +10,7 @@ import {
   TenantSessionService,
 } from "@nexora/auth";
 import { checkDatabase, createDatabasePool, migrateSourceSchema } from "@nexora/db";
+import { S3ObjectStorage } from "@nexora/domain/storage";
 import { createLogger, createMetrics } from "@nexora/observability";
 
 import { createApp } from "./app.js";
@@ -22,8 +23,22 @@ import { SourceTenantAuthenticationRepository } from "./modules/auth/source-repo
 import { BankingIdentifierCrypto } from "./modules/banking/crypto.js";
 import { SourceBankPaymentRepository } from "./modules/banking/payments/source-repository.js";
 import { SourceBankReceiptRepository } from "./modules/banking/receipts/source-repository.js";
+import { SourceBankTransferRepository } from "./modules/banking/transfers/source-repository.js";
 import { SourceBankingRepository } from "./modules/banking/source-repository.js";
+import { SourceBankStatementImportRepository } from "./modules/banking/statements/source-repository.js";
+import { SourceBankReconciliationRepository } from "./modules/banking/reconciliations/source-repository.js";
+import { SourceBankReconciliationAdjustmentRepository } from "./modules/banking/reconciliations/adjustment-repository.js";
+import { SourceBankRevaluationRepository } from "./modules/banking/revaluations/source-repository.js";
+import { createBankingFoundationReadiness } from "./modules/banking/readiness.js";
 import { FinancePostingService } from "./modules/finance/posting/index.js";
+import { SourceFinanceNominalRepository } from "./modules/finance/nominals/source-repository.js";
+import { SourceFinanceCurrencyRepository } from "./modules/finance/currencies/source-repository.js";
+import { SourceCoaHierarchyRepository } from "./modules/finance/coa-hierarchy-repository.js";
+import { SourceChartTemplateRepository } from "./modules/finance/templates/source-repository.js";
+import { SourceReferenceMasterRepository } from "./modules/master-data/source-repository.js";
+import { SourceFiscalCalendarRepository } from "./modules/master-data/fiscal-calendars/source-repository.js";
+import { SourceFinancePeriodRepository } from "./modules/finance/periods/source-repository.js";
+import { SourceBankSelfApprovalRepository } from "./modules/security/bank-self-approval-repository.js";
 import { SourceSecurityAdministrationRepository } from "./modules/security/source-administration-repository.js";
 import { SourceHrRepository } from "./modules/hr/source-repository.js";
 
@@ -32,6 +47,14 @@ const logger = createLogger();
 const metrics = createMetrics();
 const pool = createDatabasePool(config.databaseUrl);
 const redis = new Redis(config.redisUrl, { maxRetriesPerRequest: null });
+const objectStorage = new S3ObjectStorage({
+  endpoint: config.s3Endpoint,
+  region: config.s3Region,
+  bucket: config.s3Bucket,
+  accessKeyId: config.s3AccessKeyId,
+  secretAccessKey: config.s3SecretAccessKey,
+  forcePathStyle: config.s3ForcePathStyle,
+});
 if (config.databaseAutoMigrate) await migrateSourceSchema(pool);
 const authRepository = new SourceTenantAuthenticationRepository(pool);
 const securityRepository = new SourceSecurityAdministrationRepository(pool, config.authLoginDirectorySecret);
@@ -83,8 +106,34 @@ const app = createApp({
   ),
   bankingPaymentRepository: new SourceBankPaymentRepository(pool, new FinancePostingService()),
   bankingReceiptRepository: new SourceBankReceiptRepository(pool, new FinancePostingService()),
+  bankingTransferRepository: new SourceBankTransferRepository(pool, new FinancePostingService()),
+  bankingStatementRepository: new SourceBankStatementImportRepository(pool),
+  bankingStatementStorage: objectStorage,
+  bankingReconciliationRepository: new SourceBankReconciliationRepository(pool),
+  bankingReconciliationAdjustmentRepository: new SourceBankReconciliationAdjustmentRepository(
+    pool,
+    new FinancePostingService(),
+  ),
+  bankingRevaluationRepository: new SourceBankRevaluationRepository(pool, new FinancePostingService()),
+  financeNominalRepository: new SourceFinanceNominalRepository(pool),
+  financeCurrencyRepository: new SourceFinanceCurrencyRepository(pool),
+  financeHierarchyRepository: new SourceCoaHierarchyRepository(pool),
+  fiscalCalendarRepository: new SourceFiscalCalendarRepository(pool),
+  financePeriodRepository: new SourceFinancePeriodRepository(pool),
+  chartTemplateRepository: new SourceChartTemplateRepository(pool),
+  referenceMasterRepository: new SourceReferenceMasterRepository(pool),
+  bankSelfApprovalRepository: new SourceBankSelfApprovalRepository(pool),
   hrRepository: new SourceHrRepository(pool),
   readiness: {
+    master_data_foundation: async () => {
+      const result = await pool.query<{ available: boolean }>(
+        `select to_regclass('public.erp_project') is not null
+          and to_regclass('public.erp_location') is not null
+          and to_regclass('public.erp_reference_master_event') is not null
+          and exists(select 1 from nexora_schema_migration where module_name='master_data' and version=2) as available`,
+      );
+      if (!result.rows[0]?.available) throw new Error("Shared reference master migrations are required");
+    },
     service: async () => {
       if (draining) throw new Error("service is draining");
     },
@@ -92,34 +141,14 @@ const app = createApp({
     redis: async () => {
       await redis.ping();
     },
-    object_storage: async () => {
-      const response = await fetch(new URL("/minio/health/ready", config.s3Endpoint), {
-        signal: AbortSignal.timeout(3_000),
-      });
-      if (!response.ok) throw new Error("object storage is unavailable");
-    },
+    object_storage: () => objectStorage.checkReady(),
     hr_foundation: async () => {
       const result = await pool.query<{ available: boolean }>(
         "select to_regclass('public.employee') is not null and to_regclass('public.hr_master_record') is not null and to_regclass('public.hr_employee_draft_scope') is not null as available",
       );
       if (!result.rows[0]?.available) throw new Error("The current HR foundation migration is required");
     },
-    banking_foundation: async () => {
-      const result = await pool.query<{ available: boolean }>(
-        `select to_regclass('public.bank_account') is not null
-          and to_regclass('public.bank_account_event') is not null
-          and to_regclass('public.bank_payment') is not null
-          and to_regclass('public.bank_payment_line') is not null
-          and to_regclass('public.bank_payment_event') is not null
-          and to_regclass('public.bank_receipt') is not null
-          and to_regclass('public.bank_receipt_line') is not null
-          and to_regclass('public.bank_receipt_event') is not null
-          and to_regclass('public.accounting_event') is not null
-          and to_regclass('public.journal_entry') is not null
-          and to_regclass('public.journal_line') is not null as available`,
-      );
-      if (!result.rows[0]?.available) throw new Error("The current Banking foundation migration is required");
-    },
+    banking_foundation: createBankingFoundationReadiness(pool),
   },
 });
 const server = createServer(app);
@@ -141,6 +170,7 @@ async function shutdown(signal: string) {
   logger.info({ signal }, "API shutdown started");
   const force = setTimeout(() => process.exit(1), 15_000).unref();
   await new Promise<void>((resolve) => server.close(() => resolve()));
+  objectStorage.close();
   await Promise.allSettled([redis.quit(), pool.end()]);
   clearTimeout(force);
 }

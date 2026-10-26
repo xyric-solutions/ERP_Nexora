@@ -13,6 +13,87 @@ describe("OpenAPI contract", () => {
     const generated = `${JSON.stringify(buildOpenApiDocument(), null, 2)}\n`;
     expect(await readFile(new URL("../../openapi-v1.json", import.meta.url), "utf8")).toBe(generated);
     expect(Object.keys(buildOpenApiDocument().paths)).toEqual([
+      "/master_data/fiscal_calendars/options",
+      "/master_data/fiscal_calendars",
+      "/master_data/fiscal_calendars/{calendarId}",
+      "/master_data/fiscal_calendars/{calendarId}/periods",
+      "/finance/fiscal_calendars/{calendarId}/period_status",
+      "/finance/currencies/catalog",
+      "/finance/currencies",
+      "/finance/currencies/adoptions",
+      "/finance/currencies/{code}/status",
+      "/finance/currency_rates",
+      "/finance/currency_rates/{rateId}/corrections",
+      "/finance/currency_rates/{rateId}/status",
+      "/finance/transfer_policy",
+      "/master-data/countries",
+      "/finance/companies/{companyId}/currency-profile",
+      "/finance/company-currencies",
+      "/finance/company-currencies/{currencyCode}/status",
+      "/finance/company-currency-rates",
+      "/finance/company-currency-rates/{rateId}/corrections",
+      "/finance/company-currency-rates/{rateId}/status",
+      "/banking/transfers",
+      "/banking/transfers/options",
+      "/banking/transfers/workflow_options",
+      "/banking/transfers/{transferId}",
+      "/banking/transfers/{transferId}/submit",
+      "/banking/transfers/{transferId}/decision",
+      "/banking/transfers/{transferId}/approver",
+      "/banking/transfers/{transferId}/post",
+      "/banking/transfers/{transferId}/reverse",
+      "/banking/revaluation-policy",
+      "/banking/revaluations",
+      "/banking/revaluations/preview",
+      "/banking/revaluations/approvers",
+      "/banking/revaluations/{revaluationId}",
+      "/banking/revaluations/{revaluationId}/submit",
+      "/banking/revaluations/{revaluationId}/approve",
+      "/banking/revaluations/{revaluationId}/reject",
+      "/banking/revaluations/{revaluationId}/post",
+      "/banking/revaluations/{revaluationId}/reverse",
+      "/banking/revaluations/{revaluationId}/events",
+      "/banking/statement_import_options",
+      "/banking/statement_import_templates/{format}",
+      "/banking/statement_imports",
+      "/banking/statement_imports/{id}",
+      "/banking/statement_imports/{id}/mapping",
+      "/banking/statement_imports/{id}/lines/{lineId}",
+      "/banking/statement_imports/{id}/validate",
+      "/banking/statement_imports/{id}/finalize",
+      "/banking/statement_mapping_profiles",
+      "/banking/statement_mapping_profiles/{profileId}",
+      "/banking/reconciliations",
+      "/banking/reconciliation_setup",
+      "/banking/reconciliations/{id}",
+      "/banking/reconciliations/{id}/matches",
+      "/banking/reconciliations/{id}/manual_selections",
+      "/banking/reconciliations/{id}/matches/{matchId}/decision",
+      "/banking/reconciliations/{id}/matches/{matchId}",
+      "/banking/reconciliations/{id}/adjustments",
+      "/banking/reconciliations/{id}/adjustments/{adjustmentId}",
+      "/banking/reconciliations/{id}/adjustments/{adjustmentId}/submit",
+      "/banking/reconciliations/{id}/adjustments/{adjustmentId}/decision",
+      "/banking/reconciliations/{id}/adjustments/{adjustmentId}/post",
+      "/banking/reconciliations/{id}/adjustments/{adjustmentId}/reverse",
+      "/banking/reconciliations/{id}/submit",
+      "/banking/reconciliations/{id}/decision",
+      "/security/bank_self_approval_options",
+      "/security/bank_self_approval_grants",
+      "/banking/payments/{paymentId}/approver",
+      "/banking/receipts/{receiptId}/approver",
+      "/finance/hierarchy",
+      "/finance/hierarchy/{headerId}",
+      "/banking/payments/workflow_options",
+      "/banking/receipts/workflow_options",
+      "/master_data/projects",
+      "/master_data/projects/companies",
+      "/master_data/projects/{id}",
+      "/master_data/projects/{id}/status",
+      "/master_data/locations",
+      "/master_data/locations/companies",
+      "/master_data/locations/{id}",
+      "/master_data/locations/{id}/status",
       "/auth/login",
       "/auth/session",
       "/auth/change-initial-password",
@@ -48,6 +129,13 @@ describe("OpenAPI contract", () => {
       "/security/user_request_actions",
       "/security/user_emergency_actions",
       "/hr/employees",
+      "/finance/chart_templates",
+      "/finance/chart_templates/{templateId}",
+      "/finance/chart_templates/{templateId}/company_adoption",
+      "/finance/chart_templates/company_nominals/{nominalId}/classification",
+      "/finance/chart_templates/{templateId}/company_preview",
+      "/finance/chart_templates/{templateId}/nodes",
+      "/finance/chart_templates/{templateId}/publish",
       "/finance/nominals/options",
       "/finance/nominals",
       "/finance/nominals/{nominalId}",
@@ -147,12 +235,15 @@ describe("OpenAPI contract", () => {
     };
     expect(create.additionalProperties).toBe(false);
     expect(Object.keys(create.properties ?? {})).toEqual([
+      "nominal_kind",
       "company_id",
       "category_id",
       "section_id",
       "name",
       "currency",
       "description",
+      "chart_template_id",
+      "chart_node_key",
     ]);
     const update = document.paths["/finance/nominals/{nominalId}"].patch;
     expect(update.parameters.map((parameter) => parameter.name)).toEqual([
@@ -181,6 +272,9 @@ describe("OpenAPI contract", () => {
     expect(createSchema.additionalProperties).toBe(false);
     expect(Object.keys(createSchema.properties ?? {})).toEqual([
       "company_id",
+      "project_id",
+      "location_id",
+      "approver_user_id",
       "bank_account_id",
       "posting_date",
       "value_date",
@@ -210,6 +304,9 @@ describe("OpenAPI contract", () => {
     expect(createSchema.additionalProperties).toBe(false);
     expect(Object.keys(createSchema.properties ?? {})).toEqual([
       "company_id",
+      "project_id",
+      "location_id",
+      "approver_user_id",
       "bank_account_id",
       "posting_date",
       "value_date",
@@ -222,6 +319,71 @@ describe("OpenAPI contract", () => {
     expect(createSchema.properties).not.toHaveProperty("total_amount");
     expect(createSchema.properties).not.toHaveProperty("bank_control_account_id");
     expect(createSchema.properties).not.toHaveProperty("journal_id");
+  });
+
+  it("documents bounded statement uploads and governed reconciliation mutations", () => {
+    const document = buildOpenApiDocument();
+    const upload = document.paths["/banking/statement_imports"].post;
+    const multipart = upload.requestBody.content["multipart/form-data"] as {
+      schema: {
+        additionalProperties?: boolean;
+        required?: string[];
+        properties?: Record<string, { format?: string; description?: string }>;
+      };
+    };
+    expect(upload.parameters.map((parameter) => parameter.name)).toEqual(["x-csrf-token", "idempotency-key"]);
+    expect(multipart.schema.additionalProperties).toBe(false);
+    expect(multipart.schema.required).toEqual([
+      "company_id",
+      "bank_account_id",
+      "statement_reference",
+      "date_format",
+      "file",
+    ]);
+    expect(multipart.schema.properties?.file?.format).toBe("binary");
+    expect(multipart.schema.properties?.file?.description).toContain("1,000");
+
+    const finalize = document.paths["/banking/statement_imports/{id}/finalize"].post;
+    expect(finalize.parameters.map((parameter) => parameter.name)).toEqual([
+      "id",
+      "x-csrf-token",
+      "idempotency-key",
+      "if-match",
+    ]);
+
+    const decision = document.paths["/banking/reconciliations/{id}/decision"].post;
+    expect(decision.operationId).toBe("decideBankReconciliation");
+    expect(decision.parameters.map((parameter) => parameter.name)).toEqual([
+      "id",
+      "x-csrf-token",
+      "idempotency-key",
+      "if-match",
+    ]);
+    const adjustment = document.paths["/banking/reconciliations/{id}/adjustments/{adjustmentId}"];
+    expect(adjustment.get.operationId).toBe("getBankReconciliationAdjustment");
+    expect(adjustment.patch.parameters.map((parameter) => parameter.name)).toEqual([
+      "id",
+      "adjustmentId",
+      "x-csrf-token",
+      "idempotency-key",
+      "if-match",
+    ]);
+    const createAdjustment = document.components.schemas.CreateBankReconciliationAdjustmentRequest as {
+      properties?: Record<string, unknown>;
+      additionalProperties?: boolean;
+    };
+    expect(createAdjustment.additionalProperties).toBe(false);
+    expect(createAdjustment.properties).not.toHaveProperty("amount");
+    expect(createAdjustment.properties).not.toHaveProperty("direction");
+    expect(createAdjustment.properties).not.toHaveProperty("company_id");
+    const createReconciliation = document.components.schemas.CreateBankReconciliationRequest as {
+      properties?: Record<string, unknown>;
+      additionalProperties?: boolean;
+    };
+    expect(createReconciliation.additionalProperties).toBe(false);
+    expect(createReconciliation.properties).not.toHaveProperty("tenant_id");
+    expect(createReconciliation.properties).not.toHaveProperty("state");
+    expect(createReconciliation.properties).not.toHaveProperty("ledger_population_hash");
   });
 
   it("keeps employee history projections free of private fields and actor identifiers", () => {

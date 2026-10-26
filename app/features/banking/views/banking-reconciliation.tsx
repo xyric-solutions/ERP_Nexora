@@ -9,7 +9,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { bankAccounts, findBankAccount, formatMoney } from "../model/banking-master-data";
-import type { ReconciliationRecord } from "../model/banking-reconciliation-data";
+import type { ReconciliationRecord } from "../model/legacy-bank-reconciliation-fixture";
 
 type MatchState = "matched" | "suggested" | "unmatched";
 

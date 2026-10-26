@@ -25,11 +25,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
+import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warning";
 import { BankingApiClient } from "../api/banking-client";
+import { BankApproverReassignment } from "../components/bank-approver-reassignment";
 
-type PaymentAction = "submit" | "approve" | "reject" | "post" | "reverse";
-type Confirmation = "post" | "reverse" | null;
+type PaymentAction = "submit" | "approve" | "reject" | "post" | "reverse" | "reassign";
+type Confirmation = "post" | "reverse" | "reject" | null;
 type LoadFailure = { kind: "denied" | "not-found" | "error"; message: string };
 
 interface RetryAttempt {
@@ -115,6 +117,7 @@ function isVersionConflict(error: unknown): boolean {
 
 export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPaymentDetailProps) {
   const { api, csrfToken, session, loading: sessionLoading } = useSession();
+  const notify = useActionFeedback();
   const client = useMemo(() => new BankingApiClient(api), [api]);
   const permissions = useMemo(() => new Set(session?.user.permissions ?? []), [session]);
   const canRead = permissions.has("banking.payment.read");
@@ -180,6 +183,7 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
       setDecisionReason("");
       setReversalReason("");
       setSuccess(message);
+      notify(message);
       await load();
     } catch (error) {
       if (isVersionConflict(error)) {
@@ -206,7 +210,7 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
 
   function decide(action: "approve" | "reject") {
     if (!payment) return;
-    const reason = decisionReason.trim();
+    const reason = action === "reject" ? decisionReason.trim() : "";
     const input: DecideBankPaymentRequest = {
       action,
       expected_version: payment.version,
@@ -274,18 +278,21 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
   const impersonating = session.impersonation !== undefined;
   const canEdit = !impersonating && payment.state === "draft" && permissions.has("banking.payment.update");
   const canSubmit = !impersonating && payment.state === "draft" && permissions.has("banking.payment.submit");
-  const canDecide = !impersonating && payment.state === "submitted" && permissions.has("banking.payment.approve");
+  const canDecide =
+    !impersonating &&
+    payment.state === "submitted" &&
+    payment.assigned_decision_allowed !== false &&
+    permissions.has("banking.payment.approve");
   const canPost = !impersonating && payment.state === "approved" && permissions.has("banking.payment.post");
   const canReverse = !impersonating && payment.state === "posted" && permissions.has("banking.payment.reverse");
   const makerDecision = payment.state === "submitted" && payment.self_decision_requires_override;
   const overrideAllowed = makerDecision && payment.super_admin_override_allowed;
-  const independentCheckerRequired = makerDecision && !overrideAllowed;
-  const decisionReasonRequired = overrideAllowed;
+  const independentCheckerRequired = makerDecision && !overrideAllowed && !payment.delegated_self_approval_allowed;
   const mutationBusy = busy !== null;
   const afterPosting = payment.state === "posted" || payment.state === "reversed";
 
   return (
-    <section className="space-y-5" aria-busy={mutationBusy || loading}>
+    <section className="min-w-0 space-y-5" aria-busy={mutationBusy || loading}>
       <header className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,rgba(15,42,66,0.98),rgba(24,64,91,0.94))] text-white shadow-sm">
         <div className="grid gap-6 px-5 py-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:px-7">
           <div className="min-w-0">
@@ -368,8 +375,24 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
         </Alert>
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-5">
+      <BankApproverReassignment
+        key={`${payment.id}:${payment.version}`}
+        transaction="payments"
+        record={payment}
+        disabled={mutationBusy}
+        onUpdated={load}
+        onBusyChange={(active) => setBusy(active ? "reassign" : null)}
+      />
+      {payment.delegated_self_approval_allowed && payment.state === "submitted" && (
+        <Alert>
+          <AlertDescription>
+            Your explicit company/kind grant permits this assigned self-decision. The exact grant version will be
+            audited; approval does not post.
+          </AlertDescription>
+        </Alert>
+      )}
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0 space-y-5">
           <Card>
             <CardHeader className="border-b border-border">
               <CardTitle className="flex items-center gap-2 font-serif text-xl">
@@ -380,9 +403,18 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
             </CardHeader>
             <CardContent>
               <dl className="grid gap-x-6 gap-y-5 sm:grid-cols-2 xl:grid-cols-4">
-                <Datum label="Bank" value={payment.bank_name} />
-                <Datum label="Bank Account" value={`${payment.bank_account_name} · ${payment.account_number_masked}`} />
+                <Datum label="Bank" value={payment.bank_name ?? "Nominal account"} />
+                <Datum
+                  label="Bank Account"
+                  value={[payment.bank_account_name, payment.account_number_masked].filter(Boolean).join(" · ")}
+                />
                 <Datum label="Posting date" value={displayDate(payment.posting_date)} />
+                <Datum label="Project" value={payment.project_name ?? payment.project_id ?? "Not selected"} />
+                <Datum label="Location / City" value={payment.location_name ?? payment.location_id ?? "Not selected"} />
+                <Datum
+                  label="Assigned approver"
+                  value={payment.approver_name ?? payment.approver_user_id ?? "Legacy independent checker queue"}
+                />
                 <Datum label="Value date" value={displayDate(payment.value_date)} />
                 <Datum label="Currency" value={payment.currency} />
                 <Datum label="Base currency" value={payment.base_currency} />
@@ -490,34 +522,49 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
                   </Alert>
                 ) : (
                   <>
-                    {overrideAllowed ? <SuperAdminOverrideWarning /> : null}
-                    <div className="space-y-2">
-                      <Label htmlFor="bank-payment-decision-reason">
-                        Decision reason {decisionReasonRequired ? "(required)" : "(optional for approval)"}
-                      </Label>
-                      <Textarea
-                        id="bank-payment-decision-reason"
-                        maxLength={500}
-                        disabled={mutationBusy}
-                        value={decisionReason}
-                        onChange={(event) => setDecisionReason(event.target.value)}
-                      />
-                      <p className="text-xs text-muted-foreground">Rejection always requires at least 3 characters.</p>
-                    </div>
+                    {overrideAllowed ? <SuperAdminOverrideWarning reasonRequired={confirmation === "reject"} /> : null}
+                    {confirmation === "reject" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="bank-payment-decision-reason">Rejection reason (required)</Label>
+                        <Textarea
+                          id="bank-payment-decision-reason"
+                          maxLength={500}
+                          disabled={mutationBusy}
+                          value={decisionReason}
+                          onChange={(event) => setDecisionReason(event.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Rejection always requires at least 3 characters.
+                        </p>
+                        <Button
+                          variant="destructive"
+                          disabled={mutationBusy || decisionReason.trim().length < 3}
+                          onClick={() => decide("reject")}
+                        >
+                          Confirm rejection
+                        </Button>
+                        <Button
+                          variant="outline"
+                          disabled={mutationBusy}
+                          onClick={() => {
+                            setConfirmation(null);
+                            setDecisionReason("");
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
                     <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                      <Button
-                        type="button"
-                        disabled={mutationBusy || (decisionReasonRequired && decisionReason.trim().length < 3)}
-                        onClick={() => decide("approve")}
-                      >
+                      <Button type="button" disabled={mutationBusy} onClick={() => decide("approve")}>
                         <CheckCircle2 aria-hidden="true" />
                         {busy === "approve" ? "Approving…" : "Approve"}
                       </Button>
                       <Button
                         type="button"
                         variant="destructive"
-                        disabled={mutationBusy || decisionReason.trim().length < 3}
-                        onClick={() => decide("reject")}
+                        disabled={mutationBusy}
+                        onClick={() => setConfirmation("reject")}
                       >
                         <XCircle aria-hidden="true" />
                         {busy === "reject" ? "Rejecting…" : "Reject"}

@@ -96,7 +96,6 @@ export const prototypeModules = [
         p("bank-reconciliation", "Reconciliation", "workflow"),
         p("import-statement", "Import Statement", "form"),
         p("revaluation", "Revaluation", "form"),
-        p("one-bill", "1Bill"),
       ]),
       g("bank-entry", "Transaction Entry", [
         p("add-bank-payment", "Add Bank Payment", "form"),
@@ -395,9 +394,15 @@ export const prototypeModules = [
       g("chart-of-accounts", "Chart of Accounts", [
         p("chart-of-accounts", "Chart of Accounts Overview"),
         p("nominals", "Nominals"),
+        p("central-chart-template", "Central Master Data"),
         p("section-management", "Section Management"),
         p("nominal-detail", "Nominal Account Detail", "detail"),
         p("add-nominal", "Add Nominal", "form"),
+      ]),
+      g("reporting-master-data", "Reporting Master Data", [
+        p("reporting-projects", "Projects"),
+        p("reporting-locations", "Locations / Cities"),
+        p("currencies-fx", "Currencies & Transfer FX", "settings"),
       ]),
       g("journals", "Journals", [
         p("journal-register", "Journal Register"),

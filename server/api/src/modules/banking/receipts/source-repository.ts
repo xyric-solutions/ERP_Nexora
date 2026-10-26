@@ -22,6 +22,24 @@ import type {
   UpdateBankReceiptRequest,
 } from "@nexora/contracts";
 import type { Pool, PoolClient } from "pg";
+import type { BankWorkflowOptionQuery, BankWorkflowOptions, ReassignBankApproverRequest } from "@nexora/contracts";
+import {
+  CompanyCurrencyAuthorityError,
+  resolveCompanyCurrencyAuthority,
+} from "../../finance/currencies/company-authority.js";
+import {
+  delegatedBankDecisionGrant,
+  recordBankDelegatedDecision,
+  globalBankOverride,
+  bankWorkflowOptions,
+  normalizeBankDimensions,
+  updatedBankContext,
+  validateBankApprover,
+  requireAssignedBankDecision,
+  recordBankAssignmentIntervention,
+  bankContextDetail,
+  type BankWorkflowContext,
+} from "../workflow-context.js";
 
 import {
   FinancePostingError,
@@ -29,12 +47,14 @@ import {
   createFinanceTransactionClient,
 } from "../../finance/posting/index.js";
 import { ApprovalOverrideWriterError, writeApprovalOverrideEvent } from "../../security/approval-override-writer.js";
+import { bankDecisionEvidence } from "../decision-evidence.js";
+import { readBankNominalDirectory } from "../nominal-directory.js";
 import { BankingApiError, type BankingActorContext } from "../source-repository.js";
 
 const amountScale = 8;
 const maximumAmount = 10n ** 38n - 1n;
 
-interface ReceiptRow {
+interface ReceiptRow extends BankWorkflowContext {
   id: string;
   tenant_id: string;
   company_id: string;
@@ -220,6 +240,7 @@ function decodeCursor(value: string | undefined, query: BankReceiptDirectoryQuer
 
 function safeSnapshot(row: ReceiptRow): Record<string, unknown> {
   return {
+    ...updatedBankContext(row, {}),
     id: row.id,
     company_id: row.company_id,
     reference: row.reference,
@@ -401,25 +422,7 @@ export class SourceBankReceiptRepository {
     return this.read(context, async (client) => {
       await this.requireScopedPermission(client, context, "banking.receipt.read", query.company_id);
       await this.requireCompanyAccess(client, context, query.company_id);
-      const values: unknown[] = [context.tenantId, query.company_id];
-      let search = "";
-      if (query.search) {
-        values.push(`%${escapeSearch(query.search)}%`);
-        search = ` and (account.code ilike $3 escape '\\' or account.name ilike $3 escape '\\')`;
-      }
-      values.push(query.limit);
-      const result = await client.query<BankReceiptNominalAccountDirectory["items"][number]>(
-        `select account.id,account.code,account.name,account.type as account_type,account.required_dimensions
-           from account
-          where account.tenant_id=$1 and account.company_id=$2 and account.status='active'
-            and not account.is_header and account.manual_posting_allowed and not account.reconciliation_required
-            and not exists (select 1 from bank_account bank where bank.tenant_id=account.tenant_id
-                             and bank.company_id=account.company_id and bank.account_id=account.id and bank.status='active')
-            ${search}
-          order by account.code,account.name,account.id limit $${values.length}`,
-        values,
-      );
-      return { items: result.rows };
+      return readBankNominalDirectory(client, context.tenantId, query);
     });
   }
 
@@ -428,6 +431,14 @@ export class SourceBankReceiptRepository {
       const row = await this.requireReceipt(client, context, receiptId, false);
       await this.requireScopedPermission(client, context, "banking.receipt.read", row.company_id);
       return this.loadDetail(client, context, row);
+    });
+  }
+
+  workflowOptions(context: BankingActorContext, query: BankWorkflowOptionQuery): Promise<BankWorkflowOptions> {
+    return this.read(context, async (client) => {
+      await this.requireScopedPermission(client, context, "banking.receipt.read", query.company_id);
+      await this.requireCompanyAccess(client, context, query.company_id);
+      return bankWorkflowOptions(client, context, "receipt", query);
     });
   }
 
@@ -442,9 +453,25 @@ export class SourceBankReceiptRepository {
       await this.requireScopedPermission(client, context, "banking.receipt.create", input.company_id);
       await this.requireCompanyAccess(client, context, input.company_id);
       const bank = await this.requireBankAuthority(client, context.tenantId, input.company_id, input.bank_account_id);
-      const rate = await this.resolveRate(client, context.tenantId, bank.currency, input.posting_date);
-      await this.validateLines(client, context.tenantId, input.company_id, bank.account_id, input.lines);
-      const total = totalLines(input.lines, rate.decimalPlaces);
+      const rate = await this.resolveRate(
+        client,
+        context.tenantId,
+        input.company_id,
+        bank.currency,
+        input.posting_date,
+      );
+      const lines = await normalizeBankDimensions(client, context.tenantId, input.company_id, input, input.lines);
+      await validateBankApprover(
+        client,
+        context,
+        "receipt",
+        input.company_id,
+        input.approver_user_id,
+        [context.actor.userId],
+        false,
+      );
+      await this.validateLines(client, context.tenantId, input.company_id, bank.account_id, lines);
+      const total = totalLines(lines, rate.decimalPlaces);
       const fiscalYear = await this.resolveFiscalYear(client, context.tenantId, input.company_id, input.posting_date);
       const allocated = await client.query<{ allocated: string }>(
         `insert into bank_receipt_sequence (tenant_id,company_id,fiscal_year,next_value)
@@ -458,8 +485,8 @@ export class SourceBankReceiptRepository {
       await client.query(
         `insert into bank_receipt
           (id,tenant_id,company_id,reference,bank_account_id,posting_date,value_date,transaction_currency,
-           base_currency,exchange_rate_id,exchange_rate_value,total_amount,state,row_version,created_by,created_at,updated_at)
-         values ($1,$2,$3,$4,$5,$6::date,$7::date,$8,$9,$10,$11,$12,'draft',1,$13,clock_timestamp(),clock_timestamp())`,
+           base_currency,exchange_rate_id,exchange_rate_value,total_amount,state,row_version,created_by,created_at,updated_at,project_id,location_id,approver_user_id)
+         values ($1,$2,$3,$4,$5,$6::date,$7::date,$8,$9,$10,$11,$12,'draft',1,$13,clock_timestamp(),clock_timestamp(),$14,$15,$16)`,
         [
           id,
           context.tenantId,
@@ -474,9 +501,12 @@ export class SourceBankReceiptRepository {
           rate.rateValue,
           total,
           context.actor.userId,
+          input.project_id ?? null,
+          input.location_id ?? null,
+          input.approver_user_id ?? null,
         ],
       );
-      await this.replaceLines(client, context.tenantId, input.company_id, id, input.lines);
+      await this.replaceLines(client, context.tenantId, input.company_id, id, lines);
       const row = await this.requireReceipt(client, context, id, true);
       const auditId = await this.appendAudit(
         client,
@@ -529,15 +559,39 @@ export class SourceBankReceiptRepository {
           "A Bank Receipt cannot be moved to another fiscal year.",
         );
       const bank = await this.requireBankAuthority(client, context.tenantId, previous.company_id, bankAccountId);
-      const rate = await this.resolveRate(client, context.tenantId, bank.currency, postingDate);
-      const lines =
-        input.lines ?? (await this.loadLineInputs(client, context.tenantId, previous.company_id, receiptId));
+      const rate = await this.resolveRate(client, context.tenantId, previous.company_id, bank.currency, postingDate);
+      const workflow = updatedBankContext(previous, input);
+      if (
+        !input.lines &&
+        (workflow.project_id !== previous.project_id || workflow.location_id !== previous.location_id)
+      )
+        throw new BankingApiError(
+          400,
+          "BANK_CONTEXT_LINES_REQUIRED",
+          "Include the current lines when changing project or location.",
+        );
+      const lines = await normalizeBankDimensions(
+        client,
+        context.tenantId,
+        previous.company_id,
+        workflow,
+        input.lines ?? (await this.loadLineInputs(client, context.tenantId, previous.company_id, receiptId)),
+      );
+      await validateBankApprover(
+        client,
+        context,
+        "receipt",
+        previous.company_id,
+        workflow.approver_user_id,
+        [previous.created_by, context.actor.userId],
+        false,
+      );
       await this.validateLines(client, context.tenantId, previous.company_id, bank.account_id, lines);
       const total = totalLines(lines, rate.decimalPlaces);
       const updated = await client.query(
         `update bank_receipt set bank_account_id=$4,posting_date=$5::date,value_date=$6::date,
                 transaction_currency=$7,base_currency=$8,exchange_rate_id=$9,exchange_rate_value=$10,total_amount=$11,
-                row_version=row_version+1,updated_at=clock_timestamp()
+                project_id=$13,location_id=$14,approver_user_id=$15,row_version=row_version+1,updated_at=clock_timestamp()
           where tenant_id=$1 and id=$2 and company_id=$3 and state='draft' and row_version=$12`,
         [
           context.tenantId,
@@ -552,6 +606,9 @@ export class SourceBankReceiptRepository {
           rate.rateValue,
           total,
           input.expected_version,
+          workflow.project_id,
+          workflow.location_id,
+          workflow.approver_user_id,
         ],
       );
       if (updated.rowCount !== 1) throw this.versionConflict();
@@ -603,8 +660,23 @@ export class SourceBankReceiptRepository {
         previous.bank_account_id,
       );
       const postingDate = dateOnly(previous.posting_date)!;
-      const rate = await this.resolveRate(client, context.tenantId, bank.currency, postingDate);
-      const lines = await this.loadLineInputs(client, context.tenantId, previous.company_id, receiptId);
+      const rate = await this.resolveRate(client, context.tenantId, previous.company_id, bank.currency, postingDate);
+      const lines = await normalizeBankDimensions(
+        client,
+        context.tenantId,
+        previous.company_id,
+        previous,
+        await this.loadLineInputs(client, context.tenantId, previous.company_id, receiptId),
+      );
+      await validateBankApprover(
+        client,
+        context,
+        "receipt",
+        previous.company_id,
+        previous.approver_user_id,
+        [previous.created_by, context.actor.userId],
+        true,
+      );
       await this.validateLines(client, context.tenantId, previous.company_id, bank.account_id, lines);
       const total = totalLines(lines, rate.decimalPlaces);
       await this.requireOpenPeriod(client, context.tenantId, previous.company_id, postingDate);
@@ -688,20 +760,18 @@ export class SourceBankReceiptRepository {
         normalDecisionPermission: "banking.receipt.approve",
         impersonated: context.impersonationRequestId !== undefined,
       });
-      if (policy.kind === "forbidden")
+      const delegatedGrant =
+        policy.kind === "forbidden" ? await delegatedBankDecisionGrant(client, context, "receipt", previous) : null;
+      if (policy.kind === "forbidden" && delegatedGrant === null)
         throw new BankingApiError(
           403,
           "RECEIPT_MAKER_CHECKER_REQUIRED",
           "An independent authorized checker must decide this Bank Receipt.",
         );
+      const assignmentIntervention = await requireAssignedBankDecision(client, context, "receipt", previous);
       let overrideId: string | null = null;
+      const evidence = bankDecisionEvidence(input, "Bank Receipt");
       if (policy.kind === "override") {
-        if (!input.reason)
-          throw new BankingApiError(
-            400,
-            "RECEIPT_OVERRIDE_REASON_REQUIRED",
-            "A reason is required for a super-administrator self-decision.",
-          );
         try {
           overrideId = (
             await writeApprovalOverrideEvent(client, {
@@ -712,10 +782,14 @@ export class SourceBankReceiptRepository {
               resourceType: "banking.receipt",
               resourceId: receiptId,
               decisionAction: input.action,
-              reason: input.reason,
+              reason: evidence.reason,
               correlationId,
               idempotencyKey: `${idempotencyKey}:approval-override`,
-              metadata: { receipt_reference: previous.reference, expected_version: input.expected_version },
+              metadata: {
+                receipt_reference: previous.reference,
+                expected_version: input.expected_version,
+                reason_source: evidence.source,
+              },
               impersonated: context.impersonationRequestId !== undefined,
             })
           ).eventId;
@@ -726,13 +800,14 @@ export class SourceBankReceiptRepository {
         }
       }
       const approved = input.action === "approve";
+      const delegatedId = delegatedGrant === null ? null : randomUUID();
       const updated = await client.query(
         `update bank_receipt set state=$4,
                 approved_by=case when $4='approved' then $5 else null end,
                 approved_at=case when $4='approved' then clock_timestamp() else null end,
                 rejected_by=case when $4='rejected' then $5 else null end,
                 rejected_at=case when $4='rejected' then clock_timestamp() else null end,
-                decision_reason=$6,approval_override_event_id=$7,
+                decision_reason=$6,approval_override_event_id=$7,delegated_decision_id=$9,
                 row_version=row_version+1,updated_at=clock_timestamp()
           where tenant_id=$1 and id=$2 and company_id=$3 and state='submitted' and row_version=$8`,
         [
@@ -741,9 +816,10 @@ export class SourceBankReceiptRepository {
           previous.company_id,
           approved ? "approved" : "rejected",
           context.actor.userId,
-          input.reason ?? null,
+          evidence.reason,
           overrideId,
           input.expected_version,
+          delegatedId,
         ],
       );
       if (updated.rowCount !== 1) throw this.versionConflict();
@@ -770,6 +846,86 @@ export class SourceBankReceiptRepository {
         idempotencyKey,
         auditId,
         overrideId,
+      );
+      if (assignmentIntervention) await recordBankAssignmentIntervention(client, context, "receipt", row, auditId);
+      if (delegatedGrant !== null && delegatedId)
+        await recordBankDelegatedDecision(
+          client,
+          context,
+          "receipt",
+          row,
+          input.action,
+          delegatedGrant,
+          delegatedId,
+          auditId,
+        );
+      return this.mutationResult(row, auditId);
+    });
+  }
+
+  reassign(
+    context: BankingActorContext,
+    receiptId: string,
+    input: ReassignBankApproverRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<BankReceiptMutationResult> {
+    const path = `/api/v1/banking/receipts/${receiptId}/approver`;
+    return this.mutate(context, "banking.receipt.approve", "POST", path, input, idempotencyKey, 200, async (client) => {
+      const previous = await this.requireReceipt(client, context, receiptId, true);
+      await this.requireScopedPermission(client, context, "banking.receipt.approve", previous.company_id);
+      await this.requireCompanyAccess(client, context, previous.company_id);
+      if (!(await globalBankOverride(client, context, previous.company_id)))
+        throw new BankingApiError(
+          403,
+          "BANK_REASSIGN_ADMIN_REQUIRED",
+          "Only a currently authorized global administrator may reassign a Bank checker.",
+        );
+      this.requireVersion(previous, input.expected_version);
+      if (previous.state !== "submitted")
+        throw new BankingApiError(409, "BANK_REASSIGN_NOT_PENDING", "Only a submitted transaction may be reassigned.");
+      if (previous.approver_user_id === input.approver_user_id)
+        throw new BankingApiError(400, "BANK_REASSIGN_UNCHANGED", "Select a different eligible checker.");
+      await validateBankApprover(
+        client,
+        context,
+        "receipt",
+        previous.company_id,
+        input.approver_user_id,
+        [previous.created_by, previous.submitted_by ?? ""],
+        true,
+      );
+      const historyId = randomUUID();
+      const updated = await client.query(
+        `update bank_receipt set approver_user_id=$4,approver_reassignment_id=$5,row_version=row_version+1,updated_at=clock_timestamp()
+        where tenant_id=$1 and company_id=$2 and id=$3 and state='submitted' and row_version=$6`,
+        [context.tenantId, previous.company_id, receiptId, input.approver_user_id, historyId, input.expected_version],
+      );
+      if (updated.rowCount !== 1) throw this.versionConflict();
+      const row = await this.requireReceipt(client, context, receiptId, true);
+      const auditId = await this.appendAudit(
+        client,
+        context,
+        correlationId,
+        "banking.receipt.reassign",
+        receiptId,
+        safeSnapshot(previous),
+        safeSnapshot(row),
+      );
+      await client.query(
+        `insert into bank_approver_reassignment(tenant_id,company_id,id,transaction_kind,receipt_id,record_version,previous_user_id,assigned_user_id,actor_id,audit_event_id)
+        values($1,$2,$3,'receipt',$4,$5,$6,$7,$8,$9)`,
+        [
+          context.tenantId,
+          row.company_id,
+          historyId,
+          row.id,
+          row.row_version,
+          previous.approver_user_id ?? null,
+          input.approver_user_id,
+          context.actor.userId,
+          auditId,
+        ],
       );
       return this.mutationResult(row, auditId);
     });
@@ -836,7 +992,13 @@ export class SourceBankReceiptRepository {
         previous.company_id,
         previous.bank_account_id,
       );
-      const lines = await this.loadLineInputs(client, context.tenantId, previous.company_id, receiptId);
+      const lines = await normalizeBankDimensions(
+        client,
+        context.tenantId,
+        previous.company_id,
+        previous,
+        await this.loadLineInputs(client, context.tenantId, previous.company_id, receiptId),
+      );
       await this.validateLines(client, context.tenantId, previous.company_id, bank.account_id, lines);
       const financeClient = await createFinanceTransactionClient(client);
       let posted;
@@ -1035,7 +1197,7 @@ export class SourceBankReceiptRepository {
     responseStatus: number,
     operation: (client: PoolClient) => Promise<T>,
   ): Promise<T> {
-    if (context.impersonationRequestId)
+    if (context.impersonationRequestId || context.realActorId)
       throw new BankingApiError(
         403,
         "IMPERSONATION_RESTRICTED",
@@ -1048,6 +1210,11 @@ export class SourceBankReceiptRepository {
     try {
       await client.query("begin isolation level read committed");
       await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select set_config('nexora.user_id',$1,true)", [context.actor.userId]);
+      // Same lock order as Payments: serialize authority with governed Identity changes.
+      await client.query("select pg_advisory_xact_lock_shared(hashtextextended($1,0))", [
+        `nexora:security:admin:${context.tenantId}`,
+      ]);
       await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
         `nexora:banking:${context.tenantId}`,
       ]);
@@ -1065,6 +1232,15 @@ export class SourceBankReceiptRepository {
             "Stored Bank Receipt replay evidence is invalid.",
           );
         await this.revalidateReplayAuthority(client, context, permission, replayId);
+        if (path.endsWith("/approver")) {
+          const stored = await this.requireReceipt(client, context, replayId, false);
+          if (!(await globalBankOverride(client, context, stored.company_id)))
+            throw new BankingApiError(
+              403,
+              "BANK_REASSIGN_ADMIN_REQUIRED",
+              "Current global authority is required even for a reassignment retry.",
+            );
+        }
         if (replay.rows[0].request_fingerprint !== fingerprint)
           throw new BankingApiError(
             409,
@@ -1115,6 +1291,7 @@ export class SourceBankReceiptRepository {
     try {
       await client.query("begin isolation level repeatable read read only");
       await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select set_config('nexora.user_id',$1,true)", [context.actor.userId]);
       const result = await operation(client);
       await client.query("commit");
       return result;
@@ -1265,56 +1442,31 @@ export class SourceBankReceiptRepository {
   private async resolveRate(
     client: PoolClient,
     tenantId: string,
+    companyId: string,
     transactionCurrency: string,
     postingDate: string,
   ): Promise<RateAuthority> {
-    const bases = await client.query<{ code: string }>(
-      `select code from currency where tenant_id=$1 and status='active' and is_base order by code for share`,
-      [tenantId],
-    );
-    if (bases.rows.length !== 1)
-      throw new BankingApiError(
-        500,
-        "RECEIPT_CURRENCY_AUTHORITY_INVALID",
-        "Exactly one active base currency is required.",
-      );
-    const currency = await client.query<{ decimal_places: number }>(
-      `select decimal_places from currency where tenant_id=$1 and code=$2 and status='active' for share`,
-      [tenantId, transactionCurrency],
-    );
-    if (!currency.rows[0])
-      throw new BankingApiError(400, "RECEIPT_CURRENCY_INVALID", "The bank account currency is unavailable.");
-    const baseCurrency = bases.rows[0]!.code;
-    if (transactionCurrency === baseCurrency)
+    try {
+      const authority = await resolveCompanyCurrencyAuthority(client, {
+        tenantId,
+        companyId,
+        sourceCurrency: transactionCurrency,
+        effectiveOnOrBefore: postingDate,
+      });
       return {
-        baseCurrency,
-        rateId: null,
-        rateValue: "1.000000000000000000",
-        decimalPlaces: currency.rows[0].decimal_places,
+        baseCurrency: authority.baseCurrency,
+        rateId: authority.rateId,
+        rateValue: authority.rateValue,
+        decimalPlaces: authority.sourceDecimalPlaces,
       };
-    await client.query("select pg_advisory_xact_lock(finance_currency_rate_lock_key($1,$2,$3))", [
-      tenantId,
-      transactionCurrency,
-      baseCurrency,
-    ]);
-    const rate = await client.query<{ id: string; rate: string }>(
-      `select id,rate::text as rate from currency_rate
-        where tenant_id=$1 and source_currency=$2 and target_currency=$3 and effective_date<=$4::date
-        order by effective_date desc,id desc limit 1 for share`,
-      [tenantId, transactionCurrency, baseCurrency, postingDate],
-    );
-    if (!rate.rows[0])
-      throw new BankingApiError(
-        400,
-        "RECEIPT_FX_RATE_UNAVAILABLE",
-        "A direct exchange rate is unavailable for the posting date.",
-      );
-    return {
-      baseCurrency,
-      rateId: rate.rows[0].id,
-      rateValue: rate.rows[0].rate,
-      decimalPlaces: currency.rows[0].decimal_places,
-    };
+    } catch (error) {
+      if (!(error instanceof CompanyCurrencyAuthorityError)) throw error;
+      if (error.code === "COMPANY_CURRENCY_RATE_MISSING")
+        throw new BankingApiError(400, "RECEIPT_FX_RATE_UNAVAILABLE", error.message);
+      if (error.code === "COMPANY_CURRENCY_INACTIVE")
+        throw new BankingApiError(400, "RECEIPT_CURRENCY_INVALID", error.message);
+      throw new BankingApiError(409, "RECEIPT_CURRENCY_AUTHORITY_INVALID", error.message);
+    }
   }
 
   private async resolveFiscalYear(
@@ -1365,7 +1517,7 @@ export class SourceBankReceiptRepository {
     const accounts = await client.query<{ id: string; required_dimensions: unknown }>(
       `select id,required_dimensions from account
         where tenant_id=$1 and company_id=$2 and id=any($3::text[]) and status='active'
-          and not is_header and manual_posting_allowed and not reconciliation_required for share`,
+          and not is_header and manual_posting_allowed and not reconciliation_required and not is_system_account for share`,
       [tenantId, companyId, ids],
     );
     if (accounts.rows.length !== ids.length || ids.includes(controlAccountId))
@@ -1609,6 +1761,7 @@ export class SourceBankReceiptRepository {
       reversal_journal_entry_number: journalNumbers.rows[0]?.reversal_entry ?? null,
       self_decision_requires_override: selfDecision,
       super_admin_override_allowed: selfDecision && approval.kind === "override",
+      ...(await bankContextDetail(client, context, row, "receipt")),
     };
   }
 

@@ -1,5 +1,92 @@
 # Remaining UI migration checklist
 
+## 2026-10-22 — Bank Transfer approval-flow parity
+
+- Transfer Submit for Approval now persists and opens the authoritative detail
+  screen. Eligible same-user governed Super Admin/delegated approval remains a
+  separate explicit Approve & Close action and revalidates server state before
+  deciding; approval still does not post the Transfer.
+- Transfer entry/detail/list/filter now present `submitted` as `Waiting for
+approval` and `draft` as `Draft`. Existing API permissions, company scope,
+  maker-checker override evidence, idempotency and audit controls are preserved.
+- No feature CSS or dependency changed. Focused 18 unit tests, full typecheck,
+  scoped lint, diff check and production web build passed. No live Transfer was
+  created for verification; continue localhost UAT through the normal form.
+
+## 2026-10-22 — live Finance fiscal calendars / period close
+
+- Added `app/features/finance/views/finance-fiscal-periods.tsx`; existing Fiscal
+  Periods and Period Close routes share this real API-backed workspace. ERP shell
+  marks it live Finance, retains company context, not companyless master data.
+- Existing shared primitives/Tailwind only; no dependency or stylesheet retired.
+  Preview, status/version table, batch confirmation/reasons, loading/error/denied
+  states, success feedback and immutable history included. URL company/year context
+  survives refresh but is never authority. Financial submission/posting guards and
+  existing Bank/HR behavior preserved. History latest100; older records retained.
+- Verified unit458, contracts12, targeted PostgreSQL integration47/security16,
+  calendar browser3 and existing Bank context browser6 cases passed; typecheck,
+  generated API check, scoped lint and production build passed. See Finance plan
+  for initial concurrent-browser failures and final sequential verification.
+- R06 UAT existing 2026 calendar now has twelve Open monthly periods through
+  authenticated audited setup, no financial-record changes. Earlier zero-period
+  notes below are historical. Regular twelve-month years only; no all-date bypass.
+
+## 2026-10-21 — Bank searchable directory popups / Finance period feedback
+
+- Payment/Receipt Nominal selectors and shared Project, Location/City and
+  Approver selectors now use `app/shared/ui/searchable-select.tsx` (installed
+  Base UI + shared Button/Input). Separate search boxes removed; search and
+  directory pagination are inside the popup. Existing company-scoped APIs,
+  eligibility checks, retained selections, validation and 40px sizing preserved.
+- No CSS retired or new dependency. Immediate loading during nominal debounce
+  prevents stale-result selection. Document Reference stays hidden but existing
+  stored values remain preserved on edit.
+- Closed/missing-period failures now distinguish a successfully saved draft
+  from blocked submission/approval. No Finance control was bypassed. Source has
+  zero financial periods; October configuration awaits user authorization.
+- Verified: 48 focused component tests, 20 PostgreSQL integration tests,
+  14 database-security tests, 12 contract tests, 9 real-API browser tests;
+  typecheck, scoped lint/format, API generation check and production build passed.
+  Full unit suite initially 438/438; final repeat 437/438 due to pre-existing
+  intermittent DelegationPanel test (isolated 4/4). See current Bank handoff.
+  Full repository lint remains at the inherited 112 errors / 1 warning; scoped
+  lint for the changed files is clean. Temporary test APIs stopped; normal
+  web 3000 / API 4000 remain healthy.
+- Earlier zero-activation notes below are historical: 131 reviewed imported
+  ordinary nominals are now active; 96 documented exceptions remain unchanged.
+
+## 2026-10-21 — Bank entry line sizing / Details follow-up
+
+- Payment and Receipt grids no longer show Document Reference. Loaded legacy
+  references are preserved when editing; plain-text Details and Receipt payer
+  fields remain. Line inputs/selects/Details initially share 40px height, with
+  fixed proportional columns and horizontal overflow on narrow screens.
+- No shared primitives/CSS retired or changed. Existing validation, company
+  isolation, persistence, approval and posting safeguards intentionally unchanged.
+- Verification: 36 component tests and 2 isolated real-API browser tests passed;
+  browser checks measure equal control heights and verify nominal persistence.
+  Source remains 227 inactive/unclassified imports, not a disconnected API.
+  Resume per the latest follow-up in the Bank workflow context handoff; do not
+  guess classifications to populate the selector.
+
+## 2026-10-21 — Chart of Accounts direct Super Admin master workflow
+
+- Added `app/features/finance/views/finance-hierarchy.tsx` using existing shared
+  Card/Alert/Button/Input/Label and Tailwind/native selects. Existing Section
+  Management route now owns company Categories/Sections with real API CRUD/status
+  operations, read-only ordinary-user state, validation/error/empty/loading/success.
+- Updated nominal forms/detail, company adoption permission visibility and shared
+  Bank nominal availability guidance for direct Super Admin activation. No feature
+  CSS was added/retired. Existing financial entry/posting and central reference
+  catalog navigation/identity were preserved.
+- Browser verified category create/edit/deactivate/reactivate plus ordinary read
+  isolation; separate browser verification covers direct nominal activation and
+  Payment/Receipt selection, save and refresh against isolated PostgreSQL.
+- Build/typecheck and exact final results/safe resume are in the latest checkpoint
+  of `docs/superpowers/plans/2026-10-21-bank-workflow-context-implementation-plan.md`.
+  No blanket source classification/activation: all 227 still require ownership
+  review; all 102 headers already active. Continue broader CSS migration separately.
+
 ## Goal
 
 Complete the gradual migration from feature-scoped `nx-*` CSS to Tailwind utilities and shared shadcn/ui primitives, without changing routes, data, permissions, mock workflows, or user-visible business behaviour.
@@ -375,7 +462,602 @@ approval-override event. Export, print, attachments and customer/invoice
 allocation remain explicitly unavailable because governed endpoints do not yet
 exist for those capabilities.
 
+Bank Nominal / master-data integration batch (2026-10-20):
+
+- Added `app/features/finance/views/finance-nominals.tsx` and its typed API
+  adapter. Banking Add Bank Account and Finance Add Nominal use one Tailwind /
+  shared shadcn form. Name, generated nominal code, description and Currency
+  Master replace mandatory external bank/branch/account-number inputs.
+- Added live nominal directory/detail/history and governed decision dialogs;
+  Bank Account detail routes resolve nominal-only accounts to that workspace.
+  Legacy detailed account behavior remains available, with a separate legacy
+  approval queue. Payments/Receipts/Account Balances tolerate absent external
+  banking identifiers. No stylesheets were retired and no HR views changed.
+- Backend/database tests cover canonical identity, approval, selector eligibility,
+  audit history, company-scope permissions and balanced Payment/Receipt posting.
+  Production build, type checks and phase-owned lint passed during the batch.
+  Browser acceptance is pending: credentials were unavailable. The new browser
+  test is `tests/e2e/bank-nominals.spec.ts`; do not report it as passed.
+- Resume from the latest checkpoint in
+  `docs/superpowers/plans/2026-10-20-bank-nominal-master-data-implementation-plan.md`.
+  Complete its reconciliation account selector and isolated acceptance gates
+  before declaring this slice finished. The full Bank module is NOT complete.
+
 Other Banking pages, including transfers, statement import, reconciliation,
 charges/interest, cheques/deposits and Treasury, remain explicitly prototype
 surfaces. The next candidate production Banking slice is Bank Transfers and
 requires a separate approved design and implementation plan.
+
+Bank approval and action-feedback follow-up (2026-10-20, user-confirmed):
+
+- Active Bank nominal/account, Payment and Receipt mutations now use a shared
+  feedback context connected to the existing shell notification stack. Success
+  messages appear only after API confirmation and survive navigation. No CSS
+  was removed or added; no HR view changed.
+- Approval does not request a reason, including super-admin approval. Rejection
+  inputs appear only when rejecting and remain server-validated. Automatic
+  approval evidence is explicit and audited; reversal safeguards are unchanged.
+- Nominal “Approve & Close” closes its confirmation dialog on success. Chromium
+  verified persisted creation/update/submission/approval/deactivation/rejection
+  notifications, a reason-free approval, reload persistence and no success on an
+  injected failed update. Payment/Receipt component tests cover their reason and
+  success/error behavior; database tests cover their actual persisted lifecycles.
+- Focused verification: 58 unit/API/component tests, 29 integration tests,
+  26 security tests and one Chromium workflow passed. Production build,
+  typecheck, generated API consistency, Bank-owned lint and whitespace passed.
+  This does not close the wider Bank module or all BN acceptance gates.
+
+Bank Payment/Receipt entry workspace (2026-10-20, user-approved):
+
+- Updated both API-connected entry forms to the reference seven-column grid:
+  Date, Ref. No., Mode, Nominal Account, Details, Amount and Remove. Company
+  and posting date remain visible; Bank is above the grid. Receipt payer and
+  required dimensions are preserved. Document references, optional value date
+  and accounting preview are expandable. No stylesheets retired; no HR changes.
+- Shared Bank-only split completion actions retain draft/submission and add
+  authorized super-admin Approve & Close using existing versioned APIs. Server
+  eligibility is checked after submission, retry keys survive failed decisions,
+  partial progress is retained, and no posting API is called.
+- WHT deduction is deferred to Supplier Payments; future WHT Remittance settles
+  withheld liabilities. No placeholder WHT menu, tax rates or schema added.
+  Approver routing, delegated self-approval and Project/City master selectors
+  remain later phases rather than silently changing current approval policy.
+- Verification: 56 focused Bank unit/component tests, four persisted lifecycle
+  tests on the isolated test database, two read-only Chromium workflows,
+  typecheck, focused lint, whitespace and production build passed. Browser
+  checks used live directories but blocked all Bank financial writes.
+- Resume: configure eligible offset nominals and fiscal periods for the chosen
+  local test company before full browser save/approve/post acceptance. The
+  default browser company currently reports no eligible offset nominals.
+  See docs/superpowers/specs/2026-10-20-bank-entry-workspace-design.md.
+  Do not mark the whole Bank module complete from this screen update.
+
+Shared Finance nominal master (2026-10-20, approved implementation):
+
+- Chart of Accounts overview now uses the same PostgreSQL-backed directory as
+  Nominals instead of finance-profile fixture rows. The shared form supports
+  ordinary asset/liability/equity/revenue/expense nominal creation; Banking's
+  Add Bank Account remains restricted to Cash & Bank. No new stylesheet,
+  presentation framework or HR change was introduced.
+- Payment and Receipt forms search the scoped API by nominal name/code beyond
+  the first 100 results and preserve selected identities. Required dimensions,
+  receipt payer identity, approval controls and explicit posting are preserved.
+- Finance migrations 11/12, scoped lifecycle/audit/idempotency and database
+  guards are in place. Existing Bank behavior remains covered by regressions.
+- Verified: 107 unit/component tests, 36 isolated integration tests, 19 database
+  security tests, one real Chromium ordinary-nominal-to-Payment-draft workflow,
+  API generation consistency, typecheck, focused lint, whitespace and web build.
+  Source application health is ready. No journal or posting period was created.
+- Resume: see docs/superpowers/plans/2026-10-20-shared-nominal-master-implementation-plan.md.
+  Business catalog import needs review of docs/architecture/nominal-catalog-import-review.md;
+  synthetic UAT section setup is not a production Chart of Accounts adoption.
+  Other Finance reports and wider Bank prototype pages remain outside this batch.
+
+Business Chart of Accounts reference follow-up (2026-10-20):
+
+- The user's supplied four screenshots supersede the old 23-row prototype
+  proposal. Recorded the 14-category mapping and 78-section transcription in
+  docs/architecture/nominal-catalog-import-review.md for source validation.
+- No screenshot-derived business records were inserted. Nominal pages are
+  downscaled and contain overlapping codes (711314 and 711306); obtain exports
+  or original-resolution files before certifying the complete import manifest.
+- Confirm destination company/currencies and resolve the existing single
+  Cash & Bank policy before importing section 2309. Preserve account IDs,
+  historical events and control-account posting restrictions.
+- Payment layout and persisted approver/project/location routing requests
+  remain pending; this documentation checkpoint does not complete them.
+
+Central Chart of Accounts approach (2026-10-20, user approved):
+
+- Use a tenant-owned central definition template with separate company account
+  identities; do not share company balances, transactions or Bank facilities.
+- Written design: docs/superpowers/specs/2026-10-20-central-chart-template-design.md.
+  Written specification is now user-confirmed. CT-01 stores the workbook's
+  14 categories, 78 sections and 234 distinct nominals centrally without picking
+  a destination company or inventing currencies. CT-02 adds Master Data browsing;
+  CT-03/04 handle explicit company adoption and existing financial governance.
+- CT-01 is implemented: Finance migration 13, immutable tenant-owned catalog,
+  explicit template permissions, bounded generated import/read/publish APIs and
+  authenticated source import. Published metadata is 14/78/234 with 237 source
+  references; replay adds no duplicates. No company adoption has run.
+- Verified 44 isolated integration tests, 13 unit/API tests, 19 database-security
+  regressions, API consistency, typecheck, focused lint, web build and whitespace.
+  Fresh API sessions and new database connections verified persistence; no
+  application/DB reboot was performed. HR and Bank readiness are healthy.
+- CT-02 complete: Central Master Data navigation, live template tabs, server
+  search/category/section filters, pagination, source/detail evidence, drill-down,
+  permission/loading/empty/error states and responsive layout. Section Management
+  opens central Sections; company accounts stay separate and cross-linked.
+- CT-02 verified: 21 unit/API/component tests, eight isolated integration tests,
+  one read-only Chromium workflow, final desktop/mobile visual review, API
+  consistency, typecheck, owned lint, whitespace and web build. No new migration,
+  company adoption or financial writes in this UI phase.
+- Legacy catalogue generation/check remains blocked by pre-existing imports of
+  missing app/hr-core-data.ts and old root paths. No fake parity output or HR
+  rewrite; actual new navigation was verified in Chromium.
+- CT-03 preview implemented and browser-verified through normal API/PostgreSQL.
+  Accessible company/currency selectors, proposed counts, paginated identity checks,
+  stable snapshot hash and explicit conflicts; no apply/write action. Nine isolated
+  template integration tests passed. Existing R06 UAT is user-confirmed for testing;
+  NO new business company. Current preview proposes 227 ordinary drafts and seven
+  Bank references, blocked on existing UAT-BN-CB versus template section 2309.
+- Next: obtain explicit preserve-existing-Bank mapping decision, implement atomic
+  company mapping/governed drafts, then CT-04 classification and activation. Do not
+  replace Bank policy/reparent accounts or present references as approved offsets.
+
+Latest Excel-alignment checkpoint (supersedes the pending Bank decision above):
+
+- User approved the Excel business section code and written migration design.
+  Finance 14 evidence and privileged local operation are applied. Existing section
+  is now 2309 / Cash and Bank with its ID unchanged; all Bank leaves/history stay
+  intact. New allocations use 2309xx, reserving 01–07 for workbook identities.
+- Fresh API preview: zero conflicts, two header matches, 227 proposed ordinary
+  drafts, seven Bank references. No company/accounts or financial transactions
+  created by this correction. Source HR/Bank readiness remains healthy.
+- Seven integration files passed (51 tests) plus 19 security regressions.
+  Exact commands/evidence and next steps are in the central chart delivery plan.
+- Next: atomic company adoption/mappings and governed drafts, then classification/
+  activation. Do not represent pending drafts or references as approved offsets.
+
+Company Chart adoption/review checkpoint (2026-10-20):
+
+- CT-03 delivered and applied: existing R06 UAT has all 326 source mappings,
+  227 persisted ordinary drafts, and seven explicit Bank references. No new
+  company, guessed Bank currency, transaction or automatic approval.
+- Existing setup preview now supports confirmed company draft adoption with real
+  saved/already-adopted/error/retry states. Nominal detail has explicit posting
+  review and confirmed notifications; normal Finance submission/approval follows.
+  Unreviewed/module-controlled records are blocked from manual activation.
+- Finance company pages now display truthful Live Finance API context, not mock
+  company/role/state controls. Other module shell behavior was preserved. Existing
+  Input labels received explicit IDs for accessibility; no new CSS/dependency.
+- Central checklist records Finance 15–17, backup, exact test commands and failures
+  corrected without suppressions. Actual business classification/approval and
+  seven Bank definitions' setup remain operator acceptance, not automatic import.
+
+- Finance 18 completes the Bank-reference setup UI/API integration: select an
+  approved Excel Bank definition in the existing form, preserve source code/name,
+  explicitly select currency, then use normal Bank draft/approval. Configured
+  definitions are disabled and bindings are immutable/audited. Custom numbering
+  remains separate. No actual Bank references were created automatically.
+- Live-account context labels also cover Bank Accounts, Setup, Detail and
+  Approvals only; unrelated Bank prototype screens and HR were not relabelled.
+- Final focused verification: 58 integration, 27 unit/API/component and 19 security
+  tests; two Chromium workflows; typecheck, owned lint, API check, build and
+  whitespace. Actual posting classifications/currencies/approvals remain operator
+  decisions, not absent persistence or missing setup controls.
+
+## 2026-10-21 — CoA directory isolation and Bank entry fields
+
+- Preserved the existing database-connected central template/company adoption.
+  Fixed stale company/filter/pagination responses in the CoA directory, immediate
+  row/cursor clearing on selection change, and directory reset on tenant/user/
+  permission changes. Added six focused directory regressions.
+- Both Bank forms now expose value date with posting controls and plain optional
+  document-reference inputs in Details. Free-text descriptions, API payloads,
+  receipt payer, accounting dimensions, approval auditing and explicit posting
+  are unchanged. No stylesheet/dependency/migration or business activation added.
+- Read-only Chromium verified the persisted central catalog and both Bank forms
+  with desktop/narrow layouts, real API directories and financial writes blocked.
+- Selectable approvers, authorized delegated self-approval, persisted project/city
+  masters and authenticated active-company context remain the next backend-led
+  slice, not completed by these presentation refinements. HR statutory work
+  locations must not be repurposed without a reviewed ownership decision.
+- Exact test/check results and the next safe boundary are recorded in the central
+  chart implementation plan's 2026-10-21 continuation checkpoint.
+
+## 2026-10-21 — approved Bank-context shared master backend
+
+- Written Bank-context specification approved; WC-01a database/contracts/repository
+  and WC-01b API/OpenAPI/generated-client portions delivered. Separate shared
+  Project/Location records preserve HR statutory master ownership. Local UAT has
+  additive master_data migrations 1–2, with backup and unchanged financial counts.
+- This is backend delivery only: existing Bank entry UI is preserved. Shared
+  management navigation/screens, typed Bank selectors and selected/delegated
+  approver UI/persistence remain unfinished. No placeholder actions were exposed.
+- Next agent should follow
+  `docs/superpowers/plans/2026-10-21-bank-workflow-context-implementation-plan.md`:
+  finish WC-01b management UI and browser acceptance, then WC-02 and WC-03. User
+  already approved the written design; do not restart the approval loop.
+
+## 2026-10-21 — shared master management and Bank workflow context
+
+- Supersedes the backend-only checkpoint above: existing Finance navigation now
+  exposes Reporting Master Data Projects and Locations / Cities. Shared Tailwind/
+  shadcn workspace implements real company-scoped list/search/pagination, create,
+  persisted detail, edit and status with explicit permissions, retry/version/dirty
+  handling and loading/empty/error/denied/success states. No mock fallback/CSS added.
+- Payment/Receipt entry grids now use real searchable Project/Location/Approver
+  selectors and persist typed IDs through the generated API. Single-company users
+  see an authenticated caption; multi-company selection remains authorized/explicit.
+  Existing nominal/date/description/partial-save/idempotency behavior is preserved.
+- Detail views show names/assigned checker, restrict decision affordances and keep
+  dense tables locally scrollable at narrow widths. Approval still does not post.
+  Shared masters do not replace HR statutory locations or affect HR workflows.
+- Executed verification: full unit 411, selected integration 46, full security 41,
+  HR approval integration 3, contract 12; four real API/PostgreSQL Chromium flows,
+  mobile layout assertion/inspection, typecheck, scoped lint, generated API check,
+  production build and whitespace. Latest caption-focused unit rerun passed 32.
+- WC-03 remains partial: ordinary delegated self-approval/Identity management and
+  audited submitted-record reassignment are not implemented. Safe resume, exact
+  commands, schema/backup evidence, permission setup and acceptance limitations:
+  `docs/superpowers/plans/2026-10-21-bank-workflow-context-implementation-plan.md`.
+- Final compatibility guard is additive Finance 21: old free-text dimensions do
+  not block compensating reversal. Two new isolated trigger probes and the final
+  four-file/19-test Bank/migration regression passed. Broad shell lint still has
+  11 inherited prototype label-association errors; feature-owned scoped lint
+  passed, not a claim that whole-repository lint is clean.
+
+## 2026-10-21 — WC-03 governance completed (supersedes partial checkpoint)
+
+- Identity & Access Roles & Permissions now includes Bank Self-approval: real
+  company/kind-scoped grant issue/revoke, searchable eligible users, versioned
+  history and explicit global-administrator plus read/manage permission checks.
+- Bank Payment/Receipt entries support explicitly delegated self approvers;
+  detail screens include audited administrator reassignment and assignment history.
+  Normal independent approval/global override and separate Finance posting remain.
+  Grant revocation blocks future self decisions, not immutable past approvals.
+- Explicit Project/Location read/manage authorization is enforced by UI/API and
+  serialized against Identity revocation. Tailwind/shared primitives reused; no
+  new CSS or dependencies, no source business grants/data activation.
+- Observed checks: 420 unit, 68 selected integration, 41 security, 12 contract,
+  six real Chromium/API/PostgreSQL workflows, 390px Bank detail checks, typecheck,
+  API consistency, feature-owned lint, production build and whitespace all passed.
+  Whole-repository lint was run and remains blocked by 112 inherited errors /
+  one warning across unrelated legacy surfaces; no suppression or broad refactor.
+- Additive source schema: Finance 23 / Security 16; source readiness healthy,
+  financial/master counts unchanged, new governance tables empty. Operator manual
+  UAT and intentional source permission/grant assignment remain. Full evidence,
+  isolated harness, migration/backup details and safe resume are recorded in
+  `docs/superpowers/plans/2026-10-21-bank-workflow-context-implementation-plan.md`.
+
+## 2026-10-21 — Bank nominal selector diagnostics and recovery
+
+- Payment/Receipt nominal selectors already used the real company Chart of
+  Accounts API/query. Source R06-UAT has zero eligible offsets: imported nominals
+  remain governed drafts, other ordinary accounts inactive, active leaves protected.
+  No account was bulk activated and no eligibility/permission rule was bypassed.
+- Both entry views now reuse a shared Tailwind/shadcn availability alert with
+  server-derived company counts, review navigation, refresh, separate search-miss
+  messaging, failure retry and selected-option preservation on search failure.
+  No CSS retired/added; existing draft lifecycle, dirty guard, audit and posting
+  controls intentionally preserved.
+- Shared Bank directory projection reuses existing account records and adds
+  optional metadata; contracts/OpenAPI/client regenerated. Tests cover the real
+  catalog review/independent approval → both selectors → saved/reopened exact IDs.
+- Actual unit/integration/security/contract results: **427 / 69 / 41 / 12 passed**;
+  new real-browser catalog scenario, typecheck, API consistency, production build,
+  feature-owned lint and whitespace passed. See workflow handoff for final browser
+  regression results, isolated setup and inherited lint limitations.
+- Operator review/approval of intended source nominals remains necessary; a
+  successful import is not financial activation. Full investigation and next
+  action are in the existing Bank workflow context implementation handoff.
+
+## 2026-10-22 — Bank Receipts full-flow parity checkpoint
+
+- Reviewed the current Bank Receipts directory, add/edit workspace, persisted
+  detail, shell routing, generated-client boundary and lifecycle tests directly
+  against the accepted Bank Payments implementation. The current working tree
+  already contains the required functional parity: company/account/state/date
+  filtering, search/sort/pagination, multi-line drafts, payer snapshots,
+  workflow context, validation, save/reload, submission, governed decisions,
+  explicit Finance posting, compensating reversal and responsive states.
+- Preserved Receipt-specific accounting direction: Bank control is debited and
+  nominal allocations are credited. The approved entry refinement replaces the
+  separate Received from and optional narration controls with one required Details
+  textarea. Its value is written to both existing `payer_name` and `narration`
+  fields so persisted/API compatibility and payer snapshots remain intact; older
+  drafts reopen from narration with payer name as the fallback. No permission,
+  API contract, migration, posting rule, source business data, dependency or
+  feature stylesheet changed in this parity review.
+- Formatted the Receipt directory and its list regression test to repository
+  standards. Focused Receipt UI rerun passed 32/32; the Payment/Receipt comparison
+  baseline passed 54/54; targeted persisted Payment/Receipt integration passed
+  20/20. After the single-Details refinement, the focused Receipt UI rerun again
+  passed 32/32. Scoped ESLint/Prettier, TypeScript checking and the production
+  Next.js build passed. Lifecycle Playwright was not run because no explicitly
+  isolated synthetic harness was started; the suite performs financial mutations
+  and must not be pointed at the shared/source API.
+- Safe next surface: Bank Transfer. Reuse Bank Payments' accepted visual and
+  interaction structure, but first inspect the existing transfer contracts,
+  persistence and posting semantics. Do not infer that Receipt completion makes
+  a prototype transfer action financially live.
+
+## 2026-10-22 — production Bank Transfer and Currency Master
+
+- Bank Transfer now uses versioned contracts and the independent API service from
+  repository through live directory, screenshot-aligned multi-line entry and
+  persisted detail. It supports same-company Bank Account movements, governed
+  effective-dated cross-currency rates, explicit approval, separate posting,
+  compensating reversal, idempotency, audit evidence and optimistic concurrency.
+- The Transfer grid keeps exactly one Details control per line and displays the
+  linked source Bank control nominal. Narrow layouts scroll locally rather than
+  compressing the accounting fields. The former fixture Transfer list/form/detail
+  fallbacks are no longer routed for this surface.
+- Finance navigation now exposes Currencies & Transfer FX. The immutable global
+  catalog contains 20 major currencies; tenant adoption remains explicit. The
+  live screen manages currency status, effective-dated rates and company FX gain,
+  loss, rounding and bank-charge nominal policy through the API. No source tenant
+  is auto-enrolled and no role receives the new permissions automatically.
+- Additive schema heads are Platform 10, Security 17 and Finance 26. Payment,
+  Receipt and Finance posting rate lookup now ignores inactive or superseded rate
+  revisions. No feature CSS or dependency was added.
+- Transfer entry now includes the same governed Project, Location / City and
+  assigned Approver controls used by Bank Payments and Receipts. Persisted detail
+  exposes assignment evidence and supports versioned approver reassignment with
+  the immutable timeline retained. The directory uses bounded cursor pagination.
+- Currency Master now exposes immutable rate correction: the operator supplies a
+  replacement quote and reason, the previous active revision becomes superseded,
+  and status changes require an explicit reason. Transfer/FX policy continues to
+  select only live, posting-capable Chart of Accounts nominals.
+- Fresh disposable PostgreSQL tests now execute the complete Transfer lifecycle
+  (create, submit, independent approve, explicit post and compensating reversal)
+  and the Currency lifecycle (catalog adoption, rate creation/correction and FX
+  policy creation). Separate database-security suites assert forced RLS,
+  immutable evidence triggers, lifecycle guards and the explicit permission
+  catalog. The Transfer test exposed and fixed persisted numeric scale
+  normalization before journal posting.
+- Browser acceptance for the 390px directory and screenshot-aligned entry is now
+  encoded in `tests/e2e/bank-transfers.spec.ts`; execution remains environment-
+  gated by the existing synthetic Banking credentials.
+- Repository completion evidence for this follow-up: full unit 480/480,
+  contracts 12/12, fresh migrations plus Transfer/Currency disposable-database
+  lifecycles 15/15, and database-enabled security 46/46 after excluding the
+  fiscal-calendar suite that explicitly requires its own named isolated fixture.
+  Generated API consistency, full TypeScript checking, scoped lint, the
+  production Next.js build and whitespace validation also passed. The Transfer
+  Playwright scenario compiles and enumerates successfully; its live execution is
+  credential-gated.
+- Deployment-only work remains intentionally external: apply migrations to the
+  selected target, assign permissions to approved roles, deliberately adopt each
+  tenant currency, configure company nominals/policy and run the credential-gated
+  browser acceptance against that isolated environment. No shared or live tenant
+  was mutated by this batch.
+
+## 2026-10-23 — BR-08 live Bank Statement Import
+
+- Replaced the routed Import Statement prototype with a responsive Tailwind and
+  shadcn screen backed exclusively by the versioned Banking API. The screen now
+  loads permitted companies, Bank Accounts, saved mapping profiles and server
+  limits; uploads bounded CSV/XLSX files; downloads sample templates; restores a
+  persisted import after refresh; and previews up to 1,000 server-parsed rows.
+- Native-bank mapping supports CSV/Excel format options, header/date/amount
+  conventions, all supported column bindings and optional profile persistence.
+  Per-row inclusion, exclusion reasons, duplicate disposition, validation issues
+  and aggregate counts remain server authoritative and version guarded.
+- Validation and finalization use CSRF-protected, idempotent API mutations.
+  Finalization is permission gated, disabled during read-only impersonation and
+  explicitly stages included rows for reconciliation without posting the ledger.
+  The statement import ID and Bank Account ID are retained in the reconciliation
+  route so the live BR-10 workspace can consume the exact finalized source.
+- Preserved the existing shell, fixture reconciliation register and unrelated
+  Banking views. No stylesheet, dependency, database migration, deployment or
+  production data change was introduced.
+- Verification: focused UI/routing/client/contract/parser/mapping/service tests
+  passed 44/44; full TypeScript checking, targeted ESLint and Prettier, production
+  Next.js build and `git diff --check` passed.
+- Safe resume point: BR-09. Replace the fixture statement history/register with
+  the bounded live import directory and persisted detail while retaining the new
+  BR-08 import route and avoiding any BR-10 reconciliation-workspace redesign.
+
+## 2026-10-23 — BR-09 live statement and reconciliation register
+
+- The routed Bank Statement now loads permitted companies and Bank Accounts,
+  bounded finalized-import history and the selected persisted statement rows
+  through the Banking API. It retains account/import/date/search controls,
+  currency-aware totals, empty/error/permission states and cursor-bounded import
+  history. Starting reconciliation preserves the selected finalized import ID.
+- The reconciliation register now uses the live bounded directory with company,
+  Bank Account, lifecycle, method, statement-date and search filters. It renders
+  Draft, In progress, Waiting for approval and Approved consistently, aggregates
+  loaded open items/differences by currency, and navigates with persisted IDs.
+- Live routes import the new statement implementation directly; the legacy
+  fixture statement module and fixture data remain untouched and unrouted after
+  usage verification. Reconciliation worksheet/detail replacement is deliberately
+  deferred to BR-10.
+- Focused BR-08/BR-09 UI and route regression tests passed 13/13; targeted ESLint
+  and Prettier passed. Safe resume point:
+  BR-10 live matching workspace and persisted reconciliation detail.
+
+## 2026-10-23 — BR-10 live reconciliation and matching workspace
+
+- New and persisted reconciliation routes now use the versioned Banking API.
+  Creation retains the finalized import/Bank Account route context, captures the
+  statement period and balances, and opens the server-issued aggregate ID.
+- The persisted workspace renders authoritative statement rows and posted Bank
+  ledger candidates side by side. It exposes deterministic suggestion refresh,
+  suggestion confirmation/rejection, explicit manual matching and reasoned
+  unmatch operations with CSRF, idempotency and optimistic versions preserved.
+- Server-returned statement, ledger, adjusted-ledger and difference balances are
+  displayed without client-side accounting reconstruction. Submission is gated
+  on zero difference and no unmatched statement lines; approval remains a
+  separate server transition with independent-approver/audited-override guidance.
+- Bank-only adjustment creation uses the selected statement line's immutable
+  amount and a company nominal. Draft submission, independent decision, explicit
+  Finance posting and compensating reversal remain distinct permission-gated
+  actions. Approval alone never posts a journal.
+- Legacy prototype fixtures are isolated behind explicitly named legacy modules;
+  live shell routes import the API-backed statement/register/workspace directly.
+  Focused workspace tests passed 5/5 and the reconciliation boundary, matching
+  and adjustment regression set passed 14/14. Safe resume point: BR-11 isolated
+  security and browser acceptance harness.
+
+## 2026-10-23 — BR-11/BR-12 acceptance and controlled UAT cutover
+
+- Added a fully isolated localhost acceptance harness for CSV and XLSX import,
+  persisted refresh, mapping reuse, reconciliation matching, zero-difference
+  submission and independent approval. Every run creates and removes only its
+  validated random PostgreSQL database and MinIO namespace; Railway and the
+  shared local database are untouched.
+- Added governed, rerunnable Shoaib UAT provisioning. Two distinct tenant Security
+  administrators create and approve one company-scoped overlay containing the 19
+  new Banking permissions. Shoaib's existing tenant-scoped Super Administrator
+  override is verified separately and is never copied into the overlay or added
+  to a shared role.
+- Added `docs/runbooks/bank-statement-reconciliation-operations.md` for parser
+  limits, immutable-object retention, cleanup monitoring, readiness, workflow
+  monitoring and safe resume. Automated provisioning creates no financial or
+  synthetic statement data.
+
+## 2026-10-23 — Manual reconciliation and imported ending-balance evidence
+
+- Extended the live reconciliation workspace with separate reconciliation and
+  statement-ending dates, server-derived opening balances, searchable manual
+  transaction selection, available/selected receipt and payment totals,
+  calculated balance, difference and governed submission for approval.
+- Manual selections now use the authenticated, CSRF-protected, idempotent and
+  version-guarded Banking API. Selection evidence and current state are stored
+  company-scoped; approved reconciliations remain immutable and require an
+  independent approver unless the existing audited Super Admin override applies.
+- CSV and XLSX mapping profiles may optionally map a running-balance column. The
+  latest eligible imported balance/date is retained as statement evidence and
+  offered to the reconciliation form. PDF extraction remains intentionally out
+  of scope because no reliable parser is configured.
+- No feature stylesheet was added or retired. The screen uses Tailwind and the
+  existing shadcn `Button`, `Input`, `Checkbox`, `Badge` and `Alert` primitives.
+- The Reconciliation register, create route and persisted detail route now use
+  only the API-backed components. The shell no longer falls back to fixture
+  records and identifies the page as `backend connected`.
+- Finance 0029 was applied to the explicitly approved localhost UAT database
+  `nexora_source_test` at `127.0.0.1:55433`. A migration compatibility defect
+  was corrected by defining the shared company-actor guard before the new
+  manual-selection triggers. An immediate rerun made no changes.
+- Focused routing, UI, API, readiness and migration tests passed 51/51; type
+  checking, API contract synchronization, the API build and the production web
+  build passed. The database-backed financial integration suite remains gated
+  until it can use its disposable database harness or synthetic-data mutation
+  is explicitly approved for a target.
+- Safe resume point: complete authenticated browser UAT on localhost and, with
+  an approved disposable database, run the reconciliation database security and
+  integration suites.
+- Live routes have no silent fixture fallback. The older statement and worksheet
+  modules remain only as explicit compatibility proxies while unrelated Banking
+  prototype surfaces still import shared legacy models; retire those fixtures in
+  a separate selector/import-verified cleanup batch.
+- BR-01 through BR-12 are implemented. The approved localhost target now reports
+  Security 18, Finance 29 and Platform 10. No Railway deployment, production
+  migration or provisioning rerun was performed in this cutover batch.
+
+## 2026-10-23 — Live Import Statement work page and form alignment
+
+- The base Import Statement route now renders a company-scoped, API-backed work
+  page with Bank and Reference filters, bounded page sizes, cursor navigation,
+  selection controls, persisted status and detail navigation. `Add New` opens a
+  separate upload route; server-issued import IDs reopen persisted review.
+- Directory rows now expose nullable From/To dates calculated by PostgreSQL from
+  eligible existing statement lines. The contract, OpenAPI document and generated
+  browser client were updated together; no schema migration was required.
+- The upload form now follows the approved ERP reference with a compact Search
+  panel, Bank/Date/File/template/upload flow, separate statement reference and a
+  visible empty transaction table before upload. Single-company sessions remain
+  automatically scoped without an unnecessary selector.
+- CSV/XLSX security limits, native-bank mappings, row inclusion and duplicate
+  decisions, CSRF, idempotency, optimistic versions, audit history, immutable
+  finalization and reconciliation-only posting semantics were preserved. Audited
+  imports have no delete action.
+- Safe resume point: authenticated localhost visual UAT of the work page and
+  upload/review form. Database-mutating integration coverage still requires the
+  repository's disposable database harness or a separately approved target.
+
+## 2026-10-26 — FXR-05 company currency work page and setup
+
+- Finance Currencies and Configuration / Company, Fiscal & Currency now route
+  to one company-scoped, API-backed workspace. The screen uses bounded search,
+  status filtering, pagination, rate history and the approved country/base/FX
+  table layout; no fixture fallback is used.
+- The Add New form uses the shared searchable selector, automatically chooses a
+  country's primary currency, exposes alternate legal mappings, and labels the
+  rate direction explicitly as `1 FX = X BASE` with an effective date.
+- Companies without a financial currency profile can configure their mandatory
+  base currency before posting. The UI treats an existing profile as read-only;
+  database/service locks remain authoritative after financial activity.
+- Existing Bank Transfer FX policy editing remains available in a separate
+  permission-gated panel. No feature stylesheet was added or retired; the work
+  page uses Tailwind and shared shadcn primitives.
+- Safe resume point: FXR-06 revaluation preview and draft authority. The new
+  generated client methods become live when FXR-09 registers authenticated
+  production routes; no persistent database migration or deployment occurred.
+
+## 2026-10-26 — FXR-10 live Bank Revaluation work page and form
+
+- Bank / Revaluation now routes directly to a company-scoped, API-backed work
+  page. Currency, bank, lifecycle, date and reference filters use bounded API
+  queries; cursor pagination, persisted vouchers and reversal state replace the
+  generic prototype transaction form.
+- The screenshot-aligned form loads active company currencies, performs a
+  read-only authoritative Apply preview and displays rate evidence, effective
+  date, bank-account calculations and base-currency totals. Save creates or
+  updates a draft only.
+- Persisted records survive deep links and expose permission/state-appropriate
+  submit, approve/reject, post and reversal controls. Every mutation reloads the
+  authoritative detail and immutable audit events; posted journal and scheduled
+  reversal evidence are visible and no deletion action is exposed.
+- Same-maker approval is explicitly identified as requiring the server's
+  audited Super Admin override. All financial mutation controls are disabled
+  during impersonation. No feature stylesheet was added or retired.
+- Drafts now select from a bounded company-scoped directory of currently
+  eligible approvers. The selected approver is persisted before submission and
+  revalidated by the server; revoked or cross-company authority fails closed.
+- Focused workspace and shell tests passed 5/5, the full TypeScript check and
+  production web build passed, and the focused new files pass ESLint. Existing
+  unrelated accessibility lint findings remain in `prototype-content.tsx`.
+- Safe resume point: FXR-11 reporting integration and full security/regression
+  acceptance. No persistent database migration, deployment or commit occurred.
+
+## 2026-10-26 - FXR-11/FXR-12 acceptance and controlled UAT handoff
+
+- Verified the reporting boundary consumes posted base-currency journal
+  amounts and includes Revaluation/reversal journals in their posting periods.
+  Full focused FXR, migration, database-security, contract, type-check and
+  production-build gates passed against disposable databases.
+- Added governed, rerunnable Bank Revaluation UAT provisioning. Two distinct
+  Security administrators create and approve one company-scoped overlay with
+  the 15 FXR permissions; Shoaib's existing tenant-wide override is verified
+  separately and is never copied into the overlay.
+- The provisioning regression proves reruns create no duplicate role,
+  assignment, version or audit event and no rate, Bank Account, Revaluation,
+  journal or accounting event. The new operations runbook documents cutover,
+  worker monitoring and safe recovery.
+- All FXR engineering tasks are complete. Safe resume point: obtain explicit
+  approval of the exact localhost database host, port, name, user, tenant,
+  company, Security maker, Security checker and Shoaib IDs; then apply Platform
+  11, Security 19 and Finance 30 and run the governed provisioning command.
+  No persistent database migration, deployment or commit occurred.
+- Isolated browser acceptance now passes with three distinct authenticated
+  actors through preview, draft, submit, independent approval, post and reload.
+  Its random database, bucket and temporary web directory are removed after
+  each run.
+
+## 2026-10-26 - Banking 1Bill catalogue removal
+
+- Removed the unused `one-bill` / `1Bill` entry from the Banking & Treasury
+  navigation catalogue. There was no dedicated component, API or database
+  behavior behind the generic prototype entry, so no live Banking workflow was
+  changed or deleted.
+- Synchronized the committed prototype manifest and reduced its page count by
+  one. Bank Payments, Receipts, Transfers, Reconciliation, Import Statement and
+  Revaluation remain unchanged.
+- The existing catalogue generator cannot currently execute because it still
+  imports obsolete root-level HR files. Safe resume point: repair those stale
+  generator imports separately before relying on `catalogue:generate`; do not
+  reintroduce the removed 1Bill entry.

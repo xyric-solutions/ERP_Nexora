@@ -1,4 +1,5 @@
 "use client";
+import { BankWorkflowControls, emptyBankWorkflowSelection } from "../components/bank-workflow-controls";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -14,9 +15,15 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/shared/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
+import { useActionFeedback } from "@/shared/ui/action-feedback";
+import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warning";
+import { BankEntryActions } from "../components/bank-entry-actions";
+import { bankPeriodFailure } from "../components/bank-period-failure";
+import { BankNominalAvailability } from "../components/bank-nominal-availability";
 import { BankingApiClient } from "../api/banking-client";
 
 type NominalAccount = BankReceiptNominalAccountDirectory["items"][number];
@@ -28,9 +35,8 @@ interface EditableLine {
   externalReference: string;
   documentReference: string;
   receiptMethod: BankReceiptMethod | "";
-  payerName: string;
+  details: string;
   nominalAccountId: string;
-  narration: string;
   amount: string;
   dimensions: Record<string, string>;
 }
@@ -54,6 +60,7 @@ export interface BankingReceiptEntryProps {
   receiptId?: string;
   onBack?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
+  onReviewNominals?: () => void;
   onNavigate?: (
     pageId: "bank-receipts" | "add-bank-receipt" | "transaction-detail",
     receiptId?: string,
@@ -93,9 +100,8 @@ function newLine(documentDate = today()): EditableLine {
     externalReference: "",
     documentReference: "",
     receiptMethod: "",
-    payerName: "",
+    details: "",
     nominalAccountId: "",
-    narration: "",
     amount: "",
     dimensions: {},
   };
@@ -118,7 +124,8 @@ function displayAmount(units: bigint): string {
 function failure(error: unknown): FailureState {
   if (error instanceof ApiError) {
     const suffix = error.correlationId ? ` Reference: ${error.correlationId}` : "";
-    if (error.status === 409) return { kind: "conflict", message: `${error.message}${suffix}` };
+    if (error.status === 409 && /VERSION|CONCURRENT|NOT_EDITABLE/.test(error.code))
+      return { kind: "conflict", message: `${error.message}${suffix}` };
     if (error.status === 401 || error.status === 403) return { kind: "denied", message: `${error.message}${suffix}` };
     return { kind: "error", message: `${error.message}${suffix}` };
   }
@@ -171,11 +178,8 @@ function validate(
     const current: Record<string, string> = {};
     if (!validIsoDate(line.documentDate)) current.documentDate = "Document date must be valid.";
     if (!line.receiptMethod) current.receiptMethod = "Receipt method is required.";
-    if (!line.payerName.trim()) current.payerName = "Received from is required.";
+    if (!line.details.trim()) current.details = "Details are required.";
     if (!line.nominalAccountId) current.nominalAccountId = "Nominal account is required.";
-    if (line.narration.trim() && line.narration.trim().length < 3) {
-      current.narration = "Narration must be empty or contain at least 3 characters.";
-    }
     const amount = decimalUnits(line.amount);
     if (amount === null || amount <= 0n) current.amount = "Amount must be a positive decimal with at most 8 places.";
     const nominal = nominalAccounts.find((account) => account.id === line.nominalAccountId);
@@ -197,9 +201,8 @@ function editableFromDetail(detail: BankReceiptDetail): EditableLine[] {
     externalReference: line.external_reference ?? "",
     documentReference: line.document_reference ?? "",
     receiptMethod: line.receipt_method,
-    payerName: line.payer_name,
+    details: line.narration?.trim() || line.payer_name,
     nominalAccountId: line.nominal_account_id,
-    narration: line.narration ?? "",
     amount: line.amount,
     dimensions: { ...line.dimensions },
   }));
@@ -237,8 +240,15 @@ function directoryFallbacks(detail: BankReceiptDetail): {
   };
 }
 
-export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNavigate }: BankingReceiptEntryProps) {
+export function BankingReceiptEntry({
+  receiptId,
+  onBack,
+  onDirtyChange,
+  onNavigate,
+  onReviewNominals,
+}: BankingReceiptEntryProps) {
   const { api, session, loading: sessionLoading, csrfToken } = useSession();
+  const notify = useActionFeedback();
   const client = useMemo(() => new BankingApiClient(api), [api]);
   const permissions = session?.user.permissions ?? [];
   const canRead = permissions.includes("banking.receipt.read");
@@ -251,9 +261,23 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
   const [companyId, setCompanyId] = useState("");
   const [bankAccounts, setBankAccounts] = useState<BankAccountOption[]>([]);
   const [nominalAccounts, setNominalAccounts] = useState<NominalAccount[]>([]);
+  const [nominalAvailability, setNominalAvailability] = useState<
+    BankReceiptNominalAccountDirectory["availability"] | null
+  >(null);
+  const [nominalSearch, setNominalSearch] = useState("");
+  const [nominalSearching, setNominalSearching] = useState(false);
+  const lastNominalSearch = useRef("");
   const [bankAccountId, setBankAccountId] = useState("");
   const [postingDate, setPostingDate] = useState(today);
   const [valueDate, setValueDate] = useState("");
+  const [workflow, setWorkflow] = useState(emptyBankWorkflowSelection);
+  const [selectedSelfApproval, setSelectedSelfApproval] = useState(false);
+  const globalApproval =
+    Boolean(session?.user.roles.includes("super_administrator")) && permissions.includes("platform.approval.override");
+  const canApproveAndClose =
+    permissions.includes("banking.receipt.approve") &&
+    canSubmit &&
+    (globalApproval || (selectedSelfApproval && workflow.approver_user_id === session?.user.id));
   const [lines, setLines] = useState<EditableLine[]>(() => [newLine()]);
   const [persistedId, setPersistedId] = useState("");
   const [loadedReceiptId, setLoadedReceiptId] = useState<string | null>(null);
@@ -274,6 +298,8 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
   const createRetry = useRef<RetryAttempt | null>(null);
   const updateRetry = useRef<RetryAttempt | null>(null);
   const submitRetry = useRef<RetryAttempt | null>(null);
+  const approveRetry = useRef<RetryAttempt | null>(null);
+  const operationLock = useRef(false);
   const persistedIdRef = useRef("");
   const loadedReceiptIdRef = useRef<string | null>(null);
   const pageRequest = useRef(0);
@@ -282,6 +308,7 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
     createRetry.current = null;
     updateRetry.current = null;
     submitRetry.current = null;
+    approveRetry.current = null;
   }, []);
 
   const resetReceipt = useCallback(() => {
@@ -295,9 +322,11 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
     setBankAccountId("");
     setPostingDate(today());
     setValueDate("");
+    setWorkflow(emptyBankWorkflowSelection);
     setLines([newLine()]);
     setBankAccounts([]);
     setNominalAccounts([]);
+    setNominalAvailability(null);
     setDirectoriesCompanyId("");
     setDirty(false);
     setShowValidation(false);
@@ -379,9 +408,15 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
         setBankAccountId(detail.bank_account_id);
         setPostingDate(detail.posting_date);
         setValueDate(detail.value_date ?? "");
+        setWorkflow({
+          project_id: detail.project_id ?? "",
+          location_id: detail.location_id ?? "",
+          approver_user_id: detail.approver_user_id ?? "",
+        });
         setLines(editableFromDetail(detail));
         setBankAccounts(banks);
         setNominalAccounts(nominals);
+        setNominalAvailability(nominalDirectory.availability ?? null);
         setDirectoriesCompanyId(detail.company_id);
       } else {
         resetReceipt();
@@ -432,6 +467,7 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
             );
             return [...persisted, ...nominalDirectory.items];
           });
+          setNominalAvailability(nominalDirectory.availability ?? null);
           setBankAccountId((current) => current || options.bank_accounts[0]?.id || "");
           setDirectoriesCompanyId(companyId);
         })
@@ -439,6 +475,7 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
           if (!active) return;
           setBankAccounts([]);
           setNominalAccounts([]);
+          setNominalAvailability(null);
           setDirectoryFailure(failure(caught));
         })
         .finally(() => {
@@ -452,13 +489,67 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
   }, [canRead, client, companyId, directoriesCompanyId, session]);
 
   const selectedBank = bankAccounts.find((account) => account.id === bankAccountId);
+  const selectedNominalIds = lines
+    .map((line) => line.nominalAccountId)
+    .filter(Boolean)
+    .join("|");
+  useEffect(() => {
+    if (!session || !canRead || !companyId || directoriesCompanyId !== companyId) return;
+    if (!nominalSearch && !lastNominalSearch.current) return;
+    let active = true;
+    const timer = window.setTimeout(() => {
+      lastNominalSearch.current = nominalSearch;
+      setNominalSearching(true);
+      setDirectoryFailure(null);
+      client
+        .receiptNominalAccounts({ company_id: companyId, search: nominalSearch.trim(), limit: 100 })
+        .then((result) => {
+          if (!active) return;
+          setNominalAvailability(result.availability ?? null);
+          const selected = new Set(selectedNominalIds.split("|"));
+          setNominalAccounts((current) => [
+            ...current.filter((item) => selected.has(item.id) && !result.items.some((found) => found.id === item.id)),
+            ...result.items,
+          ]);
+        })
+        .catch((caught) => {
+          if (!active) return;
+          const selected = new Set(selectedNominalIds.split("|"));
+          setNominalAccounts((current) => current.filter((item) => selected.has(item.id)));
+          setNominalAvailability(null);
+          setDirectoryFailure(failure(caught));
+        })
+        .finally(() => {
+          if (active) setNominalSearching(false);
+        });
+    }, 250);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [session, canRead, companyId, directoriesCompanyId, client, nominalSearch, selectedNominalIds]);
   const nominalById = useMemo(
     () => new Map(nominalAccounts.map((account) => [account.id, account])),
     [nominalAccounts],
   );
   const validation = useMemo(
-    () => validate(companyId, bankAccountId, postingDate, valueDate, lines, nominalAccounts),
-    [bankAccountId, companyId, lines, nominalAccounts, postingDate, valueDate],
+    () =>
+      validate(
+        companyId,
+        bankAccountId,
+        postingDate,
+        valueDate,
+        lines.map((line) => ({
+          ...line,
+          dimensions: {
+            ...line.dimensions,
+            ...(workflow.project_id ? { project: workflow.project_id } : {}),
+            ...(workflow.location_id ? { location: workflow.location_id } : {}),
+          },
+        })),
+        nominalAccounts,
+      ),
+    [bankAccountId, companyId, lines, nominalAccounts, postingDate, valueDate, workflow],
   );
   const totalUnits = useMemo(
     () => lines.reduce((total, line) => total + (decimalUnits(line.amount) ?? 0n), 0n),
@@ -474,9 +565,9 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
         external_reference: line.externalReference.trim() || null,
         document_reference: line.documentReference.trim() || null,
         receipt_method: line.receiptMethod as BankReceiptMethod,
-        payer_name: line.payerName.trim(),
+        payer_name: line.details.trim(),
         nominal_account_id: line.nominalAccountId,
-        narration: line.narration.trim() || null,
+        narration: line.details.trim(),
         amount: line.amount.trim(),
         dimensions: Object.fromEntries(
           Object.entries(line.dimensions)
@@ -496,6 +587,9 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
         bank_account_id: bankAccountId,
         posting_date: postingDate,
         value_date: valueDate || null,
+        project_id: workflow.project_id || null,
+        location_id: workflow.location_id || null,
+        approver_user_id: workflow.approver_user_id || null,
         lines: payloadLines(),
       };
       const attempt = keyFor(updateRetry.current, "update", payload);
@@ -506,6 +600,7 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
       setVersion(result.version);
       setState(result.state);
       setDirty(false);
+      notify("Bank Receipt updated successfully.");
       return result;
     }
     const payload: CreateBankReceiptRequest = {
@@ -513,6 +608,9 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
       bank_account_id: bankAccountId,
       posting_date: postingDate,
       value_date: valueDate || null,
+      project_id: workflow.project_id || null,
+      location_id: workflow.location_id || null,
+      approver_user_id: workflow.approver_user_id || null,
       lines: payloadLines(),
     };
     const attempt = keyFor(createRetry.current, "create", payload);
@@ -529,15 +627,18 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
     setDirty(false);
     setPageReady(true);
     onDirtyChange?.(false);
+    notify("Bank Receipt created successfully.");
     onNavigate?.("add-bank-receipt", result.id, { replace: true });
     return result;
   }, [
     bankAccountId,
+    workflow,
     client,
     companyId,
     csrfToken,
     onNavigate,
     onDirtyChange,
+    notify,
     payloadLines,
     persistedId,
     postingDate,
@@ -546,10 +647,12 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
   ]);
 
   async function save() {
+    if (operationLock.current || !editable || (persistedId ? !canUpdate : !canCreate)) return;
     setShowValidation(true);
     setRequestFailure(null);
     setSuccess("");
     if (validation.issues.length > 0) return;
+    operationLock.current = true;
     setBusy(true);
     try {
       const result = await persistDraft();
@@ -558,36 +661,84 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
     } catch (caught) {
       setRequestFailure(failure(caught));
     } finally {
+      operationLock.current = false;
       setBusy(false);
     }
   }
 
-  async function submit() {
+  async function submit(approveAndClose = false) {
+    if (operationLock.current || readOnlySession || !canSubmit) return;
+    if (approveAndClose && !canApproveAndClose) return;
+    if (state !== "draft" && !(approveAndClose && state === "submitted")) return;
+    if (state === "draft" && (persistedId ? dirty && !canUpdate : !canCreate)) return;
     setShowValidation(true);
     setRequestFailure(null);
     setSuccess("");
-    if (validation.issues.length > 0) return;
+    if (state === "draft" && validation.issues.length > 0) return;
+    operationLock.current = true;
     setBusy(true);
+    let draftReference = reference;
     try {
-      const saved = dirty || !persistedId ? await persistDraft() : null;
+      const saved = state === "draft" && (dirty || !persistedId) ? await persistDraft() : null;
+      draftReference = saved?.reference ?? reference;
       const id = saved?.id ?? persistedId;
       const expectedVersion = saved?.version ?? version;
       if (!id || expectedVersion === null) throw new Error("Persisted draft identity is unavailable");
       const payload = { expected_version: expectedVersion };
       const attempt = keyFor(submitRetry.current, "submit", payload);
       submitRetry.current = attempt;
-      const result = await client.submitReceipt(id, payload, csrfToken(), attempt.key);
+      const result =
+        state === "submitted"
+          ? { id, reference, state, version: expectedVersion }
+          : await client.submitReceipt(id, payload, csrfToken(), attempt.key);
       submitRetry.current = null;
       setVersion(result.version);
       setState(result.state);
       setDirty(false);
       setShowValidation(false);
-      setSuccess(`${result.reference} submitted for independent approval.`);
+      setSuccess(`${result.reference} is submitted. Approval and posting are separate actions.`);
+      if (state !== "submitted") notify("Bank Receipt submitted for approval successfully.");
       onDirtyChange?.(false);
+      if (approveAndClose) {
+        const detail = await client.receipt(id);
+        // Read authoritative eligibility; a lost approval response may already have committed.
+        if (detail.state !== "approved") {
+          if (
+            detail.state !== "submitted" ||
+            (detail.self_decision_requires_override &&
+              !detail.super_admin_override_allowed &&
+              !detail.delegated_self_approval_allowed)
+          ) {
+            setRequestFailure({
+              kind: "denied",
+              message:
+                "The transaction is saved, but approval is not available to this session. Review its detail with an authorized checker.",
+            });
+            return;
+          }
+          const decision = { action: "approve" as const, expected_version: detail.version };
+          const approvalAttempt = keyFor(approveRetry.current, "approve", decision);
+          approveRetry.current = approvalAttempt;
+          const approved = await client.decideReceipt(id, decision, csrfToken(), approvalAttempt.key);
+          setVersion(approved.version);
+          setState(approved.state);
+        } else {
+          setVersion(detail.version);
+          setState(detail.state);
+        }
+        approveRetry.current = null;
+        setSuccess(`${result.reference} approved successfully. It has not been posted by this action.`);
+        notify("Bank Receipt approved successfully.");
+        if (onBack) onBack();
+        else onNavigate?.("bank-receipts");
+        return;
+      }
       onNavigate?.("transaction-detail", result.id);
     } catch (caught) {
-      setRequestFailure(failure(caught));
+      const periodMessage = bankPeriodFailure(caught, draftReference);
+      setRequestFailure(periodMessage ? { kind: "error", message: periodMessage } : failure(caught));
     } finally {
+      operationLock.current = false;
       setBusy(false);
     }
   }
@@ -656,8 +807,8 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
           <p className="text-xs font-bold uppercase tracking-wider text-primary">Money in · Batch entry</p>
           <h1 className="mt-1 text-xl font-semibold">Add Bank Receipt</h1>
           <p className="mt-1 max-w-prose text-xs leading-relaxed text-muted-foreground">
-            Enter one or more incoming-fund lines for a single Bank Account, review the accounting preview, then submit the
-            persisted draft for independent approval.
+            Enter one or more incoming-fund lines for a single Bank Account, review the accounting preview, then submit
+            the persisted draft for independent approval.
           </p>
         </div>
         <Badge variant="outline" className="capitalize">
@@ -701,6 +852,22 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
         <Alert variant="destructive">
           <AlertTitle>Receipt options unavailable</AlertTitle>
           <AlertDescription>{directoryFailure.message}</AlertDescription>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2 w-fit"
+            disabled={directoriesLoading || nominalSearching || busy}
+            onClick={() => {
+              setDirectoryFailure(null);
+              setNominalSearch("");
+              lastNominalSearch.current = "";
+              setNominalSearching(false);
+              setDirectoriesCompanyId("");
+            }}
+          >
+            Retry account options
+          </Button>
         </Alert>
       ) : null}
       {!directoryFailure && companies.length === 0 ? (
@@ -715,13 +882,24 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
           <AlertDescription>This company has no active governed Bank Account available for receipts.</AlertDescription>
         </Alert>
       ) : null}
-      {!directoryFailure && companyId && !directoriesLoading && nominalAccounts.length === 0 ? (
-        <Alert>
-          <AlertTitle>No eligible nominal accounts</AlertTitle>
-          <AlertDescription>
-            This company has no active postable nominal account available for receipt lines.
-          </AlertDescription>
-        </Alert>
+      {!directoryFailure &&
+      companyId &&
+      directoriesCompanyId === companyId &&
+      !directoriesLoading &&
+      !nominalSearching ? (
+        <BankNominalAvailability
+          availability={nominalAvailability}
+          search={nominalSearch}
+          empty={nominalAccounts.length === 0}
+          canReview={permissions.includes("finance.nominal.read")}
+          onReview={onReviewNominals ? () => leave(onReviewNominals) : undefined}
+          onRefresh={() => {
+            setNominalAccounts((current) =>
+              current.filter((item) => lines.some((line) => line.nominalAccountId === item.id)),
+            );
+            setDirectoriesCompanyId("");
+          }}
+        />
       ) : null}
       {showValidation && validation.issues.length > 0 ? (
         <Alert variant="destructive">
@@ -745,36 +923,47 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
       ) : null}
 
       <section
-        className="grid grid-cols-4 gap-3 rounded-lg border border-border bg-muted/40 p-3.5 shadow-xs max-lg:grid-cols-2 max-sm:grid-cols-1"
+        className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-card p-4 shadow-xs max-sm:grid-cols-1"
         aria-label="Receipt controls"
       >
-        <Field label="Receipt reference" helper="Generated by the server after first save">
-          <Input readOnly value={reference || "Generated when saved"} aria-label="Receipt reference" />
-        </Field>
         <Field label="Company" helper="Authenticated company scope">
-          <select
-            aria-label="Company"
-            className={selectClass}
-            value={companyId}
-            disabled={busy || Boolean(persistedId)}
-            onChange={(event) =>
-              edit(() => {
-                setCompanyId(event.target.value);
-                setDirectoriesCompanyId("");
-                setBankAccountId("");
-                setBankAccounts([]);
-                setNominalAccounts([]);
-                setLines((current) => current.map((line) => ({ ...line, nominalAccountId: "", dimensions: {} })));
-              })
-            }
-          >
-            <option value="">Select company</option>
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.code} · {company.name}
-              </option>
-            ))}
-          </select>
+          {companies.length === 1 ? (
+            <p
+              className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
+              aria-label="Authenticated company"
+            >
+              {companies[0].code} · {companies[0].name}
+            </p>
+          ) : (
+            <select
+              aria-label="Company"
+              className={selectClass}
+              value={companyId}
+              disabled={busy || Boolean(persistedId)}
+              onChange={(event) =>
+                edit(() => {
+                  setCompanyId(event.target.value);
+                  setWorkflow(emptyBankWorkflowSelection);
+                  setNominalSearch("");
+                  lastNominalSearch.current = "";
+                  setNominalSearching(false);
+                  setDirectoriesCompanyId("");
+                  setBankAccountId("");
+                  setBankAccounts([]);
+                  setNominalAccounts([]);
+                  setNominalAvailability(null);
+                  setLines((current) => current.map((line) => ({ ...line, nominalAccountId: "", dimensions: {} })));
+                })
+              }
+            >
+              <option value="">Select company</option>
+              {companies.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.code} · {company.name}
+                </option>
+              ))}
+            </select>
+          )}
         </Field>
         <Field label="Posting date" helper="Controls the financial period">
           <Input
@@ -795,9 +984,9 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
             onChange={(event) => edit(() => setValueDate(event.target.value))}
           />
         </Field>
-        <div className="sm:col-span-2 lg:col-span-3">
+        <div className="col-span-full max-w-xl">
           <Field
-            label="Receive into"
+            label="Bank"
             helper={
               selectedBank
                 ? `${selectedBank.currency} · ${selectedBank.ledger_account_code} ${selectedBank.ledger_account_name}`
@@ -815,19 +1004,48 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
               <option value="">{directoriesLoading ? "Loading eligible accounts…" : "Select Bank Account"}</option>
               {bankAccounts.map((account) => (
                 <option key={account.id} value={account.id}>
-                  {account.account_name} · {account.bank_name} · {account.account_number_masked} · {account.currency}
+                  {[account.account_name, account.bank_name, account.account_number_masked, account.currency]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </option>
               ))}
             </select>
           </Field>
         </div>
-        <Field
-          label="Supporting document"
-          helper="Secure document upload, scanning and retention are not implemented yet"
-        >
-          <Input aria-label="Supporting document" disabled value="Attachment unavailable" />
-        </Field>
       </section>
+
+      <BankWorkflowControls
+        onSelfApprovalChange={setSelectedSelfApproval}
+        transaction="receipts"
+        company={companyId}
+        value={workflow}
+        disabled={!editable || busy}
+        onChange={(next) =>
+          edit(() => {
+            setWorkflow(next);
+            if (next.project_id !== workflow.project_id || next.location_id !== workflow.location_id)
+              setLines((current) =>
+                current.map((line) => ({
+                  ...line,
+                  dimensions: Object.fromEntries(
+                    Object.entries(line.dimensions).filter(([key]) => key !== "project" && key !== "location"),
+                  ),
+                })),
+              );
+          })
+        }
+      />
+      <details className="rounded-lg border border-border bg-card px-4 py-3">
+        <summary className="cursor-pointer text-sm font-medium focus-visible:outline-ring">Receipt reference</summary>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <Field label="Receipt reference" helper="Generated by the server after first save">
+            <Input readOnly value={reference || "Generated when saved"} aria-label="Receipt reference" />
+          </Field>
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Secure document upload, scanning and retention are not implemented yet.
+        </p>
+      </details>
 
       <section
         className="min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-xs"
@@ -843,16 +1061,23 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
           </p>
         </header>
         <div className="overflow-x-auto">
-          <table className="min-w-[1360px] w-full border-collapse text-xs">
+          <table className="w-full min-w-[1080px] table-fixed border-collapse text-xs">
+            <colgroup>
+              <col className="w-[12%]" />
+              <col className="w-[13%]" />
+              <col className="w-[13%]" />
+              <col className="w-[23%]" />
+              <col className="w-[24%]" />
+              <col className="w-[11%]" />
+              <col className="w-[4%]" />
+            </colgroup>
             <thead className="bg-primary text-primary-foreground">
               <tr>
-                {["Date", "External reference", "Document", "Method", "Received from", "Nominal account", "Narration", "Amount", ""].map(
-                  (heading) => (
-                    <th key={heading} className="px-2 py-2 text-left font-semibold last:w-10">
-                      {heading}
-                    </th>
-                  ),
-                )}
+                {["Date *", "Ref. No.", "Mode *", "Nominal Account *", "Details *", "Amount *", ""].map((heading) => (
+                  <th key={heading} scope="col" className="px-2 py-2 text-left font-semibold last:w-10">
+                    {heading || <span className="sr-only">Remove</span>}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -860,7 +1085,10 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
                 const lineError = validation.lineIssues[line.id] ?? {};
                 const nominal = nominalById.get(line.nominalAccountId);
                 return (
-                  <tr key={line.id} className="align-top [&>td]:border-b [&>td]:border-border [&>td]:p-2">
+                  <tr
+                    key={line.id}
+                    className="align-top [&>td]:border-b [&>td]:border-border [&>td]:p-2 [&_input]:h-10 [&_select]:h-10"
+                  >
                     <td>
                       <Input
                         aria-label={`Line ${index + 1} document date`}
@@ -882,15 +1110,6 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
                       />
                     </td>
                     <td>
-                      <Input
-                        aria-label={`Line ${index + 1} document reference`}
-                        maxLength={128}
-                        value={line.documentReference}
-                        disabled={!editable || busy}
-                        onChange={(event) => updateLine(line.id, { documentReference: event.target.value })}
-                      />
-                    </td>
-                    <td>
                       <select
                         aria-label={`Line ${index + 1} receipt method`}
                         className={selectClass}
@@ -909,63 +1128,77 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
                         ))}
                       </select>
                     </td>
-                    <td className="min-w-52">
-                      <Input
-                        aria-label={`Line ${index + 1} received from`}
-                        maxLength={200}
-                        value={line.payerName}
-                        disabled={!editable || busy}
-                        aria-invalid={showValidation && Boolean(lineError.payerName)}
-                        onChange={(event) => updateLine(line.id, { payerName: event.target.value })}
-                      />
-                    </td>
                     <td className="min-w-56">
-                      <select
-                        aria-label={`Line ${index + 1} nominal account`}
-                        className={selectClass}
+                      <SearchableSelect
+                        label={`Line ${index + 1} nominal account`}
                         value={line.nominalAccountId}
-                        disabled={!editable || busy || directoriesLoading}
-                        aria-invalid={showValidation && Boolean(lineError.nominalAccountId)}
-                        onChange={(event) =>
-                          updateLine(line.id, { nominalAccountId: event.target.value, dimensions: {} })
+                        options={nominalAccounts.map((account) => ({
+                          value: account.id,
+                          label: `${account.code} · ${account.name}`,
+                        }))}
+                        placeholder={
+                          directoriesLoading
+                            ? "Loading nominal accounts…"
+                            : directoryFailure
+                              ? "Nominal accounts unavailable"
+                              : "Select nominal account"
                         }
-                      >
-                        <option value="">Select account</option>
-                        {nominalAccounts.map((account) => (
-                          <option key={account.id} value={account.id}>
-                            {account.code} · {account.name}
-                          </option>
+                        disabled={!editable || busy || directoriesLoading || !!directoryFailure}
+                        loading={nominalSearching}
+                        invalid={showValidation && Boolean(lineError.nominalAccountId)}
+                        required
+                        searchLabel="Search nominal accounts"
+                        search={nominalSearch}
+                        onSearchChange={(next) => {
+                          if (next === nominalSearch) return;
+                          setNominalSearch(next);
+                          // Hide old results during debounce as well as the request.
+                          setNominalSearching(Boolean(next || lastNominalSearch.current));
+                        }}
+                        onValueChange={(value) => updateLine(line.id, { nominalAccountId: value, dimensions: {} })}
+                        footer={
+                          <p className="p-2 text-xs text-muted-foreground">
+                            Search by code or name. Up to 100 matches; saved selections are retained.
+                          </p>
+                        }
+                      />
+                      {nominal?.required_dimensions
+                        .filter((dimension) => dimension !== "project" && dimension !== "location")
+                        .map((dimension) => (
+                          <Input
+                            key={dimension}
+                            className="mt-2"
+                            aria-label={`Line ${index + 1} ${dimension}`}
+                            placeholder={dimension}
+                            maxLength={128}
+                            value={line.dimensions[dimension] ?? ""}
+                            disabled={!editable || busy}
+                            aria-invalid={showValidation && Boolean(lineError[`dimension:${dimension}`])}
+                            onChange={(event) =>
+                              updateLine(line.id, {
+                                dimensions: { ...line.dimensions, [dimension]: event.target.value },
+                              })
+                            }
+                          />
                         ))}
-                      </select>
-                      {nominal?.required_dimensions.map((dimension) => (
-                        <Input
-                          key={dimension}
-                          className="mt-2"
-                          aria-label={`Line ${index + 1} ${dimension}`}
-                          placeholder={dimension}
-                          maxLength={128}
-                          value={line.dimensions[dimension] ?? ""}
-                          disabled={!editable || busy}
-                          aria-invalid={showValidation && Boolean(lineError[`dimension:${dimension}`])}
-                          onChange={(event) =>
-                            updateLine(line.id, { dimensions: { ...line.dimensions, [dimension]: event.target.value } })
-                          }
-                        />
-                      ))}
                     </td>
                     <td className="min-w-64">
                       <Textarea
-                        aria-label={`Line ${index + 1} narration`}
-                        maxLength={500}
-                        value={line.narration}
+                        className="h-10 min-h-10 resize-y"
+                        rows={1}
+                        aria-label={`Line ${index + 1} details`}
+                        placeholder="Receipt details"
+                        maxLength={200}
+                        value={line.details}
                         disabled={!editable || busy}
-                        aria-invalid={showValidation && Boolean(lineError.narration)}
-                        onChange={(event) => updateLine(line.id, { narration: event.target.value })}
+                        aria-invalid={showValidation && Boolean(lineError.details)}
+                        onChange={(event) => updateLine(line.id, { details: event.target.value })}
                       />
                     </td>
                     <td className="min-w-32">
                       <Input
                         aria-label={`Line ${index + 1} amount`}
+                        className="text-right tabular-nums"
                         inputMode="decimal"
                         value={line.amount}
                         disabled={!editable || busy}
@@ -992,7 +1225,7 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
             </tbody>
             <tfoot className="bg-muted/50">
               <tr>
-                <th className="px-3 py-2 text-left" colSpan={7}>
+                <th scope="row" className="px-3 py-2 text-left" colSpan={5}>
                   Total
                 </th>
                 <td className="px-3 py-2 text-right font-semibold">
@@ -1022,87 +1255,94 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
         </span>
       </div>
 
-      <section
-        className="min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-xs"
-        aria-labelledby="journal-preview-heading"
-      >
-        <header className="border-b border-primary/30 bg-primary/10 px-4 py-3 shadow-[inset_4px_0_0_var(--color-primary)]">
-          <p className="text-xs font-bold uppercase tracking-wider text-primary">Accounting effect · Preview only</p>
-          <h2 id="journal-preview-heading" className="mt-1 text-sm font-bold">
-            Journal this receipt would post after approval
-          </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            The server-projected Bank Account ledger is debited; nominal accounts are credited. Saving or submitting
-            does not post this journal.
-          </p>
-        </header>
-        <table className="w-full border-collapse text-xs">
-          <thead className="bg-primary text-primary-foreground">
-            <tr>
-              <th className="px-3 py-2 text-left">Account</th>
-              <th className="px-3 py-2 text-right">Debit</th>
-              <th className="px-3 py-2 text-right">Credit</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lines.map((line, index) => {
-              const nominal = nominalById.get(line.nominalAccountId);
-              const units = decimalUnits(line.amount);
-              if (!nominal || units === null || units <= 0n) return null;
-              return (
-                <tr key={line.id} className="border-b border-border">
+      <details className="rounded-lg border border-border bg-card">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-medium focus-visible:outline-ring">
+          Accounting preview — no posting
+        </summary>
+        <section
+          className="min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-xs"
+          aria-labelledby="journal-preview-heading"
+        >
+          <header className="border-b border-primary/30 bg-primary/10 px-4 py-3 shadow-[inset_4px_0_0_var(--color-primary)]">
+            <p className="text-xs font-bold uppercase tracking-wider text-primary">Accounting effect · Preview only</p>
+            <h2 id="journal-preview-heading" className="mt-1 text-sm font-bold">
+              Journal this receipt would post after approval
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              The server-projected Bank Account ledger is debited; nominal accounts are credited. Saving or submitting
+              does not post this journal.
+            </p>
+          </header>
+          <table className="w-full border-collapse text-xs">
+            <thead className="bg-primary text-primary-foreground">
+              <tr>
+                <th className="px-3 py-2 text-left">Account</th>
+                <th className="px-3 py-2 text-right">Debit</th>
+                <th className="px-3 py-2 text-right">Credit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((line, index) => {
+                const nominal = nominalById.get(line.nominalAccountId);
+                const units = decimalUnits(line.amount);
+                if (!nominal || units === null || units <= 0n) return null;
+                return (
+                  <tr key={line.id} className="border-b border-border">
+                    <td className="px-3 py-2">
+                      <strong>{nominal.code}</strong>
+                      <span className="block text-muted-foreground">
+                        {nominal.name} · {line.details || `line ${index + 1}`}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right">—</td>
+                    <td className="px-3 py-2 text-right">
+                      {selectedBank?.currency ?? ""} {displayAmount(units)}
+                    </td>
+                  </tr>
+                );
+              })}
+              {totalUnits > 0n && selectedBank ? (
+                <tr className="border-b border-border">
                   <td className="px-3 py-2">
-                    <strong>{nominal.code}</strong>
+                    <strong>{selectedBank.ledger_account_code}</strong>
                     <span className="block text-muted-foreground">
-                      {nominal.name} · {line.payerName || `line ${index + 1}`}
+                      {selectedBank.ledger_account_name} · Bank Account control
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-right">—</td>
                   <td className="px-3 py-2 text-right">
-                    {selectedBank?.currency ?? ""} {displayAmount(units)}
+                    {selectedBank.currency} {displayAmount(totalUnits)}
+                  </td>
+                  <td className="px-3 py-2 text-right">—</td>
+                </tr>
+              ) : null}
+              {totalUnits <= 0n ? (
+                <tr>
+                  <td className="px-3 py-5 text-center text-muted-foreground" colSpan={3}>
+                    Enter a positive line amount to preview the journal.
                   </td>
                 </tr>
-              );
-            })}
-            {totalUnits > 0n && selectedBank ? (
-              <tr className="border-b border-border">
-                <td className="px-3 py-2">
-                  <strong>{selectedBank.ledger_account_code}</strong>
-                  <span className="block text-muted-foreground">
-                    {selectedBank.ledger_account_name} · Bank Account control
-                  </span>
+              ) : null}
+            </tbody>
+            <tfoot className="bg-muted/50 font-semibold">
+              <tr>
+                <th className="px-3 py-2 text-left">Preview totals</th>
+                <td className="px-3 py-2 text-right">
+                  {selectedBank?.currency ?? "—"} {displayAmount(totalUnits)}
                 </td>
                 <td className="px-3 py-2 text-right">
-                  {selectedBank.currency} {displayAmount(totalUnits)}
-                </td>
-                <td className="px-3 py-2 text-right">—</td>
-              </tr>
-            ) : null}
-            {totalUnits <= 0n ? (
-              <tr>
-                <td className="px-3 py-5 text-center text-muted-foreground" colSpan={3}>
-                  Enter a positive line amount to preview the journal.
+                  {selectedBank?.currency ?? "—"} {displayAmount(totalUnits)}
                 </td>
               </tr>
-            ) : null}
-          </tbody>
-          <tfoot className="bg-muted/50 font-semibold">
-            <tr>
-              <th className="px-3 py-2 text-left">Preview totals</th>
-              <td className="px-3 py-2 text-right">
-                {selectedBank?.currency ?? "—"} {displayAmount(totalUnits)}
-              </td>
-              <td className="px-3 py-2 text-right">
-                {selectedBank?.currency ?? "—"} {displayAmount(totalUnits)}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-        <p className="bg-amber-50 px-4 py-2 text-xs font-medium text-amber-900">
-          Preview only — Finance revalidates accounts, currency, rate, period and balance during explicit posting.
-        </p>
-      </section>
-
+            </tfoot>
+          </table>
+          <p className="bg-amber-50 px-4 py-2 text-xs font-medium text-amber-900">
+            Preview only — Finance revalidates accounts, currency, rate, period and balance during explicit posting.
+          </p>
+        </section>
+      </details>
+      {canApproveAndClose && globalApproval && !readOnlySession ? (
+        <SuperAdminOverrideWarning reasonRequired={false} />
+      ) : null}
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3.5">
         <Button
           variant="ghost"
@@ -1117,23 +1357,20 @@ export function BankingReceiptEntry({ receiptId, onBack, onDirtyChange, onNaviga
         >
           Cancel
         </Button>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            type="button"
-            disabled={!editable || busy || (persistedId ? !canUpdate : !canCreate)}
-            onClick={() => void save()}
-          >
-            {busy ? "Working…" : "Save Draft"}
-          </Button>
-          <Button
-            type="button"
-            disabled={!editable || busy || !canSubmit || (persistedId ? !canUpdate && dirty : !canCreate)}
-            onClick={() => void submit()}
-          >
-            {busy ? "Working…" : "Submit for Approval"}
-          </Button>
-        </div>
+        <BankEntryActions
+          busy={busy}
+          saveDisabled={!editable || (persistedId ? !canUpdate : !canCreate)}
+          submitDisabled={!editable || !canSubmit || (persistedId ? !canUpdate && dirty : !canCreate)}
+          showApproval={canApproveAndClose && !readOnlySession}
+          approveDisabled={
+            readOnlySession ||
+            !canApproveAndClose ||
+            (state !== "submitted" && (!editable || (persistedId ? !canUpdate && dirty : !canCreate)))
+          }
+          onSave={() => void save()}
+          onSubmit={() => void submit()}
+          onApprove={() => void submit(true)}
+        />
       </footer>
     </div>
   );

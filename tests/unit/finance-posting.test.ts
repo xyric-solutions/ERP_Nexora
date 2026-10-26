@@ -15,6 +15,7 @@ import type {
 import {
   FinancePostingError,
   createFinanceTransactionClient,
+  type FinanceMultiCurrencyPostCommand,
   type FinancePostCommand,
   type FinanceReverseCommand,
   type FinanceTransactionClient,
@@ -86,6 +87,48 @@ function reversalCommand(overrides: Partial<FinanceReverseCommand> = {}): Financ
   };
 }
 
+function multiCurrencyCommand(
+  overrides: Partial<FinanceMultiCurrencyPostCommand> = {},
+): FinanceMultiCurrencyPostCommand {
+  return {
+    tenantId: "tenant-a",
+    companyId: "company-a",
+    actorId: "actor-a",
+    postingDate: "2026-10-19",
+    sourceType: "banking.transfer",
+    sourceId: "transfer-a",
+    eventType: "bank_transfer.posted",
+    externalIdempotencyKey: "transfer-a-post",
+    transactionCurrency: "USD",
+    payloadHashMaterial: { transfer_version: 4 },
+    lines: [
+      {
+        accountId: "destination-bank",
+        debit: "28000.00",
+        credit: "0",
+        currency: "PKR",
+        exchangeRateId: "rate-pkr-usd",
+        exchangeRateValue: "0.003571428571428571",
+        exchangeRateDate: "2026-10-19",
+        dimensions: {},
+        description: "Destination Bank control",
+      },
+      {
+        accountId: "source-bank",
+        debit: "0",
+        credit: "100.00",
+        currency: "USD",
+        exchangeRateId: null,
+        exchangeRateValue: "1",
+        exchangeRateDate: null,
+        dimensions: {},
+        description: "Source Bank control",
+      },
+    ],
+    ...overrides,
+  };
+}
+
 function originalPosting(): {
   event: FinanceEventRow;
   journal: FinanceJournalRow;
@@ -152,6 +195,61 @@ function originalPosting(): {
   };
 }
 
+function originalMultiCurrencyPosting(): ReturnType<typeof originalPosting> {
+  const original = originalPosting();
+  original.event.source_type = "banking.transfer";
+  original.event.source_id = "transfer-a";
+  original.event.event_type = "bank_transfer.posted";
+  original.event.payload = {
+    operation: "post",
+    resolved: {
+      base_currency: "USD",
+      exchange_rate_id: null,
+      exchange_rate: "1.000000000000000000",
+      period_id: "period-original",
+      posting_date: "2026-10-18",
+      transaction_currency: "USD",
+      multi_currency: true,
+    },
+  };
+  original.lines = [
+    {
+      line_number: 1,
+      account_id: "foreign-bank",
+      debit: "200.00000000",
+      credit: "0.00000000",
+      currency: "EUR",
+      fx_rate: "1.250000000000000000",
+      base_debit: "250.00000000",
+      base_credit: "0.00000000",
+      dimensions: {},
+    },
+    {
+      line_number: 2,
+      account_id: "charge",
+      debit: "2.00000000",
+      credit: "0.00000000",
+      currency: "USD",
+      fx_rate: null,
+      base_debit: "2.00000000",
+      base_credit: "0.00000000",
+      dimensions: {},
+    },
+    {
+      line_number: 3,
+      account_id: "source-bank",
+      debit: "0.00000000",
+      credit: "252.00000000",
+      currency: "USD",
+      fx_rate: null,
+      base_debit: "0.00000000",
+      base_credit: "252.00000000",
+      dimensions: {},
+    },
+  ];
+  return original;
+}
+
 function repository(overrides: Partial<FinancePostingRepository> = {}): FinancePostingRepository {
   const calls: string[] = [];
   const value = {
@@ -161,14 +259,31 @@ function repository(overrides: Partial<FinancePostingRepository> = {}): FinanceP
     }),
     findEventByKey: vi.fn(async () => null),
     findSourceEvent: vi.fn(async () => null),
+    resolveCompanyCurrency: vi.fn(async (_client, input) =>
+      input.sourceCurrency === "USD"
+        ? {
+            baseCurrency: "USD",
+            baseDecimalPlaces: 2,
+            sourceDecimalPlaces: 2,
+            rateId: null,
+            rateValue: "1.000000000000000000",
+            rateEffectiveDate: null,
+          }
+        : {
+            baseCurrency: "USD",
+            baseDecimalPlaces: 2,
+            sourceDecimalPlaces: 2,
+            rateId: "rate-pkr-usd",
+            rateValue: "0.003571428571428571",
+            rateEffectiveDate: "2026-10-19",
+          },
+    ),
     loadBaseCurrencies: vi.fn(async () => [{ code: "USD", decimal_places: 2 }]),
     loadTransactionCurrency: vi.fn(async () => ({ code: "USD", decimal_places: 2 })),
     loadDirectRate: vi.fn(async () => null),
     lockRateAuthority: vi.fn(async () => undefined),
     loadCurrentDate: vi.fn(async () => "2026-10-19"),
-    loadPeriods: vi.fn(async () => [
-      { id: "period-a", status: "open", period_number: 10, fiscal_year: 2026 },
-    ]),
+    loadPeriods: vi.fn(async () => [{ id: "period-a", status: "open", period_number: 10, fiscal_year: 2026 }]),
     loadAccounts: vi.fn(async () => [
       {
         id: "expense-a",
@@ -238,9 +353,9 @@ describe("Finance posting fixed-scale arithmetic", () => {
         allowZero: false,
       }),
     ).toThrowError(expect.objectContaining({ code: "FINANCE_NUMERIC_OUT_OF_RANGE" }));
-    expect(() =>
-      parseFinanceDecimal("1e2", { fractionalDigits: 8, integerDigits: 30, allowZero: false }),
-    ).toThrowError(expect.objectContaining({ code: "FINANCE_AMOUNT_INVALID" }));
+    expect(() => parseFinanceDecimal("1e2", { fractionalDigits: 8, integerDigits: 30, allowZero: false })).toThrowError(
+      expect.objectContaining({ code: "FINANCE_AMOUNT_INVALID" }),
+    );
   });
 
   it("rounds converted positive amounts half up at the configured base scale", () => {
@@ -265,6 +380,107 @@ describe("Finance posting fixed-scale arithmetic", () => {
 });
 
 describe("FinancePostingService", () => {
+  it("posts native multi-currency Bank lines while balancing the journal in base currency", async () => {
+    const source = repository({
+      loadAccounts: vi.fn(async () => [
+        {
+          id: "destination-bank",
+          status: "active",
+          is_header: false,
+          manual_posting_allowed: true,
+          required_dimensions: [],
+        },
+        {
+          id: "source-bank",
+          status: "active",
+          is_header: false,
+          manual_posting_allowed: true,
+          required_dimensions: [],
+        },
+      ]),
+    });
+
+    await expect(
+      new FinancePostingService(source).postMultiCurrency(client, multiCurrencyCommand()),
+    ).resolves.toMatchObject({
+      baseCurrency: "USD",
+      transactionCurrency: "USD",
+      exchangeRateId: null,
+      replayed: false,
+    });
+    expect(source.resolveCompanyCurrency).toHaveBeenCalledWith(
+      client,
+      expect.objectContaining({ companyId: "company-a", sourceCurrency: "PKR" }),
+    );
+    expect(source.insertJournalLines).toHaveBeenCalledWith(client, "tenant-a", "journal-a", [
+      expect.objectContaining({ currency: "PKR", debit: "28000.00000000", baseDebit: "100.00000000" }),
+      expect.objectContaining({ currency: "USD", credit: "100.00000000", baseCredit: "100.00000000" }),
+    ]);
+  });
+
+  it("fails a multi-currency post closed when any line rate snapshot is stale", async () => {
+    const source = repository({
+      resolveCompanyCurrency: vi.fn(async (_client, input) =>
+        input.sourceCurrency === "USD"
+          ? {
+              baseCurrency: "USD",
+              baseDecimalPlaces: 2,
+              sourceDecimalPlaces: 2,
+              rateId: null,
+              rateValue: "1.000000000000000000",
+              rateEffectiveDate: null,
+            }
+          : {
+              baseCurrency: "USD",
+              baseDecimalPlaces: 2,
+              sourceDecimalPlaces: 2,
+              rateId: "rate-new",
+              rateValue: "0.003600000000000000",
+              rateEffectiveDate: "2026-10-19",
+            },
+      ),
+    });
+    await expect(
+      new FinancePostingService(source).postMultiCurrency(client, multiCurrencyCommand()),
+    ).rejects.toMatchObject<Partial<FinancePostingError>>({ code: "FINANCE_EXCHANGE_RATE_CHANGED" });
+    expect(source.insertEvent).not.toHaveBeenCalled();
+  });
+
+  it("reverses a multi-currency journal by its balanced base amounts", async () => {
+    const source = repository({ loadOriginalPosting: vi.fn(async () => originalMultiCurrencyPosting()) });
+    await expect(
+      new FinancePostingService(source).reverse(
+        client,
+        reversalCommand({
+          sourceType: "banking.transfer",
+          sourceId: "transfer-a",
+          eventType: "bank_transfer.reversed",
+          originalEventType: "bank_transfer.posted",
+          externalIdempotencyKey: "transfer-a-reverse",
+        }),
+      ),
+    ).resolves.toMatchObject({ originalAccountingEventId: "event-original", originalJournalId: "journal-original" });
+    expect(source.insertJournalLines).toHaveBeenCalledWith(
+      client,
+      "tenant-a",
+      "journal-a",
+      expect.arrayContaining([
+        expect.objectContaining({
+          accountId: "foreign-bank",
+          credit: "200.00000000",
+          baseCredit: "250.00000000",
+          currency: "EUR",
+        }),
+        expect.objectContaining({
+          accountId: "source-bank",
+          debit: "252.00000000",
+          baseDebit: "252.00000000",
+          currency: "USD",
+        }),
+      ]),
+    );
+  });
+
   it("uses the exact received -> validated -> posted sequence", async () => {
     const source = repository();
     const result = await new FinancePostingService(source).post(client, command());
@@ -337,8 +553,14 @@ describe("FinancePostingService", () => {
   it("rejects balanced journal totals outside numeric(38,8)", async () => {
     const halfBoundary = "500000000000000000000000000000.00000000";
     const source = repository({
-      loadBaseCurrencies: vi.fn(async () => [{ code: "USD", decimal_places: 8 }]),
-      loadTransactionCurrency: vi.fn(async () => ({ code: "USD", decimal_places: 8 })),
+      resolveCompanyCurrency: vi.fn(async () => ({
+        baseCurrency: "USD",
+        baseDecimalPlaces: 8,
+        sourceDecimalPlaces: 8,
+        rateId: null,
+        rateValue: "1.000000000000000000",
+        rateEffectiveDate: null,
+      })),
     });
     await expect(
       new FinancePostingService(source).post(
@@ -375,15 +597,23 @@ describe("FinancePostingService", () => {
       });
       await expect(new FinancePostingService(source).post(client, command())).rejects.toMatchObject<
         Partial<FinancePostingError>
-      >({ code: account.status === "inactive" ? "FINANCE_ACCOUNT_INACTIVE_POST_BLOCKED" : "FINANCE_ACCOUNT_NOT_POSTABLE" });
+      >({
+        code: account.status === "inactive" ? "FINANCE_ACCOUNT_INACTIVE_POST_BLOCKED" : "FINANCE_ACCOUNT_NOT_POSTABLE",
+      });
       expect(source.insertEvent).not.toHaveBeenCalled();
     }
   });
 
   it("fails closed when stored FX evidence differs from current rate authority", async () => {
     const source = repository({
-      loadTransactionCurrency: vi.fn(async () => ({ code: "EUR", decimal_places: 2 })),
-      loadDirectRate: vi.fn(async () => ({ id: "rate-current", rate: "1.250000000000000000" })),
+      resolveCompanyCurrency: vi.fn(async () => ({
+        baseCurrency: "USD",
+        baseDecimalPlaces: 2,
+        sourceDecimalPlaces: 2,
+        rateId: "rate-current",
+        rateValue: "1.250000000000000000",
+        rateEffectiveDate: "2026-10-19",
+      })),
     });
     await expect(
       new FinancePostingService(source).post(
@@ -427,9 +657,9 @@ describe("FinancePostingService", () => {
 
     for (const original of [wrongEventType, wrongOperation, wrongCurrency]) {
       const source = repository({ loadOriginalPosting: vi.fn(async () => original) });
-      await expect(
-        new FinancePostingService(source).reverse(client, reversalCommand()),
-      ).rejects.toMatchObject<Partial<FinancePostingError>>({ code: "FINANCE_ORIGINAL_POSTING_INVALID" });
+      await expect(new FinancePostingService(source).reverse(client, reversalCommand())).rejects.toMatchObject<
+        Partial<FinancePostingError>
+      >({ code: "FINANCE_ORIGINAL_POSTING_INVALID" });
       expect(source.insertEvent).not.toHaveBeenCalled();
     }
   });

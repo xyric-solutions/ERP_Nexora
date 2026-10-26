@@ -25,12 +25,37 @@ import {
   createBankingRouter,
   type BankingPaymentRepository,
   type BankingReceiptRepository,
+  type BankingTransferRepository,
   type BankingRepository,
 } from "./modules/banking/router.js";
+import type { BankReconciliationAdjustmentRepository } from "./modules/banking/reconciliations/adjustment-service.js";
+import type { BankingReconciliationRepository } from "./modules/banking/reconciliations/service.js";
+import type { BankingRevaluationRepository } from "./modules/banking/revaluations/service.js";
+import type { BankingStatementStorage } from "./modules/banking/statement-reconciliation-router.js";
+import type { BankingStatementImportRepository } from "./modules/banking/statements/service.js";
 import { createHrRouter } from "./modules/hr/router.js";
+import {
+  createFinanceRouter,
+  type FinanceCurrencyRepository,
+  type FinanceNominalRepository,
+} from "./modules/finance/router.js";
+import { createCompanyCurrencyRouter } from "./modules/finance/currencies/company-router.js";
+import { createChartTemplateRouter } from "./modules/finance/templates/router.js";
+import type { ChartTemplateRepository } from "./modules/finance/templates/service.js";
+import { createReferenceMasterRouter } from "./modules/master-data/router.js";
+import {
+  createFiscalCalendarRouter,
+  type FiscalCalendarApiRepository,
+  type FinancePeriodApiRepository,
+} from "./modules/master-data/fiscal-calendars/router.js";
+import type { ReferenceMasterRepository } from "./modules/master-data/service.js";
 import type { SourceHrRepository } from "./modules/hr/source-repository.js";
 import { createSecurityRouter } from "./modules/security/router.js";
 import type { SecurityAdministrationApiRepository } from "./modules/security/router.js";
+import {
+  createBankSelfApprovalRouter,
+  type BankSelfApprovalRepository,
+} from "./modules/security/bank-self-approval-router.js";
 
 export interface AppDependencies {
   config: Pick<ApiConfig, "allowedOrigins"> &
@@ -46,6 +71,20 @@ export interface AppDependencies {
   bankingRepository?: BankingRepository;
   bankingPaymentRepository?: BankingPaymentRepository;
   bankingReceiptRepository?: BankingReceiptRepository;
+  bankingTransferRepository?: BankingTransferRepository;
+  bankingStatementRepository?: BankingStatementImportRepository;
+  bankingStatementStorage?: BankingStatementStorage;
+  bankingReconciliationRepository?: BankingReconciliationRepository;
+  bankingReconciliationAdjustmentRepository?: BankReconciliationAdjustmentRepository;
+  bankingRevaluationRepository?: BankingRevaluationRepository;
+  financeNominalRepository?: FinanceNominalRepository;
+  financeCurrencyRepository?: FinanceCurrencyRepository;
+  financeHierarchyRepository?: import("./modules/finance/coa-hierarchy-repository.js").SourceCoaHierarchyRepository;
+  chartTemplateRepository?: ChartTemplateRepository;
+  referenceMasterRepository?: ReferenceMasterRepository;
+  fiscalCalendarRepository?: FiscalCalendarApiRepository;
+  financePeriodRepository?: FinancePeriodApiRepository;
+  bankSelfApprovalRepository?: BankSelfApprovalRepository;
   hrRepository?: Pick<
     SourceHrRepository,
     | "listCompanies"
@@ -126,6 +165,23 @@ export function createApp(dependencies: AppDependencies): Express {
   if (bankingRepositoryCount !== 0 && bankingRepositoryCount !== 3) {
     throw new Error("Banking account, payment, and receipt repositories must be configured together.");
   }
+  const statementReconciliationDependencyCount = [
+    dependencies.bankingStatementRepository,
+    dependencies.bankingStatementStorage,
+    dependencies.bankingReconciliationRepository,
+    dependencies.bankingReconciliationAdjustmentRepository,
+  ].filter(Boolean).length;
+  if (statementReconciliationDependencyCount !== 0 && statementReconciliationDependencyCount !== 4) {
+    throw new Error(
+      "Statement import, storage, reconciliation, and adjustment repositories must be configured together.",
+    );
+  }
+  if (statementReconciliationDependencyCount > 0 && bankingRepositoryCount !== 3) {
+    throw new Error("Statement and reconciliation routes require the Banking API foundation.");
+  }
+  if (dependencies.bankingRevaluationRepository && bankingRepositoryCount !== 3) {
+    throw new Error("Bank Revaluation routes require the Banking API foundation.");
+  }
   const app = express();
   app.disable("x-powered-by");
   if (dependencies.config.trustProxyHops) app.set("trust proxy", dependencies.config.trustProxyHops);
@@ -142,6 +198,89 @@ export function createApp(dependencies: AppDependencies): Express {
   app.use(express.json({ limit: "1mb", strict: true }));
   app.use(requestLogging(dependencies.logger, dependencies.metrics));
 
+  if (
+    dependencies.fiscalCalendarRepository &&
+    dependencies.financePeriodRepository &&
+    dependencies.authService &&
+    dependencies.sessionService
+  ) {
+    app.use(
+      "/api/v1",
+      createFiscalCalendarRouter({
+        calendars: dependencies.fiscalCalendarRepository,
+        periods: dependencies.financePeriodRepository,
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
+  }
+
+  if (dependencies.financeNominalRepository && dependencies.authService && dependencies.sessionService) {
+    app.use(
+      "/api/v1/finance",
+      createFinanceRouter({
+        repository: dependencies.financeNominalRepository,
+        ...(dependencies.financeCurrencyRepository ? { currencies: dependencies.financeCurrencyRepository } : {}),
+        ...(dependencies.financeHierarchyRepository ? { hierarchy: dependencies.financeHierarchyRepository } : {}),
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
+  }
+
+  if (dependencies.financeCurrencyRepository && dependencies.authService && dependencies.sessionService) {
+    app.use(
+      "/api/v1",
+      createCompanyCurrencyRouter({
+        repository: dependencies.financeCurrencyRepository,
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
+  }
+
+  if (dependencies.chartTemplateRepository && dependencies.authService && dependencies.sessionService) {
+    app.use(
+      "/api/v1/finance/chart_templates",
+      createChartTemplateRouter({
+        repository: dependencies.chartTemplateRepository,
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
+  }
+  if (dependencies.referenceMasterRepository && dependencies.authService && dependencies.sessionService) {
+    app.use(
+      "/api/v1/master_data",
+      createReferenceMasterRouter({
+        repository: dependencies.referenceMasterRepository,
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
+  }
+  if (dependencies.bankSelfApprovalRepository && dependencies.authService && dependencies.sessionService) {
+    app.use(
+      "/api/v1/security",
+      createBankSelfApprovalRouter({
+        repository: dependencies.bankSelfApprovalRepository,
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
+  }
   if (dependencies.securityRepository && dependencies.authService && dependencies.sessionService) {
     app.use(
       "/api/v1/security",
@@ -182,6 +321,23 @@ export function createApp(dependencies: AppDependencies): Express {
         repository: dependencies.bankingRepository,
         paymentRepository: dependencies.bankingPaymentRepository,
         receiptRepository: dependencies.bankingReceiptRepository,
+        ...(dependencies.bankingTransferRepository
+          ? { transferRepository: dependencies.bankingTransferRepository }
+          : {}),
+        ...(dependencies.bankingStatementRepository &&
+        dependencies.bankingStatementStorage &&
+        dependencies.bankingReconciliationRepository &&
+        dependencies.bankingReconciliationAdjustmentRepository
+          ? {
+              statementRepository: dependencies.bankingStatementRepository,
+              statementStorage: dependencies.bankingStatementStorage,
+              reconciliationRepository: dependencies.bankingReconciliationRepository,
+              adjustmentRepository: dependencies.bankingReconciliationAdjustmentRepository,
+            }
+          : {}),
+        ...(dependencies.bankingRevaluationRepository
+          ? { revaluationRepository: dependencies.bankingRevaluationRepository }
+          : {}),
         authentication: dependencies.authService,
         sessions: dependencies.sessionService,
         secureCookies: dependencies.config.nodeEnv === "production",

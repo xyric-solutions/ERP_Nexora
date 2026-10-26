@@ -10,6 +10,10 @@ import {
   bankReceiptDetailSchema,
   bankReceiptDirectoryQuerySchema,
   bankReceiptMethodSchema,
+  bankTransferDirectoryQuerySchema,
+  bankTransferLineSchema,
+  bankTransferModeSchema,
+  createBankTransferRequestSchema,
   createBankPaymentRequestSchema,
   createBankReceiptRequestSchema,
   createBankAccountRequestSchema,
@@ -21,6 +25,7 @@ import {
   updateBankAccountRequestSchema,
   updateBankPaymentRequestSchema,
   updateBankReceiptRequestSchema,
+  updateBankTransferRequestSchema,
 } from "@nexora/contracts";
 
 const validCreate = {
@@ -79,7 +84,55 @@ const validReceiptCreate = {
   ],
 } as const;
 
+const validTransferCreate = {
+  company_id: "company-1",
+  posting_date: "2026-10-22",
+  value_date: null,
+  lines: [
+    {
+      line_order: 1,
+      document_date: "2026-10-22",
+      from_bank_account_id: "bank-usd",
+      external_reference: "SWIFT-001",
+      transfer_mode: "wire_swift",
+      to_bank_account_id: "bank-eur",
+      details: "Treasury rebalancing",
+      source_amount: "1250.00",
+      bank_charge_amount: "5.00",
+    },
+  ],
+} as const;
+
 describe("Banking contracts", () => {
+  it("keeps nominal directory responses backward compatible while validating availability and search bounds", () => {
+    const availability = {
+      eligible_count: 2,
+      matching_count: 1,
+      pending_approval_count: 227,
+      inactive_count: 1,
+      protected_count: 3,
+      has_more: false,
+    };
+    for (const schema of [
+      contracts.bankPaymentNominalAccountDirectorySchema,
+      contracts.bankReceiptNominalAccountDirectorySchema,
+    ]) {
+      expect(schema.parse({ items: [] })).toEqual({ items: [] });
+      expect(schema.parse({ items: [], availability })).toEqual({ items: [], availability });
+      expect(schema.safeParse({ items: [], availability: { ...availability, eligible_count: -1 } }).success).toBe(
+        false,
+      );
+    }
+    for (const schema of [
+      contracts.bankPaymentNominalAccountDirectoryQuerySchema,
+      contracts.bankReceiptNominalAccountDirectoryQuerySchema,
+    ]) {
+      expect(schema.parse({ company_id: "company-1", search: " %_\\ " })).toMatchObject({ search: "%_\\", limit: 50 });
+      expect(schema.safeParse({ company_id: "company-1", search: "a".repeat(161) }).success).toBe(false);
+      expect(schema.safeParse({ company_id: "company-1", limit: 101 }).success).toBe(false);
+      expect(schema.safeParse({ company_id: "company-1", limit: 0 }).success).toBe(false);
+    }
+  });
   it("exports the complete governed Bank Receipt contract surface", () => {
     for (const name of [
       "bankReceiptStateSchema",
@@ -477,5 +530,69 @@ describe("Banking contracts", () => {
     const parsed = bankReceiptDetailSchema.parse(detail);
     expect(parsed.exchange_rate).toBe("277.123456789012345678");
     expect(parsed.lines[0]?.payer_name).toBe("Synthetic Payer");
+  });
+
+  it("accepts same-company Transfer inputs without browser-supplied currency or nominal authority", () => {
+    expect(createBankTransferRequestSchema.parse(validTransferCreate)).toEqual(validTransferCreate);
+    expect(bankTransferModeSchema.options).toEqual(["internal", "local_bank", "wire_swift", "standing_order"]);
+    for (const forbidden of ["source_currency", "destination_currency", "source_rate", "from_control_account_id"]) {
+      expect(
+        createBankTransferRequestSchema.safeParse({
+          ...validTransferCreate,
+          lines: [{ ...validTransferCreate.lines[0], [forbidden]: "browser-authority" }],
+        }).success,
+      ).toBe(false);
+    }
+  });
+
+  it("requires distinct Bank Accounts, unique line ordering and bounded directory dates", () => {
+    expect(
+      createBankTransferRequestSchema.safeParse({
+        ...validTransferCreate,
+        lines: [{ ...validTransferCreate.lines[0], to_bank_account_id: "bank-usd" }],
+      }).success,
+    ).toBe(false);
+    expect(
+      createBankTransferRequestSchema.safeParse({
+        ...validTransferCreate,
+        lines: [validTransferCreate.lines[0], { ...validTransferCreate.lines[0], to_bank_account_id: "bank-gbp" }],
+      }).success,
+    ).toBe(false);
+    expect(
+      bankTransferDirectoryQuerySchema.safeParse({
+        company_id: "company-1",
+        posting_date_from: "2026-10-23",
+        posting_date_to: "2026-10-22",
+      }).success,
+    ).toBe(false);
+    expect(updateBankTransferRequestSchema.safeParse({ expected_version: 1 }).success).toBe(false);
+  });
+
+  it("preserves locked dual-currency and control-nominal evidence in Transfer lines", () => {
+    const parsed = bankTransferLineSchema.parse({
+      id: "line-1",
+      ...validTransferCreate.lines[0],
+      source_currency: "USD",
+      destination_currency: "EUR",
+      destination_amount: "1136.36",
+      source_rate_id: "rate-usd",
+      source_rate: "278.000000000000000000",
+      source_rate_effective_date: "2026-10-22",
+      destination_rate_id: "rate-eur",
+      destination_rate: "305.800000000000000000",
+      destination_rate_effective_date: "2026-10-22",
+      source_base_amount: "347500.00",
+      destination_base_amount: "347498.888",
+      bank_charge_base_amount: "1390.00",
+      fx_difference: "1.112",
+      from_control_account_id: "nominal-bank-usd",
+      from_control_account_code: "110201",
+      from_control_account_name: "Operating USD",
+      to_control_account_id: "nominal-bank-eur",
+      to_control_account_code: "110202",
+      to_control_account_name: "Operating EUR",
+    });
+    expect(parsed.source_rate).toBe("278.000000000000000000");
+    expect(parsed.destination_amount).toBe("1136.36");
   });
 });

@@ -48,10 +48,9 @@ async function fillLine(page: Page, line: number, suffix: string, amount: string
   await page.getByLabel(`Line ${line} external reference`).fill(`E2E-${suffix}-${line}`);
   await page.getByLabel(`Line ${line} document reference`).fill(`DOC-${suffix}-${line}`);
   await page.getByLabel(`Line ${line} receipt method`).selectOption("bank_transfer");
-  await page.getByLabel(`Line ${line} received from`).fill(`Synthetic Customer ${suffix}`);
   await choosePersistedOption(page, `Line ${line} nominal account`, "Synthetic Bank Receipt Income");
   await page.getByLabel(`Line ${line} department`).fill("SERVICES");
-  await page.getByLabel(`Line ${line} narration`).fill(`Bank Receipt acceptance ${suffix} line ${line}`);
+  await page.getByLabel(`Line ${line} details`).fill(`Bank Receipt acceptance ${suffix} line ${line}`);
   await page.getByLabel(`Line ${line} amount`).fill(amount);
 }
 
@@ -93,8 +92,8 @@ test.describe("bank receipts governed lifecycle", () => {
 
     await maker.page.reload();
     await expect(maker.page.getByLabel("Receipt reference")).toHaveValue(reference);
-    await expect(maker.page.getByLabel("Line 1 narration")).toHaveValue(`Bank Receipt acceptance ${suffix} line 1`);
-    await expect(maker.page.getByLabel("Line 2 narration")).toHaveValue(`Bank Receipt acceptance ${suffix} line 2`);
+    await expect(maker.page.getByLabel("Line 1 details")).toHaveValue(`Bank Receipt acceptance ${suffix} line 1`);
+    await expect(maker.page.getByLabel("Line 2 details")).toHaveValue(`Bank Receipt acceptance ${suffix} line 2`);
 
     await maker.page.getByRole("button", { name: "Submit for Approval" }).click();
     await expect(maker.page).toHaveURL(new RegExp(`transaction-detail/${receiptId}$`));
@@ -109,7 +108,7 @@ test.describe("bank receipts governed lifecycle", () => {
     await expect(checker.page.getByRole("heading", { level: 1, name: reference })).toBeVisible();
     await expect(checker.page.getByText("Accounting preview", { exact: true })).toBeVisible();
     await expect(checker.page.getByText("Recorded accounting linkage")).toHaveCount(0);
-    await checker.page.getByLabel(/Decision reason/).fill("Independent checker acceptance");
+    await expect(checker.page.getByLabel(/Decision reason|Rejection reason/)).toHaveCount(0);
     await checker.page.getByRole("button", { name: "Approve" }).click();
     await expect(checker.page.getByText("Approved", { exact: true })).toBeVisible();
     await expect(checker.page.getByText("Accounting preview", { exact: true })).toBeVisible();
@@ -159,7 +158,7 @@ test.describe("bank receipts governed lifecycle", () => {
     await expect(admin.page).toHaveURL(/transaction-detail\/bank-receipt-[0-9a-f-]{36}$/i);
     const receiptId = receiptIdFromUrl(admin.page);
     await expect(admin.page.getByText("Super-admin override")).toBeVisible();
-    await admin.page.getByLabel(/Decision reason/).fill("Controlled UAT maker-checker override");
+    await expect(admin.page.getByLabel(/Decision reason|Rejection reason/)).toHaveCount(0);
     await admin.page.getByRole("button", { name: "Approve" }).click();
     await expect(admin.page.getByText("Approved", { exact: true })).toBeVisible();
     await expect(admin.page.getByText("Controlled UAT maker-checker override")).toBeVisible();
@@ -185,4 +184,3 @@ test.describe("bank receipts governed lifecycle", () => {
     await maker.context.close();
   });
 });
-

@@ -1,0 +1,9 @@
+{
+  "tenantId": "nexora-r06-uat",
+  "companyId": "nexora-r06-uat-company",
+  "templateId": "chart-38a96c33-10ad-4a8b-ac88-bfb167f87a76",
+  "sectionId": "r06-uat-bn-section",
+  "expectedSectionCode": "UAT-BN-CB",
+  "expectedPolicyVersion": 8,
+  "sourceSha256": "f9d5a2a7772575e1e5fe98927d4da0939f949611f8596107a1206eea381ac85a"
+}

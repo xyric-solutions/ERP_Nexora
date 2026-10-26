@@ -216,7 +216,7 @@ describe("BankingReceiptDetail", () => {
     expect(button(container, "Print").disabled).toBe(true);
   });
 
-  it("shows maker-checker denial and enables only the governed super-admin reason path", async () => {
+  it("preserves maker-checker denial and enables governed super-admin approval without a reason", async () => {
     harness.session = session(["banking.receipt.read", "banking.receipt.approve", "platform.approval.override"]);
     harness.receipt.mockResolvedValue(
       receipt({
@@ -252,17 +252,15 @@ describe("BankingReceiptDetail", () => {
     await settle();
 
     expect(container.textContent).toContain("Super-admin override");
-    expect(button(container, "Approve").disabled).toBe(true);
     const reason = container.querySelector<HTMLTextAreaElement>("#bank-receipt-decision-reason");
-    expect(reason).not.toBeNull();
-    await enter(reason!, "Emergency governed approval");
+    expect(reason).toBeNull();
     expect(button(container, "Approve").disabled).toBe(false);
     harness.decideReceipt.mockResolvedValue({});
     await act(async () => button(container, "Approve").click());
     await settle();
     expect(harness.decideReceipt).toHaveBeenCalledWith(
       "receipt-ui-1",
-      { action: "approve", expected_version: 3, reason: "Emergency governed approval" },
+      { action: "approve", expected_version: 3 },
       "c".repeat(43),
       expect.stringContaining("web-bank-receipt-approve-"),
     );

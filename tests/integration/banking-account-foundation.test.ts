@@ -370,7 +370,7 @@ run("Banking account foundation repository", () => {
     const decided = await repository.decideAccount(
       overrideActor,
       created.id,
-      { action: "approve", expected_version: submitted.version, reason: "Emergency treasury setup verified" },
+      { action: "approve", expected_version: submitted.version },
       `bank-override-decide-${suffix}`,
       `bank-override-correlation-decide-${suffix}`,
     );
@@ -379,7 +379,7 @@ run("Banking account foundation repository", () => {
     const replayed = await repository.decideAccount(
       overrideActor,
       created.id,
-      { action: "approve", expected_version: submitted.version, reason: "Emergency treasury setup verified" },
+      { action: "approve", expected_version: submitted.version },
       `bank-override-decide-${suffix}`,
       `bank-override-correlation-replay-${suffix}`,
     );

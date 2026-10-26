@@ -69,3 +69,25 @@ The lifecycle Playwright suite was not run because this turn did not start an
 explicitly isolated synthetic API/database harness. Running it against the shared
 source would create and post financial test records. Bank Transfer is the next
 safe design and implementation surface.
+
+## Approved single-Details refinement
+
+The user subsequently approved simplifying each Receipt allocation row from two
+text controls (Received from plus optional Receipt details) to one required
+`Details` textarea. The entry view now uses that single value for both existing
+`payer_name` and `narration` payload fields, preserving the current contract,
+payer snapshot and accounting-preview behavior without a migration. Existing
+records load narration first and fall back to payer name. Payment entry behavior
+is unchanged.
+
+The Receipt unit tests and affected browser selectors were updated to assert the
+single-control interface and compatibility mapping. Post-refinement verification:
+
+- Focused Receipt UI: 4 files / 32 tests passed.
+- Scoped ESLint: passed.
+- Scoped Prettier check: passed.
+- `npm.cmd run typecheck`: passed.
+- `npm.cmd run build:web`: passed with Next.js 16.3.8.
+
+The mutation-capable lifecycle Playwright suite remains intentionally unexecuted
+without an isolated synthetic API/database harness.

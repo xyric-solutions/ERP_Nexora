@@ -1,4 +1,9 @@
 import { z } from "zod";
+import { bankWorkflowInputFields, bankWorkflowDetailFields } from "./workflow-context.js";
+export * from "./workflow-context.js";
+export * from "./statement-imports.js";
+export * from "./reconciliations.js";
+export * from "./revaluations.js";
 
 const identifier = z.string().trim().min(1).max(128);
 const isoCurrency = z.string().regex(/^[A-Z]{3}$/);
@@ -76,9 +81,10 @@ export const bankAccountSummarySchema = z.strictObject({
   reference: z.string().min(1).max(64),
   account_name: z.string().min(1).max(160),
   account_type: bankAccountTypeSchema,
-  bank_name: z.string().min(1).max(200),
-  branch: z.string().max(200),
-  account_number_masked: z.string().min(4).max(80),
+  bank_name: z.string().min(1).max(200).nullable(),
+  branch: z.string().max(200).nullable(),
+  account_number_masked: z.string().min(4).max(80).nullable(),
+  identity_mode: z.enum(["legacy_detailed", "nominal_only"]).optional(),
   currency: isoCurrency,
   ledger_account_id: identifier,
   ledger_account_code: z.string().min(1).max(128),
@@ -109,7 +115,7 @@ export const bankAccountCurrencySummarySchema = z.strictObject({
 export const bankAccountDetailSchema = bankAccountSummarySchema.extend({
   company_id: identifier,
   iban_masked: z.string().max(80).nullable(),
-  swift_bic: z.string().max(11),
+  swift_bic: z.string().max(11).nullable(),
   overdraft_limit: decimal,
   created_by: identifier.nullable(),
   submitted_by: identifier.nullable(),
@@ -181,11 +187,16 @@ export const submitBankAccountRequestSchema = z.strictObject({
   reason: z.string().trim().min(3).max(500),
 });
 
-export const decideBankAccountRequestSchema = z.strictObject({
-  action: z.enum(["approve", "reject"]),
-  expected_version: z.number().int().positive(),
-  reason: z.string().trim().min(3).max(500),
-});
+export const decideBankAccountRequestSchema = z
+  .strictObject({
+    action: z.enum(["approve", "reject"]),
+    expected_version: z.number().int().positive(),
+    reason: z.string().trim().min(3).max(500).optional(),
+  })
+  .superRefine((input, context) => {
+    if (input.action === "reject" && input.reason === undefined)
+      context.addIssue({ code: "custom", path: ["reason"], message: "A rejection reason is required." });
+  });
 
 export const changeBankAccountStatusRequestSchema = z.strictObject({
   action: z.enum(["deactivate", "close"]),
@@ -202,31 +213,14 @@ export const bankAccountMutationResultSchema = z.strictObject({
   replayed: z.boolean(),
 });
 
-export const bankPaymentStateSchema = z.enum([
-  "draft",
-  "submitted",
-  "approved",
-  "rejected",
-  "posted",
-  "reversed",
-]);
+export const bankPaymentStateSchema = z.enum(["draft", "submitted", "approved", "rejected", "posted", "reversed"]);
 
-export const bankPaymentMethodSchema = z.enum([
-  "bank_transfer",
-  "cheque",
-  "cash",
-  "online",
-  "standing_order",
-  "card",
-]);
+export const bankPaymentMethodSchema = z.enum(["bank_transfer", "cheque", "cash", "online", "standing_order", "card"]);
 
 const bankPaymentReference = z.string().trim().min(1).max(128);
 const bankPaymentNarration = z.string().trim().min(3).max(500);
 const bankPaymentReason = z.string().trim().min(3).max(500);
-const bankPaymentDimensionsRecordSchema = z.record(
-  z.string().trim().min(1).max(64),
-  z.string().trim().min(1).max(128),
-);
+const bankPaymentDimensionsRecordSchema = z.record(z.string().trim().min(1).max(64), z.string().trim().min(1).max(128));
 
 export const bankPaymentDimensionsSchema = bankPaymentDimensionsRecordSchema.superRefine((value, context) => {
   if (Object.keys(value).length > 25) {
@@ -256,14 +250,19 @@ export const bankPaymentLineSchema = z.strictObject({
   ...editableBankPaymentLineFields,
 });
 
-const bankPaymentLinesSchema = z.array(bankPaymentLineInputSchema).min(1).max(200).superRefine((lines, context) => {
-  const orders = new Set(lines.map((line) => line.line_order));
-  if (orders.size !== lines.length) {
-    context.addIssue({ code: "custom", message: "Payment line order values must be unique." });
-  }
-});
+const bankPaymentLinesSchema = z
+  .array(bankPaymentLineInputSchema)
+  .min(1)
+  .max(200)
+  .superRefine((lines, context) => {
+    const orders = new Set(lines.map((line) => line.line_order));
+    if (orders.size !== lines.length) {
+      context.addIssue({ code: "custom", message: "Payment line order values must be unique." });
+    }
+  });
 
 const editableBankPaymentFields = {
+  ...bankWorkflowInputFields,
   bank_account_id: identifier,
   posting_date: isoDate,
   value_date: isoDate.nullable().optional(),
@@ -277,6 +276,7 @@ export const createBankPaymentRequestSchema = z.strictObject({
 
 export const updateBankPaymentRequestSchema = z
   .strictObject({
+    ...bankWorkflowInputFields,
     expected_version: z.number().int().positive(),
     bank_account_id: editableBankPaymentFields.bank_account_id.optional(),
     posting_date: editableBankPaymentFields.posting_date.optional(),
@@ -342,8 +342,8 @@ export const bankPaymentSummarySchema = z.strictObject({
   reference: z.string().min(1).max(64),
   bank_account_id: identifier,
   bank_account_name: z.string().min(1).max(160),
-  bank_name: z.string().min(1).max(200),
-  account_number_masked: z.string().min(4).max(80),
+  bank_name: z.string().min(1).max(200).nullable(),
+  account_number_masked: z.string().min(4).max(80).nullable(),
   posting_date: isoDate,
   value_date: isoDate.nullable(),
   currency: isoCurrency,
@@ -389,6 +389,7 @@ export const bankPaymentAccountingPreviewSchema = z.strictObject({
 });
 
 export const bankPaymentDetailSchema = bankPaymentSummarySchema.extend({
+  ...bankWorkflowDetailFields,
   base_currency: isoCurrency,
   exchange_rate: positiveBoundedRate.nullable(),
   lines: z.array(bankPaymentLineSchema).min(1).max(200),
@@ -420,18 +421,20 @@ export const bankPaymentOptionsQuerySchema = z.strictObject({
 });
 
 export const bankPaymentOptionsSchema = z.strictObject({
-  bank_accounts: z.array(
-    z.strictObject({
-      id: identifier,
-      reference: z.string().min(1).max(64),
-      account_name: z.string().min(1).max(160),
-      bank_name: z.string().min(1).max(200),
-      account_number_masked: z.string().min(4).max(80),
-      currency: isoCurrency,
-      ledger_account_code: z.string().min(1).max(128),
-      ledger_account_name: z.string().min(1).max(200),
-    }),
-  ).max(200),
+  bank_accounts: z
+    .array(
+      z.strictObject({
+        id: identifier,
+        reference: z.string().min(1).max(64),
+        account_name: z.string().min(1).max(160),
+        bank_name: z.string().min(1).max(200).nullable(),
+        account_number_masked: z.string().min(4).max(80).nullable(),
+        currency: isoCurrency,
+        ledger_account_code: z.string().min(1).max(128),
+        ledger_account_name: z.string().min(1).max(200),
+      }),
+    )
+    .max(200),
 });
 
 export const bankPaymentNominalAccountDirectoryQuerySchema = z.strictObject({
@@ -441,15 +444,27 @@ export const bankPaymentNominalAccountDirectoryQuerySchema = z.strictObject({
 });
 
 export const bankPaymentNominalAccountDirectorySchema = z.strictObject({
-  items: z.array(
-    z.strictObject({
-      id: identifier,
-      code: z.string().min(1).max(128),
-      name: z.string().min(1).max(200),
-      account_type: z.string().trim().min(1).max(64),
-      required_dimensions: z.array(z.string().trim().min(1).max(64)).max(25),
-    }),
-  ).max(100),
+  items: z
+    .array(
+      z.strictObject({
+        id: identifier,
+        code: z.string().min(1).max(128),
+        name: z.string().min(1).max(200),
+        account_type: z.string().trim().min(1).max(64),
+        required_dimensions: z.array(z.string().trim().min(1).max(64)).max(25),
+      }),
+    )
+    .max(100),
+  availability: z
+    .strictObject({
+      eligible_count: z.number().int().nonnegative(),
+      matching_count: z.number().int().nonnegative(),
+      pending_approval_count: z.number().int().nonnegative(),
+      inactive_count: z.number().int().nonnegative(),
+      protected_count: z.number().int().nonnegative(),
+      has_more: z.boolean(),
+    })
+    .optional(),
 });
 
 export const bankPaymentMutationResultSchema = z.strictObject({
@@ -534,6 +549,7 @@ const bankReceiptLinesSchema = z
   });
 
 const editableBankReceiptFields = {
+  ...bankWorkflowInputFields,
   bank_account_id: identifier,
   posting_date: isoDate,
   value_date: isoDate.nullable().optional(),
@@ -547,6 +563,7 @@ export const createBankReceiptRequestSchema = z.strictObject({
 
 export const updateBankReceiptRequestSchema = z
   .strictObject({
+    ...bankWorkflowInputFields,
     expected_version: z.number().int().positive(),
     bank_account_id: editableBankReceiptFields.bank_account_id.optional(),
     posting_date: editableBankReceiptFields.posting_date.optional(),
@@ -612,8 +629,8 @@ export const bankReceiptSummarySchema = z.strictObject({
   reference: z.string().min(1).max(64),
   bank_account_id: identifier,
   bank_account_name: z.string().min(1).max(160),
-  bank_name: z.string().min(1).max(200),
-  account_number_masked: z.string().min(4).max(80),
+  bank_name: z.string().min(1).max(200).nullable(),
+  account_number_masked: z.string().min(4).max(80).nullable(),
   posting_date: isoDate,
   value_date: isoDate.nullable(),
   currency: isoCurrency,
@@ -661,6 +678,7 @@ export const bankReceiptAccountingPreviewSchema = z.strictObject({
 });
 
 export const bankReceiptDetailSchema = bankReceiptSummarySchema.extend({
+  ...bankWorkflowDetailFields,
   base_currency: isoCurrency,
   exchange_rate: positiveBoundedRate.nullable(),
   lines: z.array(bankReceiptLineSchema).min(1).max(200),
@@ -722,6 +740,250 @@ export const bankReceiptPostingResultSchema = bankReceiptMutationResultSchema.ex
 });
 
 export const bankReceiptReversalResultSchema = bankReceiptMutationResultSchema.extend({
+  original_accounting_event_id: identifier,
+  original_journal_id: identifier,
+  reversal_accounting_event_id: identifier,
+  reversal_journal_id: identifier,
+  reversal_journal_entry_number: z.string().min(1).max(128),
+});
+
+export const bankTransferStateSchema = z.enum(["draft", "submitted", "approved", "rejected", "posted", "reversed"]);
+export const bankTransferModeSchema = z.enum(["internal", "local_bank", "wire_swift", "standing_order"]);
+const bankTransferDetails = z.string().trim().min(1).max(500);
+const bankTransferReason = z.string().trim().min(3).max(500);
+
+const editableBankTransferLineFields = {
+  line_order: z.number().int().min(1).max(200),
+  document_date: isoDate,
+  from_bank_account_id: identifier,
+  external_reference: z.string().trim().min(1).max(128).nullable().optional(),
+  transfer_mode: bankTransferModeSchema,
+  to_bank_account_id: identifier,
+  details: bankTransferDetails.nullable().optional(),
+  source_amount: positiveBoundedDecimal,
+  bank_charge_amount: boundedDecimal.default("0"),
+} as const;
+
+export const bankTransferLineInputSchema = z
+  .strictObject(editableBankTransferLineFields)
+  .superRefine((line, context) => {
+    if (line.from_bank_account_id === line.to_bank_account_id) {
+      context.addIssue({
+        code: "custom",
+        path: ["to_bank_account_id"],
+        message: "The destination Bank Account must differ from the source Bank Account.",
+      });
+    }
+  });
+
+export const bankTransferLineSchema = z.strictObject({
+  id: identifier,
+  ...editableBankTransferLineFields,
+  external_reference: editableBankTransferLineFields.external_reference.unwrap().nullable(),
+  details: bankTransferDetails.nullable(),
+  source_currency: isoCurrency,
+  destination_currency: isoCurrency,
+  destination_amount: positiveBoundedDecimal,
+  source_rate_id: identifier.nullable(),
+  source_rate: positiveBoundedRate,
+  source_rate_effective_date: isoDate.nullable(),
+  destination_rate_id: identifier.nullable(),
+  destination_rate: positiveBoundedRate,
+  destination_rate_effective_date: isoDate.nullable(),
+  source_base_amount: positiveBoundedDecimal,
+  destination_base_amount: positiveBoundedDecimal,
+  bank_charge_base_amount: boundedDecimal,
+  fx_difference: signedDecimal,
+  from_control_account_id: identifier,
+  from_control_account_code: z.string().trim().min(1).max(128),
+  from_control_account_name: z.string().trim().min(1).max(200),
+  to_control_account_id: identifier,
+  to_control_account_code: z.string().trim().min(1).max(128),
+  to_control_account_name: z.string().trim().min(1).max(200),
+});
+
+const bankTransferLinesSchema = z
+  .array(bankTransferLineInputSchema)
+  .min(1)
+  .max(200)
+  .superRefine((lines, context) => {
+    if (new Set(lines.map((line) => line.line_order)).size !== lines.length) {
+      context.addIssue({ code: "custom", message: "Transfer line order values must be unique." });
+    }
+  });
+
+const editableBankTransferFields = {
+  ...bankWorkflowInputFields,
+  posting_date: isoDate,
+  value_date: isoDate.nullable().optional(),
+  lines: bankTransferLinesSchema,
+} as const;
+
+export const createBankTransferRequestSchema = z.strictObject({
+  company_id: identifier,
+  ...editableBankTransferFields,
+});
+
+export const updateBankTransferRequestSchema = z
+  .strictObject({
+    ...bankWorkflowInputFields,
+    expected_version: z.number().int().positive(),
+    posting_date: editableBankTransferFields.posting_date.optional(),
+    value_date: editableBankTransferFields.value_date,
+    lines: editableBankTransferFields.lines.optional(),
+  })
+  .refine(
+    (value) => Object.keys(value).some((key) => key !== "expected_version"),
+    "At least one Bank Transfer field is required.",
+  );
+
+export const submitBankTransferRequestSchema = z.strictObject({ expected_version: z.number().int().positive() });
+export const decideBankTransferRequestSchema = z
+  .strictObject({
+    action: z.enum(["approve", "reject"]),
+    expected_version: z.number().int().positive(),
+    reason: bankTransferReason.optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.action === "reject" && value.reason === undefined) {
+      context.addIssue({ code: "custom", path: ["reason"], message: "A rejection reason is required." });
+    }
+  });
+export const postBankTransferRequestSchema = z.strictObject({ expected_version: z.number().int().positive() });
+export const reverseBankTransferRequestSchema = z.strictObject({
+  expected_version: z.number().int().positive(),
+  reason: bankTransferReason,
+});
+
+export const bankTransferDirectoryQuerySchema = z
+  .strictObject({
+    company_id: identifier,
+    bank_account_id: identifier.optional(),
+    state: bankTransferStateSchema.optional(),
+    posting_date_from: isoDate.optional(),
+    posting_date_to: isoDate.optional(),
+    search: z.string().trim().max(160).optional(),
+    sort_by: z.enum(["posting_date", "reference", "base_total", "state"]).default("posting_date"),
+    sort_direction: z.enum(["asc", "desc"]).default("desc"),
+    limit: z.number().int().min(1).max(100).default(50),
+    cursor: z.string().trim().min(1).max(512).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.posting_date_from && value.posting_date_to && value.posting_date_from > value.posting_date_to) {
+      context.addIssue({
+        code: "custom",
+        path: ["posting_date_to"],
+        message: "The ending posting date cannot be before the starting posting date.",
+      });
+    }
+  });
+
+export const bankTransferCurrencyTotalSchema = z.strictObject({
+  currency: isoCurrency,
+  amount: positiveBoundedDecimal,
+});
+
+export const bankTransferSummarySchema = z.strictObject({
+  id: identifier,
+  company_id: identifier,
+  reference: z.string().min(1).max(64),
+  posting_date: isoDate,
+  value_date: isoDate.nullable(),
+  source_bank_summary: z.string().trim().min(1).max(500),
+  destination_bank_summary: z.string().trim().min(1).max(500),
+  source_totals: z.array(bankTransferCurrencyTotalSchema).min(1).max(20),
+  base_currency: isoCurrency,
+  base_total: positiveBoundedDecimal,
+  line_count: z.number().int().min(1).max(200),
+  details_summary: z.string().trim().min(1).max(500).nullable(),
+  state: bankTransferStateSchema,
+  version: z.number().int().positive(),
+  created_at: isoDateTime,
+});
+
+export const bankTransferDirectorySchema = z.strictObject({
+  items: z.array(bankTransferSummarySchema),
+  next_cursor: z.string().max(512).nullable(),
+});
+
+export const bankTransferTimelineEventSchema = z.strictObject({
+  id: identifier,
+  action: z.enum(["created", "updated", "submitted", "approved", "rejected", "posted", "reversed"]),
+  previous_state: bankTransferStateSchema.nullable(),
+  resulting_state: bankTransferStateSchema,
+  actor_id: identifier,
+  actor_label: z.string().trim().min(1).max(200),
+  reason: z.string().max(500).nullable(),
+  occurred_at: isoDateTime,
+});
+
+export const bankTransferAccountingPreviewLineSchema = z.strictObject({
+  line_order: z.number().int().min(1).max(800),
+  transfer_line_id: identifier,
+  account_id: identifier,
+  account_code: z.string().min(1).max(128),
+  account_name: z.string().min(1).max(200),
+  side: z.enum(["debit", "credit"]),
+  transaction_currency: isoCurrency,
+  transaction_amount: positiveBoundedDecimal,
+  base_amount: positiveBoundedDecimal,
+  role: z.enum(["source_bank", "destination_bank", "fx_gain", "fx_loss", "rounding", "bank_charge"]),
+  is_bank_control: z.boolean(),
+});
+
+export const bankTransferAccountingPreviewSchema = z.strictObject({
+  base_currency: isoCurrency,
+  lines: z.array(bankTransferAccountingPreviewLineSchema).min(2).max(800),
+  debit_total: positiveBoundedDecimal,
+  credit_total: positiveBoundedDecimal,
+});
+
+export const bankTransferDetailSchema = bankTransferSummarySchema.extend({
+  ...bankWorkflowDetailFields,
+  lines: z.array(bankTransferLineSchema).min(1).max(200),
+  timeline: z.array(bankTransferTimelineEventSchema).max(1_000),
+  accounting_preview: bankTransferAccountingPreviewSchema,
+  created_by: identifier,
+  submitted_by: identifier.nullable(),
+  approved_by: identifier.nullable(),
+  rejected_by: identifier.nullable(),
+  posted_by: identifier.nullable(),
+  reversed_by: identifier.nullable(),
+  submitted_at: isoDateTime.nullable(),
+  approved_at: isoDateTime.nullable(),
+  rejected_at: isoDateTime.nullable(),
+  posted_at: isoDateTime.nullable(),
+  reversed_at: isoDateTime.nullable(),
+  accounting_event_id: identifier.nullable(),
+  journal_id: identifier.nullable(),
+  journal_entry_number: z.string().min(1).max(128).nullable(),
+  reversal_accounting_event_id: identifier.nullable(),
+  reversal_journal_id: identifier.nullable(),
+  reversal_journal_entry_number: z.string().min(1).max(128).nullable(),
+  self_decision_requires_override: z.boolean(),
+  super_admin_override_allowed: z.boolean(),
+});
+
+export const bankTransferOptionsQuerySchema = z.strictObject({ company_id: identifier });
+export const bankTransferOptionsSchema = z.strictObject({
+  bank_accounts: bankPaymentOptionsSchema.shape.bank_accounts,
+  transfer_modes: z.array(z.strictObject({ value: bankTransferModeSchema, label: z.string().trim().min(1).max(80) })),
+});
+
+export const bankTransferMutationResultSchema = z.strictObject({
+  id: identifier,
+  reference: z.string().min(1).max(64),
+  state: bankTransferStateSchema,
+  version: z.number().int().positive(),
+  audit_event_id: identifier,
+  replayed: z.boolean(),
+});
+export const bankTransferPostingResultSchema = bankTransferMutationResultSchema.extend({
+  accounting_event_id: identifier,
+  journal_id: identifier,
+  journal_entry_number: z.string().min(1).max(128),
+});
+export const bankTransferReversalResultSchema = bankTransferMutationResultSchema.extend({
   original_accounting_event_id: identifier,
   original_journal_id: identifier,
   reversal_accounting_event_id: identifier,
@@ -795,3 +1057,26 @@ export type BankReceiptNominalAccountDirectory = z.infer<typeof bankReceiptNomin
 export type BankReceiptMutationResult = z.infer<typeof bankReceiptMutationResultSchema>;
 export type BankReceiptPostingResult = z.infer<typeof bankReceiptPostingResultSchema>;
 export type BankReceiptReversalResult = z.infer<typeof bankReceiptReversalResultSchema>;
+export type BankTransferState = z.infer<typeof bankTransferStateSchema>;
+export type BankTransferMode = z.infer<typeof bankTransferModeSchema>;
+export type BankTransferLineInput = z.infer<typeof bankTransferLineInputSchema>;
+export type BankTransferLine = z.infer<typeof bankTransferLineSchema>;
+export type CreateBankTransferRequest = z.infer<typeof createBankTransferRequestSchema>;
+export type UpdateBankTransferRequest = z.infer<typeof updateBankTransferRequestSchema>;
+export type SubmitBankTransferRequest = z.infer<typeof submitBankTransferRequestSchema>;
+export type DecideBankTransferRequest = z.infer<typeof decideBankTransferRequestSchema>;
+export type PostBankTransferRequest = z.infer<typeof postBankTransferRequestSchema>;
+export type ReverseBankTransferRequest = z.infer<typeof reverseBankTransferRequestSchema>;
+export type BankTransferDirectoryQuery = z.infer<typeof bankTransferDirectoryQuerySchema>;
+export type BankTransferCurrencyTotal = z.infer<typeof bankTransferCurrencyTotalSchema>;
+export type BankTransferSummary = z.infer<typeof bankTransferSummarySchema>;
+export type BankTransferDirectory = z.infer<typeof bankTransferDirectorySchema>;
+export type BankTransferTimelineEvent = z.infer<typeof bankTransferTimelineEventSchema>;
+export type BankTransferAccountingPreviewLine = z.infer<typeof bankTransferAccountingPreviewLineSchema>;
+export type BankTransferAccountingPreview = z.infer<typeof bankTransferAccountingPreviewSchema>;
+export type BankTransferDetail = z.infer<typeof bankTransferDetailSchema>;
+export type BankTransferOptionsQuery = z.infer<typeof bankTransferOptionsQuerySchema>;
+export type BankTransferOptions = z.infer<typeof bankTransferOptionsSchema>;
+export type BankTransferMutationResult = z.infer<typeof bankTransferMutationResultSchema>;
+export type BankTransferPostingResult = z.infer<typeof bankTransferPostingResultSchema>;
+export type BankTransferReversalResult = z.infer<typeof bankTransferReversalResultSchema>;

@@ -49,7 +49,7 @@ import {
   type ReconciliationMethod,
   type ReconciliationRecord,
   type WorksheetAdjustment,
-} from "../model/banking-reconciliation-data";
+} from "../model/legacy-bank-reconciliation-fixture";
 
 const PROTOTYPE_TODAY = "2026-09-18";
 

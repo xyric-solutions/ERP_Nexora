@@ -13,12 +13,7 @@ export interface FinanceTransactionClient {
 }
 
 export type FinanceJsonValue =
-  | null
-  | boolean
-  | number
-  | string
-  | readonly FinanceJsonValue[]
-  | Readonly<{ [key: string]: FinanceJsonValue }>;
+  null | boolean | number | string | readonly FinanceJsonValue[] | Readonly<{ [key: string]: FinanceJsonValue }>;
 
 export interface FinancePostingLine {
   accountId: string;
@@ -27,6 +22,19 @@ export interface FinancePostingLine {
   dimensions: Readonly<Record<string, string>>;
   description: string;
   sourceMetadata?: Readonly<Record<string, FinanceJsonValue>>;
+}
+
+/**
+ * An explicitly resolved native-currency line for a journal whose accounting
+ * balance is enforced in the tenant base currency. This boundary is reserved
+ * for source workflows, such as Bank Transfers, that genuinely contain more
+ * than one transaction currency in a single atomic journal.
+ */
+export interface FinanceMultiCurrencyPostingLine extends FinancePostingLine {
+  currency: string;
+  exchangeRateId: string | null;
+  exchangeRateValue: string;
+  exchangeRateDate: string | null;
 }
 
 interface FinanceCommandBase {
@@ -49,10 +57,17 @@ export interface FinancePostCommand extends FinanceCommandBase {
   lines: readonly FinancePostingLine[];
 }
 
+export interface FinanceMultiCurrencyPostCommand extends FinanceCommandBase {
+  postingDate: string;
+  lines: readonly FinanceMultiCurrencyPostingLine[];
+}
+
 export interface FinanceReverseCommand extends FinanceCommandBase {
   originalEventType: string;
   originalAccountingEventId: string;
   originalJournalId: string;
+  /** Explicit governed reversal date; omitted by workflows that reverse on the database current date. */
+  postingDate?: string;
 }
 
 export interface FinancePostingResult {
@@ -144,11 +159,7 @@ export async function createFinanceTransactionClient(
 }
 
 export async function assertFinanceTransactionClient(client: FinanceTransactionClient): Promise<void> {
-  if (
-    !client ||
-    client[financeTransactionBrand] !== true ||
-    typeof client[financeTransactionMarker] !== "string"
-  )
+  if (!client || client[financeTransactionBrand] !== true || typeof client[financeTransactionMarker] !== "string")
     throw transactionRequired();
   try {
     if (!(await markerIsActive(client, client[financeTransactionMarker]))) throw transactionRequired();

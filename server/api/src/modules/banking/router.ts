@@ -2,6 +2,8 @@ import { Router, type Request } from "express";
 import { z } from "zod";
 
 import {
+  bankWorkflowOptionQuerySchema,
+  reassignBankApproverRequestSchema,
   bankAccountDirectoryQuerySchema,
   bankPaymentDirectoryQuerySchema,
   bankPaymentNominalAccountDirectoryQuerySchema,
@@ -27,6 +29,14 @@ import {
   updateBankPaymentRequestSchema,
   updateBankReceiptRequestSchema,
   updateBankAccountRequestSchema,
+  bankTransferDirectoryQuerySchema,
+  bankTransferOptionsQuerySchema,
+  createBankTransferRequestSchema,
+  updateBankTransferRequestSchema,
+  submitBankTransferRequestSchema,
+  decideBankTransferRequestSchema,
+  postBankTransferRequestSchema,
+  reverseBankTransferRequestSchema,
 } from "@nexora/contracts";
 
 import { HttpError } from "../../http/errors.js";
@@ -37,6 +47,16 @@ import { BankingPaymentService } from "./payments/service.js";
 import type { SourceBankPaymentRepository } from "./payments/source-repository.js";
 import { BankingReceiptService } from "./receipts/service.js";
 import type { SourceBankReceiptRepository } from "./receipts/source-repository.js";
+import {
+  createBankStatementReconciliationRouter,
+  type BankingStatementStorage,
+} from "./statement-reconciliation-router.js";
+import type { BankReconciliationAdjustmentRepository } from "./reconciliations/adjustment-service.js";
+import type { BankingReconciliationRepository } from "./reconciliations/service.js";
+import { createBankRevaluationRouter } from "./revaluations/router.js";
+import type { BankingRevaluationRepository } from "./revaluations/service.js";
+import type { BankingStatementImportRepository } from "./statements/service.js";
+import { BankingTransferService, type BankingTransferRepository } from "./transfers/service.js";
 import { loadBankingSessionContext } from "./session-context.js";
 import { BankingApiError, type SourceBankingRepository } from "./source-repository.js";
 
@@ -56,18 +76,47 @@ export type BankingRepository = Pick<
 
 export type BankingPaymentRepository = Pick<
   SourceBankPaymentRepository,
-  "list" | "options" | "listNominalAccounts" | "get" | "create" | "update" | "submit" | "decide" | "post" | "reverse"
+  | "list"
+  | "options"
+  | "workflowOptions"
+  | "listNominalAccounts"
+  | "get"
+  | "create"
+  | "update"
+  | "submit"
+  | "decide"
+  | "post"
+  | "reverse"
+  | "reassign"
 >;
 
 export type BankingReceiptRepository = Pick<
   SourceBankReceiptRepository,
-  "list" | "options" | "listNominalAccounts" | "get" | "create" | "update" | "submit" | "decide" | "post" | "reverse"
+  | "list"
+  | "options"
+  | "workflowOptions"
+  | "listNominalAccounts"
+  | "get"
+  | "create"
+  | "update"
+  | "submit"
+  | "decide"
+  | "post"
+  | "reverse"
+  | "reassign"
 >;
+export type { BankingTransferRepository } from "./transfers/service.js";
 
 export interface BankingRouterDependencies {
   repository: BankingRepository;
   paymentRepository: BankingPaymentRepository;
   receiptRepository: BankingReceiptRepository;
+  transferRepository?: BankingTransferRepository;
+  statementRepository?: BankingStatementImportRepository;
+  statementStorage?: BankingStatementStorage;
+  reconciliationRepository?: BankingReconciliationRepository;
+  adjustmentRepository?: BankReconciliationAdjustmentRepository;
+  revaluationRepository?: BankingRevaluationRepository;
   authentication: TenantAuthApiService;
   sessions: TenantSessionApiService;
   secureCookies: boolean;
@@ -126,6 +175,20 @@ function verifyReceiptPrecondition(req: Request, expectedVersion: number): void 
   }
 }
 
+function verifyTransferPrecondition(req: Request, expectedVersion: number): void {
+  const supplied = req.get("if-match");
+  if (supplied === undefined) return;
+  const match = /^"([1-9]\d*)"$/.exec(supplied.trim());
+  if (!match)
+    throw new HttpError(400, "INVALID_IF_MATCH", "The If-Match header must contain a quoted Transfer version.");
+  if (Number(match[1]) !== expectedVersion)
+    throw new HttpError(
+      412,
+      "TRANSFER_PRECONDITION_FAILED",
+      "The Transfer version precondition does not match the request.",
+    );
+}
+
 const identifier = z.string().trim().min(1).max(128);
 
 export function createBankingRouter(dependencies: BankingRouterDependencies): Router {
@@ -133,10 +196,55 @@ export function createBankingRouter(dependencies: BankingRouterDependencies): Ro
   const accounts = new BankingAccountService(dependencies.repository);
   const payments = new BankingPaymentService(dependencies.paymentRepository);
   const receipts = new BankingReceiptService(dependencies.receiptRepository);
+  const transfers = dependencies.transferRepository
+    ? new BankingTransferService(dependencies.transferRepository)
+    : null;
   router.use((_req, res, next) => {
     res.setHeader("cache-control", "no-store");
     next();
   });
+
+  const statementReconciliationDependencyCount = [
+    dependencies.statementRepository,
+    dependencies.statementStorage,
+    dependencies.reconciliationRepository,
+    dependencies.adjustmentRepository,
+  ].filter(Boolean).length;
+  if (statementReconciliationDependencyCount !== 0 && statementReconciliationDependencyCount !== 4) {
+    throw new Error(
+      "Statement import, storage, reconciliation, and adjustment repositories must be configured together.",
+    );
+  }
+  if (
+    dependencies.statementRepository &&
+    dependencies.statementStorage &&
+    dependencies.reconciliationRepository &&
+    dependencies.adjustmentRepository
+  ) {
+    router.use(
+      createBankStatementReconciliationRouter({
+        statementRepository: dependencies.statementRepository,
+        statementStorage: dependencies.statementStorage,
+        reconciliationRepository: dependencies.reconciliationRepository,
+        adjustmentRepository: dependencies.adjustmentRepository,
+        authentication: dependencies.authentication,
+        sessions: dependencies.sessions,
+        secureCookies: dependencies.secureCookies,
+        allowedOrigins: dependencies.allowedOrigins,
+      }),
+    );
+  }
+  if (dependencies.revaluationRepository) {
+    router.use(
+      createBankRevaluationRouter({
+        repository: dependencies.revaluationRepository,
+        authentication: dependencies.authentication,
+        sessions: dependencies.sessions,
+        secureCookies: dependencies.secureCookies,
+        allowedOrigins: dependencies.allowedOrigins,
+      }),
+    );
+  }
 
   async function handle<T>(operation: () => Promise<T>): Promise<T> {
     try {
@@ -220,6 +328,15 @@ export function createBankingRouter(dependencies: BankingRouterDependencies): Ro
     );
   });
 
+  router.get("/payments/workflow_options", async (req, res) => {
+    const query = bankWorkflowOptionQuerySchema.parse({
+      ...req.query,
+      limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+    });
+    res.json(
+      await handle(async () => payments.workflowOptions(await loadBankingSessionContext(req, dependencies), query)),
+    );
+  });
   router.get("/payments/:paymentId", async (req, res) => {
     const paymentId = identifier.parse(req.params.paymentId);
     const result = await handle(async () =>
@@ -298,6 +415,22 @@ export function createBankingRouter(dependencies: BankingRouterDependencies): Ro
     res.json(result);
   });
 
+  router.post("/payments/:paymentId/approver", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const input = reassignBankApproverRequestSchema.parse(req.body);
+    verifyPaymentPrecondition(req, input.expected_version);
+    const result = await handle(async () =>
+      payments.reassign(
+        await loadBankingSessionContext(req, dependencies, true),
+        identifier.parse(req.params.paymentId),
+        input,
+        idempotencyKey(req),
+        currentRequestContext().correlationId,
+      ),
+    );
+    res.setHeader("etag", paymentEtag(result.version));
+    res.json(result);
+  });
   router.post("/payments/:paymentId/post", async (req, res) => {
     trustedOrigin(req, dependencies.allowedOrigins);
     const paymentId = identifier.parse(req.params.paymentId);
@@ -366,6 +499,15 @@ export function createBankingRouter(dependencies: BankingRouterDependencies): Ro
     );
   });
 
+  router.get("/receipts/workflow_options", async (req, res) => {
+    const query = bankWorkflowOptionQuerySchema.parse({
+      ...req.query,
+      limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+    });
+    res.json(
+      await handle(async () => receipts.workflowOptions(await loadBankingSessionContext(req, dependencies), query)),
+    );
+  });
   router.get("/receipts/:receiptId", async (req, res) => {
     const receiptId = identifier.parse(req.params.receiptId);
     const result = await handle(async () =>
@@ -444,6 +586,22 @@ export function createBankingRouter(dependencies: BankingRouterDependencies): Ro
     res.json(result);
   });
 
+  router.post("/receipts/:receiptId/approver", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const input = reassignBankApproverRequestSchema.parse(req.body);
+    verifyReceiptPrecondition(req, input.expected_version);
+    const result = await handle(async () =>
+      receipts.reassign(
+        await loadBankingSessionContext(req, dependencies, true),
+        identifier.parse(req.params.receiptId),
+        input,
+        idempotencyKey(req),
+        currentRequestContext().correlationId,
+      ),
+    );
+    res.setHeader("etag", receiptEtag(result.version));
+    res.json(result);
+  });
   router.post("/receipts/:receiptId/post", async (req, res) => {
     trustedOrigin(req, dependencies.allowedOrigins);
     const receiptId = identifier.parse(req.params.receiptId);
@@ -479,6 +637,145 @@ export function createBankingRouter(dependencies: BankingRouterDependencies): Ro
     res.setHeader("etag", receiptEtag(result.version));
     res.json(result);
   });
+
+  if (transfers)
+    router.get("/transfers", async (req, res) => {
+      const query = bankTransferDirectoryQuerySchema.parse({
+        ...req.query,
+        limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+      });
+      res.json(await handle(async () => transfers.list(await loadBankingSessionContext(req, dependencies), query)));
+    });
+  if (transfers)
+    router.get("/transfers/options", async (req, res) => {
+      const query = bankTransferOptionsQuerySchema.parse({ company_id: req.query.company_id });
+      res.json(await handle(async () => transfers.options(await loadBankingSessionContext(req, dependencies), query)));
+    });
+  if (transfers)
+    router.get("/transfers/workflow_options", async (req, res) => {
+      const query = bankWorkflowOptionQuerySchema.parse({
+        ...req.query,
+        limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+      });
+      res.json(
+        await handle(async () => transfers.workflowOptions(await loadBankingSessionContext(req, dependencies), query)),
+      );
+    });
+  if (transfers)
+    router.get("/transfers/:transferId", async (req, res) => {
+      const result = await handle(async () =>
+        transfers.get(await loadBankingSessionContext(req, dependencies), identifier.parse(req.params.transferId)),
+      );
+      res.setHeader("etag", `"${result.version}"`);
+      res.json(result);
+    });
+  if (transfers)
+    router.post("/transfers", async (req, res) => {
+      trustedOrigin(req, dependencies.allowedOrigins);
+      const input = createBankTransferRequestSchema.parse(req.body);
+      const result = await handle(async () =>
+        transfers.create(
+          await loadBankingSessionContext(req, dependencies, true),
+          input,
+          idempotencyKey(req),
+          currentRequestContext().correlationId,
+        ),
+      );
+      res.setHeader("etag", `"${result.version}"`);
+      res.status(result.replayed ? 200 : 201).json(result);
+    });
+  if (transfers)
+    router.patch("/transfers/:transferId", async (req, res) => {
+      trustedOrigin(req, dependencies.allowedOrigins);
+      const input = updateBankTransferRequestSchema.parse(req.body);
+      verifyTransferPrecondition(req, input.expected_version);
+      const result = await handle(async () =>
+        transfers.update(
+          await loadBankingSessionContext(req, dependencies, true),
+          identifier.parse(req.params.transferId),
+          input,
+          idempotencyKey(req),
+          currentRequestContext().correlationId,
+        ),
+      );
+      res.setHeader("etag", `"${result.version}"`);
+      res.json(result);
+    });
+  if (transfers)
+    for (const [action, schema, invoke] of [
+      [
+        "submit",
+        submitBankTransferRequestSchema,
+        (
+          ctx: Awaited<ReturnType<typeof loadBankingSessionContext>>,
+          id: string,
+          input: never,
+          key: string,
+          correlation: string,
+        ) => transfers.submit(ctx, id, input, key, correlation),
+      ],
+      [
+        "decision",
+        decideBankTransferRequestSchema,
+        (
+          ctx: Awaited<ReturnType<typeof loadBankingSessionContext>>,
+          id: string,
+          input: never,
+          key: string,
+          correlation: string,
+        ) => transfers.decide(ctx, id, input, key, correlation),
+      ],
+      [
+        "approver",
+        reassignBankApproverRequestSchema,
+        (
+          ctx: Awaited<ReturnType<typeof loadBankingSessionContext>>,
+          id: string,
+          input: never,
+          key: string,
+          correlation: string,
+        ) => transfers.reassign(ctx, id, input, key, correlation),
+      ],
+      [
+        "post",
+        postBankTransferRequestSchema,
+        (
+          ctx: Awaited<ReturnType<typeof loadBankingSessionContext>>,
+          id: string,
+          input: never,
+          key: string,
+          correlation: string,
+        ) => transfers.post(ctx, id, input, key, correlation),
+      ],
+      [
+        "reverse",
+        reverseBankTransferRequestSchema,
+        (
+          ctx: Awaited<ReturnType<typeof loadBankingSessionContext>>,
+          id: string,
+          input: never,
+          key: string,
+          correlation: string,
+        ) => transfers.reverse(ctx, id, input, key, correlation),
+      ],
+    ] as const) {
+      router.post(`/transfers/:transferId/${action}`, async (req, res) => {
+        trustedOrigin(req, dependencies.allowedOrigins);
+        const input = schema.parse(req.body);
+        verifyTransferPrecondition(req, input.expected_version);
+        const result = await handle(async () =>
+          invoke(
+            await loadBankingSessionContext(req, dependencies, true),
+            identifier.parse(req.params.transferId),
+            input as never,
+            idempotencyKey(req),
+            currentRequestContext().correlationId,
+          ),
+        );
+        res.setHeader("etag", `"${result.version}"`);
+        res.json(result);
+      });
+    }
 
   router.post("/accounts", async (req, res) => {
     trustedOrigin(req, dependencies.allowedOrigins);

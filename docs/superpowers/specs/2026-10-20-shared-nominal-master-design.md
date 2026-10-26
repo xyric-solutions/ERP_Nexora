@@ -1,6 +1,7 @@
 # Shared PostgreSQL nominal master and Bank integration
 
-Status: scope authorized by the user; detailed design awaiting written-spec review.
+Status: design approved; core shared-master implementation and synthetic acceptance verified.
+Business catalog activation remains pending explicit import-manifest review.
 
 ## Goal
 

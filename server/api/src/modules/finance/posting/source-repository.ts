@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 
 import type { QueryResult, QueryResultRow } from "pg";
 
+import {
+  resolveCompanyCurrencyAuthority,
+  type CompanyCurrencyAuthority,
+} from "../currencies/company-authority.js";
 import type { FinanceJsonValue, FinanceTransactionClient } from "./types.js";
 
 type FinancePostingClient = FinanceTransactionClient;
@@ -90,6 +94,15 @@ export interface FinancePostingRepository {
     sourceId: string,
     operation: "post" | "reverse",
   ): Promise<FinanceEventRow | null>;
+  resolveCompanyCurrency(
+    client: FinancePostingClient,
+    input: {
+      tenantId: string;
+      companyId: string;
+      sourceCurrency: string;
+      effectiveOnOrBefore: string;
+    },
+  ): Promise<CompanyCurrencyAuthority>;
   loadBaseCurrencies(client: FinancePostingClient, tenantId: string): Promise<FinanceCurrencyRow[]>;
   loadTransactionCurrency(
     client: FinancePostingClient,
@@ -279,6 +292,18 @@ export class SourceFinancePostingRepository implements FinancePostingRepository 
     );
   }
 
+  resolveCompanyCurrency(
+    client: FinancePostingClient,
+    input: {
+      tenantId: string;
+      companyId: string;
+      sourceCurrency: string;
+      effectiveOnOrBefore: string;
+    },
+  ): Promise<CompanyCurrencyAuthority> {
+    return resolveCompanyCurrencyAuthority(client, input);
+  }
+
   async loadBaseCurrencies(client: FinancePostingClient, tenantId: string): Promise<FinanceCurrencyRow[]> {
     return (
       await client.query<FinanceCurrencyRow>(
@@ -313,7 +338,7 @@ export class SourceFinancePostingRepository implements FinancePostingRepository 
     return one(
       await client.query<FinanceRateRow>(
         `select id,rate::text as rate from currency_rate
-          where tenant_id=$1 and source_currency=$2 and target_currency=$3 and effective_date<=$4::date
+          where tenant_id=$1 and source_currency=$2 and target_currency=$3 and effective_date<=$4::date and status='active'
           order by effective_date desc,id desc limit 1 for share`,
         [tenantId, sourceCurrency, targetCurrency, postingDate],
       ),

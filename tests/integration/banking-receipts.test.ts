@@ -1,4 +1,11 @@
 import { randomUUID } from "node:crypto";
+import { registerBankGovernanceCases } from "./bank-governance-cases.js";
+import {
+  bankContextFixture,
+  assertContextDatabaseGuards,
+  assertConcurrentApproverRevocation,
+  assertUnassignedCheckerDenied,
+} from "./bank-context-fixture.js";
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -13,6 +20,7 @@ import {
 } from "../../server/api/src/modules/banking/source-repository.js";
 import { FinancePostingService } from "../../server/api/src/modules/finance/posting/index.js";
 import {
+  ensureCompanyCurrencyFixture,
   ensureSourceAuthorizationFixture,
   ensureSourceSuperAdministratorFixture,
   sourceTestTenantId,
@@ -69,6 +77,7 @@ const overrideAdmin = context(
 function receiptInput(postingDate: string, reference: string) {
   return {
     company_id: companyId,
+    approver_user_id: "r06.checker",
     bank_account_id: bankAccountId,
     posting_date: postingDate,
     lines: [
@@ -124,6 +133,7 @@ run("Bank Receipt governed repository", () => {
        values ($1,$2,null,'company',$3,'Bank Receipt Integration Company','active')`,
       [companyId, sourceTestTenantId, `REC-${suffix}`],
     );
+    await ensureCompanyCurrencyFixture(pool, companyId, baseCurrency, []);
     for (const grant of [
       {
         policyId: "r06-uat-policy-maker",
@@ -221,6 +231,169 @@ run("Bank Receipt governed repository", () => {
     await pool?.end();
   });
 
+  function registerContextTest() {
+    it("persists typed context, routes assigned approval and preserves ledger dimensions through reversal", async () => {
+      // Restore access with a new immutable fixture grant if an earlier replay test revoked its own grant.
+      await pool.query(
+        `insert into security_user_company_access(tenant_id,access_id,user_id,company_id,is_default,granted_by,source_kind,source_reference)
+      select $1,$2,'r06.maker',$3,false,'r06.last-admin-a','governed_administration','synthetic-context-test'
+      where not exists(select 1 from security_user_company_access where tenant_id=$1 and company_id=$3 and user_id='r06.maker' and revoked_at is null)`,
+        [sourceTestTenantId, randomUUID(), companyId],
+      );
+      const { masters, masterActor, project, location } = await bankContextFixture(pool, maker, companyId);
+      const foreign = await bankContextFixture(pool, maker, "nexora-r06-uat-company");
+      const input = { ...receiptInput(postingDate, `CTX-${suffix}`), project_id: project.id, location_id: location.id };
+      const options = await repository.workflowOptions(maker, { company_id: companyId, kind: "project", limit: 10 });
+      expect(options.items.map((item) => item.id)).toContain(project.id);
+      expect(options.items.map((item) => item.id)).not.toContain(foreign.project.id);
+      expect(
+        (
+          await repository.workflowOptions(maker, {
+            company_id: companyId,
+            kind: "project",
+            selected_id: foreign.project.id,
+            limit: 10,
+          })
+        ).selected,
+      ).toBeNull();
+      const checkers = await repository.workflowOptions(maker, { company_id: companyId, kind: "approver", limit: 100 });
+      expect(checkers.items.map((item) => item.id)).toContain("r06.checker");
+      expect(checkers.items.map((item) => item.id)).not.toContain(maker.actor.userId);
+      const missing = await repository.create(maker, { ...input, approver_user_id: null }, randomUUID(), randomUUID());
+      await expect(
+        repository.submit(maker, missing.id, { expected_version: 1 }, randomUUID(), randomUUID()),
+      ).rejects.toMatchObject({ code: "BANK_APPROVER_REQUIRED" });
+      await expect(
+        repository.create(maker, { ...input, project_id: "outside-company-project" }, randomUUID(), randomUUID()),
+      ).rejects.toMatchObject({ code: "BANK_CONTEXT_INELIGIBLE" });
+      await expect(
+        repository.create(
+          maker,
+          {
+            ...input,
+            lines: input.lines.map((line) => ({ ...line, dimensions: { ...line.dimensions, project: "forged" } })),
+          },
+          randomUUID(),
+          randomUUID(),
+        ),
+      ).rejects.toMatchObject({ code: "BANK_CONTEXT_CONFLICT" });
+      const created = await repository.create(maker, input, randomUUID(), randomUUID());
+      await expect(
+        repository.create(maker, { ...input, project_id: foreign.project.id }, randomUUID(), randomUUID()),
+      ).rejects.toMatchObject({ code: "BANK_CONTEXT_INELIGIBLE" });
+      const detail = await repository.get(maker, created.id);
+      await assertContextDatabaseGuards(pool, sourceTestTenantId, "receipt", created.id);
+      expect(detail).toMatchObject({
+        project_id: project.id,
+        location_id: location.id,
+        approver_user_id: "r06.checker",
+      });
+      expect(detail.lines[0]?.dimensions).toMatchObject({
+        project: project.id,
+        location: location.id,
+        department: "finance",
+      });
+      const submitted = await repository.submit(maker, created.id, { expected_version: 1 }, randomUUID(), randomUUID());
+      await assertUnassignedCheckerDenied(pool, sourceTestTenantId, companyId, "receipt", () =>
+        repository.decide(
+          {
+            ...poster,
+            actor: { ...poster.actor, permissions: [...poster.actor.permissions, "banking.receipt.approve"] },
+          },
+          created.id,
+          { action: "approve", expected_version: submitted.version },
+          randomUUID(),
+          randomUUID(),
+        ),
+      );
+      await assertConcurrentApproverRevocation(pool, sourceTestTenantId, companyId, "receipt", () =>
+        repository.decide(
+          checker,
+          created.id,
+          { action: "approve", expected_version: submitted.version },
+          randomUUID(),
+          randomUUID(),
+        ),
+      );
+      await pool.query(
+        "delete from security_role_scope_grant where tenant_id=$1 and role_policy_id='r06-uat-policy-checker' and permission_key='banking.receipt.approve' and scope_kind='company' and scope_value=$2",
+        [sourceTestTenantId, companyId],
+      );
+      try {
+        await expect(
+          repository.decide(
+            checker,
+            created.id,
+            { action: "approve", expected_version: submitted.version },
+            randomUUID(),
+            randomUUID(),
+          ),
+        ).rejects.toMatchObject({ status: 403 });
+      } finally {
+        await pool.query(
+          "insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) values($1,'r06-uat-policy-checker','banking.receipt.approve','company',$2)",
+          [sourceTestTenantId, companyId],
+        );
+      }
+      const approved = await repository.decide(
+        checker,
+        created.id,
+        { action: "approve", expected_version: submitted.version },
+        randomUUID(),
+        randomUUID(),
+      );
+      const inactive = await masters.status(
+        masterActor,
+        "projects",
+        project.id,
+        { company_id: companyId, expected_version: 1, status: "inactive" },
+        randomUUID(),
+        randomUUID(),
+      );
+      await expect(
+        repository.post(poster, created.id, { expected_version: approved.version }, randomUUID(), randomUUID()),
+      ).rejects.toMatchObject({ code: "BANK_CONTEXT_INELIGIBLE" });
+      const active = await masters.status(
+        masterActor,
+        "projects",
+        project.id,
+        { company_id: companyId, expected_version: inactive.record.version, status: "active" },
+        randomUUID(),
+        randomUUID(),
+      );
+      const posted = await repository.post(
+        poster,
+        created.id,
+        { expected_version: approved.version },
+        randomUUID(),
+        randomUUID(),
+      );
+      await masters.status(
+        masterActor,
+        "projects",
+        project.id,
+        { company_id: companyId, expected_version: active.record.version, status: "inactive" },
+        randomUUID(),
+        randomUUID(),
+      );
+      await repository.reverse(
+        poster,
+        created.id,
+        { expected_version: posted.version, reason: "Synthetic context reversal" },
+        randomUUID(),
+        randomUUID(),
+      );
+      const reversed = await repository.get(maker, created.id);
+      const ledger = await pool.query(
+        "select dimensions from journal_line where tenant_id=$1 and journal_id=any($2::text[]) and account_id=$3",
+        [sourceTestTenantId, [reversed.journal_id, reversed.reversal_journal_id], incomeId],
+      );
+      expect(ledger.rows).toHaveLength(2);
+      expect(
+        ledger.rows.every((line) => line.dimensions.project === project.id && line.dimensions.location === location.id),
+      ).toBe(true);
+    }, 60_000);
+  }
   it("runs create through reversal with payer, idempotency, separation and correct accounting direction", async () => {
     const input = receiptInput(postingDate, `EXT-${suffix}`);
     const options = await repository.options(maker, { company_id: companyId });
@@ -233,7 +406,7 @@ run("Bank Receipt governed repository", () => {
       "direct_debit",
       "card",
     ]);
-    await expect(repository.listNominalAccounts(maker, { company_id: companyId, limit: 100 })).resolves.toEqual({
+    await expect(repository.listNominalAccounts(maker, { company_id: companyId, limit: 100 })).resolves.toMatchObject({
       items: [expect.objectContaining({ id: incomeId, required_dimensions: ["department"] })],
     });
     await expect(
@@ -365,7 +538,7 @@ run("Bank Receipt governed repository", () => {
     const approved = await repository.decide(
       overrideAdmin,
       created.id,
-      { action: "approve", expected_version: submitted.version, reason: "Controlled emergency self-approval" },
+      { action: "approve", expected_version: submitted.version },
       `receipt-override-approve-${suffix}`,
       `receipt-corr-override-approve-${suffix}`,
     );
@@ -416,4 +589,22 @@ run("Bank Receipt governed repository", () => {
       idempotency_success: "0",
     });
   }, 60_000);
+  registerContextTest();
+  registerBankGovernanceCases(() => ({
+    pool,
+    kind: "receipt",
+    company: companyId,
+    repository,
+    maker,
+    checker,
+    poster,
+    admin: overrideAdmin,
+    create: (actor, fields) =>
+      repository.create(
+        actor,
+        { ...receiptInput(postingDate, `GOV-${randomUUID()}`), ...fields },
+        randomUUID(),
+        randomUUID(),
+      ),
+  }));
 });

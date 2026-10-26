@@ -131,7 +131,7 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const banks = useMemo(() => [...new Set(rows.map((row) => row.bank_name))].sort(), [rows]);
+  const banks = useMemo(() => [...new Set(rows.map((row) => row.bank_name).filter((name): name is string => name !== null))].sort(), [rows]);
   const currencies = useMemo(() => [...new Set(rows.map((row) => row.currency))].sort(), [rows]);
 
   if (!sessionLoading && !session) {
@@ -276,7 +276,7 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
                         type="button"
                         onClick={() => onOpenAccount(account.id)}
                       >
-                        {account.bank_name}
+                        {account.bank_name ?? account.ledger_account_code}
                       </button>
                       <small className="mt-1 block text-muted-foreground">
                         {account.branch || "Branch not recorded"}
@@ -291,7 +291,7 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
                         {account.account_name}
                       </button>
                       <small className="mt-1 block text-muted-foreground">
-                        {account.account_number_masked} · {account.reference}
+                        {account.account_number_masked ?? account.ledger_account_code}
                       </small>
                     </td>
                     <td className="px-4 py-4">

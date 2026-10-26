@@ -1,7 +1,7 @@
 # Bank workflow context: shared masters and assigned approval
 
-Status: architecture direction approved by the user on 2026-10-21. This written
-specification requires user review before implementation. It does not claim that
+Status: architecture direction and this written specification approved by the
+user on 2026-10-21. Implementation planning and WC-01 are authorized. It does not claim that
 the models, permissions, endpoints or migrations proposed below already exist.
 
 ## Objective

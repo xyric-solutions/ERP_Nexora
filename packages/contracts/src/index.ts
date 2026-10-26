@@ -4,5 +4,7 @@ export * from "./finance/index.js";
 export * from "./health.js";
 export * from "./hr/index.js";
 export * from "./jobs/index.js";
+export * from "./master-data/index.js";
 export * from "./problem.js";
 export * from "./security/index.js";
+export * from "./security/bank-self-approval.js";

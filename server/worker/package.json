@@ -10,8 +10,10 @@
     "start": "node dist/worker.js"
   },
   "dependencies": {
+    "@nexora/api": "0.1.0",
     "@nexora/contracts": "0.1.0",
     "@nexora/db": "0.1.0",
+    "@nexora/domain": "0.1.0",
     "@nexora/observability": "0.1.0",
     "bullmq": "6.3.11",
     "ioredis": "5.8.2",

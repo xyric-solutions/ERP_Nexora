@@ -11,6 +11,7 @@ import type {
   BankingPaymentRepository,
   BankingReceiptRepository,
   BankingRepository,
+  BankingTransferRepository,
 } from "../../server/api/src/modules/banking/router.js";
 import { BankingApiError } from "../../server/api/src/modules/banking/source-repository.js";
 
@@ -27,6 +28,7 @@ function appForBanking(
   repository: Partial<BankingRepository>,
   paymentRepository: Partial<BankingPaymentRepository> = {},
   receiptRepository: Partial<BankingReceiptRepository> = {},
+  transferRepository: Partial<BankingTransferRepository> = {},
 ) {
   const authentication = {
     loadAuthenticatedAccount: vi.fn(async () => ({
@@ -57,6 +59,13 @@ function appForBanking(
         "banking.receipt.approve",
         "banking.receipt.post",
         "banking.receipt.reverse",
+        "banking.transfer.read",
+        "banking.transfer.create",
+        "banking.transfer.update",
+        "banking.transfer.submit",
+        "banking.transfer.approve",
+        "banking.transfer.post",
+        "banking.transfer.reverse",
       ],
       sessionVersion: 1,
     })),
@@ -77,6 +86,7 @@ function appForBanking(
     bankingRepository: repository as BankingRepository,
     bankingPaymentRepository: paymentRepository as BankingPaymentRepository,
     bankingReceiptRepository: receiptRepository as BankingReceiptRepository,
+    bankingTransferRepository: transferRepository as BankingTransferRepository,
   });
 }
 
@@ -97,6 +107,187 @@ const paymentCreate = {
   posting_date: "2026-10-19",
   lines: [paymentLine],
 };
+
+describe("Bank workflow option projections", () => {
+  for (const kind of ["payments", "receipts"] as const)
+    it(`enforces HTTP mutation guards on ${kind} reassignment`, async () => {
+      const reassign = vi.fn(async () => ({
+        id: "transaction-one",
+        reference: "SYN-1",
+        state: "submitted",
+        version: 3,
+        audit_event_id: "synthetic-audit",
+        replayed: false,
+      }));
+      const app = appForBanking({}, kind === "payments" ? { reassign } : {}, kind === "receipts" ? { reassign } : {}),
+        path = `/api/v1/banking/${kind}/transaction-one/approver`;
+      const input = { approver_user_id: "checker-two", expected_version: 2 };
+      expect((await request(app).post(path).send(input)).status).toBe(401);
+      expect(
+        (
+          await request(app)
+            .post(path)
+            .set("cookie", "nexora_session=token-banking")
+            .set("origin", "https://untrusted.example.test")
+            .send(input)
+        ).status,
+      ).toBe(403);
+      expect(
+        (
+          await request(app)
+            .post(path)
+            .set("cookie", "nexora_session=token-banking")
+            .set("origin", "https://banking.example.test")
+            .set("x-csrf-token", session.csrfToken)
+            .set("idempotency-key", "synthetic-reassign")
+            .set("if-match", '"1"')
+            .send(input)
+        ).status,
+      ).toBe(412);
+      expect(reassign).not.toHaveBeenCalled();
+      const response = await request(app)
+        .post(path)
+        .set("cookie", "nexora_session=token-banking")
+        .set("origin", "https://banking.example.test")
+        .set("x-csrf-token", session.csrfToken)
+        .set("idempotency-key", "synthetic-reassign")
+        .set("if-match", '"2"')
+        .send(input);
+      expect(response.status).toBe(200);
+      expect(reassign).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: session.tenantId }),
+        "transaction-one",
+        input,
+        "synthetic-reassign",
+        expect.any(String),
+      );
+    });
+  for (const kind of ["payments", "receipts"] as const) {
+    it(`authenticates and validates the bounded ${kind} directory before dispatch`, async () => {
+      const workflowOptions = vi.fn(async () => ({ items: [], selected: null, next_cursor: null }));
+      const app = appForBanking(
+        {},
+        kind === "payments" ? { workflowOptions } : {},
+        kind === "receipts" ? { workflowOptions } : {},
+      );
+      const path = `/api/v1/banking/${kind}/workflow_options`;
+      expect((await request(app).get(`${path}?company_id=company-a&kind=project`)).status).toBe(401);
+      expect(workflowOptions).not.toHaveBeenCalled();
+      for (const query of [
+        "kind=project",
+        "company_id=company-a&kind=unknown",
+        "company_id=company-a&kind=project&limit=101",
+        "company_id=company-a&kind=project&tenant_id=forged",
+      ]) {
+        expect((await request(app).get(`${path}?${query}`).set("cookie", "nexora_session=token-banking")).status).toBe(
+          400,
+        );
+      }
+      expect(workflowOptions).not.toHaveBeenCalled();
+      const response = await request(app)
+        .get(`${path}?company_id=company-a&kind=project&limit=10`)
+        .set("cookie", "nexora_session=token-banking");
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ items: [], selected: null, next_cursor: null });
+      expect(workflowOptions).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: session.tenantId }),
+        expect.objectContaining({ company_id: "company-a", kind: "project", limit: 10 }),
+      );
+    });
+  }
+});
+
+describe("Bank Transfer API routes", () => {
+  const transferInput = {
+    company_id: "company-a",
+    posting_date: "2026-10-22",
+    value_date: null,
+    lines: [
+      {
+        line_order: 1,
+        document_date: "2026-10-22",
+        from_bank_account_id: "bank-a",
+        external_reference: "REF-1",
+        transfer_mode: "internal" as const,
+        to_bank_account_id: "bank-b",
+        details: "Treasury funding",
+        source_amount: "100.00",
+        bank_charge_amount: "0",
+      },
+    ],
+  };
+
+  it("authenticates, validates, and dispatches Transfer directory and create requests", async () => {
+    const list = vi.fn(async () => ({ items: [], next_cursor: null }));
+    const create = vi.fn(async () => ({
+      id: "transfer-1",
+      reference: "TRF-1",
+      state: "draft" as const,
+      version: 1,
+      audit_event_id: "audit-1",
+      replayed: false,
+    }));
+    const app = appForBanking({}, {}, {}, { list, create });
+    expect((await request(app).get("/api/v1/banking/transfers?company_id=company-a")).status).toBe(401);
+    const directory = await request(app)
+      .get("/api/v1/banking/transfers?company_id=company-a&limit=25")
+      .set("cookie", "nexora_session=token-banking");
+    expect(directory.status).toBe(200);
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: session.tenantId }),
+      expect.objectContaining({ company_id: "company-a", limit: 25 }),
+    );
+
+    const created = await request(app)
+      .post("/api/v1/banking/transfers")
+      .set("cookie", "nexora_session=token-banking")
+      .set("origin", "https://banking.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "transfer-create")
+      .send(transferInput);
+    expect(created.status).toBe(201);
+    expect(created.headers.etag).toBe('"1"');
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: session.tenantId }),
+      transferInput,
+      "transfer-create",
+      expect.any(String),
+    );
+  });
+
+  it("requires matching If-Match evidence for Transfer lifecycle mutations", async () => {
+    const submit = vi.fn(async () => ({
+      id: "transfer-1",
+      reference: "TRF-1",
+      state: "submitted" as const,
+      version: 2,
+      audit_event_id: "audit-2",
+      replayed: false,
+    }));
+    const app = appForBanking({}, {}, {}, { submit });
+    const stale = await request(app)
+      .post("/api/v1/banking/transfers/transfer-1/submit")
+      .set("cookie", "nexora_session=token-banking")
+      .set("origin", "https://banking.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "transfer-submit")
+      .set("if-match", '"1"')
+      .send({ expected_version: 2 });
+    expect(stale.status).toBe(412);
+    expect(submit).not.toHaveBeenCalled();
+
+    const accepted = await request(app)
+      .post("/api/v1/banking/transfers/transfer-1/submit")
+      .set("cookie", "nexora_session=token-banking")
+      .set("origin", "https://banking.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "transfer-submit")
+      .set("if-match", '"2"')
+      .send({ expected_version: 2 });
+    expect(accepted.status).toBe(200);
+    expect(accepted.headers.etag).toBe('"2"');
+  });
+});
 
 const receiptCreate = {
   company_id: "company-a",
@@ -206,11 +397,22 @@ function receiptMutationRequest(method: "patch" | "post", path: string) {
 describe("Banking API foundation", () => {
   it("checks the authoritative Finance and Banking relations in production readiness", () => {
     const serverSource = readFileSync(new URL("../../server/api/src/server.ts", import.meta.url), "utf8");
-    expect(serverSource).toContain("to_regclass('public.journal_line')");
-    expect(serverSource).not.toContain("to_regclass('public.journal_entry_line')");
-    expect(serverSource).toContain("to_regclass('public.bank_receipt')");
-    expect(serverSource).toContain("to_regclass('public.bank_receipt_line')");
-    expect(serverSource).toContain("to_regclass('public.bank_receipt_event')");
+    const readinessSource = readFileSync(
+      new URL("../../server/api/src/modules/banking/readiness.ts", import.meta.url),
+      "utf8",
+    );
+    expect(serverSource).toContain("banking_foundation: createBankingFoundationReadiness(pool)");
+    expect(readinessSource).toContain("to_regclass('public.journal_line')");
+    expect(readinessSource).not.toContain("to_regclass('public.journal_entry_line')");
+    expect(readinessSource).toContain("to_regclass('public.bank_receipt')");
+    expect(readinessSource).toContain("to_regclass('public.bank_receipt_line')");
+    expect(readinessSource).toContain("to_regclass('public.bank_receipt_event')");
+    expect(readinessSource).toContain("module_name='finance' and version>=30");
+    expect(readinessSource).toContain("to_regclass('public.finance_coa_master_change')");
+    expect(readinessSource).toContain("to_regclass('public.bank_assignment_intervention')");
+    expect(readinessSource).toContain("module_name='platform' and version>=11");
+    expect(readinessSource).toContain("module_name='security' and version>=19");
+    expect(readinessSource).toContain("to_regclass('public.bank_revaluation_reversal_schedule')");
   });
 
   it("fails fast when production Banking repositories are only partially composed", () => {

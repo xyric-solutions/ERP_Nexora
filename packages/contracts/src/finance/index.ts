@@ -1,4 +1,9 @@
 import { z } from "zod";
+export * from "./chart-templates.js";
+export * from "./company-currencies.js";
+export * from "./currencies.js";
+export * from "./hierarchy.js";
+export * from "./periods.js";
 
 const identifier = z.string().trim().min(1).max(128);
 const currency = z.string().regex(/^[A-Z]{3}$/);
@@ -29,6 +34,7 @@ export const financeNominalDirectoryQuerySchema = z.strictObject({
   currency: currency.optional(),
   state: financeNominalStateSchema.optional(),
   account_status: z.enum(["active", "inactive"]).optional(),
+  nominal_kind: z.enum(["bank", "general"]).optional(),
   sort_by: z.enum(["code", "name", "currency", "state"]).default("code"),
   sort_direction: z.enum(["asc", "desc"]).default("asc"),
   limit: z.number().int().min(1).max(100).default(50),
@@ -42,6 +48,19 @@ const hierarchyAccount = z.strictObject({
 });
 
 export const financeNominalOptionsSchema = z.strictObject({
+  bank_definitions: z
+    .array(
+      z.strictObject({
+        template_id: identifier,
+        node_key: identifier,
+        code: identifier,
+        name: nominalName,
+        section_id: identifier,
+        configured: z.boolean(),
+      }),
+    )
+    .max(100)
+    .optional(),
   companies: z.array(
     z.strictObject({
       id: identifier,
@@ -54,7 +73,7 @@ export const financeNominalOptionsSchema = z.strictObject({
   sections: z.array(
     hierarchyAccount.extend({
       category_id: identifier,
-      section_role: z.literal("cash_and_bank").nullable(),
+      section_role: z.enum(["cash_and_bank", "general"]).nullable(),
       creation_enabled: z.boolean(),
     }),
   ),
@@ -91,6 +110,8 @@ export const financeNominalSummarySchema = z.strictObject({
   state: financeNominalStateSchema.nullable(),
   version: version.nullable(),
   banking_available: z.boolean(),
+  posting_classification: z.enum(["review_required", "ordinary", "module_controlled"]).nullable().optional(),
+  chart_template_id: identifier.nullable().optional(),
 });
 
 export const financeNominalDirectorySchema = z.strictObject({
@@ -107,11 +128,12 @@ export const financeNominalDetailSchema = financeNominalSummarySchema.extend({
     submit: z.boolean(),
     decide: z.boolean(),
     deactivate: z.boolean(),
+    activate: z.boolean().optional(),
   }),
   events: z.array(
     z.strictObject({
       id: identifier,
-      event_type: z.enum(["created", "updated", "submitted", "approved", "rejected", "deactivated"]),
+      event_type: z.enum(["created", "updated", "submitted", "approved", "rejected", "deactivated", "activated"]),
       actor_name: z.string().min(1).max(200),
       reason: reason.nullable(),
       occurred_at: z.string().datetime(),
@@ -120,14 +142,29 @@ export const financeNominalDetailSchema = financeNominalSummarySchema.extend({
   ),
 });
 
-export const createFinanceNominalRequestSchema = z.strictObject({
-  company_id: identifier,
-  category_id: identifier,
-  section_id: identifier,
-  name: nominalName,
-  currency,
-  description: description.optional(),
-});
+export const createFinanceNominalRequestSchema = z
+  .strictObject({
+    nominal_kind: z.enum(["bank", "general"]).optional(),
+    company_id: identifier,
+    category_id: identifier,
+    section_id: identifier,
+    name: nominalName,
+    currency,
+    description: description.optional(),
+    chart_template_id: identifier.optional(),
+    chart_node_key: identifier.optional(),
+  })
+  .superRefine((input, context) => {
+    if (
+      !!input.chart_template_id !== !!input.chart_node_key ||
+      (input.chart_template_id && input.nominal_kind === "general")
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["chart_template_id"],
+        message: "A complete Bank definition reference is required; ordinary nominals cannot bind Bank definitions.",
+      });
+  });
 
 export const updateFinanceNominalRequestSchema = z
   .strictObject({
@@ -142,20 +179,25 @@ export const updateFinanceNominalRequestSchema = z
   );
 
 export const submitFinanceNominalRequestSchema = z.strictObject({ expected_version: version, reason });
-export const decideFinanceNominalRequestSchema = z.strictObject({
-  expected_version: version,
-  action: z.enum(["approve", "reject"]),
-  reason,
-});
+export const decideFinanceNominalRequestSchema = z
+  .strictObject({
+    expected_version: version,
+    action: z.enum(["approve", "reject"]),
+    reason: reason.optional(),
+  })
+  .superRefine((input, context) => {
+    if (input.action === "reject" && input.reason === undefined)
+      context.addIssue({ code: "custom", path: ["reason"], message: "A rejection reason is required." });
+  });
 export const changeFinanceNominalStatusRequestSchema = z.strictObject({
   expected_version: version,
-  action: z.literal("deactivate"),
+  action: z.enum(["activate", "deactivate"]),
   reason,
 });
 
 export const financeNominalMutationResultSchema = z.strictObject({
   id: identifier,
-  bank_account_id: identifier,
+  bank_account_id: identifier.nullable(),
   code: z.string().min(1).max(128),
   state: financeNominalStateSchema,
   version,

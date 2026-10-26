@@ -71,8 +71,9 @@ describe("DelegationPanel", () => {
       "security.authorization.audit.read",
     ]);
     await act(async () => root.render(createElement(DelegationPanel, { permissions })));
-    await act(async () => Promise.resolve());
-    await act(async () => Promise.resolve());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
 
     expect(state.api.listSecurityDelegations).toHaveBeenCalledWith("?limit=100");
     expect(state.api.listSecurityUsers).toHaveBeenCalled();
@@ -116,8 +117,9 @@ describe("DelegationPanel", () => {
     await act(async () =>
       root.render(createElement(DelegationPanel, { permissions: new Set(["security.authorization.administer"]) })),
     );
-    await act(async () => Promise.resolve());
-    await act(async () => Promise.resolve());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     expect([...container.querySelectorAll("button")].some((button) => button.textContent === "Approve")).toBe(true);
   });
 

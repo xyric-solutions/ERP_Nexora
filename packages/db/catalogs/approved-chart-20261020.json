@@ -1,0 +1,3258 @@
+{
+  "catalog_key": "nexora-standard-coa",
+  "name": "Standard Chart of Accounts",
+  "revision": "2026-10-20-v1",
+  "source_filename": "chart-of-accounts-review.xlsx",
+  "source_sha256": "f9d5a2a7772575e1e5fe98927d4da0939f949611f8596107a1206eea381ac85a",
+  "categories": [
+    {
+      "key": "capital-reserves",
+      "name": "Capital & Reserves",
+      "type": "equity"
+    },
+    {
+      "key": "non-current-liabilities",
+      "name": "Non-Current Liabilities",
+      "type": "liability"
+    },
+    {
+      "key": "current-liabilities",
+      "name": "Current Liabilities",
+      "type": "liability"
+    },
+    {
+      "key": "tangible-assets",
+      "name": "Tangible Assets",
+      "type": "asset"
+    },
+    {
+      "key": "non-current-assets",
+      "name": "Non-Current Assets",
+      "type": "asset"
+    },
+    {
+      "key": "current-assets",
+      "name": "Current Assets",
+      "type": "asset"
+    },
+    {
+      "key": "income",
+      "name": "Income",
+      "type": "revenue"
+    },
+    {
+      "key": "cost-of-sales",
+      "name": "Cost of Sales",
+      "type": "expense"
+    },
+    {
+      "key": "direct-expenses",
+      "name": "Direct Expenses",
+      "type": "expense"
+    },
+    {
+      "key": "expenses",
+      "name": "Expenses",
+      "type": "expense"
+    },
+    {
+      "key": "other-expense",
+      "name": "Other Expense",
+      "type": "expense"
+    },
+    {
+      "key": "finance-cost",
+      "name": "Finance Cost",
+      "type": "expense"
+    },
+    {
+      "key": "other-income",
+      "name": "Other Income",
+      "type": "revenue"
+    },
+    {
+      "key": "taxation",
+      "name": "Taxation",
+      "type": "expense"
+    }
+  ],
+  "sections": [
+    {
+      "code": "3101",
+      "name": "Capital",
+      "category_key": "capital-reserves"
+    },
+    {
+      "code": "3102",
+      "name": "General Reserves",
+      "category_key": "capital-reserves"
+    },
+    {
+      "code": "3103",
+      "name": "Accumulated Reserves",
+      "category_key": "capital-reserves"
+    },
+    {
+      "code": "1101",
+      "name": "Accruals",
+      "category_key": "non-current-liabilities"
+    },
+    {
+      "code": "1102",
+      "name": "Deferred Income",
+      "category_key": "non-current-liabilities"
+    },
+    {
+      "code": "1103",
+      "name": "Long term Loans Payable",
+      "category_key": "non-current-liabilities"
+    },
+    {
+      "code": "1104",
+      "name": "Other Non-Current Liabilities",
+      "category_key": "non-current-liabilities"
+    },
+    {
+      "code": "1105",
+      "name": "Provision for Liabilities",
+      "category_key": "non-current-liabilities"
+    },
+    {
+      "code": "1106",
+      "name": "Shareholder Loan Payable",
+      "category_key": "non-current-liabilities"
+    },
+    {
+      "code": "1201",
+      "name": "Trade Creditors",
+      "category_key": "current-liabilities"
+    },
+    {
+      "code": "1202",
+      "name": "Other Creditors",
+      "category_key": "current-liabilities"
+    },
+    {
+      "code": "1203",
+      "name": "Sales Tax Account",
+      "category_key": "current-liabilities"
+    },
+    {
+      "code": "1204",
+      "name": "Withholding Income Tax (Deductions)",
+      "category_key": "current-liabilities"
+    },
+    {
+      "code": "1205",
+      "name": "Provision of Taxation",
+      "category_key": "current-liabilities"
+    },
+    {
+      "code": "1206",
+      "name": "Accruals and Payables",
+      "category_key": "current-liabilities"
+    },
+    {
+      "code": "1207",
+      "name": "Payroll Tax and Social Security",
+      "category_key": "current-liabilities"
+    },
+    {
+      "code": "1208",
+      "name": "Short-term Loans Payable",
+      "category_key": "current-liabilities"
+    },
+    {
+      "code": "2101",
+      "name": "Land and Buildings",
+      "category_key": "tangible-assets"
+    },
+    {
+      "code": "2102",
+      "name": "Plant and Machinery",
+      "category_key": "tangible-assets"
+    },
+    {
+      "code": "2103",
+      "name": "Office Equipments",
+      "category_key": "tangible-assets"
+    },
+    {
+      "code": "2104",
+      "name": "Furniture and Fixtures",
+      "category_key": "tangible-assets"
+    },
+    {
+      "code": "2105",
+      "name": "Vehicles",
+      "category_key": "tangible-assets"
+    },
+    {
+      "code": "2106",
+      "name": "Other Tangible Assets",
+      "category_key": "tangible-assets"
+    },
+    {
+      "code": "2201",
+      "name": "Goodwill",
+      "category_key": "non-current-assets"
+    },
+    {
+      "code": "2202",
+      "name": "Intangible Assets",
+      "category_key": "non-current-assets"
+    },
+    {
+      "code": "2203",
+      "name": "Investments",
+      "category_key": "non-current-assets"
+    },
+    {
+      "code": "2204",
+      "name": "Licences",
+      "category_key": "non-current-assets"
+    },
+    {
+      "code": "2205",
+      "name": "Other Non-Current Assets",
+      "category_key": "non-current-assets"
+    },
+    {
+      "code": "2206",
+      "name": "Prepayments",
+      "category_key": "non-current-assets"
+    },
+    {
+      "code": "2207",
+      "name": "Accrued Income",
+      "category_key": "non-current-assets"
+    },
+    {
+      "code": "2208",
+      "name": "Security Deposits",
+      "category_key": "non-current-assets"
+    },
+    {
+      "code": "2301",
+      "name": "Stock",
+      "category_key": "current-assets"
+    },
+    {
+      "code": "2302",
+      "name": "Debtors",
+      "category_key": "current-assets"
+    },
+    {
+      "code": "2303",
+      "name": "Other Debtors",
+      "category_key": "current-assets"
+    },
+    {
+      "code": "2304",
+      "name": "Investments - Other",
+      "category_key": "current-assets"
+    },
+    {
+      "code": "2305",
+      "name": "Advances and receivables",
+      "category_key": "current-assets"
+    },
+    {
+      "code": "2306",
+      "name": "Other current assets",
+      "category_key": "current-assets"
+    },
+    {
+      "code": "2307",
+      "name": "Prepaid expenses and deposit",
+      "category_key": "current-assets"
+    },
+    {
+      "code": "2308",
+      "name": "Withholding Income Tax (Advance)",
+      "category_key": "current-assets"
+    },
+    {
+      "code": "2309",
+      "name": "Cash and Bank",
+      "category_key": "current-assets"
+    },
+    {
+      "code": "4101",
+      "name": "Product Sale",
+      "category_key": "income"
+    },
+    {
+      "code": "4102",
+      "name": "Fees Income",
+      "category_key": "income"
+    },
+    {
+      "code": "4103",
+      "name": "Discount Allowed",
+      "category_key": "income"
+    },
+    {
+      "code": "5101",
+      "name": "Cost of Labour",
+      "category_key": "cost-of-sales"
+    },
+    {
+      "code": "5102",
+      "name": "Supplies and Materials",
+      "category_key": "cost-of-sales"
+    },
+    {
+      "code": "5103",
+      "name": "Equipment Rental",
+      "category_key": "cost-of-sales"
+    },
+    {
+      "code": "5104",
+      "name": "Other Cost of Sales",
+      "category_key": "cost-of-sales"
+    },
+    {
+      "code": "5105",
+      "name": "Discount Received",
+      "category_key": "cost-of-sales"
+    },
+    {
+      "code": "6101",
+      "name": "Import Duty",
+      "category_key": "direct-expenses"
+    },
+    {
+      "code": "6102",
+      "name": "Shipping, Freight and Delivery",
+      "category_key": "direct-expenses"
+    },
+    {
+      "code": "6103",
+      "name": "Sales Commissions",
+      "category_key": "direct-expenses"
+    },
+    {
+      "code": "6104",
+      "name": "Other Direct Costs",
+      "category_key": "direct-expenses"
+    },
+    {
+      "code": "7101",
+      "name": "Wages & Salaries",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7102",
+      "name": "Staff Costs",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7103",
+      "name": "Premises Expenses",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7104",
+      "name": "Light & Heat",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7105",
+      "name": "Motor Expenses",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7106",
+      "name": "Travel Expenses",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7107",
+      "name": "Bank Fees and Charges",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7108",
+      "name": "Interest Paid",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7109",
+      "name": "Printing, Postage and Stationery",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7110",
+      "name": "Advertising and PR",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7111",
+      "name": "Telephone and Internet",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7112",
+      "name": "Legal and Professional Fees",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7113",
+      "name": "Subscriptions",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7114",
+      "name": "Entertainment",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7115",
+      "name": "Equipment Hire",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7116",
+      "name": "Insurance",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7117",
+      "name": "Bad Debt",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7118",
+      "name": "Repair and Maintenance",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7119",
+      "name": "Office Machine Maintenance",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7120",
+      "name": "Donations",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7121",
+      "name": "Miscellaneous Expense",
+      "category_key": "expenses"
+    },
+    {
+      "code": "7201",
+      "name": "Other Expense",
+      "category_key": "other-expense"
+    },
+    {
+      "code": "7202",
+      "name": "Depreciation",
+      "category_key": "other-expense"
+    },
+    {
+      "code": "7301",
+      "name": "Finance Cost",
+      "category_key": "finance-cost"
+    },
+    {
+      "code": "4201",
+      "name": "Other Income",
+      "category_key": "other-income"
+    },
+    {
+      "code": "7401",
+      "name": "Taxation",
+      "category_key": "taxation"
+    }
+  ],
+  "nominals": [
+    {
+      "code": "310109",
+      "name": "Drawings",
+      "section_code": "3101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 1
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "310110",
+      "name": "Share Capital",
+      "section_code": "3101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 2
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "310108",
+      "name": "Partner Distributions (B)",
+      "section_code": "3101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 3
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "310107",
+      "name": "Partner Distributions (A)",
+      "section_code": "3101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 4
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "310106",
+      "name": "Partner Capital (B)",
+      "section_code": "3101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 5
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "310105",
+      "name": "Partner Capital (A)",
+      "section_code": "3101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 6
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "310104",
+      "name": "Paid in capital or surplus",
+      "section_code": "3101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 7
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "310103",
+      "name": "Ordinary shares",
+      "section_code": "3101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 8
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "310101",
+      "name": "Capital",
+      "section_code": "3101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 9
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "310201",
+      "name": "General Reserves",
+      "section_code": "3102",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 10
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "310301",
+      "name": "Accumulated Reserves",
+      "section_code": "3103",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 11
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "110101",
+      "name": "Accruals",
+      "section_code": "1101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 12
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "110201",
+      "name": "Deferred Income",
+      "section_code": "1102",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 13
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "110301",
+      "name": "Long term Loans payable",
+      "section_code": "1103",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 14
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "110401",
+      "name": "Other non-current liabilities",
+      "section_code": "1104",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 15
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "110501",
+      "name": "Provision for liabilities",
+      "section_code": "1105",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 16
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "110601",
+      "name": "Shareholder Loan Payable",
+      "section_code": "1106",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 17
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "120103",
+      "name": "Post-Dated Cheques Issued",
+      "section_code": "1201",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 18
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "120102",
+      "name": "Customer Withholding Tax",
+      "section_code": "1201",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 19
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "120101",
+      "name": "Trade Creditors",
+      "section_code": "1201",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 20
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "120201",
+      "name": "Other Creditors",
+      "section_code": "1202",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 21
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "120301",
+      "name": "General Sales Tax",
+      "section_code": "1203",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 22
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "120401",
+      "name": "WHT Deductions",
+      "section_code": "1204",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 23
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "120501",
+      "name": "Current Tax Liability",
+      "section_code": "1205",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 24
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "120603",
+      "name": "Payroll payable",
+      "section_code": "1206",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 25
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "120602",
+      "name": "Loan Payable",
+      "section_code": "1206",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 26
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "120601",
+      "name": "Insurance Payable",
+      "section_code": "1206",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 27
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "120604",
+      "name": "Expenses Payable",
+      "section_code": "1206",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 28
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "120701",
+      "name": "Payroll Tax and Social Security",
+      "section_code": "1207",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 29
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "120802",
+      "name": "Faraz Payable",
+      "section_code": "1208",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 30
+        }
+      ],
+      "review_note": "Confirm personal name and spelling from original image."
+    },
+    {
+      "code": "120801",
+      "name": "Short Term Loans Payable",
+      "section_code": "1208",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 31
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "210101",
+      "name": "Property",
+      "section_code": "2101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 32
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "210102",
+      "name": "Accumulated Depreciation Property",
+      "section_code": "2101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 33
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "210201",
+      "name": "Plant and Machinery",
+      "section_code": "2102",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 34
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "210202",
+      "name": "Plant and Machinery Additions",
+      "section_code": "2102",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 35
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "210203",
+      "name": "Accumulated Depreciation Plant and Machinery",
+      "section_code": "2102",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 36
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "210302",
+      "name": "Office Equipments Additions",
+      "section_code": "2103",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 37
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "210303",
+      "name": "Accumulated Depreciation Office Equipments",
+      "section_code": "2103",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 38
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "210301",
+      "name": "Office Equipments",
+      "section_code": "2103",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 39
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "210402",
+      "name": "Furniture and Fixtures Additions",
+      "section_code": "2104",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 40
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "210403",
+      "name": "Accumulated Depreciation Furniture and Fixture",
+      "section_code": "2104",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 41
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "210401",
+      "name": "Furniture and Fixtures",
+      "section_code": "2104",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 42
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "210502",
+      "name": "Vehicles Additions",
+      "section_code": "2105",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 43
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "210503",
+      "name": "Accumulated Depreciation Vehicles",
+      "section_code": "2105",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 44
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "210501",
+      "name": "Vehicles",
+      "section_code": "2105",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 45
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "210602",
+      "name": "Accumulated Depreciation Other Tangible Assets",
+      "section_code": "2106",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 46
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "210601",
+      "name": "Other Tangible Assets",
+      "section_code": "2106",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 47
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "220101",
+      "name": "Goodwill",
+      "section_code": "2201",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 48
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "220201",
+      "name": "Intangible Assets",
+      "section_code": "2202",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 49
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "220301",
+      "name": "Investments",
+      "section_code": "2203",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 50
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "220401",
+      "name": "Licences",
+      "section_code": "2204",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 51
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "220502",
+      "name": "Other Non-current Assets",
+      "section_code": "2205",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 52
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "220501",
+      "name": "Other intangible assets",
+      "section_code": "2205",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 53
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "220601",
+      "name": "Prepayments",
+      "section_code": "2206",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 54
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "220701",
+      "name": "Accrued Income",
+      "section_code": "2207",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 55
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "220802",
+      "name": "Rent Deposits",
+      "section_code": "2208",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 56
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "220801",
+      "name": "Security Deposits",
+      "section_code": "2208",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 57
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "220803",
+      "name": "Other Deposits",
+      "section_code": "2208",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 58
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230101",
+      "name": "Stock",
+      "section_code": "2301",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 59
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230203",
+      "name": "Post-Dated Cheques Received",
+      "section_code": "2302",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 60
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230202",
+      "name": "Allowance for bad debts",
+      "section_code": "2302",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 61
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230201",
+      "name": "Debtors",
+      "section_code": "2302",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 62
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230301",
+      "name": "Other Debtors",
+      "section_code": "2303",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 63
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230401",
+      "name": "Investments - Other",
+      "section_code": "2304",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 64
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230502",
+      "name": "Loans to Employees",
+      "section_code": "2305",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 65
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230501",
+      "name": "Loans To Directors",
+      "section_code": "2305",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 66
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230504",
+      "name": "Loans to Shareholders",
+      "section_code": "2305",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 67
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230503",
+      "name": "Loans to Others",
+      "section_code": "2305",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 68
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230603",
+      "name": "Research and Development Costs",
+      "section_code": "2306",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 69
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230602",
+      "name": "Undeposited Funds",
+      "section_code": "2306",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 70
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230601",
+      "name": "Other current assets",
+      "section_code": "2306",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 71
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230703",
+      "name": "Prepaid rent",
+      "section_code": "2307",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 72
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230702",
+      "name": "Prepaid Insurance",
+      "section_code": "2307",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 73
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230701",
+      "name": "Prepaid Expense",
+      "section_code": "2307",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 74
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230801",
+      "name": "Withholding Income Tax (Advance)",
+      "section_code": "2308",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 75
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230906",
+      "name": "Transit Bank (AED)",
+      "section_code": "2309",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 76
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230905",
+      "name": "Petty Cash (Mr. Omar Mehmood)",
+      "section_code": "2309",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 77
+        }
+      ],
+      "review_note": "Confirm personal name and spelling from original image."
+    },
+    {
+      "code": "230904",
+      "name": "Js Bank",
+      "section_code": "2309",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 78
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230903",
+      "name": "Transit Bank (PKR)",
+      "section_code": "2309",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 79
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230902",
+      "name": "Meezan Bank",
+      "section_code": "2309",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 80
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230901",
+      "name": "Cash on hand",
+      "section_code": "2309",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 81
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "230907",
+      "name": "Js Bank (USD)",
+      "section_code": "2309",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 82
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "410105",
+      "name": "Sale Type D",
+      "section_code": "4101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 83
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "410104",
+      "name": "Sale Type C",
+      "section_code": "4101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 84
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "410103",
+      "name": "Sale Type B",
+      "section_code": "4101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 85
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "410102",
+      "name": "Sales Type A",
+      "section_code": "4101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 86
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "410101",
+      "name": "IT & Software Services Income",
+      "section_code": "4101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 87
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "410202",
+      "name": "Fees Income - A",
+      "section_code": "4102",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 88
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "410201",
+      "name": "Fees Income",
+      "section_code": "4102",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 89
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "410205",
+      "name": "Fees Income - D",
+      "section_code": "4102",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 90
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "410204",
+      "name": "Fees Income - C",
+      "section_code": "4102",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 91
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "410203",
+      "name": "Fees Income - B",
+      "section_code": "4102",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 92
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "410304",
+      "name": "Trade Offer Sale",
+      "section_code": "4103",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 93
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "410303",
+      "name": "Retail Margin Sale",
+      "section_code": "4103",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 94
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "410302",
+      "name": "Sale Receipts Discount",
+      "section_code": "4103",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 95
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "410301",
+      "name": "Discount Allowed",
+      "section_code": "4103",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 96
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510101",
+      "name": "Cost of Labour",
+      "section_code": "5101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 97
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510105",
+      "name": "Sub Contractors",
+      "section_code": "5101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 98
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510104",
+      "name": "Daily Wages Labour",
+      "section_code": "5101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 99
+        },
+        {
+          "source": "Screenshot 2",
+          "row": 1
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510103",
+      "name": "Productive Labour",
+      "section_code": "5101",
+      "source_rows": [
+        {
+          "source": "Screenshot 1",
+          "row": 100
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510206",
+      "name": "Opening Stock",
+      "section_code": "5102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 2
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510205",
+      "name": "Miscellaneous Purchases",
+      "section_code": "5102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 3
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510204",
+      "name": "Purchases",
+      "section_code": "5102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 4
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510203",
+      "name": "Materials imported",
+      "section_code": "5102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 5
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510202",
+      "name": "Cost of IT & Software Services",
+      "section_code": "5102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 6
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510201",
+      "name": "Supplies and materials",
+      "section_code": "5102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 7
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510207",
+      "name": "Closing Stock",
+      "section_code": "5102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 8
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510301",
+      "name": "Equipment rental",
+      "section_code": "5103",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 9
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510401",
+      "name": "Other Cost of Sales",
+      "section_code": "5104",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 10
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510504",
+      "name": "Trade Offer Purchase",
+      "section_code": "5105",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 11
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510503",
+      "name": "Retail Margin Purchase",
+      "section_code": "5105",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 12
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510502",
+      "name": "Purchase Payment Discount",
+      "section_code": "5105",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 13
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "510501",
+      "name": "Discount Received",
+      "section_code": "5105",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 14
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "610101",
+      "name": "Import Duty",
+      "section_code": "6101",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 15
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "610206",
+      "name": "Postage",
+      "section_code": "6102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 16
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "610205",
+      "name": "Packaging",
+      "section_code": "6102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 17
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "610204",
+      "name": "Delivery",
+      "section_code": "6102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 18
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "610203",
+      "name": "Freight",
+      "section_code": "6102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 19
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "610202",
+      "name": "Shipping",
+      "section_code": "6102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 20
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "610201",
+      "name": "Shipping, Freight and Delivery",
+      "section_code": "6102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 21
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "610301",
+      "name": "Sales Commissions",
+      "section_code": "6103",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 22
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "610401",
+      "name": "Other Direct Costs",
+      "section_code": "6104",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 23
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710108",
+      "name": "Employers Pensions",
+      "section_code": "7101",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 24
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710107",
+      "name": "Employers Provident Fund",
+      "section_code": "7101",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 25
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710106",
+      "name": "Employer Social Security",
+      "section_code": "7101",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 26
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710105",
+      "name": "Wages - Casual",
+      "section_code": "7101",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 27
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710104",
+      "name": "Wages - Regular",
+      "section_code": "7101",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 28
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710103",
+      "name": "Staff Salaries",
+      "section_code": "7101",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 29
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710102",
+      "name": "Directors Salaries",
+      "section_code": "7101",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 30
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710101",
+      "name": "Wages & Salaries",
+      "section_code": "7101",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 31
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710204",
+      "name": "Recruitment Expenses",
+      "section_code": "7102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 32
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710203",
+      "name": "Training Costs",
+      "section_code": "7102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 33
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710202",
+      "name": "Uniforms",
+      "section_code": "7102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 34
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710201",
+      "name": "Staff Costs",
+      "section_code": "7102",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 35
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710304",
+      "name": "General Rates",
+      "section_code": "7103",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 36
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710303",
+      "name": "Water Rates",
+      "section_code": "7103",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 37
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710302",
+      "name": "Rent",
+      "section_code": "7103",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 38
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710301",
+      "name": "Premises Expenses",
+      "section_code": "7103",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 39
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710308",
+      "name": "Other Heating Costs",
+      "section_code": "7103",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 40
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710307",
+      "name": "Municipal Corporation charges",
+      "section_code": "7103",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 41
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710306",
+      "name": "Cleaning",
+      "section_code": "7103",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 42
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710305",
+      "name": "Premises Insurance",
+      "section_code": "7103",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 43
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710404",
+      "name": "Oil - Heating",
+      "section_code": "7104",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 44
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710403",
+      "name": "Gas",
+      "section_code": "7104",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 45
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710402",
+      "name": "Electricity",
+      "section_code": "7104",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 46
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710401",
+      "name": "Light & Heat",
+      "section_code": "7104",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 47
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710507",
+      "name": "Parking Tickets",
+      "section_code": "7105",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 48
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710506",
+      "name": "Miscellaneous Motor Expenses",
+      "section_code": "7105",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 49
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710505",
+      "name": "Vehicle Insurance",
+      "section_code": "7105",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 50
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710504",
+      "name": "Vehicle Licences",
+      "section_code": "7105",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 51
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710503",
+      "name": "Vehicle Repair and Servicing",
+      "section_code": "7105",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 52
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710502",
+      "name": "Vehicle Fuel",
+      "section_code": "7105",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 53
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710501",
+      "name": "Motor Expenses",
+      "section_code": "7105",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 54
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710601",
+      "name": "Travel Expenses",
+      "section_code": "7106",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 55
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710608",
+      "name": "Subsistence",
+      "section_code": "7106",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 56
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710607",
+      "name": "Hotels",
+      "section_code": "7106",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 57
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710606",
+      "name": "Train / Air Fare",
+      "section_code": "7106",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 58
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710605",
+      "name": "Car Hire",
+      "section_code": "7106",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 59
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710604",
+      "name": "Travelling",
+      "section_code": "7106",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 60
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710603",
+      "name": "Petrol Allowance",
+      "section_code": "7106",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 61
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710602",
+      "name": "Mileage Claims",
+      "section_code": "7106",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 62
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710705",
+      "name": "Round Off",
+      "section_code": "7107",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 63
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710701",
+      "name": "Finance costs",
+      "section_code": "7107",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 64
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710709",
+      "name": "Exchange Revaluation Losses",
+      "section_code": "7107",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 65
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710704",
+      "name": "Currency Charges",
+      "section_code": "7107",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 66
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710708",
+      "name": "Exchange Revaluation Gains",
+      "section_code": "7107",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 67
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710707",
+      "name": "Realised Exchange Losses",
+      "section_code": "7107",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 68
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710703",
+      "name": "Bank Fees",
+      "section_code": "7107",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 69
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710706",
+      "name": "Realised Exchange Gains",
+      "section_code": "7107",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 70
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710702",
+      "name": "Bank Charges",
+      "section_code": "7107",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 71
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710802",
+      "name": "Overdraft Interest",
+      "section_code": "7108",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 72
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710801",
+      "name": "Hire Purchase Interest",
+      "section_code": "7108",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 73
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710903",
+      "name": "Postage and Carriage",
+      "section_code": "7109",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 74
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710902",
+      "name": "Printing",
+      "section_code": "7109",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 75
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710901",
+      "name": "Printing, postage and stationery",
+      "section_code": "7109",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 76
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "710904",
+      "name": "Stationery",
+      "section_code": "7109",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 77
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711006",
+      "name": "Books etc.",
+      "section_code": "7110",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 78
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711005",
+      "name": "P.R. Literature and Brochures",
+      "section_code": "7110",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 79
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711004",
+      "name": "Gifts and Samples",
+      "section_code": "7110",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 80
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711003",
+      "name": "Sales Promotions",
+      "section_code": "7110",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 81
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711002",
+      "name": "Advertising",
+      "section_code": "7110",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 82
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711001",
+      "name": "Advertising and PR",
+      "section_code": "7110",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 83
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711101",
+      "name": "Telephone and Fax",
+      "section_code": "7111",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 84
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711103",
+      "name": "Mobile Phone Charges",
+      "section_code": "7111",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 85
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711102",
+      "name": "Internet charges",
+      "section_code": "7111",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 86
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711206",
+      "name": "Professional Fees",
+      "section_code": "7112",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 87
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711205",
+      "name": "Consultancy Fees",
+      "section_code": "7112",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 88
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711204",
+      "name": "Accountancy Fees",
+      "section_code": "7112",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 89
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711203",
+      "name": "Audit Fees",
+      "section_code": "7112",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 90
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711202",
+      "name": "Legal Fees",
+      "section_code": "7112",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 91
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711201",
+      "name": "Legal and Professional Fees",
+      "section_code": "7112",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 92
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711207",
+      "name": "Management Charges Payable",
+      "section_code": "7112",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 93
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711314",
+      "name": "Google Play",
+      "section_code": "7113",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 94
+        },
+        {
+          "source": "Screenshot 3",
+          "row": 7
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711306",
+      "name": "Figma Subscription",
+      "section_code": "7113",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 95
+        },
+        {
+          "source": "Screenshot 3",
+          "row": 8
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711313",
+      "name": "Heygen Technology Inc. Subscription",
+      "section_code": "7113",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 96
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711305",
+      "name": "Massive.Com Data API Subscription",
+      "section_code": "7113",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 97
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711304",
+      "name": "Whop*Travelling Trader Subscription",
+      "section_code": "7113",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 98
+        }
+      ],
+      "review_note": "Confirm merchant label, punctuation and spacing from original image."
+    },
+    {
+      "code": "711312",
+      "name": "Magicfruit Subscription",
+      "section_code": "7113",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 99
+        }
+      ],
+      "review_note": "Subscription vendor label is unclear in the reduced screenshot; verify original."
+    },
+    {
+      "code": "711303",
+      "name": "Anthropic Claude Subscription",
+      "section_code": "7113",
+      "source_rows": [
+        {
+          "source": "Screenshot 2",
+          "row": 100
+        }
+      ],
+      "review_note": "Transcribed from reduced image; verify code and exact label."
+    },
+    {
+      "code": "711302",
+      "name": "Software Subscriptions",
+      "section_code": "7113",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 1
+        }
+      ]
+    },
+    {
+      "code": "711309",
+      "name": "GODADDY Subscription",
+      "section_code": "7113",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 2
+        }
+      ]
+    },
+    {
+      "code": "711301",
+      "name": "Subscriptions",
+      "section_code": "7113",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 3
+        }
+      ]
+    },
+    {
+      "code": "711308",
+      "name": "HIGGSFIELD Subscription",
+      "section_code": "7113",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 4
+        }
+      ]
+    },
+    {
+      "code": "711315",
+      "name": "Proton VPN",
+      "section_code": "7113",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 5
+        }
+      ]
+    },
+    {
+      "code": "711307",
+      "name": "Cursor AI Powered Data API Subscription",
+      "section_code": "7113",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 6
+        }
+      ]
+    },
+    {
+      "code": "711404",
+      "name": "Staff Party",
+      "section_code": "7114",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 9
+        }
+      ]
+    },
+    {
+      "code": "711403",
+      "name": "Staff Meals",
+      "section_code": "7114",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 10
+        }
+      ]
+    },
+    {
+      "code": "711402",
+      "name": "Canteen Expenses",
+      "section_code": "7114",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 11
+        }
+      ]
+    },
+    {
+      "code": "711401",
+      "name": "Entertainment",
+      "section_code": "7114",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 12
+        }
+      ]
+    },
+    {
+      "code": "711405",
+      "name": "Refreshments",
+      "section_code": "7114",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 13
+        }
+      ]
+    },
+    {
+      "code": "711501",
+      "name": "Equipment Hire",
+      "section_code": "7115",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 14
+        }
+      ]
+    },
+    {
+      "code": "711601",
+      "name": "Insurance",
+      "section_code": "7116",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 15
+        }
+      ]
+    },
+    {
+      "code": "711701",
+      "name": "Bad Debt",
+      "section_code": "7117",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 16
+        }
+      ]
+    },
+    {
+      "code": "711801",
+      "name": "Repair and Maintenance",
+      "section_code": "7118",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 17
+        }
+      ]
+    },
+    {
+      "code": "711901",
+      "name": "Office Machine Maintenance",
+      "section_code": "7119",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 18
+        }
+      ]
+    },
+    {
+      "code": "712001",
+      "name": "Donations",
+      "section_code": "7120",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 19
+        }
+      ]
+    },
+    {
+      "code": "712101",
+      "name": "Miscellaneous Expense",
+      "section_code": "7121",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 20
+        }
+      ]
+    },
+    {
+      "code": "720102",
+      "name": "Loss (Gain) on disposal of assets",
+      "section_code": "7201",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 21
+        }
+      ]
+    },
+    {
+      "code": "720101",
+      "name": "Other Expense",
+      "section_code": "7201",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 22
+        }
+      ]
+    },
+    {
+      "code": "720204",
+      "name": "Depreciation Furniture and Fixture",
+      "section_code": "7202",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 23
+        }
+      ]
+    },
+    {
+      "code": "720203",
+      "name": "Depreciation Office Equipments",
+      "section_code": "7202",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 24
+        }
+      ]
+    },
+    {
+      "code": "720202",
+      "name": "Depreciation Plant and Machinery",
+      "section_code": "7202",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 25
+        }
+      ]
+    },
+    {
+      "code": "720201",
+      "name": "Depreciation Property",
+      "section_code": "7202",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 26
+        }
+      ]
+    },
+    {
+      "code": "720207",
+      "name": "Depreciation",
+      "section_code": "7202",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 27
+        }
+      ]
+    },
+    {
+      "code": "720206",
+      "name": "Depreciation Other Tangible Assets",
+      "section_code": "7202",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 28
+        }
+      ]
+    },
+    {
+      "code": "720205",
+      "name": "Depreciation Vehicles",
+      "section_code": "7202",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 29
+        }
+      ]
+    },
+    {
+      "code": "730101",
+      "name": "Loan Interest paid",
+      "section_code": "7301",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 30
+        }
+      ]
+    },
+    {
+      "code": "420104",
+      "name": "Other Income",
+      "section_code": "4201",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 31
+        }
+      ]
+    },
+    {
+      "code": "420103",
+      "name": "Investment Income",
+      "section_code": "4201",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 32
+        }
+      ]
+    },
+    {
+      "code": "420102",
+      "name": "Interest earned",
+      "section_code": "4201",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 33
+        }
+      ]
+    },
+    {
+      "code": "420101",
+      "name": "Dividend income",
+      "section_code": "4201",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 34
+        }
+      ]
+    },
+    {
+      "code": "420105",
+      "name": "Rent received",
+      "section_code": "4201",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 35
+        }
+      ]
+    },
+    {
+      "code": "740102",
+      "name": "Corporation Tax",
+      "section_code": "7401",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 36
+        }
+      ]
+    },
+    {
+      "code": "740101",
+      "name": "Income Tax",
+      "section_code": "7401",
+      "source_rows": [
+        {
+          "source": "Screenshot 3",
+          "row": 37
+        }
+      ]
+    }
+  ]
+}

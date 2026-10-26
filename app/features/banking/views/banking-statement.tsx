@@ -9,6 +9,7 @@
  */
 
 import { useState } from "react";
+import { LiveBankStatement } from "./banking-statement-live";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,7 @@ import {
   emptyStatement as fallbackStatement,
   statements,
   type StatementLine,
-} from "../model/banking-statement-data";
+} from "../model/legacy-bank-statement-fixture";
 import {
   accountLabel,
   bankAccounts,
@@ -179,7 +180,7 @@ export function BankAccountBalances({
   );
 }
 
-export function BankStatement({
+export function BankStatementFixture({
   accountId,
   onAction,
   onOpenTransaction,
@@ -399,3 +400,5 @@ export function BankStatement({
     </div>
   );
 }
+
+export { LiveBankStatement as BankStatement };

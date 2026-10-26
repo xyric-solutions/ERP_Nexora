@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  adoptCurrencyRequestSchema,
   changeFinanceNominalStatusRequestSchema,
+  correctCurrencyRateRequestSchema,
+  createCurrencyRateRequestSchema,
   createFinanceNominalRequestSchema,
   decideFinanceNominalRequestSchema,
   financeNominalDirectoryQuerySchema,
@@ -9,6 +12,7 @@ import {
   financeNominalOptionsSchema,
   financeNominalSummarySchema,
   submitFinanceNominalRequestSchema,
+  upsertTransferFxPolicyRequestSchema,
   updateFinanceNominalRequestSchema,
 } from "../../packages/contracts/src/finance/index.js";
 
@@ -75,7 +79,8 @@ describe("Finance Nominal contracts", () => {
       ).toBe(false);
     }
     expect(submitFinanceNominalRequestSchema.safeParse({ expected_version: 1, reason: " " }).success).toBe(false);
-    expect(decideFinanceNominalRequestSchema.safeParse({ expected_version: 2, action: "approve" }).success).toBe(false);
+    expect(decideFinanceNominalRequestSchema.safeParse({ expected_version: 2, action: "approve" }).success).toBe(true);
+    expect(decideFinanceNominalRequestSchema.safeParse({ expected_version: 2, action: "reject" }).success).toBe(false);
     expect(
       decideFinanceNominalRequestSchema.safeParse({ expected_version: 2, action: "approve", reason: "Verified" })
         .success,
@@ -154,5 +159,36 @@ describe("Finance Nominal contracts", () => {
         version: null,
       }).success,
     ).toBe(true);
+  });
+
+  it("adopts only canonical catalog currencies and accepts governed effective-dated rates", () => {
+    expect(adoptCurrencyRequestSchema.parse({ code: "USD" })).toEqual({ code: "USD" });
+    expect(adoptCurrencyRequestSchema.safeParse({ code: "usd" }).success).toBe(false);
+    expect(
+      createCurrencyRateRequestSchema.parse({
+        source_currency: "EUR",
+        rate: "305.800000000000000000",
+        effective_date: "2026-10-22",
+      }),
+    ).toEqual({ source_currency: "EUR", rate: "305.800000000000000000", effective_date: "2026-10-22" });
+    expect(correctCurrencyRateRequestSchema.safeParse({ expected_version: 1, rate: "0", reason: "Bad quote" }).success)
+      .toBe(false);
+  });
+
+  it("requires a complete version-aware Transfer FX policy", () => {
+    const policy = {
+      company_id: "company-1",
+      fx_gain_nominal_id: "fx-gain",
+      fx_loss_nominal_id: "fx-loss",
+      rounding_nominal_id: "rounding",
+      bank_charge_nominal_id: "bank-charge",
+      rounding_tolerance: "0.01",
+      reason: "Initial governed policy",
+    };
+    expect(upsertTransferFxPolicyRequestSchema.parse(policy)).toEqual(policy);
+    expect(upsertTransferFxPolicyRequestSchema.safeParse({ ...policy, rounding_tolerance: "-0.01" }).success).toBe(
+      false,
+    );
+    expect(upsertTransferFxPolicyRequestSchema.safeParse({ ...policy, reason: " " }).success).toBe(false);
   });
 });

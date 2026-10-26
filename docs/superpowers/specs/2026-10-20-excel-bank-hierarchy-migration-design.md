@@ -1,7 +1,8 @@
 # Excel-aligned company Bank hierarchy migration
 
-Status: user approved preparing a controlled migration on 2026-10-20. This is
-the written design for review, not evidence that a migration has been applied.
+Status: written scope approved for implementation on 2026-10-20. Implemented,
+isolated-tested and applied to existing local R06 UAT; see the delivery checklist
+for exact execution evidence. Company nominal adoption/activation remains separate.
 Supersedes the earlier suggestion to retain UAT-BN-CB as the business section
 code. The supplied Excel catalog remains authoritative.
 
@@ -48,7 +49,7 @@ assigning the seven existing records to seven workbook banks invents identity.
 
 ## Guarded implementation boundary
 
-Add the next Finance migration only after inspecting the current ledger. Schema
+Finance 0014 adds immutable maintenance evidence only. Schema
 installation must not automatically mutate every company. Introduce immutable
 maintenance evidence and a narrowly privileged, transactional maintenance path
 for the exact reviewed before/after section and policy changes. Ordinary API/DB
@@ -98,6 +99,18 @@ last resort requiring explicit approval because it can discard unrelated work.
 ## Completion and handoff
 
 This document prepares the requested migration; it does not complete CT-03/04.
-Next: approve this written scope, implement the narrow maintenance boundary and
-isolated tests, then perform the backed-up local operation and company adoption.
+The implementation uses transaction-local exact-before/after exceptions in the
+two existing guard definitions, installed by a database super-administrator only.
+The original definitions are restored byte-for-byte before commit; exceptions
+are never committed. Transaction rollback also rolls back function DDL. No
+trigger is disabled, no new bypass function/API is deployed, and ordinary SQL
+updates remain rejected. This avoids a permanently installed maintenance bypass.
+The authenticated CLI checks normal API identity/company access; the database
+operation independently rechecks live permission, role, company access and source.
+The database operator is privileged/trusted and recorded, not caller-selected
+application authority. Production runtime must use a non-owner, non-superuser
+database role; this operational command is restricted to explicit local databases.
+
+Next: company template mappings, governed draft adoption and posting classification,
+then explicit Bank setup/activation and accounting acceptance.
 Do not report all company nominals usable from central template persistence alone.

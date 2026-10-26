@@ -20,11 +20,32 @@ const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
 const queue = new Queue(queueName, { connection: redis });
 const events = new QueueEvents(queueName, { connection: redis });
 const repository = new PostgresJobExecutionRepository(pool, queueName);
-const runtime = createJobRuntime({ connection: redis, repository, logger: createLogger(new PassThrough()), queueName });
+const runtime = createJobRuntime({
+  connection: redis,
+  repository,
+  logger: createLogger(new PassThrough()),
+  queueName,
+  cleanup: {
+    storage: {
+      list: async () => ({ objects: [], continuationToken: null }),
+      exists: async () => true,
+      remove: async () => undefined,
+    },
+    repository: {
+      withObjectReferenceLock: async (_objectKey, operation) => operation(null),
+      listStaleIntents: async () => [],
+    },
+    everyMs: 3_600_000,
+    orphanGraceMs: 86_400_000,
+    pageSize: 100,
+    maxObjects: 1_000,
+  },
+});
 
 describe("durable job processing", () => {
   beforeAll(async () => {
     await migrateSourceSchema(pool);
+    await runtime.schedulerReady;
     await events.waitUntilReady();
     await runtime.worker.waitUntilReady();
   });
@@ -68,5 +89,12 @@ describe("durable job processing", () => {
         waiting: 1,
       });
     });
+  });
+
+  it("registers one bounded Bank Statement cleanup scheduler", async () => {
+    const schedulers = await runtime.queue.getJobSchedulers();
+    expect(schedulers).toEqual(
+      expect.arrayContaining([expect.objectContaining({ key: "bank-statement-orphan-cleanup", every: 3_600_000 })]),
+    );
   });
 });

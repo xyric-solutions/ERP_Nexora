@@ -52,6 +52,6 @@ user's existing pending account unchanged for their own approval retry.
 - [x] Inspect current workflows, error and notification conventions.
 - [x] Confirm rejection-only reason requirement with the user.
 - [x] Reproduce installed Bank trigger ambiguity on a disposable database copy.
-- [ ] Review this written design with the user.
-- [ ] Implement shared feedback and approval-only reason changes.
-- [ ] Verify contracts, services, browser behavior, build and handoff.
+- [x] Review this written design with the user (confirmed 2026-10-20).
+- [x] Implement shared feedback and approval-only reason changes.
+- [x] Verify contracts, services, browser behavior, build and handoff.

@@ -161,14 +161,6 @@ async function settle() {
   });
 }
 
-async function enter(textarea: HTMLTextAreaElement, value: string) {
-  await act(async () => {
-    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
-    setter?.call(textarea, value);
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-}
-
 describe("BankingPaymentDetail", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -212,7 +204,7 @@ describe("BankingPaymentDetail", () => {
     expect(button(container, "Print").disabled).toBe(true);
   });
 
-  it("shows maker-checker denial and enables only the governed super-admin reason path", async () => {
+  it("preserves maker-checker denial and enables governed super-admin approval without a reason", async () => {
     harness.session = session(["banking.payment.read", "banking.payment.approve", "platform.approval.override"]);
     harness.payment.mockResolvedValue(
       payment({
@@ -248,10 +240,8 @@ describe("BankingPaymentDetail", () => {
     await settle();
 
     expect(container.textContent).toContain("Super-admin override");
-    expect(button(container, "Approve").disabled).toBe(true);
     const reason = container.querySelector<HTMLTextAreaElement>("#bank-payment-decision-reason");
-    expect(reason).not.toBeNull();
-    await enter(reason!, "Emergency governed approval");
+    expect(reason).toBeNull();
     expect(button(container, "Approve").disabled).toBe(false);
   });
 

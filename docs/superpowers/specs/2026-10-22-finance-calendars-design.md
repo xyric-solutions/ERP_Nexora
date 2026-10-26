@@ -1,7 +1,7 @@
 # Company fiscal calendars and Finance period controls
 
 Date: 2026-10-22.
-Status: concept approved in conversation; written specification awaiting review.
+Status: written specification approved by the user on 2026-10-22.
 This document describes intended implementation, not completed functionality.
 
 ## Purpose and approved scope
@@ -183,8 +183,7 @@ Future years remain a deliberate company choice, not an unlimited open range.
 ## Review and implementation handoff
 
 Context exploration, options and inline consistency/scope review completed.
-No additional prototype or new dependency is proposed. Written-spec approval is
-the remaining brainstorming gate before implementation planning/code changes.
-Follow-up should implement dependency-first: schema/guards, contracts and backend,
-navigation/UI, isolated acceptance, then explicit R06 UAT setup. Update the existing
-Bank handoff with actual results; do not claim this document creates any periods.
+Written specification approved and implemented on 2026-10-22 without a new
+prototype or dependency. See the matching implementation plan for actual tests,
+R06 setup evidence, limitations and safe resume instructions. This design document
+itself is not evidence of a database mutation or test success.

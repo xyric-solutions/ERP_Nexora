@@ -1,7 +1,20 @@
 # Central Chart of Accounts template and company adoption
 
-Status: central-template approach approved in conversation; written specification
-awaiting user review. No template migration or company adoption has run.
+Status: written specification confirmed by the user on 2026-10-20. CT-01 is
+implemented and verified locally; CT-02 browsing is also implemented and verified.
+CT-03 company preview/mapping/draft adoption is implemented and applied locally.
+CT-04 explicit posting-review software and ordinary approval/Bank-selector
+integration are implemented; actual business classification/approval and Bank
+facility setup remain operator acceptance steps, not automatic import effects.
+Existing R06 UAT is the confirmed test company; do not create a new
+business company. The former Bank section conflict with template 2309 has been
+resolved by the user-approved controlled migration. See
+2026-10-20-excel-bank-hierarchy-migration-design.md for its reviewed scope.
+Finance migration 18, central catalog and company adoption are applied locally.
+Explicit Bank-definition selection/reserved-code binding is implemented in the
+existing Bank form; actual currencies and Bank approval remain operator choices.
+The approved Bank hierarchy correction remains intact. See the implementation
+checklist's final checkpoint for observed verification and remaining boundaries.
 
 ## Outcome and boundary
 
@@ -18,7 +31,7 @@ Do not create company records, change company access grants, open financial
 periods, assign currencies or approve financial transactions as a side effect
 of importing a central template.
 
-## Source and verified starting point
+## Source and verified starting point (historical pre-CT-01 assessment)
 
 - Approved source: `outputs/coa-visual-transcription-20261020/chart-of-accounts-review.xlsx`.
   It contains 14 Categories, 78 Sections, 234 distinct Nominals, 237 Source Rows
@@ -124,8 +137,11 @@ choose a UAT company merely because it is the current login default.
    require explicit posting ownership before activation. Preserve protected
    manual-posting/system/reconciliation predicates in Bank selectors.
 6. Existing accounts, parents, codes, journal references and immutable history
-   are not deleted or silently reparented. In particular, report the current UAT
-   Cash & Bank policy conflict instead of replacing it with section 2309.
+   are not deleted or silently reparented. Ordinary APIs report Cash & Bank policy
+   conflicts rather than replacing identities. The subsequently user-approved
+   scoped maintenance design changed the existing UAT section code to 2309 while
+   retaining its ID, parents and history; its recorded operation is complete and
+   must not be reimplemented by weakening guards or editing applied migrations.
 
 Later template revisions require a new preview/adoption decision. No automatic
 cascade rename, reclassification, deactivation or journal alteration is allowed.

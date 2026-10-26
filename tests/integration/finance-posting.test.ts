@@ -15,12 +15,15 @@ import {
   type FinancePostCommand,
   type FinanceTransactionClient,
 } from "../../server/api/src/modules/finance/posting/types.js";
-import { ensureSourceAuthorizationFixture, sourceTestTenantId } from "./source-security-fixture.js";
+import {
+  ensureCompanyCurrencyFixture,
+  ensureSourceAuthorizationFixture,
+  sourceTestTenantId,
+} from "./source-security-fixture.js";
 
 const databaseUrl = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL;
 const run = databaseUrl ? describe : describe.skip;
 const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
-const currencySeed = randomUUID().replaceAll("-", "");
 const companyId = `finance-company-${suffix}`;
 const calendarId = `finance-calendar-${suffix}`;
 const periodId = `finance-period-${suffix}`;
@@ -37,12 +40,6 @@ let periodNumber: number;
 let foreignCurrency: string;
 let missingCurrency: string;
 let raceCurrency: string;
-
-function currencyCode(seed: string): string {
-  return [0, 2, 4]
-    .map((offset) => String.fromCharCode(65 + (Number.parseInt(seed.slice(offset, offset + 2), 16) % 26)))
-    .join("");
-}
 
 function postCommand(
   sourceId: string,
@@ -92,6 +89,7 @@ async function tenantTransaction<T>(
   try {
     await client.query("begin");
     await client.query("select set_config('nexora.tenant_id',$1,true)", [sourceTestTenantId]);
+    await client.query("select set_config('nexora.user_id','r06.maker',true)");
     const result = await operation(await createFinanceTransactionClient(client));
     await client.query("commit");
     return result;
@@ -114,14 +112,17 @@ class SignalingRateLockRepository extends SourceFinancePostingRepository {
     super();
   }
 
-  override async lockRateAuthority(
+  override async resolveCompanyCurrency(
     client: FinanceTransactionClient,
-    tenantId: string,
-    sourceCurrency: string,
-    targetCurrency: string,
-  ): Promise<void> {
+    input: {
+      tenantId: string;
+      companyId: string;
+      sourceCurrency: string;
+      effectiveOnOrBefore: string;
+    },
+  ) {
     this.onRateLockAttempt();
-    await super.lockRateAuthority(client, tenantId, sourceCurrency, targetCurrency);
+    return super.resolveCompanyCurrency(client, input);
   }
 }
 
@@ -176,50 +177,57 @@ run("Finance posting service", () => {
         [sourceTestTenantId],
       );
     }
-    const currencyCandidates = [
-      ...new Set([
-        currencyCode(currencySeed.slice(0, 6)),
-        currencyCode(currencySeed.slice(6, 12)),
-        currencyCode(currencySeed.slice(12, 18)),
-        currencyCode(currencySeed.slice(18, 24)),
-        "XTS",
-        "XUA",
-        "XBA",
-        "XBB",
-      ]),
+    const availableCurrencies = await pool.query<{ code: string; name: string; decimal_places: number }>(
+      `select catalog.code,catalog.name,catalog.decimal_places
+         from currency_catalog catalog
+        where catalog.status='active' and catalog.code<>$2
+          and catalog.decimal_places>=2
+          and exists(select 1 from country_currency_catalog mapping where mapping.currency_code=catalog.code)
+          and not exists(select 1 from currency adopted where adopted.tenant_id=$1 and adopted.code=catalog.code)
+        order by catalog.code limit 3`,
+      [sourceTestTenantId, baseCurrency],
+    );
+    if (availableCurrencies.rows.length < 3)
+      throw new Error("Finance test could not allocate isolated currency fixtures.");
+    [foreignCurrency, missingCurrency, raceCurrency] = availableCurrencies.rows.map((row) => row.code) as [
+      string,
+      string,
+      string,
     ];
-    const existingCurrencyCodes = new Set(
-      (await pool.query<{ code: string }>("select code from currency where tenant_id=$1", [sourceTestTenantId])).rows.map(
-        ({ code }) => code,
-      ),
-    );
-    const availableCurrencies = currencyCandidates.filter((code) => !existingCurrencyCodes.has(code));
-    if (availableCurrencies.length < 3) throw new Error("Finance test could not allocate isolated currency fixtures.");
-    [foreignCurrency, missingCurrency, raceCurrency] = availableCurrencies as [string, string, string, ...string[]];
-    await pool.query(
-      `insert into currency (tenant_id,code,name,decimal_places,is_base,status)
-       values ($1,$2,'Synthetic Posting Currency',2,false,'active'),
-              ($1,$3,'Synthetic Missing-Rate Currency',2,false,'active'),
-              ($1,$4,'Synthetic Race Currency',2,false,'active')
-       on conflict (tenant_id,code) do update set status='active'`,
-      [sourceTestTenantId, foreignCurrency, missingCurrency, raceCurrency],
-    );
-    await pool.query(
-      `insert into currency_rate
-        (id,tenant_id,source_currency,target_currency,rate,effective_date,created_at)
-       values ($1,$2,$3,$4,1.25,current_date - 1,now())`,
-      [initialRateId, sourceTestTenantId, foreignCurrency, baseCurrency],
-    );
-    await pool.query(
-      `insert into currency_rate
-        (id,tenant_id,source_currency,target_currency,rate,effective_date,created_at)
-       values ($1,$2,$3,$4,1.1,current_date - 1,now())`,
-      [raceInitialRateId, sourceTestTenantId, raceCurrency, baseCurrency],
-    );
+    for (const currency of availableCurrencies.rows)
+      await pool.query(
+        `insert into currency
+         (tenant_id,code,name,decimal_places,is_base,status,catalog_code,row_version,adopted_by,adopted_at)
+         values ($1,$2,$3,$4,false,'active',$2,1,'r06.maker',clock_timestamp())`,
+        [sourceTestTenantId, currency.code, currency.name, currency.decimal_places],
+      );
     await pool.query(
       `insert into organization_unit (id,tenant_id,parent_id,type,code,name,status)
        values ($1,$2,null,'company',$3,'Finance Posting Test Company','active')`,
       [companyId, sourceTestTenantId, `FIN-${suffix}`],
+    );
+    await ensureCompanyCurrencyFixture(pool, companyId, baseCurrency, [
+      foreignCurrency,
+      missingCurrency,
+      raceCurrency,
+    ]);
+    await pool.query(
+      `insert into security_user_company_access
+       (tenant_id,access_id,user_id,company_id,is_default,granted_by,source_kind,source_reference)
+       values($1,$2,'r06.maker',$3,false,'r06.last-admin-a','governed_administration','finance-posting-integration')`,
+      [sourceTestTenantId, `finance-access-${suffix}`, companyId],
+    );
+    await pool.query(
+      `insert into currency_rate
+        (id,tenant_id,company_id,source_currency,target_currency,rate,effective_date,created_at)
+       values ($1,$2,$3,$4,$5,1.25,current_date - 1,now())`,
+      [initialRateId, sourceTestTenantId, companyId, foreignCurrency, baseCurrency],
+    );
+    await pool.query(
+      `insert into currency_rate
+        (id,tenant_id,company_id,source_currency,target_currency,rate,effective_date,created_at)
+       values ($1,$2,$3,$4,$5,1.1,current_date - 1,now())`,
+      [raceInitialRateId, sourceTestTenantId, companyId, raceCurrency, baseCurrency],
     );
     await pool.query(
       `insert into fiscal_calendar
@@ -337,9 +345,9 @@ run("Finance posting service", () => {
 
     await pool.query(
       `insert into currency_rate
-        (id,tenant_id,source_currency,target_currency,rate,effective_date,created_at)
-       values ($1,$2,$3,$4,1.5,current_date,now())`,
-      [changedRateId, sourceTestTenantId, foreignCurrency, baseCurrency],
+        (id,tenant_id,company_id,source_currency,target_currency,rate,effective_date,created_at)
+       values ($1,$2,$3,$4,$5,1.5,current_date,now())`,
+      [changedRateId, sourceTestTenantId, companyId, foreignCurrency, baseCurrency],
     );
     await expect(
       tenantTransaction(pool, (client) =>
@@ -488,9 +496,9 @@ run("Finance posting service", () => {
       await writer.query("select set_config('nexora.tenant_id',$1,true)", [sourceTestTenantId]);
       await writer.query(
         `insert into currency_rate
-          (id,tenant_id,source_currency,target_currency,rate,effective_date,created_at)
-         values ($1,$2,$3,$4,1.2,current_date,now())`,
-        [raceChangedRateId, sourceTestTenantId, raceCurrency, baseCurrency],
+          (id,tenant_id,company_id,source_currency,target_currency,rate,effective_date,created_at)
+         values ($1,$2,$3,$4,$5,1.2,current_date,now())`,
+        [raceChangedRateId, sourceTestTenantId, companyId, raceCurrency, baseCurrency],
       );
       const postingOutcome = tenantTransaction(pool, (client) =>
         guardedService.post(

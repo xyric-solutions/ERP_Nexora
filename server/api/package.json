@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./finance-posting": {
+      "types": "./dist/modules/finance/posting/index.d.ts",
+      "import": "./dist/modules/finance/posting/index.js"
+    }
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -b",
@@ -15,15 +21,21 @@
     "@nexora/domain": "0.1.0",
     "@nexora/observability": "0.1.0",
     "bullmq": "6.3.11",
+    "busboy": "^1.6.0",
     "cors": "2.8.5",
+    "csv-parse": "7.0.3",
     "express": "5.2.1",
     "helmet": "8.1.0",
     "ioredis": "5.8.2",
     "pino": "10.4.0",
+    "saxes": "6.0.0",
+    "yauzl": "3.4.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@types/busboy": "^1.5.4",
     "@types/cors": "2.8.19",
-    "@types/express": "5.0.6"
+    "@types/express": "5.0.6",
+    "@types/yauzl": "2.10.3"
   }
 }

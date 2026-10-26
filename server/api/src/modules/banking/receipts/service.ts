@@ -1,4 +1,6 @@
 import type {
+  BankWorkflowOptionQuery,
+  ReassignBankApproverRequest,
   BankReceiptDirectoryQuery,
   BankReceiptNominalAccountDirectoryQuery,
   BankReceiptOptionsQuery,
@@ -19,6 +21,7 @@ export class BankingReceiptService {
       SourceBankReceiptRepository,
       | "list"
       | "options"
+      | "workflowOptions"
       | "listNominalAccounts"
       | "get"
       | "create"
@@ -27,11 +30,15 @@ export class BankingReceiptService {
       | "decide"
       | "post"
       | "reverse"
+      | "reassign"
     >,
   ) {}
 
   list(context: BankingActorContext, query: BankReceiptDirectoryQuery) {
     return this.repository.list(context, query);
+  }
+  workflowOptions(context: BankingActorContext, query: BankWorkflowOptionQuery) {
+    return this.repository.workflowOptions(context, query);
   }
 
   options(context: BankingActorContext, query: BankReceiptOptionsQuery) {
@@ -78,6 +85,16 @@ export class BankingReceiptService {
     correlationId: string,
   ) {
     return this.repository.decide(context, receiptId, input, idempotencyKey, correlationId);
+  }
+
+  reassign(
+    context: BankingActorContext,
+    id: string,
+    input: ReassignBankApproverRequest,
+    key: string,
+    correlation: string,
+  ) {
+    return this.repository.reassign(context, id, input, key, correlation);
   }
 
   post(

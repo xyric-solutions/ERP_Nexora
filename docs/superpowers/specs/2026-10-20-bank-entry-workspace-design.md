@@ -70,3 +70,14 @@ Full browser-to-PostgreSQL approval acceptance with eligible financial setup
 remains pending; component and isolated database evidence are separate.
 The existing global shell review banner/other prototype screens were not
 redesigned in this feature-only batch.
+
+## 2026-10-21 refinement to the approved entry requirements
+
+The later request for visible posting/value dates and plain Details takes
+precedence over the earlier optional-field collapse: value date is now in the
+main controls, and optional document reference is a labelled input in each row.
+Narration remains free text and receipt payer stays required. The generated
+transaction reference and accounting preview remain collapsed. Company scope
+remains enforced; removing its selector requires real authenticated workspace
+context, not prototype company presets. Approver/project/city persistence is
+still a separate backend-led extension, not implied by these field changes.
