@@ -2,7 +2,7 @@
 
 ## Objective
 
-Replace the fixture-only Finance Journal register, detail view, and manual-journal form with a tenant- and company-scoped workflow backed by PostgreSQL and the existing Finance posting engine.
+Replace every fixture-only screen under **Finance > Journals** with a tenant- and company-scoped workflow backed by PostgreSQL and the existing Finance posting engine.
 
 The implementation must preserve the established client-to-API-to-service-to-repository boundary. It must not write directly from the browser to PostgreSQL or create a duplicate Next.js API. Bank, HR, Payroll, and other source workflows must continue using the same immutable ledger without interruption.
 
@@ -15,11 +15,15 @@ This increment includes:
 - manual-journal draft creation and editing;
 - draft deletion under strict lifecycle rules;
 - submission, rejection back to draft, final review, approval, and atomic posting;
+- a dedicated Journal Approval & Posting queue;
+- a governed Journal Reversal workpage for eligible manual journals;
+- recurring-journal template management with monthly and quarterly schedules;
+- idempotent recurring occurrences that generate drafts for normal approval and never post automatically;
 - company-base-currency journals only;
 - permission-driven approval and governed self-approval;
 - contracts, generated client methods, API routes, repository/service behavior, tests, and UI routing.
 
-This increment does not include recurring journals, attachment storage, foreign-currency manual journals, bulk posting, or editing/deleting posted ledger entries.
+This increment does not include attachment storage, foreign-currency manual journals, bulk posting, weekly/yearly/custom recurrence rules, automatic recurring-journal posting, or editing/deleting posted ledger entries.
 
 ## Architectural Decision
 
@@ -43,7 +47,7 @@ Additive Finance migrations will introduce source tables equivalent to:
 - journal date;
 - optional operator reference number;
 - base-currency snapshot;
-- lifecycle state: `draft`, `submitted`, `posted`;
+- lifecycle state: `draft`, `submitted`, `posted`, `reversed`;
 - preparer, submitter, approver, and posting identities/timestamps where applicable;
 - rejection reason and last rejection evidence where applicable;
 - generated accounting-event and journal-entry identifiers after posting;
@@ -62,6 +66,36 @@ Additive Finance migrations will introduce source tables equivalent to:
 
 Database constraints will require non-negative amounts and exactly one positive side per line. Server validation remains authoritative for minimum line count, non-zero totals, equality of total debits and credits, account eligibility, dimensions, and lifecycle transitions.
 
+### Existing `recurring_journal_template`
+
+An additive migration will extend the existing recurring-journal template table rather than creating a second competing template store. The governed template will include:
+
+- creator and last updater;
+- optimistic version;
+- monthly or quarterly schedule;
+- start date and optional end date;
+- next scheduled date and last generated date;
+- base-currency snapshot;
+- bounded reference and narration patterns;
+- balanced nominal lines;
+- active or inactive status;
+- created and updated timestamps.
+
+Existing rows, if any, must be validated and safely backfilled before new non-null constraints are enforced. Template line data may remain an immutable JSON snapshot when that preserves the existing schema, but contracts and server validation must enforce the same account, amount, balance, scale, and dimension rules as a manual-journal draft.
+
+### `recurring_journal_occurrence`
+
+A durable occurrence table will record:
+
+- tenant, company, and template identifiers;
+- the scheduled date and cycle number;
+- the generated manual-journal source identifier;
+- generation state and audit timestamps;
+- a uniqueness constraint preventing more than one occurrence for the same template and scheduled date.
+
+The worker uses row/advisory locking and idempotent inserts so retries or concurrent workers cannot create duplicate drafts.
+If a generated draft is later deleted, the occurrence remains as a minimal `draft_deleted` record with a nullable source link. The same scheduled occurrence is not generated again automatically.
+
 ### Draft Deletion Audit
 
 A draft may be permanently deleted only while its latest state is `draft`. Deletion removes its source header and lines in one transaction. Before deletion, the server writes a minimal immutable audit tombstone containing the source ID, company, actor, timestamp, deletion reason, correlation reference, and hashes required for audit-chain continuity. The tombstone does not retain journal descriptions, lines, or amounts.
@@ -72,7 +106,7 @@ Submitted and posted journals cannot be deleted. Posted journals are corrected o
 
 The normal lifecycle is:
 
-`Draft -> Submitted -> Final review -> Posted`
+`Draft -> Submitted -> Final review -> Posted -> Reversed` where a later governed reversal is required.
 
 - Drafts are editable and deletable by authorized users.
 - Submission locks business fields and lines.
@@ -80,6 +114,7 @@ The normal lifecycle is:
 - Final confirmation records the approval decision and posts the journal atomically.
 - Approval is not persisted as a detached state that can become stale before posting. Approval evidence, Finance posting, and the source transition to `posted` commit together.
 - Posted source documents and ledger results are immutable.
+- Reversal creates a new mirror accounting event and journal. It marks the original manual source `reversed` and links the reversal evidence; it never changes original lines or amounts.
 
 ## Approval Model
 
@@ -93,12 +128,15 @@ Permissions will be explicit and company-scoped:
 - `finance.journal.approve`
 - `finance.journal.self_approve`
 - `finance.journal.reject`
+- `finance.journal.reverse`
+- `finance.recurring_journal.read`
+- `finance.recurring_journal.manage`
 
 An actor with `finance.journal.approve` may approve journals prepared by another actor. Approving one's own journal additionally requires `finance.journal.self_approve` granted by an administrator.
 
 A governed Super Administrator may approve its own journal through the existing `platform.approval.override` authority. The server must write immutable override evidence through the established approval-override writer. Possessing a role label in a browser session is never sufficient; live server-side role, assignment, company scope, and permission evidence must be checked.
 
-Impersonated sessions cannot submit, approve, self-approve, reject, post, or delete drafts.
+Impersonated sessions cannot submit, approve, self-approve, reject, post, reverse, or delete drafts, and cannot create, change, activate, deactivate, or generate recurring templates.
 
 ## Base-Currency Rule
 
@@ -141,7 +179,11 @@ Versioned `/api/v1` Finance endpoints and shared contracts will cover:
 - submit draft;
 - reject submitted journal to draft;
 - final review payload;
-- confirm and post.
+- confirm and post;
+- list the approval queue and load final-review evidence;
+- preview and create an eligible manual-journal reversal;
+- list, view, create, update, activate, and deactivate recurring templates;
+- list recurring occurrence history and generate an idempotent due draft through the worker boundary.
 
 Every mutation requires CSRF protection, a bounded idempotency key, request validation, and the standard problem response with a correlation reference. List endpoints use bounded pagination and filters.
 
@@ -220,11 +262,61 @@ The final review is read-only and displays:
 
 A required confirmation checkbox precedes `Confirm and Post`. An optional approval note may be supplied. No posting occurs until this explicit confirmation succeeds.
 
+## Journal Approval & Posting
+
+The dedicated approval screen lists submitted manual journals within the actor's permitted companies. It provides bounded filters for company, preparer, date, reference, and age, plus cursor pagination.
+
+Each row shows the journal date, preparer, reference, base currency, total debit/credit, submission time, and whether self-approval authority would be required. Opening a row displays the same immutable final-review projection described above.
+
+An authorized approver may:
+
+- confirm and post after checking the required confirmation control;
+- reject the submission back to draft with a required reason.
+
+The queue never exposes approve or reject actions based only on client permissions. Live company-scoped authority, maker identity, self-approval authority, impersonation state, record version, and lifecycle are rechecked within the mutation transaction.
+
+## Journal Reversal
+
+The reversal workpage accepts an original posted manual-journal number, a reversal date, and a required reason. It displays the original immutable lines and a mirror-entry preview before confirmation.
+
+Only posted, unreversed manual journals are directly reversible from this Finance screen. Bank, Payroll, and other module-owned journals remain visible in Journal Detail but must be reversed through their owning workflow so source-document state cannot diverge from the ledger.
+
+Reversal confirmation:
+
+1. locks the original manual source and ledger evidence;
+2. verifies live `finance.journal.reverse` authority and an open period for the requested reversal date;
+3. calls the existing Finance reversal service with a stable idempotency key;
+4. links the new accounting event and reversal journal to the original source;
+5. transitions the source from `posted` to `reversed` in the same transaction.
+
+The original journal is never edited or deleted.
+
+## Recurring Journals
+
+The Recurring Journals screen provides a paginated template register, template detail/history, and create/edit form.
+
+Template fields:
+
+- company and read-only company base currency;
+- template name;
+- monthly or quarterly frequency;
+- start date and optional end date;
+- next scheduled date;
+- reference and narration patterns;
+- the same balanced nominal-line editor used by Manual Journal;
+- active/inactive state.
+
+Activating or changing a template requires `finance.recurring_journal.manage`, an expected version, a reason, and an idempotency key. Editing a template affects future occurrences only. Previously generated drafts and posted journals are immutable snapshots and are never rewritten.
+
+The worker periodically claims due active templates with bounded batches and `SKIP LOCKED`/advisory-lock protection. For each due date it creates exactly one ordinary `manual_journal` in `draft` state, copies the template's base currency and lines, records the occurrence, advances the next scheduled date, and commits atomically. The generated draft follows the normal edit, submit, approval, final-confirmation, posting, deletion, and rejection rules. No recurring occurrence posts automatically.
+
+The screen displays occurrence history and the linked draft/posted journal. An authorized operator may request generation of an already-due occurrence through the durable worker/job boundary; the HTTP request itself does not post or create ledger entries.
+
 ## Journal Detail
 
 The detail view displays source metadata, ledger number, lifecycle, audit identities/timestamps, lines, totals, accounting event, and reversal linkage when present.
 
-Manual drafts expose edit/delete controls according to permissions. Submitted journals expose reject and final-review controls to authorized approvers. Posted and system-generated journals are read-only.
+Manual drafts expose edit/delete controls according to permissions. Submitted journals expose reject and final-review controls to authorized approvers. Posted and system-generated journals are read-only. Reversed manual journals show both original and reversal links. Module-owned journals identify the owning workflow for any permitted correction.
 
 ## Validation and Failure Behavior
 
@@ -241,13 +333,24 @@ The server rejects:
 - stale expected versions;
 - idempotency-key reuse with a different request;
 - unauthorized approval, self-approval, rejection, deletion, or posting;
+- unauthorized or duplicate reversal;
+- invalid recurrence ranges, unsupported frequencies, duplicate occurrences, or attempts to change generated history;
 - changes or deletion after submission/posting.
 
 Concurrency and integrity failures return safe conflict responses. Internal database details, stack traces, credentials, and infrastructure URLs are never exposed.
 
 ## UI Integration
 
-The existing fixture-rendered Finance pages `journal-register`, `manual-journal`, and `journal-detail` will route to dedicated live feature components under `app/features/finance`. The generic fixture profile may remain only as historical prototype data until selector searches confirm it is no longer an active dependency.
+All six existing fixture-rendered pages in the **Finance > Journals** navigation group will route to dedicated live feature components under `app/features/finance`:
+
+- `journal-register`;
+- `manual-journal`;
+- `journal-detail`;
+- `journal-approval`;
+- `journal-reversal`;
+- `recurring-journals`.
+
+The generic fixture profile may remain only as historical prototype data until selector searches confirm it is no longer an active dependency.
 
 New UI uses Tailwind utilities and existing shadcn primitives. It preserves keyboard access, labels, focus, loading, error, empty, disabled, responsive, and destructive-confirmation states.
 
@@ -259,13 +362,16 @@ Required verification includes:
 - tenant and company isolation integration tests;
 - contract parsing, OpenAPI, and generated-client checks;
 - repository/API tests for create, edit, delete, submit, reject, review, post, pagination, and filters;
+- approval-queue authorization, filtering, review, rejection, and posting tests;
+- reversal eligibility, open-period, idempotency, atomicity, and source-ownership tests;
+- recurring template lifecycle, monthly/quarterly date progression, worker concurrency, occurrence uniqueness, retry, and draft-generation tests;
 - balance, scale, base-currency, period, account, dimensions, concurrency, and idempotency tests;
 - normal approval, self-approval, Super Administrator override, denial, and impersonation security tests;
 - proof that confirmation rolls back the source transition if Finance posting fails;
-- UI tests for register filters, pagination, line editing, draft deletion, submission, rejection, final review, and posting;
+- UI tests for register filters, pagination, line editing, draft deletion, submission, approval queue, rejection, final review, posting, reversal, and recurring templates/history;
 - regression checks for Bank and HR/Payroll posting behavior;
 - generated client, type checking, linting, formatting, UI theme audit, `git diff --check`, and production web build;
-- browser verification of desktop and narrow layouts for register, form, final review, and detail.
+- browser verification of desktop and narrow layouts for all six Journal screens.
 
 ## Success Criteria
 
@@ -276,4 +382,7 @@ Required verification includes:
 - Self-approval requires explicit authority or a governed Super Administrator override.
 - Every confirmed journal posts once through the existing Finance engine and appears once in the unified register.
 - Posted ledger evidence is immutable and reversible only through governed reversal.
+- Eligible manual journals can be reversed once without bypassing source ownership.
+- Monthly and quarterly recurring templates generate one draft per due occurrence and never auto-post.
+- Every screen under Finance > Journals is live and database-connected.
 - Bank and HR/Payroll workflows remain operational and unchanged.
