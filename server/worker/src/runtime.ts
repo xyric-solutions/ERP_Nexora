@@ -17,12 +17,18 @@ import {
 } from "./jobs/bank-revaluation-reversal.js";
 import type { JobExecutionRepository, SampleJobData } from "./jobs/sample.js";
 import { processSampleJob } from "./jobs/sample.js";
+import {
+  RECURRING_JOURNAL_GENERATION_JOB,
+  processRecurringJournalGeneration,
+  type RecurringJournalGenerationRepository,
+} from "./jobs/recurring-journal-generation.js";
 
 export async function processQueuedJob(
   job: Job<WorkerJobData>,
   repository: JobExecutionRepository,
   cleanup?: CleanupRuntimeOptions,
   revaluations?: RevaluationRuntimeOptions,
+  recurringJournals?: RecurringJournalRuntimeOptions,
 ) {
   if (job.name === BANK_STATEMENT_CLEANUP_JOB) {
     if (!cleanup) throw new Error("Bank Statement cleanup dependencies are unavailable");
@@ -72,6 +78,31 @@ export async function processQueuedJob(
         ),
     );
   }
+  if (job.name === RECURRING_JOURNAL_GENERATION_JOB) {
+    if (!recurringJournals) throw new Error("Recurring Journal generation dependencies are unavailable");
+    const data = job.data as RecurringJournalGenerationJobData;
+    return withExtractedSpan(
+      "worker.jobs.recurring_journal_generation.process",
+      data.traceContext,
+      {
+        kind: "consumer",
+        attributes: {
+          "messaging.system": "bullmq",
+          "messaging.message.id": job.id ?? RECURRING_JOURNAL_GENERATION_JOB,
+        },
+      },
+      async () =>
+        processRecurringJournalGeneration(
+          {
+            now: new Date(),
+            actorId: recurringJournals.actorId,
+            tenantLimit: recurringJournals.tenantLimit,
+            templateLimit: recurringJournals.templateLimit,
+          },
+          recurringJournals.repository,
+        ),
+    );
+  }
   if (job.name !== "sample") throw new Error(`Unsupported job type: ${job.name}`);
   const sampleJob = job as Job<SampleJobData>;
   return withExtractedSpan(
@@ -87,7 +118,9 @@ export async function processQueuedJob(
 
 type BankStatementCleanupJobData = { correlationId: string; traceContext: Record<string, string> };
 type BankRevaluationReversalJobData = { correlationId: string; traceContext: Record<string, string> };
-type WorkerJobData = SampleJobData | BankStatementCleanupJobData | BankRevaluationReversalJobData;
+type RecurringJournalGenerationJobData = { correlationId: string; traceContext: Record<string, string> };
+type WorkerJobData =
+  SampleJobData | BankStatementCleanupJobData | BankRevaluationReversalJobData | RecurringJournalGenerationJobData;
 
 type CleanupRuntimeOptions = {
   storage: BankStatementCleanupStorage;
@@ -102,6 +135,13 @@ type RevaluationRuntimeOptions = Omit<BankRevaluationReversalOptions, "now"> & {
   repository: BankRevaluationReversalRepository;
   everyMs: number;
 };
+type RecurringJournalRuntimeOptions = {
+  repository: RecurringJournalGenerationRepository;
+  actorId: string;
+  tenantLimit: number;
+  templateLimit: number;
+  everyMs: number;
+};
 
 export function createJobRuntime(options: {
   connection: ConnectionOptions;
@@ -110,13 +150,15 @@ export function createJobRuntime(options: {
   queueName?: string;
   cleanup?: CleanupRuntimeOptions;
   revaluations?: RevaluationRuntimeOptions;
+  recurringJournals?: RecurringJournalRuntimeOptions;
 }) {
   const queueName = options.queueName ?? "nexora";
   const queue = new Queue<WorkerJobData>(queueName, { connection: options.connection });
   const deadLetterQueue = new Queue(`${queueName}-dead-letter`, { connection: options.connection });
   const worker = new Worker<WorkerJobData>(
     queueName,
-    async (job) => processQueuedJob(job, options.repository, options.cleanup, options.revaluations),
+    async (job) =>
+      processQueuedJob(job, options.repository, options.cleanup, options.revaluations, options.recurringJournals),
     {
       connection: options.connection,
       concurrency: 5,
@@ -144,6 +186,17 @@ export function createJobRuntime(options: {
             name: BANK_REVALUATION_REVERSAL_JOB,
             data: { correlationId: "scheduled-bank-revaluation-reversal", traceContext: {} },
             opts: { attempts: 1, removeOnComplete: 100 },
+          },
+        )
+      : Promise.resolve(),
+    options.recurringJournals
+      ? queue.upsertJobScheduler(
+          RECURRING_JOURNAL_GENERATION_JOB,
+          { every: options.recurringJournals.everyMs },
+          {
+            name: RECURRING_JOURNAL_GENERATION_JOB,
+            data: { correlationId: "scheduled-recurring-journal-generation", traceContext: {} },
+            opts: { attempts: 3, backoff: { type: "exponential", delay: 5_000 }, removeOnComplete: 100 },
           },
         )
       : Promise.resolve(),

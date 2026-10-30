@@ -38,11 +38,11 @@ describe("production PostgreSQL source migrations", () => {
     await expect(migrateSourceSchema(pool)).resolves.toEqual([]);
     await expect(inspectSourceMigrationState(pool)).resolves.toEqual({
       platform: 11,
-      security: 19,
+      security: 20,
       workflow: 1,
       master_data: 2,
-      finance: 30,
-      hr: 34,
+      finance: 32,
+      hr: 130,
       runtime: 1,
     });
   });
@@ -58,8 +58,8 @@ describe("production PostgreSQL source migrations", () => {
       await migrateSourceSchema(fresh);
       await expect(inspectSourceMigrationState(fresh)).resolves.toMatchObject({
         platform: 11,
-        security: 19,
-        finance: 30,
+        security: 20,
+        finance: 32,
       });
       const columns = await fresh.query<{ column_name: string }>(
         `select column_name from information_schema.columns
@@ -156,7 +156,7 @@ describe("production PostgreSQL source migrations", () => {
 
       await migrateSourceModule(upgrade, "finance");
 
-      await expect(inspectSourceMigrationState(upgrade)).resolves.toMatchObject({ finance: 30 });
+      await expect(inspectSourceMigrationState(upgrade)).resolves.toMatchObject({ finance: 32 });
       const after = await upgrade.query(
         `select id,company_id,account_id,bank_name,currency,status,row_version
            from bank_account where tenant_id=$1 and id=$2`,
@@ -229,6 +229,14 @@ describe("production PostgreSQL source migrations", () => {
       "finance_chart_company_node",
       "finance_chart_company_event",
       "finance_chart_bank_binding",
+      "manual_journal_sequence",
+      "manual_journal",
+      "manual_journal_line",
+      "manual_journal_event",
+      "manual_journal_preparer",
+      "recurring_journal_template_event",
+      "recurring_journal_occurrence",
+      "recurring_journal_worker_cursor",
       "erp_project",
       "erp_location",
       "erp_reference_master_event",
@@ -254,6 +262,43 @@ describe("production PostgreSQL source migrations", () => {
     expect(result.rows.map((row) => row.table_name)).toEqual([...expected].sort());
   });
 
+  it("installs Journal preparer separation and bounded recurring retry controls", async () => {
+    const preparerSecurity = await pool.query<{
+      relrowsecurity: boolean;
+      relforcerowsecurity: boolean;
+    }>(
+      `select relrowsecurity,relforcerowsecurity from pg_class
+        where oid='manual_journal_preparer'::regclass`,
+    );
+    expect(preparerSecurity.rows[0]).toEqual({ relrowsecurity: true, relforcerowsecurity: true });
+
+    const triggers = await pool.query<{ trigger_name: string }>(
+      `select tgname as trigger_name from pg_trigger
+        where tgrelid=any(array[
+          'manual_journal'::regclass,
+          'manual_journal_event'::regclass,
+          'manual_journal_preparer'::regclass
+        ]) and not tgisinternal
+        order by tgname`,
+    );
+    expect(triggers.rows).toEqual(
+      expect.arrayContaining([
+        { trigger_name: "manual_journal_event_preparer_capture" },
+        { trigger_name: "manual_journal_preparer_actor_guard" },
+        { trigger_name: "manual_journal_preparer_separation" },
+      ]),
+    );
+
+    const occurrenceChecks = await pool.query<{ definition: string }>(
+      `select pg_get_constraintdef(oid) as definition from pg_constraint
+        where conrelid='recurring_journal_occurrence'::regclass and contype='c'`,
+    );
+    expect(occurrenceChecks.rows.some((row) => row.definition.includes("exhausted"))).toBe(true);
+    expect(
+      await pool.query("select id,last_tenant_id from recurring_journal_worker_cursor where id='tenant_scan'"),
+    ).toMatchObject({ rows: [{ id: "tenant_scan", last_tenant_id: null }] });
+  });
+
   it("records the complete source-ledger chain", async () => {
     const result = await pool.query<{ module_name: string; migration_count: string; latest: number }>(
       `select module_name, count(*)::text as migration_count, max(version) as latest
@@ -262,19 +307,19 @@ describe("production PostgreSQL source migrations", () => {
        order by module_name`,
     );
     expect(result.rows).toEqual([
-      { module_name: "finance", migration_count: "30", latest: 30 },
-      { module_name: "hr", migration_count: "34", latest: 34 },
+      { module_name: "finance", migration_count: "32", latest: 32 },
+      { module_name: "hr", migration_count: "130", latest: 130 },
       { module_name: "master_data", migration_count: "2", latest: 2 },
       { module_name: "platform", migration_count: "11", latest: 11 },
       { module_name: "runtime", migration_count: "1", latest: 1 },
-      { module_name: "security", migration_count: "19", latest: 19 },
+      { module_name: "security", migration_count: "20", latest: 20 },
       { module_name: "workflow", migration_count: "1", latest: 1 },
     ]);
     const bankingMigrations = await pool.query<{ module_name: string; version: number; name: string }>(
       `select module_name,version,name from nexora_schema_migration
         where (module_name='platform' and version in (8,10,11))
-           or (module_name='security' and version in (15,17,18,19))
-           or (module_name='finance' and version in (5,6,7,8,9,10,11,12,13,14,15,16,17,18,26,27,28,29,30))
+           or (module_name='security' and version in (15,17,18,19,20))
+           or (module_name='finance' and version in (5,6,7,8,9,10,11,12,13,14,15,16,17,18,26,27,28,29,30,31,32))
         order by module_name,version`,
     );
     expect(bankingMigrations.rows).toEqual([
@@ -297,6 +342,8 @@ describe("production PostgreSQL source migrations", () => {
       { module_name: "finance", version: 28, name: "bank_statement_reconciliation" },
       { module_name: "finance", version: 29, name: "bank_reconciliation_manual_workflow" },
       { module_name: "finance", version: 30, name: "bank_fx_revaluation" },
+      { module_name: "finance", version: 31, name: "manual_journals" },
+      { module_name: "finance", version: 32, name: "manual_journal_staging_hardening" },
       { module_name: "platform", version: 8, name: "idempotency_patch_method" },
       { module_name: "platform", version: 10, name: "currency_master_governance" },
       { module_name: "platform", version: 11, name: "company_currency_profiles" },
@@ -304,6 +351,7 @@ describe("production PostgreSQL source migrations", () => {
       { module_name: "security", version: 17, name: "bank_transfer_permissions" },
       { module_name: "security", version: 18, name: "bank_reconciliation_permissions" },
       { module_name: "security", version: 19, name: "bank_revaluation_permissions" },
+      { module_name: "security", version: 20, name: "finance_journal_permissions" },
     ]);
   });
 
@@ -463,7 +511,7 @@ describe("production PostgreSQL source migrations", () => {
     const result = await pool.query<{ permission_count: string }>(
       "select count(*)::text as permission_count from security_permission_definition",
     );
-    expect(result.rows[0]?.permission_count).toBe("322");
+    expect(result.rows[0]?.permission_count).toBe("347");
     const overridePermission = await pool.query<{ permission_key: string }>(
       `select permission_key from security_permission_definition
         where permission_key='platform.approval.override' and status='active'`,
@@ -497,6 +545,27 @@ describe("production PostgreSQL source migrations", () => {
       "banking.transfer.reverse",
       "banking.transfer.submit",
       "banking.transfer.update",
+    ]);
+    const journalPermissions = await pool.query<{ permission_key: string }>(
+      `select permission_key from security_permission_definition
+        where permission_key like 'finance.journal.%'
+           or permission_key like 'finance.recurring_journal.%'
+        order by permission_key`,
+    );
+    expect(journalPermissions.rows.map((row) => row.permission_key)).toEqual([
+      "finance.journal.approve",
+      "finance.journal.create",
+      "finance.journal.delete_draft",
+      "finance.journal.post",
+      "finance.journal.read",
+      "finance.journal.reject",
+      "finance.journal.reverse",
+      "finance.journal.self_approve",
+      "finance.journal.submit",
+      "finance.journal.update",
+      "finance.recurring_journal.create",
+      "finance.recurring_journal.manage",
+      "finance.recurring_journal.read",
     ]);
     const catalog = await pool.query<{ code: string }>("select code from currency_catalog order by code");
     expect(catalog.rows).toHaveLength(20);

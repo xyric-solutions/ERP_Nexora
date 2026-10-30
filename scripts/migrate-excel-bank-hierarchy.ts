@@ -3,6 +3,7 @@ import { z } from "zod";
 import { sessionResponseSchema } from "../packages/contracts/src/auth/index.js";
 import { createDatabasePool } from "../packages/db/src/index.js";
 import { migrateExcelBankHierarchy } from "../packages/db/src/maintenance/excel-bank-hierarchy.js";
+import { isExplicitlyNamedLocalUatDatabase } from "./uat-database-safety.js";
 
 if (process.argv.includes("--help")) {
   console.log(
@@ -35,7 +36,7 @@ for (const target of [dbTarget, apiTarget])
     throw new Error("This controlled maintenance command is local-development only.");
 if (!["postgres:", "postgresql:"].includes(dbTarget.protocol) || !["http:", "https:"].includes(apiTarget.protocol))
   throw new Error("Invalid database/API protocol.");
-if (!/^\/(nexora_source_test|nexora_chart_template_ct01_[a-z0-9_]+)$/.test(dbTarget.pathname))
+if (!isExplicitlyNamedLocalUatDatabase(databaseUrl))
   throw new Error("Explicit local source or isolated chart-template database required.");
 const input = requestSchema.parse(JSON.parse(await readFile(inputPath, "utf8")));
 const login = await fetch(new URL("/api/v1/auth/login", apiTarget), {

@@ -884,23 +884,22 @@ export function PrototypeShell({
               {headerControls}
             </div>
           </header>
-          {!connectedWorkspace ? <section className="nx-prototype-toolbar" aria-label="Prototype controls">
-            <strong className="nx-prototype-toolbar__label">Mock-only review</strong>
-          <section
-            className="nx-prototype-toolbar"
-            aria-label={isLiveMasterDataPage ? "Account master data controls" : "Prototype controls"}
-          >
-            <strong className="nx-prototype-toolbar__label">
-              {isReferenceMasterPage
-                ? "Live Master Data API"
-                : isCentralChartPage
-                  ? "Central Master Data"
-                  : isLiveFinanceChartPage
-                    ? "Live Finance API"
-                    : isLiveBankMasterDataPage
-                      ? "Live Bank API"
-                      : "Mock-only review"}
-            </strong>
+          {!connectedWorkspace || isLiveMasterDataPage ? (
+            <section
+              className="nx-prototype-toolbar"
+              aria-label={isLiveMasterDataPage ? "Account master data controls" : "Prototype controls"}
+            >
+              <strong className="nx-prototype-toolbar__label">
+                {isReferenceMasterPage
+                  ? "Live Master Data API"
+                  : isCentralChartPage
+                    ? "Central Master Data"
+                    : isLiveFinanceChartPage
+                      ? "Live Finance API"
+                      : isLiveBankMasterDataPage
+                        ? "Live Bank API"
+                        : "Mock-only review"}
+              </strong>
             <div className="nx-prototype-toolbar__controls">
               {!isLiveMasterDataPage && (
                 <>
@@ -967,18 +966,17 @@ export function PrototypeShell({
                 <option value="error">State: Error</option>
               </select>
             </div>
-            <span className="nx-prototype-toolbar__note">No APIs · no posting · no Demo Account data</span>
-          </section> : null}
-            <span className="nx-prototype-toolbar__note">
-              {isFiscalPeriodPage
-                ? "Company fiscal calendar API · PostgreSQL · audited date controls"
-                : isCentralChartPage
-                ? "Central reference API · PostgreSQL · no company posting"
-                : isLiveMasterDataPage
-                  ? "Company account API · PostgreSQL · approval required before use"
-                  : "No APIs · no posting · no Demo Account data"}
-            </span>
-          </section>
+              <span className="nx-prototype-toolbar__note">
+                {isFiscalPeriodPage
+                  ? "Company fiscal calendar API · PostgreSQL · audited date controls"
+                  : isCentralChartPage
+                    ? "Central reference API · PostgreSQL · no company posting"
+                    : isLiveMasterDataPage
+                      ? "Company account API · PostgreSQL · approval required before use"
+                      : "No APIs · no posting · no Demo Account data"}
+              </span>
+            </section>
+          ) : null}
 
           <div className="nx-content">
             {activeWorkspace === "identity" && identityContent ? (

@@ -35,6 +35,13 @@ describe("company currency authority", () => {
       rateValue: "1.000000000000000000",
       rateEffectiveDate: null,
     });
+    expect(database.query).toHaveBeenCalledTimes(2);
+    expect(database.query.mock.calls.map(([sql]) => sql)).not.toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("from currency_rate"),
+        expect.stringContaining("finance_currency_rate_lock_key"),
+      ]),
+    );
   });
 
   it("selects only a same-company active dated rate", async () => {
@@ -64,6 +71,29 @@ describe("company currency authority", () => {
       "PKR",
       "2026-10-26",
     ]);
+  });
+
+  it("supports read-only previews without row or advisory locks", async () => {
+    const database = client({
+      "from company_currency_profile profile": [{ code: "PKR", decimal_places: 2 }],
+      "from company_currency company_currency": [{ decimal_places: 2 }],
+      "from currency_rate": [{ id: "rate-a", rate: "275.000000000000000000", effective_date: "2026-10-25" }],
+    });
+    await resolveCompanyCurrencyAuthority(database, {
+      tenantId: "tenant-a",
+      companyId: "company-a",
+      sourceCurrency: "USD",
+      effectiveOnOrBefore: "2026-10-26",
+      lock: false,
+    });
+    const statements = database.query.mock.calls.map(([sql]) => sql);
+    expect(statements).toHaveLength(3);
+    expect(statements).not.toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("for share"),
+        expect.stringContaining("finance_currency_rate_lock_key"),
+      ]),
+    );
   });
 
   it("rejects inactive company currencies and missing company rates", async () => {

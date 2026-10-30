@@ -79,6 +79,7 @@ export function FinanceCurrencies() {
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [countrySearch, setCountrySearch] = useState("");
   const [countries, setCountries] = useState<CountryCurrencyMapping[]>([]);
+  const [selectedCountryMappings, setSelectedCountryMappings] = useState<CountryCurrencyMapping[]>([]);
   const [countriesLoading, setCountriesLoading] = useState(false);
   const [countryCode, setCountryCode] = useState("");
   const [currencyCode, setCurrencyCode] = useState("");
@@ -160,20 +161,24 @@ export function FinanceCurrencies() {
 
   const countryOptions = useMemo(() => {
     const seen = new Set<string>();
-    return countries.flatMap((item) => {
+    const activeSelection = selectedCountryMappings.some((item) => item.country_code === countryCode)
+      ? selectedCountryMappings
+      : [];
+    return [...activeSelection, ...countries].flatMap((item) => {
       if (seen.has(item.country_code)) return [];
       seen.add(item.country_code);
       return [{ value: item.country_code, label: `${item.country_name} (${item.country_code})` }];
     });
-  }, [countries]);
-  const mappedCurrencies = useMemo(
-    () => countries.filter((item) => item.country_code === countryCode),
-    [countries, countryCode],
-  );
+  }, [countries, countryCode, selectedCountryMappings]);
+  const mappedCurrencies = useMemo(() => {
+    const retained = selectedCountryMappings.filter((item) => item.country_code === countryCode);
+    return retained.length > 0 ? retained : countries.filter((item) => item.country_code === countryCode);
+  }, [countries, countryCode, selectedCountryMappings]);
 
   function resetForm(mode: FormMode, sourceCurrency = "") {
     setFormMode(mode);
     setCountrySearch("");
+    setSelectedCountryMappings([]);
     setCountryCode("");
     setCurrencyCode(sourceCurrency);
     setRate("");
@@ -182,7 +187,12 @@ export function FinanceCurrencies() {
 
   function chooseCountry(value: string) {
     setCountryCode(value);
-    const mappings = countries.filter((item) => item.country_code === value);
+    const currentMappings = countries.filter((item) => item.country_code === value);
+    const mappings =
+      currentMappings.length > 0
+        ? currentMappings
+        : selectedCountryMappings.filter((item) => item.country_code === value);
+    setSelectedCountryMappings(mappings);
     const preferred = mappings.find((item) => item.is_primary) ?? mappings[0];
     setCurrencyCode(preferred?.currency_code ?? "");
   }

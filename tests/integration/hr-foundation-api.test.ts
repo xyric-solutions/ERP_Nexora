@@ -404,7 +404,7 @@ run("HR foundation API repository", () => {
     expect(JSON.stringify(governedOverride)).not.toContain("submitted_by");
   });
 
-  it("creates an idempotent draft lifecycle policy with only its fixed initial hire definition", async () => {
+  it("creates an idempotent draft lifecycle policy with its fixed governed hire definition", async () => {
     const suffix = randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase();
     const manager = context("r06.maker");
     manager.actor.permissions = ["hr.employment_lifecycle_policy.manage"];
@@ -448,7 +448,7 @@ run("HR foundation API repository", () => {
       );
       const transitions = await client.query(
         `select event_type,requires_approval,workflow_trigger from hr_employment_lifecycle_transition
-          where tenant_id=$1 and policy_id=$2`,
+          where tenant_id=$1 and policy_id=$2 order by event_type,workflow_trigger,id`,
         [sourceTestTenantId, first.id],
       );
       const audit = await client.query(
@@ -459,9 +459,36 @@ run("HR foundation API repository", () => {
       expect(states.rows).toEqual([
         { code: "pre_employment", canonical_class: "pre_employment", is_initial: true },
         { code: "employed", canonical_class: "employed", is_initial: false },
+        { code: "confirmed", canonical_class: "employed", is_initial: false },
+        { code: "ended", canonical_class: "ended", is_initial: false },
       ]);
       expect(transitions.rows).toEqual([
+        {
+          event_type: "confirmation",
+          requires_approval: true,
+          workflow_trigger: "hr_employment_confirmation",
+        },
         { event_type: "hire", requires_approval: true, workflow_trigger: "hr_employment_hire" },
+        {
+          event_type: "resignation",
+          requires_approval: true,
+          workflow_trigger: "hr_employment_resignation",
+        },
+        {
+          event_type: "resignation",
+          requires_approval: true,
+          workflow_trigger: "hr_employment_resignation",
+        },
+        {
+          event_type: "termination",
+          requires_approval: true,
+          workflow_trigger: "hr_employment_termination",
+        },
+        {
+          event_type: "termination",
+          requires_approval: true,
+          workflow_trigger: "hr_employment_termination",
+        },
       ]);
       expect(audit.rows).toEqual([
         {

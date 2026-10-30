@@ -8,7 +8,7 @@ import {
 import { SourceBankPaymentRepository } from "../../server/api/src/modules/banking/payments/source-repository.js";
 import { createStatutoryFixture } from "./hr-payroll-statutory-fixture.js";
 import { runActor, runPermissions } from "./hr-payroll-run-fixture.js";
-import { sourceTestTenantId as tenant } from "./source-security-fixture.js";
+import { ensureCompanyCurrencyFixture, sourceTestTenantId as tenant } from "./source-security-fixture.js";
 const key = () => randomUUID(),
   reason = "Isolated loan recovery acceptance";
 export const loanActor = (who = "r06.maker") => runActor(who, [...runPermissions, "banking.payment.read"]);
@@ -44,18 +44,26 @@ export async function createLoanFixture(pool: DatabasePool, options: { principal
     `insert into financial_period(id,tenant_id,company_id,fiscal_calendar_id,period_number,period_start,period_end,status,created_at) values($1,$2,$3,$4,extract(month from current_date)::int,date_trunc('month',current_date)::date,(date_trunc('month',current_date)+interval '1 month - 1 day')::date,'open',now())`,
     [period, tenant, f.companyId, calendar],
   );
-  if (!(await pool.query("select 1 from currency where tenant_id=$1 and is_base and status='active'",[tenant])).rowCount)
-    await pool.query("insert into currency(tenant_id,code,name,decimal_places,is_base,status) values($1,'USD','Synthetic base currency',2,true,'active') on conflict(tenant_id,code) do update set is_base=true,status='active'",[tenant]);
+  if (
+    !(await pool.query("select 1 from currency where tenant_id=$1 and is_base and status='active'", [tenant])).rowCount
+  )
+    await pool.query(
+      "insert into currency(tenant_id,code,name,decimal_places,is_base,status) values($1,'USD','Synthetic base currency',2,true,'active') on conflict(tenant_id,code) do update set is_base=true,status='active'",
+      [tenant],
+    );
   const base = (
     await pool.query(
       `select code from currency where tenant_id=$1 and is_base and status='active' order by code limit 1`,
       [tenant],
     )
   ).rows[0]?.code;
+  if (!base) throw new Error("The isolated loan fixture requires a tenant base currency.");
+  await ensureCompanyCurrencyFixture(pool, f.companyId, base, ["PKR"]);
   if (base && base !== "PKR")
     await pool.query(
-      `insert into currency_rate(id,tenant_id,source_currency,target_currency,rate,effective_date,created_at) values($1,$2,'PKR',$3,1,current_date,now()) on conflict do nothing`,
-      [key(), tenant, base],
+      `insert into currency_rate(id,tenant_id,company_id,source_currency,target_currency,rate,effective_date,created_at)
+       values($1,$2,$3,'PKR',$4,1,current_date,now()) on conflict do nothing`,
+      [key(), tenant, f.companyId, base],
     );
   await pool.query(
     `insert into bank_account(id,tenant_id,company_id,account_id,bank_name,currency,status,created_at,reference,account_name,account_type,branch,account_number_masked,account_number_ciphertext,account_number_nonce,account_number_hash,encryption_key_version,swift_bic,overdraft_limit,row_version,created_by,submitted_by,submitted_at,submission_reason,approved_by,approved_at,decision_reason)
@@ -162,6 +170,7 @@ export async function createLoanFixture(pool: DatabasePool, options: { principal
       {
         company_id: f.companyId,
         bank_account_id: bank,
+        approver_user_id: "r06.checker",
         posting_date: f.today,
         lines: [
           {

@@ -33,6 +33,7 @@ import { createBankingFoundationReadiness } from "./modules/banking/readiness.js
 import { FinancePostingService } from "./modules/finance/posting/index.js";
 import { SourceFinanceNominalRepository } from "./modules/finance/nominals/source-repository.js";
 import { SourceFinanceCurrencyRepository } from "./modules/finance/currencies/source-repository.js";
+import { SourceFinanceJournalRepository } from "./modules/finance/journals/source-repository.js";
 import { SourceCoaHierarchyRepository } from "./modules/finance/coa-hierarchy-repository.js";
 import { SourceChartTemplateRepository } from "./modules/finance/templates/source-repository.js";
 import { SourceReferenceMasterRepository } from "./modules/master-data/source-repository.js";
@@ -117,6 +118,7 @@ const app = createApp({
   bankingRevaluationRepository: new SourceBankRevaluationRepository(pool, new FinancePostingService()),
   financeNominalRepository: new SourceFinanceNominalRepository(pool),
   financeCurrencyRepository: new SourceFinanceCurrencyRepository(pool),
+  financeJournalRepository: new SourceFinanceJournalRepository(pool, new FinancePostingService()),
   financeHierarchyRepository: new SourceCoaHierarchyRepository(pool),
   fiscalCalendarRepository: new SourceFiscalCalendarRepository(pool),
   financePeriodRepository: new SourceFinancePeriodRepository(pool),

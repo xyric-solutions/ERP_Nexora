@@ -3,6 +3,7 @@ export * from "./chart-templates.js";
 export * from "./company-currencies.js";
 export * from "./currencies.js";
 export * from "./hierarchy.js";
+export * from "./journals.js";
 export * from "./periods.js";
 
 const identifier = z.string().trim().min(1).max(128);

@@ -7,6 +7,8 @@ import { PostgresJobExecutionRepository } from "./job-repository.js";
 import { PostgresBankStatementCleanupRepository } from "./jobs/bank-statement-orphan-cleanup.js";
 import { PostgresBankRevaluationReversalRepository } from "./jobs/bank-revaluation-reversal.js";
 import { readBankRevaluationReversalConfig } from "./revaluation-config.js";
+import { readRecurringJournalConfig } from "./recurring-journal-config.js";
+import { PostgresRecurringJournalGenerationRepository } from "./jobs/recurring-journal-generation.js";
 import { createJobRuntime } from "./runtime.js";
 import { createWorkerObjectStorage, readBankStatementCleanupConfig } from "./storage-config.js";
 
@@ -28,6 +30,7 @@ await storage.checkReady();
 const revaluationConfig = readBankRevaluationReversalConfig();
 const revaluationRepository = new PostgresBankRevaluationReversalRepository(pool);
 await revaluationRepository.checkReady(revaluationConfig.actorId, revaluationConfig.tenantLimit);
+const recurringJournalConfig = readRecurringJournalConfig();
 const runtime = createJobRuntime({
   connection: redis,
   repository: new PostgresJobExecutionRepository(pool),
@@ -41,6 +44,14 @@ const runtime = createJobRuntime({
     repository: revaluationRepository,
     ...revaluationConfig,
   },
+  ...(recurringJournalConfig
+    ? {
+        recurringJournals: {
+          repository: new PostgresRecurringJournalGenerationRepository(pool),
+          ...recurringJournalConfig,
+        },
+      }
+    : {}),
 });
 await runtime.schedulerReady;
 

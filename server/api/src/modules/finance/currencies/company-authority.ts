@@ -26,6 +26,7 @@ interface ResolveCompanyCurrencyAuthorityInput {
   companyId: string;
   sourceCurrency: string;
   effectiveOnOrBefore: string;
+  lock?: boolean;
 }
 
 export interface CompanyBaseCurrencyAuthority {
@@ -37,6 +38,7 @@ export async function resolveCompanyBaseCurrency(
   client: CompanyCurrencyAuthorityClient,
   tenantId: string,
   companyId: string,
+  lock = true,
 ): Promise<CompanyBaseCurrencyAuthority> {
   const profile = (
     await client.query<{ code: string; decimal_places: number }>(
@@ -53,7 +55,7 @@ export async function resolveCompanyBaseCurrency(
           and company_base.is_base
           and company_base.status='active'
         where profile.tenant_id=$1 and profile.company_id=$2 and profile.status='active'
-        for share of profile,standard,company_base`,
+        ${lock ? "for share of profile,standard,company_base" : ""}`,
       [tenantId, companyId],
     )
   ).rows[0];
@@ -76,7 +78,8 @@ export async function resolveCompanyCurrencyAuthority(
   client: CompanyCurrencyAuthorityClient,
   input: ResolveCompanyCurrencyAuthorityInput,
 ): Promise<CompanyCurrencyAuthority> {
-  const profile = await resolveCompanyBaseCurrency(client, input.tenantId, input.companyId);
+  const lock = input.lock ?? true;
+  const profile = await resolveCompanyBaseCurrency(client, input.tenantId, input.companyId, lock);
 
   const source = (
     await client.query<{ decimal_places: number }>(
@@ -90,7 +93,7 @@ export async function resolveCompanyCurrencyAuthority(
           and company_currency.company_id=$2
           and company_currency.currency_code=$3
           and company_currency.status='active'
-        for share of company_currency,standard`,
+        ${lock ? "for share of company_currency,standard" : ""}`,
       [input.tenantId, input.companyId, input.sourceCurrency],
     )
   ).rows[0];
@@ -111,18 +114,19 @@ export async function resolveCompanyCurrencyAuthority(
       rateEffectiveDate: null,
     };
 
-  await client.query("select pg_advisory_xact_lock(finance_currency_rate_lock_key($1,$2,$3))", [
-    input.tenantId,
-    input.sourceCurrency,
-    profile.code,
-  ]);
+  if (lock)
+    await client.query("select pg_advisory_xact_lock(finance_currency_rate_lock_key($1,$2,$3))", [
+      input.tenantId,
+      input.sourceCurrency,
+      profile.code,
+    ]);
   const rate = (
     await client.query<{ id: string; rate: string; effective_date: string }>(
       `select id,rate::text,effective_date::text
          from currency_rate
         where tenant_id=$1 and company_id=$2 and source_currency=$3 and target_currency=$4
           and effective_date<=$5::date and status='active'
-        order by effective_date desc,id desc limit 1 for share`,
+        order by effective_date desc,id desc limit 1 ${lock ? "for share" : ""}`,
       [input.tenantId, input.companyId, input.sourceCurrency, profile.code, input.effectiveOnOrBefore],
     )
   ).rows[0];

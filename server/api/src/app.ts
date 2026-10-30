@@ -37,6 +37,7 @@ import { createHrRouter } from "./modules/hr/router.js";
 import {
   createFinanceRouter,
   type FinanceCurrencyRepository,
+  type FinanceJournalRepository,
   type FinanceNominalRepository,
 } from "./modules/finance/router.js";
 import { createCompanyCurrencyRouter } from "./modules/finance/currencies/company-router.js";
@@ -79,6 +80,7 @@ export interface AppDependencies {
   bankingRevaluationRepository?: BankingRevaluationRepository;
   financeNominalRepository?: FinanceNominalRepository;
   financeCurrencyRepository?: FinanceCurrencyRepository;
+  financeJournalRepository?: FinanceJournalRepository;
   financeHierarchyRepository?: import("./modules/finance/coa-hierarchy-repository.js").SourceCoaHierarchyRepository;
   chartTemplateRepository?: ChartTemplateRepository;
   referenceMasterRepository?: ReferenceMasterRepository;
@@ -120,10 +122,48 @@ export interface AppDependencies {
     | "getLeaveRequest"
     | "createLeaveRequest"
     | "actOnLeaveRequest"
-    | "getPayrollLocalization" | "createPayrollLocalization" | "decidePayrollLocalization" | "getOvertimeMoneyWorkspace"
+    | "getPayrollLocalization"
+    | "createPayrollLocalization"
+    | "decidePayrollLocalization"
+    | "getOvertimeMoneyWorkspace"
     | "createOvertimeMoney"
     | "decideOvertimeMoney"
-    | "getPayrollPaymentWorkspace"|"actOnPayrollPayment"| "getPayslipWorkspace"|"getPayslipDetail"|"releasePayslips"| "getLearning" | "actOnLearning" | "getLearningCertificate" | "getPersonalCorrections" | "createPersonalCorrection" | "actOnPersonalCorrection" | "getReportGovernance" | "actOnReportGovernance" | "getSelfLeaveContext" | "getSelfLeaveRequest" | "createSelfLeaveRequest" | "actOnSelfLeaveRequest" | "getSelfService" | "getSelfServicePayslip" | "getSettlementBenefits"|"actOnSettlementBenefit"|"getSettlementEntitlements"|"actOnSettlementEntitlement"|"getPolicyUpgrades"|"actOnPolicyUpgrade"|"getLifecycleCaseWorkspace"|"actOnLifecycleCase"|"getPerformanceInbox"|"getPerformanceParticipation"|"actOnPerformanceParticipation"|"getPerformanceWorkspace"|"actOnPerformance"| "getPayrollJournalWorkspace"|"actOnPayrollJournal"|"getPayrollRunComparison" | "getPayrollRunWorkspace"
+    | "getPayrollPaymentWorkspace"
+    | "actOnPayrollPayment"
+    | "getPayslipWorkspace"
+    | "getPayslipDetail"
+    | "releasePayslips"
+    | "getLearning"
+    | "actOnLearning"
+    | "getLearningCertificate"
+    | "getPersonalCorrections"
+    | "createPersonalCorrection"
+    | "actOnPersonalCorrection"
+    | "getReportGovernance"
+    | "actOnReportGovernance"
+    | "getSelfLeaveContext"
+    | "getSelfLeaveRequest"
+    | "createSelfLeaveRequest"
+    | "actOnSelfLeaveRequest"
+    | "getSelfService"
+    | "getSelfServicePayslip"
+    | "getSettlementBenefits"
+    | "actOnSettlementBenefit"
+    | "getSettlementEntitlements"
+    | "actOnSettlementEntitlement"
+    | "getPolicyUpgrades"
+    | "actOnPolicyUpgrade"
+    | "getLifecycleCaseWorkspace"
+    | "actOnLifecycleCase"
+    | "getPerformanceInbox"
+    | "getPerformanceParticipation"
+    | "actOnPerformanceParticipation"
+    | "getPerformanceWorkspace"
+    | "actOnPerformance"
+    | "getPayrollJournalWorkspace"
+    | "actOnPayrollJournal"
+    | "getPayrollRunComparison"
+    | "getPayrollRunWorkspace"
     | "actOnPayrollRun"
     | "getPayrollWorkspace"
     | "getPayrollOptions"
@@ -309,6 +349,7 @@ export function createApp(dependencies: AppDependencies): Express {
       createFinanceRouter({
         repository: dependencies.financeNominalRepository,
         ...(dependencies.financeCurrencyRepository ? { currencies: dependencies.financeCurrencyRepository } : {}),
+        ...(dependencies.financeJournalRepository ? { journals: dependencies.financeJournalRepository } : {}),
         ...(dependencies.financeHierarchyRepository ? { hierarchy: dependencies.financeHierarchyRepository } : {}),
         authentication: dependencies.authService,
         sessions: dependencies.sessionService,

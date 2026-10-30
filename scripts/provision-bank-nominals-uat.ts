@@ -1,15 +1,12 @@
 import { createDatabasePool } from "../packages/db/src/index.js";
 import { sourceTestCompanyId, sourceTestTenantId } from "../tests/integration/source-security-fixture.js";
+import { isExplicitlyNamedLocalUatDatabase } from "./uat-database-safety.js";
 
 // Controlled synthetic UAT setup only. Never establishes a production code policy.
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl || process.env.NEXORA_ENVIRONMENT !== "uat" || process.env.NEXORA_UAT_CONFIRM !== sourceTestTenantId)
   throw new Error("Explicit isolated Bank Nominal UAT database and tenant confirmation are required.");
-const target = new URL(databaseUrl);
-if (
-  !["127.0.0.1", "localhost", "::1", "[::1]"].includes(target.hostname) ||
-  !/(uat|test|codex|isolated)/i.test(decodeURIComponent(target.pathname))
-)
+if (!isExplicitlyNamedLocalUatDatabase(databaseUrl))
   throw new Error("Bank Nominal UAT provisioning requires an explicitly named local isolated database.");
 
 const pool = createDatabasePool(databaseUrl),

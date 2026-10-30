@@ -20,6 +20,18 @@ import {
   correctCurrencyRateRequestSchema,
   changeCurrencyRateStatusRequestSchema,
   upsertTransferFxPolicyRequestSchema,
+  journalOptionsQuerySchema,
+  journalDirectoryQuerySchema,
+  createJournalRequestSchema,
+  updateJournalRequestSchema,
+  deleteJournalRequestSchema,
+  submitJournalRequestSchema,
+  decideJournalRequestSchema,
+  reverseJournalRequestSchema,
+  recurringJournalDirectoryQuerySchema,
+  createRecurringJournalRequestSchema,
+  updateRecurringJournalRequestSchema,
+  changeRecurringJournalStatusRequestSchema,
 } from "@nexora/contracts";
 import { HttpError } from "../../http/errors.js";
 import { currentRequestContext } from "../../http/request-context.js";
@@ -30,20 +42,25 @@ import { CoaMasterError } from "./coa-master-change.js";
 import type { SourceCoaHierarchyRepository } from "./coa-hierarchy-repository.js";
 import { FinanceCurrencyError } from "./currencies/source-repository.js";
 import { FinanceCurrencyService, type FinanceCurrencyRepository } from "./currencies/service.js";
+import { FinanceJournalError } from "./journals/source-repository.js";
+import { FinanceJournalService, type FinanceJournalRepository } from "./journals/service.js";
 
 export type { FinanceNominalRepository } from "./nominals/service.js";
 export type { FinanceCurrencyRepository } from "./currencies/service.js";
+export type { FinanceJournalRepository } from "./journals/service.js";
 export function createFinanceRouter(
   dependencies: BankingSessionContextDependencies & {
     repository: FinanceNominalRepository;
     hierarchy?: SourceCoaHierarchyRepository;
     currencies?: FinanceCurrencyRepository;
+    journals?: FinanceJournalRepository;
     allowedOrigins: ReadonlySet<string>;
   },
 ): Router {
   const router = Router(),
     repo = new FinanceNominalService(dependencies.repository),
-    currencies = dependencies.currencies ? new FinanceCurrencyService(dependencies.currencies) : null;
+    currencies = dependencies.currencies ? new FinanceCurrencyService(dependencies.currencies) : null,
+    journals = dependencies.journals ? new FinanceJournalService(dependencies.journals) : null;
   router.use((_req, res, next) => {
     res.setHeader("cache-control", "no-store");
     next();
@@ -55,14 +72,201 @@ export function createFinanceRouter(
       if (
         error instanceof FinanceNominalError ||
         error instanceof CoaMasterError ||
-        error instanceof FinanceCurrencyError
+        error instanceof FinanceCurrencyError ||
+        error instanceof FinanceJournalError
       )
         throw new HttpError(error.status, error.code, error.message);
       throw error;
     }
   }
+  function journalId(req: Request): string {
+    return z.string().trim().min(1).max(128).parse(req.params.journalId);
+  }
   function id(req: Request): string {
     return z.string().trim().min(1).max(128).parse(req.params.nominalId);
+  }
+  if (journals) {
+    router.get("/journals/options", async (req, res) => {
+      const query = journalOptionsQuerySchema.parse(req.query);
+      res.json(
+        await handle(async () =>
+          journals.options(await loadBankingSessionContext(req, dependencies), query.company_id),
+        ),
+      );
+    });
+    router.get("/journals", async (req, res) => {
+      const query = journalDirectoryQuerySchema.parse({
+        ...req.query,
+        approval_queue: req.query.approval_queue === undefined ? undefined : req.query.approval_queue === "true",
+        limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+      });
+      res.json(await handle(async () => journals.list(await loadBankingSessionContext(req, dependencies), query)));
+    });
+    router.get("/journals/:journalId", async (req, res) => {
+      const result = await handle(async () =>
+        journals.get(await loadBankingSessionContext(req, dependencies), journalId(req)),
+      );
+      if (result.version) res.setHeader("etag", `"${result.version}"`);
+      res.json(result);
+    });
+    router.post("/journals", async (req, res) => {
+      const input = createJournalRequestSchema.parse(req.body),
+        key = guards(req);
+      res
+        .status(201)
+        .json(
+          await handle(async () =>
+            journals.create(
+              await loadBankingSessionContext(req, dependencies, true),
+              input,
+              key,
+              currentRequestContext().correlationId,
+            ),
+          ),
+        );
+    });
+    router.patch("/journals/:journalId", async (req, res) => {
+      const input = updateJournalRequestSchema.parse(req.body),
+        key = guards(req, input.expected_version, "JOURNAL_PRECONDITION_FAILED");
+      res.json(
+        await handle(async () =>
+          journals.update(
+            await loadBankingSessionContext(req, dependencies, true),
+            journalId(req),
+            input,
+            key,
+            currentRequestContext().correlationId,
+          ),
+        ),
+      );
+    });
+    router.delete("/journals/:journalId", async (req, res) => {
+      const input = deleteJournalRequestSchema.parse(req.body),
+        key = guards(req, input.expected_version, "JOURNAL_PRECONDITION_FAILED");
+      res.json(
+        await handle(async () =>
+          journals.deleteDraft(
+            await loadBankingSessionContext(req, dependencies, true),
+            journalId(req),
+            input,
+            key,
+            currentRequestContext().correlationId,
+          ),
+        ),
+      );
+    });
+    router.post("/journals/:journalId/submit", async (req, res) => {
+      const input = submitJournalRequestSchema.parse(req.body),
+        key = guards(req, input.expected_version, "JOURNAL_PRECONDITION_FAILED");
+      res.json(
+        await handle(async () =>
+          journals.submit(
+            await loadBankingSessionContext(req, dependencies, true),
+            journalId(req),
+            input,
+            key,
+            currentRequestContext().correlationId,
+          ),
+        ),
+      );
+    });
+    router.post("/journals/:journalId/decision", async (req, res) => {
+      const input = decideJournalRequestSchema.parse(req.body),
+        key = guards(req, input.expected_version, "JOURNAL_PRECONDITION_FAILED");
+      res.json(
+        await handle(async () =>
+          journals.decide(
+            await loadBankingSessionContext(req, dependencies, true),
+            journalId(req),
+            input,
+            key,
+            currentRequestContext().correlationId,
+          ),
+        ),
+      );
+    });
+    router.post("/journals/:journalId/reversal", async (req, res) => {
+      const input = reverseJournalRequestSchema.parse(req.body),
+        key = guards(req, input.expected_version, "JOURNAL_PRECONDITION_FAILED");
+      res.json(
+        await handle(async () =>
+          journals.reverse(
+            await loadBankingSessionContext(req, dependencies, true),
+            journalId(req),
+            input,
+            key,
+            currentRequestContext().correlationId,
+          ),
+        ),
+      );
+    });
+    router.get("/recurring-journals", async (req, res) => {
+      const query = recurringJournalDirectoryQuerySchema.parse({
+        ...req.query,
+        limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+      });
+      res.json(
+        await handle(async () => journals.listRecurring(await loadBankingSessionContext(req, dependencies), query)),
+      );
+    });
+    router.post("/recurring-journals", async (req, res) => {
+      const input = createRecurringJournalRequestSchema.parse(req.body),
+        key = guards(req);
+      res
+        .status(201)
+        .json(
+          await handle(async () =>
+            journals.createRecurring(
+              await loadBankingSessionContext(req, dependencies, true),
+              input,
+              key,
+              currentRequestContext().correlationId,
+            ),
+          ),
+        );
+    });
+    router.patch("/recurring-journals/:templateId", async (req, res) => {
+      const templateId = z.string().trim().min(1).max(128).parse(req.params.templateId),
+        input = updateRecurringJournalRequestSchema.parse(req.body),
+        key = guards(req, input.expected_version, "JOURNAL_PRECONDITION_FAILED");
+      res.json(
+        await handle(async () =>
+          journals.updateRecurring(
+            await loadBankingSessionContext(req, dependencies, true),
+            templateId,
+            input,
+            key,
+            currentRequestContext().correlationId,
+          ),
+        ),
+      );
+    });
+    router.post("/recurring-journals/:templateId/status", async (req, res) => {
+      const templateId = z.string().trim().min(1).max(128).parse(req.params.templateId),
+        input = changeRecurringJournalStatusRequestSchema.parse(req.body),
+        key = guards(req, input.expected_version, "JOURNAL_PRECONDITION_FAILED");
+      res.json(
+        await handle(async () =>
+          journals.changeRecurringStatus(
+            await loadBankingSessionContext(req, dependencies, true),
+            templateId,
+            input,
+            key,
+            currentRequestContext().correlationId,
+          ),
+        ),
+      );
+    });
+    router.get("/recurring-journals/:templateId/occurrences", async (req, res) => {
+      const templateId = z.string().trim().min(1).max(128).parse(req.params.templateId),
+        limit = z.coerce.number().int().min(1).max(100).default(25).parse(req.query.limit),
+        cursor = z.string().trim().min(1).max(512).optional().parse(req.query.cursor);
+      res.json(
+        await handle(async () =>
+          journals.listOccurrences(await loadBankingSessionContext(req, dependencies), templateId, limit, cursor),
+        ),
+      );
+    });
   }
   function guards(req: Request, version?: number, preconditionCode = "NOMINAL_PRECONDITION_FAILED"): string {
     const origin = req.get("origin");

@@ -1037,6 +1037,12 @@ export class FinancePostingService {
     validateOriginalLineEvidence(originalResolved, original.journal, original.lines);
     const reversalDate = command.postingDate ?? (await this.repository.loadCurrentDate(client));
     requireDate(reversalDate);
+    if (reversalDate < original.journal.posting_date)
+      throw financeError(
+        409,
+        "FINANCE_REVERSAL_DATE_INVALID",
+        "A Finance reversal cannot be dated before the original posting.",
+      );
     const period = resolvePeriod(
       await this.repository.loadPeriods(client, command.tenantId, command.companyId, reversalDate),
     );

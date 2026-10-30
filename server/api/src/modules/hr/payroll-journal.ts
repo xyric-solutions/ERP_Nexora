@@ -18,6 +18,10 @@ import {
   FinancePostingError,
   createFinanceTransactionClient,
 } from "../finance/posting/index.js";
+import {
+  CompanyCurrencyAuthorityError,
+  resolveCompanyBaseCurrency,
+} from "../finance/currencies/company-authority.js";
 import { requireBankPaymentCompanyPermission } from "../banking/payments/source-repository.js";
 import { BankingApiError } from "../banking/source-repository.js";
 import type { StatutoryExecutionMode } from "./payroll-statutory.js";
@@ -318,29 +322,29 @@ export class PayrollJournal {
         if (loan) loanFunding.push({ ...loan, amount: item.amount });
         if (!loan) blocked.push("A loan recovery is not linked to its exact approved deduction and funded receivable.");
       }
-    const financeClient = await createFinanceTransactionClient(client),
-      bases = await this.authority.loadBaseCurrencies(financeClient, c.tenantId, lock),
-      base = bases.length === 1 ? bases[0] : null;
-    if (!base) blocked.push("Finance requires exactly one active base currency.");
+    const financeClient = await createFinanceTransactionClient(client);
+    let base: { code: string; decimal_places: number } | null = null;
     let rate: { id: string | null; rate: string } | null = null;
-    if (p && base) {
-      const currency = await this.authority.loadTransactionCurrency(financeClient, c.tenantId, p.currency_code, lock);
-      if (!currency || currency.decimal_places !== p.money_scale)
-        blocked.push("The approved Payroll currency precision changed in Finance.");
-      if (lock && p.currency_code !== base.code)
-        await this.authority.lockRateAuthority(financeClient, c.tenantId, p.currency_code, base.code);
-      rate =
-        p.currency_code === base.code
-          ? { id: null, rate: "1.000000000000000000" }
-          : await this.authority.loadDirectRate(
-              financeClient,
-              c.tenantId,
-              p.currency_code,
-              base.code,
-              postingDate,
-              lock,
-            );
-      if (!rate) blocked.push("A direct Finance exchange rate is required for the selected posting date.");
+    try {
+      if (p) {
+        const currency = await this.authority.resolveCompanyCurrency(financeClient, {
+          tenantId: c.tenantId,
+          companyId: q.company_id,
+          sourceCurrency: p.currency_code,
+          effectiveOnOrBefore: postingDate,
+          lock,
+        });
+        base = { code: currency.baseCurrency, decimal_places: currency.baseDecimalPlaces };
+        rate = { id: currency.rateId, rate: currency.rateValue };
+        if (currency.sourceDecimalPlaces !== p.money_scale)
+          blocked.push("The approved Payroll currency precision changed in Finance.");
+      } else {
+        const companyBase = await resolveCompanyBaseCurrency(financeClient, c.tenantId, q.company_id, lock);
+        base = { code: companyBase.code, decimal_places: companyBase.decimalPlaces };
+      }
+    } catch (error) {
+      if (error instanceof CompanyCurrencyAuthorityError) blocked.push(error.message);
+      else throw error;
     }
     if (
       base &&

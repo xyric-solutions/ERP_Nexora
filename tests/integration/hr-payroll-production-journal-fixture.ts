@@ -4,7 +4,7 @@ import type { DatabasePool } from "../../packages/db/src/index.js";
 import { createPublisherFixture, publisherActor } from "./hr-payroll-publisher-fixture.js";
 import { publishApprovedStatutoryPack } from "../../server/api/src/modules/hr/payroll-statutory-publisher.js";
 import { grantJournalFixtureAuthority, journalActor } from "./hr-payroll-journal-fixture.js";
-import { sourceTestTenantId as tenant } from "./source-security-fixture.js";
+import { ensureCompanyCurrencyFixture, sourceTestTenantId as tenant } from "./source-security-fixture.js";
 import type { HrPayrollJournalAction, HrPayrollRunAction } from "../../packages/contracts/src/hr/index.js";
 /** Artificial production-classification path, isolated DB only; no legal rates or normal-company business facts. */
 export async function createProductionJournalFixture(
@@ -90,10 +90,12 @@ export async function createProductionJournalFixture(
       [tenant],
     )
   ).rows[0].code;
+  await ensureCompanyCurrencyFixture(pool, f.companyId, base, ["PKR"]);
   if (base !== "PKR")
     await pool.query(
-      `insert into currency_rate(id,tenant_id,source_currency,target_currency,rate,effective_date,created_at) values($1,$2,'PKR',$3,1,current_date,now()) on conflict do nothing`,
-      [randomUUID(), tenant, base],
+      `insert into currency_rate(id,tenant_id,company_id,source_currency,target_currency,rate,effective_date,created_at)
+       values($1,$2,$3,'PKR',$4,1,current_date,now()) on conflict do nothing`,
+      [randomUUID(), tenant, f.companyId, base],
     );
   const read = async (who = "r06.maker") => f.repo.getPayrollJournalWorkspace(journalActor(who), query);
   const act = async (action: HrPayrollJournalAction["action"], who = "r06.maker") => {

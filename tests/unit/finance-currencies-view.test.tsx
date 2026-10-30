@@ -317,6 +317,97 @@ describe("FinanceCurrencies", { timeout: 15_000 }, () => {
     );
   }, 15_000);
 
+  it("retains the selected country and all mapped currencies after the search results reset", async () => {
+    const pakistanMappings = [
+      {
+        country_code: "PK",
+        country_name: "Pakistan",
+        currency_code: "PKR",
+        currency_name: "Pakistan Rupee",
+        currency_symbol: "Rs",
+        decimal_places: 2,
+        is_primary: true,
+        status: "active",
+      },
+      {
+        country_code: "PK",
+        country_name: "Pakistan",
+        currency_code: "USD",
+        currency_name: "US Dollar",
+        currency_symbol: "$",
+        decimal_places: 2,
+        is_primary: false,
+        status: "active",
+      },
+    ];
+    harness.api.listCountryCurrencies.mockImplementation((query: string) =>
+      Promise.resolve({
+        items: query.includes("search=Pakistan")
+          ? pakistanMappings
+          : [
+              {
+                country_code: "US",
+                country_name: "United States",
+                currency_code: "USD",
+                currency_name: "US Dollar",
+                currency_symbol: "$",
+                decimal_places: 2,
+                is_primary: true,
+                status: "active",
+              },
+            ],
+        next_cursor: null,
+      }),
+    );
+
+    await act(async () => root.render(<FinanceCurrencies />));
+    await settle();
+    const add = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Add New"));
+    await act(async () => add?.click());
+    await settle();
+    const country = document.querySelector('button[aria-label="Country"]') as HTMLButtonElement;
+    await act(async () => country.click());
+    await settle();
+    const search = document.querySelector('[aria-label="Search country"]') as HTMLInputElement;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(search, "Pakistan");
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await settle();
+    const option = [...document.querySelectorAll('[role="option"]')].find((item) =>
+      item.textContent?.includes("Pakistan"),
+    ) as HTMLElement;
+    await act(async () => option.click());
+    await settle();
+
+    expect(harness.api.listCountryCurrencies).toHaveBeenLastCalledWith(expect.not.stringContaining("search="));
+    expect(country.textContent).toContain("Pakistan (PK)");
+    const currency = document.querySelector("#company-currency-code") as HTMLSelectElement;
+    expect(currency.value).toBe("PKR");
+    expect([...currency.options].map((item) => item.value)).toEqual(["PKR", "USD"]);
+
+    change("company-currency-rate", "0.0036");
+    expect((document.querySelector("#company-currency-rate") as HTMLInputElement).value).toBe("0.0036");
+    const save = [...document.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "Save and Close",
+    );
+    expect(save).toBeDefined();
+    expect(save?.disabled).toBe(false);
+    await act(async () => save?.click());
+    await settle();
+    expect(harness.api.activateCompanyCurrency).toHaveBeenCalledWith(
+      {
+        company_id: "company-1",
+        country_code: "PK",
+        currency_code: "PKR",
+        rate: "0.0036",
+        effective_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      },
+      "csrf-token",
+      expect.stringMatching(/^web-company-currency-activate-currency-/),
+    );
+  }, 15_000);
+
   it("configures a missing base currency from its country mapping", async () => {
     harness.api.getCompanyCurrencyProfile.mockRejectedValueOnce(
       new ApiError(404, "Profile not configured", "COMPANY_CURRENCY_PROFILE_NOT_FOUND"),

@@ -481,6 +481,22 @@ describe("FinancePostingService", () => {
     );
   });
 
+  it("rejects a reversal dated before the original ledger posting", async () => {
+    const source = repository({ loadOriginalPosting: vi.fn(async () => originalPosting()) });
+
+    await expect(
+      new FinancePostingService(source).reverse(
+        client,
+        reversalCommand({ postingDate: "2026-10-17" }),
+      ),
+    ).rejects.toMatchObject<Partial<FinancePostingError>>({
+      status: 409,
+      code: "FINANCE_REVERSAL_DATE_INVALID",
+    });
+    expect(source.loadPeriods).not.toHaveBeenCalled();
+    expect(source.insertEvent).not.toHaveBeenCalled();
+  });
+
   it("uses the exact received -> validated -> posted sequence", async () => {
     const source = repository();
     const result = await new FinancePostingService(source).post(client, command());

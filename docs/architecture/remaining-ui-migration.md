@@ -1,6 +1,7 @@
 # Remaining UI migration checklist
 
 Current checkpoint: Category-scoped employee Payroll jurisdiction overrides and separately reviewed revocations are delivered, including same-country cross-branch resolution, published mid-month allocation, immutable calculation evidence, explicit revoked-state display and stale-submission protection. Whole-account cost-centre journal mappings remain delivered. Normal and isolated schemas are HR130. HR navigation remains 73 Live, 2 Payroll In progress, 1 Payment Batch Read-only, 0 prototype screens. Employee-level/proportional or other required dimension allocations, non-parity loan carrying-value/FX allocation and general posted-Payroll corrections remain. Cross-country execution and additional legal allocation bases need their own reviewed contracts. Banking integration is separately owned. These are menu statuses, not a completion percentage.
+
 ## 2026-10-22 — Bank Transfer approval-flow parity
 
 - Transfer Submit for Approval now persists and opens the authoritative detail
@@ -453,7 +454,6 @@ reconciliation, charges/interest, cheques/deposits and Treasury, remain
 explicitly prototype surfaces. The next production Banking slice is Bank
 Receipts and must reuse the delivered Finance posting boundary.
 
-
 ### HR Recruitment Pipeline
 
 Recruitment Pipeline now renders an API-backed application board, scoped search
@@ -466,7 +466,6 @@ loading, form opening and search; no browser errors or page overflow occurred.
 Populated workflow behavior is covered by isolated PostgreSQL/API integration
 tests. Next safe UI slice: Interviews & Evaluations, preserving the server
 selection-evidence gate and shared theme tokens.
-
 
 ### HR Interviews & Evaluations
 
@@ -490,7 +489,6 @@ actions. Populated browser acceptance verifies ratings and typed strengths
 survive an assessment decision before the scorecard is submitted. Activity
 labels identify the action and recorded actor for review.
 
-
 ### HR Offer Management
 
 Delivered the live offer register, selected-application context, draft editor,
@@ -508,7 +506,6 @@ cover real API/DB scope, approval separation, immutable terms/history, expiry,
 precision, headcount races and existing interview/pipeline workflows. No legacy
 CSS was retired. Next safe slice: Create Employee from Offer using accepted
 offer terms and the established employee draft/approval/hire authorities.
-
 
 ### HR Create Employee from Offer
 
@@ -528,7 +525,6 @@ hire request and approval at 1440px and 390px in both themes without page overfl
 or browser errors. Sixteen affected integration tests and 36 HR router unit tests
 passed, alongside typecheck, API/catalogue parity, production build and whitespace
 checks. No legacy CSS retired. Next safe menu slice: Shifts & Rules.
-
 
 ### HR Shifts & Rules
 
@@ -552,7 +548,6 @@ Next safe menu slice: Shift Assignments using the shared shift records and
 effective-dated employee/department/branch allocation authority. Keep precedence,
 company/location checks, employment eligibility and historical evidence on the API.
 
-
 ### HR Shift Assignments
 
 Delivered the live company allocation register, scope/date/shift editor, explicit
@@ -574,7 +569,6 @@ whitespace checks passed. No legacy CSS retired.
 Next safe menu slice: Daily Attendance. Reuse the dated operational-placement and
 shift-resolution authority, raw punch evidence and existing attendance-period
 locks. Keep derivation, corrections and approval boundaries distinct.
-
 
 ### HR Daily Attendance
 
@@ -598,7 +592,6 @@ production build and git diff --check. Next safe slice: Monthly Attendance using
 the same daily derivation, with bounded date ranges and finalized input history
 kept distinct from operational calculations.
 
-
 ### HR Monthly Attendance
 
 Delivered live monthly search/filter/pagination, employee summaries, a dated
@@ -616,7 +609,6 @@ layouts at 1440/768/390px without page overflow/browser errors, typecheck,
 API/catalogue parity, production build and whitespace checks. Shared batch
 loading avoids employee/day request loops. Next safe screen: Attendance
 Corrections, retaining approvals, immutable punches and locked-month protections.
-
 
 ### HR Attendance Corrections
 
@@ -636,7 +628,6 @@ explicit governed super-admin overrides; ordinary three-actor approval is proven
 in integration, with the independent multi-user browser gate retained separately.
 Next safe screen: Overtime. Preserve approval, monetary-policy, period lock and
 payroll-settlement boundaries.
-
 
 ### HR attendance completion — Overtime, Period Close and Payroll Inputs
 
@@ -661,7 +652,6 @@ Next safe phase: all six Time & Leave pages together. Preserve approved per-day
 leave/ledger authority, fractional-day reconciliation, actor separation, employee
 placement scope and locked attendance protections. See the delivery plan's latest
 attendance completion section for backend contracts and acceptance boundaries.
-
 
 ### HR Time & Leave — connected six-screen delivery
 
@@ -693,7 +683,6 @@ Payroll pages together, with locked v5 attendance inputs, real monetary policy,
 approval/posting separation and Finance integration. See the delivery plan's latest
 section for scope and production acceptance boundaries.
 
-
 ## 20 October 2026 — connected Payroll configuration and approval foundation
 
 Payroll now renders the connected HrPayrollWorkspace for all ten menu pages.
@@ -704,13 +693,13 @@ presented as persisted business records.
 **This is a partial Payroll delivery, not completion of the whole module.**
 Five pages have live configuration/approval workflows:
 
-| Page | Delivered behavior |
-| --- | --- |
-| Pay Components | Company accounting account validation, fixed/formula metadata, bounded arithmetic grammar validation, immutable terms, activation/deactivation and dependency checks. Formula execution is not delivered. |
-| Salary Structures | Explicit currency, exact fixed amounts or validated formula overrides, unique ordered components, immutable composition and dependency validation. |
-| Salary Revisions | New effective-dated compensation assignment drafts, frozen component snapshots, submit, independent approve/reject and maker cancellation. Overlapping approved assignments are blocked. |
-| Payroll Inputs | Exact one-off adjustment drafts, submit and independent approval/rejection, plus navigation to the existing locked attendance input authority. |
-| Loans & Advances | Draft/submit/independent decision, exact interest-free recovery schedules with no lost remainder. Approval does not disburse funds, activate a loan or consume an instalment. |
+| Page              | Delivered behavior                                                                                                                                                                                        |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pay Components    | Company accounting account validation, fixed/formula metadata, bounded arithmetic grammar validation, immutable terms, activation/deactivation and dependency checks. Formula execution is not delivered. |
+| Salary Structures | Explicit currency, exact fixed amounts or validated formula overrides, unique ordered components, immutable composition and dependency validation.                                                        |
+| Salary Revisions  | New effective-dated compensation assignment drafts, frozen component snapshots, submit, independent approve/reject and maker cancellation. Overlapping approved assignments are blocked.                  |
+| Payroll Inputs    | Exact one-off adjustment drafts, submit and independent approval/rejection, plus navigation to the existing locked attendance input authority.                                                            |
+| Loans & Advances  | Draft/submit/independent decision, exact interest-free recovery schedules with no lost remainder. Approval does not disburse funds, activate a loan or consume an instalment.                             |
 
 The other five pages (Payroll Runs, Payroll Review & Approval, Payroll Journal,
 Payment Batch, Payslips & Payment Handoff) are **connected read-only inspectors**
@@ -777,7 +766,6 @@ handoff, bank confirmation and payslip release boundaries. Test those mutations
 end-to-end before promoting the five read-only screens. Do not move on to Performance
 or call Payroll complete while these execution workflows are outstanding.
 
-
 ## 20 October 2026 — salary successors, exact calculation foundation and global typography
 
 Salary Revisions now supports an explicitly selected approved predecessor.
@@ -837,7 +825,6 @@ HR56. Normal web/API remain on 3000/4000; browser mutations used the isolated DB
 Screen coverage remains 48 Live, five connected read-only and 23 prototype.
 The next work remains completing Payroll execution, not another HR module.
 
-
 ## 20 October 2026 — persisted Payroll runs and approved input assembly
 
 Payroll Runs and Payroll Review & Approval now use the independent versioned API
@@ -895,7 +882,6 @@ payslip release. Existing localization SQL and older completion documents are no
 evidence that these runtimes exist under server/api. The next work stays in Payroll;
 do not start another HR module or claim final Payroll readiness from this batch.
 
-
 ## 20 October 2026 — global styling audit and next module order
 
 The user explicitly confirmed the sequence: finish the complete Payroll execution
@@ -922,7 +908,6 @@ of the 802 rendered routes: shared renderers, dependencies and runtime states
 need route-level inspection. No broad colour replacement or unrelated business
 logic change was performed during this audit. The root sans/mono font setup,
 semantic theme tokens and existing UI behavior are preserved.
-
 
 ## 20 October 2026 — monetary overtime integrated into Payroll results
 
@@ -987,7 +972,6 @@ payslip release. The three Finance/payment/payslip screens remain read-only.
 Performance Management remains the next whole module only after Payroll passes
 its completion gates. Menu totals remain 48 Live, two In progress, three connected
 read-only and 23 prototype; these are not a weighted completion percentage.
-
 
 ## 20 October 2026 — governed monetary overtime setup API and screens
 
@@ -1067,7 +1051,6 @@ verified. Performance Management remains the next whole module after Payroll's
 completion gates. Menu counts remain 48 Live, two In progress, three connected
 read-only and 23 prototype; no overall completion percentage is inferred.
 
-
 ## 20 October 2026 — published statutory runtime and Payroll evidence
 
 Payroll Runs now executes the supported `safe_formula_v1` published-rule contract
@@ -1128,7 +1111,6 @@ statutory engines, governed loan disbursement/recovery, production statutory-bac
 HTTP approval, Finance approval/journal posting, encrypted payment handoff and
 confirmation, and payslip release. Finance/payment/payslip mutation controls remain
 read-only. Performance Management follows after Payroll completion gates.
-
 
 ## 20 October 2026 — governed statutory setup through API and screens
 
@@ -1195,7 +1177,6 @@ posting, encrypted payment handoff/confirmation and payslip release. The three
 financial execution screens remain read-only; no menu state or overall completion
 percentage is promoted. Performance Management follows Payroll completion.
 
-
 ## 20 October 2026 — reviewed rule publication and statutory-backed HTTP approval
 
 Rule publishing is now part of statutory setup. It accepts a bounded, self-contained
@@ -1253,7 +1234,6 @@ posting, payment handoff/confirmation and payslip release. Financial execution v
 remain read-only; Performance Management follows Payroll completion. No menu status
 or overall completion percentage is promoted.
 
-
 ## 20 October 2026 — governed loan disbursement and Payroll instalment recovery
 
 Loans & advances now connects independent approval, the existing posted Bank
@@ -1303,7 +1283,6 @@ continue Payroll journal review and Finance posting, then payment handoff/confir
 and payslip release, alongside remaining segmented statutory/context correction
 work. The financial execution views remain read-only and no menu status or overall
 completion percentage is promoted. Performance Management follows Payroll completion.
-
 
 ## 20 October 2026 — governed Payroll journal and actual Finance accrual
 
@@ -1371,7 +1350,6 @@ release, plus remaining statutory segmentation/context corrections and the expli
 blocked dimension/FX/correction workflows. Payment and payslip views remain read-only;
 Performance Management follows completion of Payroll as a whole.
 
-
 ## 2026-10-21 — Payslips complete; Banking integration explicitly deferred
 
 The user assigned Banking to another developer. This supersedes the previous
@@ -1433,7 +1411,6 @@ Payroll corrections retain their documented limits. Next non-Banking delivery
 can proceed to Performance Management; coordinate the payment contract only after
 the Banking owner's handoff. No external bank transfer or message was sent.
 
-
 Final handoff checks (2026-10-21): all 37 focused Payroll integration and 94
 unit/API tests passed (131 total), focused lint/typecheck passed, the final
 production web build passed, generated API/catalogue checks passed, shared-theme
@@ -1441,7 +1418,6 @@ write/check audit passed and git diff --check passed. HR77 is installed on both
 the isolated and normal local databases. Normal API 4000 and web 3000 are running;
 normal read-only smoke passed (200 / guest 401 / no-store / deferred link 409).
 Banking remains a separate owner's task; only the new Payslips route is Live.
-
 
 ## 2026-10-21 — Connected Performance Management staff workflow
 
@@ -1515,7 +1491,6 @@ non-Banking phase: Learning & Development — Training Programmes, Requests,
 Sessions, Completion & Certificates — while retaining the documented Payroll
 statutory/FX/dimension/correction limits and deferred Banking ownership boundary.
 
-
 Final Performance handoff (2026-10-21): all 38 focused tests, final typecheck,
 focused lint, production web build, generated API/catalogue checks, theme
 write/check audit and git diff --check pass. HR80 is applied in both databases.
@@ -1535,7 +1510,6 @@ or executed. The explicitly scoped local alternative was separately approved,
 applied and smoke-tested. Other company/tenant role assignments require their
 normal Security administration process. Do not infer a completed multi-tenant
 permission rollout from the isolated test bootstrap or the Live screen status.
-
 
 ## Performance completion and Employee Lifecycle phase — 21 October 2026
 
@@ -1576,7 +1550,6 @@ Theme audit source scope: 70 feature view TSX files, 0 font exceptions and 5 col
 candidates (7.14%); 213 application source files, 10 colour candidate files / 47
 lines overall. These are source-file figures, not a percentage of menu screens.
 New views use the global sans font, semantic tokens and shared controls.
-
 
 Final local handoff: the normal database is HR86, API 4000 and web 3000.
 Normal real-login verification passed twelve private reads (four Performance,
@@ -2149,7 +2122,6 @@ post-offboarding correction workflows; this batch does not implement them.
 Lifecycle remains 8/9 menu pages Live. Banking remains deferred to its owner;
 Learning & Development remains last.
 
-
 ### 2026-10-21 — Financial correction review after Payroll or offboarding
 
 Completed the **review stage** of compensating final-settlement corrections. In
@@ -2219,7 +2191,6 @@ merged, and any separately authorized leave correction. No Payroll reopening or
 financial reversal is implied by a review approval. Final Settlements therefore
 remains In-progress; Lifecycle is still **8/9 menu pages Live**. Banking remains
 with its existing owner; Learning & Development remains last.
-
 
 ### 2026-10-21 — Lifecycle completion and company/session recovery (HR116)
 
@@ -2302,7 +2273,6 @@ receivable classification. Current Finance periods/rates/accounts must permit
 posting; source changes require rejection/recalculation. Synchronous execution is
 bounded to 120 affected finalized employee months and 600 earlier history rows.
 
-
 ## 2026-10-21 — Benefits & Self-service connected phase
 
 The four Benefits & Self-service menu routes now render API-backed workspaces:
@@ -2316,7 +2286,6 @@ Delivery bounds: self-service is a personal viewing/download workspace in this p
 
 Validation: 36 integration checks across self-service (7), loans, localization setup and benefits; 12 HTTP/session unit checks; focused lint; full typecheck; generated API/catalogue parity; global theme audit; production build. Chrome verified all four routes, actual published payslip Open/Download and light/dark layouts at 1440, 768, 390 and 320 pixels. No route/root horizontal overflow or JavaScript errors. Shared workforce and Finance company selectors were corrected for narrow widths. Global font tokens are inherited; no feature stylesheet, literal palette or page-specific font was added.
 
-
 ## 2026-10-21 - Employee leave self-service
 
 Employees can now review their own effective shift calendar, policy and exact available balance; select full or half days; save an immutable draft; submit it to the existing reporting-manager/HR queue; and cancel their own draft or pending request. The personal screen opens request detail, displays allowed actions and decision history, refreshes its company/month records after mutations, and explains why approved leave must be cancelled by an independent HR officer.
@@ -2329,11 +2298,9 @@ Verified-document policies remain enforced. Where a document is required, the pe
 
 Validation: 32 integration checks across personal leave (9), existing Time & Leave (16) and the personal portal (7); 22 HTTP/session unit checks; full typecheck, focused lint, generated API/catalogue parity, theme audit and production build. Browser acceptance used a newly provisioned isolated employee with no HR permissions: actual full-day draft, submission, pending cancellation, exact restoration to 10.0000 days, half-day draft and denied employer-wide read. Light/dark at 1440/768/390/320 had no root/section horizontal overflow, JavaScript errors or font overrides. New UI uses shared Tailwind/shadcn controls and semantic global tokens. Normal-company checks remain read-only.
 
-
 ### Normal environment verification - 2026-10-21
 
 The pending normal API restart is complete. Web remains on port 3000 and the updated API serves port 4000. Read-only Chrome checks against the normal environment verified the personal portal returns 200 with no-store and explicit leave eligibility, unauthorized company calendar access returns 403, anonymous personal leave endpoints return 401, and the screen renders without JavaScript errors. The unbound administrator sees the employee-account linking guidance; no other employee is selected through administrator authority. No normal business records were created or modified. The isolated API used for acceptance testing was stopped after verification.
-
 
 ## Personal-data corrections and governed reporting — 2026-10-21
 
@@ -2356,7 +2323,6 @@ Isolated Chrome acceptance: a fresh employee without HR permissions submits a re
 Normal rollout: preflight confirmed only intended HR migrations pending; normal and isolated schemas are HR120. API restarted on port 4000; web remains port 3000. Read-only normal Chrome checks verified company-backed correction review and all three reporting sections return 200/no-store, unassigned company returns 403, anonymous endpoints return 401 and four UI routes render without JavaScript errors. No normal employee, policy or export business records were created during acceptance. Temporary isolated API is stopped after checks. Existing Banking and Finance posting diffs remain unchanged at 64/42 and 17/7 lines respectively.
 
 Safe resume: extend the report catalogue only through owning API/domain permissions and retained source evidence. Banking payout/settlement linkage awaits the other developer's module. Learning & Development remains deferred at the user's request. Do not mark remaining prototype screens complete solely because their shell is reachable.
-
 
 ## Learning & Development delivery — 2026-10-22
 
@@ -2382,7 +2348,6 @@ Normal rollout: preflight allowed only HR121–123; normal/isolated schemas are 
 
 Remaining HR scope: Payroll Runs and Payroll Review & Approval retain In-progress labels and their documented production statutory/FX/dimension/correction limits. Payment Batch remains Read-only pending the separately owned Banking integration. Learning has no remaining prototype menu entries. Further Payroll/Banking acceptance and additional report types must be assessed against their owning domain rather than inferred from these menu counts. Existing Banking/Finance posting diffs are preserved (64/42 and 17/7 lines respectively at final review).
 
-
 ## 2026-10-22 — Payroll return and comparison UI
 
 Payroll Runs and Payroll Review & Approval now share HrPayrollRunComparison: exact retained-run totals and differences, amount/evidence-only categories, revision/filter selection, bounded paging and immutable fingerprint drilldown. Returned-period guidance explains required input approval/recalculation; actor-specific submission/review buttons follow the existing server decision evaluator. Earlier/current/net-change values use separate responsive rows, and approved originals no longer show a preliminary hint. Shared controls, semantic tokens and global sans typography are used throughout; no stylesheet was added or removed.
@@ -2390,7 +2355,6 @@ Payroll Runs and Payroll Review & Approval now share HrPayrollRunComparison: exa
 Verification: 117 distinct focused integration/API/calculation checks, full typecheck, focused ESLint, generated API/catalogue parity, production build, theme write/check and git diff --check. Chrome executes the complete production-executor correction/recalculation/comparison/approval flow with independent actors; light/dark at 1440/768/390/320 have no root/workspace overflow or JavaScript errors and inherit the global font. The normal instance is checked read-only for real company loading and both Payroll routes. Screenshots/artifacts are under D:/Xyric Work/ERP_Nexora/tmp/recovered-hr-work/payroll-review-phase. Source audit remains 0/79 direct view font exceptions and 5/79 existing color-exception views (6.33%); the new shared comparison makes 232 application source files.
 
 Safe resume: the two Payroll screens remain In progress for advanced statutory/context segmentation, required dimension/FX allocations and general posted-Payroll corrections. Payment Batch remains Read-only under separate Banking ownership; Learning remains delivered. Review the latest HR delivery checkpoint before continuing. Preserve the Banking/Finance posting edits and global token/font rules.
-
 
 ## 2026-10-22 — Dated statutory evidence and rule-authoring guidance
 
@@ -2400,7 +2364,6 @@ Verification: 80 integration and 137 focused unit/API/calculation checks (223 di
 
 Safe resume: normal/isolated schemas HR127. Continue governed dimension mapping, scoped jurisdiction overrides and Payroll correction/FX work within the owning domains. Banking remains separately owned; preserve its existing edits and Payment Batch Read-only state. The two Payroll menus remain In progress. Check the latest HR delivery checkpoint before extending calculation or posting semantics.
 
-
 ## Payroll Journal cost-centre preparation and review
 
 HR128 adds required whole-account cost-centre selectors, literal company catalogue search, preserved selected labels, a cost-centre column on reviewed lines and explicit allocation-scope guidance. No feature stylesheet, palette or font override was added. The existing shared form, table, button, input and semantic token controls remain the presentation authority. Existing company/month/posting-date selection, immutable evidence/history and independently authorized actions are preserved.
@@ -2409,13 +2372,11 @@ Chrome verified preparation, independent review and posted journal at 1440/768/3
 
 Safe resume: keep the whole-account allocation boundary visible. Do not infer employee-level splits, other Finance dimension values, country rules or Banking ownership. Preserve normal/isolated HR128 evidence and global controls during further Payroll work. Existing Banking/Finance diffs remain 64/42 and 17/7 lines respectively.
 
-
 ## Payroll Runs and Review live-status completion
 
 Payroll Runs and Payroll Review & Approval are now Live for the supported API-backed production scope after their calculation, return/recalculation, comparison, independent approval, retained statutory/jurisdiction evidence and Finance-journal handoff paths passed focused unit, integration, type, build, catalogue and theme checks. The routes retain responsive Tailwind/shadcn presentation, semantic tokens, global typography, permission/error/empty states and immutable audit behavior; no feature stylesheet or mock fallback was added.
 
 This menu completion is not an assertion of universal Payroll coverage. Unsupported employee/proportional dimensions, non-parity loan FX, general post-posting corrections, cross-country execution and additional legal allocation laws remain explicit fail-closed domain boundaries. Payment Batch remains Read-only under Banking ownership. Safe resume is the owning backend contract for one of those bounded capabilities, not further presentation work on the two completed screens.
-
 
 ## Employee Payroll jurisdiction setup, revocation and retained evidence
 
@@ -2424,6 +2385,7 @@ Added two governed sections inside the existing Pay Components setup surface, wi
 Chrome verified actual authoring, independent approval, calculation, revocation, explicit revoked status, stale submission block and recalculation/approval. Dialogs and evidence passed light/dark 1440/768/390/320 widths with no root/workspace/dialog overflow or page errors and with the global sans font. Screenshots under `tmp/recovered-hr-work/payroll-jurisdiction-phase/jurisdiction-{authoring,calculated,revocation,revoked-record}-{light,dark}.png` were inspected. Production build, full typecheck, focused lint, API/catalogue parity and 246 distinct automated checks passed. Normal API/web read-only smoke covers both sections and populated company selectors. Theme audit remains 79 feature view files, 0 direct font exceptions and 5 existing colour-exception views (6.33%); 232 application source files contain 9 colour-candidate files/46 lines. These counts are not percentages of menu screens.
 
 Safe resume: preserve the same-country category boundary, exact published allocation policy, immutable historical approval/fact distinction and HR129–130 evidence/submission guards. Do not infer cross-country rules or employee-level accounting splits. Payroll retains its remaining delivery labels and Banking remains separately owned. Banking/Finance source diffs were preserved at 64/42 and 17/7 lines respectively.
+
 - `/#/banking/bank-receipts` uses a bounded, company-scoped PostgreSQL-backed
   directory with Bank Account, lifecycle, date, search, sort and cursor state;
 - `/#/banking/add-bank-receipt` persists reload-safe multi-line drafts, payer
@@ -3038,3 +3000,54 @@ Company Chart adoption/review checkpoint (2026-10-20):
   imports obsolete root-level HR files. Safe resume point: repair those stale
   generator imports separately before relying on `catalogue:generate`; do not
   reintroduce the removed 1Bill entry.
+
+## 2026-10-27 - Company currency country selection persistence
+
+- The Add New Currency dialog now retains the selected country's complete
+  mapping snapshot when a cleared remote search reloads a bounded result page
+  that does not contain that country. The selected label, primary currency and
+  alternate legal mappings remain available without changing API contracts or
+  finance rules.
+- Focused jsdom coverage reproduces the filtered Pakistan result followed by an
+  unfiltered page without Pakistan and verifies the retained PKR selection and
+  submission payload. No browser visual evidence was required because layout,
+  styling and interaction semantics were unchanged.
+- The existing fixed amber and sky utilities in the Company Currencies view
+  remain listed as theme-audit candidates; this behavior-only fix introduced no
+  font or colour override.
+
+## 2026-10-29 - Database-connected Finance Journals
+
+- All six Finance / Journals routes now use one live, company-scoped workspace:
+  Journal Register, Manual Journal, Journal Detail, Journal Approval & Posting,
+  Journal Reversal and Recurring Journals. The historical fixture profiles are
+  no longer active for these route IDs.
+- The UI uses the generated `/api/v1/finance` client, shared shadcn controls and
+  semantic theme utilities. It preserves responsive tables, labelled controls,
+  empty/error/permission states, draft dirty-state protection and server-owned
+  lifecycle capabilities.
+- Manual drafts are base-currency only. Final posting requires read-only review
+  confirmation; permanent deletion is exposed only for drafts with a reason;
+  reversal is exposed only for posted Manual Journals. Bank and Payroll sources
+  remain owned by their originating modules.
+- The register now supports server-backed state, source, nominal, reference and
+  date filters with cursor pagination. Approval and reversal queues are also
+  cursor-paginated, show explicit loading/empty states and enforce the server
+  capability response before exposing a lifecycle action.
+- Manual and recurring forms validate debit/credit totals with exact scaled
+  integers at the company base-currency precision and collect every dimension
+  required by the selected nominal. Permanent deletion, self-approval override,
+  reversal and recurring activation/inactivation require explicit confirmation
+  or a governed operator reason.
+- Recurring templates are limited to monthly or quarterly schedules and create
+  drafts only. The screen exposes occurrence history, attempts, failure codes
+  and exhausted retries. The worker is enabled only when
+  `JOURNAL_RECURRING_ACTOR_ID` is configured with live company-scoped Journal
+  creation and recurring-management authority.
+- Verification completed: focused Journal unit/UI/worker/contract tests 18/18,
+  Journal lifecycle plus Bank Payment, Bank Receipt and HR posting integration
+  tests 42/42, isolated Finance Posting tests 7/7 and migration tests 15/15.
+  Full TypeScript, focused ESLint, generated-client consistency, theme audit and
+  production web build passed. The isolated Finance Posting database was
+  removed after the run; no shared/UAT database migration or Journal data
+  creation occurred.

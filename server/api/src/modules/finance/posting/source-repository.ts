@@ -106,9 +106,9 @@ export interface FinancePostingRepository {
       companyId: string;
       sourceCurrency: string;
       effectiveOnOrBefore: string;
+      lock?: boolean;
     },
   ): Promise<CompanyCurrencyAuthority>;
-  loadBaseCurrencies(client: FinancePostingClient, tenantId: string): Promise<FinanceCurrencyRow[]>;
   loadTransactionCurrency(
     client: FinancePostingClient,
     tenantId: string,
@@ -300,7 +300,6 @@ export class SourceFinancePostingRepository implements FinancePostingRepository 
     );
   }
 
-  async loadBaseCurrencies(client: FinancePostingClient, tenantId: string, lock = true): Promise<FinanceCurrencyRow[]> {
   resolveCompanyCurrency(
     client: FinancePostingClient,
     input: {
@@ -308,12 +307,13 @@ export class SourceFinancePostingRepository implements FinancePostingRepository 
       companyId: string;
       sourceCurrency: string;
       effectiveOnOrBefore: string;
+      lock?: boolean;
     },
   ): Promise<CompanyCurrencyAuthority> {
     return resolveCompanyCurrencyAuthority(client, input);
   }
 
-  async loadBaseCurrencies(client: FinancePostingClient, tenantId: string): Promise<FinanceCurrencyRow[]> {
+  async loadBaseCurrencies(client: FinancePostingClient, tenantId: string, lock = true): Promise<FinanceCurrencyRow[]> {
     return (
       await client.query<FinanceCurrencyRow>(
         `select code,decimal_places from currency
@@ -349,10 +349,8 @@ export class SourceFinancePostingRepository implements FinancePostingRepository 
     return one(
       await client.query<FinanceRateRow>(
         `select id,rate::text as rate from currency_rate
-          where tenant_id=$1 and source_currency=$2 and target_currency=$3 and effective_date<=$4::date
-          order by effective_date desc,id desc limit 1${lock ? " for share" : ""}`,
           where tenant_id=$1 and source_currency=$2 and target_currency=$3 and effective_date<=$4::date and status='active'
-          order by effective_date desc,id desc limit 1 for share`,
+          order by effective_date desc,id desc limit 1${lock ? " for share" : ""}`,
         [tenantId, sourceCurrency, targetCurrency, postingDate],
       ),
     );
