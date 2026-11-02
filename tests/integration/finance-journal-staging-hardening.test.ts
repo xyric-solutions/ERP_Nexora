@@ -157,6 +157,8 @@ run("Finance Journal staging hardening", () => {
     const companyId = `journal-company-${suffix}`;
     const categoryId = `journal-category-${suffix}`;
     const sectionId = `journal-section-${suffix}`;
+    const bankCategoryId = `journal-bank-category-${suffix}`;
+    const bankSectionId = `journal-bank-section-${suffix}`;
     const calendarId = `journal-calendar-${suffix}`;
     const periodId = `journal-period-${suffix}`;
     const nominalPermissions = [
@@ -166,6 +168,12 @@ run("Finance Journal staging hardening", () => {
       "finance.nominal.submit",
       "finance.nominal.approve",
       "finance.nominal.status",
+      "banking.bank_account.read",
+      "banking.bank_account.create",
+      "banking.bank_account.update",
+      "banking.bank_account.submit",
+      "banking.bank_account.approve",
+      "banking.bank_account.status",
     ];
     const makerPermissions = [
       "finance.journal.read",
@@ -174,6 +182,8 @@ run("Finance Journal staging hardening", () => {
       "finance.journal.submit",
       "finance.journal.delete_draft",
       "finance.journal.reverse",
+      "finance.journal.approve",
+      "finance.recurring_journal.manage",
       "platform.approval.override",
       ...nominalPermissions,
     ];
@@ -206,7 +216,7 @@ run("Finance Journal staging hardening", () => {
        values($1,$2,'company',$2,'Journal Integration Company','active')`,
       [sourceTestTenantId, companyId],
     );
-    await ensureCompanyCurrencyFixture(pool, companyId, "USD", []);
+    await ensureCompanyCurrencyFixture(pool, companyId, "USD", ["EUR"]);
     await pool.query(
       `insert into account
         (tenant_id,company_id,id,code,name,type,parent_id,is_header,status,manual_posting_allowed,created_at)
@@ -214,6 +224,20 @@ run("Finance Journal staging hardening", () => {
         ($1,$2,$3,$3,'Journal expense category','expense',null,true,'active',false,now()),
         ($1,$2,$4,$4,'Journal expense section','expense',$3,true,'active',false,now())`,
       [sourceTestTenantId, companyId, categoryId, sectionId],
+    );
+    await pool.query(
+      `insert into account
+        (tenant_id,company_id,id,code,name,type,parent_id,is_header,status,manual_posting_allowed,created_at)
+       values
+        ($1,$2,$3,$3,'Journal bank category','asset',null,true,'active',false,now()),
+        ($1,$2,$4,$4,'Journal bank section','asset',$3,true,'active',false,now())`,
+      [sourceTestTenantId, companyId, bankCategoryId, bankSectionId],
+    );
+    await pool.query(
+      `insert into finance_nominal_section_policy
+        (tenant_id,company_id,section_id,category_id,section_role,prefix,code_width,first_value,last_value,next_value)
+       values($1,$2,$3,$4,'cash_and_bank',$5,4,1,9999,1)`,
+      [sourceTestTenantId, companyId, bankSectionId, bankCategoryId, `JB-${suffix}-`],
     );
     await pool.query(
       `insert into finance_general_nominal_policy
@@ -286,15 +310,51 @@ run("Finance Journal staging hardening", () => {
       `nominal-credit-${suffix}`,
       `correlation-nominal-credit-${suffix}`,
     );
+    const bankNominal = await nominalRepository.create(
+      maker,
+      {
+        nominal_kind: "bank",
+        company_id: companyId,
+        category_id: bankCategoryId,
+        section_id: bankSectionId,
+        name: "Journal operating bank",
+        currency: "USD",
+      },
+      `nominal-bank-${suffix}`,
+      `correlation-nominal-bank-${suffix}`,
+    );
+    const foreignBankNominal = await nominalRepository.create(
+      maker,
+      {
+        nominal_kind: "bank",
+        company_id: companyId,
+        category_id: bankCategoryId,
+        section_id: bankSectionId,
+        name: "Journal foreign bank",
+        currency: "EUR",
+      },
+      `nominal-foreign-bank-${suffix}`,
+      `correlation-nominal-foreign-bank-${suffix}`,
+    );
+    expect(bankNominal.state).toBe("active");
+    expect(foreignBankNominal.state).toBe("active");
     const journalRepository = new SourceFinanceJournalRepository(pool);
     const journalOptions = await journalRepository.options(maker, companyId);
-    expect(journalOptions.nominals.find((nominal) => nominal.id === debitNominal.id)?.required_dimensions).toEqual([]);
+    expect(journalOptions.nominals.find((nominal) => nominal.id === debitNominal.id)).toMatchObject({
+      kind: "general",
+      required_dimensions: [],
+    });
+    expect(journalOptions.nominals.find((nominal) => nominal.id === bankNominal.id)).toMatchObject({
+      kind: "bank",
+      name: "Journal operating bank",
+    });
+    expect(journalOptions.nominals.some((nominal) => nominal.id === foreignBankNominal.id)).toBe(false);
     const createInput = {
       company_id: companyId,
       journal_date: "2026-10-29",
       reference_number: `Lifecycle ${suffix}`,
       lines: [
-        { account_id: debitNominal.id, description: "Lifecycle debit", debit: "25.00", credit: "0", dimensions: {} },
+        { account_id: bankNominal.id, description: "Capital deposited", debit: "25.00", credit: "0", dimensions: {} },
         { account_id: creditNominal.id, description: "Lifecycle credit", debit: "0", credit: "25.00", dimensions: {} },
       ],
     };
@@ -324,6 +384,18 @@ run("Finance Journal staging hardening", () => {
       `correlation-submit-${suffix}`,
     );
     expect(submitted).toMatchObject({ state: "submitted", version: 3 });
+    await expect(journalRepository.get(maker, created.id)).resolves.toMatchObject({
+      capabilities: { approve: true, self_approval_required: true, super_admin_override_available: true },
+    });
+    await expect(
+      journalRepository.decide(
+        maker,
+        created.id,
+        { expected_version: 3, action: "post", confirmed: true },
+        `journal-missing-override-${suffix}`,
+        `correlation-missing-override-${suffix}`,
+      ),
+    ).rejects.toMatchObject({ code: "APPROVAL_OVERRIDE_REASON_REQUIRED" });
     const decisionKey = `journal-decision-${suffix}`;
     const posted = await journalRepository.decide(
       checker,
@@ -333,6 +405,68 @@ run("Finance Journal staging hardening", () => {
       `correlation-decision-${suffix}`,
     );
     expect(posted).toMatchObject({ state: "posted", version: 4, replayed: false });
+    const reconcilableBankLine = await pool.query<{ line_count: number }>(
+      `select count(*)::int as line_count
+         from journal_line line
+         join journal_entry journal on journal.tenant_id=line.tenant_id and journal.id=line.journal_id
+        where journal.tenant_id=$1 and journal.company_id=$2 and journal.id=$3
+          and journal.status='posted' and line.account_id=$4 and line.currency='USD'`,
+      [sourceTestTenantId, companyId, posted.ledger_journal_id, bankNominal.id],
+    );
+    expect(reconcilableBankLine.rows[0]?.line_count).toBe(1);
+    // Mirror the reported Shoaib permission combination: both explicit
+    // self-approval and administrator override, but no override is necessary.
+    await pool.query(
+      `insert into security_role_permission_grant
+        (tenant_id,role_policy_id,permission_key,field_allow_mode)
+       values($1,'r06-uat-policy-approval-override','finance.journal.self_approve','all') on conflict do nothing`,
+      [sourceTestTenantId],
+    );
+    await pool.query(
+      `insert into security_role_scope_grant
+        (tenant_id,role_policy_id,permission_key,scope_kind,scope_value)
+       values($1,'r06-uat-policy-approval-override','finance.journal.self_approve','company',$2) on conflict do nothing`,
+      [sourceTestTenantId, companyId],
+    );
+    const selfApprover = {
+      ...maker,
+      actor: { ...maker.actor, permissions: [...maker.actor.permissions, "finance.journal.self_approve"] },
+    };
+    const selfDraft = await journalRepository.create(
+      selfApprover,
+      createInput,
+      `self-draft-${suffix}`,
+      `correlation-self-draft-${suffix}`,
+    );
+    const selfSubmitted = await journalRepository.submit(
+      selfApprover,
+      selfDraft.id,
+      { expected_version: 1 },
+      `self-submit-${suffix}`,
+      `correlation-self-submit-${suffix}`,
+    );
+    await expect(journalRepository.get(selfApprover, selfDraft.id)).resolves.toMatchObject({
+      capabilities: { approve: true, self_approval_required: true, super_admin_override_available: false },
+    });
+    await expect(
+      journalRepository.decide(
+        selfApprover,
+        selfDraft.id,
+        {
+          expected_version: selfSubmitted.version,
+          action: "post",
+          confirmed: true,
+          approval_note: "Reviewed capital contribution",
+        },
+        `self-post-${suffix}`,
+        `correlation-self-post-${suffix}`,
+      ),
+    ).resolves.toMatchObject({ state: "posted" });
+    const selfEvidence = await pool.query(
+      `select self_approval_used,super_admin_override_used from manual_journal where tenant_id=$1 and id=$2`,
+      [sourceTestTenantId, selfDraft.id],
+    );
+    expect(selfEvidence.rows[0]).toEqual({ self_approval_used: true, super_admin_override_used: false });
     await expect(
       journalRepository.decide(
         checker,
@@ -355,6 +489,21 @@ run("Finance Journal staging hardening", () => {
       status: 403,
       code: "COMPANY_PERMISSION_DENIED",
     });
+    await expect(
+      journalRepository.createRecurring(
+        maker,
+        {
+          company_id: companyId,
+          name: `Recurring bank restriction ${suffix}`,
+          schedule: "monthly",
+          start_date: "2026-10-31",
+          narration: "Recurring templates must not target Bank Account ledgers",
+          lines: createInput.lines,
+        },
+        `recurring-bank-rejected-${suffix}`,
+        `correlation-recurring-bank-rejected-${suffix}`,
+      ),
+    ).rejects.toMatchObject({ code: "JOURNAL_NOMINAL_INVALID" });
 
     const deletable = await journalRepository.create(
       maker,
@@ -362,6 +511,23 @@ run("Finance Journal staging hardening", () => {
       `journal-create-delete-${suffix}`,
       `correlation-create-delete-${suffix}`,
     );
+    const triggerClient = await pool.connect();
+    try {
+      await triggerClient.query("begin");
+      await triggerClient.query("select set_config('nexora.tenant_id',$1,true)", [sourceTestTenantId]);
+      await triggerClient.query("select set_config('nexora.user_id','r06.override-admin',true)");
+      await expect(
+        triggerClient.query(
+          `update manual_journal_line set account_id=$3
+            where tenant_id=$1 and journal_id=$2 and account_id=$4`,
+          [sourceTestTenantId, deletable.id, foreignBankNominal.id, bankNominal.id],
+        ),
+      ).rejects.toThrow("Bank nominals must use the company base currency");
+      await triggerClient.query("rollback");
+    } finally {
+      await triggerClient.query("rollback").catch(() => undefined);
+      triggerClient.release();
+    }
     const deleteKey = `journal-delete-${suffix}`;
     await expect(
       journalRepository.deleteDraft(

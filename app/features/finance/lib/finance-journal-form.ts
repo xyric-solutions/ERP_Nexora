@@ -24,6 +24,18 @@ export function formatJournalAmount(value: bigint, decimalPlaces: number): strin
   return `${value / scale}.${(value % scale).toString().padStart(decimalPlaces, "0")}`;
 }
 
+// Display rounding is separate from base-currency validation and posting precision.
+export function formatJournalDisplayAmount(value: string, decimalPlaces = 2): string {
+  if (!Number.isInteger(decimalPlaces) || decimalPlaces < 0 || decimalPlaces > 8)
+    throw new RangeError("Journal display decimal places must be between 0 and 8.");
+  const scaled = parseJournalAmount(value, 8);
+  if (scaled === null) return "—";
+  const divisor = 10n ** BigInt(8 - decimalPlaces);
+  const rounded = (scaled + divisor / 2n) / divisor;
+  const [whole = "0", fraction] = formatJournalAmount(rounded, decimalPlaces).split(".");
+  return `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}${fraction === undefined ? "" : `.${fraction}`}`;
+}
+
 export function validateJournalLines(lines: readonly JournalLineInput[], decimalPlaces: number): JournalFormValidation {
   const errors: string[] = [];
   let debit = 0n;

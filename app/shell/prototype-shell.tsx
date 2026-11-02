@@ -47,6 +47,15 @@ const confirmationActions = new Set([
   "Discard changes",
   "Start workflow",
 ]);
+const legacyJournalPageIds = new Set([
+  "manual-journal",
+  "journal-detail",
+  "journal-approval",
+  "journal-reversal",
+  "recurring-journals",
+]);
+const navigationPageId = (moduleId: string, pageId: string) =>
+  moduleId === "finance" && legacyJournalPageIds.has(pageId) ? "journal-register" : pageId;
 const moduleParties: Record<string, readonly string[]> = {
   sales: ["Atlas Retail Group", "Crescent Finance", "Northstar Foods", "BluePeak Logistics"],
   revenue: ["Crescent Finance", "Orbit Telecom", "Atlas Retail Group", "Northstar Foods"],
@@ -135,7 +144,7 @@ type GlobalSearchResult =
     };
 
 const genericRecordSearchIndex: readonly GlobalSearchResult[] = prototypePageIndex
-  .filter((page) => /list|register|queue|detail/i.test(page.archetype))
+  .filter((page) => !page.hiddenFromNavigation && /list|register|queue|detail/i.test(page.archetype))
   .flatMap((page) =>
     rowsFor(page.moduleId, page.moduleLabel, page.label)
       .slice(0, 4)
@@ -189,7 +198,10 @@ const bankingRecordSearchIndex: readonly GlobalSearchResult[] = savedBankingTran
 }));
 
 function pageCount(module: PrototypeModule) {
-  return module.groups.reduce((total, group) => total + group.pages.length, 0);
+  return module.groups.reduce(
+    (total, group) => total + group.pages.filter((page) => !page.hiddenFromNavigation).length,
+    0,
+  );
 }
 
 /**
@@ -260,6 +272,7 @@ export function PrototypeShell({
   const paymentEntryDirtyRef = useRef(paymentEntryDirty);
 
   const current = useMemo(() => findPrototypePage(route.moduleId, route.pageId), [route]);
+  const currentNavigationPageId = navigationPageId(current.module.id, current.page.id);
   const connectedWorkspace=current.page.status==='live'||current.page.status==='read-only'||current.page.status==='in-progress';
   const isCentralChartPage =
     current.module.id === "finance" && ["central-chart-template", "section-management"].includes(current.page.id);
@@ -296,7 +309,9 @@ export function PrototypeShell({
           module.shortLabel,
           module.code,
           ...module.groups.map((group) => group.label),
-          ...module.groups.flatMap((group) => group.pages.map((page) => page.label)),
+          ...module.groups.flatMap((group) =>
+            group.pages.filter((page) => !page.hiddenFromNavigation).map((page) => page.label),
+          ),
         ].some((value) => value.toLowerCase().includes(query));
       return roleMatch && modeMatch && searchMatch;
     });
@@ -304,19 +319,21 @@ export function PrototypeShell({
 
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    const pageResults: GlobalSearchResult[] = prototypePageIndex.map((page) => ({
-      kind: "page",
-      key: `page:${page.moduleId}:${page.id}`,
-      moduleId: page.moduleId,
-      pageId: page.id,
-      moduleCode: page.moduleCode,
-      label: page.label,
-      context: `${page.moduleLabel} / ${page.groupLabel}`,
-      meta: page.status === "in-progress" ? "API · in progress" : page.status === "live" ? "Live API" : page.status === "read-only" ? "API · read only" : page.status === "prototype" ? page.archetype : "Coming soon",
-      searchable: [page.label, page.groupLabel, page.moduleLabel, page.moduleCode, page.archetype]
-        .join(" ")
-        .toLowerCase(),
-    }));
+    const pageResults: GlobalSearchResult[] = prototypePageIndex
+      .filter((page) => !page.hiddenFromNavigation)
+      .map((page) => ({
+        kind: "page",
+        key: `page:${page.moduleId}:${page.id}`,
+        moduleId: page.moduleId,
+        pageId: page.id,
+        moduleCode: page.moduleCode,
+        label: page.label,
+        context: `${page.moduleLabel} / ${page.groupLabel}`,
+        meta: page.status === "in-progress" ? "API · in progress" : page.status === "live" ? "Live API" : page.status === "read-only" ? "API · read only" : page.status === "prototype" ? page.archetype : "Coming soon",
+        searchable: [page.label, page.groupLabel, page.moduleLabel, page.moduleCode, page.archetype]
+          .join(" ")
+          .toLowerCase(),
+      }));
     if (!query) return pageResults.slice(0, 12);
     const terms = query.split(/\s+/).filter(Boolean);
     const matches = (item: GlobalSearchResult) => terms.every((term) => item.searchable.includes(term));
@@ -757,19 +774,23 @@ export function PrototypeShell({
                                       </button>
                                       {groupOpen ? (
                                         <ul className="nx-submenu__list">
-                                          {group.pages.map((page) => (
-                                            <li key={page.id}>
-                                              <button
-                                                className={`nx-submenu-link${page.id === current.page.id ? " nx-submenu-link--active" : ""}`}
-                                                aria-current={page.id === current.page.id ? "page" : undefined}
-                                                type="button"
-                                                onClick={() => navigate(module.id, page.id)}
-                                              >
-                                                <span>{page.label}</span>
-                                                {page.status === "in-progress" ? <small>In progress</small> : page.status === "live" ? <small>Live</small> : page.status === "read-only" ? <small>Read only</small> : page.status !== "prototype" ? <small>Soon</small> : null}
-                                              </button>
-                                            </li>
-                                          ))}
+                                          {group.pages
+                                            .filter((page) => !page.hiddenFromNavigation)
+                                            .map((page) => (
+                                              <li key={page.id}>
+                                                <button
+                                                  className={`nx-submenu-link${page.id === currentNavigationPageId ? " nx-submenu-link--active" : ""}`}
+                                                  aria-current={
+                                                    page.id === currentNavigationPageId ? "page" : undefined
+                                                  }
+                                                  type="button"
+                                                  onClick={() => navigate(module.id, page.id)}
+                                                >
+                                                  <span>{page.label}</span>
+                                                  {page.status === "in-progress" ? <small>In progress</small> : page.status === "live" ? <small>Live</small> : page.status === "read-only" ? <small>Read only</small> : page.status !== "prototype" ? <small>Soon</small> : null}
+                                                </button>
+                                              </li>
+                                            ))}
                                         </ul>
                                       ) : null}
                                     </li>
@@ -1080,18 +1101,20 @@ export function PrototypeShell({
             {drawerModule.groups.map((group) => (
               <section className="nx-submenu-drawer__group" key={group.id}>
                 <h3 className="nx-submenu-drawer__group-title">{group.label}</h3>
-                {group.pages.map((page) => (
-                  <button
-                    className="nx-submenu-drawer__link"
-                    aria-current={page.id === current.page.id ? "page" : undefined}
-                    type="button"
-                    key={page.id}
-                    onClick={() => navigate(drawerModule.id, page.id)}
-                  >
-                    <span>{page.label}</span>
-                    <small>{page.archetype}</small>
-                  </button>
-                ))}
+                {group.pages
+                  .filter((page) => !page.hiddenFromNavigation)
+                  .map((page) => (
+                    <button
+                      className="nx-submenu-drawer__link"
+                      aria-current={page.id === currentNavigationPageId ? "page" : undefined}
+                      type="button"
+                      key={page.id}
+                      onClick={() => navigate(drawerModule.id, page.id)}
+                    >
+                      <span>{page.label}</span>
+                      <small>{page.archetype}</small>
+                    </button>
+                  ))}
               </section>
             ))}
           </div>

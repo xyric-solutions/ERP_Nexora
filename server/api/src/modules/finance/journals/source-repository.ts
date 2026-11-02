@@ -320,22 +320,42 @@ export class SourceFinanceJournalRepository {
     ).rows;
   }
 
-  private async assertNominals(client: PoolClient, tenantId: string, companyId: string, accountIds: readonly string[]) {
+  private async assertNominals(
+    client: PoolClient,
+    tenantId: string,
+    companyId: string,
+    accountIds: readonly string[],
+    baseCurrency: string,
+    mode: "manual" | "recurring",
+  ) {
     const unique = [...new Set(accountIds)];
     const result = await client.query<{ id: string }>(
       `select account.id from account
-        join finance_general_nominal nominal on nominal.tenant_id=account.tenant_id
-         and nominal.company_id=account.company_id and nominal.nominal_id=account.id and nominal.state='active'
        where account.tenant_id=$1 and account.company_id=$2 and account.id=any($3::text[])
          and account.status='active' and not account.is_header and account.manual_posting_allowed
-         and not account.is_system_account and not account.managed_bank_nominal and account.managed_general_nominal`,
-      [tenantId, companyId, unique],
+         and not account.is_system_account
+         and (
+           (account.managed_general_nominal and not account.managed_bank_nominal and exists(
+             select 1 from finance_general_nominal nominal
+              where nominal.tenant_id=account.tenant_id and nominal.company_id=account.company_id
+                and nominal.nominal_id=account.id and nominal.state='active'
+           ))
+           or ($5='manual' and account.managed_bank_nominal and not account.managed_general_nominal
+             and account.reconciliation_required and exists(
+               select 1 from bank_account bank
+                where bank.tenant_id=account.tenant_id and bank.company_id=account.company_id
+                  and bank.account_id=account.id and bank.status='active' and bank.currency=$4
+             ))
+         )`,
+      [tenantId, companyId, unique, baseCurrency, mode],
     );
     if (result.rowCount !== unique.length)
       throw new FinanceJournalError(
         409,
         "JOURNAL_NOMINAL_INVALID",
-        "Every line must use an active ordinary postable company nominal.",
+        mode === "manual"
+          ? "Every line must use an active eligible company nominal. Bank nominals must use the company base currency."
+          : "Every recurring line must use an active ordinary postable company nominal.",
       );
   }
 
@@ -470,15 +490,33 @@ export class SourceFinanceJournalRepository {
         };
       await this.scoped(client, context, companyId, "finance.journal.read");
       const base = await resolveCompanyBaseCurrency(client, context.tenantId, companyId);
-      const nominals = await client.query<{ id: string; code: string; name: string; required_dimensions: string[] }>(
-        `select account.id,account.code,account.name,account.required_dimensions from account
-          join finance_general_nominal nominal on nominal.tenant_id=account.tenant_id
-           and nominal.company_id=account.company_id and nominal.nominal_id=account.id and nominal.state='active'
+      const nominals = await client.query<{
+        id: string;
+        code: string;
+        name: string;
+        kind: "general" | "bank";
+        required_dimensions: string[];
+      }>(
+        `select account.id,account.code,account.name,account.required_dimensions,
+                case when account.managed_bank_nominal then 'bank' else 'general' end as kind
+           from account
          where account.tenant_id=$1 and account.company_id=$2 and account.status='active'
            and not account.is_header and account.manual_posting_allowed and not account.is_system_account
-           and not account.managed_bank_nominal and account.managed_general_nominal
+           and (
+             (account.managed_general_nominal and not account.managed_bank_nominal and exists(
+               select 1 from finance_general_nominal nominal
+                where nominal.tenant_id=account.tenant_id and nominal.company_id=account.company_id
+                  and nominal.nominal_id=account.id and nominal.state='active'
+             ))
+             or (account.managed_bank_nominal and not account.managed_general_nominal
+               and account.reconciliation_required and exists(
+                 select 1 from bank_account bank
+                  where bank.tenant_id=account.tenant_id and bank.company_id=account.company_id
+                    and bank.account_id=account.id and bank.status='active' and bank.currency=$3
+               ))
+           )
          order by account.code,account.id limit 2000`,
-        [context.tenantId, companyId],
+        [context.tenantId, companyId, base.code],
       );
       return {
         companies: companies.rows,
@@ -614,6 +652,12 @@ export class SourceFinanceJournalRepository {
         const preparedByActor = preparerActorIds.includes(context.actor.userId);
         const canSelf =
           preparedByActor && (await this.hasScoped(client, context, manual.company_id, "finance.journal.self_approve"));
+        const canOverride =
+          canApprove &&
+          preparedByActor &&
+          !canSelf &&
+          context.actor.roles.includes("super_administrator") &&
+          (await this.hasScoped(client, context, manual.company_id, "platform.approval.override"));
         return {
           id: manual.id,
           company_id: manual.company_id,
@@ -650,7 +694,7 @@ export class SourceFinanceJournalRepository {
             submit:
               manual.state === "draft" &&
               (await this.hasScoped(client, context, manual.company_id, "finance.journal.submit")),
-            approve: canApprove && (!preparedByActor || canSelf || context.actor.roles.includes("super_administrator")),
+            approve: canApprove && (!preparedByActor || canSelf || canOverride),
             reject:
               manual.state === "submitted" &&
               (await this.hasScoped(client, context, manual.company_id, "finance.journal.reject")),
@@ -658,7 +702,7 @@ export class SourceFinanceJournalRepository {
               manual.state === "posted" &&
               (await this.hasScoped(client, context, manual.company_id, "finance.journal.reverse")),
             self_approval_required: canApprove && preparedByActor,
-            super_admin_override_available: preparedByActor && context.actor.roles.includes("super_administrator"),
+            super_admin_override_available: canOverride,
           },
         };
       }
@@ -750,6 +794,8 @@ export class SourceFinanceJournalRepository {
         context.tenantId,
         input.company_id,
         input.lines.map((line) => line.account_id),
+        base.code,
+        "manual",
       );
       const year = Number(input.journal_date.slice(0, 4));
       const sequence = (
@@ -844,6 +890,8 @@ export class SourceFinanceJournalRepository {
         context.tenantId,
         row.company_id,
         input.lines.map((line) => line.account_id),
+        row.base_currency,
+        "manual",
       );
       await client.query(`delete from manual_journal_line where tenant_id=$1 and journal_id=$2`, [
         context.tenantId,
@@ -979,6 +1027,8 @@ export class SourceFinanceJournalRepository {
         context.tenantId,
         row.company_id,
         lines.map((line) => line.account_id),
+        row.base_currency,
+        "manual",
       );
       const next = Number(row.row_version) + 1;
       await client.query(
@@ -1071,6 +1121,8 @@ export class SourceFinanceJournalRepository {
         context.tenantId,
         row.company_id,
         lines.map((line) => line.account_id),
+        row.base_currency,
+        "manual",
       );
       const preparerActorIds = await this.preparerActorIds(client, context, id);
       const preparedByActor = preparerActorIds.includes(context.actor.userId);
@@ -1348,6 +1400,8 @@ export class SourceFinanceJournalRepository {
         context.tenantId,
         input.company_id,
         input.lines.map((line) => line.account_id),
+        base.code,
+        "recurring",
       );
       const id = `recurring-journal-${randomUUID()}`;
       await client.query(
@@ -1412,15 +1466,15 @@ export class SourceFinanceJournalRepository {
       await this.scoped(client, context, row.company_id, "finance.recurring_journal.manage");
       if (Number(row.row_version) !== input.expected_version)
         throw new FinanceJournalError(412, "JOURNAL_PRECONDITION_FAILED", "The template version changed.");
-      validateLines(
-        input.lines,
-        (await resolveCompanyBaseCurrency(client, context.tenantId, row.company_id)).decimalPlaces,
-      );
+      const base = await resolveCompanyBaseCurrency(client, context.tenantId, row.company_id);
+      validateLines(input.lines, base.decimalPlaces);
       await this.assertNominals(
         client,
         context.tenantId,
         row.company_id,
         input.lines.map((line) => line.account_id),
+        base.code,
+        "recurring",
       );
       const next = Number(row.row_version) + 1;
       await client.query(

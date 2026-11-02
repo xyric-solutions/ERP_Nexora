@@ -15,12 +15,15 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { useActionFeedback } from "@/shared/ui/action-feedback";
+import { SearchableSelect } from "@/shared/ui/searchable-select";
 import { FinanceJournalsClient } from "../api/finance-journals-client";
-import { formatJournalAmount, validateJournalLines } from "../lib/finance-journal-form";
+import { formatJournalAmount, formatJournalDisplayAmount, validateJournalLines } from "../lib/finance-journal-form";
 
 export const financeJournalPages = [
   "journal-register",
@@ -31,6 +34,9 @@ export const financeJournalPages = [
   "recurring-journals",
 ] as const;
 export type FinanceJournalPage = (typeof financeJournalPages)[number];
+type JournalWorkspaceTab = "transactions" | "recurring";
+type JournalDrawerMode = "create" | "detail" | "edit" | "approval" | "reversal" | null;
+type JournalRegisterView = "all" | "approval" | "reversal";
 
 type Navigate = (
   moduleId: string,
@@ -57,12 +63,8 @@ const errorText = (error: unknown) =>
   error instanceof ApiError
     ? `${error.message}${error.correlationId ? ` Reference: ${error.correlationId}` : ""}`
     : "The Journal request failed safely.";
-const money = (value: string, currency: string) => {
-  const [whole = "0", fraction = ""] = value.split(".");
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  const decimals = fraction.replace(/0+$/, "").padEnd(2, "0");
-  return `${currency} ${grouped}${decimals ? `.${decimals}` : ""}`;
-};
+const money = (value: string, currency: string, decimalPlaces: number) =>
+  `${currency} ${formatJournalDisplayAmount(value, decimalPlaces)}`;
 const linePayload = (lines: DraftLine[]): JournalLineInput[] =>
   lines.map(({ account_id, description, debit, credit, dimensions }) => ({
     account_id,
@@ -82,7 +84,6 @@ const requiredDimensionErrors = (lines: DraftLine[], options: JournalOptions | n
 export function FinanceJournalWorkspace({
   page,
   recordRef,
-  onNavigate,
   onDirtyChange,
 }: {
   page: FinanceJournalPage;
@@ -94,12 +95,74 @@ export function FinanceJournalWorkspace({
   const notify = useActionFeedback();
   const client = useMemo(() => new FinanceJournalsClient(api), [api]);
   const permissions = useMemo(() => new Set(session?.user.permissions ?? []), [session]);
-  const recurring = page === "recurring-journals";
-  const canRead = permissions.has(recurring ? "finance.recurring_journal.read" : "finance.journal.read");
+  const canReadTransactions = permissions.has("finance.journal.read");
+  const canReadRecurring = permissions.has("finance.recurring_journal.read");
+  const canRead = canReadTransactions || canReadRecurring;
   const [options, setOptions] = useState<JournalOptions | null>(null);
   const [companyId, setCompanyId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [displayDecimalPlaces, setDisplayDecimalPlaces] = useState(2);
+  const [activeTab, setActiveTab] = useState<JournalWorkspaceTab>(
+    page === "recurring-journals" && canReadRecurring ? "recurring" : "transactions",
+  );
+  const [drawerMode, setDrawerMode] = useState<JournalDrawerMode>(() => {
+    if (page === "manual-journal") return recordRef ? "edit" : "create";
+    if (page === "journal-detail" && recordRef) return "detail";
+    if (page === "journal-approval" && recordRef) return "approval";
+    if (page === "journal-reversal" && recordRef) return "reversal";
+    return null;
+  });
+  const [selectedJournalId, setSelectedJournalId] = useState(recordRef);
+  const [registerView, setRegisterView] = useState<JournalRegisterView>(
+    page === "journal-approval" ? "approval" : page === "journal-reversal" ? "reversal" : "all",
+  );
+  const [drawerDirty, setDrawerDirty] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const displayPreferenceKey = session ? `nexora:journal:display-decimals:${session.tenant_id}:${session.user.id}` : "";
+
+  // Route props are external shell state. Synchronizing them here keeps legacy
+  // deep links compatible with the consolidated tabs and drawers.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (page === "recurring-journals") {
+      if (canReadRecurring) setActiveTab("recurring");
+      setDrawerMode(null);
+      setSelectedJournalId(undefined);
+      return;
+    }
+    setActiveTab("transactions");
+    setSelectedJournalId(recordRef);
+    setRegisterView(page === "journal-approval" ? "approval" : page === "journal-reversal" ? "reversal" : "all");
+    if (page === "manual-journal") setDrawerMode(recordRef ? "edit" : "create");
+    else if (page === "journal-detail" && recordRef) setDrawerMode("detail");
+    else if (page === "journal-approval" && recordRef) setDrawerMode("approval");
+    else if (page === "journal-reversal" && recordRef) setDrawerMode("reversal");
+    else setDrawerMode(null);
+  }, [canReadRecurring, page, recordRef]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  useEffect(() => {
+    if (!displayPreferenceKey) return;
+    const timer = window.setTimeout(() => {
+      try {
+        const stored = window.localStorage.getItem(displayPreferenceKey);
+        setDisplayDecimalPlaces(stored !== null && /^[0-8]$/.test(stored) ? Number(stored) : 2);
+      } catch {
+        setDisplayDecimalPlaces(2);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [displayPreferenceKey]);
+
+  const changeDisplayDecimalPlaces = (value: number) => {
+    setDisplayDecimalPlaces(value);
+    try {
+      window.localStorage.setItem(displayPreferenceKey, String(value));
+    } catch {
+      // The display choice still applies when browser storage is unavailable.
+    }
+  };
 
   const loadOptions = useCallback(async () => {
     setLoading(true);
@@ -136,40 +199,167 @@ export function FinanceJournalWorkspace({
   if (sessionLoading) return <Notice title="Checking Finance access" detail="Confirming Journal permissions." />;
   if (!session) return <Notice title="Sign in required" detail="An authenticated Nexora session is required." />;
   if (!canRead)
-    return (
-      <Notice
-        title="Permission required"
-        detail={`The ${recurring ? "Recurring Journal" : "Journal"} read permission is required.`}
-      />
-    );
+    return <Notice title="Permission required" detail="A Journal or Recurring Journal read permission is required." />;
 
-  const common = { client, companyId, options, csrfToken, permissions, notify, setError, onNavigate };
+  const changeDirtyState = (dirty: boolean) => {
+    setDrawerDirty(dirty);
+    onDirtyChange?.(dirty);
+  };
+  const confirmDrawerClose = (bypass = false) => {
+    if (bypass || !drawerDirty || typeof window === "undefined") return true;
+    return window.confirm("You have unsaved Journal changes. Close the drawer and discard them?");
+  };
+  const closeDrawer = (bypass = false) => {
+    if (!confirmDrawerClose(bypass)) return false;
+    setDrawerMode(null);
+    setSelectedJournalId(undefined);
+    changeDirtyState(false);
+    return true;
+  };
+  const navigateWithinWorkspace: Navigate = (_moduleId, nextPage, nextRecordRef, navigationOptions) => {
+    const bypass = navigationOptions?.bypassUnsavedGuard === true;
+    if (nextPage === "journal-register") {
+      if (!closeDrawer(bypass)) return;
+      setActiveTab("transactions");
+      setRegisterView("all");
+      if (bypass) setRefreshToken((value) => value + 1);
+      return;
+    }
+    if (!confirmDrawerClose(bypass)) return;
+    changeDirtyState(false);
+    setActiveTab(nextPage === "recurring-journals" ? "recurring" : "transactions");
+    setSelectedJournalId(nextRecordRef);
+    if (nextPage === "manual-journal") setDrawerMode(nextRecordRef ? "edit" : "create");
+    else if (nextPage === "journal-detail") setDrawerMode(nextRecordRef ? "detail" : null);
+    else if (nextPage === "journal-approval") {
+      setRegisterView("approval");
+      setDrawerMode(nextRecordRef ? "approval" : null);
+    } else if (nextPage === "journal-reversal") {
+      setRegisterView("reversal");
+      setDrawerMode(nextRecordRef ? "reversal" : null);
+    } else setDrawerMode(null);
+    if (bypass) setRefreshToken((value) => value + 1);
+  };
+
+  const common = {
+    client,
+    companyId,
+    options,
+    csrfToken,
+    permissions,
+    notify,
+    setError,
+    onNavigate: navigateWithinWorkspace,
+    displayDecimalPlaces,
+    refreshToken,
+  };
+  const drawerTitle =
+    drawerMode === "create"
+      ? "New Manual Journal"
+      : drawerMode === "edit"
+        ? "Edit Manual Journal"
+        : drawerMode === "approval"
+          ? "Review and Post Journal"
+          : drawerMode === "reversal"
+            ? "Reverse Journal"
+            : "Journal Details";
   return (
     <div className="space-y-5" aria-busy={loading}>
       <WorkspaceHeader
-        page={page}
+        activeTab={activeTab}
         companyId={companyId}
         options={options}
         onCompany={setCompanyId}
-        onNavigate={onNavigate}
         permissions={permissions}
+        displayDecimalPlaces={displayDecimalPlaces}
+        onDisplayDecimalPlaces={changeDisplayDecimalPlaces}
+        onNewJournal={() => navigateWithinWorkspace("finance", "manual-journal")}
       />
       {error ? <Notice title="Journal request could not be completed" detail={error} destructive /> : null}
-      {page === "journal-register" ? <JournalRegister key={companyId} {...common} /> : null}
-      {page === "manual-journal" ? (
-        <ManualJournalForm
-          key={`${companyId}:${recordRef ?? "new"}`}
-          {...common}
-          journalId={recordRef}
-          onDirtyChange={onDirtyChange}
-        />
-      ) : null}
-      {page === "journal-detail" ? (
-        <JournalDetailView key={`${companyId}:${recordRef ?? "none"}`} {...common} journalId={recordRef} />
-      ) : null}
-      {page === "journal-approval" ? <JournalApproval key={companyId} {...common} initialId={recordRef} /> : null}
-      {page === "journal-reversal" ? <JournalReversal key={companyId} {...common} initialId={recordRef} /> : null}
-      {page === "recurring-journals" ? <RecurringJournals key={companyId} {...common} /> : null}
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          if (value !== "transactions" && value !== "recurring") return;
+          if (!closeDrawer()) return;
+          setActiveTab(value);
+        }}
+      >
+        <TabsList variant="line" aria-label="Journal workspace sections">
+          {canReadTransactions ? <TabsTrigger value="transactions">Transactions</TabsTrigger> : null}
+          {canReadRecurring ? <TabsTrigger value="recurring">Recurring</TabsTrigger> : null}
+        </TabsList>
+        {canReadTransactions ? (
+          <TabsContent value="transactions">
+            <JournalRegister key={`${companyId}:${registerView}`} {...common} initialView={registerView} />
+          </TabsContent>
+        ) : null}
+        {canReadRecurring ? (
+          <TabsContent value="recurring">
+            <RecurringJournals key={`${companyId}:${activeTab}`} {...common} onDirtyChange={changeDirtyState} />
+          </TabsContent>
+        ) : null}
+      </Tabs>
+
+      <Sheet
+        open={drawerMode !== null}
+        onOpenChange={(open) => {
+          if (!open) closeDrawer();
+        }}
+      >
+        <SheetContent className="w-full max-w-none gap-0 sm:max-w-[min(96vw,80rem)]">
+          <SheetHeader className="border-b border-border pr-14">
+            <SheetTitle>{drawerTitle}</SheetTitle>
+            <SheetDescription>
+              {drawerMode === "create" || drawerMode === "edit"
+                ? "Prepare a balanced draft in the company base currency."
+                : "Review the Journal, lifecycle evidence and permitted actions without leaving the register."}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            {drawerMode === "create" || drawerMode === "edit" ? (
+              <ManualJournalForm
+                key={`${companyId}:${selectedJournalId ?? "new"}`}
+                {...common}
+                journalId={selectedJournalId}
+                onDirtyChange={changeDirtyState}
+              />
+            ) : null}
+            {drawerMode === "detail" ? (
+              <JournalDetailView
+                key={`${companyId}:${selectedJournalId ?? "none"}`}
+                {...common}
+                journalId={selectedJournalId}
+              />
+            ) : null}
+            {drawerMode === "approval" ? (
+              <JournalApproval
+                key={`${companyId}:${selectedJournalId ?? "none"}`}
+                {...common}
+                initialId={selectedJournalId}
+                embedded
+                onComplete={(id) => {
+                  setRefreshToken((value) => value + 1);
+                  setSelectedJournalId(id);
+                  setDrawerMode("detail");
+                }}
+              />
+            ) : null}
+            {drawerMode === "reversal" ? (
+              <JournalReversal
+                key={`${companyId}:${selectedJournalId ?? "none"}`}
+                {...common}
+                initialId={selectedJournalId}
+                embedded
+                onComplete={(id) => {
+                  setRefreshToken((value) => value + 1);
+                  setSelectedJournalId(id);
+                  setDrawerMode("detail");
+                }}
+              />
+            ) : null}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -183,41 +373,40 @@ type Common = {
   notify: (message: string) => void;
   setError: (message: string) => void;
   onNavigate: Navigate;
+  displayDecimalPlaces: number;
+  refreshToken: number;
 };
 
 function WorkspaceHeader({
-  page,
+  activeTab,
   companyId,
   options,
   onCompany,
-  onNavigate,
   permissions,
+  displayDecimalPlaces,
+  onDisplayDecimalPlaces,
+  onNewJournal,
 }: {
-  page: FinanceJournalPage;
+  activeTab: JournalWorkspaceTab;
   companyId: string;
   options: JournalOptions | null;
   onCompany: (id: string) => void;
-  onNavigate: Navigate;
   permissions: Set<string>;
+  displayDecimalPlaces: number;
+  onDisplayDecimalPlaces: (value: number) => void;
+  onNewJournal: () => void;
 }) {
-  const titles: Record<FinanceJournalPage, [string, string]> = {
-    "journal-register": ["Journals", "One register for Manual, Bank, Payroll and other posted accounting sources."],
-    "manual-journal": ["Manual Journal", "Prepare a balanced draft in the company base currency."],
-    "journal-detail": ["Journal Detail", "Inspect lines, source ownership and immutable lifecycle evidence."],
-    "journal-approval": [
-      "Journal Approval & Posting",
-      "Complete final review before creating an immutable ledger entry.",
-    ],
-    "journal-reversal": ["Journal Reversal", "Create a governed compensating entry for a posted Manual Journal."],
-    "recurring-journals": ["Recurring Journals", "Schedule monthly or quarterly templates that generate drafts only."],
-  };
   return (
     <header className="border-b border-border pb-4">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <p className="text-sm text-primary">Home / Finance / Journals</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">{titles[page][0]}</h1>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{titles[page][1]}</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Journals</h1>
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+            {activeTab === "transactions"
+              ? "Review, prepare, approve, post and reverse Journals from one transaction register."
+              : "Manage recurring templates that generate drafts for the normal approval workflow."}
+          </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <div className="grid min-w-64 gap-1">
@@ -240,26 +429,58 @@ function WorkspaceHeader({
               Base currency · {options.base_currency}
             </Badge>
           ) : null}
-          {page === "journal-register" && permissions.has("finance.journal.create") ? (
-            <Button onClick={() => onNavigate("finance", "manual-journal")}>＋ Add New</Button>
+          <div className="grid gap-1">
+            <Label htmlFor="journal-display-decimals">Display decimals</Label>
+            <select
+              id="journal-display-decimals"
+              className="h-10 rounded-md border border-input bg-background px-3"
+              value={displayDecimalPlaces}
+              onChange={(event) => onDisplayDecimalPlaces(Number(event.target.value))}
+              aria-describedby="journal-display-decimals-hint"
+            >
+              {Array.from({ length: 9 }, (_, value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </div>
+          {activeTab === "transactions" && permissions.has("finance.journal.create") ? (
+            <Button onClick={onNewJournal}>＋ New Journal</Button>
           ) : null}
         </div>
       </div>
+      <p id="journal-display-decimals-hint" className="mt-2 text-xs text-muted-foreground">
+        Display only. Entry and posting precision follow the company base currency.
+      </p>
     </header>
   );
 }
 
-function JournalRegister({ client, companyId, options, onNavigate, setError }: Common) {
+function JournalRegister({
+  client,
+  companyId,
+  options,
+  onNavigate,
+  setError,
+  displayDecimalPlaces,
+  refreshToken,
+  initialView = "all",
+}: Common & { initialView?: JournalRegisterView }) {
   const [items, setItems] = useState<JournalSummary[]>([]);
-  const [state, setState] = useState("");
-  const [source, setSource] = useState("");
+  const [view, setView] = useState<JournalRegisterView>(initialView);
+  const [state, setState] = useState(
+    initialView === "approval" ? "submitted" : initialView === "reversal" ? "posted" : "",
+  );
+  const [source, setSource] = useState(initialView === "reversal" ? "manual" : "");
   const [nominalId, setNominalId] = useState("");
   const [reference, setReference] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [filters, setFilters] = useState({
-    state: "",
-    source: "",
+    view: initialView,
+    state: initialView === "approval" ? "submitted" : initialView === "reversal" ? "posted" : "",
+    source: initialView === "reversal" ? "manual" : "",
     nominalId: "",
     reference: "",
     dateFrom: "",
@@ -270,6 +491,7 @@ function JournalRegister({ client, companyId, options, onNavigate, setError }: C
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const load = useCallback(async () => {
+    void refreshToken;
     if (!companyId) return;
     setBusy(true);
     try {
@@ -281,7 +503,7 @@ function JournalRegister({ client, companyId, options, onNavigate, setError }: C
         ...(filters.reference ? { reference: filters.reference } : {}),
         ...(filters.dateFrom ? { date_from: filters.dateFrom } : {}),
         ...(filters.dateTo ? { date_to: filters.dateTo } : {}),
-        approval_queue: false,
+        approval_queue: filters.view === "approval",
         limit: 25,
         ...(cursor ? { cursor } : {}),
       });
@@ -292,13 +514,14 @@ function JournalRegister({ client, companyId, options, onNavigate, setError }: C
     } finally {
       setBusy(false);
     }
-  }, [client, companyId, cursor, filters, setError]);
+  }, [client, companyId, cursor, filters, refreshToken, setError]);
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
   const apply = () => {
     setFilters({
+      view,
       state,
       source,
       nominalId,
@@ -310,18 +533,48 @@ function JournalRegister({ client, companyId, options, onNavigate, setError }: C
     setCursorHistory([]);
   };
   const clear = () => {
+    setView("all");
     setState("");
     setSource("");
     setNominalId("");
     setReference("");
     setDateFrom("");
     setDateTo("");
-    setFilters({ state: "", source: "", nominalId: "", reference: "", dateFrom: "", dateTo: "" });
+    setFilters({ view: "all", state: "", source: "", nominalId: "", reference: "", dateFrom: "", dateTo: "" });
     setCursor(undefined);
     setCursorHistory([]);
   };
   return (
     <section className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border p-4" aria-label="Journal register views">
+        {(
+          [
+            ["all", "All transactions"],
+            ["approval", "Awaiting approval"],
+            ["reversal", "Posted Manual Journals"],
+          ] as const
+        ).map(([value, label]) => (
+          <Button
+            key={value}
+            type="button"
+            size="sm"
+            variant={view === value ? "default" : "outline"}
+            aria-pressed={view === value}
+            onClick={() => {
+              const nextState = value === "approval" ? "submitted" : value === "reversal" ? "posted" : "";
+              const nextSource = value === "reversal" ? "manual" : "";
+              setView(value);
+              setState(nextState);
+              setSource(nextSource);
+              setFilters((current) => ({ ...current, view: value, state: nextState, source: nextSource }));
+              setCursor(undefined);
+              setCursorHistory([]);
+            }}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
       <div className="grid gap-3 border-b border-border p-4 md:grid-cols-2 xl:grid-cols-[1fr_11rem_11rem_1fr_10rem_10rem_auto]">
         <Input
           aria-label="Reference search"
@@ -381,7 +634,12 @@ function JournalRegister({ client, companyId, options, onNavigate, setError }: C
           <Button onClick={apply}>Apply</Button>
         </div>
       </div>
-      <JournalTable items={items} busy={busy} onOpen={(item) => onNavigate("finance", "journal-detail", item.id)} />
+      <JournalTable
+        items={items}
+        busy={busy}
+        displayDecimalPlaces={displayDecimalPlaces}
+        onOpen={(item) => onNavigate("finance", "journal-detail", item.id)}
+      />
       <Pagination
         busy={busy}
         hasPrevious={cursorHistory.length > 0}
@@ -405,10 +663,12 @@ function JournalTable({
   items,
   busy,
   onOpen,
+  displayDecimalPlaces,
 }: {
   items: JournalSummary[];
   busy: boolean;
   onOpen: (item: JournalSummary) => void;
+  displayDecimalPlaces: number;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -439,7 +699,9 @@ function JournalTable({
               <td className="px-4 py-3">
                 <StateBadge state={item.state} />
               </td>
-              <td className="px-4 py-3 text-right tabular-nums">{money(item.total, item.currency)}</td>
+              <td className="px-4 py-3 text-right tabular-nums">
+                {money(item.total, item.currency, displayDecimalPlaces)}
+              </td>
               <td className="px-4 py-3">
                 <Button size="sm" variant="outline" onClick={() => onOpen(item)}>
                   View
@@ -471,6 +733,7 @@ function ManualJournalForm({
   onNavigate,
   journalId,
   onDirtyChange,
+  displayDecimalPlaces,
 }: Common & { journalId?: string; onDirtyChange?: (dirty: boolean) => void }) {
   const [date, setDate] = useState(today());
   const [reference, setReference] = useState("");
@@ -604,6 +867,7 @@ function ManualJournalForm({
       <LineEditor
         lines={lines}
         options={options}
+        displayDecimalPlaces={displayDecimalPlaces}
         disabled={!editable}
         onChange={(value) => {
           setLines(value);
@@ -627,10 +891,10 @@ function ManualJournalForm({
           className={`grid min-w-80 grid-cols-2 border text-right tabular-nums ${validation.debit === validation.credit && validation.debit > 0n ? "border-[var(--nx-success-border)]" : "border-destructive/40"}`}
         >
           <span className="bg-muted px-4 py-3 font-semibold">
-            {formatJournalAmount(validation.debit, decimalPlaces)}
+            {formatJournalDisplayAmount(formatJournalAmount(validation.debit, decimalPlaces), displayDecimalPlaces)}
           </span>
           <span className="bg-muted px-4 py-3 font-semibold">
-            {formatJournalAmount(validation.credit, decimalPlaces)}
+            {formatJournalDisplayAmount(formatJournalAmount(validation.credit, decimalPlaces), displayDecimalPlaces)}
           </span>
         </div>
       </div>
@@ -689,11 +953,15 @@ function ManualJournalForm({
 function LineEditor({
   lines,
   options,
+  displayDecimalPlaces,
+  mode = "manual",
   disabled,
   onChange,
 }: {
   lines: DraftLine[];
   options: JournalOptions | null;
+  displayDecimalPlaces: number;
+  mode?: "manual" | "recurring";
   disabled?: boolean;
   onChange: (lines: DraftLine[]) => void;
 }) {
@@ -707,6 +975,12 @@ function LineEditor({
         i === index ? { ...line, dimensions: { ...line.dimensions, [dimension]: value } } : line,
       ),
     );
+  const nominalOptions = (options?.nominals ?? [])
+    .filter((item) => mode === "manual" || item.kind === "general")
+    .map((item) => ({
+      value: item.id,
+      label: `${item.code} · ${item.name}${item.kind === "bank" ? " · Bank" : ""}`,
+    }));
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[980px] text-sm">
@@ -724,20 +998,16 @@ function LineEditor({
           {lines.map((line, index) => (
             <tr key={line.client_id} className="border-t border-border">
               <td className="p-2">
-                <select
-                  aria-label={`Nominal account line ${index + 1}`}
-                  className="h-10 w-full rounded-md border border-input bg-background px-2"
+                <SearchableSelect
+                  label={`Nominal account line ${index + 1}`}
+                  searchLabel={`Search nominal account line ${index + 1}`}
                   value={line.account_id}
+                  options={nominalOptions}
+                  placeholder="Select nominal"
                   disabled={disabled}
-                  onChange={(event) => changeAccount(index, event.target.value)}
-                >
-                  <option value="">Select nominal</option>
-                  {options?.nominals.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.code} · {item.name}
-                    </option>
-                  ))}
-                </select>
+                  required
+                  onValueChange={(value) => changeAccount(index, value)}
+                />
               </td>
               <td className="p-2">
                 <Input
@@ -769,23 +1039,21 @@ function LineEditor({
                 })()}
               </td>
               <td className="p-2">
-                <Input
-                  aria-label={`Debit line ${index + 1}`}
-                  className="text-right tabular-nums"
-                  inputMode="decimal"
+                <JournalAmountInput
+                  label={`Debit line ${index + 1}`}
                   value={line.debit}
+                  displayDecimalPlaces={displayDecimalPlaces}
                   disabled={disabled}
-                  onChange={(event) => change(index, "debit", event.target.value || "0")}
+                  onChange={(value) => change(index, "debit", value || "0")}
                 />
               </td>
               <td className="p-2">
-                <Input
-                  aria-label={`Credit line ${index + 1}`}
-                  className="text-right tabular-nums"
-                  inputMode="decimal"
+                <JournalAmountInput
+                  label={`Credit line ${index + 1}`}
                   value={line.credit}
+                  displayDecimalPlaces={displayDecimalPlaces}
                   disabled={disabled}
-                  onChange={(event) => change(index, "credit", event.target.value || "0")}
+                  onChange={(value) => change(index, "credit", value || "0")}
                 />
               </td>
               <td className="p-2">
@@ -812,7 +1080,13 @@ function LineEditor({
   );
 }
 
-function JournalDetailView({ client, journalId, setError, onNavigate }: Common & { journalId?: string }) {
+function JournalDetailView({
+  client,
+  journalId,
+  setError,
+  onNavigate,
+  displayDecimalPlaces,
+}: Common & { journalId?: string }) {
   const [detail, setDetail] = useState<JournalDetail | null>(null);
   useEffect(() => {
     if (!journalId) return;
@@ -879,15 +1153,19 @@ function JournalDetailView({ client, journalId, setError, onNavigate }: Common &
                           .join(" · ")
                       : "—"}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums">{Number(line.debit) ? line.debit : "—"}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{Number(line.credit) ? line.credit : "—"}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {formatJournalDisplayAmount(line.debit, displayDecimalPlaces)}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {formatJournalDisplayAmount(line.credit, displayDecimalPlaces)}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <div className="border-t border-border bg-muted/30 px-4 py-3 text-right font-semibold">
-          Total · {money(detail.total, detail.currency)}
+          Total · {money(detail.total, detail.currency, displayDecimalPlaces)}
         </div>
       </section>
       <section className="rounded-lg border border-border bg-card p-4">
@@ -921,7 +1199,10 @@ function JournalApproval({
   notify,
   setError,
   initialId,
-}: Common & { initialId?: string }) {
+  displayDecimalPlaces,
+  embedded = false,
+  onComplete,
+}: Common & { initialId?: string; embedded?: boolean; onComplete?: (id: string) => void }) {
   const [items, setItems] = useState<JournalSummary[]>([]);
   const [selected, setSelected] = useState(initialId ?? "");
   const [detail, setDetail] = useState<JournalDetail | null>(null);
@@ -953,9 +1234,10 @@ function JournalApproval({
     }
   }, [client, companyId, cursor, setError]);
   useEffect(() => {
+    if (embedded) return;
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
-  }, [load]);
+  }, [embedded, load]);
   useEffect(() => {
     if (!selected) return;
     client
@@ -980,6 +1262,10 @@ function JournalApproval({
         key(action),
       );
       notify(action === "post" ? "Journal confirmed and posted." : "Journal rejected back to draft.");
+      if (embedded) {
+        onComplete?.(detail.id);
+        return;
+      }
       setSelected("");
       setDetail(null);
       setReason("");
@@ -993,43 +1279,45 @@ function JournalApproval({
     }
   };
   return (
-    <div className="grid gap-4 xl:grid-cols-[22rem_1fr]">
-      <aside className="rounded-lg border border-border bg-card">
-        <div className="border-b border-border p-4 font-semibold">Submitted queue</div>
-        {loading ? <p className="p-6 text-sm text-muted-foreground">Loading submitted Journals…</p> : null}
-        {items.map((item) => (
-          <button
-            type="button"
-            key={item.id}
-            className={`block w-full border-b border-border p-4 text-left hover:bg-muted/40 ${selected === item.id ? "bg-primary/10" : ""}`}
-            onClick={() => setSelected(item.id)}
-          >
-            <strong>{item.display_number}</strong>
-            <span className="mt-1 block text-sm text-muted-foreground">
-              {item.journal_date} · {money(item.total, item.currency)}
-            </span>
-          </button>
-        ))}
-        {items.length === 0 ? <p className="p-6 text-sm text-muted-foreground">No Journals await approval.</p> : null}
-        <Pagination
-          busy={loading}
-          hasPrevious={cursorHistory.length > 0}
-          hasNext={Boolean(nextCursor)}
-          onPrevious={() => {
-            setSelected("");
-            setDetail(null);
-            setCursorHistory((value) => value.slice(0, -1));
-            setCursor(cursorHistory.at(-1));
-          }}
-          onNext={() => {
-            if (!nextCursor) return;
-            setSelected("");
-            setDetail(null);
-            setCursorHistory((value) => [...value, cursor]);
-            setCursor(nextCursor);
-          }}
-        />
-      </aside>
+    <div className={embedded ? "" : "grid gap-4 xl:grid-cols-[22rem_1fr]"}>
+      {!embedded ? (
+        <aside className="rounded-lg border border-border bg-card">
+          <div className="border-b border-border p-4 font-semibold">Submitted queue</div>
+          {loading ? <p className="p-6 text-sm text-muted-foreground">Loading submitted Journals…</p> : null}
+          {items.map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              className={`block w-full border-b border-border p-4 text-left hover:bg-muted/40 ${selected === item.id ? "bg-primary/10" : ""}`}
+              onClick={() => setSelected(item.id)}
+            >
+              <strong>{item.display_number}</strong>
+              <span className="mt-1 block text-sm text-muted-foreground">
+                {item.journal_date} · {money(item.total, item.currency, displayDecimalPlaces)}
+              </span>
+            </button>
+          ))}
+          {items.length === 0 ? <p className="p-6 text-sm text-muted-foreground">No Journals await approval.</p> : null}
+          <Pagination
+            busy={loading}
+            hasPrevious={cursorHistory.length > 0}
+            hasNext={Boolean(nextCursor)}
+            onPrevious={() => {
+              setSelected("");
+              setDetail(null);
+              setCursorHistory((value) => value.slice(0, -1));
+              setCursor(cursorHistory.at(-1));
+            }}
+            onNext={() => {
+              if (!nextCursor) return;
+              setSelected("");
+              setDetail(null);
+              setCursorHistory((value) => [...value, cursor]);
+              setCursor(nextCursor);
+            }}
+          />
+        </aside>
+      ) : null}
       <section className="rounded-lg border border-border bg-card p-4">
         {detail ? (
           <>
@@ -1040,10 +1328,10 @@ function JournalApproval({
                   Prepared by {detail.maker_user_id} · {detail.currency} base currency
                 </p>
               </div>
-              <Badge variant="outline">Balanced · {money(detail.total, detail.currency)}</Badge>
+              <Badge variant="outline">Balanced · {money(detail.total, detail.currency, displayDecimalPlaces)}</Badge>
             </div>
             <div className="mt-4">
-              <ReadOnlyLines detail={detail} />
+              <ReadOnlyLines detail={detail} displayDecimalPlaces={displayDecimalPlaces} />
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <div className="grid gap-2">
@@ -1051,10 +1339,30 @@ function JournalApproval({
                 <Textarea id="decision-note" value={note} onChange={(event) => setNote(event.target.value)} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="decision-reason">Rejection / override reason</Label>
-                <Textarea id="decision-reason" value={reason} onChange={(event) => setReason(event.target.value)} />
+                <Label htmlFor="decision-reason">
+                  {detail.capabilities.super_admin_override_available
+                    ? "Self-approval override reason *"
+                    : "Rejection reason"}
+                </Label>
+                <Textarea
+                  id="decision-reason"
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  maxLength={500}
+                  required={detail.capabilities.super_admin_override_available}
+                  aria-describedby="journal-approval-guidance"
+                />
               </div>
             </div>
+            <p id="journal-approval-guidance" className="mt-3 text-sm text-muted-foreground" role="status">
+              {!detail.capabilities.approve
+                ? "Approval is unavailable for your account. An authorized approver must review this Journal."
+                : detail.capabilities.super_admin_override_available
+                  ? "You prepared this Journal. Enter an override reason of at least 3 characters to approve it as Super Administrator."
+                  : detail.capabilities.self_approval_required
+                    ? "Your assigned self-approval permission allows you to approve this Journal. An override reason is not required."
+                    : "Confirm the final review to approve and post. A reason is required only when rejecting to draft."}
+            </p>
             <div className="mt-4 flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3">
               <Checkbox
                 id="journal-final-confirmation"
@@ -1107,7 +1415,10 @@ function JournalReversal({
   notify,
   setError,
   initialId,
-}: Common & { initialId?: string }) {
+  displayDecimalPlaces,
+  embedded = false,
+  onComplete,
+}: Common & { initialId?: string; embedded?: boolean; onComplete?: (id: string) => void }) {
   const [items, setItems] = useState<JournalSummary[]>([]);
   const [selected, setSelected] = useState(initialId ?? "");
   const [detail, setDetail] = useState<JournalDetail | null>(null);
@@ -1141,9 +1452,10 @@ function JournalReversal({
     }
   }, [client, companyId, cursor, setError]);
   useEffect(() => {
+    if (embedded) return;
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
-  }, [load]);
+  }, [embedded, load]);
   useEffect(() => {
     if (selected)
       client
@@ -1162,6 +1474,10 @@ function JournalReversal({
         key("reverse"),
       );
       notify("Compensating reversal posted.");
+      if (embedded) {
+        onComplete?.(detail.id);
+        return;
+      }
       setDetail(null);
       setSelected("");
       setReason("");
@@ -1174,42 +1490,44 @@ function JournalReversal({
     }
   };
   return (
-    <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
-      <section className="rounded-lg border border-border bg-card p-4">
-        <Label htmlFor="reversal-source">Posted Manual Journal</Label>
-        <select
-          id="reversal-source"
-          className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3"
-          value={selected}
-          onChange={(event) => setSelected(event.target.value)}
-        >
-          <option value="">Select Journal</option>
-          {items.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.display_number} · {item.journal_date}
-            </option>
-          ))}
-        </select>
-        {loading ? <p className="mt-3 text-sm text-muted-foreground">Loading posted Journals…</p> : null}
-        <Pagination
-          busy={loading}
-          hasPrevious={cursorHistory.length > 0}
-          hasNext={Boolean(nextCursor)}
-          onPrevious={() => {
-            setSelected("");
-            setDetail(null);
-            setCursorHistory((value) => value.slice(0, -1));
-            setCursor(cursorHistory.at(-1));
-          }}
-          onNext={() => {
-            if (!nextCursor) return;
-            setSelected("");
-            setDetail(null);
-            setCursorHistory((value) => [...value, cursor]);
-            setCursor(nextCursor);
-          }}
-        />
-      </section>
+    <div className={embedded ? "" : "grid gap-4 lg:grid-cols-[20rem_1fr]"}>
+      {!embedded ? (
+        <section className="rounded-lg border border-border bg-card p-4">
+          <Label htmlFor="reversal-source">Posted Manual Journal</Label>
+          <select
+            id="reversal-source"
+            className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3"
+            value={selected}
+            onChange={(event) => setSelected(event.target.value)}
+          >
+            <option value="">Select Journal</option>
+            {items.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.display_number} · {item.journal_date}
+              </option>
+            ))}
+          </select>
+          {loading ? <p className="mt-3 text-sm text-muted-foreground">Loading posted Journals…</p> : null}
+          <Pagination
+            busy={loading}
+            hasPrevious={cursorHistory.length > 0}
+            hasNext={Boolean(nextCursor)}
+            onPrevious={() => {
+              setSelected("");
+              setDetail(null);
+              setCursorHistory((value) => value.slice(0, -1));
+              setCursor(cursorHistory.at(-1));
+            }}
+            onNext={() => {
+              if (!nextCursor) return;
+              setSelected("");
+              setDetail(null);
+              setCursorHistory((value) => [...value, cursor]);
+              setCursor(nextCursor);
+            }}
+          />
+        </section>
+      ) : null}
       <section className="rounded-lg border border-border bg-card p-4">
         {detail ? (
           <>
@@ -1218,7 +1536,7 @@ function JournalReversal({
               The original posting remains immutable. A new compensating Journal will be posted.
             </p>
             <div className="mt-4">
-              <ReadOnlyLines detail={detail} />
+              <ReadOnlyLines detail={detail} displayDecimalPlaces={displayDecimalPlaces} />
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <div className="grid gap-2">
@@ -1276,7 +1594,17 @@ function JournalReversal({
   );
 }
 
-function RecurringJournals({ client, companyId, options, csrfToken, permissions, notify, setError }: Common) {
+function RecurringJournals({
+  client,
+  companyId,
+  options,
+  csrfToken,
+  permissions,
+  notify,
+  setError,
+  displayDecimalPlaces,
+  onDirtyChange,
+}: Common & { onDirtyChange?: (dirty: boolean) => void }) {
   const [items, setItems] = useState<RecurringJournalTemplate[]>([]);
   const [selected, setSelected] = useState<RecurringJournalTemplate | null>(null);
   const [status, setStatus] = useState<"" | "active" | "inactive">("");
@@ -1301,9 +1629,16 @@ function RecurringJournals({ client, companyId, options, csrfToken, permissions,
   const [occurrenceHistory, setOccurrenceHistory] = useState<(string | undefined)[]>([]);
   const [occurrenceNext, setOccurrenceNext] = useState<string | null>(null);
   const [occurrenceLoading, setOccurrenceLoading] = useState(false);
+  const [drawerMode, setDrawerMode] = useState<"form" | "history" | null>(null);
+  const [formDirty, setFormDirty] = useState(false);
   const canManage = permissions.has("finance.recurring_journal.manage");
   const decimalPlaces = options?.decimal_places ?? 2;
   const lineValidation = useMemo(() => validateJournalLines(linePayload(lines), decimalPlaces), [decimalPlaces, lines]);
+
+  useEffect(() => {
+    onDirtyChange?.(drawerMode === "form" && formDirty);
+    return () => onDirtyChange?.(false);
+  }, [drawerMode, formDirty, onDirtyChange]);
 
   const load = useCallback(async () => {
     if (!companyId) return;
@@ -1347,6 +1682,7 @@ function RecurringJournals({ client, companyId, options, csrfToken, permissions,
   const openHistory = (item: RecurringJournalTemplate) => {
     setOccurrenceCursor(undefined);
     setOccurrenceHistory([]);
+    setDrawerMode("history");
     void loadOccurrences(item);
   };
   const edit = (item: RecurringJournalTemplate) => {
@@ -1359,6 +1695,8 @@ function RecurringJournals({ client, companyId, options, csrfToken, permissions,
     setNarration(item.narration);
     setLines(item.lines.map((line) => ({ ...line, client_id: crypto.randomUUID() })));
     setFormErrors([]);
+    setFormDirty(false);
+    setDrawerMode("form");
   };
   const reset = () => {
     setSelected(null);
@@ -1370,6 +1708,19 @@ function RecurringJournals({ client, companyId, options, csrfToken, permissions,
     setNarration("");
     setLines([emptyLine(), emptyLine()]);
     setFormErrors([]);
+    setFormDirty(false);
+  };
+  const openCreate = () => {
+    reset();
+    setDrawerMode("form");
+  };
+  const closeDrawer = () => {
+    if (drawerMode === "form" && formDirty && typeof window !== "undefined") {
+      if (!window.confirm("You have unsaved recurring Journal changes. Close the drawer and discard them?")) return;
+    }
+    setDrawerMode(null);
+    setHistoryTemplate(null);
+    setFormDirty(false);
   };
   const validate = () => {
     const errors = [...lineValidation.errors, ...requiredDimensionErrors(lines, options)];
@@ -1406,6 +1757,7 @@ function RecurringJournals({ client, companyId, options, csrfToken, permissions,
         notify("Recurring Journal template saved inactive for review.");
       }
       reset();
+      setDrawerMode(null);
       await load();
     } catch (caught) {
       setError(errorText(caught));
@@ -1454,9 +1806,12 @@ function RecurringJournals({ client, companyId, options, csrfToken, permissions,
               <option value="inactive">Inactive</option>
             </select>
           </Field>
-          <span className="text-sm text-muted-foreground">
-            Worker output is draft-only and remains subject to the normal approval workflow.
-          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm text-muted-foreground">
+              Worker output is draft-only and remains subject to the normal approval workflow.
+            </span>
+            {canManage ? <Button onClick={openCreate}>＋ New template</Button> : null}
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-sm">
@@ -1566,144 +1921,244 @@ function RecurringJournals({ client, companyId, options, csrfToken, permissions,
         </section>
       ) : null}
 
-      {historyTemplate ? (
-        <section className="overflow-hidden rounded-lg border border-border bg-card">
-          <div className="border-b border-border p-4">
-            <h2 className="font-semibold">Generation history · {historyTemplate.name}</h2>
-            <p className="text-sm text-muted-foreground">
-              Failures remain isolated to their occurrence; exhausted retries require operator review.
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead className="bg-muted">
-                <tr>
-                  {["Scheduled date", "State", "Attempts", "Draft", "Last error", "Updated"].map((value) => (
-                    <th key={value} className="px-4 py-3 text-left">
-                      {value}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {occurrenceLoading ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                      Loading generation history…
-                    </td>
-                  </tr>
-                ) : null}
-                {occurrences.map((occurrence) => (
-                  <tr key={occurrence.id} className="border-t border-border">
-                    <td className="px-4 py-3">{occurrence.scheduled_date}</td>
-                    <td className="px-4 py-3">
-                      <Badge
-                        variant={
-                          occurrence.state === "exhausted" || occurrence.state === "failed" ? "destructive" : "outline"
-                        }
-                      >
-                        {occurrence.state.replaceAll("_", " ")}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">{occurrence.attempt_count}</td>
-                    <td className="px-4 py-3">{occurrence.manual_journal_id ?? "—"}</td>
-                    <td className="px-4 py-3">{occurrence.last_error_code ?? "—"}</td>
-                    <td className="px-4 py-3">{new Date(occurrence.updated_at).toLocaleString()}</td>
-                  </tr>
-                ))}
-                {!occurrenceLoading && occurrences.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                      No occurrences have been generated.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-          <Pagination
-            busy={occurrenceLoading}
-            hasPrevious={occurrenceHistory.length > 0}
-            hasNext={Boolean(occurrenceNext)}
-            onPrevious={() => {
-              const previous = occurrenceHistory.at(-1);
-              setOccurrenceHistory((value) => value.slice(0, -1));
-              setOccurrenceCursor(previous);
-              void loadOccurrences(historyTemplate, previous);
-            }}
-            onNext={() => {
-              if (occurrenceNext) {
-                setOccurrenceHistory((value) => [...value, occurrenceCursor]);
-                setOccurrenceCursor(occurrenceNext);
-                void loadOccurrences(historyTemplate, occurrenceNext);
-              }
-            }}
-          />
-        </section>
-      ) : null}
+      <Sheet
+        open={drawerMode !== null}
+        onOpenChange={(open) => {
+          if (!open) closeDrawer();
+        }}
+      >
+        <SheetContent className="w-full max-w-none gap-0 sm:max-w-[min(96vw,80rem)]">
+          <SheetHeader className="border-b border-border pr-14">
+            <SheetTitle>
+              {drawerMode === "history"
+                ? "Recurring generation history"
+                : selected
+                  ? `Edit ${selected.name}`
+                  : "New recurring template"}
+            </SheetTitle>
+            <SheetDescription>
+              {drawerMode === "history"
+                ? "Review generated drafts, retries and failures for this template."
+                : "Recurring templates generate drafts only and remain subject to Journal approval."}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            {drawerMode === "history" && historyTemplate ? (
+              <section className="overflow-hidden rounded-lg border border-border bg-card">
+                <div className="border-b border-border p-4">
+                  <h2 className="font-semibold">Generation history · {historyTemplate.name}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Failures remain isolated to their occurrence; exhausted retries require operator review.
+                  </p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px] text-sm">
+                    <thead className="bg-muted">
+                      <tr>
+                        {["Scheduled date", "State", "Attempts", "Draft", "Last error", "Updated"].map((value) => (
+                          <th key={value} className="px-4 py-3 text-left">
+                            {value}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {occurrenceLoading ? (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                            Loading generation history…
+                          </td>
+                        </tr>
+                      ) : null}
+                      {occurrences.map((occurrence) => (
+                        <tr key={occurrence.id} className="border-t border-border">
+                          <td className="px-4 py-3">{occurrence.scheduled_date}</td>
+                          <td className="px-4 py-3">
+                            <Badge
+                              variant={
+                                occurrence.state === "exhausted" || occurrence.state === "failed"
+                                  ? "destructive"
+                                  : "outline"
+                              }
+                            >
+                              {occurrence.state.replaceAll("_", " ")}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3">{occurrence.attempt_count}</td>
+                          <td className="px-4 py-3">{occurrence.manual_journal_id ?? "—"}</td>
+                          <td className="px-4 py-3">{occurrence.last_error_code ?? "—"}</td>
+                          <td className="px-4 py-3">{new Date(occurrence.updated_at).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                      {!occurrenceLoading && occurrences.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                            No occurrences have been generated.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+                <Pagination
+                  busy={occurrenceLoading}
+                  hasPrevious={occurrenceHistory.length > 0}
+                  hasNext={Boolean(occurrenceNext)}
+                  onPrevious={() => {
+                    const previous = occurrenceHistory.at(-1);
+                    setOccurrenceHistory((value) => value.slice(0, -1));
+                    setOccurrenceCursor(previous);
+                    void loadOccurrences(historyTemplate, previous);
+                  }}
+                  onNext={() => {
+                    if (occurrenceNext) {
+                      setOccurrenceHistory((value) => [...value, occurrenceCursor]);
+                      setOccurrenceCursor(occurrenceNext);
+                      void loadOccurrences(historyTemplate, occurrenceNext);
+                    }
+                  }}
+                />
+              </section>
+            ) : null}
 
-      {canManage ? (
-        <section className="space-y-4 rounded-lg border border-border bg-card p-4">
-          <h2 className="text-xl font-semibold">{selected ? `Edit ${selected.name}` : "Add recurring template"}</h2>
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <Field label="Name">
-              <Input value={name} onChange={(event) => setName(event.target.value)} />
-            </Field>
-            <Field label="Schedule">
-              <select
-                className="h-10 rounded-md border border-input bg-background px-3"
-                value={schedule}
-                onChange={(event) => setSchedule(event.target.value as typeof schedule)}
-              >
-                <option value="monthly">Monthly</option>
-                <option value="quarterly">Quarterly</option>
-              </select>
-            </Field>
-            <Field label="Start date">
-              <Input type="date" value={start} onChange={(event) => setStart(event.target.value)} />
-            </Field>
-            <Field label="End date">
-              <Input type="date" min={start} value={end} onChange={(event) => setEnd(event.target.value)} />
-            </Field>
-            <Field label="Reference pattern">
-              <Input
-                placeholder="Accrual {date}"
-                value={reference}
-                onChange={(event) => setReference(event.target.value)}
-              />
-            </Field>
-            <Field label="Narration">
-              <Input value={narration} onChange={(event) => setNarration(event.target.value)} />
-            </Field>
+            {drawerMode === "form" && canManage ? (
+              <section className="space-y-4 rounded-lg border border-border bg-card p-4">
+                <h2 className="text-xl font-semibold">
+                  {selected ? `Edit ${selected.name}` : "Add recurring template"}
+                </h2>
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                  <Field label="Name">
+                    <Input
+                      value={name}
+                      onChange={(event) => {
+                        setName(event.target.value);
+                        setFormDirty(true);
+                      }}
+                    />
+                  </Field>
+                  <Field label="Schedule">
+                    <select
+                      className="h-10 rounded-md border border-input bg-background px-3"
+                      value={schedule}
+                      onChange={(event) => {
+                        setSchedule(event.target.value as typeof schedule);
+                        setFormDirty(true);
+                      }}
+                    >
+                      <option value="monthly">Monthly</option>
+                      <option value="quarterly">Quarterly</option>
+                    </select>
+                  </Field>
+                  <Field label="Start date">
+                    <Input
+                      type="date"
+                      value={start}
+                      onChange={(event) => {
+                        setStart(event.target.value);
+                        setFormDirty(true);
+                      }}
+                    />
+                  </Field>
+                  <Field label="End date">
+                    <Input
+                      type="date"
+                      min={start}
+                      value={end}
+                      onChange={(event) => {
+                        setEnd(event.target.value);
+                        setFormDirty(true);
+                      }}
+                    />
+                  </Field>
+                  <Field label="Reference pattern">
+                    <Input
+                      placeholder="Accrual {date}"
+                      value={reference}
+                      onChange={(event) => {
+                        setReference(event.target.value);
+                        setFormDirty(true);
+                      }}
+                    />
+                  </Field>
+                  <Field label="Narration">
+                    <Input
+                      value={narration}
+                      onChange={(event) => {
+                        setNarration(event.target.value);
+                        setFormDirty(true);
+                      }}
+                    />
+                  </Field>
+                </div>
+                <LineEditor
+                  lines={lines}
+                  options={options}
+                  displayDecimalPlaces={displayDecimalPlaces}
+                  mode="recurring"
+                  onChange={(value) => {
+                    setLines(value);
+                    setFormDirty(true);
+                  }}
+                />
+                {formErrors.length ? (
+                  <Alert variant="destructive">
+                    <AlertTitle>Review the recurring template</AlertTitle>
+                    <AlertDescription>
+                      <ul className="list-disc space-y-1 pl-5">
+                        {formErrors.map((message) => (
+                          <li key={message}>{message}</li>
+                        ))}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={closeDrawer}>
+                    Cancel
+                  </Button>
+                  <Button disabled={busy} onClick={() => void save()}>
+                    {busy ? "Saving…" : "Save template"}
+                  </Button>
+                </div>
+              </section>
+            ) : null}
           </div>
-          <LineEditor lines={lines} options={options} onChange={setLines} />
-          {formErrors.length ? (
-            <Alert variant="destructive">
-              <AlertTitle>Review the recurring template</AlertTitle>
-              <AlertDescription>
-                <ul className="list-disc space-y-1 pl-5">
-                  {formErrors.map((message) => (
-                    <li key={message}>{message}</li>
-                  ))}
-                </ul>
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={reset}>
-              {selected ? "Cancel edit" : "Clear"}
-            </Button>
-            <Button disabled={busy} onClick={() => void save()}>
-              {busy ? "Saving…" : "Save template"}
-            </Button>
-          </div>
-        </section>
-      ) : null}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
 
-function ReadOnlyLines({ detail }: { detail: JournalDetail }) {
+function JournalAmountInput({
+  label,
+  value,
+  displayDecimalPlaces,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  displayDecimalPlaces: number;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const displayed = formatJournalDisplayAmount(value, displayDecimalPlaces);
+  return (
+    <Input
+      aria-label={label}
+      className="text-right tabular-nums"
+      inputMode="decimal"
+      value={editing || displayed === "—" ? value : displayed}
+      disabled={disabled}
+      onFocus={() => setEditing(true)}
+      onBlur={() => setEditing(false)}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  );
+}
+
+function ReadOnlyLines({ detail, displayDecimalPlaces }: { detail: JournalDetail; displayDecimalPlaces: number }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[620px] text-sm">
@@ -1730,8 +2185,12 @@ function ReadOnlyLines({ detail }: { detail: JournalDetail }) {
                       .join(" · ")
                   : "—"}
               </td>
-              <td className="px-3 py-2 text-right tabular-nums">{line.debit}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{line.credit}</td>
+              <td className="px-3 py-2 text-right tabular-nums">
+                {formatJournalDisplayAmount(line.debit, displayDecimalPlaces)}
+              </td>
+              <td className="px-3 py-2 text-right tabular-nums">
+                {formatJournalDisplayAmount(line.credit, displayDecimalPlaces)}
+              </td>
             </tr>
           ))}
         </tbody>

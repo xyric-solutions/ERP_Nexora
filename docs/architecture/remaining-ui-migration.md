@@ -3051,3 +3051,59 @@ Company Chart adoption/review checkpoint (2026-10-20):
   production web build passed. The isolated Finance Posting database was
   removed after the run; no shared/UAT database migration or Journal data
   creation occurred.
+
+## 2026-10-30 - Searchable Manual Journal bank nominals
+
+- Manual Journal lines now use the shared searchable selector and include
+  governed, active Bank Account ledgers whose currency matches the company base
+  currency. Bank choices are labelled explicitly; ordinary nominal behavior and
+  required-dimension handling are preserved.
+- Recurring Journal templates remain restricted to ordinary nominals in both
+  the screen and server validation. Foreign-currency, inactive, header, system
+  and non-postable Bank accounts remain excluded.
+- No feature stylesheet was added or retired. Finance migration 33 and the
+  searchable selector were activated on the localhost ERP database and port
+  3000. Authenticated browser acceptance remains outstanding because the
+  computer-use helper could not initialize.
+
+## 2026-10-30 - Journal self-approval and decimal display
+
+- Corrected the approval capability response so an explicit, company-scoped
+  self-approval grant does not also require a Super Administrator override.
+  Actual overrides still require authority and a reason, with clear guidance
+  beside the approval controls; final review confirmation remains mandatory.
+- Added a per-user browser preference for 0–8 display decimals, defaulting to
+  two, across Journal totals and line displays. Editable amounts show the full
+  original value while focused. Exact integer-based display rounding never
+  changes the stored value, validation precision or mutation payload.
+- Focused UI tests cover authorized approval, required override reasons,
+  preference persistence and unchanged save payloads. Disposable-database
+  coverage exercises both approval paths and their audit flags. No production
+  or user-entered Journal was posted by these checks. No new migration is
+  required for this approval/display change.
+
+## 2026-11-02 - Unified Journals workspace
+
+- Consolidated the six Finance Journal menu entries into one visible **Journals**
+  entry. Transactions and recurring templates now use tabs inside the same
+  workspace; the legacy page IDs remain hidden route aliases so saved links
+  continue to open the matching tab or drawer.
+- Manual Journal creation/editing and Journal detail now use the shared
+  right-side Sheet. Approval/posting and compensating reversal are contextual
+  actions for the selected Journal, with the existing server capabilities,
+  confirmation, version, idempotency, self-approval and source-ownership
+  safeguards preserved.
+- Added register presets for awaiting approval and posted Manual Journals.
+  Recurring template creation/editing and generation history also use drawers;
+  recurring output remains draft-only and Bank nominals remain excluded.
+- No feature stylesheet, API contract, database migration or dependency was
+  added for this consolidation. The UI theme audit remains at 0 font exceptions
+  and 12 documented colour exceptions across 101 feature views.
+- Verification passed: 12 focused Journal workspace unit tests, repository
+  typecheck, targeted ESLint, UI theme audit check, `git diff --check`, and the
+  Next.js 16.3.8 production web build. Interactive browser evidence could not
+  be captured: the computer-use helper failed to initialize, and the local
+  development server then hit an existing Turbopack `next/font` resolver error;
+  the production build was unaffected. Safe resume point: authenticated desktop
+  and narrow-width visual acceptance of the open transaction and recurring
+  drawers when the local development runtime is available.

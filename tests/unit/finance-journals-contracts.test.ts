@@ -102,8 +102,11 @@ describe("Finance Journal contracts", () => {
       selected_company_id: "company-1",
       base_currency: "PKR",
       decimal_places: 2,
-      nominals: [{ id: "expense", code: "5000", name: "Expense", required_dimensions: ["cost_center"] }],
+      nominals: [
+        { id: "expense", code: "5000", name: "Expense", kind: "general", required_dimensions: ["cost_center"] },
+      ],
     });
+    expect(parsed.nominals[0]?.kind).toBe("general");
     expect(parsed.nominals[0]?.required_dimensions).toEqual(["cost_center"]);
   });
 

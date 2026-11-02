@@ -6077,6 +6077,13 @@
                             "minLength": 1,
                             "maxLength": 200
                           },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "general",
+                              "bank"
+                            ]
+                          },
                           "required_dimensions": {
                             "maxItems": 32,
                             "type": "array",
@@ -6091,6 +6098,7 @@
                           "id",
                           "code",
                           "name",
+                          "kind",
                           "required_dimensions"
                         ],
                         "additionalProperties": false
