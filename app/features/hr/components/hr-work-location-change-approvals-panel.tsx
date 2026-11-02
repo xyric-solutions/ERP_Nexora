@@ -1,4 +1,5 @@
 "use client";
+import { HrRecordDrawer } from "./hr-record-drawer";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -168,7 +169,7 @@ export function HrWorkLocationChangeApprovalsPanel({
 
   return (
     <section
-      className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm"
+      className="grid min-w-0 gap-4 rounded-lg border border-border bg-card p-4 shadow-sm"
       aria-label="Work-location-change approvals"
     >
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
@@ -204,8 +205,8 @@ export function HrWorkLocationChangeApprovalsPanel({
         </p>
       )}
       {state === "ready" && (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,.8fr)]">
-          <div className="overflow-x-auto rounded-md border border-border">
+        <div className="grid min-w-0 gap-4 ">
+          <div className="relative min-w-0 overflow-x-auto rounded-md border border-border">
             <table className="w-full min-w-180 text-left text-sm">
               <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
@@ -249,105 +250,113 @@ export function HrWorkLocationChangeApprovalsPanel({
               </tbody>
             </table>
           </div>
-          <aside className="rounded-md border border-border p-4">
-            {detailState === "loading" && selected && <Skeleton className="h-36 w-full" />}
-            {detailState === "error" && selected && (
-              <p className="text-sm text-muted-foreground">Select another request or refresh the queue.</p>
-            )}
-            {!selected && (
-              <p className="text-sm text-muted-foreground">
-                Select a pending work-location change to review its statutory context.
-              </p>
-            )}
-            {detail && detailState === "ready" && (
-              <div className="grid gap-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold text-foreground">{detail.employee_name}</h3>
-                    <p className="text-sm text-muted-foreground">{detail.employee_number}</p>
+          <HrRecordDrawer
+            title="Review work location change request"
+            open={!!selected}
+            onClose={() => setSelected(null)}
+            busy={saving}
+            error={error}
+          >
+            <aside className="rounded-md border border-border p-4">
+              {detailState === "loading" && selected && <Skeleton className="h-36 w-full" />}
+              {detailState === "error" && selected && (
+                <p className="text-sm text-muted-foreground">Select another request or refresh the queue.</p>
+              )}
+              {!selected && (
+                <p className="text-sm text-muted-foreground">
+                  Select a pending work-location change to review its statutory context.
+                </p>
+              )}
+              {detail && detailState === "ready" && (
+                <div className="grid min-w-0 gap-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-foreground">{detail.employee_name}</h3>
+                      <p className="text-sm text-muted-foreground">{detail.employee_number}</p>
+                    </div>
+                    <Badge variant="secondary">Pending</Badge>
                   </div>
-                  <Badge variant="secondary">Pending</Badge>
-                </div>
-                <dl className="grid gap-2 text-sm">
-                  <ReviewField label="Current work location" value={detail.current_work_location_name} />
-                  <ReviewField label="Proposed work location" value={detail.proposed_work_location_name} />
-                  <ReviewField
-                    label="Jurisdiction"
-                    value={`${detail.jurisdiction_country_code} / ${detail.jurisdiction_id}`}
-                  />
-                  <ReviewField label="Effective date" value={detail.effective_on} />
-                  <ReviewField label="Business reason" value={detail.reason} />
-                </dl>
-                <Alert variant={detail.jurisdiction_ready ? "default" : "destructive"}>
-                  <AlertTitle>
-                    {detail.jurisdiction_ready ? "Jurisdiction evidence ready" : "Jurisdiction evidence unavailable"}
-                  </AlertTitle>
-                  <AlertDescription>
-                    {detail.jurisdiction_ready
-                      ? `Reviewed profile ${detail.jurisdiction_profile_id} is effective for this decision.`
-                      : "Approval is blocked. Reject this request or restore valid reviewed jurisdiction authority."}
-                  </AlertDescription>
-                </Alert>
-                <Alert>
-                  <AlertTitle>Other assignment details unchanged</AlertTitle>
-                  <AlertDescription>
-                    Approval changes only the work location. Organization, role, manager, and compensation are copied
-                    from the authoritative source assignment.
-                  </AlertDescription>
-                </Alert>
-                {approvalOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
-                {approvalOverride.independentApproverRequired ? (
-                  <Alert>
-                    <AlertTitle>Independent approver required</AlertTitle>
+                  <dl className="grid gap-2 text-sm">
+                    <ReviewField label="Current work location" value={detail.current_work_location_name} />
+                    <ReviewField label="Proposed work location" value={detail.proposed_work_location_name} />
+                    <ReviewField
+                      label="Jurisdiction"
+                      value={`${detail.jurisdiction_country_code} / ${detail.jurisdiction_id}`}
+                    />
+                    <ReviewField label="Effective date" value={detail.effective_on} />
+                    <ReviewField label="Business reason" value={detail.reason} />
+                  </dl>
+                  <Alert variant={detail.jurisdiction_ready ? "default" : "destructive"}>
+                    <AlertTitle>
+                      {detail.jurisdiction_ready ? "Jurisdiction evidence ready" : "Jurisdiction evidence unavailable"}
+                    </AlertTitle>
                     <AlertDescription>
-                      You submitted this location change, so another HR checker must decide it.
+                      {detail.jurisdiction_ready
+                        ? `Reviewed profile ${detail.jurisdiction_profile_id} is effective for this decision.`
+                        : "Approval is blocked. Reject this request or restore valid reviewed jurisdiction authority."}
                     </AlertDescription>
                   </Alert>
-                ) : (
-                  <>
-                    <label
-                      htmlFor="work-location-change-decision-reason"
-                      className="grid gap-1.5 text-sm font-medium text-foreground"
-                    >
-                      Decision reason
-                      <Textarea
-                        id="work-location-change-decision-reason"
-                        value={reason}
-                        maxLength={1000}
-                        disabled={saving}
-                        onChange={(event) => {
-                          setReason(event.target.value);
-                          retry.current = null;
-                        }}
-                        placeholder="Explain the approval or rejection for the immutable audit record."
-                      />
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        disabled={saving || !reason.trim() || !detail.jurisdiction_ready}
-                        onClick={() => setDecision("approved")}
+                  <Alert>
+                    <AlertTitle>Other assignment details unchanged</AlertTitle>
+                    <AlertDescription>
+                      Approval changes only the work location. Organization, role, manager, and compensation are copied
+                      from the authoritative source assignment.
+                    </AlertDescription>
+                  </Alert>
+                  {approvalOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
+                  {approvalOverride.independentApproverRequired ? (
+                    <Alert>
+                      <AlertTitle>Independent approver required</AlertTitle>
+                      <AlertDescription>
+                        You submitted this location change, so another HR checker must decide it.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <>
+                      <label
+                        htmlFor="work-location-change-decision-reason"
+                        className="grid gap-1.5 text-sm font-medium text-foreground"
                       >
-                        Approve location change
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        disabled={saving || !reason.trim()}
-                        onClick={() => setDecision("rejected")}
-                      >
-                        Reject location change
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </aside>
+                        Decision reason
+                        <Textarea
+                          id="work-location-change-decision-reason"
+                          value={reason}
+                          maxLength={1000}
+                          disabled={saving}
+                          onChange={(event) => {
+                            setReason(event.target.value);
+                            retry.current = null;
+                          }}
+                          placeholder="Explain the approval or rejection for the immutable audit record."
+                        />
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          disabled={saving || !reason.trim() || !detail.jurisdiction_ready}
+                          onClick={() => setDecision("approved")}
+                        >
+                          Approve location change
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          disabled={saving || !reason.trim()}
+                          onClick={() => setDecision("rejected")}
+                        >
+                          Reject location change
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </aside>
+          </HrRecordDrawer>
         </div>
       )}
       <Dialog open={decision !== null} onOpenChange={(open) => !open && !saving && setDecision(null)}>
-        <DialogContent>
+        <DialogContent className="z-[1501]!" overlayClassName="z-[1500]!">
           <DialogHeader>
             <DialogTitle>Confirm work-location-change {decision === "approved" ? "approval" : "rejection"}</DialogTitle>
             <DialogDescription>

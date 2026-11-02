@@ -1,4 +1,5 @@
 "use client";
+import { HrRecordDrawer } from "./hr-record-drawer";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -151,89 +152,98 @@ export function HrOrganizationPlacementChangeMakerPanel({
   };
 
   return (
-    <section
-      className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm"
-      aria-label="Organization placement change request"
+    <HrRecordDrawer
+      completionKey={notice}
+      title="Change organisation placement"
+      triggerLabel="Change organisation placement"
+      busy={submitting}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
-          <h2 className="mt-1 text-lg font-semibold">Request organization placement change</h2>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Submit one complete company hierarchy. Job, manager, work location, employment context and salary remain
-            unchanged.
-          </p>
-        </div>
-        <Badge variant="outline">Same-day effective</Badge>
-      </div>
-      {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Organization request unavailable</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      {notice && (
-        <Alert>
-          <AlertTitle>Organization change submitted</AlertTitle>
-          <AlertDescription>{notice}</AlertDescription>
-        </Alert>
-      )}
-      {state === "loading" && <Skeleton className="h-24 w-full" />}
-      {state === "error" && (
-        <p className="text-sm text-muted-foreground">No prototype hierarchy is shown while live data is unavailable.</p>
-      )}
-      {state === "ready" && (
-        <>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {levels.map((level, index) => {
-              const parentId = index === 0 ? null : selection[levels[index - 1]!.key];
-              const options = units.filter(
-                (unit) => unit.type === level.type && (index === 0 || !parentId || unit.parent_id === parentId),
-              );
-              return (
-                <label key={level.type} className="grid gap-1.5 text-sm font-medium">
-                  {level.label}
-                  <select
-                    className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
-                    value={selection[level.key] ?? ""}
-                    disabled={submitting}
-                    onChange={(event) => changeLevel(index, event.target.value)}
-                  >
-                    <option value="">Not assigned</option>
-                    {options.map((unit) => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.code} — {unit.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              );
-            })}
-          </div>
-          <label htmlFor="organization-placement-effective-on" className="grid gap-1.5 text-sm font-medium">
-            Effective date
-            <Input id="organization-placement-effective-on" type="date" value={effectiveOn} disabled readOnly />
-          </label>
-          <label htmlFor="organization-placement-reason" className="grid gap-1.5 text-sm font-medium">
-            Business reason
-            <Textarea
-              id="organization-placement-reason"
-              value={reason}
-              maxLength={1000}
-              disabled={submitting}
-              onChange={(event) => {
-                setReason(event.target.value);
-                retry.current = null;
-              }}
-            />
-          </label>
+      <section
+        className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm"
+        aria-label="Organization placement change request"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
           <div>
-            <Button type="button" onClick={submit} disabled={submitting || !changed || !retained || !reason.trim()}>
-              {submitting ? "Submitting organization change..." : "Submit organization-placement request"}
-            </Button>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
+
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Submit one complete company hierarchy. Job, manager, work location, employment context and salary remain
+              unchanged.
+            </p>
           </div>
-        </>
-      )}
-    </section>
+          <Badge variant="outline">Same-day effective</Badge>
+        </div>
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>Organization request unavailable</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {notice && (
+          <Alert>
+            <AlertTitle>Organization change submitted</AlertTitle>
+            <AlertDescription>{notice}</AlertDescription>
+          </Alert>
+        )}
+        {state === "loading" && <Skeleton className="h-24 w-full" />}
+        {state === "error" && (
+          <p className="text-sm text-muted-foreground">
+            No prototype hierarchy is shown while live data is unavailable.
+          </p>
+        )}
+        {state === "ready" && (
+          <>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {levels.map((level, index) => {
+                const parentId = index === 0 ? null : selection[levels[index - 1]!.key];
+                const options = units.filter(
+                  (unit) => unit.type === level.type && (index === 0 || !parentId || unit.parent_id === parentId),
+                );
+                return (
+                  <label key={level.type} className="grid gap-1.5 text-sm font-medium">
+                    {level.label}
+                    <select
+                      className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
+                      value={selection[level.key] ?? ""}
+                      disabled={submitting}
+                      onChange={(event) => changeLevel(index, event.target.value)}
+                    >
+                      <option value="">Not assigned</option>
+                      {options.map((unit) => (
+                        <option key={unit.id} value={unit.id}>
+                          {unit.code} — {unit.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                );
+              })}
+            </div>
+            <label htmlFor="organization-placement-effective-on" className="grid gap-1.5 text-sm font-medium">
+              Effective date
+              <Input id="organization-placement-effective-on" type="date" value={effectiveOn} disabled readOnly />
+            </label>
+            <label htmlFor="organization-placement-reason" className="grid gap-1.5 text-sm font-medium">
+              Business reason
+              <Textarea
+                id="organization-placement-reason"
+                value={reason}
+                maxLength={1000}
+                disabled={submitting}
+                onChange={(event) => {
+                  setReason(event.target.value);
+                  retry.current = null;
+                }}
+              />
+            </label>
+            <div>
+              <Button type="button" onClick={submit} disabled={submitting || !changed || !retained || !reason.trim()}>
+                {submitting ? "Submitting organization change..." : "Submit organization-placement request"}
+              </Button>
+            </div>
+          </>
+        )}
+      </section>
+    </HrRecordDrawer>
   );
 }

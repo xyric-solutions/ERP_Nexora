@@ -1,11 +1,12 @@
 "use client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useRef, useState } from "react";
 import { RefreshCw, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useSession } from "@/lib/session/session-provider";
 import {
@@ -188,71 +189,80 @@ export function HrPersonalCorrections({
         </div>
       )}
       {edit && (
-        <form onSubmit={submit} className={panel + " space-y-4"} aria-label="Request personal data correction">
-          <h3 className="font-semibold">Proposed personal details</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {fields.map(([key, label]) => (
-              <Field key={key} title={label}>
-                <Input
-                  type={
-                    key === "date_of_birth"
-                      ? "date"
-                      : key === "personal_email"
-                        ? "email"
-                        : key === "phone"
-                          ? "tel"
-                          : "text"
-                  }
-                  required={key === "first_name" || key === "last_name"}
-                  maxLength={key === "phone" ? 40 : key === "personal_email" ? 320 : 100}
-                  value={edit.profile[key] ?? ""}
-                  disabled={busy}
-                  onChange={(e) =>
-                    setEdit((v) =>
-                      v
-                        ? {
-                            ...v,
-                            profile: {
-                              ...v.profile,
-                              [key]: key === "date_of_birth" ? e.target.value || null : e.target.value,
-                            },
-                          }
-                        : v,
-                    )
-                  }
-                />
-              </Field>
-            ))}
-          </div>
-          {w?.source_hash && edit.hash !== w.source_hash && (
-            <Alert>
-              <AlertTitle>Current details changed</AlertTitle>
-              <AlertDescription>
-                Review the recorded details again before sending this proposal. Close this form and start from the
-                refreshed profile.
-              </AlertDescription>
-            </Alert>
-          )}
-          <Field title="Correction reason">
-            <Textarea
-              minLength={12}
-              maxLength={1000}
-              required
-              value={reason}
-              disabled={busy}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Describe what is incorrect and the supporting information HR should verify."
-            />
-          </Field>
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" disabled={busy || reason.trim().length < 12 || edit.hash !== w?.source_hash}>
-              Submit correction for HR review
-            </Button>
-            <Button type="button" variant="outline" disabled={busy} onClick={() => setEdit(null)}>
-              Close correction form
-            </Button>
-          </div>
-        </form>
+        <HrRecordDrawer
+          title="Personal data correction"
+          open={!!edit}
+          onClose={() => setEdit(null)}
+          busy={busy}
+          error={error}
+          notice={notice}
+        >
+          <form onSubmit={submit} className={panel + " space-y-4"} aria-label="Request personal data correction">
+            <h3 className="font-semibold">Proposed personal details</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {fields.map(([key, label]) => (
+                <Field key={key} title={label}>
+                  <Input
+                    type={
+                      key === "date_of_birth"
+                        ? "date"
+                        : key === "personal_email"
+                          ? "email"
+                          : key === "phone"
+                            ? "tel"
+                            : "text"
+                    }
+                    required={key === "first_name" || key === "last_name"}
+                    maxLength={key === "phone" ? 40 : key === "personal_email" ? 320 : 100}
+                    value={edit.profile[key] ?? ""}
+                    disabled={busy}
+                    onChange={(e) =>
+                      setEdit((v) =>
+                        v
+                          ? {
+                              ...v,
+                              profile: {
+                                ...v.profile,
+                                [key]: key === "date_of_birth" ? e.target.value || null : e.target.value,
+                              },
+                            }
+                          : v,
+                      )
+                    }
+                  />
+                </Field>
+              ))}
+            </div>
+            {w?.source_hash && edit.hash !== w.source_hash && (
+              <Alert>
+                <AlertTitle>Current details changed</AlertTitle>
+                <AlertDescription>
+                  Review the recorded details again before sending this proposal. Close this form and start from the
+                  refreshed profile.
+                </AlertDescription>
+              </Alert>
+            )}
+            <Field title="Correction reason">
+              <Textarea
+                minLength={12}
+                maxLength={1000}
+                required
+                value={reason}
+                disabled={busy}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Describe what is incorrect and the supporting information HR should verify."
+              />
+            </Field>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" disabled={busy || reason.trim().length < 12 || edit.hash !== w?.source_hash}>
+                Submit correction for HR review
+              </Button>
+              <Button type="button" variant="outline" disabled={busy} onClick={() => setEdit(null)}>
+                Close correction form
+              </Button>
+            </div>
+          </form>
+        </HrRecordDrawer>
       )}
       {w && !w.items.length && (
         <p className={panel + " text-sm text-muted-foreground"}>No correction requests in this company scope.</p>
@@ -354,69 +364,54 @@ export function HrPersonalCorrections({
           </div>
         </div>
       )}
-      <Dialog
+      <HrRecordDrawer
+        title="Personal data correction decision"
         open={!!decision}
-        onOpenChange={(open) => {
-          if (!open && !busy) setDecision(null);
-        }}
+        onClose={() => setDecision(null)}
+        busy={busy}
+        error={error}
       >
-        <DialogContent className="max-h-[85dvh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {decision?.action === "approve"
-                ? "Approve personal data correction"
-                : decision?.action === "reject"
-                  ? "Reject personal data correction"
-                  : "Cancel personal data correction"}
-            </DialogTitle>
-            <DialogDescription>
-              {decision?.action === "approve"
-                ? "Confirm the information was independently verified. Approval applies only the reviewed proposal and preserves profile history."
-                : "Record why this submitted correction should not proceed."}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={decide} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            {decision?.action === "approve" && (
-              <Field title="Verified supporting information reference">
-                <Input
-                  required
-                  minLength={12}
-                  maxLength={500}
-                  value={reference}
-                  disabled={busy}
-                  onChange={(e) => setReference(e.target.value)}
-                  placeholder="Reference to the verified HR evidence or signed correction."
-                />
-              </Field>
-            )}
-            <Field title="Decision reason">
-              <Textarea
+        <form onSubmit={decide} className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {decision?.action === "approve" && (
+            <Field title="Verified supporting information reference">
+              <Input
                 required
                 minLength={12}
-                maxLength={1000}
-                value={decisionReason}
+                maxLength={500}
+                value={reference}
                 disabled={busy}
-                onChange={(e) => setDecisionReason(e.target.value)}
+                onChange={(e) => setReference(e.target.value)}
+                placeholder="Reference to the verified HR evidence or signed correction."
               />
             </Field>
-            <Button
-              type="submit"
-              disabled={
-                busy ||
-                decisionReason.trim().length < 12 ||
-                (decision?.action === "approve" && reference.trim().length < 12)
-              }
-            >
-              Confirm correction decision
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+          )}
+          <Field title="Decision reason">
+            <Textarea
+              required
+              minLength={12}
+              maxLength={1000}
+              value={decisionReason}
+              disabled={busy}
+              onChange={(e) => setDecisionReason(e.target.value)}
+            />
+          </Field>
+          <Button
+            type="submit"
+            disabled={
+              busy ||
+              decisionReason.trim().length < 12 ||
+              (decision?.action === "approve" && reference.trim().length < 12)
+            }
+          >
+            Confirm correction decision
+          </Button>
+        </form>
+      </HrRecordDrawer>
     </section>
   );
 }

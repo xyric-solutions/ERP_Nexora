@@ -112,23 +112,24 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --nx-canvas: #0b1524;
-  --nx-surface: #121f30;
-  --nx-surface-soft: #162437;
-  --nx-surface-raised: #142234;
-  --nx-surface-hover: #1a2b41;
-  --nx-surface-sunken: #0e1a2a;
-  --nx-control-background: #142234;
+  /* Navy is the dark foundation; lighter blue accents keep controls readable. */
+  --nx-canvas: #081426;
+  --nx-surface: #0e2038;
+  --nx-surface-soft: #122942;
+  --nx-surface-raised: #142c49;
+  --nx-surface-hover: #1b3655;
+  --nx-surface-sunken: #091a2e;
+  --nx-control-background: #142c49;
 
-  --nx-text: #d9e4f0;
-  --nx-text-strong: #f4f8fc;
-  --nx-text-muted: #a9b9ca;
-  --nx-text-subtle: #8fa1b4;
+  --nx-text: #dde8f5;
+  --nx-text-strong: #f5f8ff;
+  --nx-text-muted: #acbdd3;
+  --nx-text-subtle: #91a6c1;
   --nx-text-inverse: #081321;
   --nx-action-text: #081321;
 
-  --nx-emphasis-background: #07111c;
-  --nx-emphasis-background-soft: #162b3e;
+  --nx-emphasis-background: #061326;
+  --nx-emphasis-background-soft: #102a48;
   --nx-emphasis-text: #f4f8fc;
   --nx-emphasis-muted: #b7c7d6;
   --nx-emphasis-border: rgba(244, 248, 252, 0.2);
@@ -136,28 +137,28 @@
   --nx-emphasis-surface-hover: rgba(244, 248, 252, 0.16);
   --nx-overlay-scrim: rgba(2, 8, 16, 0.68);
   --nx-overlay-scrim-strong: rgba(2, 8, 16, 0.82);
-  --nx-surface-translucent: rgba(18, 31, 48, 0.96);
+  --nx-surface-translucent: rgba(14, 32, 56, 0.96);
 
-  --nx-border: #27384c;
-  --nx-border-strong: #435870;
-  --nx-rule: #1f2f42;
+  --nx-border: #263f5e;
+  --nx-border-strong: #405c7d;
+  --nx-rule: #1f3652;
 
-  --nx-primary: #79add2;
-  --nx-secondary: #5f8eaf;
-  --nx-accent: #79add2;
-  --nx-brand: #79add2;
-  --nx-brand-strong: #a9cce5;
-  --nx-brand-soft: #15304f;
-  --nx-brand-line: #365675;
+  --nx-primary: #8bb5e3;
+  --nx-secondary: #6c96c5;
+  --nx-accent: #8bb5e3;
+  --nx-brand: #8bb5e3;
+  --nx-brand-strong: #b5d2f2;
+  --nx-brand-soft: #142e4e;
+  --nx-brand-line: #3a587b;
 
-  --nx-sidebar: #091522;
-  --nx-sidebar-deep: #07111c;
-  --nx-sidebar-surface: #162b3e;
-  --nx-sidebar-hover: #1d3a51;
-  --nx-sidebar-line: #345169;
+  --nx-sidebar: #071b34;
+  --nx-sidebar-deep: #051226;
+  --nx-sidebar-surface: #102a48;
+  --nx-sidebar-hover: #183759;
+  --nx-sidebar-line: #2a4567;
   --nx-sidebar-text: #f4f8fc;
-  --nx-sidebar-muted: #b7c7d6;
-  --nx-sidebar-accent: #79add2;
+  --nx-sidebar-muted: #b7c9df;
+  --nx-sidebar-accent: #8bb5e3;
 
   --nx-info: #79add2;
   --nx-info-soft: #15304f;
@@ -176,10 +177,10 @@
   --nx-purple: #a69bd9;
   --nx-purple-soft: #23203c;
 
-  --nx-focus-color: #8bc1e5;
-  --nx-selection-background: #183149;
-  --nx-selection-border: #79add2;
-  --nx-login-glow: #142d47;
+  --nx-focus-color: #9ec9f4;
+  --nx-selection-background: #183759;
+  --nx-selection-border: #8bb5e3;
+  --nx-login-glow: #142e4e;
   --nx-role-hero-glow: rgba(73, 130, 255, 0.2);
   --nx-heatmap-high-background: #79add2;
   --nx-heatmap-high-text: #081321;
@@ -268,16 +269,33 @@
   --nx-focus: 0 0 0 3px rgba(79, 143, 191, 0.24);
 }
 
+/* Light workspaces use a navy navigation surface independently of role. */
+.nx-prototype[data-theme="light"][data-role-theme],
+[data-theme="light"] .nx-prototype[data-role-theme] {
+  --nx-sidebar: var(--nx-emphasis-background);
+  --nx-sidebar-deep: #061427;
+  --nx-sidebar-surface: #163650;
+  --nx-sidebar-hover: #12304b;
+  --nx-sidebar-line: #294762;
+}
+
 .nx-prototype[data-theme="dark"][data-role-theme],
 [data-theme="dark"] .nx-prototype[data-role-theme] {
-  --nx-primary: #4f8fbf;
-  --nx-secondary: #2f5d7c;
-  --nx-accent: #4f8fbf;
-  --nx-brand: #4f8fbf;
-  --nx-brand-strong: #8db8d8;
-  --nx-brand-soft: #1d3344;
-  --nx-brand-line: #365873;
-  --nx-sidebar-accent: #4f8fbf;
+  --nx-primary: #8bb5e3;
+  --nx-secondary: #6c96c5;
+  --nx-accent: #8bb5e3;
+  --nx-brand: #8bb5e3;
+  --nx-brand-strong: #b5d2f2;
+  --nx-brand-soft: #142e4e;
+  --nx-brand-line: #3a587b;
+  --nx-sidebar: #071b34;
+  --nx-sidebar-deep: #051226;
+  --nx-sidebar-surface: #102a48;
+  --nx-sidebar-hover: #183759;
+  --nx-sidebar-line: #2a4567;
+  --nx-sidebar-text: #f4f8fc;
+  --nx-sidebar-muted: #b7c9df;
+  --nx-sidebar-accent: #8bb5e3;
   --nx-focus: 0 0 0 3px rgba(79, 143, 191, 0.32);
 }
 

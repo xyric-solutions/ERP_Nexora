@@ -1,4 +1,6 @@
 "use client";
+import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createHrCorrectionRequestSchema,
@@ -541,13 +543,20 @@ function Decisions({
     </form>
   );
 }
-export function HrAttendanceCorrectionsWorkspace({ onNavigate }: { onNavigate: Navigate }) {
+export function HrAttendanceCorrectionsWorkspace({
+  onNavigate,
+  initialReference,
+}: {
+  initialReference?: string;
+  onNavigate: Navigate;
+}) {
+  const initialScope = useMemo(() => readHrOperationsScope(initialReference), [initialReference]);
   const { api, session, csrfToken, loading: sessionLoading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]),
     canRead = session?.user.permissions.includes("hr.attendance.correction.read") ?? false,
     canCreate = session?.user.permissions.includes("hr.attendance.correction.create") ?? false;
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]),
-    [company, setCompany] = useState(""),
+    [company, setCompany] = useState(initialScope.company_id ?? ""),
     [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
     [status, setStatus] = useState(""),
@@ -565,6 +574,7 @@ export function HrAttendanceCorrectionsWorkspace({ onNavigate }: { onNavigate: N
     [notice, setNotice] = useState("");
   const mutation = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null);
+  useHrOperationsScope(company);
   useEffect(() => {
     if (!canRead) return;
     let active = true;
@@ -851,22 +861,31 @@ export function HrAttendanceCorrectionsWorkspace({ onNavigate }: { onNavigate: N
         Counts describe the current page. {data.total} requests match the company and filters.
       </p>
       {editor && (
-        <Editor
-          key={editor.key}
-          client={client}
-          companyId={company}
-          initial={editor.initial}
-          revision={revision}
-          busy={busy}
+        <HrRecordDrawer
+          title={editor?.initial ? "Edit attendance correction" : "Add attendance correction"}
+          open={!!editor}
           onClose={() => setEditor(null)}
-          onSave={(id, input) =>
-            mutate(JSON.stringify({ id, input }), (key) =>
-              id
-                ? client.updateCorrection(id, input as UpdateHrCorrectionRequest, csrfToken(), key)
-                : client.createCorrection(input as CreateHrCorrectionRequest, csrfToken(), key),
-            )
-          }
-        />
+          busy={busy}
+          error={error}
+          notice={notice}
+        >
+          <Editor
+            key={editor.key}
+            client={client}
+            companyId={company}
+            initial={editor.initial}
+            revision={revision}
+            busy={busy}
+            onClose={() => setEditor(null)}
+            onSave={(id, input) =>
+              mutate(JSON.stringify({ id, input }), (key) =>
+                id
+                  ? client.updateCorrection(id, input as UpdateHrCorrectionRequest, csrfToken(), key)
+                  : client.createCorrection(input as CreateHrCorrectionRequest, csrfToken(), key),
+              )
+            }
+          />
+        </HrRecordDrawer>
       )}
       {loading ? (
         <div className="grid gap-3 rounded-xl border border-border bg-card p-5" aria-label="Loading corrections">
@@ -1030,16 +1049,26 @@ export function HrAttendanceCorrectionsWorkspace({ onNavigate }: { onNavigate: N
                   </Button>
                 )}
               </div>
-              <Decisions
-                key={`${detail.id}:${detail.version}`}
-                detail={detail}
+              <HrRecordDrawer
+                title="Attendance correction decision"
+                triggerLabel="Review correction action"
+                disabled={!detail.allowed_actions.length}
                 busy={busy}
-                onAction={(input) =>
-                  mutate(JSON.stringify({ id: detail.id, input }), (key) =>
-                    client.correctionAction(detail.id, input, csrfToken(), key),
-                  )
-                }
-              />
+                error={error}
+                notice={notice}
+                completionKey={notice}
+              >
+                <Decisions
+                  key={`${detail.id}:${detail.version}`}
+                  detail={detail}
+                  busy={busy}
+                  onAction={(input) =>
+                    mutate(JSON.stringify({ id: detail.id, input }), (key) =>
+                      client.correctionAction(detail.id, input, csrfToken(), key),
+                    )
+                  }
+                />
+              </HrRecordDrawer>
               <div>
                 <h3 className="text-sm font-semibold">Workflow history</h3>
                 {detail.history.length ? (

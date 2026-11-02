@@ -1,4 +1,5 @@
 "use client";
+import { useHrOperationsScope } from "../components/hr-operations-scope";
 import { useEffect, useMemo, useState } from "react";
 import {
   hrDailyAttendanceQuerySchema,
@@ -78,6 +79,7 @@ export function HrDailyAttendanceWorkspace({
     [companyLoading, setCompanyLoading] = useState(false),
     [error, setError] = useState(""),
     [selected, setSelected] = useState("");
+  useHrOperationsScope(company, date);
   useEffect(() => {
     if (!canRead) return;
     let active = true;

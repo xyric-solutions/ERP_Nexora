@@ -1,4 +1,5 @@
 "use client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -40,12 +41,12 @@ function HandoffForm({
   busy: boolean;
   onSave: (fields: Pick<CreateHrOfferEmployeeRequest, "employee_number" | "work_email" | "reason">) => Promise<void>;
 }) {
-  const [number, setNumber] = useState("");
+  const number = "AUTO";
   const [email, setEmail] = useState("");
   const [reason, setReason] = useState("");
   return (
     <form
-      className="grid gap-4 rounded-xl border border-border bg-card p-5"
+      className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-5"
       onSubmit={(e) => {
         e.preventDefault();
         void onSave({ employee_number: number, work_email: email || undefined, reason });
@@ -55,20 +56,19 @@ function HandoffForm({
         <h3 className="text-base font-semibold">Prepare the employee draft</h3>
         <p className="mt-1 text-sm text-muted-foreground">
           The candidate name, personal email, phone and agreed joining date carry forward automatically. Keep the
-          employee number unique across the company group.
+          employee number is allocated automatically across the company group.
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
         <label className="grid gap-2 text-sm font-medium">
-          Employee number
+          Employee number (automatic)
           <Input
             required
             maxLength={32}
-            pattern="[A-Z0-9][A-Z0-9._/\-]{0,31}"
             placeholder="EMP-0001"
-            value={number}
+            value="Assigned on save · EMP-001…"
+            readOnly
             disabled={busy}
-            onChange={(e) => setNumber(e.target.value.toUpperCase())}
           />
         </label>
         <label className="grid gap-2 text-sm font-medium">
@@ -379,7 +379,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
         </div>
       )}
       <form
-        className="grid gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+        className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
         onSubmit={(e) => {
           e.preventDefault();
           setError("");
@@ -653,7 +653,16 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
                       ))}
                     </div>
                   ) : canCreate ? (
-                    <HandoffForm key={`${company}:${selected}`} busy={busy || detailLoading} onSave={save} />
+                    <HrRecordDrawer
+                      title="Create employee from offer"
+                      triggerLabel="Create employee draft"
+                      completionKey={notice}
+                      busy={busy || detailLoading}
+                      error={error}
+                      notice={notice}
+                    >
+                      <HandoffForm key={`${company}:${selected}`} busy={busy || detailLoading} onSave={save} />
+                    </HrRecordDrawer>
                   ) : (
                     <p className="text-sm text-muted-foreground">
                       Employee creation permission is required to prepare this profile.

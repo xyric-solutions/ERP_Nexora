@@ -1,4 +1,5 @@
 "use client";
+import { HrRecordDrawer } from "./hr-record-drawer";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -230,82 +231,90 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
           <AlertDescription>{notice}</AlertDescription>
         </Alert>
       )}
-      {detail && detailId === selectedId && (
-        <>
-          <div className="grid gap-3 md:grid-cols-2">
-            <PlacementCard title="Current hierarchy" names={detail.current_names} />
-            <PlacementCard title="Proposed hierarchy" names={detail.proposed_names} />
-          </div>
-          <Alert variant={detail.hierarchy_ready ? "default" : "destructive"}>
-            <AlertTitle>{detail.hierarchy_ready ? "Hierarchy ready" : "Approval blocked"}</AlertTitle>
-            <AlertDescription>
-              {detail.hierarchy_ready
-                ? "The proposed units currently form one active company hierarchy."
-                : "The hierarchy became inactive or incoherent. Rejection remains available."}
-            </AlertDescription>
-          </Alert>
-          <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-muted-foreground">Requested by</dt>
-              <dd className="font-medium">{detail.requested_by}</dd>
+      <HrRecordDrawer
+        title="Review organisation placement"
+        open={!!selectedId}
+        onClose={() => setSelectedId("")}
+        busy={saving}
+        error={error}
+      >
+        {detail && detailId === selectedId && (
+          <>
+            <div className="grid gap-3 md:grid-cols-2">
+              <PlacementCard title="Current hierarchy" names={detail.current_names} />
+              <PlacementCard title="Proposed hierarchy" names={detail.proposed_names} />
             </div>
-            <div>
-              <dt className="text-muted-foreground">Effective date</dt>
-              <dd className="font-medium">{detail.effective_on}</dd>
-            </div>
-            <div className="sm:col-span-2">
-              <dt className="text-muted-foreground">Maker reason</dt>
-              <dd className="font-medium">{detail.reason}</dd>
-            </div>
-          </dl>
-          {approvalOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
-          {approvalOverride.independentApproverRequired && (
-            <Alert variant="destructive">
-              <AlertTitle>Independent approver required</AlertTitle>
-              <AlertDescription>You requested this change and cannot decide it.</AlertDescription>
+            <Alert variant={detail.hierarchy_ready ? "default" : "destructive"}>
+              <AlertTitle>{detail.hierarchy_ready ? "Hierarchy ready" : "Approval blocked"}</AlertTitle>
+              <AlertDescription>
+                {detail.hierarchy_ready
+                  ? "The proposed units currently form one active company hierarchy."
+                  : "The hierarchy became inactive or incoherent. Rejection remains available."}
+              </AlertDescription>
             </Alert>
-          )}
-          <label htmlFor="organization-placement-decision-reason" className="grid gap-1.5 text-sm font-medium">
-            Decision reason
-            <Textarea
-              id="organization-placement-decision-reason"
-              value={reason}
-              maxLength={1000}
-              disabled={saving}
-              onChange={(event) => {
-                setReason(event.target.value);
-                retry.current = null;
-              }}
-            />
-          </label>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              disabled={
-                saving || approvalOverride.independentApproverRequired || !detail.hierarchy_ready || !reason.trim()
-              }
-              onClick={() => setDecision("approved")}
-            >
-              Approve organization change
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={saving || approvalOverride.independentApproverRequired || !reason.trim()}
-              onClick={() => setDecision("rejected")}
-            >
-              Reject
-            </Button>
-          </div>
-        </>
-      )}
+            <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-muted-foreground">Requested by</dt>
+                <dd className="font-medium">{detail.requested_by}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Effective date</dt>
+                <dd className="font-medium">{detail.effective_on}</dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-muted-foreground">Maker reason</dt>
+                <dd className="font-medium">{detail.reason}</dd>
+              </div>
+            </dl>
+            {approvalOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
+            {approvalOverride.independentApproverRequired && (
+              <Alert variant="destructive">
+                <AlertTitle>Independent approver required</AlertTitle>
+                <AlertDescription>You requested this change and cannot decide it.</AlertDescription>
+              </Alert>
+            )}
+            <label htmlFor="organization-placement-decision-reason" className="grid gap-1.5 text-sm font-medium">
+              Decision reason
+              <Textarea
+                id="organization-placement-decision-reason"
+                value={reason}
+                maxLength={1000}
+                disabled={saving}
+                onChange={(event) => {
+                  setReason(event.target.value);
+                  retry.current = null;
+                }}
+              />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                disabled={
+                  saving || approvalOverride.independentApproverRequired || !detail.hierarchy_ready || !reason.trim()
+                }
+                onClick={() => setDecision("approved")}
+              >
+                Approve organization change
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saving || approvalOverride.independentApproverRequired || !reason.trim()}
+                onClick={() => setDecision("rejected")}
+              >
+                Reject
+              </Button>
+            </div>
+          </>
+        )}
+      </HrRecordDrawer>
       <Dialog
         open={decision !== null}
         onOpenChange={(open) => {
           if (!open && !saving) setDecision(null);
         }}
       >
-        <DialogContent>
+        <DialogContent className="z-[1501]!" overlayClassName="z-[1500]!">
           <DialogHeader>
             <DialogTitle>Confirm organization decision</DialogTitle>
             <DialogDescription>

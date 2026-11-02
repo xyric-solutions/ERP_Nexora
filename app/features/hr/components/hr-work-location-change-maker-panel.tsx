@@ -1,4 +1,5 @@
 "use client";
+import { HrRecordDrawer } from "./hr-record-drawer";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -132,105 +133,107 @@ export function HrWorkLocationChangeMakerPanel({
   };
 
   return (
-    <section
-      className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm"
-      aria-label="Work-location-change request"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
-          <h2 className="mt-1 text-lg font-semibold text-foreground">Request governed work-location change</h2>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Select a different company work location. The API will require approved jurisdiction evidence effective
-            today; organization placement, role, manager, and compensation remain unchanged.
-          </p>
+    <HrRecordDrawer title="Change work location" triggerLabel="Change work location" busy={submitting}>
+      <section
+        className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm"
+        aria-label="Work-location-change request"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
+
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Select a different company work location. The API will require approved jurisdiction evidence effective
+              today; organization placement, role, manager, and compensation remain unchanged.
+            </p>
+          </div>
+          <Badge variant="outline">Same-day effective</Badge>
         </div>
-        <Badge variant="outline">Same-day effective</Badge>
-      </div>
-      {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Work-location request unavailable</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      {notice && (
-        <Alert>
-          <AlertTitle>Work-location change submitted</AlertTitle>
-          <AlertDescription>{notice}</AlertDescription>
-        </Alert>
-      )}
-      {effectiveLoadState === "loading" && <Skeleton className="h-20 w-full" />}
-      {effectiveLoadState === "error" && (
-        <p className="text-sm text-muted-foreground">
-          No prototype locations are shown while live data is unavailable.
-        </p>
-      )}
-      {effectiveLoadState === "ready" && (
-        <>
-          <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-2">
-            <ContextField label="Current work location" value={source.work_location} />
-            <ContextField label="Current assignment" value={source.id} />
-          </dl>
-          <div className="grid gap-3 md:grid-cols-2">
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>Work-location request unavailable</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {notice && (
+          <Alert>
+            <AlertTitle>Work-location change submitted</AlertTitle>
+            <AlertDescription>{notice}</AlertDescription>
+          </Alert>
+        )}
+        {effectiveLoadState === "loading" && <Skeleton className="h-20 w-full" />}
+        {effectiveLoadState === "error" && (
+          <p className="text-sm text-muted-foreground">
+            No prototype locations are shown while live data is unavailable.
+          </p>
+        )}
+        {effectiveLoadState === "ready" && (
+          <>
+            <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-2">
+              <ContextField label="Current work location" value={source.work_location} />
+              <ContextField label="Current assignment" value={source.id} />
+            </dl>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label
+                htmlFor="work-location-change-proposed-location"
+                className="grid gap-1.5 text-sm font-medium text-foreground"
+              >
+                Proposed work location
+                <select
+                  id="work-location-change-proposed-location"
+                  className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
+                  value={locationId}
+                  disabled={submitting}
+                  onChange={(event) => {
+                    setLocationId(event.target.value);
+                    retry.current = null;
+                  }}
+                >
+                  <option value="">Select a work location</option>
+                  {locations.map((location) => (
+                    <option key={location.id} value={location.id} disabled={location.id === source.work_location_id}>
+                      {location.code} â€” {location.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label
+                htmlFor="work-location-change-effective-on"
+                className="grid gap-1.5 text-sm font-medium text-foreground"
+              >
+                Effective date
+                <Input id="work-location-change-effective-on" type="date" value={effectiveOn} disabled readOnly />
+              </label>
+            </div>
             <label
-              htmlFor="work-location-change-proposed-location"
+              htmlFor="work-location-change-request-reason"
               className="grid gap-1.5 text-sm font-medium text-foreground"
             >
-              Proposed work location
-              <select
-                id="work-location-change-proposed-location"
-                className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
-                value={locationId}
+              Business reason
+              <Textarea
+                id="work-location-change-request-reason"
+                value={reason}
+                maxLength={1000}
                 disabled={submitting}
                 onChange={(event) => {
-                  setLocationId(event.target.value);
+                  setReason(event.target.value);
                   retry.current = null;
                 }}
-              >
-                <option value="">Select a work location</option>
-                {locations.map((location) => (
-                  <option key={location.id} value={location.id} disabled={location.id === source.work_location_id}>
-                    {location.code} â€” {location.name}
-                  </option>
-                ))}
-              </select>
+                placeholder="Explain why this work-location change is required."
+              />
             </label>
-            <label
-              htmlFor="work-location-change-effective-on"
-              className="grid gap-1.5 text-sm font-medium text-foreground"
-            >
-              Effective date
-              <Input id="work-location-change-effective-on" type="date" value={effectiveOn} disabled readOnly />
-            </label>
-          </div>
-          <label
-            htmlFor="work-location-change-request-reason"
-            className="grid gap-1.5 text-sm font-medium text-foreground"
-          >
-            Business reason
-            <Textarea
-              id="work-location-change-request-reason"
-              value={reason}
-              maxLength={1000}
-              disabled={submitting}
-              onChange={(event) => {
-                setReason(event.target.value);
-                retry.current = null;
-              }}
-              placeholder="Explain why this work-location change is required."
-            />
-          </label>
-          <div>
-            <Button type="button" onClick={submit} disabled={submitting || !changed || !reason.trim()}>
-              {submitting ? "Submitting location change..." : "Submit work-location-change request"}
-            </Button>
-          </div>
-        </>
-      )}
-      <p className="text-xs text-muted-foreground">
-        Submission and approval never create, update, or supersede salary-assignment records.
-      </p>
-    </section>
+            <div>
+              <Button type="button" onClick={submit} disabled={submitting || !changed || !reason.trim()}>
+                {submitting ? "Submitting location change..." : "Submit work-location-change request"}
+              </Button>
+            </div>
+          </>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Submission and approval never create, update, or supersede salary-assignment records.
+        </p>
+      </section>
+    </HrRecordDrawer>
   );
 }
 

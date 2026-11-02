@@ -104,9 +104,17 @@ run("HR foundation API repository", () => {
         { id: "nexora-r06-uat-company-two", code: "R06-UAT-2", name: "Nexora R06 UAT Company Two" },
       ]),
     );
-    expect((await repository.listCompanies(context("r06.restricted"))).items).toEqual([
-      { id: "nexora-r06-uat-company", code: "R06-UAT", name: "Nexora R06 UAT Company" },
-    ]);
+    const restricted = await repository.listCompanies(context("r06.restricted"));
+    expect(restricted.items).toContainEqual({
+      id: "nexora-r06-uat-company", code: "R06-UAT", name: "Nexora R06 UAT Company",
+    });
+    expect(restricted.items.some((item) => item.id === "nexora-r06-uat-company-two")).toBe(false);
+    // Other integration suites may grant this actor additional isolated test companies.
+    const grants = await pool.query<{ company_id: string }>(
+      "select company_id from security_user_company_access where tenant_id=$1 and user_id=$2 and revoked_at is null",
+      [sourceTestTenantId, "r06.restricted"],
+    );
+    expect(restricted.items.every((item) => grants.rows.some((grant) => grant.company_id === item.id))).toBe(true);
   });
 
   it("keeps employee contacts permission-scoped, company-scoped and append-only", async () => {
@@ -984,6 +992,13 @@ run("HR foundation API repository", () => {
       replayed: false,
     });
     expect(replay).toEqual({ ...first, replayed: true });
+
+    const directory = await repository.listEmployees(context("r06.maker"), {
+      company_id: input.company_id,
+      search: "Assignment Draft",
+      limit: 100,
+    });
+    expect(directory.items.some((row) => row.id === employee.id)).toBe(false);
 
     const client = await pool.connect();
     try {

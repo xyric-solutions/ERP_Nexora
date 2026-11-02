@@ -4,7 +4,6 @@ import { Plus, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useSession } from "@/lib/session/session-provider";
 import {
   createHrOvertimeMoneySchema,
@@ -15,6 +14,7 @@ import {
   type HrOvertimeMoneyWorkspace,
 } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { Field, State, panel, selectClass, useAttendanceRead } from "../components/hr-workspace-controls";
 type Form = {
   kind: "policy" | "arrangement";
@@ -57,7 +57,7 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
       options: data.options,
       components: [],
       values: {
-        reference: "",
+        reference: "AUTO",
         name: "",
         effective_from: onDate,
         effective_to: "",
@@ -171,11 +171,12 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
     }
   }
   const field = (key: string, title: string, type = "text", required = true) => (
-    <Field title={title}>
+    <Field title={key === "reference" ? `${title} (automatic)` : title}>
       <Input
         className="box-border! w-full min-w-0! max-w-full!"
         type={type}
-        value={form?.values[key] ?? ""}
+        value={key === "reference" ? "Assigned on save · OTP-001…" : (form?.values[key] ?? "")}
+        readOnly={key === "reference"}
         onChange={(e) => change(key, e.target.value)}
         required={required}
         maxLength={type === "text" ? 500 : undefined}
@@ -361,232 +362,224 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
           continuing.
         </p>
       )}
-      <Dialog
-        open={!!form}
-        onOpenChange={(open) => {
-          if (!open && !busy) setForm(null);
-        }}
+      <HrRecordDrawer
+        open={Boolean(form)}
+        onClose={() => setForm(null)}
+        busy={busy}
+        title={
+          form?.row
+            ? "Review monetary overtime"
+            : form?.kind === "policy"
+              ? "New monetary overtime policy"
+              : "New employee overtime arrangement"
+        }
+        description={
+          form?.row
+            ? "Review retained terms and history. A decision uses the captured version and source fingerprint."
+            : "Drafts do not affect Payroll. Submission, independent approval and policy release are required."
+        }
+        error={error}
+        notice={notice}
       >
-        <DialogContent
-          showCloseButton={!busy}
-          className="max-h-[90dvh] overflow-y-auto font-sans sm:max-w-3xl! [&_p]:mb-0 [&_dd]:ml-0 [&_input]:font-normal! [&_select]:font-normal! [&_textarea]:font-normal!"
-        >
-          <DialogHeader>
-            <DialogTitle>
-              {form?.row
-                ? "Review monetary overtime"
-                : form?.kind === "policy"
-                  ? "New monetary overtime policy"
-                  : "New employee overtime arrangement"}
-            </DialogTitle>
-            <DialogDescription>
-              {form?.row
-                ? "Review retained terms and history. A decision uses the captured version and source fingerprint."
-                : "Drafts do not affect Payroll. Submission, independent approval and policy release are required."}
-            </DialogDescription>
-          </DialogHeader>
-          {form && (
-            <form onSubmit={save} className="grid min-w-0 gap-4">
-              {error && (
-                <p role="alert" className="text-sm text-destructive">
-                  {error}
-                </p>
-              )}
-              {form.row ? (
-                <>
-                  <dl className="grid gap-3 rounded-lg border border-border p-3 text-sm sm:grid-cols-2">
-                    <div>
-                      <dt className="text-muted-foreground">Record</dt>
-                      <dd className="mt-1 break-all">
-                        {form.row.reference} · {form.row.name}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">Status / effective range</dt>
-                      <dd className="mt-1">
-                        {label(form.row.status)} · {form.row.effective_from} → {form.row.effective_to ?? "Open ended"}
-                      </dd>
-                    </div>
-                    {form.row.terms && (
-                      <>
-                        <div>
-                          <dt className="text-muted-foreground">Rate / ordinary hours</dt>
-                          <dd className="mt-1 break-all">
-                            {form.row.direct_rate ?? form.row.terms.ordinary_hours ?? "Direct hourly"} · multiplier{" "}
-                            {form.row.terms.multiplier}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-muted-foreground">Currency / rounding</dt>
-                          <dd className="mt-1">
-                            {form.row.terms.currency_code} · {form.row.terms.money_scale} decimals ·{" "}
-                            {label(form.row.terms.rounding_stage)} · {label(form.row.terms.rounding_mode)}
-                          </dd>
-                        </div>
-                        <div className="sm:col-span-2">
-                          <dt className="text-muted-foreground">Approved source reference</dt>
-                          <dd className="mt-1 break-words">{form.row.terms.source_reference}</dd>
-                        </div>
-                        <div className="sm:col-span-2">
-                          <dt className="text-muted-foreground">Basis component identifiers</dt>
-                          <dd className="mt-1 break-all font-mono text-xs">
-                            {form.row.terms.component_ids.join(", ") || "Explicit direct contractual rate"}
-                          </dd>
-                        </div>
-                      </>
-                    )}
-                  </dl>
-                  <details className="text-xs text-muted-foreground">
-                    <summary className="cursor-pointer">Source fingerprint</summary>
-                    <p className="mt-2 break-all font-mono">{form.row.source_hash}</p>
-                  </details>
-                  <details className="text-sm">
-                    <summary className="cursor-pointer">Monetary decision history ({form.row.history.length})</summary>
-                    <ol className="mt-3 grid gap-3">
-                      {form.row.history.map((h, i) => (
-                        <li key={i} className="border-l-2 border-primary/30 pl-3">
-                          <strong>{label(h.action)}</strong> · {h.actor_id}
-                          {h.override ? " · audited override" : ""}
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {h.reason} · {h.occurred_at}
-                          </p>
-                        </li>
-                      ))}
-                    </ol>
-                  </details>
-                </>
-              ) : (
-                <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0! sm:grid-cols-2">
-                  {field("effective_from", "Overtime effective from", "date")}
-                  {field("effective_to", "Overtime effective to", "date", false)}
-                  {form.kind === "policy" ? (
+        {form && (
+          <form onSubmit={save} className="grid min-w-0 gap-4">
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+            {form.row ? (
+              <>
+                <dl className="grid gap-3 rounded-lg border border-border p-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-muted-foreground">Record</dt>
+                    <dd className="mt-1 break-all">
+                      {form.row.reference} · {form.row.name}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Status / effective range</dt>
+                    <dd className="mt-1">
+                      {label(form.row.status)} · {form.row.effective_from} → {form.row.effective_to ?? "Open ended"}
+                    </dd>
+                  </div>
+                  {form.row.terms && (
                     <>
-                      {field("reference", "Monetary policy reference")}
-                      {field("name", "Monetary policy name")}
-                      {select("category", "Overtime category", enumOptions(["regular", "weekend", "holiday"]))}
-                      {select("currency_code", "Monetary currency", form.options.currencies)}
-                      {select(
-                        "basis_source",
-                        "Rate basis source",
-                        enumOptions(["selected_components", "direct_contractual_rate"]),
-                      )}
-                      {select("earning_component_id", "Overtime earning component", form.options.components)}
-                      {form.values.basis_source === "selected_components" && (
-                        <>
-                          <Field title="Overtime basis components">
-                            <select
-                              multiple
-                              required
-                              size={4}
-                              className={selectClass + " h-32!"}
-                              value={form.components}
-                              onChange={(e) => {
-                                const components = Array.from(e.target.selectedOptions).map((o) => o.value);
-                                setForm((f) => (f ? { ...f, components } : f));
-                              }}
-                            >
-                              {form.options.components.map((c) => (
-                                <option value={c.id} key={c.id}>
-                                  {c.label}
-                                </option>
-                              ))}
-                            </select>
-                          </Field>
-                          {field("ordinary_hours", "Ordinary hours for monthly basis")}
-                        </>
-                      )}
-                      {field("multiplier", "Monetary multiplier")}
-                      {select(
-                        "rounding_stage",
-                        "Overtime rounding stage",
-                        enumOptions(["per_ot_day", "hourly_rate", "final_employee_period"]),
-                      )}
-                      {select(
-                        "rounding_mode",
-                        "Overtime rounding mode",
-                        enumOptions(["half_up", "half_even", "down", "up"]),
-                      )}
-                      {field("source_reference", "Monetary policy source reference")}
-                      <details className="sm:col-span-2">
-                        <summary className="cursor-pointer text-sm">Intermediate precision</summary>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                          {select(
-                            "minute_precision",
-                            "Minute precision",
-                            enumOptions(Array.from({ length: 9 }, (_, i) => String(i))),
-                          )}
-                          {select(
-                            "hourly_rate_precision",
-                            "Hourly rate precision",
-                            enumOptions(Array.from({ length: 9 }, (_, i) => String(i))),
-                          )}
-                          {select(
-                            "intermediate_precision",
-                            "Amount precision",
-                            enumOptions(Array.from({ length: 9 }, (_, i) => String(i))),
-                          )}
-                        </div>
-                      </details>
-                    </>
-                  ) : (
-                    <>
-                      {select("employee_id", "Overtime employee", form.options.employees)}
-                      {select(
-                        "policy_version_id",
-                        "Released monetary policy",
-                        form.options.policies.map((p) => ({
-                          id: p.id,
-                          label: p.reference + " · " + p.name + " · " + p.terms?.currency_code,
-                        })),
-                      )}
-                      {form.options.policies.find((p) => p.id === form.values.policy_version_id)?.terms
-                        ?.basis_source === "direct_contractual_rate" &&
-                        field("direct_rate", "Direct contractual hourly rate")}
-                      <p className="text-sm text-muted-foreground sm:col-span-2">
-                        The policy supplies the approved basis components, currency, multiplier and rounding. Employees
-                        are bounded by the current search and company placement on the Payroll month.
-                      </p>
+                      <div>
+                        <dt className="text-muted-foreground">Rate / ordinary hours</dt>
+                        <dd className="mt-1 break-all">
+                          {form.row.direct_rate ?? form.row.terms.ordinary_hours ?? "Direct hourly"} · multiplier{" "}
+                          {form.row.terms.multiplier}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">Currency / rounding</dt>
+                        <dd className="mt-1">
+                          {form.row.terms.currency_code} · {form.row.terms.money_scale} decimals ·{" "}
+                          {label(form.row.terms.rounding_stage)} · {label(form.row.terms.rounding_mode)}
+                        </dd>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <dt className="text-muted-foreground">Approved source reference</dt>
+                        <dd className="mt-1 break-words">{form.row.terms.source_reference}</dd>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <dt className="text-muted-foreground">Basis component identifiers</dt>
+                        <dd className="mt-1 break-all font-mono text-xs">
+                          {form.row.terms.component_ids.join(", ") || "Explicit direct contractual rate"}
+                        </dd>
+                      </div>
                     </>
                   )}
-                </fieldset>
-              )}
-              {form.row && !!form.row.allowed_actions.length && (
-                <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0! sm:grid-cols-2">
-                  {select("action", "Monetary decision", enumOptions(form.row.allowed_actions))}
-                  {permissions.includes("platform.approval.override") &&
-                    form.values.action !== "submit" &&
-                    select("confirm_override", "Monetary administrator override", [
-                      { id: "false", label: "Use independent approval" },
-                      { id: "true", label: "Explicit audited administrator override" },
-                    ])}
-                </fieldset>
-              )}
-              {(!form.row || !!form.row.allowed_actions.length) && (
-                <>
-                  <Field title="Monetary change reason">
-                    <Textarea
-                      required
-                      minLength={5}
-                      maxLength={500}
-                      disabled={busy}
-                      value={form.values.reason}
-                      onChange={(e) => change("reason", e.target.value)}
-                    />
-                  </Field>
-                  <p className="text-xs text-muted-foreground">
-                    Submitted terms are locked for review. Released policies and approved arrangements preserve
-                    historical authority. Overlapping released ranges and calculated Payroll periods prevent retroactive
-                    changes.
-                  </p>
-                  <Button type="submit" disabled={busy} className="justify-self-start text-primary-foreground!">
-                    {busy ? "Saving…" : form.row ? "Confirm monetary decision" : "Save monetary draft"}
-                  </Button>
-                </>
-              )}
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
+                </dl>
+                <details className="text-xs text-muted-foreground">
+                  <summary className="cursor-pointer">Source fingerprint</summary>
+                  <p className="mt-2 break-all font-mono">{form.row.source_hash}</p>
+                </details>
+                <details className="text-sm">
+                  <summary className="cursor-pointer">Monetary decision history ({form.row.history.length})</summary>
+                  <ol className="mt-3 grid gap-3">
+                    {form.row.history.map((h, i) => (
+                      <li key={i} className="border-l-2 border-primary/30 pl-3">
+                        <strong>{label(h.action)}</strong> · {h.actor_id}
+                        {h.override ? " · audited override" : ""}
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {h.reason} · {h.occurred_at}
+                        </p>
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              </>
+            ) : (
+              <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0! sm:grid-cols-2">
+                {field("effective_from", "Overtime effective from", "date")}
+                {field("effective_to", "Overtime effective to", "date", false)}
+                {form.kind === "policy" ? (
+                  <>
+                    {field("reference", "Monetary policy reference")}
+                    {field("name", "Monetary policy name")}
+                    {select("category", "Overtime category", enumOptions(["regular", "weekend", "holiday"]))}
+                    {select("currency_code", "Monetary currency", form.options.currencies)}
+                    {select(
+                      "basis_source",
+                      "Rate basis source",
+                      enumOptions(["selected_components", "direct_contractual_rate"]),
+                    )}
+                    {select("earning_component_id", "Overtime earning component", form.options.components)}
+                    {form.values.basis_source === "selected_components" && (
+                      <>
+                        <Field title="Overtime basis components">
+                          <select
+                            multiple
+                            required
+                            size={4}
+                            className={selectClass + " h-32!"}
+                            value={form.components}
+                            onChange={(e) => {
+                              const components = Array.from(e.target.selectedOptions).map((o) => o.value);
+                              setForm((f) => (f ? { ...f, components } : f));
+                            }}
+                          >
+                            {form.options.components.map((c) => (
+                              <option value={c.id} key={c.id}>
+                                {c.label}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                        {field("ordinary_hours", "Ordinary hours for monthly basis")}
+                      </>
+                    )}
+                    {field("multiplier", "Monetary multiplier")}
+                    {select(
+                      "rounding_stage",
+                      "Overtime rounding stage",
+                      enumOptions(["per_ot_day", "hourly_rate", "final_employee_period"]),
+                    )}
+                    {select(
+                      "rounding_mode",
+                      "Overtime rounding mode",
+                      enumOptions(["half_up", "half_even", "down", "up"]),
+                    )}
+                    {field("source_reference", "Monetary policy source reference")}
+                    <details className="sm:col-span-2">
+                      <summary className="cursor-pointer text-sm">Intermediate precision</summary>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                        {select(
+                          "minute_precision",
+                          "Minute precision",
+                          enumOptions(Array.from({ length: 9 }, (_, i) => String(i))),
+                        )}
+                        {select(
+                          "hourly_rate_precision",
+                          "Hourly rate precision",
+                          enumOptions(Array.from({ length: 9 }, (_, i) => String(i))),
+                        )}
+                        {select(
+                          "intermediate_precision",
+                          "Amount precision",
+                          enumOptions(Array.from({ length: 9 }, (_, i) => String(i))),
+                        )}
+                      </div>
+                    </details>
+                  </>
+                ) : (
+                  <>
+                    {select("employee_id", "Overtime employee", form.options.employees)}
+                    {select(
+                      "policy_version_id",
+                      "Released monetary policy",
+                      form.options.policies.map((p) => ({
+                        id: p.id,
+                        label: p.reference + " · " + p.name + " · " + p.terms?.currency_code,
+                      })),
+                    )}
+                    {form.options.policies.find((p) => p.id === form.values.policy_version_id)?.terms?.basis_source ===
+                      "direct_contractual_rate" && field("direct_rate", "Direct contractual hourly rate")}
+                    <p className="text-sm text-muted-foreground sm:col-span-2">
+                      The policy supplies the approved basis components, currency, multiplier and rounding. Employees
+                      are bounded by the current search and company placement on the Payroll month.
+                    </p>
+                  </>
+                )}
+              </fieldset>
+            )}
+            {form.row && !!form.row.allowed_actions.length && (
+              <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0! sm:grid-cols-2">
+                {select("action", "Monetary decision", enumOptions(form.row.allowed_actions))}
+                {permissions.includes("platform.approval.override") &&
+                  form.values.action !== "submit" &&
+                  select("confirm_override", "Monetary administrator override", [
+                    { id: "false", label: "Use independent approval" },
+                    { id: "true", label: "Explicit audited administrator override" },
+                  ])}
+              </fieldset>
+            )}
+            {(!form.row || !!form.row.allowed_actions.length) && (
+              <>
+                <Field title="Monetary change reason">
+                  <Textarea
+                    required
+                    minLength={5}
+                    maxLength={500}
+                    disabled={busy}
+                    value={form.values.reason}
+                    onChange={(e) => change("reason", e.target.value)}
+                  />
+                </Field>
+                <p className="text-xs text-muted-foreground">
+                  Submitted terms are locked for review. Released policies and approved arrangements preserve historical
+                  authority. Overlapping released ranges and calculated Payroll periods prevent retroactive changes.
+                </p>
+                <Button type="submit" disabled={busy} className="justify-self-start text-primary-foreground!">
+                  {busy ? "Saving…" : form.row ? "Confirm monetary decision" : "Save monetary draft"}
+                </Button>
+              </>
+            )}
+          </form>
+        )}
+      </HrRecordDrawer>
     </section>
   );
 }

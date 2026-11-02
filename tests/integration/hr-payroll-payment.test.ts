@@ -4,8 +4,7 @@ import { createDatabasePool, type DatabasePool } from "../../packages/db/src/ind
 import { ensureSourceAuthorizationFixture, sourceTestTenantId as tenant } from "./source-security-fixture.js";
 import { createPaymentFixture, paymentActor } from "./hr-payroll-payment-fixture.js";
 const url = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL,
-  // User deferred the Banking integration; keep its isolated acceptance cases parked until handoff.
-  run = describe.skip;
+  run = url ? describe : describe.skip;
 run("Governed salary batch and actual Banking settlement", () => {
   let pool: DatabasePool;
   const fixtures: Awaited<ReturnType<typeof createPaymentFixture>>[] = [];
@@ -246,5 +245,21 @@ run("Governed salary batch and actual Banking settlement", () => {
         )
       ).rows[0].n,
     ).toBe(1);
+  });
+  it("reserves an obligation once when independent Bank Payments compete to post", async () => {
+    const f = await ready();
+    const results = await Promise.allSettled([f.pay(), f.pay()]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    const allocation = await pool.query(
+      "select a.payment_id from hr_payroll_bank_allocation a where a.tenant_id=$1 and a.company_id=$2 and a.state='posted'",
+      [tenant, f.companyId],
+    );
+    expect(allocation.rowCount).toBe(1);
+    const posted = await pool.query(
+      "select id from bank_payment where tenant_id=$1 and company_id=$2 and state='posted'",
+      [tenant, f.companyId],
+    );
+    expect(posted.rowCount).toBe(1);
   });
 });

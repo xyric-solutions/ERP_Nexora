@@ -65,6 +65,38 @@ run("Governed Payroll workspace", () => {
     hrPayrollWorkspaceSchema.parse(data);
     return data;
   }
+  it("allocates component codes and keeps generated codes usable in formulas", async () => {
+    const f = await fixture();
+    const first = await create(f, {
+      kind: "component",
+      code: "AUTO",
+      name: "Automatic base",
+      component_kind: "earning",
+      method: "fixed",
+      formula: null,
+      taxable: true,
+      prorated: true,
+      account_id: f.expense,
+      position: 1,
+    });
+    const records = await list(f, "components");
+    const code = records.items.find((r) => r.id === first.id)!.reference;
+    expect(code).toMatch(/^PAY-\d{3,}$/);
+    const second = await create(f, {
+      kind: "component",
+      code: "AUTO",
+      name: "Automatic allowance",
+      component_kind: "earning",
+      method: "formula",
+      formula: `[${code}] * 0.1`,
+      taxable: true,
+      prorated: true,
+      account_id: f.expense,
+      position: 2,
+    });
+    expect(second.id).not.toBe(first.id);
+  });
+
   async function component(f: Awaited<ReturnType<typeof fixture>>, deduction = false) {
     return create(f, {
       kind: "component",
@@ -328,7 +360,7 @@ run("Governed Payroll workspace", () => {
     for (const section of ["runs", "review", "journals", "payments", "payslips"] as const) {
       const data = await list(f, section);
       expect(data.items).toEqual([]);
-      expect(data.notices.join(" ")).toContain("Payment integration is deferred until Banking delivery.");
+      expect(data.notices.join(" ")).toContain("Payment Batch prepares salary obligations");
     }
   });
 

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Field, panel, selectClass, useAttendanceRead } from "../components/hr-workspace-controls";
 import { HrApiClient } from "../api/hr-client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import {
   hrPerformanceParticipationActionSchema,
   type HrPerformanceParticipationAction,
@@ -133,6 +134,7 @@ export function PerformanceParticipation({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
+    [inviteOpen, setInviteOpen] = useState(false),
     [editing, setEditing] = useState<Item | null>(null),
     [employee, setEmployee] = useState(""),
     [contributor, setContributor] = useState(""),
@@ -164,6 +166,7 @@ export function PerformanceParticipation({
       const r = await client.actOnPerformanceParticipation(input, csrfToken(), retry.current.key);
       retry.current = null;
       setNotice("Contribution " + r.status);
+      setInviteOpen(false);
       setEditing(null);
       setDecision(null);
       setReason("");
@@ -187,6 +190,18 @@ export function PerformanceParticipation({
           </p>
         </div>
         <div className={personalOnly ? "hidden" : "flex flex-wrap gap-2"}>
+          {data?.can_invite && (
+            <Button
+              disabled={busy || inviteOpen || !!editing || !!decision}
+              onClick={() => {
+                setInviteOpen(true);
+                setError("");
+                setReason("");
+              }}
+            >
+              Invite contributor
+            </Button>
+          )}
           <Button
             variant={mode === "staff" ? "default" : "outline"}
             className={mode === "staff" ? "text-primary-foreground!" : ""}
@@ -217,84 +232,94 @@ export function PerformanceParticipation({
       )}
       {result.loading && <p role="status">Loading contribution evidence…</p>}
       {data?.can_invite && (
-        <form
-          className="space-y-3 rounded-lg border border-border p-3"
-          aria-label="Invite Performance contributor"
-          onSubmit={(e) => {
-            e.preventDefault();
-            act({
-              ...common,
-              action: "invite",
-              employee_id: employee,
-              contributor_employee_id: kind === "self" ? employee : contributor,
-              kind,
-              reason,
-            });
-          }}
+        <HrRecordDrawer
+          title="Invite Performance contributor"
+          description="Assign a self appraisal or peer-feedback contribution to the current review cycle."
+          open={inviteOpen}
+          busy={busy}
+          error={error}
+          notice={notice}
+          onClose={() => setInviteOpen(false)}
         >
-          <div className="grid gap-3 md:grid-cols-3">
-            <Field title="Assessed employee">
-              <select
-                className={selectClass}
-                value={employee}
-                disabled={busy}
-                required
-                onChange={(e) => setEmployee(e.target.value)}
-              >
-                <option value="">Choose employee</option>
-                {w.employees.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field title="Contribution type">
-              <select
-                className={selectClass}
-                value={kind}
-                disabled={busy}
-                onChange={(e) => setKind(e.target.value as typeof kind)}
-              >
-                <option value="self">Employee self appraisal</option>
-                <option value="peer">Peer feedback</option>
-              </select>
-            </Field>
-            {kind === "peer" && (
-              <Field title="Invited peer">
+          <form
+            className="space-y-3 rounded-lg border border-border p-3"
+            aria-label="Invite Performance contributor"
+            onSubmit={(e) => {
+              e.preventDefault();
+              act({
+                ...common,
+                action: "invite",
+                employee_id: employee,
+                contributor_employee_id: kind === "self" ? employee : contributor,
+                kind,
+                reason,
+              });
+            }}
+          >
+            <div className="grid gap-3 md:grid-cols-3">
+              <Field title="Assessed employee">
                 <select
                   className={selectClass}
-                  value={contributor}
-                  required
+                  value={employee}
                   disabled={busy}
-                  onChange={(e) => setContributor(e.target.value)}
+                  required
+                  onChange={(e) => setEmployee(e.target.value)}
                 >
-                  <option value="">Choose peer</option>
-                  {w.employees
-                    .filter((e) => e.id !== employee)
-                    .map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {e.label}
-                      </option>
-                    ))}
+                  <option value="">Choose employee</option>
+                  {w.employees.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.label}
+                    </option>
+                  ))}
                 </select>
               </Field>
-            )}
-          </div>
-          <Field title="Invitation reason">
-            <Textarea
-              value={reason}
-              required
-              minLength={5}
-              maxLength={500}
-              disabled={busy}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </Field>
-          <Button type="submit" disabled={busy} className="text-primary-foreground!">
-            Invite contributor
-          </Button>
-        </form>
+              <Field title="Contribution type">
+                <select
+                  className={selectClass}
+                  value={kind}
+                  disabled={busy}
+                  onChange={(e) => setKind(e.target.value as typeof kind)}
+                >
+                  <option value="self">Employee self appraisal</option>
+                  <option value="peer">Peer feedback</option>
+                </select>
+              </Field>
+              {kind === "peer" && (
+                <Field title="Invited peer">
+                  <select
+                    className={selectClass}
+                    value={contributor}
+                    required
+                    disabled={busy}
+                    onChange={(e) => setContributor(e.target.value)}
+                  >
+                    <option value="">Choose peer</option>
+                    {w.employees
+                      .filter((e) => e.id !== employee)
+                      .map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.label}
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+              )}
+            </div>
+            <Field title="Invitation reason">
+              <Textarea
+                value={reason}
+                required
+                minLength={5}
+                maxLength={500}
+                disabled={busy}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </Field>
+            <Button type="submit" disabled={busy} className="text-primary-foreground!">
+              Invite contributor
+            </Button>
+          </form>
+        </HrRecordDrawer>
       )}
       {!result.loading && !data?.items.length && (
         <p className="text-sm text-muted-foreground">
@@ -350,24 +375,34 @@ export function PerformanceParticipation({
         ))}
       </div>
       {editing && (
-        <ContributionForm
-          key={editing.id}
-          item={editing}
+        <HrRecordDrawer
+          title={editing.kind === "self" ? "Write self appraisal" : "Write peer feedback"}
+          description="Record the assessment and goal evidence without leaving the contribution register."
+          open
           busy={busy}
-          onCancel={() => setEditing(null)}
-          onSubmit={(summary, ratings, why) =>
-            act({
-              ...common,
-              action: "submit",
-              id: editing.id,
-              expected_version: editing.version,
-              goals_hash: editing.goals_hash,
-              summary,
-              ratings,
-              reason: why,
-            })
-          }
-        />
+          error={error}
+          notice={notice}
+          onClose={() => setEditing(null)}
+        >
+          <ContributionForm
+            key={editing.id}
+            item={editing}
+            busy={busy}
+            onCancel={() => setEditing(null)}
+            onSubmit={(summary, ratings, why) =>
+              act({
+                ...common,
+                action: "submit",
+                id: editing.id,
+                expected_version: editing.version,
+                goals_hash: editing.goals_hash,
+                summary,
+                ratings,
+                reason: why,
+              })
+            }
+          />
+        </HrRecordDrawer>
       )}
       {!!data?.reviews.length && (
         <div className="space-y-3">

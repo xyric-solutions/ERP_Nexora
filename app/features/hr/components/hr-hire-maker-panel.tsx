@@ -1,4 +1,5 @@
 "use client";
+import { HrRecordDrawer } from "./hr-record-drawer";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -179,202 +180,214 @@ export function HrHireMakerPanel({
   if (!employeeId) return null;
 
   return (
-    <section
-      className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm"
-      aria-label="Governed Hire request"
+    <HrRecordDrawer
+      completionKey={notice}
+      title="Manage assignment & hire"
+      triggerLabel="Manage assignment & hire"
+      busy={savingAssignment || submitting}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employment control</p>
-          <h2 className="mt-1 text-lg font-semibold text-foreground">Prepare governed Hire</h2>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Prepare non-operational assignment context, then submit it for an independent checker decision.
-          </p>
-        </div>
-        <Badge variant={profileAssignment ? "secondary" : "outline"}>
-          {profileAssignment ? "Profile context ready" : "Profile context required"}
-        </Badge>
-      </div>
-
-      {state === "loading" && <Skeleton className="h-28 w-full" />}
-      {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Hire preparation unavailable</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      {notice && (
-        <Alert>
-          <AlertTitle>Employment workflow updated</AlertTitle>
-          <AlertDescription>{notice}</AlertDescription>
-        </Alert>
-      )}
-
-      {state === "ready" && !profileAssignment && !canCreateAssignment && (
-        <Alert>
-          <AlertTitle>Profile assignment required</AlertTitle>
-          <AlertDescription>
-            An authorized HR assignment maker must prepare the employee&apos;s profile-draft assignment first.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {state === "ready" && !profileAssignment && canCreateAssignment && (
-        <div className="grid gap-3">
+      <section
+        className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm"
+        aria-label="Governed Hire request"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
           <div>
-            <h3 className="font-medium text-foreground">1. Profile-draft assignment</h3>
-            <p className="text-sm text-muted-foreground">All placement fields are required for later activation.</p>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <SelectField
-              label="Branch"
-              value={branchId}
-              onChange={(value) => {
-                setBranchId(value);
-                setDepartmentId("");
-              }}
-              items={branches}
-              disabled={savingAssignment}
-            />
-            <SelectField
-              label="Department"
-              value={departmentId}
-              onChange={setDepartmentId}
-              items={departments}
-              disabled={savingAssignment || !branchId}
-            />
-            <MasterSelect
-              label="Designation"
-              value={designationId}
-              onChange={setDesignationId}
-              items={byType("designation")}
-              disabled={savingAssignment}
-            />
-            <MasterSelect
-              label="Job grade"
-              value={jobGradeId}
-              onChange={setJobGradeId}
-              items={byType("job_grade")}
-              disabled={savingAssignment}
-            />
-            <MasterSelect
-              label="Cost center"
-              value={costCenterId}
-              onChange={setCostCenterId}
-              items={byType("cost_center")}
-              disabled={savingAssignment}
-            />
-            <MasterSelect
-              label="Work location"
-              value={workLocationId}
-              onChange={setWorkLocationId}
-              items={byType("work_location")}
-              disabled={savingAssignment}
-            />
-            <MasterSelect
-              label="Employment type"
-              value={employmentTypeId}
-              onChange={setEmploymentTypeId}
-              items={byType("employment_type")}
-              disabled={savingAssignment}
-            />
-            <MasterSelect
-              label="Employee category"
-              value={employeeCategoryId}
-              onChange={setEmployeeCategoryId}
-              items={byType("employee_category")}
-              disabled={savingAssignment}
-            />
-            <label htmlFor="hire-profile-effective-on" className="grid gap-1.5 text-sm font-medium text-foreground">
-              Effective date
-              <Input
-                id="hire-profile-effective-on"
-                type="date"
-                value={effectiveOn}
-                onChange={(event) => setEffectiveOn(event.target.value)}
-                disabled={savingAssignment}
-              />
-            </label>
-          </div>
-          <div>
-            <Button type="button" onClick={createAssignment} disabled={savingAssignment}>
-              {savingAssignment ? "Saving profile context..." : "Save profile context"}
-            </Button>
-          </div>
-        </div>
-      )}
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Employment control
+            </p>
 
-      {state === "ready" && profileAssignment && (
-        <div className="grid gap-3">
-          <div>
-            <h3 className="font-medium text-foreground">2. Request independent Hire approval</h3>
-            <p className="text-sm text-muted-foreground">
-              Submission creates a pending request only. It does not activate the employee or assignment.
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Prepare non-operational assignment context, then submit it for an independent checker decision.
             </p>
           </div>
-          {!canRequestHire ? (
-            <Alert>
-              <AlertTitle>Hire request permission required</AlertTitle>
-              <AlertDescription>
-                Your session may read this profile context but cannot submit a Hire request.
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <>
-              <div className="grid gap-3 md:grid-cols-2">
-                <MasterSelect
-                  label="Approved job"
-                  value={jobId}
-                  onChange={(value) => {
-                    setJobId(value);
-                    hireRetry.current = null;
-                  }}
-                  items={byType("job")}
-                  disabled={submitting}
+          <Badge variant={profileAssignment ? "secondary" : "outline"}>
+            {profileAssignment ? "Profile context ready" : "Profile context required"}
+          </Badge>
+        </div>
+
+        {state === "loading" && <Skeleton className="h-28 w-full" />}
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>Hire preparation unavailable</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {notice && (
+          <Alert>
+            <AlertTitle>Employment workflow updated</AlertTitle>
+            <AlertDescription>{notice}</AlertDescription>
+          </Alert>
+        )}
+
+        {state === "ready" && !profileAssignment && !canCreateAssignment && (
+          <Alert>
+            <AlertTitle>Profile assignment required</AlertTitle>
+            <AlertDescription>
+              An authorized HR assignment maker must prepare the employee&apos;s profile-draft assignment first.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {state === "ready" && !profileAssignment && canCreateAssignment && (
+          <div className="grid gap-3">
+            <div>
+              <h3 className="font-medium text-foreground">1. Profile-draft assignment</h3>
+              <p className="text-sm text-muted-foreground">All placement fields are required for later activation.</p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <SelectField
+                label="Branch"
+                value={branchId}
+                onChange={(value) => {
+                  setBranchId(value);
+                  setDepartmentId("");
+                }}
+                items={branches}
+                disabled={savingAssignment}
+              />
+              <SelectField
+                label="Department"
+                value={departmentId}
+                onChange={setDepartmentId}
+                items={departments}
+                disabled={savingAssignment || !branchId}
+              />
+              <MasterSelect
+                label="Designation"
+                value={designationId}
+                onChange={setDesignationId}
+                items={byType("designation")}
+                disabled={savingAssignment}
+              />
+              <MasterSelect
+                label="Job grade"
+                value={jobGradeId}
+                onChange={setJobGradeId}
+                items={byType("job_grade")}
+                disabled={savingAssignment}
+              />
+              <MasterSelect
+                label="Cost center"
+                value={costCenterId}
+                onChange={setCostCenterId}
+                items={byType("cost_center")}
+                disabled={savingAssignment}
+              />
+              <MasterSelect
+                label="Work location"
+                value={workLocationId}
+                onChange={setWorkLocationId}
+                items={byType("work_location")}
+                disabled={savingAssignment}
+              />
+              <MasterSelect
+                label="Employment type"
+                value={employmentTypeId}
+                onChange={setEmploymentTypeId}
+                items={byType("employment_type")}
+                disabled={savingAssignment}
+              />
+              <MasterSelect
+                label="Employee category"
+                value={employeeCategoryId}
+                onChange={setEmployeeCategoryId}
+                items={byType("employee_category")}
+                disabled={savingAssignment}
+              />
+              <label htmlFor="hire-profile-effective-on" className="grid gap-1.5 text-sm font-medium text-foreground">
+                Effective date
+                <Input
+                  id="hire-profile-effective-on"
+                  type="date"
+                  value={effectiveOn}
+                  onChange={(event) => setEffectiveOn(event.target.value)}
+                  disabled={savingAssignment}
                 />
-                <label htmlFor="hire-request-effective-on" className="grid gap-1.5 text-sm font-medium text-foreground">
-                  Effective date
-                  <Input
-                    id="hire-request-effective-on"
-                    type="date"
-                    value={effectiveOn}
+              </label>
+            </div>
+            <div>
+              <Button type="button" onClick={createAssignment} disabled={savingAssignment}>
+                {savingAssignment ? "Saving profile context..." : "Save profile context"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {state === "ready" && profileAssignment && (
+          <div className="grid gap-3">
+            <div>
+              <h3 className="font-medium text-foreground">2. Request independent Hire approval</h3>
+              <p className="text-sm text-muted-foreground">
+                Submission creates a pending request only. It does not activate the employee or assignment.
+              </p>
+            </div>
+            {!canRequestHire ? (
+              <Alert>
+                <AlertTitle>Hire request permission required</AlertTitle>
+                <AlertDescription>
+                  Your session may read this profile context but cannot submit a Hire request.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <MasterSelect
+                    label="Approved job"
+                    value={jobId}
+                    onChange={(value) => {
+                      setJobId(value);
+                      hireRetry.current = null;
+                    }}
+                    items={byType("job")}
+                    disabled={submitting}
+                  />
+                  <label
+                    htmlFor="hire-request-effective-on"
+                    className="grid gap-1.5 text-sm font-medium text-foreground"
+                  >
+                    Effective date
+                    <Input
+                      id="hire-request-effective-on"
+                      type="date"
+                      value={effectiveOn}
+                      onChange={(event) => {
+                        setEffectiveOn(event.target.value);
+                        hireRetry.current = null;
+                      }}
+                      disabled={submitting}
+                    />
+                  </label>
+                </div>
+                <label htmlFor="hire-request-reason" className="grid gap-1.5 text-sm font-medium text-foreground">
+                  Business reason
+                  <Textarea
+                    id="hire-request-reason"
+                    value={reason}
+                    maxLength={1000}
                     onChange={(event) => {
-                      setEffectiveOn(event.target.value);
+                      setReason(event.target.value);
                       hireRetry.current = null;
                     }}
                     disabled={submitting}
+                    placeholder="Explain why this approved profile should become an active employment relationship."
                   />
                 </label>
-              </div>
-              <label htmlFor="hire-request-reason" className="grid gap-1.5 text-sm font-medium text-foreground">
-                Business reason
-                <Textarea
-                  id="hire-request-reason"
-                  value={reason}
-                  maxLength={1000}
-                  onChange={(event) => {
-                    setReason(event.target.value);
-                    hireRetry.current = null;
-                  }}
-                  disabled={submitting}
-                  placeholder="Explain why this approved profile should become an active employment relationship."
-                />
-              </label>
-              <div>
-                <Button
-                  type="button"
-                  className="text-primary-foreground!"
-                  onClick={requestHire}
-                  disabled={submitting || !jobId || !reason.trim()}
-                >
-                  {submitting ? "Submitting Hire request..." : "Submit Hire request"}
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </section>
+                <div>
+                  <Button
+                    type="button"
+                    className="text-primary-foreground!"
+                    onClick={requestHire}
+                    disabled={submitting || !jobId || !reason.trim()}
+                  >
+                    {submitting ? "Submitting Hire request..." : "Submit Hire request"}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </section>
+    </HrRecordDrawer>
   );
 }
 

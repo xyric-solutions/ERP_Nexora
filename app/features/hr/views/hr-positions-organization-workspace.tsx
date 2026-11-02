@@ -192,7 +192,7 @@ export function HrPositionsOrganizationWorkspace({ onNavigate }: { onNavigate: N
               <h2 className="mt-1 text-xl font-semibold">Occupied positions</h2>
               <p className="mt-1 text-sm text-muted-foreground">Showing up to 100 authorized current assignments.</p>
             </header>
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full min-w-260 text-left text-sm">
                 <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>

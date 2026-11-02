@@ -78,7 +78,7 @@ export function evaluatePayrollFormula(
   expression: string,
   variables: Readonly<Record<string, ExactPayrollAmount>>,
 ): ExactPayrollAmount {
-  const tokens = expression.match(/\d+(?:\.\d{1,4})?|[A-Za-z][A-Za-z0-9_]*|[+*/(),-]/g) ?? [];
+  const tokens = expression.match(/\[[A-Za-z][A-Za-z0-9_-]*\]|\d+(?:\.\d{1,4})?|[A-Za-z][A-Za-z0-9_]*|[+*/(),-]/g) ?? [];
   if (tokens.join("") !== expression.replace(/\s/g, "") || tokens.length < 1 || tokens.length > 200)
     invalid("The Payroll formula contains unsupported syntax.");
   let cursor = 0,
@@ -118,9 +118,10 @@ export function evaluatePayrollFormula(
         value = values.reduce((a, b) => (token === "min" ? (a.compare(b) <= 0 ? a : b) : a.compare(b) >= 0 ? a : b));
       }
     } else {
-      if (!token || !Object.hasOwn(variables, token))
+      const variable = token?.startsWith("[") ? token.slice(1, -1) : token;
+      if (!variable || !Object.hasOwn(variables, variable))
         invalid("An unknown Payroll variable or forward component reference was used.");
-      value = variables[token!]!;
+      value = variables[variable!]!;
     }
     depth--;
     return value;

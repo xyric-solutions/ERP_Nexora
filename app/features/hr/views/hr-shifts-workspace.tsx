@@ -1,4 +1,6 @@
 "use client";
+import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createHrShiftRequestSchema,
@@ -62,7 +64,7 @@ function ShiftEditor({
 }) {
   const initial = editor.detail;
   const [expectedVersion] = useState(initial?.version);
-  const [code, setCode] = useState(editor.copy ? "" : (initial?.code ?? ""));
+  const code = editor.copy ? "AUTO" : (initial?.code ?? "AUTO");
   const [name, setName] = useState(editor.copy ? `${initial?.name ?? ""} copy` : (initial?.name ?? ""));
   const [kind, setKind] = useState<CreateHrShiftRequest["kind"]>(initial?.kind ?? "fixed");
   const [zone, setZone] = useState(initial?.time_zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC");
@@ -230,13 +232,13 @@ function ShiftEditor({
       )}
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-2 text-sm font-medium">
-          Shift code
+          Shift code (automatic)
           <Input
             required
             maxLength={32}
-            value={code}
+            value={code === "AUTO" ? "Assigned on save · SHF-001…" : code}
+            readOnly
             disabled={busy}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
             placeholder="GENERAL"
           />
         </label>
@@ -592,13 +594,20 @@ function ShiftEditor({
   );
 }
 
-export function HrShiftsWorkspace({ onNavigate }: { onNavigate: (moduleId: string, pageId: string) => void }) {
+export function HrShiftsWorkspace({
+  onNavigate,
+  initialReference,
+}: {
+  initialReference?: string;
+  onNavigate: (moduleId: string, pageId: string) => void;
+}) {
+  const initialScope = useMemo(() => readHrOperationsScope(initialReference), [initialReference]);
   const { api, session, loading: sessionLoading, csrfToken } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
   const canRead = session?.user.permissions.includes("hr.attendance.shift.read") ?? false,
     canManage = session?.user.permissions.includes("hr.attendance.shift.manage") ?? false;
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]),
-    [company, setCompany] = useState("");
+    [company, setCompany] = useState(initialScope.company_id ?? "");
   const [directory, setDirectory] = useState<HrShiftDirectory>({ items: [], total: 0 }),
     [selected, setSelected] = useState("");
   const [detail, setDetail] = useState<HrShiftDetail | null>(null);
@@ -617,6 +626,7 @@ export function HrShiftsWorkspace({ onNavigate }: { onNavigate: (moduleId: strin
     [statusReason, setStatusReason] = useState("");
   const mutation = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null);
+  useHrOperationsScope(company);
   useEffect(() => {
     if (!canRead) return;
     let current = true;
@@ -890,15 +900,24 @@ export function HrShiftsWorkspace({ onNavigate }: { onNavigate: (moduleId: strin
         </Button>
       </form>
       {editor && (
-        <ShiftEditor
-          key={`${editor.detail?.id ?? "new"}:${editor.copy}`}
-          client={client}
-          companyId={company}
-          editor={editor}
-          busy={busy}
-          onSave={save}
+        <HrRecordDrawer
+          title={editor?.copy ? "Copy shift" : editor?.detail ? "Edit shift rules" : "Add shift"}
+          open={!!editor}
           onClose={() => setEditor(null)}
-        />
+          busy={busy}
+          error={error}
+          notice={notice}
+        >
+          <ShiftEditor
+            key={`${editor.detail?.id ?? "new"}:${editor.copy}`}
+            client={client}
+            companyId={company}
+            editor={editor}
+            busy={busy}
+            onSave={save}
+            onClose={() => setEditor(null)}
+          />
+        </HrRecordDrawer>
       )}
       {!company && !loading && (
         <p className="rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground">
@@ -1136,39 +1155,48 @@ export function HrShiftsWorkspace({ onNavigate }: { onNavigate: (moduleId: strin
                   )}
                 </section>
                 {canManage && !editor && (
-                  <form
-                    className="grid gap-3 rounded-xl border border-border bg-card p-5"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void changeStatus();
-                    }}
+                  <HrRecordDrawer
+                    title="Change shift availability"
+                    triggerLabel="Change shift availability"
+                    busy={busy}
+                    error={error}
+                    notice={notice}
+                    completionKey={notice}
                   >
-                    <h3 className="text-sm font-semibold">Availability</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {title(current.status)}. Current/future assignments and active rotations must be moved before
-                      deactivation. Existing history is retained.
-                    </p>
-                    <label className="grid gap-2 text-sm font-medium">
-                      Status change reason
-                      <Textarea
-                        required
-                        minLength={8}
-                        maxLength={1000}
-                        rows={2}
-                        value={statusReason}
-                        disabled={busy}
-                        onChange={(e) => setStatusReason(e.target.value)}
-                      />
-                    </label>
-                    <Button
-                      type="submit"
-                      variant="outline"
-                      className="justify-self-start"
-                      disabled={busy || detailLoading || statusReason.trim().length < 8}
+                    <form
+                      className="grid gap-3 rounded-xl border border-border bg-card p-5"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void changeStatus();
+                      }}
                     >
-                      {current.status === "active" ? "Deactivate shift" : "Reactivate shift"}
-                    </Button>
-                  </form>
+                      <h3 className="text-sm font-semibold">Availability</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {title(current.status)}. Current/future assignments and active rotations must be moved before
+                        deactivation. Existing history is retained.
+                      </p>
+                      <label className="grid gap-2 text-sm font-medium">
+                        Status change reason
+                        <Textarea
+                          required
+                          minLength={8}
+                          maxLength={1000}
+                          rows={2}
+                          value={statusReason}
+                          disabled={busy}
+                          onChange={(e) => setStatusReason(e.target.value)}
+                        />
+                      </label>
+                      <Button
+                        type="submit"
+                        variant="outline"
+                        className="justify-self-start"
+                        disabled={busy || detailLoading || statusReason.trim().length < 8}
+                      >
+                        {current.status === "active" ? "Deactivate shift" : "Reactivate shift"}
+                      </Button>
+                    </form>
+                  </HrRecordDrawer>
                 )}
                 <section className="rounded-xl border border-border bg-card p-5">
                   <h3 className="text-base font-semibold">Rule history</h3>

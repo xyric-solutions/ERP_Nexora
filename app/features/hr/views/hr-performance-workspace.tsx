@@ -13,6 +13,7 @@ import {
   type HrPerformanceWorkspace,
 } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import {
   Field,
   Metric,
@@ -891,25 +892,35 @@ export function HrPerformanceWorkspace({
               </div>
             </div>
           </section>
-          {editor && (
-            <PerformanceForm
-              key={(editor === "new" ? "new" : editor.id + editor.version) + section}
-              w={w}
-              initial={editor === "new" ? null : editor}
+          {editor ? (
+            <HrRecordDrawer
+              title={`${editor === "new" ? "Create" : "Edit"} ${kindFor[section]}`}
+              description="Maintain the performance draft without leaving the current review register."
+              open
               busy={busy}
-              onCancel={() => setEditor(null)}
-              onSave={(terms, reason) =>
-                command({
-                  action: "save",
-                  company_id: company,
-                  record_id: editor === "new" ? null : editor.id,
-                  expected_version: editor === "new" ? 0 : editor.version,
-                  terms,
-                  reason,
-                })
-              }
-            />
-          )}
+              error={error}
+              notice={notice}
+              onClose={() => setEditor(null)}
+            >
+              <PerformanceForm
+                key={(editor === "new" ? "new" : editor.id + editor.version) + section}
+                w={w}
+                initial={editor === "new" ? null : editor}
+                busy={busy}
+                onCancel={() => setEditor(null)}
+                onSave={(terms, reason) =>
+                  command({
+                    action: "save",
+                    company_id: company,
+                    record_id: editor === "new" ? null : editor.id,
+                    expected_version: editor === "new" ? 0 : editor.version,
+                    terms,
+                    reason,
+                  })
+                }
+              />
+            </HrRecordDrawer>
+          ) : null}
           {decision && (
             <form
               className={panel + " space-y-4"}

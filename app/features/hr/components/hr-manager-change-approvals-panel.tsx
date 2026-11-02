@@ -1,4 +1,5 @@
 "use client";
+import { HrRecordDrawer } from "./hr-record-drawer";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -169,7 +170,7 @@ export function HrManagerChangeApprovalsPanel({
 
   return (
     <section
-      className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm"
+      className="grid min-w-0 gap-4 rounded-lg border border-border bg-card p-4 shadow-sm"
       aria-label="Manager-change approvals"
     >
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
@@ -206,8 +207,8 @@ export function HrManagerChangeApprovalsPanel({
         </p>
       )}
       {state === "ready" && (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,.8fr)]">
-          <div className="overflow-x-auto rounded-md border border-border">
+        <div className="grid min-w-0 gap-4 ">
+          <div className="relative min-w-0 overflow-x-auto rounded-md border border-border">
             <table className="w-full min-w-180 text-left text-sm">
               <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
@@ -245,100 +246,112 @@ export function HrManagerChangeApprovalsPanel({
               </tbody>
             </table>
           </div>
-          <aside className="rounded-md border border-border p-4">
-            {detailState === "loading" && selected && <Skeleton className="h-36 w-full" />}
-            {detailState === "error" && selected && (
-              <p className="text-sm text-muted-foreground">Select another request or refresh the queue.</p>
-            )}
-            {!selected && (
-              <p className="text-sm text-muted-foreground">
-                Select a pending manager change to compare reporting lines.
-              </p>
-            )}
-            {detail && detailState === "ready" && (
-              <div className="grid gap-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold text-foreground">{detail.employee_name}</h3>
-                    <p className="text-sm text-muted-foreground">{detail.employee_number}</p>
-                  </div>
-                  <Badge variant="secondary">Pending</Badge>
-                </div>
-                <dl className="grid gap-2 text-sm">
-                  <ReviewField
-                    label="Current reporting manager"
-                    value={managerName(detail.current_reporting_manager_name)}
-                  />
-                  <ReviewField
-                    label="Proposed reporting manager"
-                    value={managerName(detail.proposed_reporting_manager_name)}
-                  />
-                  <ReviewField label="Effective date" value={detail.effective_on} />
-                  <ReviewField label="Business reason" value={detail.reason} />
-                </dl>
-                {detail.clear_reporting_manager && (
-                  <Alert>
-                    <AlertTitle>Explicit reporting-line clear</AlertTitle>
-                    <AlertDescription>
-                      Approval intentionally leaves this employee with no reporting manager.
-                    </AlertDescription>
-                  </Alert>
-                )}
-                <Alert>
-                  <AlertTitle>Other assignment details unchanged</AlertTitle>
-                  <AlertDescription>
-                    This decision changes only the reporting manager and never changes compensation.
-                  </AlertDescription>
-                </Alert>
-                {approvalOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
-                {approvalOverride.independentApproverRequired ? (
-                  <Alert>
-                    <AlertTitle>Independent approver required</AlertTitle>
-                    <AlertDescription>
-                      You submitted this manager change, so another HR checker must decide it.
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <>
-                    <label
-                      htmlFor="manager-change-decision-reason"
-                      className="grid gap-1.5 text-sm font-medium text-foreground"
-                    >
-                      Decision reason
-                      <Textarea
-                        id="manager-change-decision-reason"
-                        value={reason}
-                        maxLength={1000}
-                        disabled={saving}
-                        onChange={(event) => {
-                          setReason(event.target.value);
-                          retry.current = null;
-                        }}
-                        placeholder="Explain the approval or rejection for the immutable audit record."
-                      />
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" disabled={saving || !reason.trim()} onClick={() => setDecision("approved")}>
-                        Approve manager change
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        disabled={saving || !reason.trim()}
-                        onClick={() => setDecision("rejected")}
-                      >
-                        Reject manager change
-                      </Button>
+          <HrRecordDrawer
+            title="Review manager change request"
+            open={!!selected}
+            onClose={() => setSelected(null)}
+            busy={saving}
+            error={error}
+          >
+            <aside className="rounded-md border border-border p-4">
+              {detailState === "loading" && selected && <Skeleton className="h-36 w-full" />}
+              {detailState === "error" && selected && (
+                <p className="text-sm text-muted-foreground">Select another request or refresh the queue.</p>
+              )}
+              {!selected && (
+                <p className="text-sm text-muted-foreground">
+                  Select a pending manager change to compare reporting lines.
+                </p>
+              )}
+              {detail && detailState === "ready" && (
+                <div className="grid min-w-0 gap-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-foreground">{detail.employee_name}</h3>
+                      <p className="text-sm text-muted-foreground">{detail.employee_number}</p>
                     </div>
-                  </>
-                )}
-              </div>
-            )}
-          </aside>
+                    <Badge variant="secondary">Pending</Badge>
+                  </div>
+                  <dl className="grid gap-2 text-sm">
+                    <ReviewField
+                      label="Current reporting manager"
+                      value={managerName(detail.current_reporting_manager_name)}
+                    />
+                    <ReviewField
+                      label="Proposed reporting manager"
+                      value={managerName(detail.proposed_reporting_manager_name)}
+                    />
+                    <ReviewField label="Effective date" value={detail.effective_on} />
+                    <ReviewField label="Business reason" value={detail.reason} />
+                  </dl>
+                  {detail.clear_reporting_manager && (
+                    <Alert>
+                      <AlertTitle>Explicit reporting-line clear</AlertTitle>
+                      <AlertDescription>
+                        Approval intentionally leaves this employee with no reporting manager.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  <Alert>
+                    <AlertTitle>Other assignment details unchanged</AlertTitle>
+                    <AlertDescription>
+                      This decision changes only the reporting manager and never changes compensation.
+                    </AlertDescription>
+                  </Alert>
+                  {approvalOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
+                  {approvalOverride.independentApproverRequired ? (
+                    <Alert>
+                      <AlertTitle>Independent approver required</AlertTitle>
+                      <AlertDescription>
+                        You submitted this manager change, so another HR checker must decide it.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <>
+                      <label
+                        htmlFor="manager-change-decision-reason"
+                        className="grid gap-1.5 text-sm font-medium text-foreground"
+                      >
+                        Decision reason
+                        <Textarea
+                          id="manager-change-decision-reason"
+                          value={reason}
+                          maxLength={1000}
+                          disabled={saving}
+                          onChange={(event) => {
+                            setReason(event.target.value);
+                            retry.current = null;
+                          }}
+                          placeholder="Explain the approval or rejection for the immutable audit record."
+                        />
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          disabled={saving || !reason.trim()}
+                          onClick={() => setDecision("approved")}
+                        >
+                          Approve manager change
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          disabled={saving || !reason.trim()}
+                          onClick={() => setDecision("rejected")}
+                        >
+                          Reject manager change
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </aside>
+          </HrRecordDrawer>
         </div>
       )}
       <Dialog open={decision !== null} onOpenChange={(open) => !open && !saving && setDecision(null)}>
-        <DialogContent>
+        <DialogContent className="z-[1501]!" overlayClassName="z-[1500]!">
           <DialogHeader>
             <DialogTitle>Confirm manager-change {decision === "approved" ? "approval" : "rejection"}</DialogTitle>
             <DialogDescription>

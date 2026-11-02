@@ -123,6 +123,7 @@ export async function createPaymentFixture(pool: DatabasePool, posted = true) {
       {
         company_id: f.companyId,
         bank_account_id: bank,
+        approver_user_id: "r06.checker",
         posting_date: f.today,
         lines: [
           {

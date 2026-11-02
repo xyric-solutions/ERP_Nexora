@@ -1,4 +1,5 @@
 "use client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -13,13 +14,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
+import { loadEmployeeRouteCompanies, loadEmployeeRouteDirectory } from "../api/employee-route-context";
 
 type LoadState = "loading" | "ready" | "error";
 
 export function HrEmployeeEmergencyContactsWorkspace({
   onAction,
+  initialEmployeeId,
 }: {
   onAction: (action: string, subject?: string) => void;
+  initialEmployeeId?: string;
 }) {
   const { api, csrfToken, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
@@ -48,13 +52,12 @@ export function HrEmployeeEmergencyContactsWorkspace({
     if (sessionLoading || !canRead || !canReadEmployees) return;
     let active = true;
     setState("loading");
-    client
-      .companies()
+    loadEmployeeRouteCompanies(client, initialEmployeeId)
       .then((result) => {
         if (!active) return;
         setCompanies(result.items);
         setCompanyId((current) =>
-          result.items.some((item) => item.id === current) ? current : (result.items[0]?.id ?? ""),
+          result.items.some((item) => item.id === current) ? current : result.preferredCompanyId,
         );
         setState("ready");
       })
@@ -64,7 +67,7 @@ export function HrEmployeeEmergencyContactsWorkspace({
     return () => {
       active = false;
     };
-  }, [canRead, canReadEmployees, client, sessionLoading]);
+  }, [canRead, canReadEmployees, client, initialEmployeeId, sessionLoading]);
 
   useEffect(() => {
     if (!companyId) return;
@@ -72,11 +75,11 @@ export function HrEmployeeEmergencyContactsWorkspace({
     setState("loading");
     setEmployeeId("");
     setContacts([]);
-    client
-      .employees({ companyId, limit: 100 })
+    loadEmployeeRouteDirectory(client, companyId, initialEmployeeId)
       .then((result) => {
         if (!active) return;
         setEmployees(result.items);
+        setEmployeeId(result.selectedEmployeeId);
         setState("ready");
       })
       .catch(() => {
@@ -85,7 +88,7 @@ export function HrEmployeeEmergencyContactsWorkspace({
     return () => {
       active = false;
     };
-  }, [client, companyId, refreshKey]);
+  }, [client, companyId, initialEmployeeId, refreshKey]);
 
   useEffect(() => {
     if (!employeeId) return;
@@ -228,7 +231,7 @@ export function HrEmployeeEmergencyContactsWorkspace({
         </Alert>
       )}
       {employeeId && contactState === "ready" && (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,.72fr)]">
+        <div className="grid gap-4 ">
           <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
             <table className="w-full min-w-170 text-left text-sm">
               <thead className="border-b bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -266,53 +269,61 @@ export function HrEmployeeEmergencyContactsWorkspace({
               </tbody>
             </table>
           </div>
-          <aside className="rounded-lg border border-border bg-card p-4 shadow-sm">
-            {canManage ? (
-              <div className="grid gap-3">
-                <h2 className="font-semibold">Add emergency contact</h2>
-                <label className="grid gap-1.5 text-sm font-medium">
-                  Name
-                  <Input value={name} onChange={(event) => setName(event.target.value)} />
-                </label>
-                <label className="grid gap-1.5 text-sm font-medium">
-                  Relationship
-                  <Input value={relationship} onChange={(event) => setRelationship(event.target.value)} />
-                </label>
-                <label className="grid gap-1.5 text-sm font-medium">
-                  Phone
-                  <Input value={phone} type="tel" onChange={(event) => setPhone(event.target.value)} />
-                </label>
-                <label className="grid gap-1.5 text-sm font-medium">
-                  Email (optional)
-                  <Input value={email} type="email" onChange={(event) => setEmail(event.target.value)} />
-                </label>
-                <label className="grid gap-1.5 text-sm font-medium">
-                  Priority
-                  <Input
-                    value={priority}
-                    type="number"
-                    min={1}
-                    max={99}
-                    onChange={(event) => setPriority(event.target.value)}
-                  />
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={primary} onCheckedChange={setPrimary} /> Primary emergency contact
-                </label>
-                <Button type="button" disabled={saving} onClick={save}>
-                  {saving ? "Saving..." : "Add emergency contact"}
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  Records are append-only. Replacement and closure remain a separate governed workflow.
-                </p>
-              </div>
-            ) : (
-              <Alert>
-                <AlertTitle>Manage permission required</AlertTitle>
-                <AlertDescription>You can read these contacts but cannot add one.</AlertDescription>
-              </Alert>
-            )}
-          </aside>
+          <HrRecordDrawer
+            title="Add emergency contact"
+            triggerLabel="Add emergency contact"
+            disabled={!canManage}
+            busy={saving}
+            error={error}
+            notice={notice}
+          >
+            <aside className="rounded-lg border border-border bg-card p-4 shadow-sm">
+              {canManage ? (
+                <div className="grid gap-3">
+                  <label className="grid gap-1.5 text-sm font-medium">
+                    Name
+                    <Input value={name} onChange={(event) => setName(event.target.value)} />
+                  </label>
+                  <label className="grid gap-1.5 text-sm font-medium">
+                    Relationship
+                    <Input value={relationship} onChange={(event) => setRelationship(event.target.value)} />
+                  </label>
+                  <label className="grid gap-1.5 text-sm font-medium">
+                    Phone
+                    <Input value={phone} type="tel" onChange={(event) => setPhone(event.target.value)} />
+                  </label>
+                  <label className="grid gap-1.5 text-sm font-medium">
+                    Email (optional)
+                    <Input value={email} type="email" onChange={(event) => setEmail(event.target.value)} />
+                  </label>
+                  <label className="grid gap-1.5 text-sm font-medium">
+                    Priority
+                    <Input
+                      value={priority}
+                      type="number"
+                      min={1}
+                      max={99}
+                      onChange={(event) => setPriority(event.target.value)}
+                    />
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={primary} onCheckedChange={setPrimary} /> Primary emergency contact
+                  </label>
+                  <Button type="button" disabled={saving} onClick={save}>
+                    {saving ? "Saving..." : "Add emergency contact"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Records are append-only. Replacement and closure remain a separate governed workflow.
+                  </p>
+                </div>
+              ) : (
+                <Alert>
+                  <AlertTitle>Manage permission required</AlertTitle>
+                  <AlertDescription>You can read these contacts but cannot add one.</AlertDescription>
+                </Alert>
+              )}
+            </aside>
+          </HrRecordDrawer>
         </div>
       )}
     </section>

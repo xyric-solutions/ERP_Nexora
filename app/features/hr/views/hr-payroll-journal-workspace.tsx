@@ -125,10 +125,21 @@ export function HrPayrollJournalWorkspace({
           Accrue approved Payroll into Finance with a balanced journal, independent acceptance and a separate poster.
           Salary payment and payslip release follow separately.
         </p>
-        <Button variant="outline" onClick={() => onNavigate("hr", "payroll-validation")}>
-          <ArrowRight className="h-4 w-4" />
-          Payroll approval
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            disabled={busy || !!review}
+            onClick={() =>
+              onNavigate("hr", "payment-batch", JSON.stringify({ company_id: company, month: month + "-01" }))
+            }
+          >
+            <ArrowRight className="h-4 w-4" /> Salary payments
+          </Button>
+          <Button variant="outline" onClick={() => onNavigate("hr", "payroll-validation")}>
+            <ArrowRight className="h-4 w-4" />
+            Payroll approval
+          </Button>
+        </div>
       </div>
       <div
         className={panel + " grid min-w-0 grid-cols-1 items-end gap-4 md:grid-cols-3 lg:grid-cols-[2fr_1fr_1fr_auto]"}

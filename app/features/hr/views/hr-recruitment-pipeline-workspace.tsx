@@ -1,4 +1,5 @@
 "use client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { hrApplicationTransitions, type HrApplicationDirectory, type HrApplicationStage } from "@nexora/contracts";
@@ -249,7 +250,7 @@ export function HrRecruitmentPipelineWorkspace() {
           <span className="block truncate text-xs text-muted-foreground">{item.reference}</span>
         </span>
       </div>
-      <p className="flex gap-2 text-sm text-muted-foreground">
+      <p className="flex flex-wrap gap-2 text-sm text-muted-foreground">
         <BriefcaseBusiness className="mt-0.5 size-4 shrink-0" />
         <span className="line-clamp-2">{item.opening_title}</span>
       </p>
@@ -283,7 +284,7 @@ export function HrRecruitmentPipelineWorkspace() {
             Review candidates for each opening, record decisions, and keep the application history together.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             disabled={loading || saving || !companyId}
@@ -380,114 +381,126 @@ export function HrRecruitmentPipelineWorkspace() {
         </Button>
       </form>
       {editor ? (
-        <form onSubmit={create} className="grid gap-4 rounded-2xl border border-primary/30 bg-card p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold">New application</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Choose an active candidate and an open vacancy in this company.
-              </p>
+        <HrRecordDrawer
+          title="Add application"
+          open={editor}
+          onClose={() => setEditor(false)}
+          busy={saving}
+          error={error}
+          notice={notice}
+        >
+          <form
+            onSubmit={create}
+            className="grid min-w-0 gap-4 rounded-2xl border border-primary/30 bg-card p-5 shadow-sm"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold">New application</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Choose an active candidate and an open vacancy in this company.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                disabled={saving}
+                aria-label="Close application form"
+                onClick={() => setEditor(false)}
+              >
+                <X className="size-4" />
+              </Button>
             </div>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              disabled={saving}
-              aria-label="Close application form"
-              onClick={() => setEditor(false)}
-            >
-              <X className="size-4" />
-            </Button>
-          </div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="grid gap-2">
-              <label className="grid gap-1.5 text-sm font-medium">
-                Find candidate
-                <Input
-                  value={candidateSearch}
-                  placeholder="Search name or email"
-                  onChange={(event) => setCandidateSearch(event.target.value)}
-                />
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium">
-                Candidate
-                <select
-                  required
-                  disabled={optionsLoading || saving}
-                  className={selectStyle}
-                  value={candidateId}
-                  onChange={(event) => setCandidateId(event.target.value)}
-                >
-                  <option value="">Select a candidate</option>
-                  {candidates.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.display_name} — {item.email}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+              <div className="grid gap-2">
+                <label className="grid gap-1.5 text-sm font-medium">
+                  Find candidate
+                  <Input
+                    value={candidateSearch}
+                    placeholder="Search name or email"
+                    onChange={(event) => setCandidateSearch(event.target.value)}
+                  />
+                </label>
+                <label className="grid gap-1.5 text-sm font-medium">
+                  Candidate
+                  <select
+                    required
+                    disabled={optionsLoading || saving}
+                    className={selectStyle}
+                    value={candidateId}
+                    onChange={(event) => setCandidateId(event.target.value)}
+                  >
+                    <option value="">Select a candidate</option>
+                    {candidates.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.display_name} — {item.email}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="grid gap-2">
+                <label className="grid gap-1.5 text-sm font-medium">
+                  Find opening
+                  <Input
+                    value={openingSearch}
+                    placeholder="Search opening title"
+                    onChange={(event) => setOpeningSearch(event.target.value)}
+                  />
+                </label>
+                <label className="grid gap-1.5 text-sm font-medium">
+                  Job opening
+                  <select
+                    required
+                    disabled={optionsLoading || saving}
+                    className={selectStyle}
+                    value={openingId}
+                    onChange={(event) => setOpeningId(event.target.value)}
+                  >
+                    <option value="">Select an opening</option>
+                    {openings.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.title} — {item.reference}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             </div>
-            <div className="grid gap-2">
-              <label className="grid gap-1.5 text-sm font-medium">
-                Find opening
-                <Input
-                  value={openingSearch}
-                  placeholder="Search opening title"
-                  onChange={(event) => setOpeningSearch(event.target.value)}
-                />
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium">
-                Job opening
-                <select
-                  required
-                  disabled={optionsLoading || saving}
-                  className={selectStyle}
-                  value={openingId}
-                  onChange={(event) => setOpeningId(event.target.value)}
-                >
-                  <option value="">Select an opening</option>
-                  {openings.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.title} — {item.reference}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={optionsLoading || saving}
+                onClick={() => setLookup({ candidates: candidateSearch, openings: openingSearch })}
+              >
+                Find matching options
+              </Button>
+              <p className="text-xs text-muted-foreground">Up to 100 matches per list. Refine your search if needed.</p>
             </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={optionsLoading || saving}
-              onClick={() => setLookup({ candidates: candidateSearch, openings: openingSearch })}
-            >
-              Find matching options
-            </Button>
-            <p className="text-xs text-muted-foreground">Up to 100 matches per list. Refine your search if needed.</p>
-          </div>
-          {!optionsLoading && (!candidates.length || !openings.length) ? (
-            <Alert>
-              <AlertTitle>Recruitment setup required</AlertTitle>
-              <AlertDescription>
-                No matching {candidates.length ? "open job openings" : "active candidates"}. Create the missing record
-                in Candidate Directory or Job Openings, then retry.
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          <div className="flex gap-2">
-            <Button
-              className="text-primary-foreground!"
-              type="submit"
-              disabled={saving || optionsLoading || !candidateId || !openingId}
-            >
-              {saving ? "Saving…" : "Create application"}
-            </Button>
-            <Button type="button" variant="outline" disabled={saving} onClick={() => setEditor(false)}>
-              Cancel
-            </Button>
-          </div>
-        </form>
+            {!optionsLoading && (!candidates.length || !openings.length) ? (
+              <Alert>
+                <AlertTitle>Recruitment setup required</AlertTitle>
+                <AlertDescription>
+                  No matching {candidates.length ? "open job openings" : "active candidates"}. Create the missing record
+                  in Candidate Directory or Job Openings, then retry.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                className="text-primary-foreground!"
+                type="submit"
+                disabled={saving || optionsLoading || !candidateId || !openingId}
+              >
+                {saving ? "Saving…" : "Create application"}
+              </Button>
+              <Button type="button" variant="outline" disabled={saving} onClick={() => setEditor(false)}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </HrRecordDrawer>
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -503,7 +516,7 @@ export function HrRecruitmentPipelineWorkspace() {
         </Badge>
       </div>
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-3">
           <Skeleton className="h-64" />
           <Skeleton className="h-64" />
           <Skeleton className="h-64" />
@@ -527,9 +540,16 @@ export function HrRecruitmentPipelineWorkspace() {
       ) : (
         <div className="grid min-w-0 items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="min-w-0">
-            <div className="flex gap-3 overflow-x-auto pb-4" aria-label="Application stages" tabIndex={0}>
+            <div
+              className="relative min-w-0 flex gap-3 overflow-x-auto pb-4"
+              aria-label="Application stages"
+              tabIndex={0}
+            >
               {(filter.stage ? [filter.stage as HrApplicationStage] : activeStages).map((stage) => (
-                <div key={stage} className="min-w-60 flex-1 rounded-xl border border-border bg-muted/35 p-3">
+                <div
+                  key={stage}
+                  className="min-w-0 basis-full sm:basis-48 flex-1 rounded-xl border border-border bg-muted/35 p-3"
+                >
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <span className="flex items-center gap-2 text-sm font-semibold">
                       <CircleDot className="size-3.5 text-primary" />
@@ -591,57 +611,67 @@ export function HrRecruitmentPipelineWorkspace() {
                 <Alert>
                   <AlertTitle>Interview evidence required</AlertTitle>
                   <AlertDescription>
-                    Open Interviews & Evaluations to review panel scorecards, assessment outcomes and the selection readiness check.
+                    Open Interviews & Evaluations to review panel scorecards, assessment outcomes and the selection
+                    readiness check.
                   </AlertDescription>
                 </Alert>
               ) : null}
               {canUpdate && allowed.length ? (
-                <form className="grid gap-3 border-t border-border pt-4" onSubmit={move}>
-                  <h4 className="text-sm font-semibold">Record a stage decision</h4>
-                  <label className="grid gap-1.5 text-sm">
-                    Next stage
-                    <select
-                      className={selectStyle}
-                      required
-                      disabled={saving}
-                      value={nextStage}
-                      onChange={(event) => setNextStage(event.target.value as HrApplicationStage)}
+                <HrRecordDrawer
+                  title="Update application stage"
+                  triggerLabel="Update application stage"
+                  completionKey={notice}
+                  busy={saving}
+                  error={error}
+                  notice={notice}
+                >
+                  <form className="grid gap-3 border-t border-border pt-4" onSubmit={move}>
+                    <h4 className="text-sm font-semibold">Record a stage decision</h4>
+                    <label className="grid gap-1.5 text-sm">
+                      Next stage
+                      <select
+                        className={selectStyle}
+                        required
+                        disabled={saving}
+                        value={nextStage}
+                        onChange={(event) => setNextStage(event.target.value as HrApplicationStage)}
+                      >
+                        <option value="">Choose next stage</option>
+                        {allowed.map((stage) => (
+                          <option key={stage} value={stage}>
+                            {labels[stage]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="grid gap-1.5 text-sm">
+                      Decision reason
+                      <Textarea
+                        required
+                        maxLength={1000}
+                        value={reason}
+                        disabled={saving}
+                        placeholder="Record the screening outcome or decision context"
+                        onChange={(event) => setReason(event.target.value)}
+                      />
+                    </label>
+                    <Button
+                      className="text-primary-foreground!"
+                      type="submit"
+                      disabled={saving || !nextStage || !reason.trim()}
                     >
-                      <option value="">Choose next stage</option>
-                      {allowed.map((stage) => (
-                        <option key={stage} value={stage}>
-                          {labels[stage]}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1.5 text-sm">
-                    Decision reason
-                    <Textarea
-                      required
-                      maxLength={1000}
-                      value={reason}
-                      disabled={saving}
-                      placeholder="Record the screening outcome or decision context"
-                      onChange={(event) => setReason(event.target.value)}
-                    />
-                  </label>
-                  <Button
-                    className="text-primary-foreground!"
-                    type="submit"
-                    disabled={saving || !nextStage || !reason.trim()}
-                  >
-                    {saving ? "Saving decision…" : "Save stage decision"}
-                    <ArrowRight className="size-4" />
-                  </Button>
-                </form>
+                      {saving ? "Saving decision…" : "Save stage decision"}
+                      <ArrowRight className="size-4" />
+                    </Button>
+                  </form>
+                </HrRecordDrawer>
               ) : null}
               <div className="border-t border-border pt-4">
                 <h4 className="mb-4 flex items-center gap-2 text-sm font-semibold">
                   <History className="size-4 text-primary" />
                   Application history
                 </h4>
-                <ol className="grid gap-4">
+                <ol className="grid min-w-0 gap-4">
                   {selected.history.map((event) => (
                     <li key={event.id} className="border-l-2 border-primary/25 pl-3">
                       <p className="text-sm font-medium">

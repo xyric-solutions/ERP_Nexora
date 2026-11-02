@@ -17,9 +17,9 @@ type LoadState = "loading" | "ready" | "error";
 
 function Detail({ label, value }: { label: string; value?: string | null }) {
   return (
-    <div className="rounded-md border border-border/70 bg-background/60 p-3">
+    <div className="grid min-w-0 gap-1 rounded-md border border-border/70 bg-background/60 p-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-baseline sm:gap-4">
       <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-sm font-medium text-foreground">{value || "Not recorded"}</dd>
+      <dd className="m-0 min-w-0 wrap-anywhere text-sm font-medium text-foreground">{value || "Not recorded"}</dd>
     </div>
   );
 }
@@ -125,7 +125,7 @@ export function HrEmployeeRecordWorkspace({
   ] as const;
 
   return (
-    <section className="grid gap-5" aria-label={`Employee record for ${employee.display_name}`}>
+    <section className="grid min-w-0 w-full gap-5" aria-label={`Employee record for ${employee.display_name}`}>
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-5 shadow-sm">
         <div className="flex min-w-0 items-center gap-4">
           <span className="grid size-14 shrink-0 place-items-center rounded-full bg-primary/15 text-lg font-semibold text-primary">
@@ -151,11 +151,11 @@ export function HrEmployeeRecordWorkspace({
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid min-w-0 grid-cols-1 gap-4">
         <article className="rounded-lg border border-border bg-card p-5 shadow-sm">
           <span className="nx-eyebrow">Current placement</span>
           <h3 className="mt-1 text-xl font-semibold">Employment and assignment</h3>
-          <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <dl className="mt-4 grid min-w-0 gap-3">
             <Detail label="Designation" value={employee.designation} />
             <Detail label="Job grade" value={employee.job_grade} />
             <Detail label="Employment type" value={employee.employment_type} />
@@ -168,7 +168,7 @@ export function HrEmployeeRecordWorkspace({
           </dl>
         </article>
 
-        <div className="grid gap-4">
+        <div className="grid min-w-0 gap-4">
           <article className="rounded-lg border border-border bg-card p-5 shadow-sm">
             <span className="nx-eyebrow">Contact</span>
             <h3 className="mt-1 text-xl font-semibold">Work profile</h3>
@@ -195,12 +195,13 @@ export function HrEmployeeRecordWorkspace({
       <article className="rounded-lg border border-border bg-card p-5 shadow-sm">
         <span className="nx-eyebrow">Related records</span>
         <h3 className="mt-1 text-xl font-semibold">Open employee workspaces</h3>
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4 grid grid-cols-1 gap-2">
           {destinations.map(([label, pageId]) => (
             <Button
               key={pageId}
               type="button"
               variant="outline"
+              className="h-auto min-h-9 w-full justify-start whitespace-normal text-left"
               onClick={() => onNavigate("hr", pageId, employee.id)}
             >
               {label}

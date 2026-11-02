@@ -1,16 +1,8 @@
 "use client";
+import { useHrOperationsScope } from "../components/hr-operations-scope";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  CalendarDays,
-  Layers3,
-  Wallet,
-  ClipboardList,
-  Plus,
-  ShieldCheck,
-  RefreshCw,
-  ArrowRight,
-  CheckCircle2,
-} from "lucide-react";
+import { Plus, RefreshCw, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -54,6 +46,7 @@ type Save = (
   operation: (key: string) => Promise<HrAttendanceCompletionResult>,
 ) => Promise<HrAttendanceCompletionResult | undefined>;
 type Shared = {
+  saveError?: string;
   client: HrApiClient;
   company: string;
   date: string;
@@ -264,7 +257,7 @@ function LeaveTypes(props: Shared) {
     [offset, setOffset] = useState(0),
     [editor, setEditor] = useState<HrLeaveType | "new" | null>(null),
     [policy, setPolicy] = useState<HrLeavePolicyInput>(newPolicy(date)),
-    [code, setCode] = useState(""),
+    [code, setCode] = useState("AUTO"),
     [name, setName] = useState(""),
     [paid, setPaid] = useState(true),
     [reason, setReason] = useState(""),
@@ -285,7 +278,7 @@ function LeaveTypes(props: Shared) {
     setReason("");
     if (type === "new") {
       setPolicy(newPolicy(date));
-      setCode("");
+      setCode("AUTO");
       setName("");
       setPaid(true);
     } else {
@@ -382,95 +375,117 @@ function LeaveTypes(props: Shared) {
         )}
       </div>
       {editor && (
-        <section className={panel} aria-label="Leave policy editor">
-          <div className="flex flex-wrap justify-between gap-2">
-            <h2 className="text-base font-semibold">
-              {editor === "new" ? "Create leave type" : `New policy version · ${editor.name}`}
-            </h2>
-            <Button variant="ghost" disabled={busy} onClick={() => setEditor(null)}>
-              Close editor
-            </Button>
-          </div>
+        <HrRecordDrawer
+          title={editor === "new" ? "Add leave type" : "Edit leave policy"}
+          open={!!editor}
+          onClose={() => setEditor(null)}
+          busy={busy}
+          error={error || props.saveError}
+        >
+          <section className={panel} aria-label="Leave policy editor">
+            <div className="flex flex-wrap justify-between gap-2">
+              <h2 className="text-base font-semibold">
+                {editor === "new" ? "Create leave type" : `New policy version · ${editor.name}`}
+              </h2>
+              <Button variant="ghost" disabled={busy} onClick={() => setEditor(null)}>
+                Close editor
+              </Button>
+            </div>
+            <form
+              className="mt-4 grid gap-5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void submit();
+              }}
+            >
+              {editor === "new" && (
+                <fieldset disabled={busy} className="m-0! min-w-0 border-0! p-0! grid min-w-0 gap-4 sm:grid-cols-3">
+                  <Field title="Leave code (automatic)">
+                    <Input value="Assigned on save · LT-001…" readOnly maxLength={32} required />
+                  </Field>
+                  <Field title="Leave name">
+                    <Input value={name} maxLength={160} onChange={(e) => setName(e.target.value)} required />
+                  </Field>
+                  <Field title="Pay treatment">
+                    <select
+                      className={selectClass}
+                      value={paid ? "paid" : "unpaid"}
+                      onChange={(e) => {
+                        const next = e.target.value === "paid";
+                        setPaid(next);
+                        if (!next)
+                          setPolicy((p) => ({ ...p, annual_entitlement_days: "0", requires_hr_approval: true }));
+                      }}
+                    >
+                      <option value="paid">Paid leave</option>
+                      <option value="unpaid">Unpaid leave</option>
+                    </select>
+                  </Field>
+                </fieldset>
+              )}
+              <PolicyEditor
+                policy={policy}
+                setPolicy={setPolicy}
+                categories={query.data?.categories ?? []}
+                busy={busy}
+              />
+              <Field title="Policy change reason">
+                <Textarea
+                  value={reason}
+                  minLength={12}
+                  maxLength={1000}
+                  disabled={busy}
+                  onChange={(e) => setReason(e.target.value)}
+                  required
+                />
+              </Field>
+              <div>
+                <Button className="text-primary-foreground!" disabled={busy} type="submit">
+                  {busy ? "Saving…" : editor === "new" ? "Create leave type" : "Save policy version"}
+                </Button>
+              </div>
+            </form>
+          </section>
+        </HrRecordDrawer>
+      )}
+      {statusTarget && (
+        <HrRecordDrawer
+          title="Change leave type availability"
+          open={!!statusTarget}
+          onClose={() => setStatusTarget(null)}
+          busy={busy}
+          error={error || props.saveError}
+        >
           <form
-            className="mt-4 grid gap-5"
+            className={panel + " grid gap-4"}
             onSubmit={(e) => {
               e.preventDefault();
-              void submit();
+              void status();
             }}
           >
-            {editor === "new" && (
-              <fieldset disabled={busy} className="m-0! min-w-0 border-0! p-0! grid min-w-0 gap-4 sm:grid-cols-3">
-                <Field title="Leave code">
-                  <Input value={code} maxLength={32} onChange={(e) => setCode(e.target.value.toUpperCase())} required />
-                </Field>
-                <Field title="Leave name">
-                  <Input value={name} maxLength={160} onChange={(e) => setName(e.target.value)} required />
-                </Field>
-                <Field title="Pay treatment">
-                  <select
-                    className={selectClass}
-                    value={paid ? "paid" : "unpaid"}
-                    onChange={(e) => {
-                      const next = e.target.value === "paid";
-                      setPaid(next);
-                      if (!next) setPolicy((p) => ({ ...p, annual_entitlement_days: "0", requires_hr_approval: true }));
-                    }}
-                  >
-                    <option value="paid">Paid leave</option>
-                    <option value="unpaid">Unpaid leave</option>
-                  </select>
-                </Field>
-              </fieldset>
-            )}
-            <PolicyEditor policy={policy} setPolicy={setPolicy} categories={query.data?.categories ?? []} busy={busy} />
-            <Field title="Policy change reason">
+            <h2 className="text-base font-semibold">
+              {statusTarget.status === "active" ? "Deactivate" : "Activate"} {statusTarget.name}
+            </h2>
+            <Field title="Status change reason">
               <Textarea
-                value={reason}
+                value={statusReason}
                 minLength={12}
                 maxLength={1000}
                 disabled={busy}
-                onChange={(e) => setReason(e.target.value)}
+                onChange={(e) => setStatusReason(e.target.value)}
                 required
               />
             </Field>
-            <div>
+            <div className="flex gap-2">
               <Button className="text-primary-foreground!" disabled={busy} type="submit">
-                {busy ? "Saving…" : editor === "new" ? "Create leave type" : "Save policy version"}
+                Confirm status
+              </Button>
+              <Button variant="outline" disabled={busy} onClick={() => setStatusTarget(null)}>
+                Cancel
               </Button>
             </div>
           </form>
-        </section>
-      )}
-      {statusTarget && (
-        <form
-          className={panel + " grid gap-4"}
-          onSubmit={(e) => {
-            e.preventDefault();
-            void status();
-          }}
-        >
-          <h2 className="text-base font-semibold">
-            {statusTarget.status === "active" ? "Deactivate" : "Activate"} {statusTarget.name}
-          </h2>
-          <Field title="Status change reason">
-            <Textarea
-              value={statusReason}
-              minLength={12}
-              maxLength={1000}
-              disabled={busy}
-              onChange={(e) => setStatusReason(e.target.value)}
-              required
-            />
-          </Field>
-          <div className="flex gap-2">
-            <Button className="text-primary-foreground!" disabled={busy} type="submit">
-              Confirm status
-            </Button>
-            <Button variant="outline" disabled={busy} onClick={() => setStatusTarget(null)}>
-              Cancel
-            </Button>
-          </div>
-        </form>
+        </HrRecordDrawer>
       )}
       <form
         className="flex gap-2"
@@ -737,91 +752,103 @@ function LeaveBalances(props: Shared) {
             </div>
           </div>
           {posting && (
-            <form
-              className="mt-4 grid gap-4 rounded-lg border border-border bg-background p-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void post();
-              }}
+            <HrRecordDrawer
+              title="Post leave balance adjustment"
+              open={posting}
+              onClose={() => setPosting(false)}
+              busy={busy}
+              error={error || props.saveError}
             >
-              <fieldset disabled={busy} className="m-0! min-w-0 border-0! p-0! grid min-w-0 gap-4 sm:grid-cols-2">
-                <Field title="Posting kind">
-                  <select className={selectClass} value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
-                    <option value="opening">Opening balance</option>
-                    <option value="accrual">Accrual</option>
-                    <option value="carry_forward">Carry-forward</option>
-                    <option value="adjustment">Adjustment</option>
-                    <option value="expiry">Expiry</option>
-                  </select>
-                </Field>
-                <Field title="Effective date">
-                  <Input
-                    type="date"
-                    className={dateClass}
-                    max={localDate()}
-                    value={effective}
-                    onChange={(e) => setEffective(e.target.value)}
+              <form
+                className="mt-4 grid gap-4 rounded-lg border border-border bg-background p-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void post();
+                }}
+              >
+                <fieldset disabled={busy} className="m-0! min-w-0 border-0! p-0! grid min-w-0 gap-4 sm:grid-cols-2">
+                  <Field title="Posting kind">
+                    <select
+                      className={selectClass}
+                      value={kind}
+                      onChange={(e) => setKind(e.target.value as typeof kind)}
+                    >
+                      <option value="opening">Opening balance</option>
+                      <option value="accrual">Accrual</option>
+                      <option value="carry_forward">Carry-forward</option>
+                      <option value="adjustment">Adjustment</option>
+                      <option value="expiry">Expiry</option>
+                    </select>
+                  </Field>
+                  <Field title="Effective date">
+                    <Input
+                      type="date"
+                      className={dateClass}
+                      max={localDate()}
+                      value={effective}
+                      onChange={(e) => setEffective(e.target.value)}
+                      required
+                    />
+                  </Field>
+                  <Field title="Days (negative for deductions)">
+                    <Input inputMode="decimal" value={days} onChange={(e) => setDays(e.target.value)} required />
+                  </Field>
+                  <Field title="Completed source period start">
+                    <Input
+                      type="date"
+                      className={dateClass}
+                      value={periodStart}
+                      onChange={(e) => setPeriodStart(e.target.value)}
+                      required={["accrual", "carry_forward", "expiry"].includes(kind)}
+                    />
+                  </Field>
+                  <Field title="Completed source period end">
+                    <Input
+                      type="date"
+                      className={dateClass}
+                      value={periodEnd}
+                      onChange={(e) => setPeriodEnd(e.target.value)}
+                      required={["accrual", "carry_forward", "expiry"].includes(kind)}
+                    />
+                  </Field>
+                </fieldset>
+                <Field title="Balance posting reason">
+                  <Textarea
+                    value={reason}
+                    minLength={12}
+                    maxLength={1000}
+                    disabled={busy}
+                    onChange={(e) => setReason(e.target.value)}
                     required
                   />
                 </Field>
-                <Field title="Days (negative for deductions)">
-                  <Input inputMode="decimal" value={days} onChange={(e) => setDays(e.target.value)} required />
-                </Field>
-                <Field title="Completed source period start">
-                  <Input
-                    type="date"
-                    className={dateClass}
-                    value={periodStart}
-                    onChange={(e) => setPeriodStart(e.target.value)}
-                    required={["accrual", "carry_forward", "expiry"].includes(kind)}
-                  />
-                </Field>
-                <Field title="Completed source period end">
-                  <Input
-                    type="date"
-                    className={dateClass}
-                    value={periodEnd}
-                    onChange={(e) => setPeriodEnd(e.target.value)}
-                    required={["accrual", "carry_forward", "expiry"].includes(kind)}
-                  />
-                </Field>
-              </fieldset>
-              <Field title="Balance posting reason">
-                <Textarea
-                  value={reason}
-                  minLength={12}
-                  maxLength={1000}
-                  disabled={busy}
-                  onChange={(e) => setReason(e.target.value)}
-                  required
-                />
-              </Field>
-              <p className="text-xs text-muted-foreground">
-                Opening balances can be posted once. Repeated policy postings for the same source period are rejected.
-                Corrections use a separate audited adjustment; history remains intact.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button className="text-primary-foreground!" disabled={busy || ledger.loading} type="submit">
-                  Confirm posting
-                </Button>
-                <Button variant="outline" disabled={busy} onClick={() => setPosting(false)}>
-                  Cancel posting
-                </Button>
-              </div>
-              {ledger.data?.balance.hash !== postingHash && (
-                <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--nx-warning)]">
-                  Balance evidence changed.
-                  <Button
-                    variant="outline"
-                    type="button"
-                    disabled={busy || !ledger.data}
-                    onClick={() => setPostingHash(ledger.data!.balance.hash)}
-                  >
-                    Review refreshed balance
+                <p className="text-xs text-muted-foreground">
+                  Opening balances can be posted once. Repeated policy postings for the same source period are rejected.
+                  Corrections use a separate audited adjustment; history remains intact.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button className="text-primary-foreground!" disabled={busy || ledger.loading} type="submit">
+                    Confirm posting
+                  </Button>
+                  <Button variant="outline" disabled={busy} onClick={() => setPosting(false)}>
+                    Cancel posting
                   </Button>
                 </div>
-              )}
-            </form>
+                {ledger.data?.balance.hash !== postingHash && (
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--nx-warning)]">
+                    Balance evidence changed.
+                    <Button
+                      variant="outline"
+                      type="button"
+                      disabled={busy || !ledger.data}
+                      onClick={() => setPostingHash(ledger.data!.balance.hash)}
+                    >
+                      Review refreshed balance
+                    </Button>
+                  </div>
+                )}
+              </form>
+            </HrRecordDrawer>
           )}
           {ledger.loading ? (
             <Skeleton className="mt-4 h-28" />
@@ -965,253 +992,264 @@ function RequestEditor(props: Shared) {
     if (r) onNavigate("hr", "leave-requests", JSON.stringify({ company_id: company, as_of: date, request_id: r.id }));
   }
   return (
-    <section className={panel} aria-label="Leave request editor">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold">Plan a leave request</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Choose an employee and policy, review the working-day calendar, then save a draft for submission.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          disabled={busy}
-          onClick={() => onNavigate("hr", "leave-requests", JSON.stringify({ company_id: company, as_of: date }))}
-        >
-          Back to requests
-        </Button>
-      </div>
-      <Message
-        error={error || query.error || (!validRange ? "Choose an ordered date range of up to 62 calendar days." : "")}
-      />
-      <form
-        className="mt-5 grid min-w-0 gap-5"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void submit();
-        }}
-      >
-        <fieldset
-          disabled={busy}
-          className="m-0! min-w-0 border-0! p-0! grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-        >
-          <Field title="From date">
-            <Input
-              type="date"
-              className={dateClass}
-              value={from}
-              onChange={(e) => {
-                setFrom(e.target.value);
-                setChoices({});
-              }}
-              required
-            />
-          </Field>
-          <Field title="To date">
-            <Input
-              type="date"
-              className={dateClass}
-              min={from}
-              value={to}
-              onChange={(e) => {
-                setTo(e.target.value);
-                setChoices({});
-              }}
-              required
-            />
-          </Field>
-          <div className="grid min-w-0 gap-2 text-sm font-medium">
-            <label htmlFor="leave-find-employee">Find employee</label>
-            <div className="flex min-w-0 gap-2">
-              <Input
-                id="leave-find-employee"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Name or employee number"
-              />
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => {
-                  setEmployee("");
-                  setLookup(search);
-                }}
-              >
-                Find
-              </Button>
-            </div>
+    <HrRecordDrawer
+      title="Add Leave Request"
+      open
+      onClose={() => onNavigate("hr", "leave-requests", JSON.stringify({ company_id: company, as_of: date }))}
+      busy={busy}
+      error={props.saveError}
+    >
+      <section className={panel} aria-label="Leave request editor">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold">Plan a leave request</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Choose an employee and policy, review the working-day calendar, then save a draft for submission.
+            </p>
           </div>
-          <Field title="Employee">
-            <select
-              className={selectClass}
-              value={employee}
-              onChange={(e) => {
-                setEmployee(e.target.value);
-                setDocument("");
-                setChoices({});
-              }}
-              required
-            >
-              <option value="">Select employee</option>
-              {context?.employees.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.code} · {e.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field title="Leave type">
-            <select
-              className={selectClass}
-              value={type}
-              onChange={(e) => {
-                setType(e.target.value);
-                setChoices({});
-              }}
-              required
-            >
-              <option value="">Select leave type</option>
-              {context?.types.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} · {t.paid ? "Paid" : "Unpaid"}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field title="Verified supporting document">
-            <select className={selectClass} value={document} onChange={(e) => setDocument(e.target.value)}>
-              <option value="">No document selected</option>
-              {context?.documents.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </fieldset>
-        {context?.employees_capped && (
-          <p className="text-xs text-muted-foreground">
-            The first 100 matching employees are shown. Refine the employee search.
-          </p>
-        )}
-        {query.loading ? (
-          <Skeleton className="h-32" />
-        ) : (
-          context &&
-          employee && (
-            <>
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <Metric title="Requested days" value={total} hint="Off days and holidays excluded" />
-                <Metric
-                  title="Spendable balance"
-                  value={context.balance?.paid ? dayValue(context.balance.available) : type ? "Unpaid" : "Choose type"}
-                  hint="Pending requests reserve days"
-                />
-                <Metric
-                  title="Reporting manager"
-                  value={context.manager_name ?? "Unassigned"}
-                  hint="Effective employee reporting route"
-                />
-                <Metric
-                  title="Calendar"
-                  value={context.days.filter((d) => d.chargeable).length}
-                  hint="Configured working dates in range"
-                />
-              </div>
-              {context.blockers.length > 0 && (
-                <ul className="list-disc space-y-1 rounded-lg border border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] p-4 pl-8 text-sm text-[var(--nx-warning)]">
-                  {context.blockers.map((b) => (
-                    <li key={b}>{b}</li>
-                  ))}
-                </ul>
-              )}
-              <div className="grid min-w-0 gap-2" aria-label="Leave allocation calendar">
-                {context.days.map((d) => (
-                  <div
-                    key={d.on_date}
-                    className="grid min-w-0 gap-3 rounded-lg border border-border bg-background p-3 sm:grid-cols-[minmax(0,1fr)_180px] sm:items-center"
-                  >
-                    <div>
-                      <strong className="text-sm">
-                        {new Date(d.on_date + "T12:00:00Z").toLocaleDateString(undefined, {
-                          weekday: "short",
-                          day: "2-digit",
-                          month: "short",
-                        })}
-                      </strong>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {d.shift_name ?? "No shift"} ·{" "}
-                        {d.chargeable
-                          ? `Policy ${d.policy ? `v${d.policy.version_number}` : "missing"}`
-                          : label(d.status)}
-                      </p>
-                      {d.issues.map((i) => (
-                        <p className="mt-1 text-xs text-[var(--nx-warning)]" key={i}>
-                          {i}
-                        </p>
-                      ))}
-                    </div>
-                    {d.chargeable ? (
-                      <select
-                        aria-label={"Leave portion " + d.on_date}
-                        className={selectClass}
-                        disabled={busy}
-                        value={choices[d.on_date] ?? "full"}
-                        onChange={(e) =>
-                          setChoices({ ...choices, [d.on_date]: e.target.value as (typeof choices)[string] })
-                        }
-                      >
-                        <option value="full">Full day · 1 day</option>
-                        <option value="first_half">First half · 0.5 day</option>
-                        <option value="second_half">Second half · 0.5 day</option>
-                        <option value="skip">Do not request</option>
-                      </select>
-                    ) : (
-                      <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <CheckCircle2 className="size-4" />
-                        No leave deducted
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Half-day boundaries use the midpoint of the scheduled shift, including overnight dates. Scheduled unpaid
-                break minutes are prorated for the working half. Recorded work must stay outside the leave half.
-              </p>
-            </>
-          )
-        )}
-        <Field title="Leave request reason">
-          <Textarea
-            value={reason}
-            minLength={12}
-            maxLength={1000}
-            disabled={busy}
-            onChange={(e) => setReason(e.target.value)}
-            required
-          />
-        </Field>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            className="text-primary-foreground!"
-            disabled={
-              busy || query.loading || !context || !employee || !type || !days.length || !!context.blockers.length
-            }
-            type="submit"
-          >
-            Save leave draft
-          </Button>
           <Button
             variant="outline"
             disabled={busy}
-            onClick={() => onNavigate("hr", "leave-types", JSON.stringify({ company_id: company, as_of: date }))}
+            onClick={() => onNavigate("hr", "leave-requests", JSON.stringify({ company_id: company, as_of: date }))}
           >
-            View leave policies
+            Back to requests
           </Button>
         </div>
-      </form>
-    </section>
+        <Message
+          error={error || query.error || (!validRange ? "Choose an ordered date range of up to 62 calendar days." : "")}
+        />
+        <form
+          className="mt-5 grid min-w-0 gap-5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+        >
+          <fieldset
+            disabled={busy}
+            className="m-0! min-w-0 border-0! p-0! grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            <Field title="From date">
+              <Input
+                type="date"
+                className={dateClass}
+                value={from}
+                onChange={(e) => {
+                  setFrom(e.target.value);
+                  setChoices({});
+                }}
+                required
+              />
+            </Field>
+            <Field title="To date">
+              <Input
+                type="date"
+                className={dateClass}
+                min={from}
+                value={to}
+                onChange={(e) => {
+                  setTo(e.target.value);
+                  setChoices({});
+                }}
+                required
+              />
+            </Field>
+            <div className="grid min-w-0 gap-2 text-sm font-medium">
+              <label htmlFor="leave-find-employee">Find employee</label>
+              <div className="flex min-w-0 gap-2">
+                <Input
+                  id="leave-find-employee"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Name or employee number"
+                />
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => {
+                    setEmployee("");
+                    setLookup(search);
+                  }}
+                >
+                  Find
+                </Button>
+              </div>
+            </div>
+            <Field title="Employee">
+              <select
+                className={selectClass}
+                value={employee}
+                onChange={(e) => {
+                  setEmployee(e.target.value);
+                  setDocument("");
+                  setChoices({});
+                }}
+                required
+              >
+                <option value="">Select employee</option>
+                {context?.employees.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.code} · {e.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field title="Leave type">
+              <select
+                className={selectClass}
+                value={type}
+                onChange={(e) => {
+                  setType(e.target.value);
+                  setChoices({});
+                }}
+                required
+              >
+                <option value="">Select leave type</option>
+                {context?.types.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} · {t.paid ? "Paid" : "Unpaid"}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field title="Verified supporting document">
+              <select className={selectClass} value={document} onChange={(e) => setDocument(e.target.value)}>
+                <option value="">No document selected</option>
+                {context?.documents.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </fieldset>
+          {context?.employees_capped && (
+            <p className="text-xs text-muted-foreground">
+              The first 100 matching employees are shown. Refine the employee search.
+            </p>
+          )}
+          {query.loading ? (
+            <Skeleton className="h-32" />
+          ) : (
+            context &&
+            employee && (
+              <>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <Metric title="Requested days" value={total} hint="Off days and holidays excluded" />
+                  <Metric
+                    title="Spendable balance"
+                    value={
+                      context.balance?.paid ? dayValue(context.balance.available) : type ? "Unpaid" : "Choose type"
+                    }
+                    hint="Pending requests reserve days"
+                  />
+                  <Metric
+                    title="Reporting manager"
+                    value={context.manager_name ?? "Unassigned"}
+                    hint="Effective employee reporting route"
+                  />
+                  <Metric
+                    title="Calendar"
+                    value={context.days.filter((d) => d.chargeable).length}
+                    hint="Configured working dates in range"
+                  />
+                </div>
+                {context.blockers.length > 0 && (
+                  <ul className="list-disc space-y-1 rounded-lg border border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] p-4 pl-8 text-sm text-[var(--nx-warning)]">
+                    {context.blockers.map((b) => (
+                      <li key={b}>{b}</li>
+                    ))}
+                  </ul>
+                )}
+                <div className="grid min-w-0 gap-2" aria-label="Leave allocation calendar">
+                  {context.days.map((d) => (
+                    <div
+                      key={d.on_date}
+                      className="grid min-w-0 gap-3 rounded-lg border border-border bg-background p-3 sm:grid-cols-[minmax(0,1fr)_180px] sm:items-center"
+                    >
+                      <div>
+                        <strong className="text-sm">
+                          {new Date(d.on_date + "T12:00:00Z").toLocaleDateString(undefined, {
+                            weekday: "short",
+                            day: "2-digit",
+                            month: "short",
+                          })}
+                        </strong>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {d.shift_name ?? "No shift"} ·{" "}
+                          {d.chargeable
+                            ? `Policy ${d.policy ? `v${d.policy.version_number}` : "missing"}`
+                            : label(d.status)}
+                        </p>
+                        {d.issues.map((i) => (
+                          <p className="mt-1 text-xs text-[var(--nx-warning)]" key={i}>
+                            {i}
+                          </p>
+                        ))}
+                      </div>
+                      {d.chargeable ? (
+                        <select
+                          aria-label={"Leave portion " + d.on_date}
+                          className={selectClass}
+                          disabled={busy}
+                          value={choices[d.on_date] ?? "full"}
+                          onChange={(e) =>
+                            setChoices({ ...choices, [d.on_date]: e.target.value as (typeof choices)[string] })
+                          }
+                        >
+                          <option value="full">Full day · 1 day</option>
+                          <option value="first_half">First half · 0.5 day</option>
+                          <option value="second_half">Second half · 0.5 day</option>
+                          <option value="skip">Do not request</option>
+                        </select>
+                      ) : (
+                        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <CheckCircle2 className="size-4" />
+                          No leave deducted
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Half-day boundaries use the midpoint of the scheduled shift, including overnight dates. Scheduled
+                  unpaid break minutes are prorated for the working half. Recorded work must stay outside the leave
+                  half.
+                </p>
+              </>
+            )
+          )}
+          <Field title="Leave request reason">
+            <Textarea
+              value={reason}
+              minLength={12}
+              maxLength={1000}
+              disabled={busy}
+              onChange={(e) => setReason(e.target.value)}
+              required
+            />
+          </Field>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              className="text-primary-foreground!"
+              disabled={
+                busy || query.loading || !context || !employee || !type || !days.length || !!context.blockers.length
+              }
+              type="submit"
+            >
+              Save leave draft
+            </Button>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => onNavigate("hr", "leave-types", JSON.stringify({ company_id: company, as_of: date }))}
+            >
+              View leave policies
+            </Button>
+          </div>
+        </form>
+      </section>
+    </HrRecordDrawer>
   );
 }
 function LeaveRequests(props: Shared & { queue: boolean }) {
@@ -1469,49 +1507,57 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
               ))}
             </div>
             {action && (
-              <form
-                className="mt-4 grid gap-4 rounded-lg border border-border bg-background p-4"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void decide();
-                }}
+              <HrRecordDrawer
+                title="Leave request decision"
+                open={!!action}
+                onClose={() => setAction("")}
+                busy={busy}
+                error={error || props.saveError}
               >
-                <h3 className="text-sm font-semibold">Confirm {label(action).toLowerCase()}</h3>
-                <Field title="Leave decision reason">
-                  <Textarea
-                    value={reason}
-                    minLength={12}
-                    maxLength={1000}
-                    disabled={busy}
-                    onChange={(e) => setReason(e.target.value)}
-                    required
-                  />
-                </Field>
-                {action.includes("_") && detail.data.self_decision_requires_override && (
-                  <label htmlFor="leave-approval-override" className="flex items-start gap-2 text-sm">
-                    <Checkbox
-                      id="leave-approval-override"
-                      checked={override}
-                      onCheckedChange={(v) => setOverride(v === true)}
+                <form
+                  className="mt-4 grid gap-4 rounded-lg border border-border bg-background p-4"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void decide();
+                  }}
+                >
+                  <h3 className="text-sm font-semibold">Confirm {label(action).toLowerCase()}</h3>
+                  <Field title="Leave decision reason">
+                    <Textarea
+                      value={reason}
+                      minLength={12}
+                      maxLength={1000}
+                      disabled={busy}
+                      onChange={(e) => setReason(e.target.value)}
+                      required
                     />
-                    I explicitly acknowledge an audited super-administrator override of actor separation.
-                  </label>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    className="text-primary-foreground!"
-                    type="submit"
-                    disabled={
-                      busy || (action.includes("_") && detail.data.self_decision_requires_override && !override)
-                    }
-                  >
-                    Confirm leave decision
-                  </Button>
-                  <Button variant="outline" disabled={busy} onClick={() => setAction("")}>
-                    Back
-                  </Button>
-                </div>
-              </form>
+                  </Field>
+                  {action.includes("_") && detail.data.self_decision_requires_override && (
+                    <label htmlFor="leave-approval-override" className="flex items-start gap-2 text-sm">
+                      <Checkbox
+                        id="leave-approval-override"
+                        checked={override}
+                        onCheckedChange={(v) => setOverride(v === true)}
+                      />
+                      I explicitly acknowledge an audited super-administrator override of actor separation.
+                    </label>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      className="text-primary-foreground!"
+                      type="submit"
+                      disabled={
+                        busy || (action.includes("_") && detail.data.self_decision_requires_override && !override)
+                      }
+                    >
+                      Confirm leave decision
+                    </Button>
+                    <Button variant="outline" disabled={busy} onClick={() => setAction("")}>
+                      Back
+                    </Button>
+                  </div>
+                </form>
+              </HrRecordDrawer>
             )}
             <div className="mt-4">
               <History items={detail.data.history} />
@@ -1571,6 +1617,7 @@ export function HrTimeLeaveWorkspace({
   const company = companies.data?.items.some((c) => c.id === companyChoice)
     ? companyChoice
     : (companies.data?.items[0]?.id ?? "");
+  useHrOperationsScope(company, date);
   const locked = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null);
   const save: Save = async (input, operation) => {
@@ -1597,6 +1644,7 @@ export function HrTimeLeaveWorkspace({
   if (sessionLoading) return <Skeleton className="h-40" />;
   if (!canRead) return <Empty text="You do not have permission to view this Time & Leave screen." />;
   const shared: Shared = {
+    saveError: error,
     client,
     company,
     date,
@@ -1614,32 +1662,6 @@ export function HrTimeLeaveWorkspace({
       className="grid min-w-0 gap-5 font-sans [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_select]:font-normal! [&_textarea]:font-normal! [&_input]:font-normal!"
       aria-label="Time and Leave workspace"
     >
-      <nav aria-label="Time and Leave navigation" className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
-        {(
-          [
-            ["leave-types", "Leave types", Layers3, "hr.leave.type.read"],
-            ["leave-balances", "Balances", Wallet, "hr.leave.balance.read"],
-            ["attendance", "Attendance", CalendarDays, "hr.attendance.read"],
-            ["leave-requests", "Requests", ClipboardList, "hr.leave.request.read"],
-            ["leave-request", "New request", Plus, "hr.leave.request.create"],
-            ["leave-approval", "Approvals", ShieldCheck, "hr.leave.request.read"],
-          ] as const
-        ).map(([id, title, Icon, p]) => (
-          <Button
-            key={id}
-            variant="outline"
-            className={
-              "h-auto min-w-0 justify-start gap-2 whitespace-normal px-3 py-3 " +
-              (mode === id ? "border-primary bg-primary/10 text-primary!" : "")
-            }
-            disabled={busy || editing || !permissions.includes(p)}
-            onClick={() => onNavigate("hr", id, JSON.stringify({ company_id: company, as_of: date }))}
-          >
-            <Icon className="size-4 shrink-0" />
-            {title}
-          </Button>
-        ))}
-      </nav>
       <div className={panel + " grid gap-4 md:grid-cols-[minmax(0,1fr)_200px_auto] md:items-end"}>
         <Field title="Company">
           <select
@@ -1696,7 +1718,11 @@ export function HrTimeLeaveWorkspace({
         <LeaveBalances key={company + date} {...shared} />
       ) : mode === "leave-request" ? (
         permissions.includes("hr.leave.request.create") ? (
-          <RequestEditor key={company + date} {...shared} />
+          <>
+            {" "}
+            <LeaveRequests key={company + date + "background"} {...shared} queue={false} />{" "}
+            <RequestEditor key={company + date} {...shared} />{" "}
+          </>
         ) : (
           <Empty text="Leave creation permission is required." />
         )

@@ -3,9 +3,8 @@
   "source": "app/prototype-data.ts",
   "counts": {
     "modules": 35,
-    "groups": 146,
-    "pages": 802
-    "pages": 791
+    "groups": 147,
+    "pages": 816
   },
   "modules": [
     {
@@ -1398,6 +1397,12 @@
               "status": "prototype"
             },
             {
+              "id": "central-chart-template",
+              "label": "Central Master Data",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
               "id": "section-management",
               "label": "Section Management",
               "archetype": "list",
@@ -1413,6 +1418,30 @@
               "id": "add-nominal",
               "label": "Add Nominal",
               "archetype": "form",
+              "status": "prototype"
+            }
+          ]
+        },
+        {
+          "id": "reporting-master-data",
+          "label": "Reporting Master Data",
+          "pages": [
+            {
+              "id": "reporting-projects",
+              "label": "Projects",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "reporting-locations",
+              "label": "Locations / Cities",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "currencies-fx",
+              "label": "Currencies & Transfer FX",
+              "archetype": "settings",
               "status": "prototype"
             }
           ]
@@ -2733,6 +2762,12 @@
           "label": "Organisation & Masters",
           "pages": [
             {
+              "id": "organisation-masters",
+              "label": "Organisation & Masters",
+              "archetype": "dashboard",
+              "status": "live"
+            },
+            {
               "id": "org-structure",
               "label": "Organisation Structure",
               "archetype": "list",
@@ -2786,6 +2821,12 @@
           "id": "people",
           "label": "People",
           "pages": [
+            {
+              "id": "people-workspace",
+              "label": "People",
+              "archetype": "dashboard",
+              "status": "live"
+            },
             {
               "id": "hr-dashboard",
               "label": "HR Dashboard",
@@ -2871,6 +2912,12 @@
           "label": "Recruitment",
           "pages": [
             {
+              "id": "recruitment-workspace",
+              "label": "Recruitment",
+              "archetype": "dashboard",
+              "status": "live"
+            },
+            {
               "id": "manpower-requisitions",
               "label": "Manpower Requisitions",
               "archetype": "approval",
@@ -2918,6 +2965,12 @@
           "id": "attendance-shifts",
           "label": "Attendance & Shifts",
           "pages": [
+            {
+              "id": "attendance-workspace",
+              "label": "Attendance & Shifts",
+              "archetype": "dashboard",
+              "status": "live"
+            },
             {
               "id": "shifts",
               "label": "Shifts & Rules",
@@ -2973,6 +3026,12 @@
           "label": "Time & Leave",
           "pages": [
             {
+              "id": "time-leave-workspace",
+              "label": "Time & Leave",
+              "archetype": "dashboard",
+              "status": "live"
+            },
+            {
               "id": "leave-types",
               "label": "Leave Types",
               "archetype": "settings",
@@ -3014,6 +3073,12 @@
           "id": "payroll",
           "label": "Payroll",
           "pages": [
+            {
+              "id": "payroll-workspace",
+              "label": "Payroll",
+              "archetype": "dashboard",
+              "status": "live"
+            },
             {
               "id": "payroll-setup",
               "label": "Pay Components",
@@ -3066,7 +3131,7 @@
               "id": "payment-batch",
               "label": "Payment Batch",
               "archetype": "workflow",
-              "status": "read-only"
+              "status": "live"
             },
             {
               "id": "payslips",
@@ -3080,6 +3145,12 @@
           "id": "performance",
           "label": "Performance Management",
           "pages": [
+            {
+              "id": "performance-workspace",
+              "label": "Performance Management",
+              "archetype": "dashboard",
+              "status": "live"
+            },
             {
               "id": "performance-cycles",
               "label": "Performance Cycles",
@@ -3111,6 +3182,12 @@
           "label": "Learning & Development",
           "pages": [
             {
+              "id": "learning-workspace",
+              "label": "Learning & Development",
+              "archetype": "dashboard",
+              "status": "live"
+            },
+            {
               "id": "training-programs",
               "label": "Training Programmes",
               "archetype": "settings",
@@ -3140,6 +3217,12 @@
           "id": "employee-lifecycle",
           "label": "Employee Lifecycle",
           "pages": [
+            {
+              "id": "employee-lifecycle-workspace",
+              "label": "Employee Lifecycle",
+              "archetype": "dashboard",
+              "status": "live"
+            },
             {
               "id": "lifecycle-policies",
               "label": "Lifecycle Policies",
@@ -3201,6 +3284,12 @@
           "label": "Benefits & Self-service",
           "pages": [
             {
+              "id": "benefits-self-service-workspace",
+              "label": "Benefits & Self-service",
+              "archetype": "dashboard",
+              "status": "live"
+            },
+            {
               "id": "loans-benefits",
               "label": "Loans, Benefits & Gratuity",
               "archetype": "list",
@@ -3230,6 +3319,12 @@
           "id": "hr-compliance",
           "label": "Reporting, Compliance & Audit",
           "pages": [
+            {
+              "id": "hr-compliance-workspace",
+              "label": "Reporting, Compliance & Audit",
+              "archetype": "dashboard",
+              "status": "live"
+            },
             {
               "id": "hr-compliance-configuration",
               "label": "Compliance Configuration",

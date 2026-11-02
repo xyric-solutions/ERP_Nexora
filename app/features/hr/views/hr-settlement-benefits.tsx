@@ -24,6 +24,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import {
   Field,
   Metric,
@@ -313,240 +314,250 @@ export function HrSettlementBenefits({
                 New benefit rule
               </Button>
             )}
-            {create && (
-              <form
-                aria-label="New company benefit rule"
-                className="space-y-4 rounded-lg border border-border p-4"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const data = new FormData(e.currentTarget),
-                    get = (k: string) => String(data.get(k) ?? "");
-                  try {
-                    command({
-                      action: "create_rule",
-                      company_id: company,
-                      reason: get("reason"),
-                      terms: {
-                        ...settlementCountryTerms(data),
-                        name: get("name"),
-                        category: get("category") as "gratuity" | "severance" | "notice" | "other",
-                        basis,
-                        direction: get("direction") as "earning" | "deduction",
-                        currency,
-                        rate_minor: salaryMode ? "0" : parseHrCurrency(get("rate"), scale),
-                        ...(salaryMode
-                          ? {
-                              salary_basis: {
-                                component_ids: data.getAll("salary_components").map(String),
-                                multiplier: Number(get("salary_multiplier")),
-                                divisor: Number(get("salary_divisor")),
-                              },
-                            }
-                          : {}),
-                        ...(basis === "service_days"
-                          ? { service_day_count: get("day_count") as "elapsed" | "inclusive" }
-                          : {}),
-                        ...(!salaryMode && (basis === "service_days" || useFactors)
-                          ? {
-                              rate_factors: {
-                                multiplier: Number(get("salary_multiplier")),
-                                divisor: Number(get("salary_divisor")),
-                              },
-                            }
-                          : {}),
-                        maximum_units: basis === "fixed_amount" ? 1 : Number(get("cap")),
-                        minimum_service_days: Number(get("service")),
-                        exit_kinds: data.getAll("exit_kinds") as Array<"resignation" | "termination">,
-                        effective_from: get("from"),
-                        effective_to: get("until"),
-                        policy_reference: get("reference"),
-                      },
-                    });
-                  } catch (err) {
-                    setError(err instanceof Error ? err.message : "Review the company amount.");
-                  }
-                }}
+            {create ? (
+              <HrRecordDrawer
+                title="New company benefit rule"
+                description="Prepare the governed benefit rule without leaving the company-rule register."
+                open
+                busy={busy}
+                error={error}
+                notice={notice}
+                onClose={() => setCreate(false)}
               >
-                <h4 className="font-semibold">New company benefit rule</h4>
-                <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-                  <Field title="Benefit rule name">
-                    <Input name="name" required minLength={3} maxLength={160} disabled={busy} />
-                  </Field>
-                  <Field title="Benefit category">
-                    <select name="category" className={selectClass} required disabled={busy} defaultValue="">
-                      <option value="">Choose category</option>
-                      {["gratuity", "severance", "notice", "other"].map((v) => (
-                        <option key={v} value={v}>
-                          {v.charAt(0).toUpperCase() + v.slice(1)}
+                <form
+                  aria-label="New company benefit rule"
+                  className="space-y-4"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const data = new FormData(e.currentTarget),
+                      get = (k: string) => String(data.get(k) ?? "");
+                    try {
+                      command({
+                        action: "create_rule",
+                        company_id: company,
+                        reason: get("reason"),
+                        terms: {
+                          ...settlementCountryTerms(data),
+                          name: get("name"),
+                          category: get("category") as "gratuity" | "severance" | "notice" | "other",
+                          basis,
+                          direction: get("direction") as "earning" | "deduction",
+                          currency,
+                          rate_minor: salaryMode ? "0" : parseHrCurrency(get("rate"), scale),
+                          ...(salaryMode
+                            ? {
+                                salary_basis: {
+                                  component_ids: data.getAll("salary_components").map(String),
+                                  multiplier: Number(get("salary_multiplier")),
+                                  divisor: Number(get("salary_divisor")),
+                                },
+                              }
+                            : {}),
+                          ...(basis === "service_days"
+                            ? { service_day_count: get("day_count") as "elapsed" | "inclusive" }
+                            : {}),
+                          ...(!salaryMode && (basis === "service_days" || useFactors)
+                            ? {
+                                rate_factors: {
+                                  multiplier: Number(get("salary_multiplier")),
+                                  divisor: Number(get("salary_divisor")),
+                                },
+                              }
+                            : {}),
+                          maximum_units: basis === "fixed_amount" ? 1 : Number(get("cap")),
+                          minimum_service_days: Number(get("service")),
+                          exit_kinds: data.getAll("exit_kinds") as Array<"resignation" | "termination">,
+                          effective_from: get("from"),
+                          effective_to: get("until"),
+                          policy_reference: get("reference"),
+                        },
+                      });
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Review the company amount.");
+                    }
+                  }}
+                >
+                  <h4 className="font-semibold">New company benefit rule</h4>
+                  <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+                    <Field title="Benefit rule name">
+                      <Input name="name" required minLength={3} maxLength={160} disabled={busy} />
+                    </Field>
+                    <Field title="Benefit category">
+                      <select name="category" className={selectClass} required disabled={busy} defaultValue="">
+                        <option value="">Choose category</option>
+                        {["gratuity", "severance", "notice", "other"].map((v) => (
+                          <option key={v} value={v}>
+                            {v.charAt(0).toUpperCase() + v.slice(1)}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field title="Calculation basis">
+                      <select
+                        className={selectClass}
+                        value={basis}
+                        disabled={busy}
+                        onChange={(e) => setBasis(e.target.value as typeof basis)}
+                      >
+                        {Object.entries(basisLabels).map(([k, v]) => (
+                          <option key={k} value={k}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field title="Benefit direction">
+                      <select name="direction" className={selectClass} required defaultValue="" disabled={busy}>
+                        <option value="">Choose earning or deduction</option>
+                        <option value="earning">Earning payable to employee</option>
+                        <option value="deduction">Deduction recoverable from employee</option>
+                      </select>
+                    </Field>
+                    <Field title="Benefit currency">
+                      <select
+                        className={selectClass}
+                        required
+                        disabled={busy}
+                        value={currency}
+                        onChange={(e) => setCurrency(e.target.value)}
+                      >
+                        <option value="">Choose currency</option>
+                        {w.currencies.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.code}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field title="Rate source">
+                      <select
+                        className={selectClass}
+                        value={salaryMode ? "salary" : "fixed"}
+                        disabled={busy}
+                        onChange={(e) => setSalaryMode(e.target.value === "salary")}
+                      >
+                        <option value="fixed">Fixed company currency amount</option>
+                        <option value="salary" disabled={!w.can_configure_salary}>
+                          Approved monthly salary components
                         </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field title="Calculation basis">
-                    <select
-                      className={selectClass}
-                      value={basis}
-                      disabled={busy}
-                      onChange={(e) => setBasis(e.target.value as typeof basis)}
-                    >
-                      {Object.entries(basisLabels).map(([k, v]) => (
-                        <option key={k} value={k}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field title="Benefit direction">
-                    <select name="direction" className={selectClass} required defaultValue="" disabled={busy}>
-                      <option value="">Choose earning or deduction</option>
-                      <option value="earning">Earning payable to employee</option>
-                      <option value="deduction">Deduction recoverable from employee</option>
-                    </select>
-                  </Field>
-                  <Field title="Benefit currency">
-                    <select
-                      className={selectClass}
-                      required
-                      disabled={busy}
-                      value={currency}
-                      onChange={(e) => setCurrency(e.target.value)}
-                    >
-                      <option value="">Choose currency</option>
-                      {w.currencies.map((c) => (
-                        <option key={c.code} value={c.code}>
-                          {c.code}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field title="Rate source">
-                    <select
-                      className={selectClass}
-                      value={salaryMode ? "salary" : "fixed"}
-                      disabled={busy}
-                      onChange={(e) => setSalaryMode(e.target.value === "salary")}
-                    >
-                      <option value="fixed">Fixed company currency amount</option>
-                      <option value="salary" disabled={!w.can_configure_salary}>
-                        Approved monthly salary components
-                      </option>
-                    </select>
-                  </Field>
-                  {!salaryMode && (
-                    <>
-                      {" "}
+                      </select>
+                    </Field>
+                    {!salaryMode && (
+                      <>
+                        {" "}
+                        <Field
+                          title={
+                            basis === "fixed_amount"
+                              ? "Fixed company amount"
+                              : basis === "service_days"
+                                ? "Company reference amount"
+                                : "Company rate per service year"
+                          }
+                        >
+                          <Input
+                            name="rate"
+                            inputMode="decimal"
+                            required
+                            disabled={busy}
+                            placeholder="Enter approved currency amount"
+                          />
+                        </Field>
+                      </>
+                    )}
+                    {!salaryMode && basis !== "service_days" && (
+                      <label htmlFor={factorsId} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          id={factorsId}
+                          checked={useFactors}
+                          onCheckedChange={(v) => setUseFactors(v === true)}
+                          disabled={busy}
+                        />
+                        Apply company rate factors
+                      </label>
+                    )}
+                    {(salaryMode || basis === "service_days" || useFactors) && (
+                      <SettlementSalaryFactors busy={busy} labelPrefix={salaryMode ? "Salary" : "Policy"} />
+                    )}{" "}
+                    {basis !== "fixed_amount" && (
                       <Field
                         title={
-                          basis === "fixed_amount"
-                            ? "Fixed company amount"
-                            : basis === "service_days"
-                              ? "Company reference amount"
-                              : "Company rate per service year"
+                          basis === "service_days" ? "Maximum service days payable" : "Maximum service years payable"
                         }
                       >
                         <Input
-                          name="rate"
-                          inputMode="decimal"
+                          name="cap"
+                          type="number"
+                          min={1}
+                          max={basis === "service_days" ? 36500 : 100}
+                          step={1}
                           required
                           disabled={busy}
-                          placeholder="Enter approved currency amount"
                         />
                       </Field>
-                    </>
-                  )}
-                  {!salaryMode && basis !== "service_days" && (
-                    <label htmlFor={factorsId} className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        id={factorsId}
-                        checked={useFactors}
-                        onCheckedChange={(v) => setUseFactors(v === true)}
-                        disabled={busy}
-                      />
-                      Apply company rate factors
-                    </label>
-                  )}
-                  {(salaryMode || basis === "service_days" || useFactors) && (
-                    <SettlementSalaryFactors busy={busy} labelPrefix={salaryMode ? "Salary" : "Policy"} />
-                  )}{" "}
-                  {basis !== "fixed_amount" && (
-                    <Field
-                      title={
-                        basis === "service_days" ? "Maximum service days payable" : "Maximum service years payable"
-                      }
-                    >
+                    )}
+                    {basis === "service_days" && (
+                      <Field title="Service day counting">
+                        <select name="day_count" className={selectClass} defaultValue="" required disabled={busy}>
+                          <option value="">Choose signed policy convention</option>
+                          <option value="elapsed">Elapsed days: exit date minus employment start</option>
+                          <option value="inclusive">Inclusive days: count employment start and exit</option>
+                        </select>
+                      </Field>
+                    )}
+                    <Field title="Minimum service days">
                       <Input
-                        name="cap"
+                        name="service"
                         type="number"
-                        min={1}
-                        max={basis === "service_days" ? 36500 : 100}
+                        min={0}
+                        max={36500}
                         step={1}
                         required
+                        defaultValue="0"
                         disabled={busy}
                       />
                     </Field>
-                  )}
-                  {basis === "service_days" && (
-                    <Field title="Service day counting">
-                      <select name="day_count" className={selectClass} defaultValue="" required disabled={busy}>
-                        <option value="">Choose signed policy convention</option>
-                        <option value="elapsed">Elapsed days: exit date minus employment start</option>
-                        <option value="inclusive">Inclusive days: count employment start and exit</option>
-                      </select>
+                    <Field title="Benefit effective from">
+                      <Input name="from" type="date" required defaultValue={localDate()} disabled={busy} />
                     </Field>
-                  )}
-                  <Field title="Minimum service days">
-                    <Input
-                      name="service"
-                      type="number"
-                      min={0}
-                      max={36500}
-                      step={1}
-                      required
-                      defaultValue="0"
-                      disabled={busy}
-                    />
+                    <Field title="Benefit effective until">
+                      <Input name="until" type="date" required disabled={busy} />
+                    </Field>
+                  </div>
+                  {salaryMode && <SettlementSalaryComponents busy={busy} components={w.salary_components} />}
+                  <fieldset className="space-y-2">
+                    <legend className="text-sm font-medium">Eligible exit types</legend>
+                    {["resignation", "termination"].map((v) => (
+                      <label key={v} className="flex items-center gap-2 text-sm">
+                        <Checkbox name="exit_kinds" value={v} disabled={busy} />
+                        {v === "resignation" ? "Resignation" : "Termination"}
+                      </label>
+                    ))}
+                  </fieldset>
+                  <SettlementCountryFields
+                    country={country}
+                    onCountry={setCountry}
+                    options={{ ...w, legal_jurisdictions: countryRead.data?.legal_jurisdictions ?? [] }}
+                    busy={busy}
+                    loading={countryRead.loading}
+                    error={countryRead.error}
+                  />
+                  <Field title="Signed company benefit policy reference">
+                    <Textarea name="reference" required minLength={10} maxLength={1000} disabled={busy} />
                   </Field>
-                  <Field title="Benefit effective from">
-                    <Input name="from" type="date" required defaultValue={localDate()} disabled={busy} />
+                  <Field title="Benefit rule preparation reason">
+                    <Textarea name="reason" required minLength={10} maxLength={500} disabled={busy} />
                   </Field>
-                  <Field title="Benefit effective until">
-                    <Input name="until" type="date" required disabled={busy} />
-                  </Field>
-                </div>
-                {salaryMode && <SettlementSalaryComponents busy={busy} components={w.salary_components} />}
-                <fieldset className="space-y-2">
-                  <legend className="text-sm font-medium">Eligible exit types</legend>
-                  {["resignation", "termination"].map((v) => (
-                    <label key={v} className="flex items-center gap-2 text-sm">
-                      <Checkbox name="exit_kinds" value={v} disabled={busy} />
-                      {v === "resignation" ? "Resignation" : "Termination"}
-                    </label>
-                  ))}
-                </fieldset>
-                <SettlementCountryFields
-                  country={country}
-                  onCountry={setCountry}
-                  options={{ ...w, legal_jurisdictions: countryRead.data?.legal_jurisdictions ?? [] }}
-                  busy={busy}
-                  loading={countryRead.loading}
-                  error={countryRead.error}
-                />
-                <Field title="Signed company benefit policy reference">
-                  <Textarea name="reference" required minLength={10} maxLength={1000} disabled={busy} />
-                </Field>
-                <Field title="Benefit rule preparation reason">
-                  <Textarea name="reason" required minLength={10} maxLength={500} disabled={busy} />
-                </Field>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="submit" disabled={busy}>
-                    Save benefit rule draft
-                  </Button>
-                  <Button type="button" variant="outline" disabled={busy} onClick={() => setCreate(false)}>
-                    Cancel benefit rule
-                  </Button>
-                </div>
-              </form>
-            )}
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" disabled={busy}>
+                      Save benefit rule draft
+                    </Button>
+                    <Button type="button" variant="outline" disabled={busy} onClick={() => setCreate(false)}>
+                      Cancel benefit rule
+                    </Button>
+                  </div>
+                </form>
+              </HrRecordDrawer>
+            ) : null}
             {w.items.length > 0 ? (
               <div className="max-w-full overflow-x-auto">
                 <table className="w-full min-w-[640px] text-left text-sm">

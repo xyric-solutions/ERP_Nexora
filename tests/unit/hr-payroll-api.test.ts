@@ -27,7 +27,23 @@ function app() {
       audit_event_id: "event-slip",
       replayed: false,
     })),
-    getPayrollPaymentWorkspace: vi.fn(async () => ({ batch: null, payments: [] })),
+    getPayrollPaymentWorkspace: vi.fn(async () => ({
+      company_id: "company-1",
+      month: "2026-10-01",
+      source_hash: "a".repeat(64),
+      currency_code: null,
+      period: null,
+      accrual_journal_id: null,
+      net_payable_account_id: null,
+      batch: null,
+      totals: { net: "0.0000", confirmed: "0.0000", outstanding: "0.0000", employee_count: 0, zero_net_count: 0 },
+      payments: [],
+      bank_lines: [],
+      bank_lines_truncated: false,
+      blocked: ["Post the Payroll accrual first."],
+      allowed_actions: [],
+      history: [],
+    })),
     actOnPayrollPayment: vi.fn(async () => ({
       id: "batch-1",
       company_id: "company-1",
@@ -270,17 +286,14 @@ describe("Payroll API boundary", () => {
 
   it("serves private run comparisons with validated bounds and the authenticated tenant", async () => {
     const { service, repository } = app();
-    const r = await request(service)
-      .get("/api/v1/hr/payroll_runs/comparison")
-      .set("cookie", cookie)
-      .query({
-        company_id: "company-1",
-        month: "2026-10-01",
-        expected_run_number: "1",
-        filter: "all",
-        limit: "10",
-        offset: "2",
-      });
+    const r = await request(service).get("/api/v1/hr/payroll_runs/comparison").set("cookie", cookie).query({
+      company_id: "company-1",
+      month: "2026-10-01",
+      expected_run_number: "1",
+      filter: "all",
+      limit: "10",
+      offset: "2",
+    });
     expect(r.status).toBe(200);
     expect(r.headers["cache-control"]).toBe("no-store");
     expect(repository.getPayrollRunComparison).toHaveBeenCalledWith(
@@ -627,15 +640,52 @@ describe("Statutory setup HTTP boundary", () => {
   });
 });
 
-describe("Deferred salary Banking integration", () => {
-  it("keeps payment reads authenticated and explicitly unavailable until Banking handoff", async () => {
+describe("Governed salary Banking API", () => {
+  it("keeps reads authenticated and connects company-scoped obligations without caching", async () => {
     const { service, repository } = app();
     const query = { company_id: "company-1", month: "2026-10-01" };
     expect((await request(service).get("/api/v1/hr/payroll_payments").query(query)).status).toBe(401);
     const response = await request(service).get("/api/v1/hr/payroll_payments").set("cookie", cookie).query(query);
-    expect(response.status).toBe(409);
-    expect(response.body.code ?? response.body.type).toBeTruthy();
-    expect(repository.getPayrollPaymentWorkspace).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(repository.getPayrollPaymentWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: session.tenantId }),
+      query,
+    );
+  });
+  it("passes a validated idempotent payment action through the authenticated API", async () => {
+    const { service, repository } = app();
+    const body = {
+      company_id: "company-1",
+      month: "2026-10-01",
+      action: "prepare",
+      expected_version: 0,
+      source_hash: "a".repeat(64),
+      reason: "Prepare the independently reviewed salary obligations",
+    };
+    const response = await request(service)
+      .post("/api/v1/hr/payroll_payments/actions")
+      .set("cookie", cookie)
+      .set("origin", "https://payroll.example.test")
+      .set("x-csrf-token", csrf)
+      .set("idempotency-key", "salary-api-1")
+      .send(body);
+    expect(response.status).toBe(200);
+    expect(repository.actOnPayrollPayment).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: session.tenantId }),
+      body,
+      "salary-api-1",
+      expect.any(String),
+    );
+    const invalid = await request(service)
+      .post("/api/v1/hr/payroll_payments/actions")
+      .set("cookie", cookie)
+      .set("origin", "https://payroll.example.test")
+      .set("x-csrf-token", csrf)
+      .set("idempotency-key", "salary-api-2")
+      .send({ ...body, amount: "1.00" });
+    expect(invalid.status).toBe(400);
+    expect(repository.actOnPayrollPayment).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -21,6 +21,7 @@ import {
   type HrLifecycleCaseWorkspace,
 } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import {
   Field,
   Metric,
@@ -832,25 +833,35 @@ export function HrLifecycleCasesWorkspace({
               </div>
             </div>
           </section>
-          {editor && (
-            <LifecycleCaseForm
-              key={editor === "new" ? "new" : editor.id + editor.version}
-              w={w}
-              initial={editor === "new" ? null : editor}
+          {editor ? (
+            <HrRecordDrawer
+              title={`${editor === "new" ? "Create" : "Edit"} ${titles[section]} case`}
+              description="Maintain the governed lifecycle case without leaving the current register."
+              open
               busy={busy}
-              onCancel={() => setEditor(null)}
-              onSave={(terms, reason) =>
-                command({
-                  action: "save",
-                  company_id: company,
-                  id: editor === "new" ? null : editor.id,
-                  expected_version: editor === "new" ? 0 : editor.version,
-                  terms,
-                  reason,
-                })
-              }
-            />
-          )}
+              error={error}
+              notice={notice}
+              onClose={() => setEditor(null)}
+            >
+              <LifecycleCaseForm
+                key={editor === "new" ? "new" : editor.id + editor.version}
+                w={w}
+                initial={editor === "new" ? null : editor}
+                busy={busy}
+                onCancel={() => setEditor(null)}
+                onSave={(terms, reason) =>
+                  command({
+                    action: "save",
+                    company_id: company,
+                    id: editor === "new" ? null : editor.id,
+                    expected_version: editor === "new" ? 0 : editor.version,
+                    terms,
+                    reason,
+                  })
+                }
+              />
+            </HrRecordDrawer>
+          ) : null}
           {decision && (
             <form
               className={panel + " space-y-4"}

@@ -1,5 +1,5 @@
 "use client";
-import {payrollNavigationContext} from "../components/payroll-navigation";
+import { payrollNavigationContext } from "../components/payroll-navigation";
 import { HrPayrollLocalizationSetup } from "./hr-payroll-localization-setup";
 import { HrPayrollOvertimeSetup } from "./hr-payroll-overtime-setup";
 import { useMemo, useRef, useState } from "react";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import {
   Field,
   State,
@@ -137,7 +138,7 @@ function RecordEditor({
   onClose: () => void;
 }) {
   const [form, setForm] = useState<Record<string, string>>({
-      code: "",
+      code: "AUTO",
       name: "",
       description: "",
       currency_code: "",
@@ -158,7 +159,7 @@ function RecordEditor({
       effective_month: month,
       amount: "",
       component_id: "",
-      reference: "",
+      reference: "AUTO",
       principal: "",
       instalment_count: "1",
       start_month: month,
@@ -183,12 +184,13 @@ function RecordEditor({
   const options = available.data ?? (date === month && search === "" ? baseOptions : null);
   const change = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const field = (key: string, title: string, type = "text", required = true) => (
-    <Field title={title}>
+    <Field title={key === "code" || key === "reference" ? `${title} (automatic)` : title}>
       <Input
         className="box-border! w-full min-w-0! max-w-full! font-normal!"
         type={type}
         inputMode={["amount", "principal"].includes(key) ? "decimal" : undefined}
-        value={form[key]}
+        value={key === "code" || key === "reference" ? "Assigned on save" : form[key]}
+        readOnly={key === "code" || key === "reference"}
         required={required}
         onChange={(e) => change(key, e.target.value)}
         maxLength={type === "text" ? 160 : undefined}
@@ -303,7 +305,14 @@ function RecordEditor({
                 change={(v) => change("method", v)}
                 options={enumOptions(["fixed", "formula"])}
               />
-              {form.method === "formula" && field("formula", "Formula")}
+              {form.method === "formula" && (
+                <div className="space-y-2">
+                  {field("formula", "Formula")}
+                  <p className="text-xs text-muted-foreground">
+                    Use brackets for generated component codes, for example [PAY-001] * 0.1.
+                  </p>
+                </div>
+              )}
               {field("position", "Calculation order", "number")}
               <Pick
                 title="Posting account"
@@ -508,6 +517,7 @@ function RecordEditor({
   );
 }
 function RecordDetail({
+  onNavigate,
   record,
   section,
   permissions,
@@ -517,6 +527,7 @@ function RecordDetail({
   busy,
   close,
 }: {
+  onNavigate: Navigate;
   record: HrPayrollItem;
   section: HrPayrollSection;
   permissions: string[];
@@ -740,6 +751,14 @@ function RecordDetail({
                   25 matching payments are listed; a verified line ID can also be entered below.
                 </p>
               )}
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy}
+                onClick={() => onNavigate("banking", "bank-payments")}
+              >
+                Open Bank Payments <ArrowRight className="size-4" />
+              </Button>
               <Field title="Posted Bank Payment line ID">
                 <Input
                   value={paymentLine}
@@ -799,15 +818,23 @@ function RecordDetail({
     </section>
   );
 }
-export function HrPayrollWorkspace({ page, onNavigate, initialReference }: { page: Page; onNavigate: Navigate; initialReference?:string|undefined }) {
- const initial=payrollNavigationContext(initialReference);
+export function HrPayrollWorkspace({
+  page,
+  onNavigate,
+  initialReference,
+}: {
+  page: Page;
+  onNavigate: Navigate;
+  initialReference?: string | undefined;
+}) {
+  const initial = payrollNavigationContext(initialReference);
   const { api, session, csrfToken, loading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]),
     [section, , group] = payrollPages[page],
     permissions = session?.user.permissions ?? [],
     canRead = permissions.includes("hr.payroll." + group + ".read");
-  const [choice, setCompany] = useState(initial?.company_id??""),
-    [month, setMonth] = useState(initial?.month??localDate().slice(0, 7) + "-01"),
+  const [choice, setCompany] = useState(initial?.company_id ?? ""),
+    [month, setMonth] = useState(initial?.month ?? localDate().slice(0, 7) + "-01"),
     [search, setSearch] = useState(""),
     [employeeSearch, setEmployeeSearch] = useState(""),
     [offset, setOffset] = useState(0),
@@ -1002,36 +1029,57 @@ export function HrPayrollWorkspace({ page, onNavigate, initialReference }: { pag
           )}
         </div>
       </div>
-      {editing && (
-        <RecordEditor
-          key={section + company}
-          section={section as keyof typeof kinds}
-          company={company}
-          month={month}
-          options={options.data}
-          records={records.data?.items ?? []}
-          search={employeeSearch}
-          setSearch={setEmployeeSearch}
-          save={save}
-          client={client}
-          csrf={csrfToken}
+      {editing ? (
+        <HrRecordDrawer
+          title={`New ${name(kinds[section as keyof typeof kinds])}`}
+          description="Create the governed Payroll record without leaving the current register."
+          open
           busy={busy}
+          error={error}
+          notice={notice}
           onClose={() => setEditing(false)}
-        />
-      )}
-      {selected && (
-        <RecordDetail
-          key={selected.id}
-          record={{ ...selected, details: { ...selected.details, company_id: company } }}
-          section={section}
-          permissions={permissions}
-          save={save}
-          client={client}
-          csrf={csrfToken}
+        >
+          <RecordEditor
+            key={section + company}
+            section={section as keyof typeof kinds}
+            company={company}
+            month={month}
+            options={options.data}
+            records={records.data?.items ?? []}
+            search={employeeSearch}
+            setSearch={setEmployeeSearch}
+            save={save}
+            client={client}
+            csrf={csrfToken}
+            busy={busy}
+            onClose={() => setEditing(false)}
+          />
+        </HrRecordDrawer>
+      ) : null}
+      {selected ? (
+        <HrRecordDrawer
+          title={selected.title}
+          description={`${selected.reference} · Review the record and its available governed actions.`}
+          open
           busy={busy}
-          close={() => setSelected(null)}
-        />
-      )}
+          error={error}
+          notice={notice}
+          onClose={() => setSelected(null)}
+        >
+          <RecordDetail
+            onNavigate={onNavigate}
+            key={selected.id}
+            record={{ ...selected, details: { ...selected.details, company_id: company } }}
+            section={section}
+            permissions={permissions}
+            save={save}
+            client={client}
+            csrf={csrfToken}
+            busy={busy}
+            close={() => setSelected(null)}
+          />
+        </HrRecordDrawer>
+      ) : null}
       {records.loading ? (
         <div role="status" className={panel}>
           Loading Payroll records…

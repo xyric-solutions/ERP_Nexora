@@ -1,3 +1,4 @@
+import { allocateHrCode } from "./record-codes.js";
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import {
@@ -548,7 +549,12 @@ export class LearningDevelopment {
         ) => this.save(client, c, r, v, action, input.reason);
         let after: Row;
         if (input.action === "create" || input.action === "update") {
-          const terms = input.terms;
+          const terms = { ...input.terms };
+          if (terms.kind === "programme") {
+            terms.code = target?.terms.kind === "programme"
+              ? target.terms.code
+              : await allocateHrCode(client, c.tenantId, company, "programme", terms.code);
+          }
           if (input.action === "create" && (input.id || input.expected_version !== 0))
             conflict("New records require version zero and no existing ID.");
           if (
