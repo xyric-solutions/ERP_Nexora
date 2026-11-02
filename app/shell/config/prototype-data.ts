@@ -18,6 +18,7 @@ export interface PrototypePage {
   label: string;
   archetype: PrototypePageArchetype;
   status: PrototypePageStatus;
+  hiddenFromNavigation?: boolean;
 }
 
 export interface PrototypeMenuGroup {
@@ -43,7 +44,8 @@ const p = (
   label: string,
   archetype: PrototypePageArchetype = "list",
   status: PrototypePageStatus = "prototype",
-): PrototypePage => ({ id, label, archetype, status });
+  hiddenFromNavigation = false,
+): PrototypePage => ({ id, label, archetype, status, hiddenFromNavigation });
 const g = (id: string, label: string, pages: readonly PrototypePage[]): PrototypeMenuGroup => ({ id, label, pages });
 
 export const prototypeModules = [
@@ -406,12 +408,12 @@ export const prototypeModules = [
         p("currencies-fx", "Currencies & Transfer FX", "settings"),
       ]),
       g("journals", "Journals", [
-        p("journal-register", "Journal Register"),
-        p("manual-journal", "Manual Journal", "form"),
-        p("journal-detail", "Journal Detail", "detail"),
-        p("journal-approval", "Journal Approval & Posting", "approval"),
-        p("journal-reversal", "Journal Reversal", "form"),
-        p("recurring-journals", "Recurring Journals"),
+        p("journal-register", "Journals"),
+        p("manual-journal", "Manual Journal", "form", "prototype", true),
+        p("journal-detail", "Journal Detail", "detail", "prototype", true),
+        p("journal-approval", "Journal Approval & Posting", "approval", "prototype", true),
+        p("journal-reversal", "Journal Reversal", "form", "prototype", true),
+        p("recurring-journals", "Recurring Journals", "list", "prototype", true),
       ]),
       g("ledgers-close", "Ledgers & Close", [
         p("accounting-events", "Accounting Event Ledger"),
@@ -1572,7 +1574,7 @@ export const prototypePageIndex: readonly FlattenedPrototypePage[] = prototypeMo
   ),
 );
 
-export const PROTOTYPE_PAGE_COUNT = prototypePageIndex.length;
+export const PROTOTYPE_PAGE_COUNT = prototypePageIndex.filter((page) => !page.hiddenFromNavigation).length;
 
 export function findPrototypeModule(moduleId: string) {
   return prototypeModules.find((module) => module.id === moduleId) ?? prototypeModules[0];

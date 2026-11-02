@@ -45,6 +45,7 @@ export const journalOptionsSchema = z.strictObject({
         id: identifier,
         code: z.string().min(1).max(128),
         name: z.string().min(1).max(200),
+        kind: z.enum(["general", "bank"]),
         required_dimensions: z.array(identifier).max(32),
       }),
     )
