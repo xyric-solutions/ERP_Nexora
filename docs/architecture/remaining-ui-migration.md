@@ -1,5 +1,27 @@
 # Remaining UI migration checklist
 
+## 2026-11-02 — Full-width lifecycle policy register
+
+- Removed the persistent authoring/approval side panels from
+  `hr-lifecycle-policies-workspace.tsx`. Company selection and Create draft
+  policy now share a responsive toolbar; the policy table fills the available
+  workspace width and scrolls locally on narrow screens.
+- Submission, approval and activation each open the shared right-side record
+  drawer for the selected policy, with a required reason, company/name/version
+  context, busy guard and inline errors. Success closes the drawer and refreshes
+  the register. Existing API calls, CSRF/idempotency, independent reviewer and
+  super-admin override restrictions, separate activation and policy upgrades
+  remain intact. Creation retains its existing drawer and automatic code.
+- No feature stylesheet added or retired. Browser checks passed at
+  1440/820/390/320px in light/dark: full-width register, no document overflow,
+  create and submission drawer open/close, and required submission reason.
+  No business records were submitted by this UI check. Evidence and screenshots:
+  `tmp/lifecycle-layout-evidence/results.json`.
+- Production `build:web`, focused ESLint, theme audit write/check and
+  `git diff --check` passed. Theme audit retains zero font and 12 existing colour
+  source exceptions. This batch covers the lifecycle-policy page; other
+  workspace layouts retain their existing behavior.
+
 ## 2026-11-02 — Employee drafts width and vertical record layout
 
 - Removed the obsolete two-column list/detail grid from
