@@ -417,45 +417,94 @@ run("C4 governed PostgreSQL authorization administration", () => {
   });
 
   it("rolls back an approved request that would remove the last administrator", async () => {
-    const maker = context("r06.maker");
-    const checker = context("r06.checker");
-    const assignments = await repository.listAssignments(maker, 0, 100, "active", "r06.last-admin-b");
-    const administrator = assignments.items.find((item) => item.role_policy_id === "r06-uat-policy-administrator");
-    expect(administrator).toBeTruthy();
-    const request = await repository.createAssignmentRequest(
-      maker,
-      {
-        requested_action: "revoke",
-        proposal: {
-          target_user_id: "r06.last-admin-b",
-          role_policy_id: String(administrator!.role_policy_id),
-          assignment_id: String(administrator!.assignment_id),
-          valid_from: new Date(String(administrator!.valid_from)).toISOString(),
-          valid_until: administrator!.valid_until ? new Date(String(administrator!.valid_until)).toISOString() : null,
-          revocation_reason: "C4 transactional last-administrator verification",
-        },
+    // UAT can contain additional provisioned administrators. Isolate this scenario
+    // inside one rolled-back transaction instead of changing their persisted access.
+    const isolatedClient = await owner.connect();
+    let savepoint = 0;
+    const transactionalClient = new Proxy(isolatedClient, {
+      get(target, property) {
+        if (property === "release") return () => undefined;
+        if (property === "query")
+          return async (sql: string, ...args: unknown[]) => {
+            if (/^begin/i.test(sql)) return target.query(`savepoint last_admin_${++savepoint}`);
+            if (/^commit$/i.test(sql)) return target.query(`release savepoint last_admin_${savepoint}`);
+            if (/^rollback$/i.test(sql)) {
+              await target.query(`rollback to savepoint last_admin_${savepoint}`);
+              return target.query(`release savepoint last_admin_${savepoint}`);
+            }
+            return Reflect.apply(target.query, target, [sql, ...args]);
+          };
+        const value = Reflect.get(target, property);
+        return typeof value === "function" ? value.bind(target) : value;
       },
-      `c4-last-admin-${suffix}`,
-    );
-    await repository.actOnAssignmentRequest(
-      maker,
-      { action: "submit", request_id: request.entity_id, expected_version: 1 },
-      `c4-last-admin-submit-${suffix}`,
-    );
-    await expect(
-      repository.decideApproval(
-        checker,
+    });
+    const isolatedRepository = new SourceSecurityAdministrationRepository({
+      connect: async () => transactionalClient,
+    } as unknown as DatabasePool);
+    await isolatedClient.query("begin");
+    try {
+      await isolatedClient.query("select set_config('nexora.tenant_id',$1,true)", [tenantId]);
+      await isolatedClient.query(
+        `update security_user_role_assignment set lifecycle_state='active',valid_until=null,
+       revoked_at=null,revoked_by=null,revocation_reason=null
+       where tenant_id=$1 and assignment_id='r06-fixture-assignment-last-admin'`,
+        [tenantId],
+      );
+      await isolatedClient.query(
+        `update security_user_role_assignment assignment set valid_until=now()
+       from security_role_policy policy
+       where assignment.tenant_id=$1 and policy.tenant_id=assignment.tenant_id
+         and policy.id=assignment.role_policy_id and assignment.user_id<>'r06.last-admin-b'
+         and assignment.lifecycle_state='active' and assignment.valid_from<now() and policy.scope->>'mode'='tenant'
+         and policy.permissions @> '["security.authorization.administer"]'::jsonb`,
+        [tenantId],
+      );
+      const repository = isolatedRepository;
+      const maker = context("r06.maker");
+      const checker = context("r06.checker");
+      const assignments = await repository.listAssignments(maker, 0, 100, "active", "r06.last-admin-b");
+      const administrator = assignments.items.find((item) => item.role_policy_id === "r06-uat-policy-administrator");
+      expect(administrator).toBeTruthy();
+      const request = await repository.createAssignmentRequest(
+        maker,
         {
-          resource_type: "assignment",
-          request_id: request.entity_id,
-          decision: "approved",
-          reason: null,
-          expected_version: 2,
+          requested_action: "revoke",
+          proposal: {
+            target_user_id: "r06.last-admin-b",
+            role_policy_id: String(administrator!.role_policy_id),
+            assignment_id: String(administrator!.assignment_id),
+            valid_from: new Date(String(administrator!.valid_from)).toISOString(),
+            valid_until: administrator!.valid_until ? new Date(String(administrator!.valid_until)).toISOString() : null,
+            revocation_reason: "C4 transactional last-administrator verification",
+          },
         },
-        `c4-last-admin-check-${suffix}`,
-      ),
-    ).rejects.toMatchObject({ code: "LAST_ADMINISTRATOR_PROTECTED" });
-    const stillActive = await repository.listAssignments(maker, 0, 100, "active", "r06.last-admin-b");
-    expect(stillActive.items).toContainEqual(expect.objectContaining({ assignment_id: administrator!.assignment_id }));
+        `c4-last-admin-${suffix}`,
+      );
+      await repository.actOnAssignmentRequest(
+        maker,
+        { action: "submit", request_id: request.entity_id, expected_version: 1 },
+        `c4-last-admin-submit-${suffix}`,
+      );
+      await expect(
+        repository.decideApproval(
+          checker,
+          {
+            resource_type: "assignment",
+            request_id: request.entity_id,
+            decision: "approved",
+            reason: null,
+            expected_version: 2,
+          },
+          `c4-last-admin-check-${suffix}`,
+        ),
+      ).rejects.toMatchObject({ code: "LAST_ADMINISTRATOR_PROTECTED" });
+      const stillActive = await repository.listAssignments(maker, 0, 100, "active", "r06.last-admin-b");
+      expect(stillActive.items).toContainEqual(
+        expect.objectContaining({ assignment_id: administrator!.assignment_id }),
+      );
+    } finally {
+      await isolatedClient.query("rollback");
+      isolatedClient.release();
+    }
   });
 });

@@ -77,9 +77,16 @@ describe("AccessReviewPanel", () => {
     );
     await act(async () => Promise.resolve());
     await act(async () => Promise.resolve());
-    expect(container.textContent).toContain("Super-admin override");
-    const approve = [...container.querySelectorAll("button")].find((button) => button.textContent === "Approve")!;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const campaign = [...document.body.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Quarterly access review"),
+    )!;
+    await act(async () => campaign.click());
+    expect(document.body.textContent).toContain("Super-admin override");
+    const approve = [...document.body.querySelectorAll("button")].find((button) => button.textContent === "Approve")!;
     expect(approve.disabled).toBe(true);
-    expect(container.textContent).not.toContain("Record decision");
+    expect(document.body.textContent).not.toContain("Record decision");
   });
 });

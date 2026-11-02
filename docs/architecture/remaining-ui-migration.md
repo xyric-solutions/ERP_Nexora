@@ -1,5 +1,42 @@
 # Remaining UI migration checklist
 
+## 2026-11-02 — Identity & Access sheets and full-width registers
+
+- Added feature-owned `identity-sheet.tsx` using shared Sheet primitives for
+  user creation/detail/edit, role creation/edit, assignment/approval confirmations,
+  immutable details, access-review campaigns, delegation/impersonation requests,
+  session-policy drafts and Bank self-approval grants. Registers use available
+  width; user and campaign detail no longer reserve permanent right columns.
+- Preserved existing authority and API callbacks, independent approval/override
+  controls, audit/version behavior and wizard storage. Fixed route remounts
+  resetting user edit mode, Back retaining an old selected user, and restoring
+  wizard selections before authorized options loaded. Added shared-contract
+  validation for policy values and explicit reason/confirmation for grant revoke.
+  No stylesheet was added or retired.
+- Passed 48 UI/unit cases and 25 security integration cases; the last-admin test
+  now uses rolled-back fixture isolation, and the named disposable administrator
+  fixture restores version history safely between tests. Targeted browser checks
+  verify edit conflict recovery, history and saved drafts at three widths.
+- Final isolated browser sweep passed 88 checks across 11 views in both themes
+  at 1440/820/390/320px, including grant management sheets, with no page errors
+  or document overflow. Evidence: `tmp/identity-sheet-evidence/results.json`.
+- Full workspace typecheck, production build, focused lint, theme write/check
+  and patch whitespace checks pass. Existing theme exceptions are unchanged.
+  Details/safe resume point: `docs/architecture/identity-sheet-migration.md`.
+
+## 2026-11-02 — Restart merged HR enhancement branch
+
+- Fetched origin and verified `shoaib_nexora` matches remote commit `749c06a`
+  (HR page enhancement, PR #3). The merged shell contained duplicated drawer
+  JSX, `connectedWorkspace` and search declarations that prevented compilation.
+  Repaired `app/shell/prototype-shell.tsx`, retaining compact HR workspaces,
+  hidden-page filtering and current navigation-page highlighting.
+- Full workspace typecheck and production `build:web` passed after repair;
+  theme write/check and `git diff --check` passed with existing exceptions
+  unchanged. No stylesheets retired. Restarted local API against the existing
+  isolated UAT database and refreshed the local web runtime; no data migration
+  or business-record changes performed. Merge repairs remain local changes.
+
 ## 2026-11-02 — Full-width lifecycle policy register
 
 - Removed the persistent authoring/approval side panels from

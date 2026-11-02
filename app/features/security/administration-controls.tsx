@@ -72,13 +72,17 @@ export function RecordDetails({ row, onClose }: { row: Record<string, unknown>; 
     <section className="border-b border-border bg-muted/50 px-5 py-5" aria-label="Record details">
       <header className="flex items-center justify-between gap-4">
         <h3 className="text-lg font-semibold">Record details</h3>
-        <Button variant="outline" size="sm" onClick={onClose}>Close details</Button>
+        <Button variant="outline" size="sm" onClick={onClose}>
+          Close details
+        </Button>
       </header>
       <dl className="mt-5 grid gap-3">
         {Object.entries(row).map(([key, value]) => (
           <div key={key}>
             <dt className="text-xs capitalize text-muted-foreground">{key.replaceAll("_", " ")}</dt>
-            <dd className="mt-1 overflow-wrap-anywhere whitespace-pre-wrap text-sm">{value === null ? "—" : typeof value === "object" ? JSON.stringify(value, null, 2) : String(value)}</dd>
+            <dd className="mt-1 overflow-wrap-anywhere whitespace-pre-wrap text-sm">
+              {value === null ? "—" : typeof value === "object" ? JSON.stringify(value, null, 2) : String(value)}
+            </dd>
           </div>
         ))}
       </dl>

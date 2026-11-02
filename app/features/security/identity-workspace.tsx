@@ -1,4 +1,5 @@
 "use client";
+import { IdentitySheet } from "./identity-sheet";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -281,7 +282,7 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
             <Button
               key={item.id}
               variant="ghost"
-              className={`h-11 rounded-none border-x-0 border-t-0 border-b-3 px-4 ${activeCapability === item.id ? "border-primary text-primary hover:bg-transparent hover:text-primary" : "border-transparent text-muted-foreground hover:bg-muted"}`}
+              className={`h-auto min-h-11 max-w-full whitespace-normal rounded-none border-x-0 border-t-0 border-b-3 px-4 py-2 text-left ${activeCapability === item.id ? "border-primary text-primary hover:bg-transparent hover:text-primary" : "border-transparent text-muted-foreground hover:bg-muted"}`}
               aria-current={activeCapability === item.id ? "page" : undefined}
               onClick={() => choose(capabilityLocation(item.id))}
             >
@@ -400,19 +401,27 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
               </Button>
             </div>
           ) : null}
-          {showCreate && tab === "roles" ? (
-            <RoleForm
-              busy={busy}
-              onCancel={() => setShowCreate(false)}
-              onSave={async (payload, key) => {
-                const result = await run(
-                  () => api.createSecurityRole(payload, csrfToken(), key),
-                  "Role draft created and audited.",
-                );
-                return !!result;
-              }}
-            />
-          ) : null}
+          <IdentitySheet
+            open={showCreate && tab === "roles"}
+            title="Create role"
+            busy={busy}
+            message={message}
+            onClose={() => setShowCreate(false)}
+          >
+            {showCreate && tab === "roles" ? (
+              <RoleForm
+                busy={busy}
+                onCancel={() => setShowCreate(false)}
+                onSave={async (payload, key) => {
+                  const result = await run(
+                    () => api.createSecurityRole(payload, csrfToken(), key),
+                    "Role draft created and audited.",
+                  );
+                  return !!result;
+                }}
+              />
+            ) : null}
+          </IdentitySheet>
           {credentialDelivery && tab === "approvals" && loadedView === viewKey ? (
             <Alert
               className="m-5 border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] text-[var(--nx-warning)]"
@@ -456,7 +465,7 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
             <SessionPolicyPanel permissions={permissions} />
           ) : tab === "users" ? (
             <UserManagementPanel
-              key={`users:${userId ?? "list"}:${userMode}`}
+              key={`users:${userMode}`}
               permissions={permissions}
               requestedUserId={userId}
               createMode={userMode === "create"}

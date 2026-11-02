@@ -273,10 +273,9 @@ export function PrototypeShell({
 
   const current = useMemo(() => findPrototypePage(route.moduleId, route.pageId), [route]);
   const isCompactHrWorkspace = current.module.id === "hr" && Object.hasOwn(compactHrWorkspaces, current.group.id);
+  const currentNavigationPageId = navigationPageId(current.module.id, current.page.id);
   const connectedWorkspace =
     current.page.status === "live" || current.page.status === "read-only" || current.page.status === "in-progress";
-  const currentNavigationPageId = navigationPageId(current.module.id, current.page.id);
-  const connectedWorkspace=current.page.status==='live'||current.page.status==='read-only'||current.page.status==='in-progress';
   const isCentralChartPage =
     current.module.id === "finance" && ["central-chart-template", "section-management"].includes(current.page.id);
   const isFiscalPeriodPage =
@@ -323,28 +322,6 @@ export function PrototypeShell({
 
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    const pageResults: GlobalSearchResult[] = prototypePageIndex.map((page) => ({
-      kind: "page",
-      key: `page:${page.moduleId}:${page.id}`,
-      moduleId: page.moduleId,
-      pageId: page.id,
-      moduleCode: page.moduleCode,
-      label: page.label,
-      context: `${page.moduleLabel} / ${page.groupLabel}`,
-      meta:
-        page.status === "in-progress"
-          ? "API · in progress"
-          : page.status === "live"
-            ? "Live API"
-            : page.status === "read-only"
-              ? "API · read only"
-              : page.status === "prototype"
-                ? page.archetype
-                : "Coming soon",
-      searchable: [page.label, page.groupLabel, page.moduleLabel, page.moduleCode, page.archetype]
-        .join(" ")
-        .toLowerCase(),
-    }));
     const pageResults: GlobalSearchResult[] = prototypePageIndex
       .filter((page) => !page.hiddenFromNavigation)
       .map((page) => ({
@@ -355,7 +332,16 @@ export function PrototypeShell({
         moduleCode: page.moduleCode,
         label: page.label,
         context: `${page.moduleLabel} / ${page.groupLabel}`,
-        meta: page.status === "in-progress" ? "API · in progress" : page.status === "live" ? "Live API" : page.status === "read-only" ? "API · read only" : page.status === "prototype" ? page.archetype : "Coming soon",
+        meta:
+          page.status === "in-progress"
+            ? "API · in progress"
+            : page.status === "live"
+              ? "Live API"
+              : page.status === "read-only"
+                ? "API · read only"
+                : page.status === "prototype"
+                  ? page.archetype
+                  : "Coming soon",
         searchable: [page.label, page.groupLabel, page.moduleLabel, page.moduleCode, page.archetype]
           .join(" ")
           .toLowerCase(),
@@ -844,7 +830,15 @@ export function PrototypeShell({
                                                   onClick={() => navigate(module.id, page.id)}
                                                 >
                                                   <span>{page.label}</span>
-                                                  {page.status === "in-progress" ? <small>In progress</small> : page.status === "live" ? <small>Live</small> : page.status === "read-only" ? <small>Read only</small> : page.status !== "prototype" ? <small>Soon</small> : null}
+                                                  {page.status === "in-progress" ? (
+                                                    <small>In progress</small>
+                                                  ) : page.status === "live" ? (
+                                                    <small>Live</small>
+                                                  ) : page.status === "read-only" ? (
+                                                    <small>Read only</small>
+                                                  ) : page.status !== "prototype" ? (
+                                                    <small>Soon</small>
+                                                  ) : null}
                                                 </button>
                                               </li>
                                             ))}
@@ -1172,32 +1166,23 @@ export function PrototypeShell({
               ) : (
                 <section className="nx-submenu-drawer__group" key={group.id}>
                   <h3 className="nx-submenu-drawer__group-title">{group.label}</h3>
-                  {group.pages.map((page) => (
-                    <button
-                      className="nx-submenu-drawer__link"
-                      aria-current={page.id === current.page.id ? "page" : undefined}
-            {drawerModule.groups.map((group) => (
-              <section className="nx-submenu-drawer__group" key={group.id}>
-                <h3 className="nx-submenu-drawer__group-title">{group.label}</h3>
-                {group.pages
-                  .filter((page) => !page.hiddenFromNavigation)
-                  .map((page) => (
-                    <button
-                      className="nx-submenu-drawer__link"
-                      aria-current={page.id === currentNavigationPageId ? "page" : undefined}
-                      type="button"
-                      key={page.id}
-                      onClick={() => navigate(drawerModule.id, page.id)}
-                    >
-                      <span>{page.label}</span>
-                      <small>{page.archetype}</small>
-                    </button>
-                  ))}
+                  {group.pages
+                    .filter((page) => !page.hiddenFromNavigation)
+                    .map((page) => (
+                      <button
+                        className="nx-submenu-drawer__link"
+                        aria-current={page.id === currentNavigationPageId ? "page" : undefined}
+                        type="button"
+                        key={page.id}
+                        onClick={() => navigate(drawerModule.id, page.id)}
+                      >
+                        <span>{page.label}</span>
+                        <small>{page.archetype}</small>
+                      </button>
+                    ))}
                 </section>
               ),
             )}
-              </section>
-            ))}
           </div>
         </aside>
       ) : null}

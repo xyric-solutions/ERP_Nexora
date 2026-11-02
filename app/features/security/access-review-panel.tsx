@@ -1,4 +1,5 @@
 "use client";
+import { IdentitySheet } from "./identity-sheet";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import type { SecurityPage } from "@nexora/contracts";
@@ -38,6 +39,7 @@ export default function AccessReviewPanel({ permissions }: { permissions: Readon
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [companyId, setCompanyId] = useState("");
@@ -242,71 +244,87 @@ export default function AccessReviewPanel({ permissions }: { permissions: Readon
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
-      {showCreate ? (
-        <form className="grid gap-4 border-b border-border bg-muted/40 p-5 md:grid-cols-2" onSubmit={createCampaign}>
-          <Label className="grid gap-2 text-sm">
-            Campaign name
-            <Input value={name} onChange={(event) => setName(event.target.value)} required maxLength={160} />
-          </Label>
-          <Label className="grid gap-2 text-sm">
-            Description
-            <Input value={description} onChange={(event) => setDescription(event.target.value)} maxLength={1000} />
-          </Label>
-          <Label className="grid gap-2 text-sm">
-            Scope
-            <select value={companyId} onChange={(event) => setCompanyId(event.target.value)}>
-              <option value="">Entire tenant</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
-            </select>
-          </Label>
-          <Label className="grid gap-2 text-sm">
-            Reviewer
-            <select value={reviewerId} onChange={(event) => setReviewerId(event.target.value)} required>
-              <option value="">Select an independent reviewer</option>
-              {users.map((user) => (
-                <option key={String(user.id)} value={String(user.id)}>
-                  {String(user.display_name)} · {String(user.email)}
-                </option>
-              ))}
-            </select>
-          </Label>
-          <Label className="grid gap-2 text-sm">
-            Starts
-            <Input
-              type="datetime-local"
-              value={startsAt}
-              onChange={(event) => setStartsAt(event.target.value)}
-              required
-            />
-          </Label>
-          <Label className="grid gap-2 text-sm">
-            Ends
-            <Input type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} required />
-          </Label>
-          <div className="md:col-span-2">
-            <Button type="submit" disabled={busy || !name.trim() || !reviewerId}>
-              Save draft
-            </Button>
-          </div>
-        </form>
-      ) : null}
+      <IdentitySheet
+        open={showCreate}
+        title="Create access review campaign"
+        busy={busy}
+        message={message}
+        onClose={() => setShowCreate(false)}
+      >
+        {showCreate ? (
+          <form className="grid gap-4 border-b border-border bg-muted/40 p-5 md:grid-cols-2" onSubmit={createCampaign}>
+            <Label className="grid gap-2 text-sm">
+              Campaign name
+              <Input value={name} onChange={(event) => setName(event.target.value)} required maxLength={160} />
+            </Label>
+            <Label className="grid gap-2 text-sm">
+              Description
+              <Input value={description} onChange={(event) => setDescription(event.target.value)} maxLength={1000} />
+            </Label>
+            <Label className="grid gap-2 text-sm">
+              Scope
+              <select value={companyId} onChange={(event) => setCompanyId(event.target.value)}>
+                <option value="">Entire tenant</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+            </Label>
+            <Label className="grid gap-2 text-sm">
+              Reviewer
+              <select value={reviewerId} onChange={(event) => setReviewerId(event.target.value)} required>
+                <option value="">Select an independent reviewer</option>
+                {users.map((user) => (
+                  <option key={String(user.id)} value={String(user.id)}>
+                    {String(user.display_name)} · {String(user.email)}
+                  </option>
+                ))}
+              </select>
+            </Label>
+            <Label className="grid gap-2 text-sm">
+              Starts
+              <Input
+                type="datetime-local"
+                value={startsAt}
+                onChange={(event) => setStartsAt(event.target.value)}
+                required
+              />
+            </Label>
+            <Label className="grid gap-2 text-sm">
+              Ends
+              <Input
+                type="datetime-local"
+                value={endsAt}
+                onChange={(event) => setEndsAt(event.target.value)}
+                required
+              />
+            </Label>
+            <div className="md:col-span-2">
+              <Button type="submit" disabled={busy || !name.trim() || !reviewerId}>
+                Save draft
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </IdentitySheet>
       {loading ? <p className="p-9 text-center text-sm text-muted-foreground">Loading access reviews…</p> : null}
       {!loading && campaigns.length === 0 ? (
         <p className="p-9 text-center text-sm text-muted-foreground">No access review campaigns exist.</p>
       ) : null}
       {campaigns.length ? (
-        <div className="grid min-w-0 lg:grid-cols-[minmax(320px,0.7fr)_minmax(500px,1.3fr)]">
+        <div className="grid min-w-0 grid-cols-1">
           <div className="border-r border-border">
             {campaigns.map((campaign) => (
               <button
                 type="button"
                 key={String(campaign.campaign_id)}
                 className={`grid w-full gap-1 border-b border-border p-4 text-left ${selectedCampaign === campaign.campaign_id ? "bg-[var(--nx-selection-background)]" : "hover:bg-muted/50"}`}
-                onClick={() => setSelectedCampaign(String(campaign.campaign_id))}
+                onClick={() => {
+                  setSelectedCampaign(String(campaign.campaign_id));
+                  setReviewOpen(true);
+                }}
               >
                 <strong>{String(campaign.name)}</strong>
                 <span className="text-xs text-muted-foreground">
@@ -316,150 +334,159 @@ export default function AccessReviewPanel({ permissions }: { permissions: Readon
               </button>
             ))}
           </div>
-          <div className="min-w-0">
-            {selected ? (
-              <>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
-                  <div>
-                    <strong>{String(selected.name)}</strong>
-                    <p className="text-xs text-muted-foreground">
-                      State: {String(selected.lifecycle_state)} · Version {String(selected.row_version)}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {selected.lifecycle_state === "draft" && permissions.has("security.access_review.submit") ? (
-                      <Button type="button" disabled={busy} onClick={() => void transition("submit")}>
-                        Submit
-                      </Button>
-                    ) : null}
-                    {selected.lifecycle_state === "submitted" &&
-                    permissions.has("security.access_review.approve") &&
-                    (!selfApproval || overrideAllowed) ? (
-                      <>
-                        <Button
-                          type="button"
-                          disabled={busy || (overrideAllowed && !approvalReason.trim())}
-                          onClick={() => void transition("approve", approvalReason)}
-                        >
-                          Approve
+          <IdentitySheet
+            open={reviewOpen && Boolean(selected)}
+            title="Access review campaign"
+            busy={busy}
+            message={message}
+            onClose={() => setReviewOpen(false)}
+          >
+            <div className="min-w-0">
+              {selected ? (
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
+                    <div>
+                      <strong>{String(selected.name)}</strong>
+                      <p className="text-xs text-muted-foreground">
+                        State: {String(selected.lifecycle_state)} · Version {String(selected.row_version)}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selected.lifecycle_state === "draft" && permissions.has("security.access_review.submit") ? (
+                        <Button type="button" disabled={busy} onClick={() => void transition("submit")}>
+                          Submit
                         </Button>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          disabled={busy || (overrideAllowed && !approvalReason.trim())}
-                          onClick={() => void transition("reject", approvalReason)}
-                        >
-                          Reject
-                        </Button>
-                      </>
-                    ) : null}
-                    {selected.lifecycle_state === "approved" && permissions.has("security.access_review.activate") ? (
-                      <Button type="button" disabled={busy} onClick={() => void transition("activate")}>
-                        Activate and snapshot
-                      </Button>
-                    ) : null}
-                    {selected.lifecycle_state === "active" && permissions.has("security.access_review.close") ? (
-                      <Button type="button" disabled={busy} onClick={() => void transition("close")}>
-                        Close campaign
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-                {selected.lifecycle_state === "submitted" && overrideAllowed ? (
-                  <div className="grid gap-3 border-b border-border p-4">
-                    <SuperAdminOverrideWarning />
-                    <Label className="grid gap-2 text-sm">
-                      Business reason
-                      <Input
-                        required
-                        maxLength={512}
-                        value={approvalReason}
-                        onChange={(event) => setApprovalReason(event.target.value)}
-                        disabled={busy}
-                      />
-                    </Label>
-                  </div>
-                ) : selected.lifecycle_state === "submitted" && independentDecisionBlocked ? (
-                  <p className="border-b border-border p-4 text-sm text-muted-foreground">
-                    {INDEPENDENT_APPROVER_REQUIRED}
-                  </p>
-                ) : null}
-              </>
-            ) : null}
-            {selected?.lifecycle_state === "active" || selected?.lifecycle_state === "closed" ? (
-              items.length ? (
-                items.map((item) => {
-                  const snapshot = (item.snapshot ?? {}) as Row;
-                  const itemId = String(item.item_id);
-                  const current = decisions[itemId] ?? { decision: "retain" as const, reason: "" };
-                  return (
-                    <article className="grid gap-3 border-b border-border p-4" key={itemId}>
-                      <div className="flex flex-wrap justify-between gap-3">
-                        <div>
-                          <strong>{String(snapshot.display_name ?? snapshot.email ?? item.subject_user_id)}</strong>
-                          <p className="text-xs text-muted-foreground">
-                            {String(snapshot.role_name ?? "Account access")} · {String(snapshot.role_code ?? "No role")}
-                          </p>
-                        </div>
-                        {item.decision ? (
-                          <span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold">
-                            {String(item.decision)}
-                          </span>
-                        ) : null}
-                      </div>
-                      {!item.decision &&
-                      selected.lifecycle_state === "active" &&
-                      permissions.has("security.access_review.decide") ? (
-                        <div className="grid gap-2 sm:grid-cols-[160px_minmax(180px,1fr)_auto]">
-                          <select
-                            aria-label={`Decision for ${itemId}`}
-                            value={current.decision}
-                            onChange={(event) =>
-                              setDecisions((state) => ({
-                                ...state,
-                                [itemId]: { ...current, decision: event.target.value as typeof current.decision },
-                              }))
-                            }
+                      ) : null}
+                      {selected.lifecycle_state === "submitted" &&
+                      permissions.has("security.access_review.approve") &&
+                      (!selfApproval || overrideAllowed) ? (
+                        <>
+                          <Button
+                            type="button"
+                            disabled={busy || (overrideAllowed && !approvalReason.trim())}
+                            onClick={() => void transition("approve", approvalReason)}
                           >
-                            <option value="retain">Retain</option>
-                            <option value="revoke">Revoke</option>
-                            <option value="remediate">Remediate</option>
-                          </select>
-                          <Input
-                            aria-label={`Reason for ${itemId}`}
-                            placeholder="Reason when revoking or remediating"
-                            value={current.reason}
-                            onChange={(event) =>
-                              setDecisions((state) => ({
-                                ...state,
-                                [itemId]: { ...current, reason: event.target.value },
-                              }))
-                            }
-                          />
-                          <Button type="button" disabled={busy} onClick={() => void decide(item)}>
-                            Record decision
+                            Approve
                           </Button>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            disabled={busy || (overrideAllowed && !approvalReason.trim())}
+                            onClick={() => void transition("reject", approvalReason)}
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      ) : null}
+                      {selected.lifecycle_state === "approved" && permissions.has("security.access_review.activate") ? (
+                        <Button type="button" disabled={busy} onClick={() => void transition("activate")}>
+                          Activate and snapshot
+                        </Button>
+                      ) : null}
+                      {selected.lifecycle_state === "active" && permissions.has("security.access_review.close") ? (
+                        <Button type="button" disabled={busy} onClick={() => void transition("close")}>
+                          Close campaign
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                  {selected.lifecycle_state === "submitted" && overrideAllowed ? (
+                    <div className="grid gap-3 border-b border-border p-4">
+                      <SuperAdminOverrideWarning />
+                      <Label className="grid gap-2 text-sm">
+                        Business reason
+                        <Input
+                          required
+                          maxLength={512}
+                          value={approvalReason}
+                          onChange={(event) => setApprovalReason(event.target.value)}
+                          disabled={busy}
+                        />
+                      </Label>
+                    </div>
+                  ) : selected.lifecycle_state === "submitted" && independentDecisionBlocked ? (
+                    <p className="border-b border-border p-4 text-sm text-muted-foreground">
+                      {INDEPENDENT_APPROVER_REQUIRED}
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
+              {selected?.lifecycle_state === "active" || selected?.lifecycle_state === "closed" ? (
+                items.length ? (
+                  items.map((item) => {
+                    const snapshot = (item.snapshot ?? {}) as Row;
+                    const itemId = String(item.item_id);
+                    const current = decisions[itemId] ?? { decision: "retain" as const, reason: "" };
+                    return (
+                      <article className="grid gap-3 border-b border-border p-4" key={itemId}>
+                        <div className="flex flex-wrap justify-between gap-3">
+                          <div>
+                            <strong>{String(snapshot.display_name ?? snapshot.email ?? item.subject_user_id)}</strong>
+                            <p className="text-xs text-muted-foreground">
+                              {String(snapshot.role_name ?? "Account access")} ·{" "}
+                              {String(snapshot.role_code ?? "No role")}
+                            </p>
+                          </div>
+                          {item.decision ? (
+                            <span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold">
+                              {String(item.decision)}
+                            </span>
+                          ) : null}
                         </div>
-                      ) : null}
-                      {item.remediation_request_id ? (
-                        <p className="text-xs text-muted-foreground">
-                          Governed remediation request: {String(item.remediation_request_id)}
-                        </p>
-                      ) : null}
-                    </article>
-                  );
-                })
+                        {!item.decision &&
+                        selected.lifecycle_state === "active" &&
+                        permissions.has("security.access_review.decide") ? (
+                          <div className="grid gap-2 sm:grid-cols-[160px_minmax(180px,1fr)_auto]">
+                            <select
+                              aria-label={`Decision for ${itemId}`}
+                              value={current.decision}
+                              onChange={(event) =>
+                                setDecisions((state) => ({
+                                  ...state,
+                                  [itemId]: { ...current, decision: event.target.value as typeof current.decision },
+                                }))
+                              }
+                            >
+                              <option value="retain">Retain</option>
+                              <option value="revoke">Revoke</option>
+                              <option value="remediate">Remediate</option>
+                            </select>
+                            <Input
+                              aria-label={`Reason for ${itemId}`}
+                              placeholder="Reason when revoking or remediating"
+                              value={current.reason}
+                              onChange={(event) =>
+                                setDecisions((state) => ({
+                                  ...state,
+                                  [itemId]: { ...current, reason: event.target.value },
+                                }))
+                              }
+                            />
+                            <Button type="button" disabled={busy} onClick={() => void decide(item)}>
+                              Record decision
+                            </Button>
+                          </div>
+                        ) : null}
+                        {item.remediation_request_id ? (
+                          <p className="text-xs text-muted-foreground">
+                            Governed remediation request: {String(item.remediation_request_id)}
+                          </p>
+                        ) : null}
+                      </article>
+                    );
+                  })
+                ) : (
+                  <p className="p-9 text-center text-sm text-muted-foreground">
+                    This campaign has no captured role assignments.
+                  </p>
+                )
               ) : (
                 <p className="p-9 text-center text-sm text-muted-foreground">
-                  This campaign has no captured role assignments.
+                  Approve and activate the campaign to capture its immutable entitlement snapshot.
                 </p>
-              )
-            ) : (
-              <p className="p-9 text-center text-sm text-muted-foreground">
-                Approve and activate the campaign to capture its immutable entitlement snapshot.
-              </p>
-            )}
-          </div>
+              )}
+            </div>
+          </IdentitySheet>
         </div>
       ) : null}
     </div>

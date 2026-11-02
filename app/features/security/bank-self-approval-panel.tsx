@@ -1,4 +1,5 @@
 "use client";
+import { IdentitySheet } from "./identity-sheet";
 import { useEffect, useRef, useState } from "react";
 import type {
   BankSelfApprovalDirectory,
@@ -27,6 +28,7 @@ export default function BankSelfApprovalPanel() {
   return <Panel key={`${session?.tenant_id}:${session?.user.id}:${session?.user.permissions.join(",")}`} />;
 }
 function Panel() {
+  const [manageOpen, setManageOpen] = useState(false);
   const { api, session, csrfToken } = useSession(),
     notify = useActionFeedback();
   const permissions = session?.user.permissions ?? [];
@@ -202,6 +204,7 @@ function Panel() {
     setError("");
     try {
       await api.changeBankSelfApprovalGrant(input, csrfToken(), key);
+      setManageOpen(false);
       retry.current = null;
       reset();
       setRefresh((value) => value + 1);
@@ -300,81 +303,104 @@ function Panel() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        {canManage && company && (
-          <fieldset disabled={busy} className="grid gap-3 rounded-md border border-border p-4 md:grid-cols-2">
-            <legend className="px-2 text-sm font-medium">Issue or revoke explicit authority</legend>
-            <Label className="grid gap-1" htmlFor="bank-grant-search">
-              Find eligible user
-              <Input
-                id="bank-grant-search"
-                value={search}
-                maxLength={160}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setUserCursor("");
-                  setOptionsLoading(true);
-                  setOptions((current) => ({ ...current, users: [], next_cursor: null }));
-                }}
-              />
-            </Label>
-            <Label className="grid gap-1" htmlFor="bank-grant-user">
-              User
-              <select
-                id="bank-grant-user"
-                aria-label="User"
-                className={selectClass}
-                value={user}
-                disabled={optionsLoading || busy}
-                onChange={(e) => {
-                  if (e.target.value === user) return;
-                  setUser(e.target.value);
-                  setSelected(null);
-                  setSelectedReady(false);
-                }}
-              >
-                <option value="">
-                  {optionsLoading ? "Loading eligible users…" : "Select a user with normal approval authority"}
-                </option>
-                {user && !options.users.some((item) => item.id === user) && <option value={user}>{user}</option>}
-                {options.users.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} · {item.id}
+        {canManage && company ? (
+          <Button type="button" className="self-start" onClick={() => setManageOpen(true)}>
+            Manage bank self-approval
+          </Button>
+        ) : null}
+        <IdentitySheet
+          open={manageOpen && Boolean(company) && canManage}
+          title="Manage bank self-approval"
+          busy={busy}
+          message={error}
+          onClose={() => setManageOpen(false)}
+        >
+          {canManage && company && (
+            <fieldset disabled={busy} className="grid gap-3 rounded-md border border-border p-4 md:grid-cols-2">
+              <legend className="px-2 text-sm font-medium">Issue or revoke explicit authority</legend>
+              <Label className="grid gap-1" htmlFor="bank-grant-search">
+                Find eligible user
+                <Input
+                  id="bank-grant-search"
+                  value={search}
+                  maxLength={160}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setUserCursor("");
+                    setOptionsLoading(true);
+                    setOptions((current) => ({ ...current, users: [], next_cursor: null }));
+                  }}
+                />
+              </Label>
+              <Label className="grid gap-1" htmlFor="bank-grant-user">
+                User
+                <select
+                  id="bank-grant-user"
+                  aria-label="User"
+                  className={selectClass}
+                  value={user}
+                  disabled={optionsLoading || busy}
+                  onChange={(e) => {
+                    if (e.target.value === user) return;
+                    setUser(e.target.value);
+                    setSelected(null);
+                    setSelectedReady(false);
+                  }}
+                >
+                  <option value="">
+                    {optionsLoading ? "Loading eligible users…" : "Select a user with normal approval authority"}
                   </option>
-                ))}
-              </select>
-            </Label>
-            {options.next_cursor && (
+                  {user && !options.users.some((item) => item.id === user) && <option value={user}>{user}</option>}
+                  {options.users.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} · {item.id}
+                    </option>
+                  ))}
+                </select>
+              </Label>
+              {options.next_cursor && (
+                <Button
+                  variant="outline"
+                  disabled={optionsLoading}
+                  onClick={() => {
+                    setUserCursor(options.next_cursor!);
+                    setOptionsLoading(true);
+                  }}
+                >
+                  Load more eligible users
+                </Button>
+              )}
+              <Label className="grid gap-1 md:col-span-2" htmlFor="bank-grant-reason">
+                Administration reason
+                <Input
+                  id="bank-grant-reason"
+                  value={reason}
+                  maxLength={500}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+              </Label>
               <Button
-                variant="outline"
-                disabled={optionsLoading}
-                onClick={() => {
-                  setUserCursor(options.next_cursor!);
-                  setOptionsLoading(true);
-                }}
+                disabled={!user || !selectedReady || reason.trim().length < 3 || selected?.state === "active"}
+                onClick={() => void change(user, selected?.version ?? 0, "active")}
               >
-                Load more eligible users
+                Issue self-approval grant
               </Button>
-            )}
-            <Label className="grid gap-1 md:col-span-2" htmlFor="bank-grant-reason">
-              Administration reason
-              <Input
-                id="bank-grant-reason"
-                value={reason}
-                maxLength={500}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            </Label>
-            <Button
-              disabled={!user || !selectedReady || reason.trim().length < 3 || selected?.state === "active"}
-              onClick={() => void change(user, selected?.version ?? 0, "active")}
-            >
-              Issue self-approval grant
-            </Button>
-            <p className="text-sm text-muted-foreground">
-              Revocation affects future decisions, not historical approvals. Separate Bank posting controls still apply.
-            </p>
-          </fieldset>
-        )}
+              {selected?.state === "active" ? (
+                <Button
+                  variant="destructive"
+                  disabled={!selectedReady || busy || reason.trim().length < 3}
+                  onClick={() => void change(selected.user_id, selected.version, "revoked")}
+                >
+                  Confirm grant revocation
+                </Button>
+              ) : null}
+              <p className="text-sm text-muted-foreground">
+                Revocation affects future decisions, not historical approvals. Separate Bank posting controls still
+                apply.
+              </p>
+            </fieldset>
+          )}
+        </IdentitySheet>
         {loading ? (
           <p role="status">Loading persisted Bank grants…</p>
         ) : !company ? (
@@ -414,8 +440,15 @@ function Panel() {
                       {canManage && !history && row.state === "active" ? (
                         <Button
                           variant="destructive"
-                          disabled={busy || reason.trim().length < 3}
-                          onClick={() => void change(row.user_id, row.version, "revoked")}
+                          disabled={busy}
+                          onClick={() => {
+                            setUser(row.user_id);
+                            setSelected(row);
+                            setSelectedReady(true);
+                            setReason("");
+                            setError("");
+                            setManageOpen(true);
+                          }}
                         >
                           Revoke {row.user_id}
                         </Button>

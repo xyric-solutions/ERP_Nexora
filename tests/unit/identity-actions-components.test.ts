@@ -46,7 +46,7 @@ const draft = {
 let container: HTMLDivElement;
 let root: Root;
 function button(text: string) {
-  const found = [...container.querySelectorAll("button")].find((item) => item.textContent?.trim() === text);
+  const found = [...document.body.querySelectorAll("button")].find((item) => item.textContent?.trim() === text);
   if (!found) throw new Error(`Missing button: ${text}`);
   return found;
 }
@@ -60,7 +60,7 @@ async function input(element: HTMLInputElement, value: string) {
   });
 }
 async function choose(label: string, value: string) {
-  const element = container.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`);
+  const element = document.body.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`);
   if (!element) throw new Error(`Missing action select: ${label}`);
   await act(async () => {
     element.value = value;
@@ -91,12 +91,12 @@ describe("Identity & Access actions and permissions", () => {
   it("automatically generates a stable role code and saves multiple checkbox permissions", async () => {
     const onSave = vi.fn(async () => false);
     await act(async () => root.render(createElement(RoleForm, { busy: false, onSave, onCancel: vi.fn() })));
-    const fields = container.querySelectorAll<HTMLInputElement>("form > div > label > input");
+    const fields = document.body.querySelectorAll<HTMLInputElement>("form > div > label > input");
     expect(fields[1]?.readOnly).toBe(true);
     expect(fields[1]?.value).toMatch(/^role_[a-f0-9]{32}$/);
     const code = fields[1]!.value;
     await input(fields[0]!, "HR Reader");
-    const allHR = container.querySelector<HTMLInputElement>('input[aria-label="Select visible permissions in hr"]');
+    const allHR = document.body.querySelector<HTMLInputElement>('input[aria-label="Select visible permissions in hr"]');
     if (!allHR) throw new Error("Group checkbox missing");
     await click(allHR);
     await click(button("Save draft"));
@@ -112,10 +112,10 @@ describe("Identity & Access actions and permissions", () => {
 
   it("searches real catalogue entries and toggles only matching permissions", async () => {
     await act(async () => root.render(createElement(RoleForm, { busy: false, onSave: vi.fn(), onCancel: vi.fn() })));
-    const search = container.querySelector<HTMLInputElement>('input[type="search"]')!;
+    const search = document.body.querySelector<HTMLInputElement>('input[type="search"]')!;
     await input(search, "employee.read");
-    expect(container.querySelector('input[aria-label="hr.employee.edit"]')).toBeNull();
-    await click(container.querySelector<HTMLInputElement>('input[aria-label="Select visible permissions in hr"]')!);
+    expect(document.body.querySelector('input[aria-label="hr.employee.edit"]')).toBeNull();
+    await click(document.body.querySelector<HTMLInputElement>('input[aria-label="Select visible permissions in hr"]')!);
     await input(search, "");
     expect(
       container
@@ -133,14 +133,14 @@ describe("Identity & Access actions and permissions", () => {
     api.listSecurityPermissions.mockRejectedValue(new Error("denied"));
     await act(async () => root.render(createElement(RoleForm, { busy: false, onSave: vi.fn(), onCancel: vi.fn() })));
     expect(button("Save draft").disabled).toBe(true);
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Saving is blocked");
+    expect(document.body.querySelector('[role="alert"]')?.textContent).toContain("Saving is blocked");
   });
 
   it("blocks saving when an older backend returns an incomplete catalogue", async () => {
     api.listSecurityPermissions.mockResolvedValue({ items: definitions, next_cursor: "100" });
     await act(async () => root.render(createElement(RoleForm, { busy: false, onSave: vi.fn(), onCancel: vi.fn() })));
     expect(button("Save draft").disabled).toBe(true);
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Saving is blocked");
+    expect(document.body.querySelector('[role="alert"]')?.textContent).toContain("Saving is blocked");
   });
 
   it("preserves every policy constraint when editing draft permissions", async () => {
@@ -149,7 +149,7 @@ describe("Identity & Access actions and permissions", () => {
     await act(async () =>
       root.render(createElement(RoleForm, { initial: draft, busy: false, onSave, onCancel: vi.fn() })),
     );
-    await click(container.querySelector<HTMLElement>('[data-slot="checkbox"][aria-label="hr.employee.edit"]')!);
+    await click(document.body.querySelector<HTMLElement>('[data-slot="checkbox"][aria-label="hr.employee.edit"]')!);
     await click(button("Save draft"));
     expect(onSave.mock.calls[0]?.[0]).toEqual({ ...draft, permissions: ["hr.employee.edit", "hr.employee.read"] });
   });
@@ -176,11 +176,11 @@ describe("Identity & Access actions and permissions", () => {
         }),
       ),
     );
-    expect(container.querySelector("thead")?.textContent).toContain("Action");
-    const options = [...container.querySelectorAll("select option")].map((option) => option.textContent);
+    expect(document.body.querySelector("thead")?.textContent).toContain("Action");
+    const options = [...document.body.querySelectorAll("select option")].map((option) => option.textContent);
     expect(options).toEqual(["Choose action", "View details"]);
     await choose("Action for audit-ui", "view");
-    expect(container.querySelector('[aria-label="Record details"]')?.textContent).toContain("maker-ui");
+    expect(document.body.querySelector('[aria-label="Record details"]')?.textContent).toContain("maker-ui");
   });
 
   it("soft-deletes selected active roles only after confirmation using archive requests", async () => {
@@ -204,7 +204,7 @@ describe("Identity & Access actions and permissions", () => {
         }),
       ),
     );
-    await click(container.querySelector<HTMLInputElement>('[aria-label="Select all visible records"]')!);
+    await click(document.body.querySelector<HTMLInputElement>('[aria-label="Select all visible records"]')!);
     await choose("Action for selected records", "request_archive");
     expect(api.actOnSecurityRole).not.toHaveBeenCalled();
     await click(button("Confirm and submit"));
@@ -215,7 +215,7 @@ describe("Identity & Access actions and permissions", () => {
       expected_version: 4,
     });
     expect(onChanged).toHaveBeenCalledOnce();
-    expect(container.textContent).toContain("2 of 2 operations submitted");
+    expect(document.body.textContent).toContain("2 of 2 operations submitted");
   });
 
   it("reports partial bulk failure and preserves the failed request's idempotency key on retry", async () => {
@@ -241,11 +241,11 @@ describe("Identity & Access actions and permissions", () => {
         }),
       ),
     );
-    await click(container.querySelector<HTMLInputElement>('[aria-label="Select all visible records"]')!);
+    await click(document.body.querySelector<HTMLInputElement>('[aria-label="Select all visible records"]')!);
     await choose("Action for selected records", "request_archive");
     await click(button("Confirm and submit"));
-    expect(container.textContent).toContain("1 of 2 operations submitted");
-    expect(container.textContent).toContain("Version changed");
+    expect(document.body.textContent).toContain("1 of 2 operations submitted");
+    expect(document.body.textContent).toContain("Version changed");
     await click(button("Confirm and submit"));
     expect(api.actOnSecurityRole.mock.calls[1]).toEqual(api.actOnSecurityRole.mock.calls[2]);
     expect(api.actOnSecurityRole.mock.calls.filter((call) => call[0].policy_id === "policy-1")).toHaveLength(1);
@@ -269,14 +269,14 @@ describe("Identity & Access actions and permissions", () => {
         }),
       ),
     );
-    const own = container.querySelector<HTMLSelectElement>('[aria-label="Action for own"]');
+    const own = document.body.querySelector<HTMLSelectElement>('[aria-label="Action for own"]');
     expect(own?.textContent).not.toContain("Approve");
-    await click(container.querySelector<HTMLInputElement>('[aria-label="Select other1"]')!);
-    await click(container.querySelector<HTMLInputElement>('[aria-label="Select other2"]')!);
-    const bulk = container.querySelector<HTMLSelectElement>('[aria-label="Action for selected records"]');
+    await click(document.body.querySelector<HTMLInputElement>('[aria-label="Select other1"]')!);
+    await click(document.body.querySelector<HTMLInputElement>('[aria-label="Select other2"]')!);
+    const bulk = document.body.querySelector<HTMLSelectElement>('[aria-label="Action for selected records"]');
     expect(bulk?.textContent).toContain("Reject");
     expect(bulk?.textContent).not.toContain("Approve");
-    expect(container.textContent).toContain("Independent approver required");
+    expect(document.body.textContent).toContain("Independent approver required");
   });
 
   it("requires an audited reason before a super administrator can decide their own request", async () => {
@@ -303,10 +303,12 @@ describe("Identity & Access actions and permissions", () => {
       ),
     );
     await choose("Action for own-role", "approved");
-    expect(container.textContent).toContain("Super-admin override");
+    expect(document.body.textContent).toContain("Super-admin override");
     const confirm = button("Confirm decision");
     expect(confirm.disabled).toBe(true);
-    const reason = container.querySelector<HTMLInputElement>('form[aria-label="Confirm administration action"] input')!;
+    const reason = document.body.querySelector<HTMLInputElement>(
+      'form[aria-label="Confirm administration action"] input',
+    )!;
     await input(reason, "Emergency access recovery approved by the tenant owner.");
     expect(confirm.disabled).toBe(false);
     await click(confirm);
@@ -340,8 +342,8 @@ describe("Identity & Access actions and permissions", () => {
     expect(onOpenRoleSection).toHaveBeenCalledWith("assignments", "context-role");
     await choose("Action for Context role", "audit");
     expect(onOpenRoleSection).toHaveBeenCalledWith("audit", "context-role");
-    await click(container.querySelector<HTMLInputElement>('[aria-label="Select Context role"]')!);
-    const bulk = container.querySelector<HTMLSelectElement>('[aria-label="Action for selected records"]');
+    await click(document.body.querySelector<HTMLInputElement>('[aria-label="Select Context role"]')!);
+    const bulk = document.body.querySelector<HTMLSelectElement>('[aria-label="Action for selected records"]');
     expect(bulk?.disabled).toBe(true);
     expect(bulk?.querySelectorAll("option")).toHaveLength(1);
     expect(api.actOnSecurityRole).not.toHaveBeenCalled();

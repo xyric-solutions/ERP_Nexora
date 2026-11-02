@@ -78,20 +78,20 @@ describe("DelegationPanel", () => {
     expect(state.api.listSecurityDelegations).toHaveBeenCalledWith("?limit=100");
     expect(state.api.listSecurityUsers).toHaveBeenCalled();
     expect(state.api.listSecurityPermissions).toHaveBeenCalled();
-    expect(container.textContent).toContain("No delegation records are available.");
+    expect(document.body.textContent).toContain("No delegation records are available.");
 
-    const create = [...container.querySelectorAll("button")].find(
+    const create = [...document.body.querySelectorAll("button")].find(
       (button) => button.textContent === "Create delegation",
     )!;
     await act(async () => create.click());
-    expect(container.textContent).toContain("Delegate User");
-    expect(container.textContent).toContain("security.authorization.audit.read");
-    expect(container.textContent).toContain("Business reason");
+    expect(document.body.textContent).toContain("Delegate User");
+    expect(document.body.textContent).toContain("security.authorization.audit.read");
+    expect(document.body.textContent).toContain("Business reason");
   });
 
   it("shows an explicit permission-denied state without loading data", async () => {
     await act(async () => root.render(createElement(DelegationPanel, { permissions: new Set() })));
-    expect(container.textContent).toContain("do not have permission to view delegations");
+    expect(document.body.textContent).toContain("do not have permission to view delegations");
     expect(state.api.listSecurityDelegations).not.toHaveBeenCalled();
   });
 
@@ -120,7 +120,7 @@ describe("DelegationPanel", () => {
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect([...container.querySelectorAll("button")].some((button) => button.textContent === "Approve")).toBe(true);
+    expect([...document.body.querySelectorAll("button")].some((button) => button.textContent === "Approve")).toBe(true);
   });
 
   it("requires a business reason before a super-admin maker can decide a delegation", async () => {
@@ -153,8 +153,8 @@ describe("DelegationPanel", () => {
       root.render(createElement(DelegationPanel, { permissions: new Set(state.session.user.permissions) })),
     );
     await act(async () => new Promise((resolve) => window.setTimeout(resolve, 5)));
-    expect(container.textContent).toContain("Super-admin override");
-    const approve = [...container.querySelectorAll("button")].find((button) => button.textContent === "Approve")!;
+    expect(document.body.textContent).toContain("Super-admin override");
+    const approve = [...document.body.querySelectorAll("button")].find((button) => button.textContent === "Approve")!;
     expect(approve.disabled).toBe(true);
   });
 });
