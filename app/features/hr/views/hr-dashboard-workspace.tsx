@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Building2, ClipboardCheck, FileClock, RefreshCw, UserPlus, Users, Workflow } from "lucide-react";
 import type { HrDashboardSummary } from "@nexora/contracts";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -20,19 +21,24 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
   const [summary, setSummary] = useState<HrDashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const requestId = useRef(0);
   const canRead = session?.user.permissions.includes("hr.employee.read") ?? false;
 
   const load = useCallback(
     async (targetCompanyId: string) => {
       if (!targetCompanyId) return;
+      const currentRequest = ++requestId.current;
       setLoading(true);
+      setSummary(null);
+      setError("");
       try {
-        setSummary(await client.dashboard(targetCompanyId));
-        setError("");
+        const result = await client.dashboard(targetCompanyId);
+        if (currentRequest === requestId.current) setSummary(result);
       } catch {
-        setError("The live HR summary could not be loaded for this company. Refresh the session and try again.");
+        if (currentRequest === requestId.current)
+          setError("The HR summary could not be loaded. Try refreshing this company.");
       } finally {
-        setLoading(false);
+        if (currentRequest === requestId.current) setLoading(false);
       }
     },
     [client],
@@ -48,6 +54,7 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
         setCompanies(result.items);
         const first = result.items[0]?.id ?? "";
         setCompanyId(first);
+        if (!first) setLoading(false);
         return load(first);
       })
       .catch(() => {
@@ -92,20 +99,21 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
     ["Recent joiners", metrics?.recent_joiners ?? 0, "Joined in the last 90 days", "employees"],
   ] as const;
   const distributionTotal = summary?.status_distribution.reduce((total, item) => total + item.count, 0) ?? 0;
+  const icons = [Users, FileClock, ClipboardCheck, Workflow, Building2, UserPlus];
 
   return (
-    <section className="grid min-w-0 gap-5" aria-label="HR Dashboard">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b pb-4">
+    <section className="grid min-w-0 gap-5 [&_h1]:mb-0! [&_h2]:mb-0! [&_p]:mb-0!" aria-label="HR Dashboard">
+      <header className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-4 sm:p-5">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              HR & Payroll · live operations
+              People & workforce
             </span>
             <Badge variant="outline">Live</Badge>
           </div>
           <h1 className="mt-1 text-3xl font-semibold">HR Dashboard</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Company-scoped workforce and workflow signals from the live HR authority.
+            Your workforce at a glance. Review priorities and keep people moving.
           </p>
         </div>
         <div className="flex min-w-0 w-full flex-wrap items-end gap-2 sm:w-auto">
@@ -126,49 +134,56 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
               ))}
             </select>
           </label>
-          <Button variant="outline" disabled={loading} onClick={() => void load(companyId)}>
+          <Button variant="outline" disabled={loading || !companyId} onClick={() => void load(companyId)}>
+            <RefreshCw className={loading ? "animate-spin" : ""} />
             {loading ? "Refreshing..." : "Refresh"}
           </Button>
         </div>
       </header>
-      <Alert>
-        <AlertTitle>Live scope</AlertTitle>
-        <AlertDescription>
-          Workforce, draft, approval, movement, organisation and master-data counts are live. Open the owning
-          Recruitment, Attendance, Leave or Payroll workspace for its detailed records and controls.
-        </AlertDescription>
-      </Alert>
       {error ? (
         <Alert>
           <AlertTitle>Dashboard unavailable</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
-      {loading && !summary ? (
-        <Skeleton className="h-80 w-full" />
-      ) : (
+      {loading ? (
+        <div aria-label="Loading workforce summary" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {cards.map(([label]) => (
+            <Skeleton key={label} className="h-36 w-full" />
+          ))}
+        </div>
+      ) : summary ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {cards.map(([label, value, note, pageId]) => (
-              <button
-                className="rounded-lg border bg-card p-4 text-left transition-colors hover:bg-accent"
-                key={label}
-                type="button"
-                onClick={() => onNavigate("hr", pageId)}
-              >
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
-                <strong className="mt-2 block text-3xl">{value}</strong>
-                <small className="mt-1 block text-muted-foreground">{note}</small>
-              </button>
-            ))}
+            {cards.map(([label, value, note, pageId], index) => {
+              const Icon = icons[index];
+              return (
+                <button
+                  className="group rounded-xl border border-border bg-card p-4 text-left text-foreground shadow-sm transition-colors hover:border-primary/50 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  key={label}
+                  type="button"
+                  onClick={() => onNavigate("hr", pageId)}
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">{label}</span>
+                    <Icon className="size-5 text-primary" />
+                  </span>
+                  <strong className="mt-3 block text-3xl tabular-nums">{value.toLocaleString()}</strong>
+                  <small className="mt-1 block text-muted-foreground">{note}</small>
+                </button>
+              );
+            })}
           </div>
           <div className="grid items-start gap-4 lg:grid-cols-2">
             <article className="min-w-0 rounded-lg border border-border bg-card p-4 sm:p-5">
-              <div className="mb-4">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Workforce composition
-                </span>
-                <h2 className="mt-1 text-xl font-semibold">Current employee status</h2>
+              <div className="mb-5 flex items-start justify-between gap-3">
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Workforce composition
+                  </span>
+                  <h2 className="mt-1 text-xl font-semibold">Current employee status</h2>
+                </div>
+                <Badge variant="secondary">{distributionTotal} total</Badge>
               </div>
               <div className="grid gap-4">
                 {summary?.status_distribution.length ? (
@@ -182,7 +197,7 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
                         <div
                           className="h-full rounded-full bg-primary"
                           style={{
-                            width: `${distributionTotal ? Math.max(4, (item.count / distributionTotal) * 100) : 0}%`,
+                            width: `${distributionTotal ? (item.count / distributionTotal) * 100 : 0}%`,
                           }}
                         />
                       </div>
@@ -195,7 +210,7 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
                 )}
               </div>
             </article>
-            <article className="rounded-lg border bg-card p-5">
+            <article className="min-w-0 rounded-lg border border-border bg-card p-4 sm:p-5">
               <div className="mb-4">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Action centre
@@ -205,20 +220,25 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
               <div className="grid gap-2">
                 {summary?.action_items.map((item) => (
                   <button
-                    className="flex items-center justify-between rounded-md border p-3 text-left hover:bg-accent"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-3 text-left text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     key={item.key}
                     type="button"
                     onClick={() => onNavigate("hr", item.page_id)}
                   >
                     <span>
                       <strong className="block text-sm">{item.label}</strong>
-                      <small className="text-muted-foreground">Open governed workspace</small>
+                      <small className="text-muted-foreground">
+                        Review details <ArrowRight className="inline size-3" />
+                      </small>
                     </span>
                     <Badge variant="outline" className="shrink-0">
                       {item.count}
                     </Badge>
                   </button>
                 ))}
+                {!summary.action_items.length ? (
+                  <p className="text-sm text-muted-foreground">No pending actions for this company.</p>
+                ) : null}
               </div>
               {metrics?.master_configuration_gaps ? (
                 <Alert className="mt-4">
@@ -231,13 +251,37 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
               ) : null}
             </article>
           </div>
+          <nav aria-label="HR shortcuts" className="grid gap-2 sm:grid-cols-3">
+            {[
+              ["People", "Employee records and approvals", "people-workspace"],
+              ["Recruitment", "Plan roles and manage hiring", "recruitment-workspace"],
+              ["Organisation & Masters", "Maintain your company structure", "organisation-masters"],
+            ].map(([label, note, pageId]) => (
+              <Button
+                key={pageId}
+                variant="outline"
+                className="h-auto justify-between gap-3 whitespace-normal p-4 text-left"
+                onClick={() => onNavigate("hr", pageId)}
+              >
+                <span>
+                  <strong className="block">{label}</strong>
+                  <span className="mt-1 block text-xs font-normal text-muted-foreground">{note}</span>
+                </span>
+                <ArrowRight className="shrink-0" />
+              </Button>
+            ))}
+          </nav>
           {summary ? (
             <p className="text-right text-xs text-muted-foreground">
               Updated {new Date(summary.generated_at).toLocaleString()}
             </p>
           ) : null}
         </>
-      )}
+      ) : !error ? (
+        <p className="rounded-lg border border-border bg-card p-5 text-muted-foreground">
+          No authorised company is available for this dashboard.
+        </p>
+      ) : null}
     </section>
   );
 }

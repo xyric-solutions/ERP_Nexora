@@ -1,4 +1,5 @@
 "use client";
+import { HrRecordDrawer } from "./hr-record-drawer";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -163,7 +164,7 @@ export function HrTransferApprovalsPanel({
 
   return (
     <section
-      className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm"
+      className="grid min-w-0 gap-4 rounded-lg border border-border bg-card p-4 shadow-sm"
       aria-label="Transfer approvals"
     >
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
@@ -200,8 +201,8 @@ export function HrTransferApprovalsPanel({
         </p>
       )}
       {state === "ready" && (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,.8fr)]">
-          <div className="overflow-x-auto rounded-md border border-border">
+        <div className="grid min-w-0 gap-4 ">
+          <div className="relative min-w-0 overflow-x-auto rounded-md border border-border">
             <table className="w-full min-w-180 text-left text-sm">
               <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
@@ -242,95 +243,107 @@ export function HrTransferApprovalsPanel({
               </tbody>
             </table>
           </div>
-          <aside className="rounded-md border border-border p-4">
-            {detailState === "loading" && selected && <Skeleton className="h-36 w-full" />}
-            {detailState === "error" && selected && (
-              <p className="text-sm text-muted-foreground">Select another pending request or refresh the queue.</p>
-            )}
-            {!selected && (
-              <p className="text-sm text-muted-foreground">
-                Select a pending Transfer to compare its placement change.
-              </p>
-            )}
-            {detail && detailState === "ready" && (
-              <div className="grid gap-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold text-foreground">{detail.employee_name}</h3>
-                    <p className="text-sm text-muted-foreground">{detail.employee_number}</p>
-                  </div>
-                  <Badge variant="secondary">Pending</Badge>
-                </div>
-                <dl className="grid gap-2 text-sm">
-                  <ReviewField
-                    label="Current placement"
-                    value={`${detail.source_branch || "No branch"} · ${detail.source_department || "No department"}`}
-                  />
-                  <ReviewField
-                    label="Proposed placement"
-                    value={`${detail.proposed_branch || "No branch"} · ${detail.proposed_department || "No department"}`}
-                  />
-                  <ReviewField
-                    label="Job and designation"
-                    value={`${detail.proposed_job} · ${detail.proposed_designation}`}
-                  />
-                  <ReviewField
-                    label="Grade and work location"
-                    value={`${detail.proposed_job_grade} · ${detail.proposed_work_location}`}
-                  />
-                  <ReviewField label="Effective date" value={detail.effective_on} />
-                  <ReviewField label="Business reason" value={detail.reason} />
-                </dl>
-                {approvalOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
-                {approvalOverride.independentApproverRequired ? (
-                  <Alert>
-                    <AlertTitle>Independent approver required</AlertTitle>
-                    <AlertDescription>
-                      You submitted this Transfer, so another HR checker must decide it.
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <>
-                    <label
-                      htmlFor="transfer-decision-reason"
-                      className="grid gap-1.5 text-sm font-medium text-foreground"
-                    >
-                      Decision reason
-                      <Textarea
-                        id="transfer-decision-reason"
-                        value={reason}
-                        maxLength={1000}
-                        disabled={saving}
-                        onChange={(event) => {
-                          setReason(event.target.value);
-                          retry.current = null;
-                        }}
-                        placeholder="Explain the approval or rejection for the immutable audit record."
-                      />
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" disabled={saving || !reason.trim()} onClick={() => setDecision("approved")}>
-                        Approve Transfer
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        disabled={saving || !reason.trim()}
-                        onClick={() => setDecision("rejected")}
-                      >
-                        Reject Transfer
-                      </Button>
+          <HrRecordDrawer
+            title="Review transfer request"
+            open={!!selected}
+            onClose={() => setSelected(null)}
+            busy={saving}
+            error={error}
+          >
+            <aside className="rounded-md border border-border p-4">
+              {detailState === "loading" && selected && <Skeleton className="h-36 w-full" />}
+              {detailState === "error" && selected && (
+                <p className="text-sm text-muted-foreground">Select another pending request or refresh the queue.</p>
+              )}
+              {!selected && (
+                <p className="text-sm text-muted-foreground">
+                  Select a pending Transfer to compare its placement change.
+                </p>
+              )}
+              {detail && detailState === "ready" && (
+                <div className="grid min-w-0 gap-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-foreground">{detail.employee_name}</h3>
+                      <p className="text-sm text-muted-foreground">{detail.employee_number}</p>
                     </div>
-                  </>
-                )}
-              </div>
-            )}
-          </aside>
+                    <Badge variant="secondary">Pending</Badge>
+                  </div>
+                  <dl className="grid gap-2 text-sm">
+                    <ReviewField
+                      label="Current placement"
+                      value={`${detail.source_branch || "No branch"} · ${detail.source_department || "No department"}`}
+                    />
+                    <ReviewField
+                      label="Proposed placement"
+                      value={`${detail.proposed_branch || "No branch"} · ${detail.proposed_department || "No department"}`}
+                    />
+                    <ReviewField
+                      label="Job and designation"
+                      value={`${detail.proposed_job} · ${detail.proposed_designation}`}
+                    />
+                    <ReviewField
+                      label="Grade and work location"
+                      value={`${detail.proposed_job_grade} · ${detail.proposed_work_location}`}
+                    />
+                    <ReviewField label="Effective date" value={detail.effective_on} />
+                    <ReviewField label="Business reason" value={detail.reason} />
+                  </dl>
+                  {approvalOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
+                  {approvalOverride.independentApproverRequired ? (
+                    <Alert>
+                      <AlertTitle>Independent approver required</AlertTitle>
+                      <AlertDescription>
+                        You submitted this Transfer, so another HR checker must decide it.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <>
+                      <label
+                        htmlFor="transfer-decision-reason"
+                        className="grid gap-1.5 text-sm font-medium text-foreground"
+                      >
+                        Decision reason
+                        <Textarea
+                          id="transfer-decision-reason"
+                          value={reason}
+                          maxLength={1000}
+                          disabled={saving}
+                          onChange={(event) => {
+                            setReason(event.target.value);
+                            retry.current = null;
+                          }}
+                          placeholder="Explain the approval or rejection for the immutable audit record."
+                        />
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          disabled={saving || !reason.trim()}
+                          onClick={() => setDecision("approved")}
+                        >
+                          Approve Transfer
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          disabled={saving || !reason.trim()}
+                          onClick={() => setDecision("rejected")}
+                        >
+                          Reject Transfer
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </aside>
+          </HrRecordDrawer>
         </div>
       )}
 
       <Dialog open={decision !== null} onOpenChange={(open) => !open && !saving && setDecision(null)}>
-        <DialogContent>
+        <DialogContent className="z-[1501]!" overlayClassName="z-[1500]!">
           <DialogHeader>
             <DialogTitle>Confirm Transfer {decision === "approved" ? "approval" : "rejection"}</DialogTitle>
             <DialogDescription>

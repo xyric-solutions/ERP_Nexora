@@ -1,3 +1,4 @@
+import { allocateHrCode } from "./record-codes.js";
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { evaluateApprovalActor } from "@nexora/auth";
@@ -245,7 +246,7 @@ export class PayrollOvertimeSetup {
           const option = "ot-option-" + randomUUID();
           await client.query(
             `insert into hr_ot_monetary_policy(id,tenant_id,company_id,reference,name,created_by) values($1,$2,$3,$4,$5,$6)`,
-            [parent, c.tenantId, input.company_id, input.reference, input.name, c.actor.userId],
+            [parent, c.tenantId, input.company_id, await allocateHrCode(client, c.tenantId, input.company_id, "overtime", input.reference), input.name, c.actor.userId],
           );
           await client.query(
             `insert into hr_ot_monetary_policy_version(id,tenant_id,company_id,policy_id,version_number,category,effective_from,effective_to,source_reference,created_by,workflow_managed,currency_code) values($1,$2,$3,$4,1,$5,$6,$7,$8,$9,true,$10)`,

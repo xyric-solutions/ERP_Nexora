@@ -17,6 +17,7 @@ import {
 import { HrApiClient } from "../api/hr-client";
 import { Field, State, panel, selectClass, useAttendanceRead, localDate } from "../components/hr-workspace-controls";
 import { HrCompanyScope } from "../components/hr-company-scope";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 type Navigate = (module: string, page: string, reference?: string) => void;
 export const hrGovernancePages = ["hr-compliance-configuration", "hr-export-centre", "hr-report-audit-log"] as const;
 type Page = (typeof hrGovernancePages)[number];
@@ -37,6 +38,7 @@ function ReportGovernanceBody({
   const [revision, setRevision] = useState(0),
     [offset, setOffset] = useState(0),
     [policyForm, setPolicyForm] = useState(false),
+    [exportForm, setExportForm] = useState(false),
     [maxRows, setMaxRows] = useState("1000"),
     [hours, setHours] = useState("24"),
     [selected, setSelected] = useState<Array<"employee_directory" | "payroll_results">>(["employee_directory"]),
@@ -96,6 +98,7 @@ function ReportGovernanceBody({
       );
       setDialog(null);
       setPolicyForm(false);
+      setExportForm(false);
       setPolicyReason("");
       setPurpose("");
       setDecisionReason("");
@@ -268,74 +271,84 @@ function ReportGovernanceBody({
               </Button>
             )}
           </div>
-          {policyForm && (
-            <form aria-label="Propose report disclosure policy" className={panel + " space-y-4"} onSubmit={policy}>
-              <h3 className="font-semibold">New disclosure policy</h3>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field title="Maximum rows per export">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={5000}
-                    required
-                    value={maxRows}
-                    disabled={busy}
-                    onChange={(e) => setMaxRows(e.target.value)}
-                  />
-                </Field>
-                <Field title="Export authorization hours">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={168}
-                    required
-                    value={hours}
-                    disabled={busy}
-                    onChange={(e) => setHours(e.target.value)}
-                  />
-                </Field>
-              </div>
-              <fieldset className="space-y-3">
-                <legend className="mb-2 text-sm font-medium">Permitted reports</legend>
-                {w.catalogue.map((r) => (
-                  <div key={r.id} className="flex items-start gap-3">
-                    <Checkbox
-                      id={ids + r.id}
-                      checked={selected.includes(r.id)}
+          {policyForm ? (
+            <HrRecordDrawer
+              title="Propose disclosure policy"
+              description="Prepare the governed disclosure policy without leaving the compliance register."
+              open
+              busy={busy}
+              error={error}
+              notice={notice}
+              onClose={() => setPolicyForm(false)}
+            >
+              <form aria-label="Propose report disclosure policy" className="space-y-4" onSubmit={policy}>
+                <h3 className="font-semibold">New disclosure policy</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field title="Maximum rows per export">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={5000}
+                      required
+                      value={maxRows}
                       disabled={busy}
-                      onCheckedChange={(checked) =>
-                        setSelected((v) =>
-                          checked === true ? [...new Set([...v, r.id])] : v.filter((id) => id !== r.id),
-                        )
-                      }
+                      onChange={(e) => setMaxRows(e.target.value)}
                     />
-                    <label htmlFor={ids + r.id} className="text-sm">
-                      <span className="font-medium">{r.title}</span>
-                      <span className="mt-1 block text-xs text-muted-foreground">{r.description}</span>
-                    </label>
-                  </div>
-                ))}
-              </fieldset>
-              <Field title="Disclosure policy reason">
-                <Textarea
-                  required
-                  minLength={12}
-                  maxLength={1000}
-                  value={policyReason}
-                  disabled={busy}
-                  onChange={(e) => setPolicyReason(e.target.value)}
-                />
-              </Field>
-              <div className="flex flex-wrap gap-2">
-                <Button type="submit" disabled={busy || !selected.length || policyReason.trim().length < 12}>
-                  Submit disclosure policy
-                </Button>
-                <Button type="button" variant="outline" disabled={busy} onClick={() => setPolicyForm(false)}>
-                  Close policy form
-                </Button>
-              </div>
-            </form>
-          )}
+                  </Field>
+                  <Field title="Export authorization hours">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={168}
+                      required
+                      value={hours}
+                      disabled={busy}
+                      onChange={(e) => setHours(e.target.value)}
+                    />
+                  </Field>
+                </div>
+                <fieldset className="space-y-3">
+                  <legend className="mb-2 text-sm font-medium">Permitted reports</legend>
+                  {w.catalogue.map((r) => (
+                    <div key={r.id} className="flex items-start gap-3">
+                      <Checkbox
+                        id={ids + r.id}
+                        checked={selected.includes(r.id)}
+                        disabled={busy}
+                        onCheckedChange={(checked) =>
+                          setSelected((v) =>
+                            checked === true ? [...new Set([...v, r.id])] : v.filter((id) => id !== r.id),
+                          )
+                        }
+                      />
+                      <label htmlFor={ids + r.id} className="text-sm">
+                        <span className="font-medium">{r.title}</span>
+                        <span className="mt-1 block text-xs text-muted-foreground">{r.description}</span>
+                      </label>
+                    </div>
+                  ))}
+                </fieldset>
+                <Field title="Disclosure policy reason">
+                  <Textarea
+                    required
+                    minLength={12}
+                    maxLength={1000}
+                    value={policyReason}
+                    disabled={busy}
+                    onChange={(e) => setPolicyReason(e.target.value)}
+                  />
+                </Field>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="submit" disabled={busy || !selected.length || policyReason.trim().length < 12}>
+                    Submit disclosure policy
+                  </Button>
+                  <Button type="button" variant="outline" disabled={busy} onClick={() => setPolicyForm(false)}>
+                    Close policy form
+                  </Button>
+                </div>
+              </form>
+            </HrRecordDrawer>
+          ) : null}
           {w.policies.map(policyCard)}
           {!w.policies.length && (
             <p className={panel + " text-sm text-muted-foreground"}>
@@ -358,46 +371,74 @@ function ReportGovernanceBody({
                 {w.active_policy.terms.expires_after_hours} hours · up to 20 receipts per hour.
               </p>
             )}
-            <form aria-label="Create governed report export" onSubmit={createExport} className="space-y-4">
-              <Field title="Report">
-                <select
-                  className={selectClass}
-                  required
-                  value={report}
-                  disabled={busy || !w.active_policy}
-                  onChange={(e) => setReport(e.target.value)}
-                >
-                  <option value="">Select a permitted report</option>
-                  {w.catalogue.map((r) => (
-                    <option key={r.id} value={r.id} disabled={!r.can_export}>
-                      {r.title}
-                      {!r.can_export ? " · authorization required" : ""}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field title="Report from date">
-                  <Input type="date" required value={from} disabled={busy} onChange={(e) => setFrom(e.target.value)} />
-                </Field>
-                <Field title="Report to date">
-                  <Input type="date" required value={to} disabled={busy} onChange={(e) => setTo(e.target.value)} />
-                </Field>
-              </div>
-              <Field title="Export purpose">
-                <Textarea
-                  minLength={12}
-                  maxLength={1000}
-                  required
-                  value={purpose}
-                  disabled={busy}
-                  onChange={(e) => setPurpose(e.target.value)}
-                />
-              </Field>
-              <Button type="submit" disabled={busy || !w.active_policy || !report || purpose.trim().length < 12}>
-                Create reviewed export
-              </Button>
-            </form>
+            <Button
+              type="button"
+              disabled={busy || !w.active_policy}
+              onClick={() => {
+                setExportForm(true);
+                setError("");
+              }}
+            >
+              Create reviewed export
+            </Button>
+            {exportForm ? (
+              <HrRecordDrawer
+                title="Create reviewed export"
+                description="Select the authorized report and purpose without leaving the secure export register."
+                open
+                busy={busy}
+                error={error}
+                notice={notice}
+                onClose={() => setExportForm(false)}
+              >
+                <form aria-label="Create governed report export" onSubmit={createExport} className="space-y-4">
+                  <Field title="Report">
+                    <select
+                      className={selectClass}
+                      required
+                      value={report}
+                      disabled={busy || !w.active_policy}
+                      onChange={(e) => setReport(e.target.value)}
+                    >
+                      <option value="">Select a permitted report</option>
+                      {w.catalogue.map((r) => (
+                        <option key={r.id} value={r.id} disabled={!r.can_export}>
+                          {r.title}
+                          {!r.can_export ? " · authorization required" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field title="Report from date">
+                      <Input
+                        type="date"
+                        required
+                        value={from}
+                        disabled={busy}
+                        onChange={(e) => setFrom(e.target.value)}
+                      />
+                    </Field>
+                    <Field title="Report to date">
+                      <Input type="date" required value={to} disabled={busy} onChange={(e) => setTo(e.target.value)} />
+                    </Field>
+                  </div>
+                  <Field title="Export purpose">
+                    <Textarea
+                      minLength={12}
+                      maxLength={1000}
+                      required
+                      value={purpose}
+                      disabled={busy}
+                      onChange={(e) => setPurpose(e.target.value)}
+                    />
+                  </Field>
+                  <Button type="submit" disabled={busy || !w.active_policy || !report || purpose.trim().length < 12}>
+                    Create reviewed export
+                  </Button>
+                </form>
+              </HrRecordDrawer>
+            ) : null}
           </div>
           {w.exports.map((r) => (
             <article className={panel + " space-y-3"} key={r.id}>

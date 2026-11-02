@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
+import { loadEmployeeRouteCompanies, loadEmployeeRouteDirectory } from "../api/employee-route-context";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -21,7 +22,7 @@ function documentVariant(status: HrEmployeeDocumentDirectory["items"][number]["v
       : "outline";
 }
 
-export function HrEmployeeDocumentsWorkspace() {
+export function HrEmployeeDocumentsWorkspace({ initialEmployeeId }: { initialEmployeeId?: string } = {}) {
   const { api, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
@@ -37,13 +38,12 @@ export function HrEmployeeDocumentsWorkspace() {
   useEffect(() => {
     if (sessionLoading || !canRead || !canReadEmployees) return;
     let active = true;
-    client
-      .companies()
+    loadEmployeeRouteCompanies(client, initialEmployeeId)
       .then((result) => {
         if (!active) return;
         setCompanies(result.items);
         setCompanyId((current) =>
-          result.items.some((item) => item.id === current) ? current : (result.items[0]?.id ?? ""),
+          result.items.some((item) => item.id === current) ? current : result.preferredCompanyId,
         );
         setState("ready");
       })
@@ -53,7 +53,7 @@ export function HrEmployeeDocumentsWorkspace() {
     return () => {
       active = false;
     };
-  }, [canRead, canReadEmployees, client, sessionLoading]);
+  }, [canRead, canReadEmployees, client, initialEmployeeId, sessionLoading]);
 
   useEffect(() => {
     if (!companyId) return;
@@ -61,11 +61,11 @@ export function HrEmployeeDocumentsWorkspace() {
     setState("loading");
     setEmployeeId("");
     setDocuments([]);
-    client
-      .employees({ companyId, limit: 100 })
+    loadEmployeeRouteDirectory(client, companyId, initialEmployeeId)
       .then((result) => {
         if (!active) return;
         setEmployees(result.items);
+        setEmployeeId(result.selectedEmployeeId);
         setState("ready");
       })
       .catch(() => {
@@ -74,7 +74,7 @@ export function HrEmployeeDocumentsWorkspace() {
     return () => {
       active = false;
     };
-  }, [client, companyId]);
+  }, [client, companyId, initialEmployeeId]);
 
   useEffect(() => {
     if (!employeeId) return;

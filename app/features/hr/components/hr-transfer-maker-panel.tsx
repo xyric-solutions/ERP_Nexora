@@ -1,4 +1,5 @@
 "use client";
+import { HrRecordDrawer } from "./hr-record-drawer";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -78,7 +79,9 @@ export function HrTransferMakerPanel({
     return (
       <Alert>
         <AlertTitle>Active assignment required</AlertTitle>
-        <AlertDescription>A governed Transfer can be requested only for a currently active assignment.</AlertDescription>
+        <AlertDescription>
+          A governed Transfer can be requested only for a currently active assignment.
+        </AlertDescription>
       </Alert>
     );
 
@@ -140,94 +143,99 @@ export function HrTransferMakerPanel({
   };
 
   return (
-    <section className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm" aria-label="Transfer request">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
-          <h2 className="mt-1 text-lg font-semibold text-foreground">Request governed Transfer</h2>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Propose a branch or department change for an independent checker. Job, grade, manager, and employment
-            context remain unchanged in this Transfer slice.
-          </p>
-        </div>
-        <Badge variant="outline">Same-day effective</Badge>
-      </div>
-
-      {state === "loading" && <Skeleton className="h-28 w-full" />}
-      {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Transfer request unavailable</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      {notice && (
-        <Alert>
-          <AlertTitle>Transfer submitted</AlertTitle>
-          <AlertDescription>{notice}</AlertDescription>
-        </Alert>
-      )}
-
-      {state === "ready" && (
-        <div className="grid gap-4">
-          <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
-            <ContextField label="Current job" value={source.job || source.designation} />
-            <ContextField label="Designation" value={source.designation} />
-            <ContextField label="Grade" value={source.job_grade} />
-            <ContextField label="Work location" value={source.work_location} />
-          </dl>
-          <div className="grid gap-3 md:grid-cols-3">
-            <PlacementSelect
-              label="Proposed branch"
-              value={branchId}
-              items={branches}
-              disabled={submitting}
-              onChange={(value) => {
-                setBranchId(value);
-                setDepartmentId("");
-                retry.current = null;
-              }}
-            />
-            <PlacementSelect
-              label="Proposed department"
-              value={departmentId}
-              items={departments}
-              disabled={submitting || !branchId}
-              onChange={(value) => {
-                setDepartmentId(value);
-                retry.current = null;
-              }}
-            />
-            <label htmlFor="transfer-effective-on" className="grid gap-1.5 text-sm font-medium text-foreground">
-              Effective date
-              <Input id="transfer-effective-on" type="date" value={effectiveOn} disabled readOnly />
-            </label>
-          </div>
-          <label htmlFor="transfer-request-reason" className="grid gap-1.5 text-sm font-medium text-foreground">
-            Business reason
-            <Textarea
-              id="transfer-request-reason"
-              value={reason}
-              maxLength={1000}
-              disabled={submitting}
-              onChange={(event) => {
-                setReason(event.target.value);
-                retry.current = null;
-              }}
-              placeholder="Explain the operational reason for this branch or department transfer."
-            />
-          </label>
+    <HrRecordDrawer title="Request transfer" triggerLabel="Request transfer" busy={submitting}>
+      <section
+        className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm"
+        aria-label="Transfer request"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
           <div>
-            <Button type="button" onClick={submit} disabled={submitting || !placementChanged || !reason.trim()}>
-              {submitting ? "Submitting Transfer..." : "Submit Transfer request"}
-            </Button>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
+
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Propose a branch or department change for an independent checker. Job, grade, manager, and employment
+              context remain unchanged in this Transfer slice.
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Submission does not change the current assignment. Approval closes it and creates one new immutable
-            effective assignment in a single database transaction.
-          </p>
+          <Badge variant="outline">Same-day effective</Badge>
         </div>
-      )}
-    </section>
+
+        {state === "loading" && <Skeleton className="h-28 w-full" />}
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>Transfer request unavailable</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {notice && (
+          <Alert>
+            <AlertTitle>Transfer submitted</AlertTitle>
+            <AlertDescription>{notice}</AlertDescription>
+          </Alert>
+        )}
+
+        {state === "ready" && (
+          <div className="grid gap-4">
+            <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+              <ContextField label="Current job" value={source.job || source.designation} />
+              <ContextField label="Designation" value={source.designation} />
+              <ContextField label="Grade" value={source.job_grade} />
+              <ContextField label="Work location" value={source.work_location} />
+            </dl>
+            <div className="grid gap-3 md:grid-cols-3">
+              <PlacementSelect
+                label="Proposed branch"
+                value={branchId}
+                items={branches}
+                disabled={submitting}
+                onChange={(value) => {
+                  setBranchId(value);
+                  setDepartmentId("");
+                  retry.current = null;
+                }}
+              />
+              <PlacementSelect
+                label="Proposed department"
+                value={departmentId}
+                items={departments}
+                disabled={submitting || !branchId}
+                onChange={(value) => {
+                  setDepartmentId(value);
+                  retry.current = null;
+                }}
+              />
+              <label htmlFor="transfer-effective-on" className="grid gap-1.5 text-sm font-medium text-foreground">
+                Effective date
+                <Input id="transfer-effective-on" type="date" value={effectiveOn} disabled readOnly />
+              </label>
+            </div>
+            <label htmlFor="transfer-request-reason" className="grid gap-1.5 text-sm font-medium text-foreground">
+              Business reason
+              <Textarea
+                id="transfer-request-reason"
+                value={reason}
+                maxLength={1000}
+                disabled={submitting}
+                onChange={(event) => {
+                  setReason(event.target.value);
+                  retry.current = null;
+                }}
+                placeholder="Explain the operational reason for this branch or department transfer."
+              />
+            </label>
+            <div>
+              <Button type="button" onClick={submit} disabled={submitting || !placementChanged || !reason.trim()}>
+                {submitting ? "Submitting Transfer..." : "Submit Transfer request"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Submission does not change the current assignment. Approval closes it and creates one new immutable
+              effective assignment in a single database transaction.
+            </p>
+          </div>
+        )}
+      </section>
+    </HrRecordDrawer>
   );
 }
 

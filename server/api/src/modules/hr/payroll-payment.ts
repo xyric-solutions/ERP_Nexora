@@ -1,4 +1,5 @@
 import { ExactPayrollAmount } from "./payroll-calculation.js";
+import { requirePayrollBankingReady } from "./banking-readiness.js";
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import type { HrPayrollPaymentQuery, HrPayrollPaymentAction, HrPayrollPaymentWorkspace } from "@nexora/contracts";
@@ -33,6 +34,7 @@ export class PayrollPayment {
     this.writes = new PayrollWorkspace(d);
   }
   private async authorize(client: PoolClient, c: HrActorContext, company: string, extra = "hr.payroll.payment.read") {
+    await requirePayrollBankingReady(client);
     for (const p of new Set(["hr.payroll.payment.read", "hr.payroll.result.read", "banking.payment.read", extra])) {
       if (!c.actor.permissions.includes(p)) deny();
       try {

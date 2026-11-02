@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
 import { hrPayrollRunActionSchema, type HrPayrollRunWorkspace, type HrPayrollRunAction } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import {
   Field,
   Metric,
@@ -371,19 +372,16 @@ export function HrPayrollRunsWorkspace({
           </div>
         </section>
       )}
-      {draft && (
-        <section className={panel + " border-primary/30"} aria-label="Payroll action form">
-          <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold">{actionTitle[draft.action]}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Reviewed period version {draft.snapshot.period?.version ?? 0} · {draft.snapshot.month.slice(0, 7)}
-              </p>
-            </div>
-            <Button variant="outline" disabled={busy} onClick={() => setDraft(null)}>
-              Close action
-            </Button>
-          </header>
+      {draft ? (
+        <HrRecordDrawer
+          title={actionTitle[draft.action]}
+          description={`Reviewed period version ${draft.snapshot.period?.version ?? 0} · ${draft.snapshot.month.slice(0, 7)}`}
+          open
+          busy={busy}
+          error={error}
+          notice={notice}
+          onClose={() => setDraft(null)}
+        >
           <form onSubmit={save} className="grid gap-4">
             <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0! md:grid-cols-2">
               {draft.action === "policy" && (
@@ -495,8 +493,8 @@ export function HrPayrollRunsWorkspace({
               {busy ? "Saving…" : "Confirm " + actionTitle[draft.action].toLowerCase()}
             </Button>
           </form>
-        </section>
-      )}
+        </HrRecordDrawer>
+      ) : null}
       {data?.period && data.period.run_number > 0 && permissions.includes("hr.payroll.result.read") && (
         <HrPayrollRunComparison
           key={company + month}

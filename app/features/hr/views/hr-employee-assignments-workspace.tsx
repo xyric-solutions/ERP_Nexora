@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
+import { loadEmployeeRouteCompanies, loadEmployeeRouteDirectory } from "../api/employee-route-context";
 import { HrHireMakerPanel } from "../components/hr-hire-maker-panel";
 import { HrTransferMakerPanel } from "../components/hr-transfer-maker-panel";
 import { HrPromotionMakerPanel } from "../components/hr-promotion-maker-panel";
@@ -25,7 +26,7 @@ function assignmentVariant(status: HrEmployeeAssignmentDirectory["items"][number
 }
 
 /** Displays immutable assignment history and governed maker workflows. */
-export function HrEmployeeAssignmentsWorkspace() {
+export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialEmployeeId?: string } = {}) {
   const { api, csrfToken, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
   const [companyRevision, setCompanyRevision] = useState(0);
@@ -53,13 +54,12 @@ export function HrEmployeeAssignmentsWorkspace() {
   useEffect(() => {
     if (sessionLoading || !canReadAssignments || !canReadEmployees) return;
     let active = true;
-    client
-      .companies()
+    loadEmployeeRouteCompanies(client, initialEmployeeId)
       .then((result) => {
         if (!active) return;
         setCompanies(result.items);
         setCompanyId((current) =>
-          result.items.some((company) => company.id === current) ? current : (result.items[0]?.id ?? ""),
+          result.items.some((company) => company.id === current) ? current : result.preferredCompanyId,
         );
         setState("ready");
       })
@@ -69,16 +69,16 @@ export function HrEmployeeAssignmentsWorkspace() {
     return () => {
       active = false;
     };
-  }, [canReadAssignments, canReadEmployees, client, sessionLoading, companyRevision]);
+  }, [canReadAssignments, canReadEmployees, client, initialEmployeeId, sessionLoading, companyRevision]);
 
   useEffect(() => {
     if (!companyId) return;
     let active = true;
-    client
-      .employees({ companyId, limit: 100 })
+    loadEmployeeRouteDirectory(client, companyId, initialEmployeeId)
       .then((result) => {
         if (!active) return;
         setEmployees(result.items);
+        setEmployeeId(result.selectedEmployeeId);
         setState("ready");
       })
       .catch(() => {
@@ -87,7 +87,7 @@ export function HrEmployeeAssignmentsWorkspace() {
     return () => {
       active = false;
     };
-  }, [client, companyId]);
+  }, [client, companyId, initialEmployeeId]);
 
   useEffect(() => {
     if (!employeeId) return;

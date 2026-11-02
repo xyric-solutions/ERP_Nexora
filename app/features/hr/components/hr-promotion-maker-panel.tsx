@@ -1,4 +1,5 @@
 "use client";
+import { HrRecordDrawer } from "./hr-record-drawer";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -81,7 +82,9 @@ export function HrPromotionMakerPanel({
     return (
       <Alert>
         <AlertTitle>Active assignment required</AlertTitle>
-        <AlertDescription>A governed Promotion can be requested only for a currently active assignment.</AlertDescription>
+        <AlertDescription>
+          A governed Promotion can be requested only for a currently active assignment.
+        </AlertDescription>
       </Alert>
     );
 
@@ -130,54 +133,138 @@ export function HrPromotionMakerPanel({
   };
 
   return (
-    <section className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm" aria-label="Promotion request">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
-          <h2 className="mt-1 text-lg font-semibold text-foreground">Request governed Promotion</h2>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Propose a job, designation, or grade change for an independent checker. Promotion changes assignment role
-            details only; compensation requires a separately approved salary revision.
-          </p>
-        </div>
-        <Badge variant="outline">Same-day effective</Badge>
-      </div>
-      {state === "loading" && <Skeleton className="h-28 w-full" />}
-      {error && <Alert variant="destructive"><AlertTitle>Promotion request unavailable</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
-      {notice && <Alert><AlertTitle>Promotion submitted</AlertTitle><AlertDescription>{notice}</AlertDescription></Alert>}
-      {state === "ready" && (
-        <div className="grid gap-4">
-          <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-3">
-            <ContextField label="Current job" value={source.job || "Not assigned"} />
-            <ContextField label="Current designation" value={source.designation} />
-            <ContextField label="Current grade" value={source.job_grade} />
-          </dl>
-          <div className="grid gap-3 md:grid-cols-4">
-            <MasterSelect label="Proposed job" value={jobId} items={byType("job")} disabled={submitting} onChange={setJobId} />
-            <MasterSelect label="Proposed designation" value={designationId} items={byType("designation")} disabled={submitting} onChange={setDesignationId} />
-            <MasterSelect label="Proposed grade" value={jobGradeId} items={byType("job_grade")} disabled={submitting} onChange={setJobGradeId} />
-            <label htmlFor="promotion-effective-on" className="grid gap-1.5 text-sm font-medium text-foreground">
-              Effective date
-              <Input id="promotion-effective-on" type="date" value={effectiveOn} disabled readOnly />
-            </label>
+    <HrRecordDrawer title="Request promotion" triggerLabel="Request promotion" busy={submitting}>
+      <section
+        className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm"
+        aria-label="Promotion request"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
+
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Propose a job, designation, or grade change for an independent checker. Promotion changes assignment role
+              details only; compensation requires a separately approved salary revision.
+            </p>
           </div>
-          <label htmlFor="promotion-request-reason" className="grid gap-1.5 text-sm font-medium text-foreground">
-            Business reason
-            <Textarea id="promotion-request-reason" value={reason} maxLength={1000} disabled={submitting} onChange={(event) => { setReason(event.target.value); retry.current = null; }} placeholder="Explain why this role change is required." />
-          </label>
-          <div><Button type="button" onClick={submit} disabled={submitting || !roleChanged || !reason.trim()}>{submitting ? "Submitting Promotion..." : "Submit Promotion request"}</Button></div>
-          <p className="text-xs text-muted-foreground">Submission and approval never create, update, or supersede salary-assignment records.</p>
+          <Badge variant="outline">Same-day effective</Badge>
         </div>
-      )}
-    </section>
+        {state === "loading" && <Skeleton className="h-28 w-full" />}
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>Promotion request unavailable</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {notice && (
+          <Alert>
+            <AlertTitle>Promotion submitted</AlertTitle>
+            <AlertDescription>{notice}</AlertDescription>
+          </Alert>
+        )}
+        {state === "ready" && (
+          <div className="grid gap-4">
+            <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-3">
+              <ContextField label="Current job" value={source.job || "Not assigned"} />
+              <ContextField label="Current designation" value={source.designation} />
+              <ContextField label="Current grade" value={source.job_grade} />
+            </dl>
+            <div className="grid gap-3 md:grid-cols-4">
+              <MasterSelect
+                label="Proposed job"
+                value={jobId}
+                items={byType("job")}
+                disabled={submitting}
+                onChange={setJobId}
+              />
+              <MasterSelect
+                label="Proposed designation"
+                value={designationId}
+                items={byType("designation")}
+                disabled={submitting}
+                onChange={setDesignationId}
+              />
+              <MasterSelect
+                label="Proposed grade"
+                value={jobGradeId}
+                items={byType("job_grade")}
+                disabled={submitting}
+                onChange={setJobGradeId}
+              />
+              <label htmlFor="promotion-effective-on" className="grid gap-1.5 text-sm font-medium text-foreground">
+                Effective date
+                <Input id="promotion-effective-on" type="date" value={effectiveOn} disabled readOnly />
+              </label>
+            </div>
+            <label htmlFor="promotion-request-reason" className="grid gap-1.5 text-sm font-medium text-foreground">
+              Business reason
+              <Textarea
+                id="promotion-request-reason"
+                value={reason}
+                maxLength={1000}
+                disabled={submitting}
+                onChange={(event) => {
+                  setReason(event.target.value);
+                  retry.current = null;
+                }}
+                placeholder="Explain why this role change is required."
+              />
+            </label>
+            <div>
+              <Button type="button" onClick={submit} disabled={submitting || !roleChanged || !reason.trim()}>
+                {submitting ? "Submitting Promotion..." : "Submit Promotion request"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Submission and approval never create, update, or supersede salary-assignment records.
+            </p>
+          </div>
+        )}
+      </section>
+    </HrRecordDrawer>
   );
 }
 
-function MasterSelect({ label, value, items, disabled, onChange }: { label: string; value: string; items: HrMasterDirectory["items"]; disabled: boolean; onChange: (value: string) => void }) {
+function MasterSelect({
+  label,
+  value,
+  items,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  items: HrMasterDirectory["items"];
+  disabled: boolean;
+  onChange: (value: string) => void;
+}) {
   const id = `promotion-${label.toLowerCase().replaceAll(" ", "-")}`;
-  return <label htmlFor={id} className="grid gap-1.5 text-sm font-medium text-foreground">{label}<select id={id} className="h-9 rounded-md border border-input bg-background px-2.5 text-sm" value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}><option value="">Select {label.toLowerCase()}</option>{items.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.code})</option>)}</select></label>;
+  return (
+    <label htmlFor={id} className="grid gap-1.5 text-sm font-medium text-foreground">
+      {label}
+      <select
+        id={id}
+        className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">Select {label.toLowerCase()}</option>
+        {items.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.name} ({item.code})
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 function ContextField({ label, value }: { label: string; value: string }) {
-  return <div><dt className="text-muted-foreground">{label}</dt><dd className="mt-0.5 font-medium text-foreground">{value}</dd></div>;
+  return (
+    <div>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 font-medium text-foreground">{value}</dd>
+    </div>
+  );
 }

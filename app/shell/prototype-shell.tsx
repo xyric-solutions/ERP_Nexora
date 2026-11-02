@@ -1,4 +1,5 @@
 "use client";
+import { compactHrWorkspaces } from "@prototype/features/hr/model/hr-section-navigation";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,6 @@ import { ActionFeedbackProvider } from "@/shared/ui/action-feedback";
 import { Input } from "@/components/ui/input";
 import {
   PROTOTYPE_MODULE_COUNT,
-  PROTOTYPE_PAGE_COUNT,
   findPrototypePage,
   prototypeModules,
   prototypePageIndex,
@@ -260,10 +260,13 @@ export function PrototypeShell({
   const paymentEntryDirtyRef = useRef(paymentEntryDirty);
 
   const current = useMemo(() => findPrototypePage(route.moduleId, route.pageId), [route]);
-  const connectedWorkspace=current.page.status==='live'||current.page.status==='read-only'||current.page.status==='in-progress';
+  const isCompactHrWorkspace = current.module.id === "hr" && Object.hasOwn(compactHrWorkspaces, current.group.id);
+  const connectedWorkspace =
+    current.page.status === "live" || current.page.status === "read-only" || current.page.status === "in-progress";
   const isCentralChartPage =
     current.module.id === "finance" && ["central-chart-template", "section-management"].includes(current.page.id);
-  const isFiscalPeriodPage = current.module.id === "finance" && ["fiscal-periods", "period-close"].includes(current.page.id);
+  const isFiscalPeriodPage =
+    current.module.id === "finance" && ["fiscal-periods", "period-close"].includes(current.page.id);
   const isReferenceMasterPage =
     current.module.id === "finance" && ["reporting-projects", "reporting-locations"].includes(current.page.id);
   const isLiveFinanceChartPage =
@@ -312,7 +315,16 @@ export function PrototypeShell({
       moduleCode: page.moduleCode,
       label: page.label,
       context: `${page.moduleLabel} / ${page.groupLabel}`,
-      meta: page.status === "in-progress" ? "API · in progress" : page.status === "live" ? "Live API" : page.status === "read-only" ? "API · read only" : page.status === "prototype" ? page.archetype : "Coming soon",
+      meta:
+        page.status === "in-progress"
+          ? "API · in progress"
+          : page.status === "live"
+            ? "Live API"
+            : page.status === "read-only"
+              ? "API · read only"
+              : page.status === "prototype"
+                ? page.archetype
+                : "Coming soon",
       searchable: [page.label, page.groupLabel, page.moduleLabel, page.moduleCode, page.archetype]
         .join(" ")
         .toLowerCase(),
@@ -415,6 +427,7 @@ export function PrototypeShell({
       setPaymentEntryDirty(false);
       setActiveWorkspace("prototype");
       setRoute(next);
+      setExpandedModule(next.moduleId);
     };
     syncRoute();
     window.addEventListener("hashchange", syncRoute);
@@ -689,15 +702,6 @@ export function PrototypeShell({
               ×
             </button>
           </div>
-          {/* Whose desk this is. The accent comes from the designation theme,
-              so the strip and the whole interface shift together. */}
-          <div className="nx-designation" aria-label="Active designation">
-            <span className="nx-designation__swatch" aria-hidden="true" />
-            <span className="nx-designation__copy">
-              <strong>{currentRole.label}</strong>
-              <small>Designation view &middot; theme follows the desk</small>
-            </span>
-          </div>
           <label className="nx-sidebar__search" htmlFor="erp-module-search">
             <span aria-hidden="true">⌕</span>
             <Input
@@ -742,6 +746,24 @@ export function PrototypeShell({
                             {expanded ? (
                               <ul className="nx-submenu">
                                 {module.groups.map((group) => {
+                                  if (module.id === "hr" && Object.hasOwn(compactHrWorkspaces, group.id)) {
+                                    return (
+                                      <li key={group.id}>
+                                        <button
+                                          className={`nx-submenu-button${current.module.id === "hr" && current.group.id === group.id ? " bg-primary/15 font-semibold" : ""}`}
+                                          type="button"
+                                          aria-current={
+                                            current.module.id === "hr" && current.group.id === group.id
+                                              ? "page"
+                                              : undefined
+                                          }
+                                          onClick={() => navigate("hr", compactHrWorkspaces[group.id])}
+                                        >
+                                          <span>{group.label}</span>
+                                        </button>
+                                      </li>
+                                    );
+                                  }
                                   const groupKey = `${module.id}:${group.id}`;
                                   const groupOpen = expandedGroups.has(groupKey) || group.id === current.group.id;
                                   return (
@@ -766,7 +788,15 @@ export function PrototypeShell({
                                                 onClick={() => navigate(module.id, page.id)}
                                               >
                                                 <span>{page.label}</span>
-                                                {page.status === "in-progress" ? <small>In progress</small> : page.status === "live" ? <small>Live</small> : page.status === "read-only" ? <small>Read only</small> : page.status !== "prototype" ? <small>Soon</small> : null}
+                                                {page.status === "in-progress" ? (
+                                                  <small>In progress</small>
+                                                ) : page.status === "live" ? (
+                                                  <small>Live</small>
+                                                ) : page.status === "read-only" ? (
+                                                  <small>Read only</small>
+                                                ) : page.status !== "prototype" ? (
+                                                  <small>Soon</small>
+                                                ) : null}
                                               </button>
                                             </li>
                                           ))}
@@ -803,17 +833,6 @@ export function PrototypeShell({
                 </ul>
               </section>
             </nav>
-          </div>
-          <div className="nx-sidebar__footer">
-            <div className="nx-sidebar__environment">
-              <span className="nx-sidebar__environment-dot" />
-              <span>
-                <strong>{connectedWorkspace ? "Live API workspace" : "Isolated prototype"}</strong>
-                <small>
-                  {connectedWorkspace ? "Authenticated · tenant scoped" : <>{PROTOTYPE_MODULE_COUNT} modules · {PROTOTYPE_PAGE_COUNT} mock screens</>}
-                </small>
-              </span>
-            </div>
           </div>
         </aside>
         <button
@@ -900,72 +919,72 @@ export function PrototypeShell({
                         ? "Live Bank API"
                         : "Mock-only review"}
               </strong>
-            <div className="nx-prototype-toolbar__controls">
-              {!isLiveMasterDataPage && (
-                <>
-                  <select
-                    className="nx-context-control"
-                    value={companyMode}
-                    onChange={(event) => changeCompanyMode(event.target.value as CompanyMode)}
-                    aria-label="Company navigation variant"
-                  >
-                    {companyModeOptions.map((mode) => (
-                      <option key={mode.id} value={mode.id}>
-                        Company: {mode.shortLabel}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="nx-context-control"
-                    value={roleId}
-                    onChange={(event) => changeRole(event.target.value)}
-                    aria-label="Role visibility prototype"
-                  >
-                    {roleOptions.map((role) => (
-                      <option key={role.id} value={role.id}>
-                        Role: {role.shortLabel}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    className="nx-context-control"
-                    type="button"
-                    aria-pressed={modeScoped}
-                    onClick={toggleModeScope}
-                  >
-                    Company menus: {modeScoped ? "Scoped" : "All"}
-                  </button>
-                  <button
-                    className="nx-context-control"
-                    type="button"
-                    aria-pressed={roleScoped}
-                    onClick={toggleRoleScope}
-                  >
-                    Role menus: {roleScoped ? "Scoped" : "All"}
-                  </button>
-                </>
-              )}
-              <button
-                className="nx-context-control"
-                type="button"
-                aria-pressed={density === "compact"}
-                onClick={() => setDensity((value) => (value === "comfortable" ? "compact" : "comfortable"))}
-              >
-                Density: {density === "comfortable" ? "Comfortable" : "Compact"}
-              </button>
-              <select
-                className="nx-context-control"
-                value={viewState}
-                onChange={(event) => setViewState(event.target.value as PrototypeViewState)}
-                aria-label="Preview page state"
-                disabled={isLiveMasterDataPage}
-              >
-                <option value="data">State: Data</option>
-                <option value="loading">State: Loading</option>
-                <option value="empty">State: Empty</option>
-                <option value="error">State: Error</option>
-              </select>
-            </div>
+              <div className="nx-prototype-toolbar__controls">
+                {!isLiveMasterDataPage && (
+                  <>
+                    <select
+                      className="nx-context-control"
+                      value={companyMode}
+                      onChange={(event) => changeCompanyMode(event.target.value as CompanyMode)}
+                      aria-label="Company navigation variant"
+                    >
+                      {companyModeOptions.map((mode) => (
+                        <option key={mode.id} value={mode.id}>
+                          Company: {mode.shortLabel}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="nx-context-control"
+                      value={roleId}
+                      onChange={(event) => changeRole(event.target.value)}
+                      aria-label="Role visibility prototype"
+                    >
+                      {roleOptions.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          Role: {role.shortLabel}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="nx-context-control"
+                      type="button"
+                      aria-pressed={modeScoped}
+                      onClick={toggleModeScope}
+                    >
+                      Company menus: {modeScoped ? "Scoped" : "All"}
+                    </button>
+                    <button
+                      className="nx-context-control"
+                      type="button"
+                      aria-pressed={roleScoped}
+                      onClick={toggleRoleScope}
+                    >
+                      Role menus: {roleScoped ? "Scoped" : "All"}
+                    </button>
+                  </>
+                )}
+                <button
+                  className="nx-context-control"
+                  type="button"
+                  aria-pressed={density === "compact"}
+                  onClick={() => setDensity((value) => (value === "comfortable" ? "compact" : "comfortable"))}
+                >
+                  Density: {density === "comfortable" ? "Comfortable" : "Compact"}
+                </button>
+                <select
+                  className="nx-context-control"
+                  value={viewState}
+                  onChange={(event) => setViewState(event.target.value as PrototypeViewState)}
+                  aria-label="Preview page state"
+                  disabled={isLiveMasterDataPage}
+                >
+                  <option value="data">State: Data</option>
+                  <option value="loading">State: Loading</option>
+                  <option value="empty">State: Empty</option>
+                  <option value="error">State: Error</option>
+                </select>
+              </div>
               <span className="nx-prototype-toolbar__note">
                 {isFiscalPeriodPage
                   ? "Company fiscal calendar API · PostgreSQL · audited date controls"
@@ -978,46 +997,60 @@ export function PrototypeShell({
             </section>
           ) : null}
 
-          <div className="nx-content">
+          <div className={`nx-content${isCompactHrWorkspace ? " pt-3! sm:pt-4!" : ""}`}>
             {activeWorkspace === "identity" && identityContent ? (
               identityContent
             ) : (
               <>
-                <ol className="nx-breadcrumbs" aria-label="Breadcrumb">
-                  <li>
-                    <button type="button" onClick={() => navigate("dashboard", currentRole.dashboardPageId)}>
-                      Workspace
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => navigate(current.module.id, current.module.groups[0].pages[0].id)}
-                    >
-                      {current.module.shortLabel}
-                    </button>
-                  </li>
-                  <li>{current.group.label}</li>
-                  <li aria-current="page">{current.page.label}</li>
-                </ol>
-                <div className="nx-context-summary" role="note">
-                  <span>
-                    <b>{isLiveMasterDataPage ? "ERP" : currentCompany.shortName}</b>
-                    {isCentralChartPage
-                      ? "Central master data · no company selected"
-                      : isLiveMasterDataPage
-                        ? "Company scope shown in account or form"
-                        : currentCompany.name}
-                  </span>
-                  <span>
-                    <b>{isLiveMasterDataPage ? "AUTH" : currentRole.shortLabel}</b>
-                    {isLiveMasterDataPage ? "Permissions enforced by API" : currentRole.label}
-                  </span>
-                  <span>
-                    <b>{isLiveMasterDataPage ? "DB" : currentMode.shortLabel}</b>
-                    {isLiveMasterDataPage ? "Persisted PostgreSQL records" : currentMode.description}
-                  </span>
-                </div>
+                {!isCompactHrWorkspace ? (
+                  <>
+                    <ol className="nx-breadcrumbs" aria-label="Breadcrumb">
+                      <li>
+                        <button type="button" onClick={() => navigate("dashboard", currentRole.dashboardPageId)}>
+                          Workspace
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => navigate(current.module.id, current.module.groups[0].pages[0].id)}
+                        >
+                          {current.module.shortLabel}
+                        </button>
+                      </li>
+                      {current.module.id === "hr" &&
+                      current.group.id === "organisation" &&
+                      current.page.id !== "organisation-masters" ? (
+                        <li>
+                          <button type="button" onClick={() => navigate("hr", "organisation-masters")}>
+                            {current.group.label}
+                          </button>
+                        </li>
+                      ) : current.group.label !== current.page.label ? (
+                        <li>{current.group.label}</li>
+                      ) : null}
+                      <li aria-current="page">{current.page.label}</li>
+                    </ol>
+                    <div className="nx-context-summary" role="note">
+                      <span>
+                        <b>{isLiveMasterDataPage ? "ERP" : currentCompany.shortName}</b>
+                        {isCentralChartPage
+                          ? "Central master data · no company selected"
+                          : isLiveMasterDataPage
+                            ? "Company scope shown in account or form"
+                            : currentCompany.name}
+                      </span>
+                      <span>
+                        <b>{isLiveMasterDataPage ? "AUTH" : currentRole.shortLabel}</b>
+                        {isLiveMasterDataPage ? "Permissions enforced by API" : currentRole.label}
+                      </span>
+                      <span>
+                        <b>{isLiveMasterDataPage ? "DB" : currentMode.shortLabel}</b>
+                        {isLiveMasterDataPage ? "Persisted PostgreSQL records" : currentMode.description}
+                      </span>
+                    </div>
+                  </>
+                ) : null}
                 <ActionFeedbackProvider
                   onSuccess={(message) =>
                     pushToast(
@@ -1077,23 +1110,35 @@ export function PrototypeShell({
             </button>
           </div>
           <div className="nx-submenu-drawer__body">
-            {drawerModule.groups.map((group) => (
-              <section className="nx-submenu-drawer__group" key={group.id}>
-                <h3 className="nx-submenu-drawer__group-title">{group.label}</h3>
-                {group.pages.map((page) => (
+            {drawerModule.groups.map((group) =>
+              drawerModule.id === "hr" && Object.hasOwn(compactHrWorkspaces, group.id) ? (
+                <section className="nx-submenu-drawer__group" key={group.id}>
                   <button
                     className="nx-submenu-drawer__link"
-                    aria-current={page.id === current.page.id ? "page" : undefined}
                     type="button"
-                    key={page.id}
-                    onClick={() => navigate(drawerModule.id, page.id)}
+                    onClick={() => navigate("hr", compactHrWorkspaces[group.id])}
                   >
-                    <span>{page.label}</span>
-                    <small>{page.archetype}</small>
+                    <span>{group.label}</span>
                   </button>
-                ))}
-              </section>
-            ))}
+                </section>
+              ) : (
+                <section className="nx-submenu-drawer__group" key={group.id}>
+                  <h3 className="nx-submenu-drawer__group-title">{group.label}</h3>
+                  {group.pages.map((page) => (
+                    <button
+                      className="nx-submenu-drawer__link"
+                      aria-current={page.id === current.page.id ? "page" : undefined}
+                      type="button"
+                      key={page.id}
+                      onClick={() => navigate(drawerModule.id, page.id)}
+                    >
+                      <span>{page.label}</span>
+                      <small>{page.archetype}</small>
+                    </button>
+                  ))}
+                </section>
+              ),
+            )}
           </div>
         </aside>
       ) : null}

@@ -19,11 +19,7 @@ function employeeStatusVariant(status: HrEmployeeDirectory["items"][number]["sta
   return ["terminated", "resigned", "inactive"].includes(status) ? "outline" : "secondary";
 }
 
-export function HrEmployeeDirectory({
-  onOpenEmployee,
-}: {
-  onOpenEmployee: (employeeId: string) => void;
-}) {
+export function HrEmployeeDirectory({ onOpenEmployee }: { onOpenEmployee: (employeeId: string) => void }) {
   const { api, session } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
   const [companyId, setCompanyId] = useState("");
@@ -91,7 +87,7 @@ export function HrEmployeeDirectory({
   return (
     <section className="grid min-w-0 gap-4" aria-label="Employee directory">
       <div className="flex flex-wrap items-end justify-between gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
-        <div className="grid min-w-55 flex-1 gap-1.5">
+        <div className="grid min-w-0 basis-full gap-1.5 sm:min-w-55 sm:flex-1 sm:basis-0">
           <label className="text-sm font-medium text-foreground" htmlFor="hr-directory-company">
             Company
           </label>
@@ -110,13 +106,16 @@ export function HrEmployeeDirectory({
           </select>
         </div>
         <form
-          className="flex min-w-65 flex-1 items-end gap-2"
+          className="flex min-w-0 flex-1 flex-wrap items-end gap-2 sm:min-w-65"
           onSubmit={(event) => {
             event.preventDefault();
             setAppliedQuery(query.trim());
           }}
         >
-          <label className="grid flex-1 gap-1.5 text-sm font-medium text-foreground" htmlFor="hr-directory-search">
+          <label
+            className="grid min-w-0 basis-full gap-1.5 text-sm font-medium text-foreground sm:flex-1 sm:basis-0"
+            htmlFor="hr-directory-search"
+          >
             Search employee
             <Input
               id="hr-directory-search"
@@ -170,7 +169,7 @@ export function HrEmployeeDirectory({
       ) : null}
 
       {directoryState === "ready" ? (
-        <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
+        <div className="relative overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
           <table className="w-full min-w-230 border-collapse text-left text-sm">
             <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
@@ -206,12 +205,7 @@ export function HrEmployeeDirectory({
                     </Badge>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onOpenEmployee(employee.id)}
-                    >
+                    <Button type="button" variant="ghost" size="sm" onClick={() => onOpenEmployee(employee.id)}>
                       Open
                     </Button>
                   </td>

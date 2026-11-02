@@ -1,4 +1,5 @@
 "use client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -255,8 +256,8 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
         </div>
       )}
       {canApproveDraft && state === "ready" && (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,.8fr)]">
-          <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
+        <div className="grid gap-4 ">
+          <div className="relative overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
             <table className="w-full min-w-160 text-left text-sm">
               <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
@@ -300,97 +301,109 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
               </tbody>
             </table>
           </div>
-          <aside className="rounded-lg border border-border bg-card p-4 shadow-sm">
-            {detailState === "loading" && selectedId && (
-              <div className="grid gap-2">
-                <Skeleton className="h-6 w-40" />
-                <Skeleton className="h-16 w-full" />
-              </div>
-            )}
-            {detailState === "error" && selectedId && (
-              <Alert variant="destructive">
-                <AlertTitle>Review unavailable</AlertTitle>
-                <AlertDescription>
-                  This pending draft may have changed or is outside your company access.
-                </AlertDescription>
-              </Alert>
-            )}
-            {!selectedId && (
-              <p className="text-sm text-muted-foreground">
-                Select a pending draft to review its permitted profile before making a decision.
-              </p>
-            )}
-            {detail && detailState === "ready" && (
-              <div className="grid gap-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="font-semibold text-foreground">{detail.display_name}</h2>
-                    <p className="text-sm text-muted-foreground">{detail.employee_number}</p>
-                  </div>
-                  <Badge variant="secondary">Pending</Badge>
+          <HrRecordDrawer
+            title="Employee approval"
+            open={!!selectedId}
+            onClose={() => setSelectedId("")}
+            busy={saving}
+            error={error}
+          >
+            <aside className="rounded-lg border border-border bg-card p-4 shadow-sm">
+              {detailState === "loading" && selectedId && (
+                <div className="grid gap-2">
+                  <Skeleton className="h-6 w-40" />
+                  <Skeleton className="h-16 w-full" />
                 </div>
-                <dl className="grid gap-2 text-sm">
-                  <div>
-                    <dt className="text-muted-foreground">Work email</dt>
-                    <dd>{detail.work_email || "Not provided"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Phone</dt>
-                    <dd>{detail.phone || "Not provided"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Joined</dt>
-                    <dd>{detail.joined_on}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Submitted</dt>
-                    <dd>{new Date(detail.submitted_at).toLocaleString()}</dd>
-                  </div>
-                </dl>
-                {draftOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
-                {draftOverride.independentApproverRequired ? (
-                  <Alert>
-                    <AlertTitle>Independent approver required</AlertTitle>
-                    <AlertDescription>
-                      You created or submitted this draft, so another HR approver must decide it.
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <>
-                    <label className="grid gap-1.5 text-sm font-medium text-foreground">
-                      Decision reason
-                      <Textarea
-                        value={reason}
-                        onChange={(event) => {
-                          setReason(event.target.value);
-                          retry.current = null;
-                        }}
-                        maxLength={1000}
-                        disabled={saving}
-                        placeholder="Explain the approval or rejection for the audit record."
-                      />
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" disabled={saving || !reason.trim()} onClick={() => setDecision("approved")}>
-                        Approve draft
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        disabled={saving || !reason.trim()}
-                        onClick={() => setDecision("rejected")}
-                      >
-                        Reject draft
-                      </Button>
+              )}
+              {detailState === "error" && selectedId && (
+                <Alert variant="destructive">
+                  <AlertTitle>Review unavailable</AlertTitle>
+                  <AlertDescription>
+                    This pending draft may have changed or is outside your company access.
+                  </AlertDescription>
+                </Alert>
+              )}
+              {!selectedId && (
+                <p className="text-sm text-muted-foreground">
+                  Select a pending draft to review its permitted profile before making a decision.
+                </p>
+              )}
+              {detail && detailState === "ready" && (
+                <div className="grid gap-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h2 className="font-semibold text-foreground">{detail.display_name}</h2>
+                      <p className="text-sm text-muted-foreground">{detail.employee_number}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Approving this draft does not activate employment or payroll access.
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
-          </aside>
+                    <Badge variant="secondary">Pending</Badge>
+                  </div>
+                  <dl className="grid gap-2 text-sm">
+                    <div>
+                      <dt className="text-muted-foreground">Work email</dt>
+                      <dd>{detail.work_email || "Not provided"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Phone</dt>
+                      <dd>{detail.phone || "Not provided"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Joined</dt>
+                      <dd>{detail.joined_on}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Submitted</dt>
+                      <dd>{new Date(detail.submitted_at).toLocaleString()}</dd>
+                    </div>
+                  </dl>
+                  {draftOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
+                  {draftOverride.independentApproverRequired ? (
+                    <Alert>
+                      <AlertTitle>Independent approver required</AlertTitle>
+                      <AlertDescription>
+                        You created or submitted this draft, so another HR approver must decide it.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <>
+                      <label className="grid gap-1.5 text-sm font-medium text-foreground">
+                        Decision reason
+                        <Textarea
+                          value={reason}
+                          onChange={(event) => {
+                            setReason(event.target.value);
+                            retry.current = null;
+                          }}
+                          maxLength={1000}
+                          disabled={saving}
+                          placeholder="Explain the approval or rejection for the audit record."
+                        />
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          disabled={saving || !reason.trim()}
+                          onClick={() => setDecision("approved")}
+                        >
+                          Approve draft
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          disabled={saving || !reason.trim()}
+                          onClick={() => setDecision("rejected")}
+                        >
+                          Reject draft
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Approving this draft does not activate employment or payroll access.
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
+            </aside>
+          </HrRecordDrawer>
         </div>
       )}
       <Dialog
@@ -399,7 +412,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           if (!open && !saving) setDecision(null);
         }}
       >
-        <DialogContent>
+        <DialogContent className="z-[1501]!" overlayClassName="z-[1500]!">
           <DialogHeader>
             <DialogTitle>Confirm {decision === "approved" ? "approval" : "rejection"}</DialogTitle>
             <DialogDescription>

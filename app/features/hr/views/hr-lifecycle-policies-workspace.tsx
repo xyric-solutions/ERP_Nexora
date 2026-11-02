@@ -14,6 +14,7 @@ import { useSession } from "@/lib/session/session-provider";
 import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warning";
 
 import { HrApiClient } from "../api/hr-client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -29,7 +30,7 @@ export function HrLifecyclePoliciesWorkspace() {
   const [companyId, setCompanyId] = useState("");
   const [policies, setPolicies] = useState<HrEmploymentLifecyclePolicyDirectory["items"]>([]);
   const [state, setState] = useState<LoadState>("loading");
-  const [code, setCode] = useState("");
+  const code = "AUTO";
   const [name, setName] = useState("");
   const [effectiveFrom, setEffectiveFrom] = useState("");
   const [saving, setSaving] = useState(false);
@@ -42,6 +43,7 @@ export function HrLifecyclePoliciesWorkspace() {
   const [approvingPolicyId, setApprovingPolicyId] = useState("");
   const [activationReason, setActivationReason] = useState("");
   const [activatingPolicyId, setActivatingPolicyId] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
   const canReadPolicies = session?.user.permissions.includes("hr.employment_lifecycle_policy.read") ?? false;
   const canManagePolicies = session?.user.permissions.includes("hr.employment_lifecycle_policy.manage") ?? false;
   const canApprovePolicies = session?.user.permissions.includes("hr.employment_lifecycle_policy.approve") ?? false;
@@ -102,9 +104,9 @@ export function HrLifecyclePoliciesWorkspace() {
       setNotice(
         `${result.code} v${result.version} was created as a draft with the standard Hire, confirmation and exit definitions.`,
       );
-      setCode("");
       setName("");
       setEffectiveFrom("");
+      setCreateOpen(false);
       setState("loading");
       setRefreshKey((current) => current + 1);
     } catch {
@@ -410,43 +412,13 @@ export function HrLifecyclePoliciesWorkspace() {
           {canManagePolicies && (
             <aside className="grid content-start gap-3 rounded-lg border border-border bg-card p-4 shadow-sm">
               <div>
-                <h2 className="font-semibold">Create draft policy</h2>
+                <h2 className="font-semibold">Policy authoring</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Creates pre-employment, employed, confirmed and ended states, with independently approved Hire,
-                  confirmation and exit transitions.
+                  Create a controlled draft in the side drawer, then submit it for independent review.
                 </p>
               </div>
-              <label htmlFor="lifecycle-policy-code" className="grid min-w-0 gap-1.5 text-sm font-medium">
-                Policy code
-                <Input
-                  id="lifecycle-policy-code"
-                  value={code}
-                  onChange={(event) => setCode(event.target.value)}
-                  maxLength={32}
-                  placeholder="HR-LIFECYCLE"
-                />
-              </label>
-              <label htmlFor="lifecycle-policy-name" className="grid min-w-0 gap-1.5 text-sm font-medium">
-                Policy name
-                <Input
-                  id="lifecycle-policy-name"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  maxLength={160}
-                  placeholder="Standard employment lifecycle"
-                />
-              </label>
-              <label htmlFor="lifecycle-policy-effectiveFrom" className="grid min-w-0 gap-1.5 text-sm font-medium">
-                Effective from
-                <Input
-                  id="lifecycle-policy-effectiveFrom"
-                  type="date"
-                  value={effectiveFrom}
-                  onChange={(event) => setEffectiveFrom(event.target.value)}
-                />
-              </label>
-              <Button type="button" onClick={() => void createPolicy()} disabled={saving}>
-                {saving ? "Creating…" : "Create draft policy"}
+              <Button type="button" onClick={() => setCreateOpen(true)} disabled={saving}>
+                + Create draft policy
               </Button>
               <label
                 htmlFor="lifecycle-policy-submissionReason"
@@ -502,6 +474,59 @@ export function HrLifecyclePoliciesWorkspace() {
           )}
         </div>
       )}
+      <HrRecordDrawer
+        title="Create draft lifecycle policy"
+        description="Create the draft without leaving the lifecycle-policy register. Submission and activation remain separate governed actions."
+        open={createOpen}
+        busy={saving}
+        error={error}
+        notice={notice}
+        onClose={() => setCreateOpen(false)}
+      >
+        <div className="grid gap-4">
+          <label htmlFor="lifecycle-policy-code" className="grid min-w-0 gap-1.5 text-sm font-medium">
+            Policy code (automatic)
+            <Input
+              id="lifecycle-policy-code"
+              value="Assigned on save · LCP-001…"
+              readOnly
+              maxLength={32}
+              placeholder="HR-LIFECYCLE"
+            />
+          </label>
+          <label htmlFor="lifecycle-policy-name" className="grid min-w-0 gap-1.5 text-sm font-medium">
+            Policy name
+            <Input
+              id="lifecycle-policy-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              maxLength={160}
+              placeholder="Standard employment lifecycle"
+            />
+          </label>
+          <label htmlFor="lifecycle-policy-effectiveFrom" className="grid min-w-0 gap-1.5 text-sm font-medium">
+            Effective from
+            <Input
+              id="lifecycle-policy-effectiveFrom"
+              type="date"
+              value={effectiveFrom}
+              onChange={(event) => setEffectiveFrom(event.target.value)}
+            />
+          </label>
+          <p className="text-sm text-muted-foreground">
+            The standard pre-employment, employed, confirmed and ended states are created in draft. Independent approval
+            is still required before activation.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" onClick={() => void createPolicy()} disabled={saving}>
+              {saving ? "Creating…" : "Create draft policy"}
+            </Button>
+            <Button type="button" variant="outline" disabled={saving} onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </HrRecordDrawer>
       <HrEmploymentPolicyUpgrades key={companyId} companyId={companyId} policyRevision={refreshKey} />
     </section>
   );

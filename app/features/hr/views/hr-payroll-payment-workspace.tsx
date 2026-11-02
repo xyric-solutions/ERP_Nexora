@@ -11,6 +11,8 @@ import {
   type HrPayrollPaymentWorkspace,
 } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { payrollNavigationContext } from "../components/payroll-navigation";
 import {
   Field,
   Metric,
@@ -33,16 +35,19 @@ type Review = {
 };
 export function HrPayrollPaymentWorkspace({
   onNavigate,
+  initialReference,
 }: {
+  initialReference?: string | undefined;
   onNavigate: (module: string, page: string, reference?: string) => void;
 }) {
+  const initial = payrollNavigationContext(initialReference);
   const { api, session, csrfToken, loading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]);
   const canRead = ["hr.payroll.payment.read", "hr.payroll.result.read", "banking.payment.read"].every((p) =>
     session?.user.permissions.includes(p),
   );
-  const [choice, setChoice] = useState(""),
-    [month, setMonth] = useState(localDate().slice(0, 7)),
+  const [choice, setChoice] = useState(initial?.company_id ?? ""),
+    [month, setMonth] = useState(initial?.month.slice(0, 7) ?? localDate().slice(0, 7)),
     [revision, setRevision] = useState(0),
     [review, setReview] = useState<Review | null>(null),
     [reason, setReason] = useState(""),
@@ -115,7 +120,8 @@ export function HrPayrollPaymentWorkspace({
   if (!canRead)
     return <section className={panel}>Payroll payment, result and Banking read permissions are required.</section>;
   const w = data.data;
-  const lines = review?.snapshot.bank_lines.filter((l) => l.payment_reference === review.payment?.id) ?? [];
+  const lines =
+    review?.snapshot.bank_lines.slice(0, 500).filter((l) => l.payment_reference === review.payment?.id) ?? [];
   return (
     <div className="min-w-0 space-y-5" data-payroll-payment-workspace>
       <section className={panel + " space-y-4"}>
@@ -130,7 +136,7 @@ export function HrPayrollPaymentWorkspace({
               clears the employee’s exact net payable.
             </p>
           </div>
-          <Button variant="outline" onClick={() => onNavigate("banking", "bank-payments")}>
+          <Button variant="outline" disabled={busy} onClick={() => onNavigate("banking", "bank-payments")}>
             Bank Payments
             <ArrowRight className="size-4" />
           </Button>
@@ -238,7 +244,11 @@ export function HrPayrollPaymentWorkspace({
                     <li key={t}>{t}</li>
                   ))}
                 </ul>
-                <Button variant="link" className="mt-2 px-0" onClick={() => onNavigate("hr", "payroll-journal")}>
+                <Button
+                  variant="link"
+                  className="mt-2 px-0"
+                  onClick={() => onNavigate("hr", "payroll-journal", JSON.stringify(query))}
+                >
                   Open Payroll Journal
                   <ArrowRight className="size-4" />
                 </Button>
@@ -311,6 +321,17 @@ export function HrPayrollPaymentWorkspace({
                               <p>{p.bank_reference}</p>
                               <p>{p.confirmed_on}</p>
                               <p className="mt-1 text-muted-foreground">Journal: {p.journal_id}</p>
+                              {p.bank_payment_id && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="link"
+                                  className="h-auto whitespace-normal px-0 text-left"
+                                  onClick={() => onNavigate("banking", "transaction-detail", p.bank_payment_id!)}
+                                >
+                                  Open Bank Payment
+                                </Button>
+                              )}
                             </>
                           ) : (
                             <span className="text-muted-foreground">Awaiting bank confirmation</span>
@@ -340,103 +361,113 @@ export function HrPayrollPaymentWorkspace({
             )}
           </section>
           {review && (
-            <form onSubmit={act} className={panel + " space-y-4"} aria-label="Salary payment review">
-              <h3 className="text-lg font-semibold">{titles[review.action]}</h3>
-              <p className="text-sm text-muted-foreground">
-                Company and month are frozen for this review. The server rechecks current permissions, the posted
-                accrual and the batch version.
-              </p>
-              {review.action === "confirm" && (
-                <>
-                  <div className="rounded-lg border p-3 text-sm">
-                    <p className="font-semibold">
-                      {review.payment?.employee_name} · {review.payment?.amount} {review.snapshot.currency_code}
-                    </p>
-                    <p className="mt-1 break-all">Bank line external reference: {review.payment?.id}</p>
-                    <p className="mt-1 break-all">Bank line document reference: {review.payment?.employee_id}</p>
-                    <p className="mt-1 break-all">
-                      Debit net payable account: {review.snapshot.net_payable_account_id}
-                    </p>
-                  </div>
-                  <Field title="Posted matching Bank Payment line">
-                    <select
-                      className={selectClass}
-                      value={line}
-                      onChange={(e) => setLine(e.target.value)}
-                      required
-                      disabled={busy}
-                    >
-                      <option value="">Select posted evidence</option>
-                      {lines.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.reference} · {l.amount} {l.currency_code} · {l.posting_date}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  {!lines.length && (
-                    <p className="text-sm text-muted-foreground">
-                      No matching posted bank line is available. Create, independently approve and post it in Bank
-                      Payments using the references above, then cancel this review and refresh.
-                    </p>
-                  )}
-                  {review.snapshot.bank_lines_truncated && (
-                    <p className="text-sm text-muted-foreground">
-                      The candidate list is bounded. Resolve duplicate or excess Bank Payment candidates before
-                      confirmation.
-                    </p>
-                  )}
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field title="Bank successful-transfer reference">
-                      <Input
-                        value={bankReference}
-                        onChange={(e) => setBankReference(e.target.value)}
-                        required
-                        minLength={3}
-                        maxLength={120}
-                        disabled={busy}
-                      />
-                    </Field>
-                    <Field title="Bank confirmation date">
-                      <Input
-                        type="date"
-                        value={date}
-                        max={localDate()}
-                        onChange={(e) => setDate(e.target.value)}
+            <HrRecordDrawer
+              title={titles[review.action]}
+              description="Review the salary obligation and its Banking evidence."
+              open
+              busy={busy}
+              error={error}
+              onClose={() => setReview(null)}
+            >
+              <form onSubmit={act} className="space-y-4" aria-label="Salary payment review">
+                <h3 className="text-lg font-semibold">{titles[review.action]}</h3>
+                <p className="text-sm text-muted-foreground">
+                  Company and month are frozen for this review. The server rechecks current permissions, the posted
+                  accrual and the batch version.
+                </p>
+                {review.action === "confirm" && (
+                  <>
+                    <div className="rounded-lg border p-3 text-sm">
+                      <p className="font-semibold">
+                        {review.payment?.employee_name} · {review.payment?.amount} {review.snapshot.currency_code}
+                      </p>
+                      <p className="mt-1 break-all">Bank line external reference: {review.payment?.id}</p>
+                      <p className="mt-1 break-all">Bank line document reference: {review.payment?.employee_id}</p>
+                      <p className="mt-1 break-all">
+                        Debit net payable account: {review.snapshot.net_payable_account_id}
+                      </p>
+                    </div>
+                    <Field title="Posted matching Bank Payment line">
+                      <select
+                        className={selectClass}
+                        value={line}
+                        onChange={(e) => setLine(e.target.value)}
                         required
                         disabled={busy}
-                      />
+                      >
+                        <option value="">Select posted evidence</option>
+                        {lines.map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {l.reference} · {l.amount} {l.currency_code} · {l.posting_date}
+                          </option>
+                        ))}
+                      </select>
                     </Field>
-                  </div>
-                  <p className="text-sm font-medium">
-                    Confirming records that the bank transfer succeeded. A posted accounting entry alone is
-                    insufficient. Retained settlements require a governed correction to reverse.
-                  </p>
-                </>
-              )}
-              <Field title="Review reason">
-                <Textarea
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  required
-                  minLength={5}
-                  maxLength={500}
-                  disabled={busy}
-                />
-              </Field>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="submit"
-                  className="text-primary-foreground!"
-                  disabled={busy || (review.action === "confirm" && !line)}
-                >
-                  {busy ? "Saving…" : titles[review.action]}
-                </Button>
-                <Button type="button" variant="outline" disabled={busy} onClick={() => setReview(null)}>
-                  Cancel review
-                </Button>
-              </div>
-            </form>
+                    {!lines.length && (
+                      <p className="text-sm text-muted-foreground">
+                        No matching posted bank line is available. Create, independently approve and post it in Bank
+                        Payments using the references above, then cancel this review and refresh.
+                      </p>
+                    )}
+                    {review.snapshot.bank_lines_truncated && (
+                      <p className="text-sm text-muted-foreground">
+                        The candidate list is bounded. Resolve duplicate or excess Bank Payment candidates before
+                        confirmation.
+                      </p>
+                    )}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field title="Bank successful-transfer reference">
+                        <Input
+                          value={bankReference}
+                          onChange={(e) => setBankReference(e.target.value)}
+                          required
+                          minLength={3}
+                          maxLength={120}
+                          disabled={busy}
+                        />
+                      </Field>
+                      <Field title="Bank confirmation date">
+                        <Input
+                          type="date"
+                          value={date}
+                          min={lines.find((item) => item.id === line)?.posting_date ?? review.snapshot.month}
+                          max={localDate()}
+                          onChange={(e) => setDate(e.target.value)}
+                          required
+                          disabled={busy}
+                        />
+                      </Field>
+                    </div>
+                    <p className="text-sm font-medium">
+                      Confirming records that the bank transfer succeeded. A posted accounting entry alone is
+                      insufficient. Retained settlements require a governed correction to reverse.
+                    </p>
+                  </>
+                )}
+                <Field title="Review reason">
+                  <Textarea
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    required
+                    minLength={5}
+                    maxLength={500}
+                    disabled={busy}
+                  />
+                </Field>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="submit"
+                    className="text-primary-foreground!"
+                    disabled={busy || (review.action === "confirm" && !line)}
+                  >
+                    {busy ? "Saving…" : titles[review.action]}
+                  </Button>
+                  <Button type="button" variant="outline" disabled={busy} onClick={() => setReview(null)}>
+                    Cancel review
+                  </Button>
+                </div>
+              </form>
+            </HrRecordDrawer>
           )}
           <section className={panel}>
             <h3 className="text-base font-semibold">Audit history</h3>

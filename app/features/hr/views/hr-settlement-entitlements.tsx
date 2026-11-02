@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import {
   Field,
   Metric,
@@ -443,190 +444,206 @@ export function HrSettlementEntitlements({
               </div>
             </form>
           )}
-          {showCreate && w && (
-            <form
-              className="space-y-4 rounded-lg border border-border p-4"
-              aria-label="New company encashment rule"
-              onSubmit={(e) => {
-                e.preventDefault();
-                try {
-                  command({
-                    action: "create_rule",
-                    company_id: company,
-                    terms: {
-                      ...settlementCountryTerms(new FormData(e.currentTarget)),
-                      name,
-                      leave_type_id: type,
-                      currency,
-                      rate_minor: salaryMode ? "0" : parseHrCurrency(rate, scale),
-                      ...(salaryMode
-                        ? {
-                            salary_basis: {
-                              component_ids: new FormData(e.currentTarget).getAll("salary_components").map(String),
-                              multiplier: Number(new FormData(e.currentTarget).get("salary_multiplier")),
-                              divisor: Number(new FormData(e.currentTarget).get("salary_divisor")),
-                            },
-                          }
-                        : {}),
-                      maximum_days: cap,
-                      minimum_service_days: Number(service),
-                      effective_from: from,
-                      effective_to: until,
-                      policy_reference: reference,
-                    },
-                    reason,
-                  });
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : "Review the rule rate.");
-                }
-              }}
+          {showCreate && w ? (
+            <HrRecordDrawer
+              title="New company encashment rule"
+              description="Prepare the governed encashment rule without leaving the company-rule register."
+              open
+              busy={busy}
+              error={error}
+              notice={notice}
+              onClose={() => setShowCreate(false)}
             >
-              <h4 className="font-semibold">New company rule</h4>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field title="Rule name">
-                  <Input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    minLength={3}
-                    maxLength={160}
-                    disabled={busy}
-                  />
-                </Field>
-                <Field title="Eligible paid leave type">
-                  <select
-                    className={selectClass}
-                    value={type}
-                    onChange={(e) => setType(e.target.value)}
-                    required
-                    disabled={busy}
-                  >
-                    <option value="">Choose paid leave</option>
-                    {w.leave_types.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field title="Rule currency">
-                  <select
-                    className={selectClass}
-                    value={currency}
-                    required
-                    disabled={busy}
-                    onChange={(e) => setCurrency(e.target.value)}
-                  >
-                    <option value="">Choose currency</option>
-                    {w.currencies.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.code} · {c.decimal_places} decimals
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field title="Rate source">
-                  <select
-                    className={selectClass}
-                    value={salaryMode ? "salary" : "fixed"}
-                    disabled={busy}
-                    onChange={(e) => setSalaryMode(e.target.value === "salary")}
-                  >
-                    <option value="fixed">Fixed company currency amount</option>
-                    <option value="salary" disabled={!w.can_configure_salary}>
-                      Approved monthly salary components
-                    </option>
-                  </select>
-                </Field>
-                {salaryMode ? (
-                  <SettlementSalaryFactors busy={busy} />
-                ) : (
-                  <Field title="Company rate per day">
+              <form
+                className="space-y-4"
+                aria-label="New company encashment rule"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  try {
+                    command({
+                      action: "create_rule",
+                      company_id: company,
+                      terms: {
+                        ...settlementCountryTerms(new FormData(e.currentTarget)),
+                        name,
+                        leave_type_id: type,
+                        currency,
+                        rate_minor: salaryMode ? "0" : parseHrCurrency(rate, scale),
+                        ...(salaryMode
+                          ? {
+                              salary_basis: {
+                                component_ids: new FormData(e.currentTarget).getAll("salary_components").map(String),
+                                multiplier: Number(new FormData(e.currentTarget).get("salary_multiplier")),
+                                divisor: Number(new FormData(e.currentTarget).get("salary_divisor")),
+                              },
+                            }
+                          : {}),
+                        maximum_days: cap,
+                        minimum_service_days: Number(service),
+                        effective_from: from,
+                        effective_to: until,
+                        policy_reference: reference,
+                      },
+                      reason,
+                    });
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Review the rule rate.");
+                  }
+                }}
+              >
+                <h4 className="font-semibold">New company rule</h4>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field title="Rule name">
                     <Input
-                      inputMode="decimal"
-                      value={rate}
-                      onChange={(e) => setRate(e.target.value)}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
                       required
+                      minLength={3}
+                      maxLength={160}
                       disabled={busy}
-                      placeholder="For example 100.50"
                     />
                   </Field>
-                )}
-                <Field title="Maximum encashable days">
-                  <Input
-                    inputMode="decimal"
-                    value={cap}
-                    onChange={(e) => setCap(e.target.value)}
-                    required
-                    pattern="[0-9]{1,4}(\.[0-9]{1,4})?"
-                    disabled={busy}
-                  />
-                </Field>
-                <Field title="Minimum completed service days">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={36500}
-                    step={1}
-                    value={service}
-                    onChange={(e) => setService(e.target.value)}
-                    required
-                    disabled={busy}
-                  />
-                </Field>
-                <Field title="Effective from">
-                  <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} required disabled={busy} />
-                </Field>
-                <Field title="Effective until">
-                  <Input
-                    type="date"
-                    value={until}
-                    min={from}
-                    onChange={(e) => setUntil(e.target.value)}
-                    required
-                    disabled={busy}
-                  />
-                </Field>
-              </div>
-              {salaryMode && <SettlementSalaryComponents busy={busy} components={w.salary_components} />}
-              <SettlementCountryFields
-                country={country}
-                onCountry={setCountry}
-                options={{ ...w, legal_jurisdictions: countryRead.data?.legal_jurisdictions ?? [] }}
-                busy={busy}
-                loading={countryRead.loading}
-                error={countryRead.error}
-              />
-              <Field title="Approved company policy reference">
-                <Textarea
-                  value={reference}
-                  onChange={(e) => setReference(e.target.value)}
-                  required
-                  minLength={10}
-                  maxLength={1000}
-                  disabled={busy}
+                  <Field title="Eligible paid leave type">
+                    <select
+                      className={selectClass}
+                      value={type}
+                      onChange={(e) => setType(e.target.value)}
+                      required
+                      disabled={busy}
+                    >
+                      <option value="">Choose paid leave</option>
+                      {w.leave_types.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field title="Rule currency">
+                    <select
+                      className={selectClass}
+                      value={currency}
+                      required
+                      disabled={busy}
+                      onChange={(e) => setCurrency(e.target.value)}
+                    >
+                      <option value="">Choose currency</option>
+                      {w.currencies.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code} · {c.decimal_places} decimals
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field title="Rate source">
+                    <select
+                      className={selectClass}
+                      value={salaryMode ? "salary" : "fixed"}
+                      disabled={busy}
+                      onChange={(e) => setSalaryMode(e.target.value === "salary")}
+                    >
+                      <option value="fixed">Fixed company currency amount</option>
+                      <option value="salary" disabled={!w.can_configure_salary}>
+                        Approved monthly salary components
+                      </option>
+                    </select>
+                  </Field>
+                  {salaryMode ? (
+                    <SettlementSalaryFactors busy={busy} />
+                  ) : (
+                    <Field title="Company rate per day">
+                      <Input
+                        inputMode="decimal"
+                        value={rate}
+                        onChange={(e) => setRate(e.target.value)}
+                        required
+                        disabled={busy}
+                        placeholder="For example 100.50"
+                      />
+                    </Field>
+                  )}
+                  <Field title="Maximum encashable days">
+                    <Input
+                      inputMode="decimal"
+                      value={cap}
+                      onChange={(e) => setCap(e.target.value)}
+                      required
+                      pattern="[0-9]{1,4}(\.[0-9]{1,4})?"
+                      disabled={busy}
+                    />
+                  </Field>
+                  <Field title="Minimum completed service days">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={36500}
+                      step={1}
+                      value={service}
+                      onChange={(e) => setService(e.target.value)}
+                      required
+                      disabled={busy}
+                    />
+                  </Field>
+                  <Field title="Effective from">
+                    <Input
+                      type="date"
+                      value={from}
+                      onChange={(e) => setFrom(e.target.value)}
+                      required
+                      disabled={busy}
+                    />
+                  </Field>
+                  <Field title="Effective until">
+                    <Input
+                      type="date"
+                      value={until}
+                      min={from}
+                      onChange={(e) => setUntil(e.target.value)}
+                      required
+                      disabled={busy}
+                    />
+                  </Field>
+                </div>
+                {salaryMode && <SettlementSalaryComponents busy={busy} components={w.salary_components} />}
+                <SettlementCountryFields
+                  country={country}
+                  onCountry={setCountry}
+                  options={{ ...w, legal_jurisdictions: countryRead.data?.legal_jurisdictions ?? [] }}
+                  busy={busy}
+                  loading={countryRead.loading}
+                  error={countryRead.error}
                 />
-              </Field>
-              <Field title="Rule preparation reason">
-                <Textarea
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  required
-                  minLength={10}
-                  maxLength={500}
-                  disabled={busy}
-                />
-              </Field>
-              <div className="flex flex-wrap gap-2">
-                <Button type="submit" className="text-primary-foreground!" disabled={busy}>
-                  Save company rule draft
-                </Button>
-                <Button type="button" variant="outline" disabled={busy} onClick={() => setShowCreate(false)}>
-                  Cancel editing
-                </Button>
-              </div>
-            </form>
-          )}
+                <Field title="Approved company policy reference">
+                  <Textarea
+                    value={reference}
+                    onChange={(e) => setReference(e.target.value)}
+                    required
+                    minLength={10}
+                    maxLength={1000}
+                    disabled={busy}
+                  />
+                </Field>
+                <Field title="Rule preparation reason">
+                  <Textarea
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    required
+                    minLength={10}
+                    maxLength={500}
+                    disabled={busy}
+                  />
+                </Field>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="submit" className="text-primary-foreground!" disabled={busy}>
+                    Save company rule draft
+                  </Button>
+                  <Button type="button" variant="outline" disabled={busy} onClick={() => setShowCreate(false)}>
+                    Cancel editing
+                  </Button>
+                </div>
+              </form>
+            </HrRecordDrawer>
+          ) : null}
         </TabsContent>
       </Tabs>
       {w && (

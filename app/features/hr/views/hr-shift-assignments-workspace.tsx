@@ -1,4 +1,6 @@
 "use client";
+import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createHrShiftAllocationRequestSchema,
@@ -708,13 +710,20 @@ function EmployeePreview({
   );
 }
 
-export function HrShiftAssignmentsWorkspace({ onNavigate }: { onNavigate: Navigate }) {
+export function HrShiftAssignmentsWorkspace({
+  onNavigate,
+  initialReference,
+}: {
+  initialReference?: string;
+  onNavigate: Navigate;
+}) {
+  const initialScope = useMemo(() => readHrOperationsScope(initialReference), [initialReference]);
   const { api, session, csrfToken, loading: sessionLoading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]);
   const canRead = session?.user.permissions.includes("hr.attendance.shift.read") ?? false,
     canManage = session?.user.permissions.includes("hr.attendance.shift.manage") ?? false;
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]),
-    [company, setCompany] = useState(""),
+    [company, setCompany] = useState(initialScope.company_id ?? ""),
     [today, setToday] = useState(todayValue);
   const [items, setItems] = useState<HrShiftAllocationDirectory>({ items: [], total: 0 }),
     [selected, setSelected] = useState(""),
@@ -734,6 +743,7 @@ export function HrShiftAssignmentsWorkspace({ onNavigate }: { onNavigate: Naviga
     [revision, setRevision] = useState(0);
   const mutation = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null);
+  useHrOperationsScope(company, today);
   useEffect(() => {
     if (!canRead) return;
     let current = true;
@@ -1041,15 +1051,24 @@ export function HrShiftAssignmentsWorkspace({ onNavigate }: { onNavigate: Naviga
                 </Button>
               </form>
               {editor && (
-                <AllocationEditor
-                  today={today}
-                  client={client}
-                  companyId={company}
-                  busy={busy}
-                  revision={revision}
-                  onSave={(input) => save(input)}
+                <HrRecordDrawer
+                  title="Add shift assignment"
+                  open={editor}
                   onClose={() => setEditor(false)}
-                />
+                  busy={busy}
+                  error={error}
+                  notice={notice}
+                >
+                  <AllocationEditor
+                    today={today}
+                    client={client}
+                    companyId={company}
+                    busy={busy}
+                    revision={revision}
+                    onSave={(input) => save(input)}
+                    onClose={() => setEditor(false)}
+                  />
+                </HrRecordDrawer>
               )}
               <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(15rem,0.8fr)_minmax(0,2fr)]">
                 <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-card">
@@ -1160,13 +1179,23 @@ export function HrShiftAssignmentsWorkspace({ onNavigate }: { onNavigate: Naviga
                         </div>
                       </section>
                       {canManage && !editor && (
-                        <EndAllocation
-                          key={`${current.id}:${current.version}`}
-                          detail={current}
-                          today={today}
+                        <HrRecordDrawer
+                          title="End shift assignment"
+                          triggerLabel="End shift assignment"
+                          disabled={["ended", "cancelled"].includes(current.state)}
                           busy={busy || detailLoading}
-                          onSave={(id, input) => save(input, id)}
-                        />
+                          error={error}
+                          notice={notice}
+                          completionKey={notice}
+                        >
+                          <EndAllocation
+                            key={`${current.id}:${current.version}`}
+                            detail={current}
+                            today={today}
+                            busy={busy || detailLoading}
+                            onSave={(id, input) => save(input, id)}
+                          />
+                        </HrRecordDrawer>
                       )}
                       <section className="rounded-xl border border-border bg-card p-5">
                         <h3 className="text-base font-semibold">Allocation history</h3>

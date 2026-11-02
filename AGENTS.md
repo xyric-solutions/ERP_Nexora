@@ -137,6 +137,21 @@ boundaries unless a requested refactor needs a clearly shared abstraction.
 
 ## Centralization rules
 
+### Automatic record codes (user-approved convention)
+
+- New app record forms must generate read-only, stable codes with a meaningful
+  uppercase prefix, hyphen, and at least three zero-padded digits, e.g. `DSG-001`.
+- Reuse `app/features/hr/model/hr-master-code.ts` for Organisation & Masters:
+  DSG (designations), GRD (grades), JOB (jobs), CC (cost centres), LOC (locations),
+  ET (employment types), EC (employee categories), BU/DIV/BR/DEPT/WH (org units).
+- Preserve existing codes during edits and retain inactive records when calculating
+  the next number. Do not renumber historical records or reuse archived codes.
+- Apply this format to future modules using their own meaningful prefixes and
+  correct tenant/company scope. Existing modules are not implicitly renumbered.
+- Where concurrent creation is supported, reserve final codes transactionally on
+  the server. A browser preview does not by itself guarantee unique allocation.
+
+
 - Centralize only real common behavior. Do not create a shared component for a
   one-screen layout solely to reduce file count.
 - Keep feature calculations, permissions, mock workflows, models and fixtures

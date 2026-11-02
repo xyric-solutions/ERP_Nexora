@@ -7,6 +7,10 @@ import {
 } from "../../server/api/src/modules/hr/payroll-workspace.js";
 import { createHrPayrollRecordSchema, hrPayrollWorkspaceQuerySchema } from "../../packages/contracts/src/hr/index.js";
 describe("Exact Payroll configuration arithmetic", () => {
+  it("validates bracketed generated references and rejects forward references", () => {
+    expect(() => validatePayrollFormula("[PAY-001] * 0.1", new Set(["PAY-001"]))).not.toThrow();
+    expect(() => validatePayrollFormula("[PAY-002] * 0.1", new Set(["PAY-001"]))).toThrow();
+  });
   it("retains amounts above JavaScript safe integer precision", () =>
     expect(payrollDecimal(payrollUnits("9999999999999999.9999"))).toBe("9999999999999999.9999"));
   it("splits every principal unit without rounding loss", () => {

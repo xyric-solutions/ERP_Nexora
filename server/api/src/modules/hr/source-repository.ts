@@ -1,3 +1,4 @@
+import { allocateHrCode } from "./record-codes.js";
 import {LearningDevelopment} from "./learning.js";
 import type {HrLearningQuery,HrLearningAction} from "@nexora/contracts";
 import type {HrSelfLeaveContextQuery,CreateHrSelfLeaveRequest,HrSelfLeaveAction} from '@nexora/contracts';
@@ -734,7 +735,8 @@ export class SourceHrRepository {
       if (before?.type === "company") throw new HrApiError(409, "HR_COMPANY_ADMIN_REQUIRED", "Company records are maintained by platform administration.");
       let id = unitId;
       if (operation === "create") {
-        const create = input as CreateHrOrganizationUnitRequest;
+        const create = { ...input as CreateHrOrganizationUnitRequest };
+        create.code = await allocateHrCode(client, context.tenantId, create.company_id, create.type, create.code);
         const parentType = await this.requireOrganizationParent(client, context, create.company_id, create.parent_id);
         this.assertOrganizationParentType(create.type, parentType);
         id = `org-${randomUUID()}`;
@@ -817,6 +819,7 @@ export class SourceHrRepository {
       const filters = [
         "employee.tenant_id = $1",
         `assignment.company_id = $2`,
+        "assignment.assignment_status in ('active','legacy_compatibility')",
         "assignment.effective_from <= current_date",
         "(assignment.effective_to is null or assignment.effective_to >= current_date)",
       ];
@@ -2666,7 +2669,8 @@ export class SourceHrRepository {
           [context.tenantId, id, request.status],
         );
       } else {
-        const terms = input as CreateHrShiftRequest | UpdateHrShiftRequest;
+        const terms = { ...input as CreateHrShiftRequest | UpdateHrShiftRequest };
+        if (!existingId) terms.code = await allocateHrCode(client, context.tenantId, terms.company_id, "shift", terms.code);
         if (terms.work_location_id) {
           const location = await client.query(
             "select id from hr_master_record where tenant_id=$1 and company_id=$2 and id=$3 and master_type='work_location' and status='active' for share",
@@ -3065,6 +3069,7 @@ export class SourceHrRepository {
   }
 
   private async insertEmployeeDraft(client:PoolClient, context:HrActorContext, input:CreateHrEmployeeDraftRequest, correlationId:string, personalEmail=""):Promise<HrEmployeeDraftResult> {
+      input = { ...input, employee_number: await allocateHrCode(client, context.tenantId, input.company_id, "employee", input.employee_number) };
       const employeeId = `employee-${randomUUID()}`;
       await client.query(
         `insert into employee
@@ -4207,6 +4212,7 @@ export class SourceHrRepository {
         await client.query("commit");
         return { ...replay.rows[0].response_body, replayed: true };
       }
+      input = { ...input, code: await allocateHrCode(client, context.tenantId, input.company_id, "lifecycle", input.code) };
       const versionResult = await client.query<{ version: number }>(
         `select coalesce(max(version),0)::integer as version
            from hr_employment_lifecycle_policy
@@ -7438,6 +7444,7 @@ export class SourceHrRepository {
       if (gradeId && !before) throw new HrApiError(404, "HR_JOB_GRADE_NOT_FOUND", "Job grade was not found.");
       let id = gradeId;
       if (operation === "create") {
+        input = { ...input, code: await allocateHrCode(client, context.tenantId, input.company_id, "job_grade", input.code) };
         id = `hr-grade-${randomUUID()}`;
         await client.query(
           `insert into hr_master_record (id,tenant_id,company_id,master_type,code,name,description,status,created_by)
@@ -7521,6 +7528,7 @@ export class SourceHrRepository {
         await client.query("commit");
         return { ...replay.rows[0].response_body, replayed: true };
       }
+      input = { ...input, code: await allocateHrCode(client, context.tenantId, input.company_id, "job", input.code) };
       const id = `hr-job-${randomUUID()}`;
       await client.query(
         `insert into hr_master_record (id,tenant_id,company_id,master_type,code,name,description,status,created_by) values ($1,$2,$3,'job',$4,$5,$6,'active',$7)`,
@@ -7619,7 +7627,8 @@ export class SourceHrRepository {
       }
       let id = masterId;
       if (operation === "create") {
-        const create = input as CreateHrMasterRequest;
+        const create = { ...input as CreateHrMasterRequest };
+        create.code = await allocateHrCode(client, context.tenantId, create.company_id, create.type, create.code);
         id = `hr-master-${randomUUID()}`;
         await client.query(`insert into hr_master_record (id,tenant_id,company_id,master_type,code,name,description,status,created_by,configuration_key,configuration_value) values ($1,$2,$3,$4,$5,$6,$7,'active',$8,$9,$10)`, [id, context.tenantId, create.company_id, create.type, create.code.toUpperCase(), create.name, create.description, context.actor.userId, create.configuration_key ?? null, create.configuration_value ?? null]);
       } else if (operation === "update") {

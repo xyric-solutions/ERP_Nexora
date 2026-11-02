@@ -1,5 +1,374 @@
 # Remaining UI migration checklist
 
+## 2026-11-02 — Employee drafts width and vertical record layout
+
+- Removed the obsolete two-column list/detail grid from
+  `hr-employee-drafts-workspace.tsx`; the list now fills the available workspace
+  width, while review remains in the existing right drawer. Company/search
+  controls fit narrow screens; the table retains local horizontal scrolling.
+- Updated `hr-employee-record-workspace.tsx` to stack placement, work profile and
+  related navigation vertically. Fields use individual rows, reset inherited
+  definition margins and wrap long email values. API calls, permissions,
+  submission actions and record navigation remain unchanged. No CSS retired.
+- Browser verification passed 16 page layout checks plus eight drawer open/close
+  checks in light/dark at 1440/820/390/320px, with no page errors or document
+  overflow. Screenshots/results: `tmp/employee-layout-evidence/`. Production
+  `build:web`, theme audit write/check and `git diff --check` passed. The audit
+  retains zero font and 12 existing feature colour source exceptions.
+- Focused lint reports five existing effect-state/label findings in these
+  views; no loading or mutation logic was refactored for this presentation fix.
+
+## 2026-11-02 — HR Banking completion and fictional work queues
+
+- Activated `HrPayrollPaymentWorkspace` for Payment Batch and replaced the
+  explicitly deferred HTTP handlers with authenticated, validated no-store reads
+  and CSRF/idempotent mutations. Salary review uses the shared responsive record
+  drawer. Journal navigation preserves company/month; posted salary evidence
+  opens its actual Bank Payment. The loan drawer also links to Bank Payments.
+- Added HR132–133 to restore deferred obligation/evidence guards and require
+  distinct Banking actors and exact carrying-value parity. Added a feature
+  readiness check so unupgraded installations remain unavailable. Existing
+  payroll, Finance, Banking, loan and payslip lifecycles remain owned by their
+  original services; unsupported FX and confirmed-settlement corrections remain
+  blocked. No feature stylesheets were added or retired.
+- Promoted Payment Batch for this verified scope. The generated inventory now
+  distinguishes 76 connected data/workflow routes and 11 navigation hubs, with no
+  unlinked HR catalogue routes. Details: `docs/architecture/hr-banking-completion.md`.
+- Added a repeatable API-only fictional HR seed with eight employees (four active,
+  two pending approval, two drafts), organisation/master setup, contacts,
+  recruitment screening work, shifts/leave, learning and Performance records.
+  Separate maker/reviewer sessions completed 88 API operations. Rerun confirmed
+  no duplicates. See `docs/architecture/hr-demo-data.md` and the receipt manifest
+  at `tmp/hr-demo-data/manifest.json`.
+- Actual browser salary preparation, independent approval, Banking posting and
+  confirmation passed 48 checks in both themes at 1440/820/390/320px, including
+  native required input validation, conflict feedback in the drawer, forbidden
+  maker self-approval, exact zero outstanding and Banking evidence links. No
+  horizontal overflow or runtime errors occurred. Evidence:
+  `tmp/hr-banking-evidence/results.json` and screenshots.
+- Final full HR sweep passed 192 checks across 87 routes at desktop/mobile
+  widths with no runtime errors or horizontal document overflow. Evidence:
+  `tmp/hr-banking-route-sweep/results.json`. Fixed the operational employee
+  directory to exclude retained profile-draft assignments, preserving separate
+  draft and immutable history workflows; added a regression assertion.
+- Verification passed: 96 integration cases across Banking/Payroll/HR foundation
+  and offer handoff, 83 focused unit/API cases, two catalogue regressions, full
+  workspace typecheck, production `build:web`, focused lint and standalone seed
+  script types, generated API/catalogue checks, theme audit write/check and
+  `git diff --check`. Theme findings remain zero font and 12 existing feature
+  colour source exceptions. Only the isolated UAT database received HR132–133;
+  other environments require the standard migration workflow before activation.
+- Expanded lint still reports 31 existing findings in the monolithic HR
+  repository and offer-handoff test (unused variables and prefer-const). Focused
+  workflow lint passes; repository-wide lint is not claimed clean. Details are
+  recorded in `docs/architecture/hr-banking-completion.md`.
+
+## 2026-11-02 — Automatic HR codes and API coverage inventory
+
+- Extended automatic code entry to employees and offer handoff, shifts, leave
+  types, Payroll components/structures/loans, lifecycle policies, training
+  programmes and monetary overtime policies. Organisation master forms retain
+  their existing previews but now request final server allocation at save.
+- Added the shared API allocator and additive HR migration 131. Allocation is
+  scoped to the existing uniqueness rules, serialized inside the authorized
+  mutation transaction and replay-safe. All historical and inactive codes are
+  retained; external evidence and statutory/currency/country identifiers remain
+  editable. No feature stylesheets were added or retired.
+- Generated Payroll component codes work in formulas using `[PAY-001]`; legacy
+  formulas and subtraction keep their meaning. Updated the contract and generated
+  API documentation. Details: `docs/architecture/hr-automatic-record-codes.md`.
+- Corrected stale Learning, Benefits, Lifecycle policy, Compliance and workspace
+  renderer labels in the generated HR parity inventory. Added an explicit
+  `api_integration` column and `docs/parity/hr-api-coverage.md`: 75 API-connected
+  views, 1 read-only API view, 11 navigation hubs, 0 mock/unlinked active routes.
+  This source wiring inventory is not production certification of all workflows.
+- Browser verification passed 48 read-only checks across eight create drawers,
+  both themes and 1440/820/390px widths. Automatic code fields were read-only;
+  drawers fit the viewport with no horizontal overflow or runtime errors.
+  Evidence: `tmp/hr-auto-code-evidence/results.json` and screenshots.
+- Migration 131 is applied to the isolated UAT/test database. Deployment to any
+  other database requires its normal migration run before this API/UI batch.
+- Verification passed: full workspace type-check, production `build:web`, 24
+  allocator integration cases (including every allocation source, concurrency,
+  rollback, replay and retained inactive records), existing Payroll/Learning and
+  Shift/Leave integration suites, 46 Payroll arithmetic/formula unit cases,
+  catalogue regression tests, generated API/catalogue checks, theme audit and
+  `git diff --check`. The shared allocator, inventory generator and primary
+  code-entry surfaces pass focused lint. Existing employee/offer/shift screen
+  label and effect lint findings remain recorded in `tmp/hr-auto-code-lint.json`.
+  Theme exceptions remain unchanged at 0 font and 12 feature-view colour files.
+- Reloaded the local API with the compiled backend against the migrated isolated
+  UAT database. API readiness and the web root both returned HTTP 200.
+
+## 2026-11-02 — Remaining HR add/update record drawers
+
+- Moved the remaining embedded HR create/edit surfaces into the shared
+  `HrRecordDrawer` right-side sheet. The completed batch covers Payroll records,
+  Payroll runs, statutory and overtime setup, Performance records and contributor
+  assessments, Learning records and attendance evidence, Lifecycle cases and
+  policies, employee policy-upgrade requests, benefit and encashment rules,
+  personal leave drafts, and governed disclosure policies/report exports.
+- Preserved the existing API clients, schemas, payloads, permission and eligibility
+  guards, idempotency handling, record versions, validation, notices, errors and
+  success refresh behavior. Drawers cannot be dismissed while a save is active;
+  successful mutations close through each screen's existing success path.
+- Kept searches, company/month selectors, calculators, read-only evidence,
+  approval/decision confirmations and posting controls in their original page or
+  confirmation-dialog context. This batch changes editor presentation only and
+  does not bypass segregation of duties or turn prototype actions into live
+  financial posting.
+- Authenticated browser verification passed 36 responsive assertions across six
+  live seeded routes in light and dark themes at 1440px, 820px and 390px. Each
+  tested drawer stayed right-aligned, fit the viewport and introduced no document
+  or drawer horizontal overflow. Mutating HR requests were intercepted, so no
+  records or workflow states changed. Evidence is in
+  `tmp/remaining-hr-drawer-evidence/results.json` and its screenshots.
+- The current seed did not expose eligible create actions for Onboarding, company
+  benefit rules or personal leave in either theme; those drawers were converted,
+  formatted, type-checked, linted and production-built but their state-dependent
+  triggers were not bypassed for browser testing.
+- Focused lint, TypeScript, production `build:web`, theme audit and diff checks
+  passed. The feature-view theme audit remains at 0 font exceptions and 12 existing
+  semantic-colour exceptions; no page-specific font or colour override was added.
+
+## 2026-11-02 — Complete compact HR workspace navigation
+
+- Extended the approved compact Organisation / People / Recruitment pattern to
+  every remaining HR section. Payroll, Performance Management, Learning &
+  Development, Employee Lifecycle, Benefits & Self-service, and Reporting,
+  Compliance & Audit now each have one short sidebar entry and a searchable,
+  grouped workspace hub. The expanded HR sidebar and mobile module drawer no
+  longer render long nested page lists.
+- Added six live workspace routes: `payroll-workspace`, `performance-workspace`,
+  `learning-workspace`, `employee-lifecycle-workspace`,
+  `benefits-self-service-workspace`, and `hr-compliance-workspace`. All existing
+  81 HR page routes remain available through hub cards, workspace filters, global
+  search, direct URLs and existing in-screen links. No API contract, permission,
+  lifecycle transition, payroll control, form payload or record state changed.
+- Preserved the existing Organisation master sheets and People / Recruitment
+  record drawers for add, view and update actions. Existing forms and approval
+  confirmations in Payroll, Performance, Learning, Lifecycle, Benefits and
+  Compliance remain owned by their current screens; the navigation migration did
+  not replace working mutations with static UI or introduce unsupported editing.
+- Responsive authenticated browser verification passed 192 checks: all 87 HR
+  catalogue routes at 1440px and 390px, all six new hubs at both widths, six
+  representative connected child screens, all 11 compact sidebar entries and
+  absence of nested legacy HR page lists. Every route rendered content without
+  document-level horizontal overflow or browser runtime errors. Visual inspection
+  passed for the desktop Payroll hub and mobile Employee Lifecycle hub. Evidence:
+  `tmp/hr-all-workspace-evidence/results.json`, `payroll-hub-desktop.png`, and
+  `lifecycle-hub-mobile.png`.
+- Production web build (including TypeScript), generated catalogue, theme audit,
+  focused lint and diff validation passed. The audit remains scoped to feature
+  view source files; existing central colour exceptions are unchanged and are not
+  presented as an all-menu-screen completion percentage.
+
+## 2026-10-30 — People and Recruitment record drawers
+
+- Added `HrRecordDrawer`, reusing the Organisation & Masters sheet presentation.
+  It provides a right-side desktop drawer, full-width mobile layout, independently
+  scrolling form body, labelled heading, close controls, in-drawer feedback and
+  busy-state dismissal guards. Existing state, form validation, APIs, permissions
+  and approval requirements remain owned by their original components.
+- People: employee creation now opens over the directory; contacts, emergency
+  contacts, draft review/submission, personal corrections and correction decisions
+  use drawers. Assignment/hire, transfer, promotion, manager change, work-location
+  change and organisation-placement forms use the same pattern. Employee and
+  movement approval review panels also open in drawers; their existing final
+  confirmations remain separate and stack above the review drawer.
+- Recruitment: requisition/opening/candidate creation and row details, application
+  creation/stage decisions, interview scheduling/rescheduling/outcomes/evaluations,
+  assessments and candidate selection, offer preparation/editing/actions and
+  employee draft creation from an offer use drawers. Retained all existing read-only
+  records, search/filter forms and eligibility guards. No unsupported editing or
+  deletion of append-only employee history was introduced.
+- Removed duplicated editor headings and compacted the shared sheet title margins.
+  Record drawers use a higher overlay layer; nested approval confirmations remain
+  above them. Generated codes and the existing Organisation & Masters flow remain
+  unchanged. Job-opening saves now also guard duplicate clicks and dismissal while
+  the request is in progress.
+- Browser verification passed 58 focused checks in both themes at 1440, 820 and
+  390px: right alignment, internal/page overflow, employee-route dismissal, required
+  validation, busy/escape protection, unchanged candidate payload and a simulated
+  successful save. Every HR mutation in this run was intercepted in the browser;
+  no database records or workflow states were changed. Evidence:
+  `tmp/hr-drawer-evidence/results.json` and drawer screenshots.
+- The selected employee had no eligible active assignment, so five conditional
+  movement triggers per theme were explicitly skipped. Conditional interview,
+  offer-handoff and approval forms were converted and build-checked but their full
+  business transitions were not exercised against live records. Eligibility and
+  authorization were preserved rather than bypassed to make actions visible.
+- The broader 214-check Organisation & Masters / People / Recruitment navigation
+  and responsive sweep passed again. Production web build with TypeScript, theme
+  audit, catalogue consistency, diff checks and focused lint for both shared drawer
+  components passed. Older HR effect/label lint findings remain recorded in
+  `tmp/hr-drawer-lint-current.json`; this is not a claim that all legacy HR lint or
+  end-to-end business lifecycle testing is complete.
+
+## 2026-10-30 — HR dashboard and compact Recruitment workspace
+
+- Refreshed the HR Dashboard with a company selector, coordinated navy header,
+  six live metric shortcuts, accurate workforce status bars, review actions and
+  shortcuts to People, Recruitment and Organisation & Masters. No illustrative
+  counts or trends were introduced. Failed requests show an error instead of
+  zero metrics; switching company clears stale counts and ignores older responses.
+- Recruitment now has one sidebar entry in the expanded menu and module drawer:
+  `/#/hr/recruitment-workspace`. All seven existing routes are organised into
+  Plan & Publish, Candidates & Selection, and Offer & Join. Search, stage tabs,
+  direct links and return navigation preserve access to every existing screen.
+- Preserved all existing recruitment APIs, permissions, forms, transitions and
+  approval requirements. Requisition/opening/candidate selection now has real
+  keyboard-accessible buttons. Removed redundant technical introductions from
+  those three pages; retained relevant validation and workflow prerequisites.
+- Applied semantic borders, wrapping controls and bounded table layouts across
+  Recruitment. Fixed nested hire/transfer/promotion/manager/location approval
+  panels that could widen Employee Approvals on tablet and mobile.
+- Browser verification passed 214 checks: all 31 routes across Organisation &
+  Masters, People and Recruitment in light/dark at 1440, 820 and 390px; four
+  recruitment create-form open/cancel flows in both themes at all three widths;
+  dashboard metric navigation and Recruitment search/navigation in both themes.
+  Three additional checks passed for dashboard API failure, refresh recovery/live
+  headcount parity and clearing old company metrics during loading. No business
+  records or workflow states were changed by this verification.
+- Evidence: `tmp/hr-recruitment-evidence/results.json`, `dashboard-recovery.json`,
+  dashboard/hub/form screenshots and `dashboard-layout-inspection.png`. Desktop
+  and mobile screenshots were inspected; the sidebar also returns to its full
+  desktop position after a mobile viewport change.
+- Production web build (including TypeScript), catalogue consistency, theme audit
+  and diff checks passed. Dashboard and new Recruitment workspace have clean
+  focused lint. The seven older Recruitment views retain exactly their baseline
+  lint findings (label-component recognition, effect-state rules and two dependency
+  warnings); no new findings were introduced. Comparison is recorded in
+  `tmp/recruitment-lint-baseline.json`. Broader lint cleanup and business lifecycle
+  integration testing remain separate work; visual checks do not certify posting,
+  approvals or hiring mutations.
+
+## 2026-10-30 — People workspace and employee navigation
+
+- Replaced thirteen expanded People sidebar links with one People entry in both
+  the inline sidebar and collapsed-module drawer. Entry: `/#/hr/people-workspace`.
+- Seven workspace shortcuts are grouped under Employee Records, Joining &
+  Approvals, and Workforce & Insights. Contacts, emergency contacts, documents,
+  assignments and history are grouped as record tabs; Employee Overview appears
+  in context after opening a person. Existing thirteen URLs and screen actions
+  remain available through the workspace and global search.
+- Preserved the authorized employee/company across profile links using shared
+  API context helpers, including employees outside the initial 100 directory
+  results. No database access or business writes were introduced in navigation.
+- Removed redundant shell context and page introductions on People routes.
+  Contained accessible table headers inside directory/drafts/approvals/positions
+  scroll regions and made the directory search toolbar wrap on narrow screens.
+- Browser checks passed all thirteen routes in light and dark themes at 1440px
+  and 390px, plus ten employee-context checks (five related tabs per theme).
+  Evidence: `tmp/people-evidence/results.json`, `hub-light.png`, `hub-dark.png`,
+  `hub-mobile-light.png`, `hub-mobile-dark.png`, and employee-history screenshots.
+  Checks were read-only; no employee records or workflow states were changed.
+- New components/helpers passed focused lint; TypeScript, generated catalogue,
+  theme audit, production web build and diff checks passed. Existing governance,
+  approvals, assignment/lifecycle permissions and data writes remain in their
+  established screens and server APIs.
+
+## 2026-10-30 — Navy dark-theme foundation
+
+- Reworked the central dark palette around navy canvas, surfaces, overlays,
+  sidebar and borders, with lighter coordinated blue accents and focus states.
+  Updated the role override so it cannot reintroduce the previous teal sidebar.
+- Browser verification passed dark Jobs workspace, edit sheet and 390px layout;
+  primary action text contrast measured 8.72:1 and there was no page overflow.
+  Evidence: `tmp/master-theme-evidence/navy-dark-workspace.png`,
+  `navy-dark-sheet.png`, and `navy-dark-mobile.png`. Workspace screenshot visually
+  inspected; production build, theme audit and diff validation passed.
+
+## 2026-10-30 — Sidebar cleanup and appearance dismissal
+
+- Light-theme ERP navigation uses the central navy sidebar palette. Removed the
+  active designation card and environment footer from the shared ERP shell.
+- Appearance selections (Light, Dark, System, including reselecting the current
+  preference) close the menu and return focus to its trigger.
+- Browser checks passed all five theme-selection cases, absent sidebar cards,
+  expected navy token and no mobile overflow. Evidence:
+  `tmp/master-theme-evidence/navy-sidebar-light.png` and `navy-sidebar-mobile.png`.
+  Shared-theme lint, production web build and theme audit passed.
+
+## 2026-10-30 — Organisation & Masters theme parity
+
+- Fixed the grey record-name background at its source: shared Button link variant
+  now explicitly uses transparent normal and hover backgrounds. Browser defaults
+  were visible because Tailwind Preflight is intentionally disabled in this app.
+- Added explicit semantic border tokens to all eight master workspaces, hub controls,
+  table surfaces, hierarchy, detail panels, compensation fields, sheet separators
+  and the archive confirmation footer. Borders no longer inherit bright text colour.
+- Browser checks passed for all eight pages in both light and dark themes (16
+  combinations): transparent record links at rest/hover/focus, semantic navigation
+  borders, view-to-edit flow, disabled generated codes, and no page overflow at
+  1440px or 390px. No business records were saved by these checks.
+- Evidence: `tmp/master-theme-evidence/results.json`, `work-locations-light.png`,
+  `work-locations-dark.png`, `edit-light.png`, and `edit-dark.png`. Screenshots
+  were visually inspected. Focused ESLint, theme audit, production web build
+  (including TypeScript), and diff checks passed.
+
+## 2026-10-30 — Compact Organisation & Masters layout
+
+- Removed shell breadcrumbs and role/company-mode context badges on Organisation &
+  Masters routes. Reduced top padding; title and All masters now share one row.
+- Removed redundant introductory/governance panels from all eight master pages;
+  company selection, search, status filters, forms and validation remain available.
+  Configured-master statistics now use one inline counts row instead of large cards.
+- Focused lint, production build, theme audit and diff checks passed. Authenticated
+  desktop/mobile checks confirmed no highlighted shell blocks, no horizontal page
+  overflow, and working Add sheets. At 1440px the Cost Centres heading starts at
+  76px and its table at 345px from the viewport top. Screenshots:
+  `tmp/live-masters-evidence/compact-cost-centres-1440.png` and
+  `tmp/live-masters-evidence/compact-cost-centres-390.png`.
+
+## 2026-10-30 — Approved Organisation & Masters workspace applied
+
+- Live entry: `/#/hr/organisation-masters`. The HR sidebar and collapsed-module
+  drawer each show one Organisation & Masters entry. All eight existing page
+  routes remain available through workspace cards, tabs, breadcrumbs and search.
+- The approved three-group layout now reads authorized company records and real
+  counts. Search, category filters, card/list views and company selection are wired;
+  the selected authorized company is remembered within the browser session.
+- Existing right-side sheets provide add, view and edit. Confirmed Delete archives
+  via the existing audited status API; Active is the default filter, Inactive /
+  archived makes records available for restoration. Organization hierarchy and
+  work-location dependency checks remain enforced by their APIs. Legal company
+  records continue to be administered outside this child-unit workspace.
+- Automatic codes retain the approved `DSG-001` convention. Edits retain existing
+  codes, and inactive codes participate in next-code calculation. AGENTS.md records
+  the app-wide convention for future work; existing unrelated modules were not
+  renumbered. Current HR previews calculate from loaded codes; concurrent server
+  reservation remains a future hardening task, documented in the working agreement.
+- Live browser verification passed for add/view/edit/archive/restore on every page.
+  Eleven clearly named Navigation QA records (including three from an earlier
+  partial run) were created only in Nexora R06 UAT Company Two and left inactive.
+  Follow-up checks passed archive visibility, Delete cancellation, restore,
+  company continuity, compact sidebar, card/list/category/search navigation,
+  in-sheet validation, and 1440/768/390px layouts. Narrow organization tree has no
+  horizontal overflow. Dark mobile sheet was visually inspected.
+- Evidence: `tmp/live-masters-evidence/result.json`, `filters-result.json`,
+  `hub-desktop-final.png`, `final-sheet-1440.png`, `final-sheet-768.png`,
+  `final-sheet-390.png`, and `dark-mobile-sheet.png`.
+- Production web build, frontend TypeScript, focused ESLint, generated catalogue,
+  theme audit and diff validation passed. Existing unrelated theme audit candidates
+  remain listed in `global-theme-audit.md`. The standalone demo remains available
+  for comparison; live behavior is on the ERP hash routes above.
+
+## 2026-10-30 — Organisation & Masters navigation concept
+
+- Separate preview at `/demos/organisation-masters`, backed by static illustrative data.
+- One sidebar entry opens eight master pages grouped into Organisation, Job Structure,
+  and Employment Setup. Includes search, group filters, card/list switching, sample
+  directories, breadcrumbs, and record view sheets. Existing ERP navigation is unchanged.
+- Browser checks passed at 1440px, 768px, and 390px: no horizontal page overflow,
+  search-to-directory navigation and record-sheet opening/closing passed.
+- Evidence: `tmp/organisation-demo-1440.png`, `tmp/organisation-demo-768.png`,
+  and `tmp/organisation-demo-390.png`. Focused ESLint, production web build and theme
+  audit passed. New demo uses shared font and semantic theme colours; existing audit
+  candidates remain listed in `global-theme-audit.md`.
+- Approved by the user and integrated into live masters; see the checkpoint above.
+  No business records were written by this standalone preview.
+
 Current checkpoint: Category-scoped employee Payroll jurisdiction overrides and separately reviewed revocations are delivered, including same-country cross-branch resolution, published mid-month allocation, immutable calculation evidence, explicit revoked-state display and stale-submission protection. Whole-account cost-centre journal mappings remain delivered. Normal and isolated schemas are HR130. HR navigation remains 73 Live, 2 Payroll In progress, 1 Payment Batch Read-only, 0 prototype screens. Employee-level/proportional or other required dimension allocations, non-parity loan carrying-value/FX allocation and general posted-Payroll corrections remain. Cross-country execution and additional legal allocation bases need their own reviewed contracts. Banking integration is separately owned. These are menu statuses, not a completion percentage.
 
 ## 2026-10-22 — Bank Transfer approval-flow parity

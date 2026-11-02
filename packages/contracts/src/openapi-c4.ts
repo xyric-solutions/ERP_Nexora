@@ -4078,6 +4078,7 @@ export function buildOpenApiDocument() {
       },
       "/hr/payroll_records": {
         post: {
+          description: "Create a governed Payroll record. Send AUTO for component/structure code or loan reference to allocate a stable company-scoped code transactionally. Existing explicit import codes remain supported. Generated component codes use bracketed formula references, for example [PAY-001] * 0.1.",
           operationId: "createPayrollRecord",
           security: [{ cookieAuth: [] }],
           parameters: [csrfParameter, idempotencyParameter],
@@ -4267,6 +4268,7 @@ export function buildOpenApiDocument() {
       "/hr/payroll_payments": {
         get: {
           operationId: "getPayrollPaymentWorkspace",
+          description: "Company-scoped salary obligations, current batch actions and eligible posted Banking evidence. Requires Payroll payment/result and Banking read authority. Responses are private and no-store.",
           security: [{ cookieAuth: [] }],
           parameters: [
             { in: "query", name: "company_id", required: true, schema: { type: "string", maxLength: 128 } },
@@ -4284,6 +4286,7 @@ export function buildOpenApiDocument() {
       "/hr/payroll_payments/actions": {
         post: {
           operationId: "actOnPayrollPayment",
+          description: "Prepare exact obligations, independently approve/reject a batch, or confirm a matching reserved posted Bank Payment. Confirmation requires successful-transfer evidence, current authority, reviewed source hash, record version and idempotency. FX allocation, bank-file transmission and confirmed-settlement reversal are not enabled.",
           security: [{ cookieAuth: [] }],
           parameters: [csrfParameter, idempotencyParameter],
           requestBody: {

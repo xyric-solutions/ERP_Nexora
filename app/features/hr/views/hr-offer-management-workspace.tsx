@@ -1,4 +1,5 @@
 "use client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   CreateHrOfferRequest,
@@ -98,7 +99,7 @@ function OfferEditor({
       decimalUnits(terms.proposed_gross)! > decimalUnits(context.salary_maximum)!);
   return (
     <form
-      className="grid gap-4 rounded-2xl border border-primary/30 bg-card p-5 shadow-sm"
+      className="grid min-w-0 gap-4 rounded-2xl border border-primary/30 bg-card p-5 shadow-sm"
       onSubmit={async (e) => {
         e.preventDefault();
         if (await save(terms)) close();
@@ -260,7 +261,7 @@ function OfferEditor({
         Terms become fixed on submission. Active master choices are limited to 100 per type; up to 100 employee matches
         are shown.
       </p>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button type="submit" className="text-primary-foreground!" disabled={busy}>
           {busy ? "Saving…" : "Save offer draft"}
         </Button>
@@ -664,7 +665,7 @@ export function HrOfferManagementWorkspace() {
             Prepare consistent terms, secure approval and retain the candidate’s response with the offer history.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             disabled={!companyId || busy}
@@ -770,85 +771,94 @@ export function HrOfferManagementWorkspace() {
           Apply filters
         </Button>
       </form>
-      {editor === "new" ? (
-        <div className="grid gap-3 rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="m-0 font-semibold">Choose a selected application</h3>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              aria-label="Close offer preparation"
-              disabled={busy}
-              onClick={() => setEditor(null)}
+      <HrRecordDrawer
+        title={editor === "edit" ? "Edit offer" : "Prepare offer"}
+        open={!!editor}
+        onClose={() => setEditor(null)}
+        busy={busy}
+        error={error}
+        notice={notice}
+      >
+        {editor === "new" ? (
+          <div className="grid gap-3 rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="m-0 font-semibold">Choose a selected application</h3>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                aria-label="Close offer preparation"
+                disabled={busy}
+                onClick={() => setEditor(null)}
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+            <form
+              className="flex flex-wrap items-end gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setAppQuery(appSearch);
+              }}
             >
-              <X className="size-4" />
-            </Button>
-          </div>
-          <form
-            className="flex flex-wrap items-end gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setAppQuery(appSearch);
-            }}
-          >
-            <label className="grid flex-1 gap-1 text-sm">
-              Find selected application
-              <Input maxLength={160} value={appSearch} onChange={(e) => setAppSearch(e.target.value)} />
+              <label className="grid flex-1 gap-1 text-sm">
+                Find selected application
+                <Input maxLength={160} value={appSearch} onChange={(e) => setAppSearch(e.target.value)} />
+              </label>
+              <Button type="submit" variant="outline">
+                Find application
+              </Button>
+            </form>
+            <label className="grid gap-1.5 text-sm">
+              Selected application
+              <select
+                className={selectClass}
+                value={applicationId}
+                disabled={busy}
+                onChange={(e) => setApplicationId(e.target.value)}
+              >
+                {applications.length ? (
+                  applications.map((app) => (
+                    <option key={app.id} value={app.id}>
+                      {app.candidate_name} · {app.reference}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">No selected applications</option>
+                )}
+              </select>
             </label>
-            <Button type="submit" variant="outline">
-              Find application
-            </Button>
-          </form>
-          <label className="grid gap-1.5 text-sm">
-            Selected application
-            <select
-              className={selectClass}
-              value={applicationId}
-              disabled={busy}
-              onChange={(e) => setApplicationId(e.target.value)}
-            >
-              {applications.length ? (
-                applications.map((app) => (
-                  <option key={app.id} value={app.id}>
-                    {app.candidate_name} · {app.reference}
-                  </option>
-                ))
-              ) : (
-                <option value="">No selected applications</option>
-              )}
-            </select>
-          </label>
-          <p className="text-xs text-muted-foreground">
-            Up to 100 selected matches. Refine the search to find another application.
-          </p>
-          {context?.blockers.length ? (
-            <Alert>
-              <AlertTitle>Offer prerequisites</AlertTitle>
-              <AlertDescription>{context.blockers.join(" ")}</AlertDescription>
-            </Alert>
-          ) : null}
-          {!applications.length ? (
-            <p className="text-sm text-muted-foreground">
-              Complete the selection decision in Interviews & Evaluations before preparing an offer.
+            <p className="text-xs text-muted-foreground">
+              Up to 100 selected matches. Refine the search to find another application.
             </p>
-          ) : null}
-        </div>
-      ) : null}
-      {editorLoading ? (
-        <Skeleton className="h-48 w-full" />
-      ) : editor && ((editor === "new" && context && !context.blockers.length) || (editor === "edit" && detail)) ? (
-        <OfferEditor
-          key={`${editor}-${editor === "edit" ? detail?.id : applicationId}`}
-          context={editor === "edit" ? detail!.context : context!}
-          detail={editor === "edit" ? detail! : undefined}
-          masters={masters}
-          employees={employees}
-          busy={busy}
-          save={save}
-          close={() => setEditor(null)}
-        />
-      ) : null}
+            {context?.blockers.length ? (
+              <Alert>
+                <AlertTitle>Offer prerequisites</AlertTitle>
+                <AlertDescription>{context.blockers.join(" ")}</AlertDescription>
+              </Alert>
+            ) : null}
+            {!applications.length ? (
+              <p className="text-sm text-muted-foreground">
+                Complete the selection decision in Interviews & Evaluations before preparing an offer.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        {editorLoading ? (
+          <Skeleton className="h-48 w-full" />
+        ) : editor && ((editor === "new" && context && !context.blockers.length) || (editor === "edit" && detail)) ? (
+          <OfferEditor
+            key={`${editor}-${editor === "edit" ? detail?.id : applicationId}`}
+            context={editor === "edit" ? detail!.context : context!}
+            detail={editor === "edit" ? detail! : undefined}
+            masters={masters}
+            employees={employees}
+            busy={busy}
+            save={save}
+            close={() => setEditor(null)}
+          />
+        ) : null}
+      </HrRecordDrawer>
       <div className="flex flex-wrap justify-between gap-3">
         <div>
           <h3 className="m-0 text-lg font-semibold">Offer register</h3>
@@ -906,7 +916,7 @@ export function HrOfferManagementWorkspace() {
           </div>
           {detail ? (
             <div className="grid min-w-0 gap-4" aria-label="Offer details">
-              <div className="grid gap-4 rounded-2xl border border-border bg-card p-5">
+              <div className="grid min-w-0 gap-4 rounded-2xl border border-border bg-card p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <span className="text-xs font-medium text-muted-foreground">
@@ -1002,23 +1012,38 @@ export function HrOfferManagementWorkspace() {
                   </Alert>
                 ) : null}
                 {detail.state === "accepted" ? (
-                  <div className="flex gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+                  <div className="flex flex-wrap gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
                     <CheckCircle2 className="size-5 shrink-0 text-primary" />
                     <span>
                       Acceptance is recorded and the authorized position is reserved. This offer is ready for the
-                      governed employee-draft handoff. <a className="font-semibold text-primary underline underline-offset-4" href="#/hr/create-employee-from-offer">Open employee handoff</a>
+                      governed employee-draft handoff.{" "}
+                      <a
+                        className="font-semibold text-primary underline underline-offset-4"
+                        href="#/hr/create-employee-from-offer"
+                      >
+                        Open employee handoff
+                      </a>
                     </span>
                   </div>
                 ) : null}
               </div>
-              <OfferDecision
-                key={`${detail.id}-${detail.version}`}
-                offer={detail}
-                allowed={allowed}
+              <HrRecordDrawer
+                title="Update offer"
+                triggerLabel="Update offer"
+                completionKey={notice}
                 busy={busy}
-                canException={canException}
-                run={run}
-              />
+                error={error}
+                notice={notice}
+              >
+                <OfferDecision
+                  key={`${detail.id}-${detail.version}`}
+                  offer={detail}
+                  allowed={allowed}
+                  busy={busy}
+                  canException={canException}
+                  run={run}
+                />
+              </HrRecordDrawer>
               {detail.document_text ? (
                 <div className="grid gap-3 rounded-xl border border-border bg-card p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">

@@ -1,4 +1,5 @@
 "use client";
+import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { useEffect, useMemo, useState } from "react";
 import type { HrMonthlyAttendanceDirectory, HrMonthlyAttendanceRow } from "@nexora/contracts";
 import {
@@ -230,13 +231,22 @@ function EmployeeMonth({
     </section>
   );
 }
-export function HrMonthlyAttendanceWorkspace({ onNavigate }: { onNavigate: Navigate }) {
+export function HrMonthlyAttendanceWorkspace({
+  onNavigate,
+  initialReference,
+}: {
+  initialReference?: string;
+  onNavigate: Navigate;
+}) {
+  const initialScope = useMemo(() => readHrOperationsScope(initialReference), [initialReference]);
   const { api, session, loading: sessionLoading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]),
     canRead = session?.user.permissions.includes("hr.attendance.read") ?? false;
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]),
-    [company, setCompany] = useState(""),
-    [month, setMonth] = useState(currentMonth),
+    [company, setCompany] = useState(initialScope.company_id ?? ""),
+    [month, setMonth] = useState(
+      () => initialScope.month?.slice(0, 7) ?? initialScope.as_of?.slice(0, 7) ?? currentMonth(),
+    ),
     [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
     [offset, setOffset] = useState(0),
@@ -246,6 +256,7 @@ export function HrMonthlyAttendanceWorkspace({ onNavigate }: { onNavigate: Navig
     [loading, setLoading] = useState(false),
     [companyLoading, setCompanyLoading] = useState(false),
     [error, setError] = useState("");
+  useHrOperationsScope(company, month + "-01", month + "-01");
   useEffect(() => {
     if (!canRead) return;
     let active = true;

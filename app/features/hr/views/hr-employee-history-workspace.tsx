@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
+import { loadEmployeeRouteCompanies, loadEmployeeRouteDirectory } from "../api/employee-route-context";
 
 type LoadState = "loading" | "ready" | "error";
 type LifecycleEvent = HrEmployeeLifecycleEventDirectory["items"][number];
@@ -26,7 +27,7 @@ function readable(value: string): string {
   return value.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-export function HrEmployeeHistoryWorkspace() {
+export function HrEmployeeHistoryWorkspace({ initialEmployeeId }: { initialEmployeeId?: string } = {}) {
   const { api, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
@@ -59,12 +60,11 @@ export function HrEmployeeHistoryWorkspace() {
   useEffect(() => {
     if (sessionLoading || !canReadHistory || !canReadEmployees) return;
     let active = true;
-    client
-      .companies()
+    loadEmployeeRouteCompanies(client, initialEmployeeId)
       .then((result) => {
         if (!active) return;
         setCompanies(result.items);
-        const initialCompanyId = result.items[0]?.id ?? "";
+        const initialCompanyId = result.preferredCompanyId;
         setCompanyId(initialCompanyId);
         setDirectoryState(initialCompanyId ? "loading" : "ready");
       })
@@ -74,16 +74,16 @@ export function HrEmployeeHistoryWorkspace() {
     return () => {
       active = false;
     };
-  }, [canReadEmployees, canReadHistory, client, sessionLoading]);
+  }, [canReadEmployees, canReadHistory, client, initialEmployeeId, sessionLoading]);
 
   useEffect(() => {
     if (!companyId) return;
     let active = true;
-    client
-      .employees({ companyId, limit: 100 })
+    loadEmployeeRouteDirectory(client, companyId, initialEmployeeId)
       .then((result) => {
         if (!active) return;
         setEmployees(result.items);
+        setEmployeeId(result.selectedEmployeeId);
         setDirectoryState("ready");
       })
       .catch(() => {
@@ -92,7 +92,7 @@ export function HrEmployeeHistoryWorkspace() {
     return () => {
       active = false;
     };
-  }, [client, companyId]);
+  }, [client, companyId, initialEmployeeId]);
 
   useEffect(() => {
     if (!employeeId) return;

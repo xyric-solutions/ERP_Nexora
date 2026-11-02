@@ -10,6 +10,7 @@ import {
   type HrPolicyUpgradeWorkspace,
 } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { Field, panel, selectClass, State, useAttendanceRead, localDate } from "../components/hr-workspace-controls";
 type RecordItem = HrPolicyUpgradeWorkspace["items"][number];
 export function HrEmploymentPolicyUpgrades({
@@ -155,101 +156,111 @@ export function HrEmploymentPolicyUpgrades({
           narrow the employment options.
         </p>
       )}
-      {requesting && w && (
-        <form
-          className="space-y-4 rounded-lg border border-border p-4"
-          aria-label="Employment policy upgrade request"
-          onSubmit={(e) => {
-            e.preventDefault();
-            command({
-              action: "request",
-              company_id: companyId,
-              relationship_id: relationship,
-              target_policy_id: target,
-              effective_on: date,
-              reason,
-            });
-          }}
+      {w && (
+        <HrRecordDrawer
+          title="Request policy upgrade"
+          description="Prepare an employee policy change for independent review without leaving the register."
+          open={requesting}
+          busy={busy}
+          error={error}
+          notice={notice}
+          onClose={() => setRequesting(false)}
         >
-          <h3 className="font-semibold">Prepare upgrade for independent review</h3>
-          <Field title="Employee employment relationship">
-            <select
-              className={selectClass}
-              value={relationship}
-              required
-              disabled={busy}
-              onChange={(e) => {
-                setRelationship(e.target.value);
-                setTarget("");
-              }}
-            >
-              <option value="">Choose active approved employment</option>
-              {w.relationships.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          {selected && (
-            <p className="break-words text-sm">
-              Current policy: <strong>{selected.effective_policy}</strong> · retained state:{" "}
-              <strong>{selected.current_state}</strong>
-            </p>
-          )}
-          <Field title="Replacement approved policy">
-            <select
-              className={selectClass}
-              value={target}
-              required
-              disabled={busy || !relationship}
-              onChange={(e) => setTarget(e.target.value)}
-            >
-              <option value="">Choose a different approved policy</option>
-              {w.policies
-                .filter((p) => p.id !== selected?.effective_policy_id)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
+          <form
+            className="space-y-4 rounded-lg border border-border p-4"
+            aria-label="Employment policy upgrade request"
+            onSubmit={(e) => {
+              e.preventDefault();
+              command({
+                action: "request",
+                company_id: companyId,
+                relationship_id: relationship,
+                target_policy_id: target,
+                effective_on: date,
+                reason,
+              });
+            }}
+          >
+            <h3 className="font-semibold">Prepare upgrade for independent review</h3>
+            <Field title="Employee employment relationship">
+              <select
+                className={selectClass}
+                value={relationship}
+                required
+                disabled={busy}
+                onChange={(e) => {
+                  setRelationship(e.target.value);
+                  setTarget("");
+                }}
+              >
+                <option value="">Choose active approved employment</option>
+                {w.relationships.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.label}
                   </option>
                 ))}
-            </select>
-          </Field>
-          <p className="text-sm text-muted-foreground">
-            Create and independently approve the replacement policy above. It can remain Approved; the upgrade
-            authorizes it for this employment relationship. Matching employment state codes and governed exit
-            transitions are required.
-          </p>
-          <Field title="Upgrade effective date">
-            <Input
-              type="date"
-              required
-              value={date}
-              max={localDate()}
-              min={targetPolicy?.effective_from}
-              disabled={busy}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </Field>
-          <Field title="Policy upgrade reason">
-            <Textarea
-              value={reason}
-              required
-              minLength={10}
-              maxLength={500}
-              disabled={busy}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </Field>
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" className="text-primary-foreground!" disabled={busy}>
-              Submit upgrade request
-            </Button>
-            <Button type="button" variant="outline" disabled={busy} onClick={() => setRequesting(false)}>
-              Cancel preparation
-            </Button>
-          </div>
-        </form>
+              </select>
+            </Field>
+            {selected && (
+              <p className="break-words text-sm">
+                Current policy: <strong>{selected.effective_policy}</strong> · retained state:{" "}
+                <strong>{selected.current_state}</strong>
+              </p>
+            )}
+            <Field title="Replacement approved policy">
+              <select
+                className={selectClass}
+                value={target}
+                required
+                disabled={busy || !relationship}
+                onChange={(e) => setTarget(e.target.value)}
+              >
+                <option value="">Choose a different approved policy</option>
+                {w.policies
+                  .filter((p) => p.id !== selected?.effective_policy_id)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            <p className="text-sm text-muted-foreground">
+              Create and independently approve the replacement policy above. It can remain Approved; the upgrade
+              authorizes it for this employment relationship. Matching employment state codes and governed exit
+              transitions are required.
+            </p>
+            <Field title="Upgrade effective date">
+              <Input
+                type="date"
+                required
+                value={date}
+                max={localDate()}
+                min={targetPolicy?.effective_from}
+                disabled={busy}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </Field>
+            <Field title="Policy upgrade reason">
+              <Textarea
+                value={reason}
+                required
+                minLength={10}
+                maxLength={500}
+                disabled={busy}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </Field>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" className="text-primary-foreground!" disabled={busy}>
+                Submit upgrade request
+              </Button>
+              <Button type="button" variant="outline" disabled={busy} onClick={() => setRequesting(false)}>
+                Cancel preparation
+              </Button>
+            </div>
+          </form>
+        </HrRecordDrawer>
       )}
       {w && (
         <>

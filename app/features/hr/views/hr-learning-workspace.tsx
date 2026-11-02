@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { HrCompanyScope } from "../components/hr-company-scope";
 import { Field, State, Metric, panel, selectClass, useAttendanceRead } from "../components/hr-workspace-controls";
 import {
@@ -163,7 +164,7 @@ export function HrLearningBody({
     if (section === "programmes")
       terms = {
         kind: "programme",
-        code: "",
+        code: "AUTO",
         name: "",
         objectives: "",
         category: "Technical",
@@ -410,398 +411,412 @@ export function HrLearningBody({
           Search
         </Button>
       </form>
-      {editor && (
-        <form
-          className={panel + " space-y-4"}
-          aria-label="Learning editor"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void command(
-              {
-                action: editor.id ? "update" : "create",
-                company_id: company,
-                ...(editor.id ? { id: editor.id } : {}),
-                expected_version: editor.version,
-                ...(editor.terms.kind === "request" && mode === "hr" ? { employee_id: editor.employee } : {}),
-                terms: editor.terms,
-                reason,
-              },
-              true,
-            );
-          }}
+      {editor ? (
+        <HrRecordDrawer
+          title={`${editor.id ? "Edit" : "New"} ${editor.terms.kind}`}
+          description="Maintain the learning draft without leaving the current register."
+          open
+          busy={busy}
+          error={error}
+          notice={notice}
+          onClose={() => setEditor(null)}
         >
-          <h3 className="text-lg font-semibold">{editor.id ? "Edit retained draft" : "New " + editor.terms.kind}</h3>
-          {editor.terms.kind === "programme" && (
-            <>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field title="Programme code">
-                  <Input
-                    required
-                    maxLength={40}
-                    disabled={busy}
-                    value={editor.terms.code}
-                    onChange={(e) => patch({ code: e.target.value })}
-                  />
-                </Field>
-                <Field title="Programme name">
-                  <Input
-                    required
-                    maxLength={160}
-                    disabled={busy}
-                    value={editor.terms.name}
-                    onChange={(e) => patch({ name: e.target.value })}
-                  />
-                </Field>
-                <Field title="Category">
-                  <select
-                    className={selectClass}
-                    disabled={busy}
-                    value={editor.terms.category}
-                    onChange={(e) => patch({ category: e.target.value })}
-                  >
-                    {["Technical", "Compliance", "Leadership", "Safety", "Onboarding"].map((v) => (
-                      <option key={v}>{v}</option>
-                    ))}
-                  </select>
-                </Field>
-                <Field title="Delivery mode">
-                  <select
-                    className={selectClass}
-                    disabled={busy}
-                    value={editor.terms.delivery_mode}
-                    onChange={(e) => patch({ delivery_mode: e.target.value })}
-                  >
-                    {["Classroom", "Online", "On the job", "External"].map((v) => (
-                      <option key={v}>{v}</option>
-                    ))}
-                  </select>
-                </Field>
-                <Field title="Provider">
-                  <Input
-                    required
-                    maxLength={160}
-                    disabled={busy}
-                    value={editor.terms.provider}
-                    onChange={(e) => patch({ provider: e.target.value })}
-                  />
-                </Field>
-                <Field title="Required training minutes">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={44640}
-                    required
-                    disabled={busy}
-                    value={editor.terms.duration_minutes}
-                    onChange={(e) => patch({ duration_minutes: Number(e.target.value) })}
-                  />
-                </Field>
-                <Field title="Estimated cost per participant">
-                  <Input
-                    required
-                    inputMode="decimal"
-                    disabled={busy}
-                    value={editor.terms.cost_per_participant}
-                    onChange={(e) => patch({ cost_per_participant: e.target.value })}
-                  />
-                </Field>
-                <Field title="Cost currency">
-                  <Input
-                    required
-                    maxLength={3}
-                    disabled={busy}
-                    value={editor.terms.currency}
-                    onChange={(e) => patch({ currency: e.target.value.toUpperCase() })}
-                  />
-                </Field>
-                <Field title="Minimum attendance percent">
-                  <Input
-                    required
-                    type="number"
-                    min={1}
-                    max={100}
-                    disabled={busy}
-                    value={editor.terms.minimum_attendance_percent}
-                    onChange={(e) => patch({ minimum_attendance_percent: Number(e.target.value) })}
-                  />
-                </Field>
-                <Field title="Assessment pass mark (optional)">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    disabled={busy}
-                    value={editor.terms.pass_mark ?? ""}
-                    placeholder="Blank = assessment not required"
-                    onChange={(e) => patch({ pass_mark: e.target.value === "" ? null : Number(e.target.value) })}
-                  />
-                </Field>
-                <Field title="Certificate validity months (optional)">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={120}
-                    disabled={busy}
-                    value={editor.terms.validity_months ?? ""}
-                    placeholder="Blank = no expiry"
-                    onChange={(e) => patch({ validity_months: e.target.value === "" ? null : Number(e.target.value) })}
-                  />
-                </Field>
-              </div>
-              <Field title="Learning objectives">
-                <Textarea
-                  required
-                  minLength={12}
-                  maxLength={2000}
-                  disabled={busy}
-                  value={editor.terms.objectives}
-                  onChange={(e) => patch({ objectives: e.target.value })}
-                />
-              </Field>
-              <label htmlFor={mandatoryId} className="flex items-center gap-3 text-sm">
-                <Checkbox
-                  id={mandatoryId}
-                  checked={editor.terms.mandatory}
-                  disabled={busy}
-                  onCheckedChange={(v) => patch({ mandatory: v === true })}
-                />
-                Mandatory for active employees in this company
-              </label>
-              <Field title="Prerequisite programmes">
-                <select
-                  multiple
-                  className={selectClass + " min-h-24"}
-                  disabled={busy}
-                  value={editor.terms.prerequisite_ids}
-                  onChange={(e) =>
-                    patch({ prerequisite_ids: Array.from(e.target.selectedOptions).map((o) => o.value) })
-                  }
-                >
-                  {w?.programmes
-                    .filter((p) => p.id !== editor.id)
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {title(p)}
-                      </option>
-                    ))}
-                </select>
-              </Field>
-              <p className="text-xs text-muted-foreground">
-                Costs are estimates for HR review. Publishing or approving training creates no Accounting, Payroll or
-                Banking posting. Published terms are retained; create a successor programme when rules change.
-              </p>
-            </>
-          )}
-          {(editor.terms.kind === "request" || editor.terms.kind === "session") && (
-            <Field title="Training programme">
-              <select
-                required
-                className={selectClass}
-                disabled={busy || !!editor.id}
-                value={editor.terms.programme_id}
-                onChange={(e) => patch({ programme_id: e.target.value })}
-              >
-                <option value="">Select an active programme</option>
-                {w?.programmes.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {title(p)}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          )}
-          {editor.terms.kind === "request" && (
-            <>
-              {mode === "hr" && (
-                <Field title="Employee">
-                  <select
-                    className={selectClass}
-                    required
-                    disabled={busy || !!editor.id}
-                    value={editor.employee}
-                    onChange={(e) => {
-                      const employee = e.target.value;
-                      setEditor((v) =>
-                        v ? { ...v, employee, terms: { ...v.terms, goal_id: null, outcome_id: null } as Editable } : v,
-                      );
-                    }}
-                  >
-                    <option value="">Select employee with approved employment</option>
-                    {w?.employees.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {e.name} · {e.code}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              )}
-              <Field title="Development need and justification">
-                <Textarea
-                  required
-                  minLength={12}
-                  maxLength={2000}
-                  disabled={busy}
-                  value={editor.terms.justification}
-                  onChange={(e) => patch({ justification: e.target.value })}
-                />
-              </Field>
-              {mode === "hr" && (
+          <form
+            className={panel + " space-y-4"}
+            aria-label="Learning editor"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void command(
+                {
+                  action: editor.id ? "update" : "create",
+                  company_id: company,
+                  ...(editor.id ? { id: editor.id } : {}),
+                  expected_version: editor.version,
+                  ...(editor.terms.kind === "request" && mode === "hr" ? { employee_id: editor.employee } : {}),
+                  terms: editor.terms,
+                  reason,
+                },
+                true,
+              );
+            }}
+          >
+            <h3 className="text-lg font-semibold">{editor.id ? "Edit retained draft" : "New " + editor.terms.kind}</h3>
+            {editor.terms.kind === "programme" && (
+              <>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {(["goal", "outcome"] as const).map((k) => (
-                    <Field key={k} title={"Linked performance " + k + " (optional)"}>
-                      <select
-                        className={selectClass}
-                        disabled={busy}
-                        value={
-                          editor.terms.kind === "request"
-                            ? (editor.terms[k === "goal" ? "goal_id" : "outcome_id"] ?? "")
-                            : ""
-                        }
-                        onChange={(e) => patch({ [k === "goal" ? "goal_id" : "outcome_id"]: e.target.value || null })}
-                      >
-                        <option value="">No performance link</option>
-                        {w?.performance_links
-                          .filter((p) => p.kind === k && p.employee_id === editor.employee)
-                          .map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.label}
-                            </option>
-                          ))}
-                      </select>
-                    </Field>
-                  ))}
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">
-                The backend resolves the current reporting-manager account when you submit. HR approval is separate from
-                the author and manager; approval alone does not reserve a training seat.
-              </p>
-            </>
-          )}
-          {editor.terms.kind === "session" && (
-            <>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {(["title", "trainer", "location"] as const).map((k) => (
-                  <Field key={k} title={k === "title" ? "Session title" : label(k)}>
+                  <Field title="Programme code (automatic)">
                     <Input
                       required
-                      maxLength={k === "location" ? 240 : 160}
+                      maxLength={40}
                       disabled={busy}
-                      value={editor.terms.kind === "session" ? editor.terms[k] : ""}
-                      onChange={(e) => patch({ [k]: e.target.value })}
+                      value={editor.id ? editor.terms.code : "Assigned on save · TRN-001…"}
+                      readOnly
                     />
                   </Field>
-                ))}
-                <Field title="Session capacity">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={200}
+                  <Field title="Programme name">
+                    <Input
+                      required
+                      maxLength={160}
+                      disabled={busy}
+                      value={editor.terms.name}
+                      onChange={(e) => patch({ name: e.target.value })}
+                    />
+                  </Field>
+                  <Field title="Category">
+                    <select
+                      className={selectClass}
+                      disabled={busy}
+                      value={editor.terms.category}
+                      onChange={(e) => patch({ category: e.target.value })}
+                    >
+                      {["Technical", "Compliance", "Leadership", "Safety", "Onboarding"].map((v) => (
+                        <option key={v}>{v}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field title="Delivery mode">
+                    <select
+                      className={selectClass}
+                      disabled={busy}
+                      value={editor.terms.delivery_mode}
+                      onChange={(e) => patch({ delivery_mode: e.target.value })}
+                    >
+                      {["Classroom", "Online", "On the job", "External"].map((v) => (
+                        <option key={v}>{v}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field title="Provider">
+                    <Input
+                      required
+                      maxLength={160}
+                      disabled={busy}
+                      value={editor.terms.provider}
+                      onChange={(e) => patch({ provider: e.target.value })}
+                    />
+                  </Field>
+                  <Field title="Required training minutes">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={44640}
+                      required
+                      disabled={busy}
+                      value={editor.terms.duration_minutes}
+                      onChange={(e) => patch({ duration_minutes: Number(e.target.value) })}
+                    />
+                  </Field>
+                  <Field title="Estimated cost per participant">
+                    <Input
+                      required
+                      inputMode="decimal"
+                      disabled={busy}
+                      value={editor.terms.cost_per_participant}
+                      onChange={(e) => patch({ cost_per_participant: e.target.value })}
+                    />
+                  </Field>
+                  <Field title="Cost currency">
+                    <Input
+                      required
+                      maxLength={3}
+                      disabled={busy}
+                      value={editor.terms.currency}
+                      onChange={(e) => patch({ currency: e.target.value.toUpperCase() })}
+                    />
+                  </Field>
+                  <Field title="Minimum attendance percent">
+                    <Input
+                      required
+                      type="number"
+                      min={1}
+                      max={100}
+                      disabled={busy}
+                      value={editor.terms.minimum_attendance_percent}
+                      onChange={(e) => patch({ minimum_attendance_percent: Number(e.target.value) })}
+                    />
+                  </Field>
+                  <Field title="Assessment pass mark (optional)">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      disabled={busy}
+                      value={editor.terms.pass_mark ?? ""}
+                      placeholder="Blank = assessment not required"
+                      onChange={(e) => patch({ pass_mark: e.target.value === "" ? null : Number(e.target.value) })}
+                    />
+                  </Field>
+                  <Field title="Certificate validity months (optional)">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={120}
+                      disabled={busy}
+                      value={editor.terms.validity_months ?? ""}
+                      placeholder="Blank = no expiry"
+                      onChange={(e) =>
+                        patch({ validity_months: e.target.value === "" ? null : Number(e.target.value) })
+                      }
+                    />
+                  </Field>
+                </div>
+                <Field title="Learning objectives">
+                  <Textarea
                     required
+                    minLength={12}
+                    maxLength={2000}
                     disabled={busy}
-                    value={editor.terms.capacity}
-                    onChange={(e) => patch({ capacity: Number(e.target.value) })}
+                    value={editor.terms.objectives}
+                    onChange={(e) => patch({ objectives: e.target.value })}
                   />
                 </Field>
-              </div>
-              <fieldset className="space-y-3">
-                <legend className="mb-2 font-medium">Lesson schedule</legend>
+                <label htmlFor={mandatoryId} className="flex items-center gap-3 text-sm">
+                  <Checkbox
+                    id={mandatoryId}
+                    checked={editor.terms.mandatory}
+                    disabled={busy}
+                    onCheckedChange={(v) => patch({ mandatory: v === true })}
+                  />
+                  Mandatory for active employees in this company
+                </label>
+                <Field title="Prerequisite programmes">
+                  <select
+                    multiple
+                    className={selectClass + " min-h-24"}
+                    disabled={busy}
+                    value={editor.terms.prerequisite_ids}
+                    onChange={(e) =>
+                      patch({ prerequisite_ids: Array.from(e.target.selectedOptions).map((o) => o.value) })
+                    }
+                  >
+                    {w?.programmes
+                      .filter((p) => p.id !== editor.id)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {title(p)}
+                        </option>
+                      ))}
+                  </select>
+                </Field>
                 <p className="text-xs text-muted-foreground">
-                  Enter local times ({Intl.DateTimeFormat().resolvedOptions().timeZone}). Lessons are stored as absolute
-                  instants and cannot overlap.
+                  Costs are estimates for HR review. Publishing or approving training creates no Accounting, Payroll or
+                  Banking posting. Published terms are retained; create a successor programme when rules change.
                 </p>
-                {editor.terms.slots.map((slot, index) => (
-                  <div key={index} className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2">
-                    <Field title={"Lesson " + (index + 1) + " start"}>
-                      <Input
-                        type="datetime-local"
-                        required
-                        disabled={busy}
-                        value={localInput(slot.starts_at)}
-                        onChange={(e) => {
-                          if (editor.terms.kind !== "session") return;
-                          patch({
-                            slots: editor.terms.slots.map((s, i) =>
-                              i === index ? { ...s, starts_at: isoInput(e.target.value) } : s,
-                            ),
-                          });
-                        }}
-                      />
-                    </Field>
-                    <Field title={"Lesson " + (index + 1) + " end"}>
-                      <Input
-                        type="datetime-local"
-                        required
-                        disabled={busy}
-                        value={localInput(slot.ends_at)}
-                        onChange={(e) => {
-                          if (editor.terms.kind !== "session") return;
-                          patch({
-                            slots: editor.terms.slots.map((s, i) =>
-                              i === index ? { ...s, ends_at: isoInput(e.target.value) } : s,
-                            ),
-                          });
-                        }}
-                      />
-                    </Field>
-                    {editor.terms.kind === "session" && editor.terms.slots.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() => {
-                          if (editor.terms.kind === "session")
-                            patch({ slots: editor.terms.slots.filter((_, i) => i !== index) });
-                        }}
-                      >
-                        Remove lesson {index + 1}
-                      </Button>
-                    )}
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={busy || editor.terms.slots.length >= 31}
-                  onClick={() => {
-                    if (editor.terms.kind !== "session") return;
-                    const previous = editor.terms.slots.at(-1)!;
-                    patch({
-                      slots: [
-                        ...editor.terms.slots,
-                        {
-                          starts_at: new Date(Date.parse(previous.starts_at) + 86400000).toISOString(),
-                          ends_at: new Date(Date.parse(previous.ends_at) + 86400000).toISOString(),
-                        },
-                      ],
-                    });
-                  }}
+              </>
+            )}
+            {(editor.terms.kind === "request" || editor.terms.kind === "session") && (
+              <Field title="Training programme">
+                <select
+                  required
+                  className={selectClass}
+                  disabled={busy || !!editor.id}
+                  value={editor.terms.programme_id}
+                  onChange={(e) => patch({ programme_id: e.target.value })}
                 >
-                  Add lesson
-                </Button>
-              </fieldset>
-            </>
-          )}
-          <Field title="Learning change reason">
-            <Textarea
-              required
-              minLength={12}
-              maxLength={1000}
-              disabled={busy}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </Field>
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" disabled={busy || reason.trim().length < 12}>
-              Save learning draft
-            </Button>
-            <Button type="button" variant="outline" disabled={busy} onClick={() => setEditor(null)}>
-              Close editor
-            </Button>
-          </div>
-        </form>
-      )}
+                  <option value="">Select an active programme</option>
+                  {w?.programmes.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {title(p)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+            {editor.terms.kind === "request" && (
+              <>
+                {mode === "hr" && (
+                  <Field title="Employee">
+                    <select
+                      className={selectClass}
+                      required
+                      disabled={busy || !!editor.id}
+                      value={editor.employee}
+                      onChange={(e) => {
+                        const employee = e.target.value;
+                        setEditor((v) =>
+                          v
+                            ? { ...v, employee, terms: { ...v.terms, goal_id: null, outcome_id: null } as Editable }
+                            : v,
+                        );
+                      }}
+                    >
+                      <option value="">Select employee with approved employment</option>
+                      {w?.employees.map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.name} · {e.code}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                )}
+                <Field title="Development need and justification">
+                  <Textarea
+                    required
+                    minLength={12}
+                    maxLength={2000}
+                    disabled={busy}
+                    value={editor.terms.justification}
+                    onChange={(e) => patch({ justification: e.target.value })}
+                  />
+                </Field>
+                {mode === "hr" && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {(["goal", "outcome"] as const).map((k) => (
+                      <Field key={k} title={"Linked performance " + k + " (optional)"}>
+                        <select
+                          className={selectClass}
+                          disabled={busy}
+                          value={
+                            editor.terms.kind === "request"
+                              ? (editor.terms[k === "goal" ? "goal_id" : "outcome_id"] ?? "")
+                              : ""
+                          }
+                          onChange={(e) => patch({ [k === "goal" ? "goal_id" : "outcome_id"]: e.target.value || null })}
+                        >
+                          <option value="">No performance link</option>
+                          {w?.performance_links
+                            .filter((p) => p.kind === k && p.employee_id === editor.employee)
+                            .map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.label}
+                              </option>
+                            ))}
+                        </select>
+                      </Field>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  The backend resolves the current reporting-manager account when you submit. HR approval is separate
+                  from the author and manager; approval alone does not reserve a training seat.
+                </p>
+              </>
+            )}
+            {editor.terms.kind === "session" && (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {(["title", "trainer", "location"] as const).map((k) => (
+                    <Field key={k} title={k === "title" ? "Session title" : label(k)}>
+                      <Input
+                        required
+                        maxLength={k === "location" ? 240 : 160}
+                        disabled={busy}
+                        value={editor.terms.kind === "session" ? editor.terms[k] : ""}
+                        onChange={(e) => patch({ [k]: e.target.value })}
+                      />
+                    </Field>
+                  ))}
+                  <Field title="Session capacity">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={200}
+                      required
+                      disabled={busy}
+                      value={editor.terms.capacity}
+                      onChange={(e) => patch({ capacity: Number(e.target.value) })}
+                    />
+                  </Field>
+                </div>
+                <fieldset className="space-y-3">
+                  <legend className="mb-2 font-medium">Lesson schedule</legend>
+                  <p className="text-xs text-muted-foreground">
+                    Enter local times ({Intl.DateTimeFormat().resolvedOptions().timeZone}). Lessons are stored as
+                    absolute instants and cannot overlap.
+                  </p>
+                  {editor.terms.slots.map((slot, index) => (
+                    <div key={index} className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2">
+                      <Field title={"Lesson " + (index + 1) + " start"}>
+                        <Input
+                          type="datetime-local"
+                          required
+                          disabled={busy}
+                          value={localInput(slot.starts_at)}
+                          onChange={(e) => {
+                            if (editor.terms.kind !== "session") return;
+                            patch({
+                              slots: editor.terms.slots.map((s, i) =>
+                                i === index ? { ...s, starts_at: isoInput(e.target.value) } : s,
+                              ),
+                            });
+                          }}
+                        />
+                      </Field>
+                      <Field title={"Lesson " + (index + 1) + " end"}>
+                        <Input
+                          type="datetime-local"
+                          required
+                          disabled={busy}
+                          value={localInput(slot.ends_at)}
+                          onChange={(e) => {
+                            if (editor.terms.kind !== "session") return;
+                            patch({
+                              slots: editor.terms.slots.map((s, i) =>
+                                i === index ? { ...s, ends_at: isoInput(e.target.value) } : s,
+                              ),
+                            });
+                          }}
+                        />
+                      </Field>
+                      {editor.terms.kind === "session" && editor.terms.slots.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => {
+                            if (editor.terms.kind === "session")
+                              patch({ slots: editor.terms.slots.filter((_, i) => i !== index) });
+                          }}
+                        >
+                          Remove lesson {index + 1}
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busy || editor.terms.slots.length >= 31}
+                    onClick={() => {
+                      if (editor.terms.kind !== "session") return;
+                      const previous = editor.terms.slots.at(-1)!;
+                      patch({
+                        slots: [
+                          ...editor.terms.slots,
+                          {
+                            starts_at: new Date(Date.parse(previous.starts_at) + 86400000).toISOString(),
+                            ends_at: new Date(Date.parse(previous.ends_at) + 86400000).toISOString(),
+                          },
+                        ],
+                      });
+                    }}
+                  >
+                    Add lesson
+                  </Button>
+                </fieldset>
+              </>
+            )}
+            <Field title="Learning change reason">
+              <Textarea
+                required
+                minLength={12}
+                maxLength={1000}
+                disabled={busy}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </Field>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" disabled={busy || reason.trim().length < 12}>
+                Save learning draft
+              </Button>
+              <Button type="button" variant="outline" disabled={busy} onClick={() => setEditor(null)}>
+                Close editor
+              </Button>
+            </div>
+          </form>
+        </HrRecordDrawer>
+      ) : null}
       {w && !w.items.length && (
         <p className={panel + " text-sm text-muted-foreground"}>No learning records match this company and filter.</p>
       )}
@@ -1090,115 +1105,128 @@ export function HrLearningBody({
         </article>
       )}
       {attendance && (
-        <form
-          aria-label="Record training attendance"
-          className={panel + " space-y-4"}
-          onSubmit={(e) => {
-            e.preventDefault();
-            void command({
-              action: "attendance",
-              company_id: company,
-              id: attendance.record.id,
-              expected_version: attendance.record.version,
-              attendance: attendance.entries,
-              assessment_score: attendance.score === "" ? null : Number(attendance.score),
-              evidence_reference: attendance.reference,
-              reason,
-            });
-          }}
+        <HrRecordDrawer
+          title={`Attendance & assessment — ${attendance.record.employee_name}`}
+          description="Record verified lesson attendance and assessment evidence."
+          open
+          busy={busy}
+          error={error}
+          notice={notice}
+          onClose={() => setAttendance(null)}
         >
-          <h3 className="font-semibold">Attendance & assessment — {attendance.record.employee_name}</h3>
-          <p className="text-sm text-muted-foreground">
-            Record actual minutes for every finished lesson, including zero for absence. Completion and pass/fail
-            results are calculated from the published programme rules.
-          </p>
-          {attendance.entries.map((a, index) => (
-            <div className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2" key={a.starts_at}>
-              <Field title={"Attendance minutes for lesson " + (index + 1)}>
+          <form
+            aria-label="Record training attendance"
+            className={panel + " space-y-4"}
+            onSubmit={(e) => {
+              e.preventDefault();
+              void command({
+                action: "attendance",
+                company_id: company,
+                id: attendance.record.id,
+                expected_version: attendance.record.version,
+                attendance: attendance.entries,
+                assessment_score: attendance.score === "" ? null : Number(attendance.score),
+                evidence_reference: attendance.reference,
+                reason,
+              });
+            }}
+          >
+            <h3 className="font-semibold">Attendance & assessment — {attendance.record.employee_name}</h3>
+            <p className="text-sm text-muted-foreground">
+              Record actual minutes for every finished lesson, including zero for absence. Completion and pass/fail
+              results are calculated from the published programme rules.
+            </p>
+            {attendance.entries.map((a, index) => (
+              <div className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2" key={a.starts_at}>
+                <Field title={"Attendance minutes for lesson " + (index + 1)}>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={1440}
+                    required
+                    disabled={busy}
+                    value={a.minutes}
+                    onChange={(e) =>
+                      setAttendance((v) =>
+                        v
+                          ? {
+                              ...v,
+                              entries: v.entries.map((x, i) =>
+                                i === index ? { ...x, minutes: Number(e.target.value) } : x,
+                              ),
+                            }
+                          : v,
+                      )
+                    }
+                  />
+                </Field>
+                <Field title={"Attendance note for lesson " + (index + 1)}>
+                  <Input
+                    maxLength={500}
+                    disabled={busy}
+                    value={a.note}
+                    onChange={(e) =>
+                      setAttendance((v) =>
+                        v
+                          ? {
+                              ...v,
+                              entries: v.entries.map((x, i) => (i === index ? { ...x, note: e.target.value } : x)),
+                            }
+                          : v,
+                      )
+                    }
+                  />
+                </Field>
+                <p className="text-xs text-muted-foreground sm:col-span-2">
+                  {new Date(a.starts_at).toLocaleString()} · Planned{" "}
+                  {Math.round((Date.parse(attendance.session.slots[index]!.ends_at) - Date.parse(a.starts_at)) / 60000)}{" "}
+                  minutes
+                </p>
+              </div>
+            ))}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field title="Assessment score percent">
                 <Input
                   type="number"
                   min={0}
-                  max={1440}
-                  required
+                  max={100}
                   disabled={busy}
-                  value={a.minutes}
-                  onChange={(e) =>
-                    setAttendance((v) =>
-                      v
-                        ? {
-                            ...v,
-                            entries: v.entries.map((x, i) =>
-                              i === index ? { ...x, minutes: Number(e.target.value) } : x,
-                            ),
-                          }
-                        : v,
-                    )
-                  }
+                  value={attendance.score}
+                  placeholder="Required when programme has a pass mark"
+                  onChange={(e) => setAttendance((v) => (v ? { ...v, score: e.target.value } : v))}
                 />
               </Field>
-              <Field title={"Attendance note for lesson " + (index + 1)}>
+              <Field title="Verified training evidence reference">
                 <Input
+                  required
+                  minLength={12}
                   maxLength={500}
                   disabled={busy}
-                  value={a.note}
-                  onChange={(e) =>
-                    setAttendance((v) =>
-                      v
-                        ? { ...v, entries: v.entries.map((x, i) => (i === index ? { ...x, note: e.target.value } : x)) }
-                        : v,
-                    )
-                  }
+                  value={attendance.reference}
+                  onChange={(e) => setAttendance((v) => (v ? { ...v, reference: e.target.value } : v))}
                 />
               </Field>
-              <p className="text-xs text-muted-foreground sm:col-span-2">
-                {new Date(a.starts_at).toLocaleString()} · Planned{" "}
-                {Math.round((Date.parse(attendance.session.slots[index]!.ends_at) - Date.parse(a.starts_at)) / 60000)}{" "}
-                minutes
-              </p>
             </div>
-          ))}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field title="Assessment score percent">
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                disabled={busy}
-                value={attendance.score}
-                placeholder="Required when programme has a pass mark"
-                onChange={(e) => setAttendance((v) => (v ? { ...v, score: e.target.value } : v))}
-              />
-            </Field>
-            <Field title="Verified training evidence reference">
-              <Input
+            <Field title="Attendance change reason">
+              <Textarea
                 required
                 minLength={12}
-                maxLength={500}
+                maxLength={1000}
                 disabled={busy}
-                value={attendance.reference}
-                onChange={(e) => setAttendance((v) => (v ? { ...v, reference: e.target.value } : v))}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
               />
             </Field>
-          </div>
-          <Field title="Attendance change reason">
-            <Textarea
-              required
-              minLength={12}
-              maxLength={1000}
-              disabled={busy}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </Field>
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" disabled={busy || reason.trim().length < 12}>
-              Save attendance evidence
-            </Button>
-            <Button type="button" variant="outline" disabled={busy} onClick={() => setAttendance(null)}>
-              Close attendance editor
-            </Button>
-          </div>
-        </form>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" disabled={busy || reason.trim().length < 12}>
+                Save attendance evidence
+              </Button>
+              <Button type="button" variant="outline" disabled={busy} onClick={() => setAttendance(null)}>
+                Close attendance editor
+              </Button>
+            </div>
+          </form>
+        </HrRecordDrawer>
       )}
       {section === "completions" && w && (
         <div className={panel + " space-y-3"}>

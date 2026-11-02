@@ -8,7 +8,8 @@ import type { CompanyMode } from "@prototype/shared/fixtures/mock-data";
 export type PrototypePageArchetype =
   "dashboard" | "list" | "detail" | "form" | "approval" | "workflow" | "report" | "settings";
 
-export type PrototypePageStatus = "in-progress" | "read-only" | "live" | "prototype" | "coming-soon" | "not-implemented";
+export type PrototypePageStatus =
+  "in-progress" | "read-only" | "live" | "prototype" | "coming-soon" | "not-implemented";
 export type PrototypeModuleCategory =
   "Command centre" | "Finance & trade" | "Operations & people" | "Platform & governance";
 
@@ -746,6 +747,7 @@ export const prototypeModules = [
     modes: allModes,
     groups: [
       g("organisation", "Organisation & Masters", [
+        p("organisation-masters", "Organisation & Masters", "dashboard", "live"),
         p("org-structure", "Organisation Structure", "list", "live"),
         p("designations", "Designations", "list", "live"),
         p("job-grades", "Job Grades", "list", "live"),
@@ -756,6 +758,7 @@ export const prototypeModules = [
         p("employee-categories", "Employee Categories", "list", "live"),
       ]),
       g("people", "People", [
+        p("people-workspace", "People", "dashboard", "live"),
         p("hr-dashboard", "HR Dashboard", "dashboard", "live"),
         p("finance-payroll-dashboard", "Finance / Payroll Dashboard", "dashboard", "live"),
         p("employees", "Employee Directory", "list", "live"),
@@ -771,6 +774,7 @@ export const prototypeModules = [
         p("positions-org", "Positions & Organisation", "list", "live"),
       ]),
       g("recruitment", "Recruitment", [
+        p("recruitment-workspace", "Recruitment", "dashboard", "live"),
         p("manpower-requisitions", "Manpower Requisitions", "approval", "live"),
         p("job-openings", "Job Openings", "list", "live"),
         p("candidates", "Candidate Directory", "list", "live"),
@@ -780,6 +784,7 @@ export const prototypeModules = [
         p("create-employee-from-offer", "Create Employee from Offer", "workflow", "live"),
       ]),
       g("attendance-shifts", "Attendance & Shifts", [
+        p("attendance-workspace", "Attendance & Shifts", "dashboard", "live"),
         p("shifts", "Shifts & Rules", "settings", "live"),
         p("shift-assignments", "Shift Assignments", "list", "live"),
         p("daily-attendance", "Daily Attendance", "list", "live"),
@@ -790,6 +795,7 @@ export const prototypeModules = [
         p("attendance-payroll-inputs", "Attendance → Payroll Inputs", "report", "live"),
       ]),
       g("time-leave", "Time & Leave", [
+        p("time-leave-workspace", "Time & Leave", "dashboard", "live"),
         p("leave-types", "Leave Types", "settings", "live"),
         p("leave-balances", "Leave Balances", "list", "live"),
         p("attendance", "Attendance", "list", "live"),
@@ -798,6 +804,7 @@ export const prototypeModules = [
         p("leave-approval", "Leave Approval", "approval", "live"),
       ]),
       g("payroll", "Payroll", [
+        p("payroll-workspace", "Payroll", "dashboard", "live"),
         p("payroll-setup", "Pay Components", "settings", "live"),
         p("salary-structures", "Salary Structures", "list", "live"),
         p("salary-revisions", "Salary Revisions", "approval", "live"),
@@ -806,22 +813,25 @@ export const prototypeModules = [
         p("payroll-validation", "Payroll Review & Approval", "approval", "live"),
         p("employee-loans", "Loans & Advances", "list", "live"),
         p("payroll-journal", "Payroll Journal", "report", "live"),
-        p("payment-batch", "Payment Batch", "workflow", "read-only"),
+        p("payment-batch", "Payment Batch", "workflow", "live"),
         p("payslips", "Payslips", "workflow", "live"),
       ]),
       g("performance", "Performance Management", [
+        p("performance-workspace", "Performance Management", "dashboard", "live"),
         p("performance-cycles", "Performance Cycles", "settings", "live"),
         p("goals-kpis", "Goals & KPIs", "workflow", "live"),
         p("performance-reviews", "Performance Reviews", "approval", "live"),
         p("performance-outcomes", "Performance Outcomes", "workflow", "live"),
       ]),
       g("learning", "Learning & Development", [
+        p("learning-workspace", "Learning & Development", "dashboard", "live"),
         p("training-programs", "Training Programmes", "settings", "live"),
         p("training-requests", "Training Requests", "approval", "live"),
         p("training-sessions", "Training Sessions", "workflow", "live"),
         p("training-completions", "Completion & Certificates", "workflow", "live"),
       ]),
       g("employee-lifecycle", "Employee Lifecycle", [
+        p("employee-lifecycle-workspace", "Employee Lifecycle", "dashboard", "live"),
         p("lifecycle-policies", "Lifecycle Policies", "settings", "live"),
         p("onboarding", "Onboarding", "workflow", "live"),
         p("probation-reviews", "Probation Reviews", "approval", "live"),
@@ -833,12 +843,14 @@ export const prototypeModules = [
         p("offboarding", "Offboarding Control Centre", "workflow", "live"),
       ]),
       g("benefits-self-service", "Benefits & Self-service", [
+        p("benefits-self-service-workspace", "Benefits & Self-service", "dashboard", "live"),
         p("loans-benefits", "Loans, Benefits & Gratuity", "list", "live"),
         p("statutory-deductions", "Statutory Deductions", "settings", "live"),
         p("employee-self-service", "Employee Self-service", "dashboard", "live"),
         p("hr-report-centre", "HR & Payroll Report Centre", "report", "live"),
       ]),
       g("hr-compliance", "Reporting, Compliance & Audit", [
+        p("hr-compliance-workspace", "Reporting, Compliance & Audit", "dashboard", "live"),
         p("hr-compliance-configuration", "Compliance Configuration", "settings", "live"),
         p("hr-report-audit-log", "Report Audit Log", "report", "live"),
         p("hr-export-centre", "Secure Export Centre", "workflow", "live"),

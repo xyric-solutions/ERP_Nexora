@@ -6,6 +6,10 @@ import {
   type PayrollCalculationSalary,
 } from "../../server/api/src/modules/hr/payroll-calculation.js";
 describe("Exact Payroll execution mathematics", () => {
+  it("evaluates generated component references without changing subtraction", () => {
+    expect(evaluatePayrollFormula("[PAY-001] * 0.1 - 5", { "PAY-001": D.parse("1000") }).decimal(2)).toBe("95.00");
+    expect(evaluatePayrollFormula("BASIC-5", { BASIC: D.parse("1000") }).decimal(2)).toBe("995.00");
+  });
   it("adds decimal values without binary float loss", () =>
     expect(D.parse("0.1").add(D.parse("0.2")).decimal(2)).toBe("0.30"));
   it("retains large monetary amounts and exact rational division", () =>

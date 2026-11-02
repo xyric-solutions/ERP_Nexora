@@ -1,3 +1,4 @@
+import { allocateHrCode } from "./record-codes.js";
 import { requirePersonalLeaveEmployee, canManagePersonalLeave } from "./self-leave-authority.js";
 import type { CreateHrSelfLeaveRequest } from "@nexora/contracts";
 import { readLeaveBalances, leaveUnits, leaveDecimal } from "./leave-balances.js";
@@ -249,6 +250,7 @@ export class TimeLeave {
       input,
       async (client) => {
         await this.validatePolicy(client, c, input.company_id, input.paid, input.policy);
+        input = { ...input, code: await allocateHrCode(client, c.tenantId, input.company_id, "leave", input.code) };
         const id = `leave-type-${randomUUID()}`,
           p = input.policy;
         await client.query(

@@ -1,4 +1,5 @@
 "use client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -16,17 +17,14 @@ import { HrApiClient } from "../api/hr-client";
 
 type LoadState = "loading" | "ready" | "unavailable";
 
-export function HrEmployeeDraftsWorkspace({
-  onAction,
-}: {
-  onAction: (action: string, subject?: string) => void;
-}) {
+export function HrEmployeeDraftsWorkspace({ onAction }: { onAction: (action: string, subject?: string) => void }) {
   const { api, csrfToken, session } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [drafts, setDrafts] = useState<Awaited<ReturnType<HrApiClient["employeeDrafts"]>>["items"]>([]);
   const [selected, setSelected] = useState<HrEmployeeDraftDetail | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [submitReason, setSubmitReason] = useState("");
@@ -82,6 +80,7 @@ export function HrEmployeeDraftsWorkspace({
   }, [appliedSearch, client, companyId, refreshKey]);
 
   const openDraft = (employeeId: string) => {
+    setDrawerOpen(true);
     setDetailState("loading");
     setError("");
     client
@@ -113,6 +112,7 @@ export function HrEmployeeDraftsWorkspace({
       );
       setNotice(`${result.employee_number} was submitted for HR approval and remains inactive.`);
       setSelected(null);
+      setDrawerOpen(false);
       setSubmitReason("");
       setRefreshKey((current) => current + 1);
       onAction("Employee draft submitted", result.employee_number);
@@ -137,12 +137,12 @@ export function HrEmployeeDraftsWorkspace({
   }
 
   return (
-    <section className="grid min-w-0 gap-4" aria-label="Employee drafts">
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
-        <label className="grid min-w-55 flex-1 gap-1.5 text-sm font-medium text-foreground">
+    <section className="grid min-w-0 grid-cols-1 gap-4" aria-label="Employee drafts">
+      <div className="flex min-w-0 flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
+        <label className="grid min-w-0 basis-full gap-1.5 text-sm font-medium text-foreground sm:basis-55 sm:flex-1">
           Company
           <select
-            className="h-9 rounded-md border border-input bg-background px-2.5 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2.5 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             disabled={state === "loading" || companies.length === 0}
             value={companyId}
             onChange={(event) => setCompanyId(event.target.value)}
@@ -155,13 +155,13 @@ export function HrEmployeeDraftsWorkspace({
           </select>
         </label>
         <form
-          className="flex min-w-65 flex-1 items-end gap-2"
+          className="flex min-w-0 basis-full flex-wrap items-end gap-2 sm:basis-65 sm:flex-1"
           onSubmit={(event) => {
             event.preventDefault();
             setAppliedSearch(search.trim());
           }}
         >
-          <label className="grid flex-1 gap-1.5 text-sm font-medium text-foreground">
+          <label className="grid min-w-0 flex-1 gap-1.5 text-sm font-medium text-foreground">
             Search draft
             <Input
               value={search}
@@ -200,8 +200,8 @@ export function HrEmployeeDraftsWorkspace({
       ) : null}
 
       {state === "ready" ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(20rem,.75fr)]">
-          <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
+        <div className="grid min-w-0 grid-cols-1 gap-4">
+          <div className="relative min-w-0 w-full overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
             <table className="w-full min-w-180 text-left text-sm">
               <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
@@ -245,71 +245,79 @@ export function HrEmployeeDraftsWorkspace({
             </table>
           </div>
 
-          <aside className="rounded-lg border border-border bg-card p-4 shadow-sm">
-            {detailState === "loading" ? (
-              <div className="grid gap-2">
-                <Skeleton className="h-5 w-40" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-20 w-full" />
-              </div>
-            ) : null}
-            {detailState === "unavailable" ? (
-              <Alert variant="destructive">
-                <AlertTitle>Draft unavailable</AlertTitle>
-                <AlertDescription>The selected draft could not be loaded in your current scope.</AlertDescription>
-              </Alert>
-            ) : null}
-            {!selected && detailState === "ready" ? (
-              <p className="text-sm text-muted-foreground">
-                Select a draft to review its permitted profile fields and submit it for approval.
-              </p>
-            ) : null}
-            {selected ? (
-              <div className="grid gap-4">
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <h2 className="font-semibold text-foreground">{selected.display_name}</h2>
-                    <Badge variant="secondary">Draft</Badge>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {selected.employee_number} · Joined {selected.joined_on}
-                  </p>
+          <HrRecordDrawer
+            title="Employee draft"
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            busy={submitting}
+            error={error}
+          >
+            <aside className="rounded-lg border border-border bg-card p-4 shadow-sm">
+              {detailState === "loading" ? (
+                <div className="grid gap-2">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-20 w-full" />
                 </div>
-                <dl className="grid gap-2 text-sm">
+              ) : null}
+              {detailState === "unavailable" ? (
+                <Alert variant="destructive">
+                  <AlertTitle>Draft unavailable</AlertTitle>
+                  <AlertDescription>The selected draft could not be loaded in your current scope.</AlertDescription>
+                </Alert>
+              ) : null}
+              {!selected && detailState === "ready" ? (
+                <p className="text-sm text-muted-foreground">
+                  Select a draft to review its permitted profile fields and submit it for approval.
+                </p>
+              ) : null}
+              {selected ? (
+                <div className="grid gap-4">
                   <div>
-                    <dt className="text-muted-foreground">Work email</dt>
-                    <dd className="font-medium text-foreground">{selected.work_email || "Not provided"}</dd>
+                    <div className="flex items-center justify-between gap-2">
+                      <h2 className="font-semibold text-foreground">{selected.display_name}</h2>
+                      <Badge variant="secondary">Draft</Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {selected.employee_number} · Joined {selected.joined_on}
+                    </p>
                   </div>
-                  <div>
-                    <dt className="text-muted-foreground">Phone</dt>
-                    <dd className="font-medium text-foreground">{selected.phone || "Not provided"}</dd>
-                  </div>
-                </dl>
-                <label className="grid gap-1.5 text-sm font-medium text-foreground">
-                  Submission reason
-                  <Textarea
-                    disabled={!canSubmit || submitting}
-                    value={submitReason}
-                    onChange={(event) => setSubmitReason(event.target.value)}
-                    maxLength={1000}
-                    placeholder="Explain why this profile is ready for approval."
-                  />
-                </label>
-                {canSubmit ? (
-                  <Button type="button" disabled={submitting} onClick={submitDraft}>
-                    {submitting ? "Submitting…" : "Submit for approval"}
-                  </Button>
-                ) : (
-                  <Alert>
-                    <AlertTitle>Submission permission required</AlertTitle>
-                    <AlertDescription>
-                      Your session can view this draft but cannot submit it for approval.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-            ) : null}
-          </aside>
+                  <dl className="grid gap-2 text-sm">
+                    <div>
+                      <dt className="text-muted-foreground">Work email</dt>
+                      <dd className="font-medium text-foreground">{selected.work_email || "Not provided"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Phone</dt>
+                      <dd className="font-medium text-foreground">{selected.phone || "Not provided"}</dd>
+                    </div>
+                  </dl>
+                  <label className="grid gap-1.5 text-sm font-medium text-foreground">
+                    Submission reason
+                    <Textarea
+                      disabled={!canSubmit || submitting}
+                      value={submitReason}
+                      onChange={(event) => setSubmitReason(event.target.value)}
+                      maxLength={1000}
+                      placeholder="Explain why this profile is ready for approval."
+                    />
+                  </label>
+                  {canSubmit ? (
+                    <Button type="button" disabled={submitting} onClick={submitDraft}>
+                      {submitting ? "Submitting…" : "Submit for approval"}
+                    </Button>
+                  ) : (
+                    <Alert>
+                      <AlertTitle>Submission permission required</AlertTitle>
+                      <AlertDescription>
+                        Your session can view this draft but cannot submit it for approval.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              ) : null}
+            </aside>
+          </HrRecordDrawer>
         </div>
       ) : null}
     </section>

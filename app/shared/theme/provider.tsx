@@ -193,7 +193,14 @@ export function DashboardAppearanceMenu() {
             role="menuitemradio"
             aria-checked={preference === option.value}
             data-active={preference === option.value || undefined}
-            onClick={() => setPreference(option.value)}
+            onClick={(event) => {
+              setPreference(option.value);
+              const menu = event.currentTarget.closest("details");
+              if (menu) {
+                menu.open = false;
+                menu.querySelector("summary")?.focus();
+              }
+            }}
           >
             {option.label}
           </button>

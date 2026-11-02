@@ -1,3 +1,4 @@
+import { allocateHrCode } from "./record-codes.js";
 import { requireSettlementPayrollDecision } from "./settlement-payroll.js";
 import { confirmLoanDisbursement, loanDisbursementOptions, requireLoanDisbursementAuthority } from "./payroll-loans.js";
 import { randomUUID } from "node:crypto";
@@ -50,7 +51,7 @@ export function loanSchedule(principal: string, count: number, scale = 4): strin
 }
 /** Validate a bounded arithmetic grammar; never evaluate administrator input as JavaScript. */
 export function validatePayrollFormula(formula: string, allowed: ReadonlySet<string>): void {
-  const tokens = formula.match(/\d+(?:\.\d{1,4})?|[A-Za-z][A-Za-z0-9_]*|[+*/(),-]/g) ?? [];
+  const tokens = formula.match(/\[[A-Za-z][A-Za-z0-9_-]*\]|\d+(?:\.\d{1,4})?|[A-Za-z][A-Za-z0-9_]*|[+*/(),-]/g) ?? [];
   if (tokens.join("") !== formula.replace(/\s/g, "") || tokens.length > 200 || !tokens.length)
     fail("Use numbers, approved variables, arithmetic and min/max/round only.");
   let i = 0,
@@ -77,7 +78,7 @@ export function validatePayrollFormula(formula: string, allowed: ReadonlySet<str
       }
       if (tokens[i++] !== ")" || (t === "round" ? count !== 2 : count < 2))
         fail("Use two arguments for round and at least two for min/max.");
-    } else if (!t || !allowed.has(t)) fail("A formula contains an unavailable or forward component reference.");
+    } else if (!t || !allowed.has(t.startsWith("[") ? t.slice(1, -1) : t)) fail("A formula contains an unavailable or forward component reference.");
     depth--;
   };
   const term = (): void => {
@@ -343,7 +344,7 @@ export class PayrollWorkspace {
       const items = [];
       for (const row of rows) items.push(await this.map(client, c, q.section, row));
       const notices = [
-        "Reviewed statutory setup is available in Pay Components. Salary, monetary overtime, funded loan recoveries and supported published statutory calculations are available in Payroll Runs. Rule bundles require independent review and an authorized publisher. Payroll journals use independent Finance acceptance and shared General Ledger posting. Payslips support independent publication and frozen documents. Payment integration is deferred until Banking delivery.",
+        "Reviewed statutory setup is available in Pay Components. Salary, monetary overtime, funded loan recoveries and supported published statutory calculations are available in Payroll Runs. Rule bundles require independent review and an authorized publisher. Payroll journals use independent Finance acceptance and shared General Ledger posting. Payslips support independent publication and frozen documents. Payment Batch prepares salary obligations and confirms actual posted Banking payments at exact carrying-value parity.",
       ];
       if (q.section === "salaries")
         notices.push(
@@ -579,6 +580,10 @@ export class PayrollWorkspace {
           tenant = c.tenantId,
           company = input.company_id,
           actor = c.actor.userId;
+        if (input.kind === "component" || input.kind === "structure")
+          input = { ...input, code: await allocateHrCode(client, tenant, company, input.kind, input.code) };
+        if (input.kind === "loan")
+          input = { ...input, reference: await allocateHrCode(client, tenant, company, "loan", input.reference) };
         let status = "draft";
         if (input.kind === "component") {
           const account = (

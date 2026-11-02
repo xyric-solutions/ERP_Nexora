@@ -1,4 +1,5 @@
 "use client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -86,7 +87,7 @@ function ScheduleForm({
     if (await run(payload)) close();
   };
   return (
-    <form onSubmit={submit} className="grid gap-4 rounded-xl border border-primary/30 bg-card p-5 shadow-sm">
+    <form onSubmit={submit} className="grid min-w-0 gap-4 rounded-xl border border-primary/30 bg-card p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="m-0 text-lg font-semibold">
@@ -235,7 +236,7 @@ function EvaluationForm({
     });
   };
   return (
-    <form onSubmit={submit} className="grid gap-4 border-t border-border pt-4">
+    <form onSubmit={submit} className="grid min-w-0 gap-4 border-t border-border pt-4">
       <div>
         <h4 className="m-0 font-semibold">Your panel scorecard</h4>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -680,7 +681,7 @@ export function HrInterviewsWorkspace() {
         </label>
         <div className="flex flex-wrap items-center justify-between gap-2 md:col-span-3">
           <span className="text-xs text-muted-foreground">{apps.total} matching applications · up to 50 per page</span>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               variant="outline"
@@ -773,44 +774,56 @@ export function HrInterviewsWorkspace() {
                   </AlertDescription>
                 </Alert>
               ) : null}
-              {editor && canUpdate ? (
-                <>
-                  <form
-                    className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      setPanelQuery(panelSearch);
-                    }}
-                  >
-                    <label className="grid flex-1 gap-1 text-sm">
-                      Find panel account
-                      <Input
-                        value={panelSearch}
-                        maxLength={160}
-                        placeholder="Name or email"
-                        onChange={(e) => setPanelSearch(e.target.value)}
-                      />
-                    </label>
-                    <Button type="submit" variant="outline" disabled={busy}>
-                      Find panel
-                    </Button>
-                    <span className="w-full text-xs text-muted-foreground">
-                      Up to 100 company-authorized accounts. Refine the search if needed.
-                    </span>
-                  </form>
-                  <ScheduleForm
-                    key={`${applicationId}-${editor}-${selectedId}`}
-                    scope={scope}
-                    panel={panel}
-                    busy={busy}
-                    run={run}
-                    close={() => setEditor(null)}
-                    interview={editor === "reschedule" ? selected : undefined}
-                  />
-                </>
-              ) : null}
+              <HrRecordDrawer
+                title={editor === "reschedule" ? "Reschedule interview" : "Schedule interview"}
+                open={!!editor && canUpdate}
+                onClose={() => setEditor(null)}
+                busy={busy}
+                error={error}
+                notice={notice}
+              >
+                {editor && canUpdate ? (
+                  <>
+                    <form
+                      className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        setPanelQuery(panelSearch);
+                      }}
+                    >
+                      <label className="grid flex-1 gap-1 text-sm">
+                        Find panel account
+                        <Input
+                          value={panelSearch}
+                          maxLength={160}
+                          placeholder="Name or email"
+                          onChange={(e) => setPanelSearch(e.target.value)}
+                        />
+                      </label>
+                      <Button type="submit" variant="outline" disabled={busy}>
+                        Find panel
+                      </Button>
+                      <span className="w-full text-xs text-muted-foreground">
+                        Up to 100 company-authorized accounts. Refine the search if needed.
+                      </span>
+                    </form>
+                    <ScheduleForm
+                      key={`${applicationId}-${editor}-${selectedId}`}
+                      scope={scope}
+                      panel={panel}
+                      busy={busy}
+                      run={run}
+                      close={() => setEditor(null)}
+                      interview={editor === "reschedule" ? selected : undefined}
+                    />
+                  </>
+                ) : null}
+              </HrRecordDrawer>
               {workspace.interviews.length ? (
-                <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Interview rounds">
+                <div
+                  className="relative min-w-0 flex flex-wrap gap-2 overflow-x-auto pb-1"
+                  aria-label="Interview rounds"
+                >
                   {workspace.interviews.map((item) => (
                     <Button
                       key={item.id}
@@ -837,7 +850,7 @@ export function HrInterviewsWorkspace() {
                 </div>
               )}
               {selected ? (
-                <article className="grid gap-4 rounded-xl border border-border bg-card p-5">
+                <article className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <h4 className="m-0 text-lg font-semibold">
@@ -872,13 +885,22 @@ export function HrInterviewsWorkspace() {
                   </div>
                   {canUpdate && editable && ["scheduled", "no_show"].includes(selected.status) ? (
                     <>
-                      <StatusForm
-                        key={`${selected.id}-${selected.version}`}
-                        scope={scope}
-                        interview={selected}
+                      <HrRecordDrawer
+                        title="Record interview outcome"
+                        triggerLabel="Record interview outcome"
+                        completionKey={notice}
                         busy={busy}
-                        run={run}
-                      />
+                        error={error}
+                        notice={notice}
+                      >
+                        <StatusForm
+                          key={`${selected.id}-${selected.version}`}
+                          scope={scope}
+                          interview={selected}
+                          busy={busy}
+                          run={run}
+                        />
+                      </HrRecordDrawer>
                       {scheduleAllowed ? (
                         <Button variant="outline" disabled={busy} onClick={() => setEditor("reschedule")}>
                           Reschedule interview
@@ -891,7 +913,16 @@ export function HrInterviewsWorkspace() {
                   selected.status === "completed" &&
                   selected.panel.some((person) => person.user_id === session.user.id) &&
                   !ownEvaluation ? (
-                    <EvaluationForm key={selected.id} scope={scope} interview={selected} busy={busy} run={run} />
+                    <HrRecordDrawer
+                      title="Interview evaluation"
+                      triggerLabel="Interview evaluation"
+                      completionKey={notice}
+                      busy={busy}
+                      error={error}
+                      notice={notice}
+                    >
+                      <EvaluationForm key={selected.id} scope={scope} interview={selected} busy={busy} run={run} />
+                    </HrRecordDrawer>
                   ) : null}
                   {selected.evaluations.length ? (
                     <div className="grid gap-3 border-t border-border pt-4">
@@ -938,66 +969,84 @@ export function HrInterviewsWorkspace() {
                     </div>
                     <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{item.reason}</p>
                     {canUpdate && editable && item.status === "pending" ? (
-                      <AssessmentDecision scope={scope} assessment={item} busy={busy} run={run} />
+                      <HrRecordDrawer
+                        title="Record assessment outcome"
+                        triggerLabel="Record assessment outcome"
+                        completionKey={notice}
+                        busy={busy}
+                        error={error}
+                        notice={notice}
+                      >
+                        <AssessmentDecision scope={scope} assessment={item} busy={busy} run={run} />
+                      </HrRecordDrawer>
                     ) : null}
                   </article>
                 ))}
                 {canUpdate && editable ? (
-                  <form
-                    className="grid gap-3 rounded-lg bg-muted/40 p-3"
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      if (
-                        await run({
-                          ...scope,
-                          action: "assessment_add",
-                          title: assessmentTitle,
-                          mandatory,
-                          reason: assessmentReason,
-                        })
-                      ) {
-                        setAssessmentTitle("");
-                        setAssessmentReason("");
-                      }
-                    }}
+                  <HrRecordDrawer
+                    title="Add assessment"
+                    triggerLabel="Add assessment"
+                    completionKey={notice}
+                    busy={busy}
+                    error={error}
+                    notice={notice}
                   >
-                    <label className="grid gap-1.5 text-sm">
-                      Assessment title
-                      <Input
-                        required
-                        maxLength={160}
-                        value={assessmentTitle}
-                        onChange={(e) => setAssessmentTitle(e.target.value)}
-                        placeholder="Technical test, reference check…"
-                      />
-                    </label>
-                    <label className="flex items-center gap-2 text-sm">
-                      <Checkbox checked={mandatory} onCheckedChange={(value) => setMandatory(!!value)} />
-                      Required before selection
-                    </label>
-                    <label className="grid gap-1.5 text-sm">
-                      Assessment instructions
-                      <Textarea
-                        required
-                        maxLength={1000}
-                        value={assessmentReason}
-                        onChange={(e) => setAssessmentReason(e.target.value)}
-                      />
-                    </label>
-                    <Button
-                      type="submit"
-                      variant="outline"
-                      disabled={busy || !assessmentTitle.trim() || !assessmentReason.trim()}
+                    <form
+                      className="grid gap-3 rounded-lg bg-muted/40 p-3"
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (
+                          await run({
+                            ...scope,
+                            action: "assessment_add",
+                            title: assessmentTitle,
+                            mandatory,
+                            reason: assessmentReason,
+                          })
+                        ) {
+                          setAssessmentTitle("");
+                          setAssessmentReason("");
+                        }
+                      }}
                     >
-                      <Plus className="size-4" />
-                      Add assessment
-                    </Button>
-                  </form>
+                      <label className="grid gap-1.5 text-sm">
+                        Assessment title
+                        <Input
+                          required
+                          maxLength={160}
+                          value={assessmentTitle}
+                          onChange={(e) => setAssessmentTitle(e.target.value)}
+                          placeholder="Technical test, reference check…"
+                        />
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <Checkbox checked={mandatory} onCheckedChange={(value) => setMandatory(!!value)} />
+                        Required before selection
+                      </label>
+                      <label className="grid gap-1.5 text-sm">
+                        Assessment instructions
+                        <Textarea
+                          required
+                          maxLength={1000}
+                          value={assessmentReason}
+                          onChange={(e) => setAssessmentReason(e.target.value)}
+                        />
+                      </label>
+                      <Button
+                        type="submit"
+                        variant="outline"
+                        disabled={busy || !assessmentTitle.trim() || !assessmentReason.trim()}
+                      >
+                        <Plus className="size-4" />
+                        Add assessment
+                      </Button>
+                    </form>
+                  </HrRecordDrawer>
                 ) : null}
               </div>
             </div>
             <aside className="grid min-w-0 gap-4">
-              <div className="grid gap-4 rounded-2xl border border-primary/20 bg-card p-5">
+              <div className="grid min-w-0 gap-4 rounded-2xl border border-primary/20 bg-card p-5">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="size-5 text-primary" />
                   <h3 className="m-0 text-lg font-semibold">Selection readiness</h3>
@@ -1007,7 +1056,7 @@ export function HrInterviewsWorkspace() {
                   evaluations
                 </p>
                 {workspace.readiness.ready ? (
-                  <div className="flex gap-2 rounded-lg bg-primary/10 p-3 text-sm">
+                  <div className="flex flex-wrap gap-2 rounded-lg bg-primary/10 p-3 text-sm">
                     <CheckCircle2 className="size-5 shrink-0 text-primary" />
                     Interview evidence meets the selection requirements.
                   </div>
@@ -1019,30 +1068,39 @@ export function HrInterviewsWorkspace() {
                   </ul>
                 )}
                 {canSelect && workspace.application.stage === "evaluation" ? (
-                  <form
-                    className="grid gap-3 border-t border-border pt-3"
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      await run({ ...scope, action: "select", reason: decisionReason });
-                    }}
+                  <HrRecordDrawer
+                    title="Confirm candidate selection"
+                    triggerLabel="Confirm candidate selection"
+                    completionKey={notice}
+                    busy={busy}
+                    error={error}
+                    notice={notice}
                   >
-                    <label className="grid gap-1.5 text-sm">
-                      Selection reason
-                      <Textarea
-                        required
-                        maxLength={1000}
-                        value={decisionReason}
-                        onChange={(e) => setDecisionReason(e.target.value)}
-                      />
-                    </label>
-                    <Button
-                      type="submit"
-                      className="text-primary-foreground!"
-                      disabled={busy || !workspace.readiness.ready || !decisionReason.trim()}
+                    <form
+                      className="grid gap-3 border-t border-border pt-3"
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        await run({ ...scope, action: "select", reason: decisionReason });
+                      }}
                     >
-                      Confirm selection
-                    </Button>
-                  </form>
+                      <label className="grid gap-1.5 text-sm">
+                        Selection reason
+                        <Textarea
+                          required
+                          maxLength={1000}
+                          value={decisionReason}
+                          onChange={(e) => setDecisionReason(e.target.value)}
+                        />
+                      </label>
+                      <Button
+                        type="submit"
+                        className="text-primary-foreground!"
+                        disabled={busy || !workspace.readiness.ready || !decisionReason.trim()}
+                      >
+                        Confirm selection
+                      </Button>
+                    </form>
+                  </HrRecordDrawer>
                 ) : (
                   <p className="text-xs text-muted-foreground">
                     Selection requires the Evaluation stage and HR approval permission. Hiring follows the
@@ -1058,7 +1116,7 @@ export function HrInterviewsWorkspace() {
               </div>
               <div className="rounded-xl border border-border bg-card p-5">
                 <h3 className="m-0 font-semibold">Evidence activity</h3>
-                <div className="mt-4 grid gap-4">
+                <div className="mt-4 grid min-w-0 gap-4">
                   {workspace.history.length ? (
                     workspace.history
                       .slice()

@@ -14,6 +14,7 @@ import {
   type HrSelfServiceWorkspace,
 } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import {
   Field,
   State,
@@ -163,8 +164,15 @@ export function HrPersonalLeaveApplications({ company, items, opened, onOpen, on
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      {create && (
-        <form aria-label="Apply for personal leave" onSubmit={save} className={panel + " space-y-4"}>
+      <HrRecordDrawer
+        title="New leave request"
+        description="Review the eligible calendar and save a personal leave draft."
+        open={create}
+        busy={busy}
+        error={error}
+        onClose={() => setCreate(false)}
+      >
+        <form aria-label="Apply for personal leave" onSubmit={save} className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="font-semibold">Review and save a leave draft</h3>
@@ -343,7 +351,7 @@ export function HrPersonalLeaveApplications({ company, items, opened, onOpen, on
             {busy ? "Saving…" : "Save leave draft"}
           </Button>
         </form>
-      )}
+      </HrRecordDrawer>
       {!create &&
         items.map((r) => (
           <article className={panel} key={r.id}>
