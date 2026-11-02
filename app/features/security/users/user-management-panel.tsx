@@ -1,4 +1,5 @@
 "use client";
+import { IdentitySheet } from "../identity-sheet";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import type {
@@ -107,6 +108,7 @@ export default function UserManagementPanel({
         setUsers(page.items);
         setOptions(loadedOptions);
         if (detailId) setSelected(await api.getSecurityUser(detailId));
+        else setSelected(null);
         return true;
       } catch {
         setMessage("User accounts are unavailable or your account is not authorized for this scope.");
@@ -342,24 +344,30 @@ export default function UserManagementPanel({
   }
 
   if (!canRead) {
-    return <p className="p-9 text-center text-sm text-muted-foreground">You do not have permission to view governed user accounts.</p>;
+    return (
+      <p className="p-9 text-center text-sm text-muted-foreground">
+        You do not have permission to view governed user accounts.
+      </p>
+    );
   }
 
   return (
-    <div className="min-h-105 text-foreground">
+    <div className="min-h-105 min-w-0 text-foreground">
       <div className="flex flex-wrap justify-between gap-4 border-b border-border bg-muted/60 px-5 py-4">
         <form
-          className="flex flex-1 flex-wrap gap-2"
+          className="flex min-w-0 flex-1 flex-wrap gap-2"
           onSubmit={(event: FormEvent) => {
             event.preventDefault();
             setAppliedQuery(query.trim());
           }}
         >
-          <div>
-            <Label className="sr-only" htmlFor="user-search">Search users</Label>
+          <div className="min-w-0 basis-full sm:basis-70">
+            <Label className="sr-only" htmlFor="user-search">
+              Search users
+            </Label>
             <Input
               id="user-search"
-              className="min-w-70"
+              className="min-w-0 w-full"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search name, username, or email"
@@ -400,41 +408,52 @@ export default function UserManagementPanel({
             <option value="true">Deleted / archived users</option>
             <option value="">All including deleted</option>
           </select>
-          <Button type="submit" variant="outline" disabled={loading}>Search</Button>
+          <Button type="submit" variant="outline" disabled={loading}>
+            Search
+          </Button>
         </form>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => void load(selected?.id)} disabled={loading}>
             Refresh
           </Button>
-          {canCreate ? (
-            <Button onClick={openCreate}>
-              Create user
-            </Button>
-          ) : null}
+          {canCreate ? <Button onClick={openCreate}>Create user</Button> : null}
         </div>
       </div>
 
       {message ? (
-        <Alert className="mx-5 mt-4 border-[var(--nx-info-border)] bg-[var(--nx-info-soft)] text-[var(--nx-info)]" role="status">
+        <Alert
+          className="mx-5 mt-4 border-[var(--nx-info-border)] bg-[var(--nx-info-soft)] text-[var(--nx-info)]"
+          role="status"
+        >
           <AlertDescription className="text-[var(--nx-info)]">{message}</AlertDescription>
         </Alert>
       ) : null}
-      {showCreate ? (
-        <UserWizard
-          options={options}
-          busy={busy}
-          draftKey={draftKey}
-          initialDraft={initialDraft}
-          onCancel={() => {
-            setShowCreate(false);
-            onCreateModeChange?.(false);
-          }}
-          onSubmit={(request, idempotencySeed) =>
-            createAndSubmitUser(request, "User request submitted for independent approval.", idempotencySeed)
-          }
-        />
-      ) : null}
-
+      <IdentitySheet
+        open={showCreate}
+        title="Create user"
+        busy={busy}
+        message={message}
+        onClose={() => {
+          setShowCreate(false);
+          onCreateModeChange?.(false);
+        }}
+      >
+        {showCreate && !loading ? (
+          <UserWizard
+            options={options}
+            busy={busy}
+            draftKey={draftKey}
+            initialDraft={initialDraft}
+            onCancel={() => {
+              setShowCreate(false);
+              onCreateModeChange?.(false);
+            }}
+            onSubmit={(request, idempotencySeed) =>
+              createAndSubmitUser(request, "User request submitted for independent approval.", idempotencySeed)
+            }
+          />
+        ) : null}
+      </IdentitySheet>
       {checkedUsers.length > 0 ? (
         <div className="flex flex-wrap items-center gap-3 bg-[var(--nx-info-soft)] px-5 py-3 text-sm">
           <strong>{checkedUsers.length} selected</strong>
@@ -450,53 +469,62 @@ export default function UserManagementPanel({
           {bulkActions.length === 0 ? <span>No common permitted action. Identity edits require one user.</span> : null}
         </div>
       ) : null}
-      {pendingAction ? (
-        <form
-          className="mx-5 my-4 rounded-lg border border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] p-4"
-          aria-label="Confirm user action"
-          onSubmit={(event) => void confirmUserAction(event)}
-        >
-          <h3 className="text-lg font-semibold">
-            {pendingAction.action === "archive" ? "Confirm soft delete" : "Confirm user action"} ·{" "}
-            {pendingAction.users.length} user(s)
-          </h3>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {pendingAction.action === "archive" || pendingAction.action === "deactivate"
-              ? "Delete and deactivate use the existing governed archive lifecycle. After checker approval, login and company access are revoked. Records and audit history remain; restore requires company access and activation approval."
-              : "Each user is processed separately. Governed changes require independent approval; lock and session revocation take effect immediately."}
-          </p>
-          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
-            {pendingAction.users.map((user) => (
-              <li key={user.id}>
-                {user.display_name} · {user.email}
-              </li>
-            ))}
-          </ul>
-          <Label className="mt-4 grid gap-2 text-sm text-muted-foreground">
-            Administrative reason
-            <Input
-              value={actionReason}
-              onChange={(event) => setActionReason(event.target.value)}
-              maxLength={512}
-              required
-              disabled={busy}
-            />
-          </Label>
-          <div className="mt-4 flex gap-2">
-            <Button type="button" variant="outline" disabled={busy} onClick={() => setPendingAction(null)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={busy || !actionReason.trim()}>
-              Confirm action
-            </Button>
-          </div>
-        </form>
-      ) : null}
-
-      <div className={selected ? "grid min-w-0 lg:grid-cols-[minmax(420px,1fr)_minmax(380px,0.85fr)]" : "grid min-w-0"}>
+      <IdentitySheet
+        open={Boolean(pendingAction)}
+        title="Confirm user action"
+        busy={busy}
+        message={message}
+        onClose={() => setPendingAction(null)}
+      >
+        {pendingAction ? (
+          <form
+            className="mx-5 my-4 rounded-lg border border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] p-4"
+            aria-label="Confirm user action"
+            onSubmit={(event) => void confirmUserAction(event)}
+          >
+            <h3 className="text-lg font-semibold">
+              {pendingAction.action === "archive" ? "Confirm soft delete" : "Confirm user action"} ·{" "}
+              {pendingAction.users.length} user(s)
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {pendingAction.action === "archive" || pendingAction.action === "deactivate"
+                ? "Delete and deactivate use the existing governed archive lifecycle. After checker approval, login and company access are revoked. Records and audit history remain; restore requires company access and activation approval."
+                : "Each user is processed separately. Governed changes require independent approval; lock and session revocation take effect immediately."}
+            </p>
+            <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
+              {pendingAction.users.map((user) => (
+                <li key={user.id}>
+                  {user.display_name} · {user.email}
+                </li>
+              ))}
+            </ul>
+            <Label className="mt-4 grid gap-2 text-sm text-muted-foreground">
+              Administrative reason
+              <Input
+                value={actionReason}
+                onChange={(event) => setActionReason(event.target.value)}
+                maxLength={512}
+                required
+                disabled={busy}
+              />
+            </Label>
+            <div className="mt-4 flex gap-2">
+              <Button type="button" variant="outline" disabled={busy} onClick={() => setPendingAction(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={busy || !actionReason.trim()}>
+                Confirm action
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </IdentitySheet>
+      <div className="grid min-w-0 grid-cols-1">
         <div className="min-w-0" aria-busy={loading}>
           {loading ? <p className="p-9 text-center text-sm text-muted-foreground">Loading governed users...</p> : null}
-          {!loading && users.length === 0 ? <p className="p-9 text-center text-sm text-muted-foreground">No users match the current filters.</p> : null}
+          {!loading && users.length === 0 ? (
+            <p className="p-9 text-center text-sm text-muted-foreground">No users match the current filters.</p>
+          ) : null}
           {users.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full min-w-190 border-collapse text-left text-sm">
@@ -514,12 +542,23 @@ export default function UserManagementPanel({
                         onChange={(checked) => setCheckedIds(checked ? users.map((user) => user.id) : [])}
                       />
                     </th>
-                    {['Name', 'Username', 'Email', 'Status', 'Employee link', 'Roles', 'Action'].map((label) => <th className="px-4 py-3 text-xs font-semibold text-muted-foreground" scope="col" key={label}>{label}</th>)}
+                    {["Name", "Username", "Email", "Status", "Employee link", "Roles", "Action"].map((label) => (
+                      <th className="px-4 py-3 text-xs font-semibold text-muted-foreground" scope="col" key={label}>
+                        {label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {users.map((user) => (
-                    <tr key={user.id} className={selected?.id === user.id ? "border-b border-border bg-[var(--nx-selection-background)] shadow-[inset_3px_0_var(--nx-focus-color)]" : "border-b border-border hover:bg-[var(--nx-selection-background)]"}>
+                    <tr
+                      key={user.id}
+                      className={
+                        selected?.id === user.id
+                          ? "border-b border-border bg-[var(--nx-selection-background)] shadow-[inset_3px_0_var(--nx-focus-color)]"
+                          : "border-b border-border hover:bg-[var(--nx-selection-background)]"
+                      }
+                    >
                       <td className="px-4 py-3">
                         <SelectionCheckbox
                           label={`Select user ${user.display_name}`}
@@ -541,28 +580,49 @@ export default function UserManagementPanel({
                           aria-pressed={selected?.id === user.id}
                           aria-label={`Open user ${user.display_name}`}
                         >
-                          <span className="grid size-10 place-items-center rounded-full bg-accent font-bold text-primary" aria-hidden="true">
+                          <span
+                            className="grid size-10 place-items-center rounded-full bg-accent font-bold text-primary"
+                            aria-hidden="true"
+                          >
                             {user.display_name.slice(0, 2).toLocaleUpperCase("en-US")}
                           </span>
                           <span>{user.display_name}</span>
                         </Button>
                         {user.pending_request_count > 0 ? (
-                          <span className="ml-12 mt-1.5 inline-block rounded-full bg-[var(--nx-purple-soft)] px-2 py-1 text-xs font-semibold text-[var(--nx-purple)]">{user.pending_request_count} pending</span>
+                          <span className="ml-12 mt-1.5 inline-block rounded-full bg-[var(--nx-purple-soft)] px-2 py-1 text-xs font-semibold text-[var(--nx-purple)]">
+                            {user.pending_request_count} pending
+                          </span>
                         ) : null}
                       </th>
                       <td className="px-4 py-3">{user.username}</td>
                       <td className="px-4 py-3">{user.email}</td>
                       <td className="px-4 py-3">
-                        <span className={user.status === "active" ? "rounded-full bg-[var(--nx-success-soft)] px-2 py-1 text-xs font-semibold capitalize text-[var(--nx-success-text)]" : user.status === "locked" ? "rounded-full bg-[var(--nx-warning-soft)] px-2 py-1 text-xs font-semibold capitalize text-[var(--nx-warning)]" : "rounded-full bg-muted px-2 py-1 text-xs font-semibold capitalize text-muted-foreground"}>
+                        <span
+                          className={
+                            user.status === "active"
+                              ? "rounded-full bg-[var(--nx-success-soft)] px-2 py-1 text-xs font-semibold capitalize text-[var(--nx-success-text)]"
+                              : user.status === "locked"
+                                ? "rounded-full bg-[var(--nx-warning-soft)] px-2 py-1 text-xs font-semibold capitalize text-[var(--nx-warning)]"
+                                : "rounded-full bg-muted px-2 py-1 text-xs font-semibold capitalize text-muted-foreground"
+                          }
+                        >
                           {user.archived_at ? "Deleted (archived)" : user.status}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={user.employee_linked ? "rounded-full bg-[var(--nx-info-soft)] px-2 py-1 text-xs font-semibold text-[var(--nx-info)]" : "rounded-full bg-muted px-2 py-1 text-xs font-semibold text-[var(--nx-warning)]"}>
+                        <span
+                          className={
+                            user.employee_linked
+                              ? "rounded-full bg-[var(--nx-info-soft)] px-2 py-1 text-xs font-semibold text-[var(--nx-info)]"
+                              : "rounded-full bg-muted px-2 py-1 text-xs font-semibold text-[var(--nx-warning)]"
+                          }
+                        >
                           {user.employee_linked ? "Employee linked" : "Not linked"}
                         </span>
                       </td>
-                      <td className="px-4 py-3">{user.role_names.length ? user.role_names.join(", ") : "No active roles"}</td>
+                      <td className="px-4 py-3">
+                        {user.role_names.length ? user.role_names.join(", ") : "No active roles"}
+                      </td>
                       <td className="px-4 py-3">
                         <ActionSelect
                           label={`Action for user ${user.display_name}`}
@@ -578,26 +638,37 @@ export default function UserManagementPanel({
             </div>
           ) : null}
         </div>
-        {selected ? (
-          <UserDetail
-            key={`${selected.id}:${selected.row_version}:${detailKey}`}
-            initialMode={detailMode}
-            user={selected}
-            options={options}
-            permissions={permissions}
-            busy={busy}
-            onClose={() => {
-              setSelected(null);
-              onNavigateUser?.(null);
-            }}
-            onGovernedAction={async (request) => {
-              await createAndSubmitUser(request, "User change submitted for independent approval.");
-            }}
-            onEmergency={emergency}
-            onAssignRole={(proposal) => createAndSubmitAssignment("create", proposal)}
-            onRevokeRole={(proposal) => createAndSubmitAssignment("revoke", proposal)}
-          />
-        ) : null}
+        <IdentitySheet
+          open={Boolean(selected)}
+          title={detailMode === "summary" ? "User account details" : "Update user account"}
+          busy={busy}
+          message={message}
+          onClose={() => {
+            setSelected(null);
+            onNavigateUser?.(null);
+          }}
+        >
+          {selected ? (
+            <UserDetail
+              key={`${selected.id}:${selected.row_version}:${detailKey}`}
+              initialMode={detailMode}
+              user={selected}
+              options={options}
+              permissions={permissions}
+              busy={busy}
+              onClose={() => {
+                setSelected(null);
+                onNavigateUser?.(null);
+              }}
+              onGovernedAction={async (request) => {
+                await createAndSubmitUser(request, "User change submitted for independent approval.");
+              }}
+              onEmergency={emergency}
+              onAssignRole={(proposal) => createAndSubmitAssignment("create", proposal)}
+              onRevokeRole={(proposal) => createAndSubmitAssignment("revoke", proposal)}
+            />
+          ) : null}
+        </IdentitySheet>
       </div>
     </div>
   );

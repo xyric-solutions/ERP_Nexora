@@ -1335,7 +1335,7 @@ export function BankingReceiptEntry({
               </tr>
             </tfoot>
           </table>
-          <p className="bg-amber-50 px-4 py-2 text-xs font-medium text-amber-900">
+          <p className="bg-[var(--nx-warning-soft)] px-4 py-2 text-xs font-medium text-[var(--nx-warning)]">
             Preview only — Finance revalidates accounts, currency, rate, period and balance during explicit posting.
           </p>
         </section>

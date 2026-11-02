@@ -1,4 +1,5 @@
 "use client";
+import { IdentitySheet } from "./identity-sheet";
 
 import { useMemo, useState, type FormEvent } from "react";
 import type { CreateSecurityAssignmentRequest } from "@nexora/contracts";
@@ -311,42 +312,52 @@ export default function GovernedTable({
           Show deleted / historical records
         </label>
       ) : null}
-      {editing ? (
-        <RoleForm
-          initial={roleDraftFromRow(editing)}
-          busy={busy}
-          onCancel={() => setEditing(null)}
-          onSave={async (draft, key) => {
-            setBusy(true);
-            try {
-              await api.actOnSecurityRole(
-                {
-                  action: "edit",
-                  policy_id: String(editing.policy_id),
-                  role_id: String(editing.role_id),
-                  expected_version: Number(editing.row_version),
-                  draft,
-                },
-                csrfToken(),
-                key,
-              );
-              await onChanged();
-              setMessage("Draft permissions updated and audited. Existing policy restrictions preserved.");
-              return true;
-            } catch (error) {
-              setMessage(
-                error instanceof ApiError
-                  ? error.message
-                  : "Draft update rejected. Review constraints and current version.",
-              );
-              return false;
-            } finally {
-              setBusy(false);
-            }
-          }}
-        />
-      ) : null}
-      {detail ? <RecordDetails row={detail} onClose={() => setDetail(null)} /> : null}
+      <IdentitySheet
+        open={Boolean(editing)}
+        title="Edit role permissions"
+        busy={busy}
+        message={message}
+        onClose={() => setEditing(null)}
+      >
+        {editing ? (
+          <RoleForm
+            initial={roleDraftFromRow(editing)}
+            busy={busy}
+            onCancel={() => setEditing(null)}
+            onSave={async (draft, key) => {
+              setBusy(true);
+              try {
+                await api.actOnSecurityRole(
+                  {
+                    action: "edit",
+                    policy_id: String(editing.policy_id),
+                    role_id: String(editing.role_id),
+                    expected_version: Number(editing.row_version),
+                    draft,
+                  },
+                  csrfToken(),
+                  key,
+                );
+                await onChanged();
+                setMessage("Draft permissions updated and audited. Existing policy restrictions preserved.");
+                return true;
+              } catch (error) {
+                setMessage(
+                  error instanceof ApiError
+                    ? error.message
+                    : "Draft update rejected. Review constraints and current version.",
+                );
+                return false;
+              } finally {
+                setBusy(false);
+              }
+            }}
+          />
+        ) : null}
+      </IdentitySheet>
+      <IdentitySheet open={Boolean(detail)} title="Administration record details" onClose={() => setDetail(null)}>
+        {detail ? <RecordDetails row={detail} onClose={() => setDetail(null)} /> : null}
+      </IdentitySheet>
       {chosen.length ? (
         <div className="flex flex-wrap items-center gap-3 border-b border-[var(--nx-info-border)] bg-[var(--nx-info-soft)] px-5 py-3 text-sm">
           <strong>{chosen.length} selected</strong>
@@ -364,69 +375,77 @@ export default function GovernedTable({
           ) : null}
         </div>
       ) : null}
-      {pending ? (
-        <form
-          className="border-b border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] px-5 py-5"
-          onSubmit={(event) => void confirm(event)}
-          aria-label="Confirm administration action"
-        >
-          <h3 className="text-lg font-semibold text-foreground">
-            {pending.action === "request_archive" || pending.action === "revoke"
-              ? "Confirm soft delete"
-              : "Confirm action"}{" "}
-            · {pending.rows.length} record(s)
-          </h3>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {pending.action === "request_archive" || pending.action === "revoke"
-              ? "No records are physically erased. Approval archives the role or revokes the assignment, preserving audit history."
-              : "Each record is processed separately with existing authorization and maker-checker controls."}
-          </p>
-          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
-            {pending.rows.map((row) => (
-              <li key={rowId(tab, row)}>{display(row.display_name ?? row.role_code ?? row.request_id)}</li>
-            ))}
-          </ul>
-          {pendingRequiresOverride ? <SuperAdminOverrideWarning className="mt-4" /> : null}
-          {pendingReasonRequired ? (
-            <Label className="mt-4 grid gap-2 text-sm text-muted-foreground">
-              Business reason
-              <Input
-                required
-                maxLength={512}
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                disabled={busy}
-              />
-            </Label>
-          ) : null}
-          {pending.action === "edit" && tab === "assignments" ? (
-            <>
+      <IdentitySheet
+        open={Boolean(pending)}
+        title="Confirm administration action"
+        busy={busy}
+        message={message}
+        onClose={() => setPending(null)}
+      >
+        {pending ? (
+          <form
+            className="border-b border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] px-5 py-5"
+            onSubmit={(event) => void confirm(event)}
+            aria-label="Confirm administration action"
+          >
+            <h3 className="text-lg font-semibold text-foreground">
+              {pending.action === "request_archive" || pending.action === "revoke"
+                ? "Confirm soft delete"
+                : "Confirm action"}{" "}
+              · {pending.rows.length} record(s)
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {pending.action === "request_archive" || pending.action === "revoke"
+                ? "No records are physically erased. Approval archives the role or revokes the assignment, preserving audit history."
+                : "Each record is processed separately with existing authorization and maker-checker controls."}
+            </p>
+            <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
+              {pending.rows.map((row) => (
+                <li key={rowId(tab, row)}>{display(row.display_name ?? row.role_code ?? row.request_id)}</li>
+              ))}
+            </ul>
+            {pendingRequiresOverride ? <SuperAdminOverrideWarning className="mt-4" /> : null}
+            {pendingReasonRequired ? (
               <Label className="mt-4 grid gap-2 text-sm text-muted-foreground">
-                Valid from (ISO timestamp)
+                Business reason
                 <Input
                   required
-                  value={validFrom}
-                  onChange={(event) => setValidFrom(event.target.value)}
+                  maxLength={512}
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
                   disabled={busy}
                 />
               </Label>
-              <Label className="mt-4 grid gap-2 text-sm text-muted-foreground">
-                Valid until (ISO timestamp, optional)
-                <Input value={validUntil} onChange={(event) => setValidUntil(event.target.value)} disabled={busy} />
-              </Label>
-            </>
-          ) : null}
-          <div className="mt-5 flex gap-2">
-            <Button type="button" variant="outline" disabled={busy} onClick={() => setPending(null)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={busy || (pendingReasonRequired && !reason.trim())}>
-              Confirm{tab === "approvals" ? " decision" : " and submit"}
-            </Button>
-          </div>
-        </form>
-      ) : null}
-      <div className="overflow-auto">
+            ) : null}
+            {pending.action === "edit" && tab === "assignments" ? (
+              <>
+                <Label className="mt-4 grid gap-2 text-sm text-muted-foreground">
+                  Valid from (ISO timestamp)
+                  <Input
+                    required
+                    value={validFrom}
+                    onChange={(event) => setValidFrom(event.target.value)}
+                    disabled={busy}
+                  />
+                </Label>
+                <Label className="mt-4 grid gap-2 text-sm text-muted-foreground">
+                  Valid until (ISO timestamp, optional)
+                  <Input value={validUntil} onChange={(event) => setValidUntil(event.target.value)} disabled={busy} />
+                </Label>
+              </>
+            ) : null}
+            <div className="mt-5 flex gap-2">
+              <Button type="button" variant="outline" disabled={busy} onClick={() => setPending(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={busy || (pendingReasonRequired && !reason.trim())}>
+                Confirm{tab === "approvals" ? " decision" : " and submit"}
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </IdentitySheet>
+      <div className="min-w-0 overflow-auto">
         <table className="w-full min-w-180 border-collapse text-sm">
           <thead className="bg-muted/60">
             <tr>

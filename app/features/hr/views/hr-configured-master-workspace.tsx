@@ -158,7 +158,7 @@ export function HrConfiguredMasterWorkspace({ definition }: { definition: HrConf
 
     <div className="grid gap-3 sm:grid-cols-3">
       <SummaryCard label="Total records" value={records.length} />
-      <SummaryCard label="Active" value={activeCount} tone="text-emerald-600" />
+      <SummaryCard label="Active" value={activeCount} tone="text-[var(--nx-success-text)]" />
       <SummaryCard label="Inactive history" value={records.length - activeCount} />
     </div>
 

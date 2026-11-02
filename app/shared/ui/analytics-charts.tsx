@@ -10,11 +10,12 @@
  */
 
 import type { CSSProperties, ReactNode } from "react";
+import { chartLinePath } from "./chart-geometry";
 
 /**
  * Series identity tones.
  *
- * The seven categorical tones map to the validated cool palette in
+ * The seven categorical tones map to the reference amber/olive palette in
  * `theme-colors.css`, in FIXED ORDER. They previously pointed at brand and status
  * tokens (`--nx-success`, `--nx-warning`, `--nx-danger`) plus two raw hexes,
  * which meant a status colour could impersonate a series. Status now has its
@@ -60,10 +61,8 @@ const chartToneTextColor: Record<ChartTone, string> = {
   other: "var(--nx-on-chart-other)",
 };
 
-/** The categorical order. It is the colour-blind-safety mechanism: do not rearrange. */
-export const toneOrder: readonly ChartCategoricalTone[] = [
-  "blue", "plum", "cyan", "violet", "teal", "indigo", "sky",
-];
+/** Compatibility slot order keeps category identity stable across every chart. */
+export const toneOrder: readonly ChartCategoricalTone[] = ["blue", "plum", "cyan", "violet", "teal", "indigo", "sky"];
 
 /** The ordinal ramp, for stages and tiers where the order carries meaning. */
 export const ordinalRamp: readonly string[] = [
@@ -117,16 +116,26 @@ function ChartTable({
     <table className="nx-sr-only">
       <caption>{caption}</caption>
       <thead>
-        <tr>{columns.map((column) => <th key={column} scope="col">{column}</th>)}</tr>
+        <tr>
+          {columns.map((column) => (
+            <th key={column} scope="col">
+              {column}
+            </th>
+          ))}
+        </tr>
       </thead>
       <tbody>
         {rows.map((row, rowIndex) => (
           <tr key={`${row[0]}-${rowIndex}`}>
-            {row.map((cell, cellIndex) => (
-              cellIndex === 0
-                ? <th key={`${cell}-${cellIndex}`} scope="row">{cell}</th>
-                : <td key={`${cell}-${cellIndex}`}>{cell}</td>
-            ))}
+            {row.map((cell, cellIndex) =>
+              cellIndex === 0 ? (
+                <th key={`${cell}-${cellIndex}`} scope="row">
+                  {cell}
+                </th>
+              ) : (
+                <td key={`${cell}-${cellIndex}`}>{cell}</td>
+              ),
+            )}
           </tr>
         ))}
       </tbody>
@@ -172,8 +181,7 @@ export function Sparkline({
     x: roundTo(index * step),
     y: roundTo(height - ((value - minimum) / span) * (height - 4) - 2),
   }));
-  const line = points.map((point, index) => `${index === 0 ? "M" : "L"}${point.x} ${point.y}`).join(" ");
-  const area = `${line} L${width} ${height} L0 ${height} Z`;
+  const line = chartLinePath(points);
   const color = chartToneColor[tone];
   const last = points[points.length - 1];
 
@@ -186,7 +194,6 @@ export function Sparkline({
       aria-label={label}
       focusable="false"
     >
-      <path d={area} fill={color} opacity={0.14} />
       <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
       <circle cx={last.x} cy={last.y} r={2.6} fill={color} />
     </svg>
@@ -224,8 +231,7 @@ export function ComboChart({ labels, barSeries, lineSeries, formatValue, accessi
     y: roundTo(padding.top + plotHeight - (value / maximum) * plotHeight),
   });
   const linePoints = lineSeries.values.map(pointFor);
-  const linePath = linePoints.map((point, index) => `${index === 0 ? "M" : "L"}${point.x} ${point.y}`).join(" ");
-  const areaPath = `${linePath} L${linePoints[linePoints.length - 1]?.x ?? padding.left} ${padding.top + plotHeight} L${linePoints[0]?.x ?? padding.left} ${padding.top + plotHeight} Z`;
+  const linePath = chartLinePath(linePoints);
 
   return (
     <figure className="nx-chart nx-chart--combo">
@@ -235,13 +241,21 @@ export function ComboChart({ labels, barSeries, lineSeries, formatValue, accessi
           ...(barSeries ? [{ label: barSeries.label, tone: barSeries.tone ?? "cyan" } as const] : []),
         ]}
       />
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={accessibleSummary} focusable="false" preserveAspectRatio="xMidYMid meet">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={accessibleSummary}
+        focusable="false"
+        preserveAspectRatio="xMidYMid meet"
+      >
         {gridValues.map((value) => {
           const y = roundTo(padding.top + plotHeight - (value / maximum) * plotHeight);
           return (
             <g key={value}>
               <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} className="nx-chart__grid" />
-              <text x={padding.left - 8} y={y + 4} className="nx-chart__axis" textAnchor="end">{formatValue(value)}</text>
+              <text x={padding.left - 8} y={y + 4} className="nx-chart__axis" textAnchor="end">
+                {formatValue(value)}
+              </text>
             </g>
           );
         })}
@@ -262,33 +276,49 @@ export function ComboChart({ labels, barSeries, lineSeries, formatValue, accessi
             </rect>
           );
         })}
-        <path d={areaPath} fill={lineTone} opacity={0.1} />
-        <path d={linePath} fill="none" stroke={lineTone} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d={linePath}
+          fill="none"
+          stroke={lineTone}
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
         {linePoints.map((point, index) => (
-          <circle key={labels[index]} cx={point.x} cy={point.y} r={3.4} fill="var(--nx-surface)" stroke={lineTone} strokeWidth={2}>
+          <circle
+            key={labels[index]}
+            cx={point.x}
+            cy={point.y}
+            r={3.4}
+            fill="var(--nx-surface)"
+            stroke={lineTone}
+            strokeWidth={2}
+          >
             <title>{`${labels[index]} · ${lineSeries.label}: ${formatValue(lineSeries.values[index])}`}</title>
           </circle>
         ))}
-        {labels.map((label, index) => (
+        {labels.map((label, index) =>
           index % labelStride === 0 || index === labels.length - 1 ? (
-          <text
-            key={label}
-            x={roundTo(padding.left + slot * index + slot / 2)}
-            y={height - 8}
-            className="nx-chart__axis"
-            textAnchor="middle"
-          >
-            {label}
-          </text>
-          ) : null
-        ))}
+            <text
+              key={label}
+              x={roundTo(padding.left + slot * index + slot / 2)}
+              y={height - 8}
+              className="nx-chart__axis"
+              textAnchor="middle"
+            >
+              {label}
+            </text>
+          ) : null,
+        )}
       </svg>
       <ChartTable
         caption={accessibleSummary}
         columns={barSeries ? ["Period", lineSeries.label, barSeries.label] : ["Period", lineSeries.label]}
-        rows={labels.map((label, index) => barSeries
-          ? [label, formatValue(lineSeries.values[index]), formatValue(barSeries.values[index])]
-          : [label, formatValue(lineSeries.values[index])])}
+        rows={labels.map((label, index) =>
+          barSeries
+            ? [label, formatValue(lineSeries.values[index]), formatValue(barSeries.values[index])]
+            : [label, formatValue(lineSeries.values[index])],
+        )}
       />
     </figure>
   );
@@ -328,13 +358,21 @@ export function StackedBarChart({
   return (
     <figure className="nx-chart nx-chart--stacked">
       <ChartLegend items={series.map((item) => ({ label: item.label, tone: item.tone }))} />
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={accessibleSummary} focusable="false" preserveAspectRatio="xMidYMid meet">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={accessibleSummary}
+        focusable="false"
+        preserveAspectRatio="xMidYMid meet"
+      >
         {[0, 0.5, 1].map((ratio) => {
           const y = roundTo(padding.top + plotHeight - ratio * plotHeight);
           return (
             <g key={ratio}>
               <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} className="nx-chart__grid" />
-              <text x={padding.left - 8} y={y + 4} className="nx-chart__axis" textAnchor="end">{formatValue(maximum * ratio)}</text>
+              <text x={padding.left - 8} y={y + 4} className="nx-chart__axis" textAnchor="end">
+                {formatValue(maximum * ratio)}
+              </text>
             </g>
           );
         })}
@@ -359,7 +397,14 @@ export function StackedBarChart({
                   </rect>
                 );
               })}
-              <text x={roundTo(padding.left + slot * index + slot / 2)} y={height - 8} className="nx-chart__axis" textAnchor="middle">{label}</text>
+              <text
+                x={roundTo(padding.left + slot * index + slot / 2)}
+                y={height - 8}
+                className="nx-chart__axis"
+                textAnchor="middle"
+              >
+                {label}
+              </text>
             </g>
           );
         })}
@@ -406,7 +451,10 @@ export function DonutChart({
 
   const radius = 56;
   const circumference = 2 * Math.PI * radius;
-  const arcs = segments.reduce<{ cursor: number; items: { item: DonutDatum; index: number; length: number; offset: number }[] }>(
+  const arcs = segments.reduce<{
+    cursor: number;
+    items: { item: DonutDatum; index: number; length: number; offset: number }[];
+  }>(
     (state, item, index) => {
       const length = (item.value / total) * circumference;
       return {
@@ -430,7 +478,8 @@ export function DonutChart({
                 r={radius}
                 fill="none"
                 stroke={chartToneColor[item.tone ?? toneAt(index)]}
-                strokeWidth={22}
+                strokeWidth={12}
+                strokeLinecap="round"
                 strokeDasharray={`${roundTo(length)} ${roundTo(circumference - length)}`}
                 strokeDashoffset={roundTo(-offset)}
               >
@@ -438,8 +487,16 @@ export function DonutChart({
               </circle>
             ))}
           </g>
-          {centerValue ? <text x="80" y="78" textAnchor="middle" className="nx-donut-svg__value">{centerValue}</text> : null}
-          {centerLabel ? <text x="80" y="94" textAnchor="middle" className="nx-donut-svg__label">{centerLabel}</text> : null}
+          {centerValue ? (
+            <text x="80" y="78" textAnchor="middle" className="nx-donut-svg__value">
+              {centerValue}
+            </text>
+          ) : null}
+          {centerLabel ? (
+            <text x="80" y="94" textAnchor="middle" className="nx-donut-svg__label">
+              {centerLabel}
+            </text>
+          ) : null}
         </svg>
         <ul className="nx-donut-key" aria-hidden="true">
           {segments.map((item, index) => (
@@ -454,7 +511,11 @@ export function DonutChart({
       <ChartTable
         caption={accessibleSummary}
         columns={["Category", "Value", "Share"]}
-        rows={segments.map((item) => [item.name, formatValue(item.value), `${Math.round((item.value / total) * 100)}%`])}
+        rows={segments.map((item) => [
+          item.name,
+          formatValue(item.value),
+          `${Math.round((item.value / total) * 100)}%`,
+        ])}
       />
     </figure>
   );
@@ -486,7 +547,10 @@ export function WaterfallChart({
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
 
-  const bars = steps.reduce<{ running: number; items: (WaterfallStep & { start: number; end: number; low: number; high: number })[] }>(
+  const bars = steps.reduce<{
+    running: number;
+    items: (WaterfallStep & { start: number; end: number; low: number; high: number })[];
+  }>(
     (state, step) => {
       const start = step.isTotal ? 0 : state.running;
       const end = step.isTotal ? step.value : state.running + step.value;
@@ -511,13 +575,21 @@ export function WaterfallChart({
           { label: "Total", tone: "blue" },
         ]}
       />
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={accessibleSummary} focusable="false" preserveAspectRatio="xMidYMid meet">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={accessibleSummary}
+        focusable="false"
+        preserveAspectRatio="xMidYMid meet"
+      >
         {[0, 0.5, 1].map((ratio) => {
           const y = yFor(maximum * ratio);
           return (
             <g key={ratio}>
               <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} className="nx-chart__grid" />
-              <text x={padding.left - 8} y={y + 4} className="nx-chart__axis" textAnchor="end">{formatValue(maximum * ratio)}</text>
+              <text x={padding.left - 8} y={y + 4} className="nx-chart__axis" textAnchor="end">
+                {formatValue(maximum * ratio)}
+              </text>
             </g>
           );
         })}
@@ -538,7 +610,14 @@ export function WaterfallChart({
                   className="nx-chart__connector"
                 />
               ) : null}
-              <rect x={x} y={top} width={roundTo(barWidth)} height={roundTo(barHeight)} rx={3} fill={chartToneColor[tone]}>
+              <rect
+                x={x}
+                y={top}
+                width={roundTo(barWidth)}
+                height={roundTo(barHeight)}
+                rx={3}
+                fill={chartToneColor[tone]}
+              >
                 <title>{`${bar.label}: ${formatValue(bar.value)}${bar.isTotal ? "" : ` · running ${formatValue(bar.end)}`}`}</title>
               </rect>
               <text x={roundTo(x + barWidth / 2)} y={top - 6} className="nx-chart__value" textAnchor="middle">
@@ -597,7 +676,11 @@ export function FunnelChart({
               style={style}
               type="button"
             >
-              <span className="nx-funnel__bar" aria-hidden="true" style={{ background: ordinalAt(index, stages.length) }} />
+              <span
+                className="nx-funnel__bar"
+                aria-hidden="true"
+                style={{ background: ordinalAt(index, stages.length) }}
+              />
               <span className="nx-funnel__meta">
                 <strong>{stage.label}</strong>
                 <b>{stage.display}</b>
@@ -652,7 +735,13 @@ export function GaugeChart({
   return (
     <figure className="nx-gauge">
       <svg viewBox="0 0 140 84" role="img" aria-label={caption} focusable="false">
-        <path d="M 18 70 A 52 52 0 0 1 122 70" className="nx-gauge__track" fill="none" strokeWidth={12} strokeLinecap="round" />
+        <path
+          d="M 18 70 A 52 52 0 0 1 122 70"
+          className="nx-gauge__track"
+          fill="none"
+          strokeWidth={12}
+          strokeLinecap="round"
+        />
         <path
           d="M 18 70 A 52 52 0 0 1 122 70"
           fill="none"
@@ -670,7 +759,9 @@ export function GaugeChart({
             className="nx-gauge__target"
           />
         )}
-        <text x="70" y="64" className="nx-gauge__value" textAnchor="middle">{valueLabel}</text>
+        <text x="70" y="64" className="nx-gauge__value" textAnchor="middle">
+          {valueLabel}
+        </text>
       </svg>
       <figcaption>
         <strong>{label}</strong>
@@ -706,7 +797,12 @@ export function RadarChart({ axes, accessibleSummary }: { axes: readonly RadarAx
 
   return (
     <figure className="nx-chart nx-chart--radar">
-      <ChartLegend items={[{ label: "Actual", tone: "blue" }, { label: "Target", tone: "indigo" }]} />
+      <ChartLegend
+        items={[
+          { label: "Actual", tone: "blue" },
+          { label: "Target", tone: "indigo" },
+        ]}
+      />
       <svg viewBox={`0 0 ${size} ${size}`} role="img" aria-label={accessibleSummary} focusable="false">
         {[0.25, 0.5, 0.75, 1].map((ring) => (
           <polygon
@@ -793,7 +889,11 @@ export function HeatmapChart({
       >
         <div className="nx-heatmap__row nx-heatmap__row--head" aria-hidden="true">
           <span className="nx-heatmap__label" />
-          {columns.map((column) => <span className="nx-heatmap__column" key={column}>{column}</span>)}
+          {columns.map((column) => (
+            <span className="nx-heatmap__column" key={column}>
+              {column}
+            </span>
+          ))}
         </div>
         {rows.map((row) => (
           <div className="nx-heatmap__row" key={row}>
@@ -826,7 +926,11 @@ export function HeatmapChart({
       </div>
       <div className="nx-heatmap__scale" aria-hidden="true">
         <span>Low</span>
-        <i style={{ background: `linear-gradient(to right, color-mix(in srgb, ${color} 12%, var(--nx-surface)), ${color})` }} />
+        <i
+          style={{
+            background: `linear-gradient(to right, color-mix(in srgb, ${color} 12%, var(--nx-surface)), ${color})`,
+          }}
+        />
         <span>High</span>
       </div>
       <ChartTable
@@ -883,30 +987,40 @@ export function ScatterChart({
 
   return (
     <figure className="nx-chart nx-chart--scatter">
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={accessibleSummary} focusable="false" preserveAspectRatio="xMidYMid meet">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={accessibleSummary}
+        focusable="false"
+        preserveAspectRatio="xMidYMid meet"
+      >
         {[0, 0.5, 1].map((ratio) => {
           const y = roundTo(padding.top + plotHeight - ratio * plotHeight);
           return (
             <g key={`y-${ratio}`}>
               <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} className="nx-chart__grid" />
-              <text x={padding.left - 8} y={y + 4} className="nx-chart__axis" textAnchor="end">{formatY(maxY * ratio)}</text>
+              <text x={padding.left - 8} y={y + 4} className="nx-chart__axis" textAnchor="end">
+                {formatY(maxY * ratio)}
+              </text>
             </g>
           );
         })}
         {[0, 0.5, 1].map((ratio) => {
           const x = roundTo(padding.left + ratio * plotWidth);
           return (
-            <text key={`x-${ratio}`} x={x} y={height - 20} className="nx-chart__axis" textAnchor="middle">{formatX(maxX * ratio)}</text>
+            <text key={`x-${ratio}`} x={x} y={height - 20} className="nx-chart__axis" textAnchor="middle">
+              {formatX(maxX * ratio)}
+            </text>
           );
         })}
         {/*
-          * Scatter is an all-pairs form: any two marks can sit side by side, so
-          * every pair - not just neighbours - must be separable. No cool
-          * seven-slot palette clears that floor (the leading three fail at
-          * dE 8.5 normal against a 15 floor), and the rule is to cut the series
-          * count rather than restep the palette. So the marks carry ONE slot and
-          * identity comes from position, size and the per-point label instead.
-          */}
+         * Scatter is an all-pairs form: any two marks can sit side by side, so
+         * every pair - not just neighbours - must be separable. No cool
+         * seven-slot palette clears that floor (the leading three fail at
+         * dE 8.5 normal against a 15 floor), and the rule is to cut the series
+         * count rather than restep the palette. So the marks carry ONE slot and
+         * identity comes from position, size and the per-point label instead.
+         */}
         {points.map((point) => (
           <circle
             key={point.id}
@@ -921,8 +1035,23 @@ export function ScatterChart({
             <title>{`${point.label} · ${xLabel} ${formatX(point.x)} · ${yLabel} ${formatY(point.y)}`}</title>
           </circle>
         ))}
-        <text x={roundTo(padding.left + plotWidth / 2)} y={height - 4} className="nx-chart__axis-title" textAnchor="middle">{xLabel}</text>
-        <text x={14} y={roundTo(padding.top + plotHeight / 2)} className="nx-chart__axis-title" textAnchor="middle" transform={`rotate(-90 14 ${roundTo(padding.top + plotHeight / 2)})`}>{yLabel}</text>
+        <text
+          x={roundTo(padding.left + plotWidth / 2)}
+          y={height - 4}
+          className="nx-chart__axis-title"
+          textAnchor="middle"
+        >
+          {xLabel}
+        </text>
+        <text
+          x={14}
+          y={roundTo(padding.top + plotHeight / 2)}
+          className="nx-chart__axis-title"
+          textAnchor="middle"
+          transform={`rotate(-90 14 ${roundTo(padding.top + plotHeight / 2)})`}
+        >
+          {yLabel}
+        </text>
       </svg>
       <ChartTable
         caption={accessibleSummary}
@@ -1045,10 +1174,14 @@ export function ChartPanel({
       className={`nx-role-panel${widthClass}`}
       data-dashboard-chart={chartId}
       data-drillable={onDrill ? "true" : undefined}
-      onPointerUp={onDrill ? (event) => {
-        if ((event.target as HTMLElement).closest("button, a")) return;
-        onDrill();
-      } : undefined}
+      onPointerUp={
+        onDrill
+          ? (event) => {
+              if ((event.target as HTMLElement).closest("button, a")) return;
+              onDrill();
+            }
+          : undefined
+      }
     >
       <div className="nx-role-panel__head">
         <div>
@@ -1058,11 +1191,25 @@ export function ChartPanel({
         </div>
         <div className="nx-role-panel__actions">
           {action ?? (badge ? <span className="nx-role-badge">{badge}</span> : null)}
-          {onDrill ? <button className="nx-role-panel__drill-action" type="button" onClick={onDrill} aria-label={"Open " + title + " drill-down"}>Analyse <span aria-hidden="true">↗</span></button> : null}
+          {onDrill ? (
+            <button
+              className="nx-role-panel__drill-action"
+              type="button"
+              onClick={onDrill}
+              aria-label={"Open " + title + " drill-down"}
+            >
+              Analyse <span aria-hidden="true">↗</span>
+            </button>
+          ) : null}
         </div>
       </div>
       {children}
-      {note ? <p className="nx-role-section-note"><strong>Management read-out</strong><span>{note}</span></p> : null}
+      {note ? (
+        <p className="nx-role-section-note">
+          <strong>Management read-out</strong>
+          <span>{note}</span>
+        </p>
+      ) : null}
     </article>
   );
 }

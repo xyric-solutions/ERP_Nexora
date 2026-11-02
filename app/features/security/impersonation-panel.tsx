@@ -1,4 +1,5 @@
 "use client";
+import { IdentitySheet } from "./identity-sheet";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
@@ -159,40 +160,48 @@ export default function ImpersonationPanel({ permissions }: { permissions: Reado
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
-      {showCreate ? (
-        <form className="grid gap-4 border-b border-border bg-muted/40 p-5 md:grid-cols-2" onSubmit={create}>
-          <Label className="grid gap-2 text-sm">
-            Target user
-            <select value={targetUserId} onChange={(event) => setTargetUserId(event.target.value)} required>
-              <option value="">Select an active user</option>
-              {users.map((user) => (
-                <option key={String(user.id)} value={String(user.id)}>
-                  {String(user.display_name)} · {String(user.email)}
-                </option>
-              ))}
-            </select>
-          </Label>
-          <Label className="grid gap-2 text-sm">
-            Duration
-            <select value={durationMinutes} onChange={(event) => setDurationMinutes(Number(event.target.value))}>
-              {[5, 10, 15, 30, 45, 60].map((minutes) => (
-                <option key={minutes} value={minutes}>
-                  {minutes} minutes
-                </option>
-              ))}
-            </select>
-          </Label>
-          <Label className="grid gap-2 text-sm md:col-span-2">
-            Purpose
-            <Input value={purpose} onChange={(event) => setPurpose(event.target.value)} required maxLength={512} />
-          </Label>
-          <div className="md:col-span-2">
-            <Button type="submit" disabled={busy}>
-              Create draft
-            </Button>
-          </div>
-        </form>
-      ) : null}
+      <IdentitySheet
+        open={showCreate}
+        title="Request impersonation"
+        busy={busy}
+        message={message}
+        onClose={() => setShowCreate(false)}
+      >
+        {showCreate ? (
+          <form className="grid gap-4 border-b border-border bg-muted/40 p-5 md:grid-cols-2" onSubmit={create}>
+            <Label className="grid gap-2 text-sm">
+              Target user
+              <select value={targetUserId} onChange={(event) => setTargetUserId(event.target.value)} required>
+                <option value="">Select an active user</option>
+                {users.map((user) => (
+                  <option key={String(user.id)} value={String(user.id)}>
+                    {String(user.display_name)} · {String(user.email)}
+                  </option>
+                ))}
+              </select>
+            </Label>
+            <Label className="grid gap-2 text-sm">
+              Duration
+              <select value={durationMinutes} onChange={(event) => setDurationMinutes(Number(event.target.value))}>
+                {[5, 10, 15, 30, 45, 60].map((minutes) => (
+                  <option key={minutes} value={minutes}>
+                    {minutes} minutes
+                  </option>
+                ))}
+              </select>
+            </Label>
+            <Label className="grid gap-2 text-sm md:col-span-2">
+              Purpose
+              <Input value={purpose} onChange={(event) => setPurpose(event.target.value)} required maxLength={512} />
+            </Label>
+            <div className="md:col-span-2">
+              <Button type="submit" disabled={busy}>
+                Create draft
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </IdentitySheet>
       {loading ? (
         <p className="p-9 text-center text-sm text-muted-foreground">Loading governed impersonation…</p>
       ) : rows.length === 0 ? (

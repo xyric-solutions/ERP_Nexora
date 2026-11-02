@@ -10,7 +10,7 @@
 .nx-recon__steps strong,.nx-recon__steps small { display: block; }
 .nx-recon__steps strong { color: var(--nx-text); font-size: 12px; }
 .nx-recon__steps small { margin-top: 2px; font-size: 11px; }
-.nx-recon__steps li.complete i { border-color: var(--nx-success-text); background: var(--nx-success); color: white; }
+.nx-recon__steps li.complete i { border-color: var(--nx-success-text); background: var(--nx-success); color: var(--nx-on-status-good); }
 .nx-recon__steps li.complete:not(:last-child)::after { background: var(--nx-success); }
 .nx-recon__steps li.current i { border-color: var(--nx-brand); box-shadow: 0 0 0 4px var(--nx-brand-soft); color: var(--nx-brand-strong); }
 .nx-recon__controls { padding: 12px 14px; display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; border: 1px solid var(--nx-border); border-radius: var(--nx-radius-md); background: var(--nx-surface); }

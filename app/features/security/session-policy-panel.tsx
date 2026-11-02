@@ -1,7 +1,9 @@
 "use client";
+import { IdentitySheet } from "./identity-sheet";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { SecuritySessionPolicyValues } from "@nexora/contracts";
+import { createSecuritySessionPolicySchema } from "@nexora/contracts";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -76,6 +78,11 @@ export default function SessionPolicyPanel({ permissions }: { permissions: Reado
   async function create(event: FormEvent) {
     event.preventDefault();
     if (!summary.trim() || busy) return;
+    const validated = createSecuritySessionPolicySchema.safeParse({ values, change_summary: summary.trim() });
+    if (!validated.success) {
+      setMessage(validated.error.issues.map((issue) => issue.message).join(" "));
+      return;
+    }
     setBusy(true);
     try {
       await api.createSecuritySessionPolicy(
@@ -147,54 +154,62 @@ export default function SessionPolicyPanel({ permissions }: { permissions: Reado
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
-      {showCreate ? (
-        <form onSubmit={create} className="grid gap-4 border-b border-border p-5 sm:grid-cols-2">
-          {numeric.map(([key, label]) => (
-            <div key={key} className="grid gap-1.5">
-              <Label htmlFor={key}>{label}</Label>
+      <IdentitySheet
+        open={showCreate}
+        title="Create security and session policy"
+        busy={busy}
+        message={message}
+        onClose={() => setShowCreate(false)}
+      >
+        {showCreate ? (
+          <form onSubmit={create} className="grid gap-4 border-b border-border p-5 sm:grid-cols-2">
+            {numeric.map(([key, label]) => (
+              <div key={key} className="grid gap-1.5">
+                <Label htmlFor={key}>{label}</Label>
+                <Input
+                  id={key}
+                  type="number"
+                  value={values[key]}
+                  onChange={(e) => setValues((v) => ({ ...v, [key]: Number(e.target.value) }))}
+                />
+              </div>
+            ))}
+            <fieldset className="grid gap-2 sm:col-span-2">
+              <legend className="mb-1 text-sm font-medium">Password composition</legend>
+              {(
+                [
+                  "password_require_uppercase",
+                  "password_require_lowercase",
+                  "password_require_number",
+                  "password_require_symbol",
+                ] as const
+              ).map((key) => (
+                <label key={key} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={values[key]}
+                    onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.checked }))}
+                  />
+                  {key.replace("password_require_", "Require ")}
+                </label>
+              ))}
+            </fieldset>
+            <div className="grid gap-1.5 sm:col-span-2">
+              <Label htmlFor="policy-summary">Change summary</Label>
               <Input
-                id={key}
-                type="number"
-                value={values[key]}
-                onChange={(e) => setValues((v) => ({ ...v, [key]: Number(e.target.value) }))}
+                id="policy-summary"
+                maxLength={512}
+                required
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
               />
             </div>
-          ))}
-          <fieldset className="grid gap-2 sm:col-span-2">
-            <legend className="mb-1 text-sm font-medium">Password composition</legend>
-            {(
-              [
-                "password_require_uppercase",
-                "password_require_lowercase",
-                "password_require_number",
-                "password_require_symbol",
-              ] as const
-            ).map((key) => (
-              <label key={key} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={values[key]}
-                  onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.checked }))}
-                />
-                {key.replace("password_require_", "Require ")}
-              </label>
-            ))}
-          </fieldset>
-          <div className="grid gap-1.5 sm:col-span-2">
-            <Label htmlFor="policy-summary">Change summary</Label>
-            <Input
-              id="policy-summary"
-              maxLength={512}
-              required
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
-            />
-          </div>
-          <Button className="sm:col-span-2" disabled={busy} type="submit">
-            Create governed draft
-          </Button>
-        </form>
-      ) : null}
+            <Button className="sm:col-span-2" disabled={busy} type="submit">
+              Create governed draft
+            </Button>
+          </form>
+        ) : null}
+      </IdentitySheet>
       <div className="grid gap-3 p-5">
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading policy history…</p>

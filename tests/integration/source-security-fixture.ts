@@ -319,7 +319,13 @@ export async function ensureCompanyCurrencyFixture(
        (tenant_id,company_id,id,base_currency,base_country_code,status,row_version,created_by,updated_by)
      values($1,$2,$3,$4,$5,'active',1,'r06.last-admin-a','r06.last-admin-a')
      on conflict(tenant_id,company_id) do nothing`,
-    [sourceTestTenantId, companyId, `test-profile-${companyId}`.slice(0, 128), baseCurrency, profile.rows[0].country_code],
+    [
+      sourceTestTenantId,
+      companyId,
+      `test-profile-${companyId}`.slice(0, 128),
+      baseCurrency,
+      profile.rows[0].country_code,
+    ],
   );
   for (const currency of allCurrencies) {
     const mapping = await pool.query<{ country_code: string }>(
@@ -474,6 +480,32 @@ export async function ensureSourceAuthorizationFixture(pool: DatabasePool): Prom
          on conflict (tenant_id,user_id,role_policy_id) do nothing`,
         [sourceTestTenantId, userId, policyId, assignmentId],
       );
+      // This disposable fixture may have been revoked by an earlier acceptance
+      // run. Restore only its known assignment so emergency/last-admin cases
+      // do not depend on test order; never alter provisioned UAT administrators.
+      if (assignmentId === "r06-fixture-assignment-last-admin") {
+        await client.query(
+          `update security_user_role_assignment set lifecycle_state='active',valid_until=null,
+             revoked_at=null,revoked_by=null,revocation_reason=null
+           where tenant_id=$1 and assignment_id=$2 and user_id=$3 and role_policy_id=$4`,
+          [sourceTestTenantId, assignmentId, userId, policyId],
+        );
+        await client.query(
+          `insert into security_user_role_assignment_version
+             (tenant_id,assignment_id,version,supersedes_version,user_id,role_policy_id,lifecycle_state,
+              valid_from,valid_until,assigned_by,administration_command_id,source_kind,source_reference)
+           select assignment.tenant_id,assignment.assignment_id,latest.version+1,latest.version,
+             assignment.user_id,assignment.role_policy_id,'active',assignment.valid_from,null,
+             'r06.last-admin-a',null,'legacy_backfill','test-fixture:restore-last-admin'
+           from security_user_role_assignment assignment
+           join lateral (select version,lifecycle_state,valid_until from security_user_role_assignment_version v
+             where v.tenant_id=assignment.tenant_id and v.assignment_id=assignment.assignment_id
+             order by version desc limit 1) latest on true
+           where assignment.tenant_id=$1 and assignment.assignment_id=$2
+             and (latest.lifecycle_state<>'active' or latest.valid_until<=now())`,
+          [sourceTestTenantId, assignmentId],
+        );
+      }
       await client.query(
         `insert into security_user_role_assignment_version
           (tenant_id,assignment_id,version,supersedes_version,user_id,role_policy_id,lifecycle_state,

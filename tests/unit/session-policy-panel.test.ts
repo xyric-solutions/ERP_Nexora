@@ -48,17 +48,48 @@ describe("SessionPolicyPanel", () => {
     await act(async () => root.render(createElement(SessionPolicyPanel, { permissions })));
     await act(async () => new Promise((resolve) => window.setTimeout(resolve, 5)));
     expect(state.api.listSecuritySessionPolicies).toHaveBeenCalledOnce();
-    expect(container.textContent).toContain("No tenant policy is active");
-    const create = [...container.querySelectorAll("button")].find((button) => button.textContent === "Create draft")!;
+    expect(document.body.textContent).toContain("No tenant policy is active");
+    const create = [...document.body.querySelectorAll("button")].find(
+      (button) => button.textContent === "Create draft",
+    )!;
     await act(async () => create.click());
-    expect(container.textContent).toContain("Minimum password length");
-    expect(container.textContent).toContain("Concurrent sessions");
-    expect(container.textContent).toContain("Change summary");
+    expect(document.body.textContent).toContain("Minimum password length");
+    expect(document.body.textContent).toContain("Concurrent sessions");
+    expect(document.body.textContent).toContain("Change summary");
   });
   it("shows permission denial without calling the API", async () => {
     await act(async () => root.render(createElement(SessionPolicyPanel, { permissions: new Set() })));
-    expect(container.textContent).toContain("do not have permission to view security policies");
+    expect(document.body.textContent).toContain("do not have permission to view security policies");
     expect(state.api.listSecuritySessionPolicies).not.toHaveBeenCalled();
+  });
+
+  it("retains invalid policy input in its sheet and rejects it before calling the API", async () => {
+    const permissions = new Set(["security.session_policy.read", "security.session_policy.create"]);
+    await act(async () => root.render(createElement(SessionPolicyPanel, { permissions })));
+    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 5)));
+    const create = [...document.body.querySelectorAll("button")].find(
+      (button) => button.textContent === "Create draft",
+    )!;
+    await act(async () => create.click());
+    const input = async (id: string, value: string) => {
+      const field = document.getElementById(id) as HTMLInputElement;
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, value);
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    };
+    await input("policy-summary", "Review timeout bounds");
+    await input("session_idle_minutes", "1440");
+    await act(async () =>
+      document.body
+        .querySelector("[role=dialog] form")!
+        .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })),
+    );
+    expect(state.api.createSecuritySessionPolicy).not.toHaveBeenCalled();
+    expect(document.body.querySelector("[role=dialog]")?.textContent).toContain(
+      "Idle timeout cannot exceed the absolute timeout.",
+    );
+    expect((document.getElementById("session_idle_minutes") as HTMLInputElement).value).toBe("1440");
   });
 
   it("requires an audited reason for a super-admin maker to approve a submitted policy", async () => {
@@ -91,10 +122,10 @@ describe("SessionPolicyPanel", () => {
     const permissions = new Set(state.session.user.permissions);
     await act(async () => root.render(createElement(SessionPolicyPanel, { permissions })));
     await act(async () => new Promise((resolve) => window.setTimeout(resolve, 5)));
-    expect(container.textContent).toContain("Super-admin override");
-    const approve = [...container.querySelectorAll("button")].find((button) => button.textContent === "Approve")!;
+    expect(document.body.textContent).toContain("Super-admin override");
+    const approve = [...document.body.querySelectorAll("button")].find((button) => button.textContent === "Approve")!;
     expect(approve.disabled).toBe(true);
-    const reason = container.querySelector<HTMLInputElement>('input[required][maxlength="512"]')!;
+    const reason = document.body.querySelector<HTMLInputElement>('input[required][maxlength="512"]')!;
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(
         reason,
@@ -146,8 +177,8 @@ describe("SessionPolicyPanel", () => {
       root.render(createElement(SessionPolicyPanel, { permissions: new Set(state.session.user.permissions) })),
     );
     await act(async () => new Promise((resolve) => window.setTimeout(resolve, 5)));
-    expect(container.textContent).toContain("Super-admin override");
-    const activate = [...container.querySelectorAll("button")].find((button) => button.textContent === "Activate")!;
+    expect(document.body.textContent).toContain("Super-admin override");
+    const activate = [...document.body.querySelectorAll("button")].find((button) => button.textContent === "Activate")!;
     expect(activate.disabled).toBe(true);
   });
 });

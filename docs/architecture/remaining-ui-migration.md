@@ -1,5 +1,112 @@
 # Remaining UI migration checklist
 
+## 2026-11-02 — Sidebar search icon contrast
+
+- Set expanded and collapsed sidebar search SVGs to the semantic sidebar text
+  colour explicitly, preserving filtering, focus and navigation behavior.
+- Browser checks passed for both icons in light/dark themes and filter interaction.
+  Evidence: `tmp/search-icon-evidence/`. Theme audit passed with zero direct
+  feature-view colour/font exceptions. Production build, shell lint and
+  `git diff --check` passed. No stylesheets retired.
+- Safe resume: retain the sidebar foreground role for icons on its dark surface.
+
+## 2026-11-02 — Nexora branding, footer toggle and text-sized icons
+
+- Centralized visible naming as Nexora, removed the sidebar subtitle, and added
+  a shared folded-N mark plus matching favicon. Replaced module code tiles and
+  header/dashboard glyphs with outline vectors at the surrounding text size.
+- Moved desktop collapse/expand to one circular lower-edge double-chevron
+  control, retaining state/keyboard behavior and mobile menu controls. Added
+  scroll clearance; preserved routes, APIs, record state and activity badges.
+- Passed eight browser scenarios in both themes/four widths, 10 focused tests,
+  production build, focused lint, theme audit and diff checks. No stylesheet
+  retired; favicon amber is a deliberate brand-art exception.
+- Changed surfaces, evidence and safe resume point:
+  `docs/architecture/nexora-branding-polish.md`.
+
+## 2026-11-02 — Navigation/search fixes and reference graph style
+
+- Moved rail expansion into the header, made collapsed module search expand and
+  focus its filter, corrected sidebar search contrast/autocomplete/focus, and
+  aligned tablet state with visible navigation. Compact header controls avoid
+  overlap when tablet navigation is expanded. Removed the obsolete floating
+  reopen selector after usage verification; retained the active shell stylesheet.
+- Global search now uses shared Dialog focus/keyboard behavior. Charcoal module
+  flyouts use readable full-width links and current-route highlighting. Removed
+  mock-only review rows and navigation page counts without changing live API
+  master controls, route guards or source/prototype labeling.
+- Shared graph categories now use the approved reference's warm palette in both
+  themes, monotone line joins and slimmer rings. Preserved data, labels, status
+  roles, series assignment and accessible table equivalents. Palette gates and
+  no-overshoot tests cover the rendering changes.
+- Passed eight browser scenarios at four widths/both themes, six palette gates,
+  12 focused tests, production build, focused lint, theme audit and diff checks.
+  Evidence, changed surfaces and safe resume point:
+  `docs/architecture/navigation-chart-reference-polish.md`.
+
+## 2026-11-02 — Reference warm theme and responsive filters
+
+- Adapted the user-selected `Nexora_ERP/design-templates/dashboard-v1` palette
+  through central tokens: charcoal sidebar, off-white workspace, white cards,
+  amber actions, olive text and a coordinated charcoal dark mode. Removed old
+  role-level palette overrides. Updated shared geometry, typography, controls,
+  overlays and featured dashboard metrics; preserved the ERP's own workflows.
+- Added shared `FilterBar`, persistent select labels and accessible date names.
+  Search/status/date/clear behavior and saved views remain unchanged. Bounded
+  commercial grids, AI answer content and table-position containment resolve
+  mobile document overflow while preserving local table scrolling.
+- Migrated fixed ordinary UI colours in 12 feature views to semantic roles.
+  Kept categorical chart meaning, ordinal ramps, deliberate artwork and print
+  output; no stylesheet retired. Theme audit now has zero font/colour view
+  exceptions, with deliberate standalone print exceptions documented separately.
+- Production build, workspace typecheck, 34 focused tests, central-component
+  lint, theme audit and diff checks pass. Functional filter acceptance passes
+  12 light/dark desktop/tablet/mobile contexts. Expanded lint retains 25 existing
+  label/effect-state findings in legacy renderers; no clean global lint claim.
+- Final browser sweep passed 160 settled-route checks covering representative
+  routes in every module plus HR/Identity details in both themes at 1440/390px,
+  with no page errors or document overflow. Core text/action contrast pairs pass
+  4.5:1. Evidence: `tmp/reference-theme-evidence/results.json`.
+- Scope, palette, evidence and safe resume point:
+  `docs/architecture/reference-theme-adoption.md`.
+
+## 2026-11-02 — Identity & Access sheets and full-width registers
+
+- Added feature-owned `identity-sheet.tsx` using shared Sheet primitives for
+  user creation/detail/edit, role creation/edit, assignment/approval confirmations,
+  immutable details, access-review campaigns, delegation/impersonation requests,
+  session-policy drafts and Bank self-approval grants. Registers use available
+  width; user and campaign detail no longer reserve permanent right columns.
+- Preserved existing authority and API callbacks, independent approval/override
+  controls, audit/version behavior and wizard storage. Fixed route remounts
+  resetting user edit mode, Back retaining an old selected user, and restoring
+  wizard selections before authorized options loaded. Added shared-contract
+  validation for policy values and explicit reason/confirmation for grant revoke.
+  No stylesheet was added or retired.
+- Passed 48 UI/unit cases and 25 security integration cases; the last-admin test
+  now uses rolled-back fixture isolation, and the named disposable administrator
+  fixture restores version history safely between tests. Targeted browser checks
+  verify edit conflict recovery, history and saved drafts at three widths.
+- Final isolated browser sweep passed 88 checks across 11 views in both themes
+  at 1440/820/390/320px, including grant management sheets, with no page errors
+  or document overflow. Evidence: `tmp/identity-sheet-evidence/results.json`.
+- Full workspace typecheck, production build, focused lint, theme write/check
+  and patch whitespace checks pass. Existing theme exceptions are unchanged.
+  Details/safe resume point: `docs/architecture/identity-sheet-migration.md`.
+
+## 2026-11-02 — Restart merged HR enhancement branch
+
+- Fetched origin and verified `shoaib_nexora` matches remote commit `749c06a`
+  (HR page enhancement, PR #3). The merged shell contained duplicated drawer
+  JSX, `connectedWorkspace` and search declarations that prevented compilation.
+  Repaired `app/shell/prototype-shell.tsx`, retaining compact HR workspaces,
+  hidden-page filtering and current navigation-page highlighting.
+- Full workspace typecheck and production `build:web` passed after repair;
+  theme write/check and `git diff --check` passed with existing exceptions
+  unchanged. No stylesheets retired. Restarted local API against the existing
+  isolated UAT database and refreshed the local web runtime; no data migration
+  or business-record changes performed. Merge repairs remain local changes.
+
 ## 2026-11-02 — Full-width lifecycle policy register
 
 - Removed the persistent authoring/approval side panels from

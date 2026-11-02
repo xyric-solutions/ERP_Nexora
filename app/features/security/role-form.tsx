@@ -159,7 +159,12 @@ export default function RoleForm({
         </Label>
         <Label className="grid gap-2 text-sm text-muted-foreground">
           Role code
-          <Input className="bg-muted text-muted-foreground" value={initial?.role_code ?? generatedCode} readOnly aria-describedby="role-code-help" />
+          <Input
+            className="bg-muted text-muted-foreground"
+            value={initial?.role_code ?? generatedCode}
+            readOnly
+            aria-describedby="role-code-help"
+          />
         </Label>
         <Label className="grid gap-2 text-sm text-muted-foreground">
           Description
@@ -178,7 +183,8 @@ export default function RoleForm({
       </p>
       <fieldset className="mt-5 rounded-lg border border-border bg-card p-4" disabled={busy || loading || !!error}>
         <legend className="px-2 font-semibold text-foreground">
-          Select Permissions <span className="ml-2 text-xs font-normal text-muted-foreground">{selected.length} selected</span>
+          Select Permissions{" "}
+          <span className="ml-2 text-xs font-normal text-muted-foreground">{selected.length} selected</span>
         </legend>
         <Label className="grid gap-2 text-sm text-muted-foreground">
           Search permissions
@@ -189,10 +195,20 @@ export default function RoleForm({
             placeholder="Search module, resource or action"
           />
         </Label>
-        {loading ? <p className="mt-4 text-sm text-muted-foreground">Loading production permission catalogue…</p> : null}
-        {error ? <Alert className="mt-4" variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}
+        {loading ? (
+          <p className="mt-4 text-sm text-muted-foreground">Loading production permission catalogue…</p>
+        ) : null}
+        {error ? (
+          <Alert className="mt-4" variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
         {unavailable.length > 0 && !loading ? (
-          <Alert className="mt-4" variant="destructive"><AlertDescription>Unavailable existing permissions: {unavailable.join(", ")}. Review the draft before saving.</AlertDescription></Alert>
+          <Alert className="mt-4" variant="destructive">
+            <AlertDescription>
+              Unavailable existing permissions: {unavailable.join(", ")}. Review the draft before saving.
+            </AlertDescription>
+          </Alert>
         ) : null}
         {groups.map(([module, definitions]) => {
           const count = definitions.filter((item) => selectedSet.has(item.key)).length;
@@ -204,7 +220,10 @@ export default function RoleForm({
                   {count} / {definitions.length} selected
                 </span>
               </summary>
-              <label className="flex items-start gap-2.5 bg-muted/70 px-4 py-2.5 text-sm text-muted-foreground" aria-label={`Select visible permissions in ${module}`}>
+              <label
+                className="flex items-start gap-2.5 bg-muted/70 px-4 py-2.5 text-sm text-muted-foreground"
+                aria-label={`Select visible permissions in ${module}`}
+              >
                 <SelectionCheckbox
                   label={`Select visible permissions in ${module}`}
                   checked={count === definitions.length}

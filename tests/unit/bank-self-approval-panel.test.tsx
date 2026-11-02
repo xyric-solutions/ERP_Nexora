@@ -29,7 +29,7 @@ async function settle(ms = 250) {
   });
 }
 function change(id: string, value: string) {
-  const node = container.querySelector(`#${id}`);
+  const node = document.body.querySelector(`#${id}`);
   if (!(node instanceof HTMLSelectElement || node instanceof HTMLInputElement)) throw new Error(`Missing ${id}`);
   act(() => {
     Object.getOwnPropertyDescriptor(
@@ -40,7 +40,7 @@ function change(id: string, value: string) {
   });
 }
 function button(text: string) {
-  const node = [...container.querySelectorAll("button")].find((item) => item.textContent?.trim() === text);
+  const node = [...document.body.querySelectorAll("button")].find((item) => item.textContent?.trim() === text);
   if (!node) throw new Error(`Missing ${text}`);
   return node;
 }
@@ -94,7 +94,9 @@ describe("Identity Bank self-approval panel", () => {
     change("bank-grant-kind", "payment");
     change("bank-grant-company", "company");
     await settle();
-    expect((container.querySelector("#bank-grant-user") as HTMLSelectElement).disabled).toBe(false);
+    act(() => button("Manage bank self-approval").click());
+    await settle(0);
+    expect((document.body.querySelector("#bank-grant-user") as HTMLSelectElement).disabled).toBe(false);
     change("bank-grant-user", "maker");
     await settle(0);
     change("bank-grant-user", "maker");
@@ -105,7 +107,7 @@ describe("Identity Bank self-approval panel", () => {
     act(() => button("Issue self-approval grant").click());
     await settle(0);
     expect(harness.notify).not.toHaveBeenCalled();
-    expect(container.textContent).toContain("Grant changed");
+    expect(document.body.textContent).toContain("Grant changed");
     const first = harness.api.changeBankSelfApprovalGrant.mock.calls[0];
     expect(first?.[0]).toMatchObject({
       expected_version: 0,

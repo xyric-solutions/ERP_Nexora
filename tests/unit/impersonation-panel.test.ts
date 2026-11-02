@@ -61,18 +61,18 @@ describe("ImpersonationPanel", () => {
     );
     await act(async () => new Promise((resolve) => window.setTimeout(resolve, 5)));
     expect(state.api.listSecurityImpersonations).toHaveBeenCalledWith("?limit=100");
-    const button = [...container.querySelectorAll("button")].find(
+    const button = [...document.body.querySelectorAll("button")].find(
       (item) => item.textContent === "Request impersonation",
     )!;
     await act(async () => button.click());
-    expect(container.textContent).toContain("Target User");
-    expect(container.textContent).toContain("Purpose");
-    expect(container.textContent).toContain("Create draft");
+    expect(document.body.textContent).toContain("Target User");
+    expect(document.body.textContent).toContain("Purpose");
+    expect(document.body.textContent).toContain("Create draft");
   });
 
   it("shows a permission-denied state without calling live APIs", async () => {
     await act(async () => root.render(createElement(ImpersonationPanel, { permissions: new Set() })));
-    expect(container.textContent).toContain("do not have permission to view impersonation requests");
+    expect(document.body.textContent).toContain("do not have permission to view impersonation requests");
     expect(state.api.listSecurityImpersonations).not.toHaveBeenCalled();
   });
 
@@ -102,8 +102,8 @@ describe("ImpersonationPanel", () => {
       root.render(createElement(ImpersonationPanel, { permissions: new Set(state.session.user.permissions) })),
     );
     await act(async () => new Promise((resolve) => window.setTimeout(resolve, 5)));
-    expect(container.textContent).toContain("Super-admin override");
-    const approve = [...container.querySelectorAll("button")].find((button) => button.textContent === "Approve")!;
+    expect(document.body.textContent).toContain("Super-admin override");
+    const approve = [...document.body.querySelectorAll("button")].find((button) => button.textContent === "Approve")!;
     expect(approve.disabled).toBe(true);
   });
 });

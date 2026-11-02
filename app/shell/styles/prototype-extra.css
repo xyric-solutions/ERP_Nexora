@@ -187,46 +187,6 @@
   display: none;
 }
 
-/* Separate from the clipped sidebar header, so the reopen affordance can
- * never disappear with the content it controls. */
-.nx-sidebar-reopen {
-  display: none;
-  position: fixed;
-  z-index: 85;
-  top: 20px;
-  left: calc(var(--nx-sidebar-rail-width) - 1px);
-  width: 40px;
-  height: 40px;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--nx-sidebar-accent) 72%, var(--nx-sidebar-text));
-  border-radius: 0 var(--nx-radius-sm) var(--nx-radius-sm) 0;
-  color: var(--nx-sidebar-text);
-  background: var(--nx-sidebar-accent);
-  box-shadow: var(--nx-shadow-md);
-  font: inherit;
-  font-size: 25px;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-  transition: width 160ms ease, filter 160ms ease, box-shadow 160ms ease;
-}
-
-.nx-shell[data-sidebar="collapsed"] .nx-sidebar-reopen {
-  display: grid;
-}
-
-.nx-sidebar-reopen:hover,
-.nx-sidebar-reopen:focus-visible {
-  width: 46px;
-  filter: brightness(1.12);
-  box-shadow: var(--nx-shadow-overlay);
-}
-
-.nx-sidebar-reopen:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--nx-sidebar-accent) 28%, var(--nx-sidebar-text));
-  outline-offset: 2px;
-}
-
 .nx-sidebar__search {
   flex: 0 0 auto;
   height: 39px;
@@ -243,9 +203,9 @@
 }
 
 .nx-sidebar__search:focus-within {
-  border-color: var(--nx-brand);
+  border-color: var(--nx-sidebar-accent);
   background: var(--nx-emphasis-background-soft);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nx-brand) 18%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nx-sidebar-accent) 18%, transparent);
 }
 
 .nx-sidebar__search input {
@@ -1987,47 +1947,6 @@ a.nx-module-button {
 }
 
 @media (max-width: 1199px) {
-  .nx-shell {
-    grid-template-columns: var(--nx-sidebar-rail-width) minmax(0, 1fr);
-  }
-
-  .nx-sidebar__identity,
-  .nx-sidebar__collapse,
-  .nx-sidebar__search input,
-  .nx-sidebar__search kbd,
-  .nx-sidebar__section-label,
-  .nx-module-button__label,
-  .nx-module-button__meta,
-  .nx-submenu,
-  .nx-sidebar__environment > :not(.nx-sidebar__environment-dot) {
-    display: none;
-  }
-
-  .nx-sidebar__header,
-  .nx-sidebar__brand,
-  .nx-sidebar__search,
-  .nx-module-button,
-  .nx-sidebar__environment {
-    justify-content: center;
-  }
-
-  .nx-sidebar__header {
-    padding-inline: 10px;
-  }
-
-  .nx-sidebar__brand {
-    flex: 0 0 auto;
-  }
-
-  .nx-sidebar__search {
-    width: 39px;
-    margin-inline: auto;
-  }
-
-  .nx-module-button {
-    grid-template-columns: 28px;
-    padding-inline: 8px;
-  }
 
   .nx-metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2164,10 +2083,6 @@ a.nx-module-button {
   }
 
   .nx-sidebar__collapse {
-    display: none;
-  }
-
-  .nx-shell[data-sidebar="collapsed"] .nx-sidebar-reopen {
     display: none;
   }
 
@@ -3273,6 +3188,7 @@ a.nx-module-button {
 }
 
 .nx-table-wrap {
+  position: relative;
   width: 100%;
   overflow-x: auto;
   overscroll-behavior-inline: contain;

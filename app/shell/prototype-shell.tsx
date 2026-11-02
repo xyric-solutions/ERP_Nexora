@@ -5,13 +5,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Button } from "@/components/ui/button";
 import { ActionFeedbackProvider } from "@/shared/ui/action-feedback";
 import { Input } from "@/components/ui/input";
-import {
-  PROTOTYPE_MODULE_COUNT,
-  findPrototypePage,
-  prototypeModules,
-  prototypePageIndex,
-  type PrototypeModule,
-} from "./config/prototype-data";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ChevronsLeft, ChevronsRight, X, Menu, Search, ListChecks, Sparkles, CircleHelp, Bell } from "lucide-react";
+import { NexoraMark } from "../shared/ui/nexora-mark";
+import { application } from "../shared/constants/application";
+import { ModuleIcon } from "./config/module-icons";
+import { findPrototypePage, prototypeModules, prototypePageIndex, type PrototypeModule } from "./config/prototype-data";
 import {
   companies,
   companyModeOptions,
@@ -197,13 +196,6 @@ const bankingRecordSearchIndex: readonly GlobalSearchResult[] = savedBankingTran
     .toLowerCase(),
 }));
 
-function pageCount(module: PrototypeModule) {
-  return module.groups.reduce(
-    (total, group) => total + group.pages.filter((page) => !page.hiddenFromNavigation).length,
-    0,
-  );
-}
-
 /**
  * Reviewer preferences persist per browser so a long review session survives a
  * reload. Storage is read in an effect, never during render, so the
@@ -273,10 +265,7 @@ export function PrototypeShell({
 
   const current = useMemo(() => findPrototypePage(route.moduleId, route.pageId), [route]);
   const isCompactHrWorkspace = current.module.id === "hr" && Object.hasOwn(compactHrWorkspaces, current.group.id);
-  const connectedWorkspace =
-    current.page.status === "live" || current.page.status === "read-only" || current.page.status === "in-progress";
   const currentNavigationPageId = navigationPageId(current.module.id, current.page.id);
-  const connectedWorkspace=current.page.status==='live'||current.page.status==='read-only'||current.page.status==='in-progress';
   const isCentralChartPage =
     current.module.id === "finance" && ["central-chart-template", "section-management"].includes(current.page.id);
   const isFiscalPeriodPage =
@@ -323,28 +312,6 @@ export function PrototypeShell({
 
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    const pageResults: GlobalSearchResult[] = prototypePageIndex.map((page) => ({
-      kind: "page",
-      key: `page:${page.moduleId}:${page.id}`,
-      moduleId: page.moduleId,
-      pageId: page.id,
-      moduleCode: page.moduleCode,
-      label: page.label,
-      context: `${page.moduleLabel} / ${page.groupLabel}`,
-      meta:
-        page.status === "in-progress"
-          ? "API · in progress"
-          : page.status === "live"
-            ? "Live API"
-            : page.status === "read-only"
-              ? "API · read only"
-              : page.status === "prototype"
-                ? page.archetype
-                : "Coming soon",
-      searchable: [page.label, page.groupLabel, page.moduleLabel, page.moduleCode, page.archetype]
-        .join(" ")
-        .toLowerCase(),
-    }));
     const pageResults: GlobalSearchResult[] = prototypePageIndex
       .filter((page) => !page.hiddenFromNavigation)
       .map((page) => ({
@@ -355,7 +322,16 @@ export function PrototypeShell({
         moduleCode: page.moduleCode,
         label: page.label,
         context: `${page.moduleLabel} / ${page.groupLabel}`,
-        meta: page.status === "in-progress" ? "API · in progress" : page.status === "live" ? "Live API" : page.status === "read-only" ? "API · read only" : page.status === "prototype" ? page.archetype : "Coming soon",
+        meta:
+          page.status === "in-progress"
+            ? "API · in progress"
+            : page.status === "live"
+              ? "Live API"
+              : page.status === "read-only"
+                ? "API · read only"
+                : page.status === "prototype"
+                  ? page.archetype
+                  : "Coming soon",
         searchable: [page.label, page.groupLabel, page.moduleLabel, page.moduleCode, page.archetype]
           .join(" ")
           .toLowerCase(),
@@ -489,7 +465,10 @@ export function PrototypeShell({
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const saved = readPreferences();
-    if (!saved) return;
+    if (!saved) {
+      if (window.innerWidth >= 768 && window.innerWidth < 1200) setSidebarCollapsed(true);
+      return;
+    }
     if (saved.density === "comfortable" || saved.density === "compact") setDensity(saved.density);
     if (saved.roleId && roleOptions.some((role) => role.id === saved.roleId)) setRoleId(saved.roleId);
     if (saved.companyMode && companyModeOptions.some((mode) => mode.id === saved.companyMode))
@@ -699,9 +678,10 @@ export function PrototypeShell({
           onClick={() => setMobileOpen(false)}
         />
         <aside
-          className="nx-sidebar"
+          className="nx-sidebar bg-none!"
+          id="nexora-navigation"
           data-mobile-open={mobileOpen ? "true" : "false"}
-          aria-label="Nexora prototype navigation"
+          aria-label="Nexora navigation"
         >
           <div className="nx-sidebar__header">
             <button
@@ -710,19 +690,12 @@ export function PrototypeShell({
               onClick={() => navigate("dashboard", currentRole.dashboardPageId)}
               aria-label="Open dashboard"
             >
-              <span className="nx-sidebar__logo">N</span>
-              <span className="nx-sidebar__identity">
-                <strong>Nexora ERP</strong>
-                <small>{connectedWorkspace ? "Connected workspace" : "UI/UX prototype"}</small>
+              <span className="nx-sidebar__logo bg-transparent! text-[var(--nx-sidebar-accent)]! shadow-none!">
+                <NexoraMark className="size-8" />
               </span>
-            </button>
-            <button
-              className="nx-sidebar__collapse"
-              type="button"
-              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              onClick={() => setSidebarCollapsed((value) => !value)}
-            >
-              {sidebarCollapsed ? "›" : "‹"}
+              <span className="nx-sidebar__identity">
+                <strong>{application.name}</strong>
+              </span>
             </button>
             <button
               className="nx-sidebar__close"
@@ -730,22 +703,42 @@ export function PrototypeShell({
               aria-label="Close sidebar"
               onClick={() => setMobileOpen(false)}
             >
-              ×
+              <X className="h-[1em] w-[1em]" aria-hidden="true" />
             </button>
           </div>
-          <label className="nx-sidebar__search" htmlFor="erp-module-search">
-            <span aria-hidden="true">⌕</span>
-            <Input
-              id="erp-module-search"
-              value={sidebarQuery}
-              onChange={(event) => setSidebarQuery(event.target.value)}
-              aria-label="Search prototype modules"
-              placeholder={`Search ${PROTOTYPE_MODULE_COUNT} modules`}
-            />
-            <kbd>Ctrl K</kbd>
-          </label>
-          <div className="nx-sidebar__scroll">
-            <nav className="nx-sidebar__nav" aria-label="All Nexora ERP modules">
+          {sidebarCollapsed ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="nx-sidebar__search justify-center! px-0! text-[var(--nx-sidebar-text)]!"
+              aria-label="Search modules"
+              title="Search modules"
+              onClick={() => {
+                setSidebarCollapsed(false);
+                window.setTimeout(() => document.getElementById("erp-module-search")?.focus(), 0);
+              }}
+            >
+              <Search className="h-[1em] w-[1em] text-[var(--nx-sidebar-text)]!" aria-hidden="true" />
+            </Button>
+          ) : (
+            <label className="nx-sidebar__search" htmlFor="erp-module-search">
+              <Search className="h-[1em] w-[1em] shrink-0 text-[var(--nx-sidebar-text)]!" aria-hidden="true" />
+              <Input
+                id="erp-module-search"
+                autoComplete="off"
+                name="nexora-navigation-filter"
+                spellCheck={false}
+                className="h-auto! rounded-none! bg-transparent! p-0! text-[var(--nx-sidebar-text)]! [-webkit-text-fill-color:var(--nx-sidebar-text)]! shadow-none! focus-visible:ring-0! focus-visible:outline-none! placeholder:text-[var(--nx-sidebar-muted)]! placeholder:[-webkit-text-fill-color:var(--nx-sidebar-muted)]!"
+                value={sidebarQuery}
+                onChange={(event) => setSidebarQuery(event.target.value)}
+                aria-label="Search prototype modules"
+                placeholder="Search modules"
+              />
+              <kbd>Ctrl K</kbd>
+            </label>
+          )}
+          <div className="nx-sidebar__scroll pb-12">
+            <nav className="nx-sidebar__nav" aria-label="All Nexora modules">
               {["Command centre", "Finance & trade", "Operations & people", "Platform & governance"].map((category) => {
                 const modules = visibleModules.filter((module) => module.category === category);
                 if (!modules.length) return null;
@@ -767,10 +760,11 @@ export function PrototypeShell({
                               type="button"
                               onClick={() => openModule(module)}
                             >
-                              <span className="nx-module-button__icon">{module.code}</span>
-                              <span className="nx-module-button__label">{module.shortLabel}</span>
+                              <span className="nx-module-button__icon size-6! rounded-none! bg-transparent! text-[13px]! shadow-none!">
+                                <ModuleIcon moduleId={module.id} />
+                              </span>
+                              <span className="nx-module-button__label text-[13px]!">{module.shortLabel}</span>
                               <span className="nx-module-button__meta">
-                                <span className="nx-module-button__count">{pageCount(module)}</span>
                                 <i className="nx-module-button__chevron" />
                               </span>
                             </button>
@@ -844,7 +838,15 @@ export function PrototypeShell({
                                                   onClick={() => navigate(module.id, page.id)}
                                                 >
                                                   <span>{page.label}</span>
-                                                  {page.status === "in-progress" ? <small>In progress</small> : page.status === "live" ? <small>Live</small> : page.status === "read-only" ? <small>Read only</small> : page.status !== "prototype" ? <small>Soon</small> : null}
+                                                  {page.status === "in-progress" ? (
+                                                    <small>In progress</small>
+                                                  ) : page.status === "live" ? (
+                                                    <small>Live</small>
+                                                  ) : page.status === "read-only" ? (
+                                                    <small>Read only</small>
+                                                  ) : page.status !== "prototype" ? (
+                                                    <small>Soon</small>
+                                                  ) : null}
                                                 </button>
                                               </li>
                                             ))}
@@ -868,11 +870,14 @@ export function PrototypeShell({
                     <button
                       className="nx-module-button"
                       type="button"
+                      title="Identity & Access"
                       aria-current={activeWorkspace === "identity" ? "page" : undefined}
                       onClick={openIdentityWorkspace}
                     >
-                      <span className="nx-module-button__icon">IA</span>
-                      <span className="nx-module-button__label">Identity &amp; Access</span>
+                      <span className="nx-module-button__icon size-6! rounded-none! bg-transparent! text-[13px]! shadow-none!">
+                        <ModuleIcon moduleId="identity" />
+                      </span>
+                      <span className="nx-module-button__label text-[13px]!">Identity &amp; Access</span>
                       <span className="nx-module-button__meta" aria-hidden="true">
                         <i className="nx-module-button__chevron" />
                       </span>
@@ -884,16 +889,25 @@ export function PrototypeShell({
           </div>
         </aside>
         <button
-          className="nx-sidebar-reopen"
+          className="fixed bottom-4 z-[85] hidden size-8 items-center justify-center rounded-full border border-[var(--nx-sidebar-line)] bg-[var(--nx-sidebar-surface)] text-sm text-[var(--nx-sidebar-text)] shadow-sm transition-[left] duration-200 focus-visible:ring-2 focus-visible:ring-[var(--nx-sidebar-accent)] md:flex print:hidden!"
+          style={{
+            left: sidebarCollapsed
+              ? "calc(var(--nx-sidebar-rail-width) - 16px)"
+              : "calc(var(--nx-sidebar-width) - 16px)",
+          }}
           type="button"
-          aria-label="Expand sidebar menu"
-          title="Expand menu"
-          onClick={() => setSidebarCollapsed(false)}
+          aria-label={sidebarCollapsed ? "Expand sidebar menu" : "Collapse sidebar"}
+          aria-expanded={!sidebarCollapsed}
+          aria-controls="nexora-navigation"
+          onClick={() => setSidebarCollapsed((value) => !value)}
         >
-          <span aria-hidden="true">›</span>
+          {sidebarCollapsed ? (
+            <ChevronsRight className="h-[1em] w-[1em] text-[var(--nx-sidebar-text)]!" aria-hidden="true" />
+          ) : (
+            <ChevronsLeft className="h-[1em] w-[1em] text-[var(--nx-sidebar-text)]!" aria-hidden="true" />
+          )}
         </button>
-
-        <main className="nx-main">
+        <main className="nx-main bg-[var(--nx-sidebar)]!">
           <header className="nx-topbar">
             <button
               className="nx-mobile-menu-button"
@@ -901,18 +915,18 @@ export function PrototypeShell({
               aria-label="Open navigation"
               onClick={() => setMobileOpen(true)}
             >
-              ☰
+              <Menu className="h-[1em] w-[1em]" aria-hidden="true" />
             </button>
-            <span className="nx-topbar__brand">Nexora ERP</span>
+            <span className="nx-topbar__brand">{application.name}</span>
             <button
-              className="nx-global-search"
+              className="nx-global-search max-lg:w-10! max-lg:min-w-10! max-lg:flex-none!"
               type="button"
               onClick={() => setSearchOpen(true)}
               aria-label="Search transactions and pages"
             >
-              <span>⌕</span>
-              <span className="nx-shell-search-copy">Search transactions and pages</span>
-              <kbd>Ctrl K</kbd>
+              <Search className="h-[1em] w-[1em] shrink-0" aria-hidden="true" />
+              <span className="nx-shell-search-copy max-lg:hidden!">Search transactions and pages</span>
+              <kbd className="max-lg:hidden!">Ctrl K</kbd>
             </button>
             <div className="nx-topbar__actions">
               <button
@@ -920,8 +934,8 @@ export function PrototypeShell({
                 type="button"
                 onClick={() => setIntelligenceSurface({ kind: "work" })}
               >
-                <i>✓</i>
-                <span>My Work</span>
+                <ListChecks className="h-[1em] w-[1em] shrink-0" aria-hidden="true" />
+                <span className="max-lg:hidden!">My Work</span>
                 <b>4</b>
               </button>
               <button
@@ -929,8 +943,8 @@ export function PrototypeShell({
                 type="button"
                 onClick={() => setIntelligenceSurface({ kind: "assistant" })}
               >
-                <i>N</i>
-                <span>Nexora AI</span>
+                <Sparkles className="h-[1em] w-[1em] shrink-0 text-[var(--nx-sidebar-text)]!" aria-hidden="true" />
+                <span className="max-lg:hidden!">Nexora AI</span>
               </button>
               <button
                 className="nx-icon-button"
@@ -938,7 +952,7 @@ export function PrototypeShell({
                 aria-label="Prototype help"
                 onClick={() => setDialog({ type: "help" })}
               >
-                ?
+                <CircleHelp className="h-[1em] w-[1em]" aria-hidden="true" />
               </button>
               <button
                 className="nx-icon-button"
@@ -946,12 +960,13 @@ export function PrototypeShell({
                 aria-label="Open notifications"
                 onClick={() => setDialog({ type: "notifications" })}
               >
-                !<span className="nx-icon-button__badge">3</span>
+                <Bell className="h-[1em] w-[1em]" aria-hidden="true" />
+                <span className="nx-icon-button__badge">3</span>
               </button>
               {headerControls}
             </div>
           </header>
-          {!connectedWorkspace || isLiveMasterDataPage ? (
+          {activeWorkspace === "prototype" && isLiveMasterDataPage ? (
             <section
               className="nx-prototype-toolbar"
               aria-label={isLiveMasterDataPage ? "Account master data controls" : "Prototype controls"}
@@ -1045,7 +1060,9 @@ export function PrototypeShell({
             </section>
           ) : null}
 
-          <div className={`nx-content${isCompactHrWorkspace ? " pt-3! sm:pt-4!" : ""}`}>
+          <div
+            className={`nx-content mt-3 flex-1 rounded-tl-3xl bg-background${isCompactHrWorkspace ? " pt-3! sm:pt-4!" : ""}`}
+          >
             {activeWorkspace === "identity" && identityContent ? (
               identityContent
             ) : (
@@ -1142,11 +1159,14 @@ export function PrototypeShell({
       </div>
 
       {drawerModule ? (
-        <aside className="nx-submenu-drawer" aria-label={`${drawerModule.label} pages`}>
+        <aside
+          className="nx-submenu-drawer rounded-2xl! [--nx-surface:var(--nx-sidebar-surface)] [--nx-surface-raised:var(--nx-sidebar)] [--nx-text:var(--nx-sidebar-text)] [--nx-text-strong:var(--nx-sidebar-text)] [--nx-text-muted:var(--nx-sidebar-muted)] [--nx-text-subtle:var(--nx-sidebar-muted)] [--nx-border:var(--nx-sidebar-line)] [--nx-brand-soft:var(--nx-sidebar-hover)] [--nx-brand-strong:var(--nx-sidebar-accent)]"
+          aria-label={`${drawerModule.label} pages`}
+        >
           <div className="nx-submenu-drawer__header">
             <div>
               <h2>{drawerModule.label}</h2>
-              <p>{pageCount(drawerModule)} pages</p>
+              <p>Browse module pages</p>
             </div>
             <button
               className="nx-icon-button"
@@ -1162,9 +1182,10 @@ export function PrototypeShell({
               drawerModule.id === "hr" && Object.hasOwn(compactHrWorkspaces, group.id) ? (
                 <section className="nx-submenu-drawer__group" key={group.id}>
                   <button
-                    className="nx-submenu-drawer__link"
+                    className="nx-submenu-drawer__link w-full rounded-lg! border-0! bg-transparent! text-left hover:bg-[var(--nx-sidebar-hover)]! aria-[current=page]:bg-[var(--nx-sidebar-hover)]!"
                     type="button"
                     onClick={() => navigate("hr", compactHrWorkspaces[group.id])}
+                    aria-current={current.module.id === "hr" && current.group.id === group.id ? "page" : undefined}
                   >
                     <span>{group.label}</span>
                   </button>
@@ -1172,32 +1193,23 @@ export function PrototypeShell({
               ) : (
                 <section className="nx-submenu-drawer__group" key={group.id}>
                   <h3 className="nx-submenu-drawer__group-title">{group.label}</h3>
-                  {group.pages.map((page) => (
-                    <button
-                      className="nx-submenu-drawer__link"
-                      aria-current={page.id === current.page.id ? "page" : undefined}
-            {drawerModule.groups.map((group) => (
-              <section className="nx-submenu-drawer__group" key={group.id}>
-                <h3 className="nx-submenu-drawer__group-title">{group.label}</h3>
-                {group.pages
-                  .filter((page) => !page.hiddenFromNavigation)
-                  .map((page) => (
-                    <button
-                      className="nx-submenu-drawer__link"
-                      aria-current={page.id === currentNavigationPageId ? "page" : undefined}
-                      type="button"
-                      key={page.id}
-                      onClick={() => navigate(drawerModule.id, page.id)}
-                    >
-                      <span>{page.label}</span>
-                      <small>{page.archetype}</small>
-                    </button>
-                  ))}
+                  {group.pages
+                    .filter((page) => !page.hiddenFromNavigation)
+                    .map((page) => (
+                      <button
+                        className="nx-submenu-drawer__link w-full rounded-lg! border-0! bg-transparent! text-left hover:bg-[var(--nx-sidebar-hover)]! aria-[current=page]:bg-[var(--nx-sidebar-hover)]!"
+                        aria-current={page.id === currentNavigationPageId ? "page" : undefined}
+                        type="button"
+                        key={page.id}
+                        onClick={() => navigate(drawerModule.id, page.id)}
+                      >
+                        <span>{page.label}</span>
+                        <small>{page.archetype}</small>
+                      </button>
+                    ))}
                 </section>
               ),
             )}
-              </section>
-            ))}
           </div>
         </aside>
       ) : null}
@@ -1215,23 +1227,18 @@ export function PrototypeShell({
       />
 
       {searchOpen ? (
-        <div
-          className="nx-modal-layer"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.currentTarget === event.target) setSearchOpen(false);
-          }}
-        >
-          <section
-            className="nx-modal nx-modal--wide"
-            role="dialog"
-            aria-modal="true"
+        <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
+          <DialogContent
+            className="nx-modal nx-modal--wide z-[161]! w-[calc(100%-2rem)]! max-w-3xl! max-h-[calc(100dvh-2rem)]! gap-0! p-0!"
+            overlayClassName="z-[160]"
+            showCloseButton={false}
+            initialFocus={() => document.getElementById("erp-command-search")}
             aria-label="Global prototype search"
           >
             <div className="nx-modal__header">
               <div>
-                <h2>Search pages and transactions</h2>
-                <p>Type any reference, party, amount, status, page or module</p>
+                <DialogTitle>Search pages and transactions</DialogTitle>
+                <DialogDescription>Type any reference, party, amount, status, page or module</DialogDescription>
               </div>
               <button
                 className="nx-icon-button"
@@ -1247,6 +1254,10 @@ export function PrototypeShell({
                 <span>⌕</span>
                 <Input
                   id="erp-command-search"
+                  className="h-auto! min-w-0 rounded-none! border-0! bg-transparent! p-0! shadow-none! focus-visible:ring-0! focus-visible:outline-none!"
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-label="Search pages and transactions"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Try ‘PAY-2026-0418’, ‘Atlas’, ‘approved’, ‘invoice’ or ‘nominals’"
@@ -1289,8 +1300,8 @@ export function PrototypeShell({
                 Close
               </Button>
             </div>
-          </section>
-        </div>
+          </DialogContent>
+        </Dialog>
       ) : null}
 
       {dialog?.type === "confirm" ? (

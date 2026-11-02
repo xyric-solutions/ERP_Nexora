@@ -55,12 +55,12 @@ const stateLabels: Record<BankPaymentDetail["state"], string> = {
 };
 
 const stateStyles: Record<BankPaymentDetail["state"], string> = {
-  draft: "border-slate-300 bg-slate-100 text-slate-700",
-  submitted: "border-amber-300 bg-amber-50 text-amber-800",
-  approved: "border-sky-300 bg-sky-50 text-sky-800",
-  rejected: "border-rose-300 bg-rose-50 text-rose-800",
-  posted: "border-emerald-300 bg-emerald-50 text-emerald-800",
-  reversed: "border-violet-300 bg-violet-50 text-violet-800",
+  draft: "border-border bg-muted text-foreground",
+  submitted: "border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] text-[var(--nx-warning)]",
+  approved: "border-[var(--nx-info-border)] bg-[var(--nx-info-soft)] text-[var(--nx-info)]",
+  rejected: "border-[var(--nx-danger-border)] bg-[var(--nx-danger-soft)] text-[var(--nx-danger)]",
+  posted: "border-[var(--nx-success-border)] bg-[var(--nx-success-soft)] text-[var(--nx-success-text)]",
+  reversed: "border-[var(--nx-border)] bg-[var(--nx-purple-soft)] text-[var(--nx-purple)]",
 };
 
 const paymentMethodLabels: Record<BankPaymentDetail["lines"][number]["payment_method"], string> = {
@@ -293,7 +293,7 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
 
   return (
     <section className="min-w-0 space-y-5" aria-busy={mutationBusy || loading}>
-      <header className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,rgba(15,42,66,0.98),rgba(24,64,91,0.94))] text-white shadow-sm">
+      <header className="overflow-hidden rounded-2xl border border-border bg-[var(--nx-emphasis-background)] text-[var(--nx-emphasis-text)] shadow-sm">
         <div className="grid gap-6 px-5 py-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:px-7">
           <div className="min-w-0">
             <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -301,7 +301,7 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
                 type="button"
                 variant="outline"
                 size="sm"
-                className="border-white/35 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+                className="border-[var(--nx-emphasis-border)] bg-[var(--nx-emphasis-surface)] text-[var(--nx-emphasis-text)] hover:bg-[var(--nx-emphasis-surface)] hover:text-[var(--nx-emphasis-text)]"
                 onClick={onBack}
               >
                 <ArrowLeft aria-hidden="true" />
@@ -310,13 +310,13 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
               <Badge className={`border ${stateStyles[payment.state]}`} variant="outline">
                 {stateLabels[payment.state]}
               </Badge>
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-100">Persisted payment</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--nx-emphasis-muted)]">Persisted payment</span>
             </div>
-            <p className="text-sm text-sky-100">Banking &amp; Treasury / Transaction detail</p>
+            <p className="text-sm text-[var(--nx-emphasis-muted)]">Banking &amp; Treasury / Transaction detail</p>
             <h1 className="mt-1 truncate font-serif text-3xl font-semibold tracking-tight sm:text-4xl">
               {payment.reference}
             </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-200">
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--nx-emphasis-muted)]">
               {payment.lines[0]?.narration ?? "Governed Bank Payment"} · version {payment.version}
             </p>
           </div>
@@ -396,7 +396,7 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
           <Card>
             <CardHeader className="border-b border-border">
               <CardTitle className="flex items-center gap-2 font-serif text-xl">
-                <Landmark className="size-5 text-sky-700" aria-hidden="true" />
+                <Landmark className="size-5 text-[var(--nx-info)]" aria-hidden="true" />
                 Payment particulars
               </CardTitle>
               <CardDescription>Server-authoritative header and masked Bank Account identity.</CardDescription>
@@ -434,7 +434,7 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[920px] text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+                  <thead className="bg-card text-xs uppercase tracking-wider text-muted-foreground">
                     <tr>
                       <th scope="col" className="px-4 py-3">
                         Line
@@ -484,7 +484,7 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="border-t-2 border-slate-300 bg-slate-50">
+                  <tfoot className="border-t-2 border-border bg-card">
                     <tr>
                       <th scope="row" colSpan={5} className="px-4 py-4 text-right font-semibold">
                         Persisted total
@@ -504,10 +504,10 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
 
         <aside className="space-y-5">
           {(canDecide || independentCheckerRequired) && payment.state === "submitted" ? (
-            <Card className="border-sky-200">
+            <Card className="border-[var(--nx-info-border)]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 font-serif text-xl">
-                  <ShieldCheck className="size-5 text-sky-700" aria-hidden="true" />
+                  <ShieldCheck className="size-5 text-[var(--nx-info)]" aria-hidden="true" />
                   Checker decision
                 </CardTitle>
                 <CardDescription>Approval remains separate from Finance posting.</CardDescription>
@@ -577,10 +577,10 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
           ) : null}
 
           {canPost ? (
-            <Card className="border-emerald-200">
+            <Card className="border-[var(--nx-success-border)]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 font-serif text-xl">
-                  <CircleDollarSign className="size-5 text-emerald-700" aria-hidden="true" />
+                  <CircleDollarSign className="size-5 text-[var(--nx-success-text)]" aria-hidden="true" />
                   Finance posting
                 </CardTitle>
                 <CardDescription>Creates the governed accounting event and balanced journal.</CardDescription>
@@ -618,10 +618,10 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
           ) : null}
 
           {canReverse ? (
-            <Card className="border-violet-200">
+            <Card className="border-[var(--nx-border)]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 font-serif text-xl">
-                  <RotateCcw className="size-5 text-violet-700" aria-hidden="true" />
+                  <RotateCcw className="size-5 text-[var(--nx-purple)]" aria-hidden="true" />
                   Compensating reversal
                 </CardTitle>
                 <CardDescription>The original journal remains immutable.</CardDescription>
@@ -678,21 +678,21 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 font-serif text-xl">
-                <FileClock className="size-5 text-slate-600" aria-hidden="true" />
+                <FileClock className="size-5 text-muted-foreground" aria-hidden="true" />
                 Lifecycle timeline
               </CardTitle>
               <CardDescription>Persisted actors and transition evidence.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ol className="relative space-y-5 border-l border-slate-200 pl-5">
+              <ol className="relative space-y-5 border-l border-border pl-5">
                 {payment.timeline.map((event) => (
                   <li key={event.id} className="relative">
-                    <span className="absolute -left-[1.55rem] top-1 size-3 rounded-full border-2 border-white bg-sky-700 ring-1 ring-sky-200" />
+                    <span className="absolute -left-[1.55rem] top-1 size-3 rounded-full border-2 border-border bg-[var(--nx-info-soft)] ring-1 ring-[var(--nx-info-border)]" />
                     <p className="font-semibold capitalize">{event.action}</p>
                     <p className="text-sm text-muted-foreground">
                       {event.actor_label} · {displayDateTime(event.occurred_at)}
                     </p>
-                    {event.reason ? <p className="mt-1 text-sm text-slate-600">{event.reason}</p> : null}
+                    {event.reason ? <p className="mt-1 text-sm text-muted-foreground">{event.reason}</p> : null}
                   </li>
                 ))}
               </ol>
@@ -706,15 +706,15 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
 
 function AccountingPreview({ payment }: { payment: BankPaymentDetail }) {
   return (
-    <Card className="border-amber-200 bg-amber-50/20">
-      <CardHeader className="border-b border-amber-200">
+    <Card className="border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)]/20">
+      <CardHeader className="border-b border-[var(--nx-warning-border)]">
         <CardTitle className="font-serif text-xl">Accounting preview</CardTitle>
         <CardDescription>No journal exists yet. Finance revalidates this projection when posting.</CardDescription>
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[680px] text-left text-sm">
-            <thead className="bg-amber-50 text-xs uppercase tracking-wider text-amber-900/65">
+            <thead className="bg-[var(--nx-warning-soft)] text-xs uppercase tracking-wider text-[var(--nx-warning)]/65">
               <tr>
                 <th scope="col" className="px-4 py-3">
                   Account
@@ -732,7 +732,7 @@ function AccountingPreview({ payment }: { payment: BankPaymentDetail }) {
             </thead>
             <tbody>
               {payment.accounting_preview.lines.map((line) => (
-                <tr key={`${line.line_order}-${line.account_id}`} className="border-t border-amber-100">
+                <tr key={`${line.line_order}-${line.account_id}`} className="border-t border-[var(--nx-warning-border)]">
                   <td className="px-4 py-3">
                     <strong>{line.account_code}</strong>
                     <span className="ml-2 text-muted-foreground">{line.account_name}</span>
@@ -756,16 +756,16 @@ function AccountingPreview({ payment }: { payment: BankPaymentDetail }) {
 
 function AccountingLinks({ payment }: { payment: BankPaymentDetail }) {
   return (
-    <Card className="border-emerald-200 bg-emerald-50/20">
-      <CardHeader className="border-b border-emerald-200">
+    <Card className="border-[var(--nx-success-border)] bg-[var(--nx-success-soft)]/20">
+      <CardHeader className="border-b border-[var(--nx-success-border)]">
         <CardTitle className="font-serif text-xl">Recorded accounting linkage</CardTitle>
         <CardDescription>
           Actual Finance entry number with masked internal event and journal references.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5 sm:grid-cols-2">
-        <div className="rounded-lg border border-emerald-200 bg-white/70 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Original posting</p>
+        <div className="rounded-lg border border-[var(--nx-success-border)] bg-card/70 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--nx-success-text)]">Original posting</p>
           <dl className="mt-3 space-y-3">
             <Datum label="Entry number" value={payment.journal_entry_number ?? "Unavailable"} strong />
             <Datum label="Accounting event" value={maskedReference(payment.accounting_event_id)} />
@@ -773,8 +773,8 @@ function AccountingLinks({ payment }: { payment: BankPaymentDetail }) {
           </dl>
         </div>
         {payment.state === "reversed" ? (
-          <div className="rounded-lg border border-violet-200 bg-white/70 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-violet-800">Compensating reversal</p>
+          <div className="rounded-lg border border-[var(--nx-border)] bg-card/70 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--nx-purple)]">Compensating reversal</p>
             <dl className="mt-3 space-y-3">
               <Datum label="Entry number" value={payment.reversal_journal_entry_number ?? "Unavailable"} strong />
               <Datum label="Accounting event" value={maskedReference(payment.reversal_accounting_event_id)} />
@@ -811,12 +811,12 @@ function DetailState({
 }) {
   return (
     <div
-      className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-10 text-center"
+      className="rounded-2xl border border-dashed border-border bg-card/70 p-10 text-center"
       role={busy ? "status" : "alert"}
     >
-      {busy ? <RefreshCw className="mx-auto mb-4 size-6 animate-spin text-sky-700" aria-hidden="true" /> : null}
-      <h2 className="font-serif text-2xl font-semibold text-slate-900">{title}</h2>
-      <p className="mx-auto mt-2 max-w-xl text-sm text-slate-600">{detail}</p>
+      {busy ? <RefreshCw className="mx-auto mb-4 size-6 animate-spin text-[var(--nx-info)]" aria-hidden="true" /> : null}
+      <h2 className="font-serif text-2xl font-semibold text-foreground">{title}</h2>
+      <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{detail}</p>
       {onRetry ? (
         <Button type="button" className="mt-5" onClick={onRetry}>
           <RefreshCw aria-hidden="true" />

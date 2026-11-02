@@ -383,7 +383,7 @@ function RevaluationRegister({
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1120px] text-sm">
-            <thead className="bg-sky-500 text-left text-white">
+            <thead className="bg-[var(--nx-info-soft)] text-left text-[var(--nx-emphasis-text)]">
               <tr>
                 {[
                   "Voucher",
@@ -439,7 +439,7 @@ function RevaluationRegister({
                     className={
                       row.direction === "loss"
                         ? "px-3 py-3 font-semibold text-destructive"
-                        : "px-3 py-3 font-semibold text-emerald-700"
+                        : "px-3 py-3 font-semibold text-[var(--nx-success-text)]"
                     }
                   >
                     {gainLoss(row.gain_loss_amount, row.base_currency, row.direction)}
@@ -875,7 +875,7 @@ function RevaluationForm({
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[960px] text-sm">
-                <thead className="bg-sky-500 text-white">
+                <thead className="bg-[var(--nx-info-soft)] text-[var(--nx-emphasis-text)]">
                   <tr>
                     {[
                       "Account Code",
@@ -917,7 +917,7 @@ function RevaluationForm({
                         className={
                           line.direction === "loss"
                             ? "px-3 py-3 font-semibold text-destructive"
-                            : "px-3 py-3 font-semibold text-emerald-700"
+                            : "px-3 py-3 font-semibold text-[var(--nx-success-text)]"
                         }
                       >
                         {gainLoss(line.adjustment, evidence.base_currency, line.direction)}
@@ -1014,7 +1014,7 @@ function RevaluationForm({
             </div>
           </div>
           {sameMaker && detail.state === "submitted" && canApprove ? (
-            <p className="mt-3 text-sm text-amber-700">
+            <p className="mt-3 text-sm text-[var(--nx-warning)]">
               You created this record. Approval can succeed only when the server validates an audited Super Admin
               override.
             </p>

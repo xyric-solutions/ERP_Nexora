@@ -164,7 +164,7 @@ export function ThemeSelector({ label = "Appearance", className = "" }: { label?
 
 function AppearanceIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <svg className="h-[1em]! w-[1em]!" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="M12 3v2.25M12 18.75V21M3 12h2.25M18.75 12H21M5.64 5.64l1.59 1.59M16.77 16.77l1.59 1.59M18.36 5.64l-1.59 1.59M7.23 16.77l-1.59 1.59" />
       <circle cx="12" cy="12" r="3.75" />
     </svg>

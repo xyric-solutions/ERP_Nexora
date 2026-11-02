@@ -136,19 +136,31 @@ export default function UserWizard({
     <form className="border-b border-border bg-muted/50" onSubmit={submit} aria-labelledby="new-user-title">
       <header className="flex flex-wrap items-center justify-between gap-4 px-5 py-5">
         <div>
-          <span className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">Governed account request</span>
-          <h3 id="new-user-title" className="mt-1 text-xl font-semibold">Create user</h3>
+          <span className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+            Governed account request
+          </span>
+          <h3 id="new-user-title" className="mt-1 text-xl font-semibold">
+            Create user
+          </h3>
         </div>
         <div className="flex items-center gap-2.5">
-          {draftRestored ? <span className="rounded-full bg-[var(--nx-info-soft)] px-2 py-1 text-xs font-medium text-[var(--nx-info)]">Draft restored</span> : null}
+          {draftRestored ? (
+            <span className="rounded-full bg-[var(--nx-info-soft)] px-2 py-1 text-xs font-medium text-[var(--nx-info)]">
+              Draft restored
+            </span>
+          ) : null}
           <Button type="button" variant="outline" onClick={close} disabled={busy}>
             Close and keep draft
           </Button>
         </div>
       </header>
-      <ol className="grid grid-cols-5 px-5" aria-label="User creation steps">
+      <ol className="grid grid-cols-1 px-5 sm:grid-cols-5" aria-label="User creation steps">
         {steps.map((label, index) => (
-          <li className={`flex items-center gap-2 border-b-3 px-2 py-3 text-xs ${step === index ? "border-primary font-semibold text-primary" : "border-border text-muted-foreground"}`} key={label} aria-current={step === index ? "step" : undefined}>
+          <li
+            className={`flex items-center gap-2 border-b-3 px-2 py-3 text-xs ${step === index ? "border-primary font-semibold text-primary" : "border-border text-muted-foreground"}`}
+            key={label}
+            aria-current={step === index ? "step" : undefined}
+          >
             <b className="grid size-5 place-items-center rounded-full bg-muted text-xs">{index + 1}</b>
             {label}
           </li>
@@ -184,7 +196,11 @@ export default function UserWizard({
               <label
                 htmlFor={`${accountTypeId}-user`}
                 aria-label="User only"
-                className={accountType === "user" ? "flex justify-between gap-3 rounded-lg border border-primary bg-[var(--nx-selection-background)] p-3" : "flex justify-between gap-3 rounded-lg border border-border bg-card p-3"}
+                className={
+                  accountType === "user"
+                    ? "flex justify-between gap-3 rounded-lg border border-primary bg-[var(--nx-selection-background)] p-3"
+                    : "flex justify-between gap-3 rounded-lg border border-border bg-card p-3"
+                }
               >
                 <input
                   id={`${accountTypeId}-user`}
@@ -205,7 +221,11 @@ export default function UserWizard({
               <label
                 htmlFor={`${accountTypeId}-employee`}
                 aria-label="Employee"
-                className={accountType === "employee" ? "flex justify-between gap-3 rounded-lg border border-primary bg-[var(--nx-selection-background)] p-3" : "flex justify-between gap-3 rounded-lg border border-border bg-card p-3"}
+                className={
+                  accountType === "employee"
+                    ? "flex justify-between gap-3 rounded-lg border border-primary bg-[var(--nx-selection-background)] p-3"
+                    : "flex justify-between gap-3 rounded-lg border border-border bg-card p-3"
+                }
               >
                 <input
                   id={`${accountTypeId}-employee`}
@@ -253,7 +273,14 @@ export default function UserWizard({
             {options.companies.map((company) => {
               const selected = companyIds.includes(company.id);
               return (
-                <div key={company.id} className={selected ? "flex justify-between gap-3 rounded-lg border border-primary bg-[var(--nx-selection-background)] p-3" : "flex justify-between gap-3 rounded-lg border border-border bg-card p-3"}>
+                <div
+                  key={company.id}
+                  className={
+                    selected
+                      ? "flex justify-between gap-3 rounded-lg border border-primary bg-[var(--nx-selection-background)] p-3"
+                      : "flex justify-between gap-3 rounded-lg border border-border bg-card p-3"
+                  }
+                >
                   <label htmlFor={`company-${company.id}`} aria-label={`Allow ${company.name}`}>
                     <input
                       id={`company-${company.id}`}
@@ -284,7 +311,9 @@ export default function UserWizard({
         ) : step === 3 ? (
           <fieldset className="grid gap-3 md:grid-cols-2">
             <legend>Initial roles</legend>
-            <p className="text-sm text-muted-foreground md:col-span-2">Role authority is checked again by the backend during approval.</p>
+            <p className="text-sm text-muted-foreground md:col-span-2">
+              Role authority is checked again by the backend during approval.
+            </p>
             {options.roles.map((role) => (
               <label
                 key={role.policy_id}
@@ -347,14 +376,23 @@ export default function UserWizard({
               approval.
             </p>
             {!canSubmit ? (
-              <Alert className="md:col-span-2" variant="destructive"><AlertDescription>Review your identity, employee selection, and default company before submitting.</AlertDescription></Alert>
+              <Alert className="md:col-span-2" variant="destructive">
+                <AlertDescription>
+                  Review your identity, employee selection, and default company before submitting.
+                </AlertDescription>
+              </Alert>
             ) : null}
           </div>
         )}
       </div>
 
       <footer className="flex items-center justify-between gap-3 border-t border-border px-5 py-5">
-        <Button type="button" variant="outline" onClick={() => setStep((value) => Math.max(0, value - 1))} disabled={step === 0 || busy}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setStep((value) => Math.max(0, value - 1))}
+          disabled={step === 0 || busy}
+        >
           Back
         </Button>
         <Button type="submit" disabled={!canContinue || busy}>

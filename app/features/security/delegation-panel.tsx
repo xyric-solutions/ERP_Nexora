@@ -1,4 +1,5 @@
 "use client";
+import { IdentitySheet } from "./identity-sheet";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
@@ -200,78 +201,86 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
-      {showCreate ? (
-        <form className="grid gap-4 border-b border-border bg-muted/40 p-5 md:grid-cols-2" onSubmit={create}>
-          <Label className="grid gap-2 text-sm">
-            Delegate to
-            <select value={delegateeId} onChange={(event) => setDelegateeId(event.target.value)} required>
-              <option value="">Select an active user</option>
-              {users.map((user) => (
-                <option key={String(user.id)} value={String(user.id)}>
-                  {String(user.display_name)} · {String(user.email)}
-                </option>
-              ))}
-            </select>
-          </Label>
-          <Label className="grid gap-2 text-sm">
-            Permission
-            <select value={permissionKey} onChange={(event) => setPermissionKey(event.target.value)} required>
-              <option value="">Select bounded authority</option>
-              {permissionOptions.map((permission) => (
-                <option key={permission} value={permission}>
-                  {permission}
-                </option>
-              ))}
-            </select>
-          </Label>
-          <Label className="grid gap-2 text-sm">
-            Scope
-            <select value={scopeKind} onChange={(event) => setScopeKind(event.target.value as "tenant" | "company")}>
-              <option value="tenant">Entire tenant</option>
-              <option value="company">One company</option>
-            </select>
-          </Label>
-          {scopeKind === "company" ? (
+      <IdentitySheet
+        open={showCreate}
+        title="Create delegation"
+        busy={busy}
+        message={message}
+        onClose={() => setShowCreate(false)}
+      >
+        {showCreate ? (
+          <form className="grid gap-4 border-b border-border bg-muted/40 p-5 md:grid-cols-2" onSubmit={create}>
             <Label className="grid gap-2 text-sm">
-              Company
-              <select value={companyId} onChange={(event) => setCompanyId(event.target.value)} required>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
+              Delegate to
+              <select value={delegateeId} onChange={(event) => setDelegateeId(event.target.value)} required>
+                <option value="">Select an active user</option>
+                {users.map((user) => (
+                  <option key={String(user.id)} value={String(user.id)}>
+                    {String(user.display_name)} · {String(user.email)}
                   </option>
                 ))}
               </select>
             </Label>
-          ) : null}
-          <Label className="grid gap-2 text-sm">
-            Valid from
-            <Input
-              type="datetime-local"
-              value={validFrom}
-              onChange={(event) => setValidFrom(event.target.value)}
-              required
-            />
-          </Label>
-          <Label className="grid gap-2 text-sm">
-            Valid until
-            <Input
-              type="datetime-local"
-              value={validUntil}
-              onChange={(event) => setValidUntil(event.target.value)}
-              required
-            />
-          </Label>
-          <Label className="grid gap-2 text-sm md:col-span-2">
-            Business reason
-            <Input value={reason} onChange={(event) => setReason(event.target.value)} required maxLength={512} />
-          </Label>
-          <div className="md:col-span-2">
-            <Button type="submit" disabled={busy || permissionOptions.length === 0}>
-              Create draft
-            </Button>
-          </div>
-        </form>
-      ) : null}
+            <Label className="grid gap-2 text-sm">
+              Permission
+              <select value={permissionKey} onChange={(event) => setPermissionKey(event.target.value)} required>
+                <option value="">Select bounded authority</option>
+                {permissionOptions.map((permission) => (
+                  <option key={permission} value={permission}>
+                    {permission}
+                  </option>
+                ))}
+              </select>
+            </Label>
+            <Label className="grid gap-2 text-sm">
+              Scope
+              <select value={scopeKind} onChange={(event) => setScopeKind(event.target.value as "tenant" | "company")}>
+                <option value="tenant">Entire tenant</option>
+                <option value="company">One company</option>
+              </select>
+            </Label>
+            {scopeKind === "company" ? (
+              <Label className="grid gap-2 text-sm">
+                Company
+                <select value={companyId} onChange={(event) => setCompanyId(event.target.value)} required>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+              </Label>
+            ) : null}
+            <Label className="grid gap-2 text-sm">
+              Valid from
+              <Input
+                type="datetime-local"
+                value={validFrom}
+                onChange={(event) => setValidFrom(event.target.value)}
+                required
+              />
+            </Label>
+            <Label className="grid gap-2 text-sm">
+              Valid until
+              <Input
+                type="datetime-local"
+                value={validUntil}
+                onChange={(event) => setValidUntil(event.target.value)}
+                required
+              />
+            </Label>
+            <Label className="grid gap-2 text-sm md:col-span-2">
+              Business reason
+              <Input value={reason} onChange={(event) => setReason(event.target.value)} required maxLength={512} />
+            </Label>
+            <div className="md:col-span-2">
+              <Button type="submit" disabled={busy || permissionOptions.length === 0}>
+                Create draft
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </IdentitySheet>
       {loading ? (
         <p className="p-9 text-center text-sm text-muted-foreground">Loading governed delegations…</p>
       ) : rows.length === 0 ? (
@@ -333,8 +342,8 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
                           <p className="mt-4 text-sm text-muted-foreground">{INDEPENDENT_APPROVER_REQUIRED}</p>
                         ) : null}
                         <div className="mt-4 flex flex-wrap gap-2">
-                        {state === "draft" &&
-                        (owns || isFullAdmin) &&
+                          {state === "draft" &&
+                          (owns || isFullAdmin) &&
                           (isFullAdmin || permissions.has("security.delegation.submit")) ? (
                             <Button
                               type="button"

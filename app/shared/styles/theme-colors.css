@@ -9,78 +9,81 @@
 :root[data-theme="light"] {
   color-scheme: light;
 
-  --nx-canvas: #f5f7fa;
+  --nx-canvas: #f7f7f3;
   --nx-surface: #ffffff;
-  --nx-surface-soft: #f5f7fa;
+  --nx-surface-soft: #f3f4ed;
   --nx-surface-raised: #ffffff;
-  --nx-surface-hover: #eef2f5;
-  --nx-surface-sunken: #e8edf2;
+  --nx-surface-hover: #f0f1e9;
+  --nx-surface-sunken: #eceee5;
   --nx-control-background: #ffffff;
 
-  --nx-text: #1f2937;
-  --nx-text-strong: #1f2937;
-  --nx-text-muted: #6b7280;
-  --nx-text-subtle: #6b7280;
+  --nx-text: #252721;
+  --nx-text-strong: #252721;
+  --nx-text-muted: #65695c;
+  --nx-text-subtle: #74796a;
   --nx-text-inverse: #ffffff;
-  --nx-action-text: #ffffff;
+  --nx-action-text: #252721;
 
   /* High-emphasis and overlay roles used by drawers, heroes and command UI. */
-  --nx-emphasis-background: #071b34;
-  --nx-emphasis-background-soft: #0d3158;
+  --nx-emphasis-background: #20211f;
+  --nx-emphasis-background-soft: #34362c;
+  --nx-emphasis-background-accent: #59451f;
   --nx-emphasis-text: #ffffff;
-  --nx-emphasis-muted: #c4d1db;
+  --nx-emphasis-muted: #d0d2c5;
+  --nx-emphasis-success: #a6d4b5;
+  --nx-emphasis-danger: #f2aa9a;
   --nx-emphasis-border: rgba(255, 255, 255, 0.2);
   --nx-emphasis-surface: rgba(255, 255, 255, 0.08);
   --nx-emphasis-surface-hover: rgba(255, 255, 255, 0.16);
-  --nx-overlay-scrim: rgba(5, 21, 41, 0.54);
-  --nx-overlay-scrim-strong: rgba(4, 17, 32, 0.72);
+  --nx-overlay-scrim: rgba(25, 27, 22, 0.54);
+  --nx-overlay-scrim-strong: rgba(25, 27, 22, 0.76);
   --nx-surface-translucent: rgba(255, 255, 255, 0.96);
 
-  --nx-border: #d9e1e8;
-  --nx-border-strong: #b9c8d3;
-  --nx-rule: #d9e1e8;
+  --nx-border: #e4e7dc;
+  --nx-border-strong: #b8bdae;
+  --nx-rule: #eaece4;
 
-  --nx-primary: #183b56;
-  --nx-secondary: #2f5d7c;
-  --nx-accent: #4f8fbf;
-  --nx-brand: #183b56;
-  --nx-brand-strong: #183b56;
-  --nx-brand-soft: #edf3f7;
-  --nx-brand-line: #b8cdd9;
+  --nx-primary: #ffb31a;
+  --nx-secondary: #ee8d29;
+  --nx-accent: #ee8d29;
+  --nx-brand: #8a5a00;
+  --nx-brand-strong: #704900;
+  --nx-brand-soft: #fff6df;
+  --nx-brand-line: #e5ca8d;
 
-  --nx-sidebar: #183b56;
-  --nx-sidebar-deep: #102b40;
-  --nx-sidebar-surface: #2f5d7c;
-  --nx-sidebar-hover: #264e6a;
-  --nx-sidebar-line: #4f6f87;
-  --nx-sidebar-text: #ffffff;
-  --nx-sidebar-muted: #c4d1db;
-  --nx-sidebar-accent: #4f8fbf;
+  --nx-sidebar: #20211f;
+  --nx-sidebar-deep: #191b18;
+  --nx-sidebar-surface: #34362c;
+  --nx-sidebar-hover: #303329;
+  --nx-sidebar-line: #45493b;
+  --nx-sidebar-text: #f7f7f0;
+  --nx-sidebar-muted: #bfc3b4;
+  --nx-sidebar-accent: #ffb31a;
 
-  --nx-info: #2f6f98;
-  --nx-info-soft: #edf3f7;
-  --nx-info-border: #b8cdd9;
-  --nx-success: #2e7d5b;
-  --nx-success-text: #276b4d;
-  --nx-success-soft: #e8f3ee;
-  --nx-success-border: #b8d8c9;
-  --nx-warning: #8a5a0c;
-  --nx-warning-soft: #fbf3e3;
-  --nx-warning-border: #dcc78d;
-  --nx-danger: #b33d45;
-  --nx-danger-soft: #fbecec;
-  --nx-danger-border: #dca9ad;
-  --nx-neutral-soft: #eaeef3;
-  --nx-purple: #4c4485;
-  --nx-purple-soft: #ecebf4;
+  --nx-info: #536648;
+  --nx-info-soft: #f0f3e9;
+  --nx-info-border: #c8d1bb;
+  --nx-success: #477765;
+  --nx-success-text: #37634f;
+  --nx-success-soft: #edf4ef;
+  --nx-success-border: #bed3c5;
+  --nx-warning: #88580a;
+  --nx-warning-soft: #fff6df;
+  --nx-warning-border: #e5ca8d;
+  --nx-danger: #a94f3b;
+  --nx-danger-soft: #fbefeb;
+  --nx-danger-border: #e4bfb4;
+  --nx-neutral-soft: #eff0e9;
+  --nx-purple: #735d7f;
+  --nx-purple-soft: #f3eef5;
 
-  --nx-focus-color: #2875a3;
-  --nx-selection-background: #f1f7fa;
-  --nx-selection-border: #2875a3;
-  --nx-login-glow: #e8f1f8;
-  --nx-role-hero-glow: rgba(37, 99, 235, 0.15);
-  --nx-heatmap-high-background: #4f8fbf;
-  --nx-heatmap-high-text: #1f2937;
+  --nx-focus-color: #946100;
+  --nx-selection-background: #fff6df;
+  --nx-selection-border: #b87900;
+  --nx-login-glow: #fff0cb;
+  --nx-role-hero-glow: rgba(255, 179, 26, 0.16);
+  --nx-heatmap-high-background: #946100;
+  --nx-heatmap-high-text: #ffffff;
   --nx-chart-dark-text: #081321;
   --nx-chart-light-text: #ffffff;
   --nx-on-series-1: var(--nx-chart-dark-text);
@@ -99,7 +102,7 @@
   --nx-shadow-color-sm: rgba(10, 23, 40, 0.07);
   --nx-shadow-color-md: rgba(10, 23, 40, 0.1);
   --nx-shadow-color-overlay: rgba(10, 23, 40, 0.2);
-  --nx-focus-ring: rgba(79, 143, 191, 0.24);
+  --nx-focus-ring: rgba(185, 121, 0, 0.25);
 
   /* Fixed document output: deliberately identical in every screen theme. */
   --nx-paper: #ffffff;
@@ -112,79 +115,82 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  /* Navy is the dark foundation; lighter blue accents keep controls readable. */
-  --nx-canvas: #081426;
-  --nx-surface: #0e2038;
-  --nx-surface-soft: #122942;
-  --nx-surface-raised: #142c49;
-  --nx-surface-hover: #1b3655;
-  --nx-surface-sunken: #091a2e;
-  --nx-control-background: #142c49;
+  /* Charcoal and olive surfaces retain the reference's warm amber accents. */
+  --nx-canvas: #151714;
+  --nx-surface: #20231e;
+  --nx-surface-soft: #282c24;
+  --nx-surface-raised: #2c3028;
+  --nx-surface-hover: #34392e;
+  --nx-surface-sunken: #191c17;
+  --nx-control-background: #24281f;
 
-  --nx-text: #dde8f5;
-  --nx-text-strong: #f5f8ff;
-  --nx-text-muted: #acbdd3;
-  --nx-text-subtle: #91a6c1;
-  --nx-text-inverse: #081321;
-  --nx-action-text: #081321;
+  --nx-text: #eceee5;
+  --nx-text-strong: #f7f8f1;
+  --nx-text-muted: #b6bcae;
+  --nx-text-subtle: #a4ad98;
+  --nx-text-inverse: #151714;
+  --nx-action-text: #252721;
 
-  --nx-emphasis-background: #061326;
-  --nx-emphasis-background-soft: #102a48;
+  --nx-emphasis-background: #11140f;
+  --nx-emphasis-background-soft: #292e21;
+  --nx-emphasis-background-accent: #4b3b1d;
   --nx-emphasis-text: #f4f8fc;
-  --nx-emphasis-muted: #b7c7d6;
+  --nx-emphasis-muted: #c5cbb9;
+  --nx-emphasis-success: #a6d4b5;
+  --nx-emphasis-danger: #f2aa9a;
   --nx-emphasis-border: rgba(244, 248, 252, 0.2);
   --nx-emphasis-surface: rgba(244, 248, 252, 0.08);
   --nx-emphasis-surface-hover: rgba(244, 248, 252, 0.16);
-  --nx-overlay-scrim: rgba(2, 8, 16, 0.68);
-  --nx-overlay-scrim-strong: rgba(2, 8, 16, 0.82);
-  --nx-surface-translucent: rgba(14, 32, 56, 0.96);
+  --nx-overlay-scrim: rgba(8, 10, 7, 0.68);
+  --nx-overlay-scrim-strong: rgba(8, 10, 7, 0.82);
+  --nx-surface-translucent: rgba(32, 35, 30, 0.96);
 
-  --nx-border: #263f5e;
-  --nx-border-strong: #405c7d;
-  --nx-rule: #1f3652;
+  --nx-border: #3b4233;
+  --nx-border-strong: #687357;
+  --nx-rule: #343a2d;
 
-  --nx-primary: #8bb5e3;
-  --nx-secondary: #6c96c5;
-  --nx-accent: #8bb5e3;
-  --nx-brand: #8bb5e3;
-  --nx-brand-strong: #b5d2f2;
-  --nx-brand-soft: #142e4e;
-  --nx-brand-line: #3a587b;
+  --nx-primary: #ffb31a;
+  --nx-secondary: #ee8d29;
+  --nx-accent: #f9d66d;
+  --nx-brand: #ffce67;
+  --nx-brand-strong: #ffe3a3;
+  --nx-brand-soft: #3a301b;
+  --nx-brand-line: #806329;
 
-  --nx-sidebar: #071b34;
-  --nx-sidebar-deep: #051226;
-  --nx-sidebar-surface: #102a48;
-  --nx-sidebar-hover: #183759;
-  --nx-sidebar-line: #2a4567;
-  --nx-sidebar-text: #f4f8fc;
-  --nx-sidebar-muted: #b7c9df;
-  --nx-sidebar-accent: #8bb5e3;
+  --nx-sidebar: #181b15;
+  --nx-sidebar-deep: #11140f;
+  --nx-sidebar-surface: #303628;
+  --nx-sidebar-hover: #303728;
+  --nx-sidebar-line: #3f4834;
+  --nx-sidebar-text: #f4f6ec;
+  --nx-sidebar-muted: #bbc4ae;
+  --nx-sidebar-accent: #ffbf3b;
 
-  --nx-info: #79add2;
-  --nx-info-soft: #15304f;
-  --nx-info-border: #365675;
-  --nx-success: #64b899;
-  --nx-success-text: #64b899;
-  --nx-success-soft: #102b26;
-  --nx-success-border: #2d5b4e;
-  --nx-warning: #d7a55e;
-  --nx-warning-soft: #2f2410;
-  --nx-warning-border: #6c5431;
-  --nx-danger: #e18a92;
-  --nx-danger-soft: #331c21;
-  --nx-danger-border: #71434a;
-  --nx-neutral-soft: #1e2d3f;
-  --nx-purple: #a69bd9;
-  --nx-purple-soft: #23203c;
+  --nx-info: #bdcfa6;
+  --nx-info-soft: #293322;
+  --nx-info-border: #4e6040;
+  --nx-success: #90c3a8;
+  --nx-success-text: #90c3a8;
+  --nx-success-soft: #1e3327;
+  --nx-success-border: #41664e;
+  --nx-warning: #f3ca72;
+  --nx-warning-soft: #382e18;
+  --nx-warning-border: #806329;
+  --nx-danger: #f1aa95;
+  --nx-danger-soft: #39251e;
+  --nx-danger-border: #81523f;
+  --nx-neutral-soft: #30362a;
+  --nx-purple: #c3add0;
+  --nx-purple-soft: #332b39;
 
-  --nx-focus-color: #9ec9f4;
-  --nx-selection-background: #183759;
-  --nx-selection-border: #8bb5e3;
-  --nx-login-glow: #142e4e;
-  --nx-role-hero-glow: rgba(73, 130, 255, 0.2);
-  --nx-heatmap-high-background: #79add2;
-  --nx-heatmap-high-text: #081321;
-  --nx-chart-dark-text: #081321;
+  --nx-focus-color: #ffce67;
+  --nx-selection-background: #3a301b;
+  --nx-selection-border: #ffbf3b;
+  --nx-login-glow: #3a301b;
+  --nx-role-hero-glow: rgba(255, 179, 26, 0.16);
+  --nx-heatmap-high-background: #e5ad37;
+  --nx-heatmap-high-text: #151714;
+  --nx-chart-dark-text: #151714;
   --nx-chart-light-text: #ffffff;
   --nx-on-series-1: var(--nx-chart-dark-text);
   --nx-on-series-2: var(--nx-chart-light-text);
@@ -202,7 +208,7 @@
   --nx-shadow-color-sm: rgba(0, 0, 0, 0.3);
   --nx-shadow-color-md: rgba(0, 0, 0, 0.36);
   --nx-shadow-color-overlay: rgba(0, 0, 0, 0.46);
-  --nx-focus-ring: rgba(121, 173, 210, 0.34);
+  --nx-focus-ring: rgba(255, 191, 59, 0.3);
 
   --nx-paper: #ffffff;
   --nx-paper-ink: #000000;
@@ -246,132 +252,63 @@
   }
 }
 
-/*
- * Role themes change information, permissions and workflow context—not brand
- * identity. This final lock keeps every role on the approved Nexora palette.
+/* Roles affect permissions and information, never the shared visual palette. */
+/* ---- Reference chart palette ----------------------------------------
+ * Stable category slots now follow the approved amber/olive/orange design.
+ * Tone names are compatibility identifiers, not literal colour promises.
+ * Labels, values, series order and neutral overflow remain unchanged.
+ * Status tones stay separate; ordered stages retain a monotone amber ramp.
+ * Screen-reader tables and direct labels remain available for every chart.
  */
-.nx-prototype[data-role-theme] {
-  --nx-primary: #183b56;
-  --nx-secondary: #2f5d7c;
-  --nx-accent: #4f8fbf;
-  --nx-brand: #183b56;
-  --nx-brand-strong: #183b56;
-  --nx-brand-soft: #edf3f7;
-  --nx-brand-line: #b8cdd9;
-  --nx-sidebar: #183b56;
-  --nx-sidebar-deep: #102b40;
-  --nx-sidebar-surface: #2f5d7c;
-  --nx-sidebar-hover: #264e6a;
-  --nx-sidebar-line: #4f6f87;
-  --nx-sidebar-text: #ffffff;
-  --nx-sidebar-muted: #c4d1db;
-  --nx-sidebar-accent: #4f8fbf;
-  --nx-focus: 0 0 0 3px rgba(79, 143, 191, 0.24);
-}
-
-/* Light workspaces use a navy navigation surface independently of role. */
-.nx-prototype[data-theme="light"][data-role-theme],
-[data-theme="light"] .nx-prototype[data-role-theme] {
-  --nx-sidebar: var(--nx-emphasis-background);
-  --nx-sidebar-deep: #061427;
-  --nx-sidebar-surface: #163650;
-  --nx-sidebar-hover: #12304b;
-  --nx-sidebar-line: #294762;
-}
-
-.nx-prototype[data-theme="dark"][data-role-theme],
-[data-theme="dark"] .nx-prototype[data-role-theme] {
-  --nx-primary: #8bb5e3;
-  --nx-secondary: #6c96c5;
-  --nx-accent: #8bb5e3;
-  --nx-brand: #8bb5e3;
-  --nx-brand-strong: #b5d2f2;
-  --nx-brand-soft: #142e4e;
-  --nx-brand-line: #3a587b;
-  --nx-sidebar: #071b34;
-  --nx-sidebar-deep: #051226;
-  --nx-sidebar-surface: #102a48;
-  --nx-sidebar-hover: #183759;
-  --nx-sidebar-line: #2a4567;
-  --nx-sidebar-text: #f4f8fc;
-  --nx-sidebar-muted: #b7c9df;
-  --nx-sidebar-accent: #8bb5e3;
-  --nx-focus: 0 0 0 3px rgba(79, 143, 191, 0.32);
-}
-
-/* ---- Chart palette --------------------------------------------------
- * Categorical series colours. Seven slots, FIXED ORDER, assigned in
- * sequence and never cycled: the order is the colour-blind-safety
- * mechanism, so it must not be rearranged.
- *
- * This palette is computed, not chosen by eye. Candidates were generated in
- * OKLCH on the cool arc only (hue 185-320: teal, cyan, azure, blue, indigo,
- * violet) with chroma capped for restraint, then scored with the dataviz
- * validator; the published order maximises the worst adjacent separation.
- *
- * Light, against the #ffffff card surface - ALL CHECKS PASS:
- *   lightness band PASS · chroma floor PASS
- *   CVD separation  worst adjacent deutan dE 17.8 (target 8)
- *   normal vision   worst adjacent dE 18.3 (floor 15)
- *   contrast        all 7 >= 3:1
- * Dark, against #0b1524 - ALL CHECKS PASS:
- *   CVD separation dE 12.8 · normal vision dE 15.3 · contrast all >= 3:1
- *
- * Dark steps are SELECTED for the dark surface, not flipped from light.
- *
- * Series identity is never carried by colour alone: charts ship a legend and
- * direct labels. Status colours are reserved (below) and never used for a
- * series; a series that *means* good or bad wears the status tokens instead.
- *
- * Re-validate before changing any value:
- *   node scripts/validate_palette.js "<the seven hexes>" --mode light --surface "#ffffff"
- */
-
+:root,
 .nx-prototype {
-  --nx-series-1: #4f8fbf; /* approved Nexora accent; default single series */
-  --nx-series-2: #713c87; /* plum */
-  --nx-series-3: #03a1b5; /* cyan */
-  --nx-series-4: #5d4496; /* violet */
-  --nx-series-5: #019696; /* teal */
-  --nx-series-6: #4b4a9c; /* indigo */
-  --nx-series-7: #6487d9; /* sky */
-
-  /* Ordinal ramp: one hue (azure, ~250), monotone lightness. For funnel
-   * stages, tiers and buckets, where order carries meaning and a categorical
-   * set would hide it. Validated with the ordinal checks - monotone L,
-   * adjacent dL >= 0.06, single hue, and the end nearest the surface clearing
-   * the 2:1 floor (light 5.05:1, dark 4.85:1). The dark ramp is inverted
-   * because the anchor flips with the surface. */
-  --nx-ordinal-1: #002a4e;
-  --nx-ordinal-2: #003a69;
-  --nx-ordinal-3: #164c7e;
-  --nx-ordinal-4: #2a5f92;
-  --nx-ordinal-5: #3d72a6;
-
-  /* Chart status. Reserved meaning, always shipped with an icon or label, and
-   * deliberately distinct from the series slots above. */
+  --nx-series-1: #b87900;
+  --nx-series-2: #48523c;
+  --nx-series-3: #c4661c;
+  --nx-series-4: #82702c;
+  --nx-series-5: #687b50;
+  --nx-series-6: #92573e;
+  --nx-series-7: #4c6860;
+  --nx-on-series-1: var(--nx-chart-dark-text);
+  --nx-on-series-2: var(--nx-chart-light-text);
+  --nx-on-series-3: var(--nx-chart-dark-text);
+  --nx-on-series-4: var(--nx-chart-light-text);
+  --nx-on-series-5: var(--nx-chart-light-text);
+  --nx-on-series-6: var(--nx-chart-light-text);
+  --nx-on-series-7: var(--nx-chart-light-text);
+  --nx-ordinal-1: #704400;
+  --nx-ordinal-2: #865300;
+  --nx-ordinal-3: #9a6200;
+  --nx-ordinal-4: #ac7100;
+  --nx-ordinal-5: #bd810d;
   --nx-status-good: #2e7d5b;
   --nx-status-warn: #c58a18;
   --nx-status-risk: #c44747;
   --nx-status-bad: #a83232;
 }
 
+:root[data-theme="dark"],
 .nx-prototype[data-theme="dark"],
 [data-theme="dark"] .nx-prototype {
-  --nx-series-1: #0d9de5;
-  --nx-series-2: #1d67bb;
-  --nx-series-3: #708cef;
-  --nx-series-4: #954ea5;
-  --nx-series-5: #09aa9d;
-  --nx-series-6: #7455b8;
-  --nx-series-7: #0098a4;
-
-  --nx-ordinal-1: #b4d8ff;
-  --nx-ordinal-2: #8dc4fe;
-  --nx-ordinal-3: #79b0e8;
-  --nx-ordinal-4: #659bd2;
-  --nx-ordinal-5: #5287bd;
-
+  --nx-series-1: #ffbf3b;
+  --nx-series-2: #b6c394;
+  --nx-series-3: #f0a04a;
+  --nx-series-4: #e3ce7a;
+  --nx-series-5: #93a57d;
+  --nx-series-6: #d69a78;
+  --nx-series-7: #91b4a4;
+  --nx-on-series-1: var(--nx-chart-dark-text);
+  --nx-on-series-2: var(--nx-chart-dark-text);
+  --nx-on-series-3: var(--nx-chart-dark-text);
+  --nx-on-series-4: var(--nx-chart-dark-text);
+  --nx-on-series-5: var(--nx-chart-dark-text);
+  --nx-on-series-6: var(--nx-chart-dark-text);
+  --nx-on-series-7: var(--nx-chart-dark-text);
+  --nx-ordinal-1: #ffe4a6;
+  --nx-ordinal-2: #f1ce7d;
+  --nx-ordinal-3: #e2b757;
+  --nx-ordinal-4: #cfa03d;
+  --nx-ordinal-5: #b78b30;
   --nx-status-good: #4aa585;
   --nx-status-warn: #c79144;
   --nx-status-risk: #d1737c;

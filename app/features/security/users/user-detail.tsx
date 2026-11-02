@@ -97,34 +97,51 @@ export default function UserDetail({
   }
 
   return (
-    <aside className="border-l border-border bg-muted/50" aria-labelledby="user-detail-title">
+    <aside className="min-w-0 bg-muted/50 [&_dd]:ml-0" aria-labelledby="user-detail-title">
       <header className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-3 border-b border-border p-5">
-        <div className="grid size-12 place-items-center rounded-full bg-accent font-bold text-primary" aria-hidden="true">
+        <div
+          className="grid size-12 place-items-center rounded-full bg-accent font-bold text-primary"
+          aria-hidden="true"
+        >
           {user.display_name.slice(0, 2).toLocaleUpperCase("en-US")}
         </div>
         <div>
           <span className="text-xs text-muted-foreground">User account</span>
-          <h3 id="user-detail-title" className="mt-1 text-lg font-semibold">{user.display_name}</h3>
+          <h3 id="user-detail-title" className="mt-1 text-lg font-semibold">
+            {user.display_name}
+          </h3>
           <p className="mt-1 text-xs text-muted-foreground">
             {user.username} · {user.email}
           </p>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close user detail">
+        <Button variant="ghost" size="icon" disabled={busy} onClick={onClose} aria-label="Close user detail">
           ×
         </Button>
       </header>
 
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-3 text-xs text-muted-foreground">
-        <span className={user.status === "active" ? "rounded-full bg-[var(--nx-success-soft)] px-2 py-1 font-semibold capitalize text-[var(--nx-success-text)]" : user.status === "locked" ? "rounded-full bg-[var(--nx-warning-soft)] px-2 py-1 font-semibold capitalize text-[var(--nx-warning)]" : "rounded-full bg-muted px-2 py-1 font-semibold capitalize text-muted-foreground"}>
+        <span
+          className={
+            user.status === "active"
+              ? "rounded-full bg-[var(--nx-success-soft)] px-2 py-1 font-semibold capitalize text-[var(--nx-success-text)]"
+              : user.status === "locked"
+                ? "rounded-full bg-[var(--nx-warning-soft)] px-2 py-1 font-semibold capitalize text-[var(--nx-warning)]"
+                : "rounded-full bg-muted px-2 py-1 font-semibold capitalize text-muted-foreground"
+          }
+        >
           {user.archived_at ? "Deleted (archived)" : user.status}
         </span>
         <span>{user.default_company?.name ?? "No default company"}</span>
         <span>{user.employee ? `Employee ${user.employee.employee_number}` : "No employee link"}</span>
-        {user.must_change_password ? <strong className="text-[var(--nx-warning)]">Password change required</strong> : null}
+        {user.must_change_password ? (
+          <strong className="text-[var(--nx-warning)]">Password change required</strong>
+        ) : null}
       </div>
 
       <section className="grid gap-4 border-b border-border p-5" aria-labelledby="account-details-title">
-        <h4 id="account-details-title" className="font-semibold">User details</h4>
+        <h4 id="account-details-title" className="font-semibold">
+          User details
+        </h4>
         <dl className="grid gap-3 sm:grid-cols-2">
           <div>
             <dt className="text-xs text-muted-foreground">Name</dt>
@@ -148,7 +165,9 @@ export default function UserDetail({
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Employee Master</dt>
-            <dd className="mt-1 text-sm">{user.employee ? `${user.employee.employee_number} — ${user.employee.display_name}` : "Not linked"}</dd>
+            <dd className="mt-1 text-sm">
+              {user.employee ? `${user.employee.employee_number} — ${user.employee.display_name}` : "Not linked"}
+            </dd>
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Default company</dt>
@@ -312,7 +331,11 @@ export default function UserDetail({
       ) : mode === "employee" ? (
         <form className="grid gap-4 border-b border-border p-5" onSubmit={submitEmployee}>
           <h4 className="font-semibold">Employee link</h4>
-          <select className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}>
+          <select
+            className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            value={employeeId}
+            onChange={(event) => setEmployeeId(event.target.value)}
+          >
             <option value="">No employee link</option>
             {user.employee ? (
               <option value={user.employee.id}>
@@ -352,10 +375,14 @@ export default function UserDetail({
                 </Button>
               ) : null}
               {permissions.has("security.user_account.company_access") ? (
-                <Button variant="outline" onClick={() => setMode("companies")}>Companies</Button>
+                <Button variant="outline" onClick={() => setMode("companies")}>
+                  Companies
+                </Button>
               ) : null}
               {permissions.has("security.user_account.edit") ? (
-                <Button variant="outline" onClick={() => setMode("employee")}>Employee link</Button>
+                <Button variant="outline" onClick={() => setMode("employee")}>
+                  Employee link
+                </Button>
               ) : null}
               {permissions.has("security.user_account.reset_password") ? (
                 <Button variant="outline" onClick={() => setMode("password")} disabled={busy}>
@@ -412,7 +439,9 @@ export default function UserDetail({
                 </Button>
               ) : null}
               {permissions.has("security.user_account.revoke_sessions") ? (
-                <Button variant="outline" onClick={() => void onEmergency("revoke_sessions", reason)}>Revoke sessions</Button>
+                <Button variant="outline" onClick={() => void onEmergency("revoke_sessions", reason)}>
+                  Revoke sessions
+                </Button>
               ) : null}
             </div>
             <Label className="grid gap-2 text-sm text-muted-foreground">
@@ -424,11 +453,16 @@ export default function UserDetail({
           <section className="grid gap-4 border-b border-border p-5">
             <div>
               <h4 className="font-semibold">Role assignments</h4>
-              <p className="mt-1 text-sm text-muted-foreground">Later role changes use the governed assignment workflow.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Later role changes use the governed assignment workflow.
+              </p>
             </div>
             <ul className="m-0 list-none p-0">
               {user.roles.map((role) => (
-                <li className="flex items-center justify-between gap-3 border-t border-border py-3" key={role.assignment_id}>
+                <li
+                  className="flex items-center justify-between gap-3 border-t border-border py-3"
+                  key={role.assignment_id}
+                >
                   <span className="grid">
                     <strong>{role.display_name}</strong>
                     <small className="text-xs text-muted-foreground">{role.role_code}</small>
@@ -471,7 +505,12 @@ export default function UserDetail({
                   });
                 }}
               >
-                <select className="h-8 min-w-0 flex-1 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={rolePolicyId} onChange={(event) => setRolePolicyId(event.target.value)} required>
+                <select
+                  className="h-8 min-w-0 flex-1 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  value={rolePolicyId}
+                  onChange={(event) => setRolePolicyId(event.target.value)}
+                  required
+                >
                   <option value="">Select a role</option>
                   {options.roles
                     .filter((role) => !user.roles.some((current) => current.role_policy_id === role.policy_id))
@@ -481,7 +520,9 @@ export default function UserDetail({
                       </option>
                     ))}
                 </select>
-                <Button type="submit" disabled={busy}>Create assignment request</Button>
+                <Button type="submit" disabled={busy}>
+                  Create assignment request
+                </Button>
               </form>
             ) : null}
           </section>
