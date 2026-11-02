@@ -1,4 +1,7 @@
 "use client";
+import { FilterBar } from "./filter-bar";
+import { featuredMetricClass } from "./metric-appearance";
+import { ArrowUpRight } from "lucide-react";
 
 /**
  * Rendering for matured module screens in the isolated Nexora UI/UX prototype.
@@ -155,25 +158,25 @@ export function AdvancedListFilters({
     <div className="grid gap-3 border-b border-border bg-muted/40 p-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Advanced filters">
       <Label className="grid gap-1.5 text-xs text-muted-foreground">
         <span>Created by</span>
-        <select className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={createdBy} onChange={(event) => onCreatedByChange(event.target.value)}>
+        <select aria-label="Created by" className="h-10 min-w-0 rounded-[var(--nx-radius-md)] border border-input bg-card px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={createdBy} onChange={(event) => onCreatedByChange(event.target.value)}>
           <option value="">All creators</option>
           {creators.map((creator) => <option key={creator}>{creator}</option>)}
         </select>
       </Label>
       <Label className="grid gap-1.5 text-xs text-muted-foreground">
         <span>Created on</span>
-        <Input type="date" value={createdOn} onChange={(event) => onCreatedOnChange(event.target.value)} />
+        <Input aria-label="Created on" type="date" value={createdOn} onChange={(event) => onCreatedOnChange(event.target.value)} />
       </Label>
       <Label className="grid gap-1.5 text-xs text-muted-foreground">
         <span>Date range</span>
-        <select className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={dateRange} onChange={(event) => onDateRangeChange(event.target.value as DateRangePreset)}>
+        <select aria-label="Date range" className="h-10 min-w-0 rounded-[var(--nx-radius-md)] border border-input bg-card px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={dateRange} onChange={(event) => onDateRangeChange(event.target.value as DateRangePreset)}>
           {dateRangeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
       </Label>
       {dateRange === "custom" ? (
         <>
-          <Label className="grid gap-1.5 text-xs text-muted-foreground"><span>From</span><Input type="date" value={customFrom} onChange={(event) => onCustomFromChange(event.target.value)} /></Label>
-          <Label className="grid gap-1.5 text-xs text-muted-foreground"><span>To</span><Input type="date" value={customTo} onChange={(event) => onCustomToChange(event.target.value)} /></Label>
+          <Label className="grid min-w-0 gap-1.5 text-xs text-muted-foreground"><span>From</span><Input aria-label="From" type="date" value={customFrom} onChange={(event) => onCustomFromChange(event.target.value)} /></Label>
+          <Label className="grid min-w-0 gap-1.5 text-xs text-muted-foreground"><span>To</span><Input aria-label="To" type="date" value={customTo} onChange={(event) => onCustomToChange(event.target.value)} /></Label>
         </>
       ) : null}
       {onDocumentNumberChange ? <Label className="grid gap-1.5 text-xs text-muted-foreground"><span>Document number</span><Input value={documentNumber ?? ""} onChange={(event) => onDocumentNumberChange(event.target.value)} placeholder="Contains…" /></Label> : null}
@@ -199,8 +202,10 @@ export function ListFilterSelect({
   onChange: (value: string) => void;
 }) {
   return (
+    <label className="grid min-w-0 flex-[1_1_9rem] gap-1.5 text-xs font-medium text-muted-foreground sm:max-w-56">
+    <span>{label}</span>
     <select
-      className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="h-10 min-w-0 w-full rounded-[var(--nx-radius-md)] border border-input bg-card px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
       aria-label={`Filter ${listLabel} by ${label.toLowerCase()}`}
       value={value}
       onChange={(event) => onChange(event.target.value)}
@@ -208,6 +213,7 @@ export function ListFilterSelect({
       <option value="">{label}: All</option>
       {options.map((option) => <option key={option} value={option}>{option}</option>)}
     </select>
+    </label>
   );
 }
 
@@ -231,9 +237,9 @@ export function formatModuleValue(value: number, unit: ModuleUnit) {
 export function ModuleKpiGrid({ kpis, onSelect }: { kpis: readonly ModuleKpi[]; onSelect: (kpi: ModuleKpi) => void }) {
   return (
     <section className="nx-role-kpi-grid" aria-label="Key performance indicators">
-      {kpis.map((kpi) => (
-        <button className={`nx-role-kpi nx-role-kpi--${kpi.tone}`} key={kpi.id} onClick={() => onSelect(kpi)} type="button">
-          <span className="nx-role-kpi__top"><span>{kpi.label}</span><i aria-hidden="true">↗</i></span>
+      {kpis.map((kpi, index) => (
+        <button className={`nx-role-kpi nx-role-kpi--${kpi.tone} ${index === 0 ? featuredMetricClass : ""}`} key={kpi.id} onClick={() => onSelect(kpi)} type="button">
+          <span className="nx-role-kpi__top"><span>{kpi.label}</span><ArrowUpRight className="h-[1em] w-[1em] shrink-0" aria-hidden="true" /></span>
           <strong className="nx-role-kpi__value">{kpi.value}</strong>
           <span className="nx-role-kpi__meta"><b>{kpi.delta}</b>{kpi.comparison}</span>
           {kpi.trend ? (
@@ -346,7 +352,7 @@ export function ModuleDataTable({
   const link = linkKey ?? columns[0]?.key;
   const isInteractiveTarget = (target: EventTarget | null) => target instanceof HTMLElement && Boolean(target.closest("button, input, select, textarea, a, label"));
   return (
-    <div className="overflow-x-auto">
+    <div className="relative min-w-0 overflow-x-auto">
       <table className="w-full min-w-180 border-collapse text-left text-sm">
         <thead>
           <tr className="border-y border-border bg-muted/50">
@@ -468,7 +474,7 @@ export function ModuleSearchableTable({
 
   return (
     <section className="nx-card nx-list-card">
-      <div className="nx-filter-bar">
+<FilterBar>
         <label className="nx-search-field">
           <span>⌕</span>
           <Input className="h-auto border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" aria-label={`Search ${label}`} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${label.toLowerCase()}...`} />
@@ -490,7 +496,7 @@ export function ModuleSearchableTable({
         </Button>
         <Button variant="outline" size="icon" className="nx-icon-control" aria-label="Refresh list" type="button" onClick={() => onAction("Refresh", label)}>↻</Button>
         <Button variant="outline" size="icon" className="nx-icon-control" aria-label="Choose columns" type="button" onClick={() => onAction("Column selection", label)}>☷</Button>
-      </div>
+      </FilterBar>
       <AdvancedListFilters
         open={advancedOpen}
         creators={creators}

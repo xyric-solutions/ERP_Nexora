@@ -317,7 +317,7 @@ export function FinanceCurrencies() {
               <Badge variant="outline">{profile.locked ? "Locked after posting" : "Configured"}</Badge>
             </div>
           ) : (
-            <div className="flex flex-col gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 rounded-md border border-[var(--nx-warning-border)]/40 bg-[var(--nx-warning-soft)]/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <strong>Base currency required</strong>
                 <p className="text-sm text-muted-foreground">
@@ -366,7 +366,7 @@ export function FinanceCurrencies() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-sm">
-            <thead className="bg-sky-500 text-left text-white">
+            <thead className="bg-[var(--nx-info-soft)] text-left text-[var(--nx-emphasis-text)]">
               <tr>
                 {[
                   "Base Cur. Code",

@@ -1,4 +1,6 @@
 "use client";
+import { featuredMetricClass } from "../../../shared/ui/metric-appearance";
+import { ArrowUpRight } from "lucide-react";
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -340,16 +342,16 @@ export function RoleDashboard({ context, dashboard, onAction, onNavigate }: Role
       </section>
 
       <section className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6" aria-label={`${dashboard.title} key performance indicators`}>
-        {dashboard.kpis.map((kpi) => (
+        {dashboard.kpis.map((kpi, index) => (
           <button
-            className={`flex min-h-[162px] min-w-0 w-full flex-col gap-2 overflow-hidden rounded-lg border border-[var(--nx-border)] border-t-3 bg-[var(--nx-surface)] p-4 text-left text-[var(--nx-text)] shadow-xs transition-[transform,border-color,box-shadow] duration-150 hover:-translate-y-0.5 hover:border-[color:color-mix(in_srgb,var(--nx-brand)_32%,var(--nx-border))] hover:shadow-sm focus-visible:relative focus-visible:z-2 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--nx-focus)] max-md:min-h-[150px] ${kpiToneClasses[kpi.tone] ?? "border-t-[var(--nx-brand)]"}`}
+            className={`flex min-h-[162px] min-w-0 w-full flex-col gap-2 overflow-hidden rounded-lg border border-[var(--nx-border)] border-t-3 bg-[var(--nx-surface)] p-4 text-left text-[var(--nx-text)] shadow-xs transition-[transform,border-color,box-shadow] duration-150 hover:-translate-y-0.5 hover:border-[color:color-mix(in_srgb,var(--nx-brand)_32%,var(--nx-border))] hover:shadow-sm focus-visible:relative focus-visible:z-2 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--nx-focus)] max-md:min-h-[150px] ${kpiToneClasses[kpi.tone] ?? "border-t-[var(--nx-brand)]"} ${index === 0 ? featuredMetricClass : ""}`}
             key={kpi.id}
             onClick={() => openDrill(kpi.label)}
             type="button"
           >
             <span className="flex min-w-0 items-start justify-between gap-2 text-[11px] font-bold leading-[1.35] text-[var(--nx-text-muted)]">
               <span className="min-w-0 break-words">{kpi.label}</span>
-              <i aria-hidden="true">↗</i>
+              <ArrowUpRight className="h-[1em] w-[1em] shrink-0" aria-hidden="true" />
             </span>
             <strong className="mt-auto block overflow-hidden text-[clamp(22px,2.1vw,29px)] font-bold tracking-[-0.04em] text-ellipsis whitespace-nowrap text-[var(--nx-text-strong)] leading-[1.05] max-[429px]:whitespace-normal max-[429px]:break-words">{kpi.value}</strong>
             {(() => {

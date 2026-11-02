@@ -431,11 +431,11 @@ export function BankingTransferEntry({ transferId, onBack, onDirtyChange, onOpen
       >
         <div className="overflow-x-auto">
           <table className="min-w-[1180px] w-full border-collapse text-sm">
-            <thead className="bg-sky-500 text-left text-white">
+            <thead className="bg-[var(--nx-info-soft)] text-left text-[var(--nx-emphasis-text)]">
               <tr>
                 {["Date *", "From Bank *", "Ref. No.", "Mode", "To Bank *", "Details", "Amount *", ""].map(
                   (heading) => (
-                    <th key={heading} className="border-r border-white/50 px-3 py-3 font-semibold last:border-r-0">
+                    <th key={heading} className="border-r border-[var(--nx-emphasis-border)] px-3 py-3 font-semibold last:border-r-0">
                       {heading}
                     </th>
                   ),

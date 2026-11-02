@@ -11,6 +11,13 @@
 
 @source "./";
 
+/* Amber fills need dark ink; accent text uses a darker, accessible brand role. */
+.text-primary,
+.hover\:text-primary:hover,
+.focus\:text-primary:focus {
+  color: var(--nx-brand);
+}
+
 @theme inline {
   --font-sans: var(--nx-font-sans);
   --font-serif: var(--nx-font-sans);
@@ -43,6 +50,9 @@
  * stylesheet. It preserves the established token-based states for the few
  * native controls that remain while feature layouts move to utilities. */
 @layer base {
+  select:not([multiple]):not([size]) {
+    min-height: var(--nx-control-height);
+  }
   .nx-prototype :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
     color: var(--nx-text-strong);
     background-color: var(--nx-surface);
@@ -76,9 +86,9 @@
 
   .nx-prototype button:is(.nx-button-primary, .nx-button--primary, .nx-primary-button, .primary, .nx-batch__btn--approve) {
     border-color: var(--nx-primary);
-    color: var(--nx-text-inverse);
+    color: var(--nx-action-text);
     background: var(--nx-primary);
-    -webkit-text-fill-color: var(--nx-text-inverse);
+    -webkit-text-fill-color: var(--nx-action-text);
   }
 
   .nx-prototype button:is(.nx-button-primary, .nx-button--primary, .nx-primary-button, .primary, .nx-batch__btn--approve) :is(span, strong, b, i) {
@@ -88,18 +98,18 @@
 
   .nx-prototype button:is(.nx-button-primary, .nx-button--primary, .nx-primary-button, .primary, .nx-batch__btn--approve):hover:not(:disabled) {
     border-color: var(--nx-secondary);
-    color: var(--nx-text-inverse);
+    color: var(--nx-action-text);
     background: var(--nx-secondary);
-    -webkit-text-fill-color: var(--nx-text-inverse);
+    -webkit-text-fill-color: var(--nx-action-text);
   }
 
   .nx-prototype button:is(.nx-button-primary, .nx-button--primary, .nx-primary-button, .primary, .nx-batch__btn--approve):disabled {
-    color: var(--nx-text-inverse);
-    -webkit-text-fill-color: var(--nx-text-inverse);
+    color: var(--nx-action-text);
+    -webkit-text-fill-color: var(--nx-action-text);
     opacity: .58;
   }
 
-  .nx-prototype :is(.nx-field-error, .nx-error-text, [role="alert"]) {
+  .nx-prototype :is(.nx-field-error, .nx-error-text) {
     color: var(--nx-danger);
   }
 }

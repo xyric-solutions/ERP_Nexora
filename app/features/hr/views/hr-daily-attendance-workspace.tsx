@@ -439,7 +439,7 @@ export function HrDailyAttendanceWorkspace({
             ))}
           </dl>
           {detail.issues.length > 0 && (
-            <ul className="m-0 grid gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 pl-8 text-sm">
+            <ul className="m-0 grid gap-2 rounded-lg border border-[var(--nx-warning-border)]/30 bg-[var(--nx-warning-soft)]/5 p-4 pl-8 text-sm">
               {detail.issues.map((issue) => (
                 <li key={issue}>{issue}</li>
               ))}

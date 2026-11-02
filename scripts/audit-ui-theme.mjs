@@ -68,7 +68,7 @@ This is a static source audit. The percentage denominator is **${views.length} f
 
 Across all ${sources.length} application TS/TSX/CSS files: ${countFiles(fonts)} files contain candidate font overrides and ${countFiles(colors)} files contain candidate colour overrides (${colors.length} matching lines). Shared-source findings below can affect more routes than the view-only percentage.
 
-The root layout loads Source Sans 3 and Geist Mono for the whole application. Typography tokens and the legacy serif/display aliases resolve centrally; deliberate code/identifier monospace uses the global mono token. Global theme colours are defined in app/shared/styles/theme-colors.css and mapped to Tailwind in app/globals.css. Root theme switching applies app-wide, but fixed palette utilities do not follow future semantic colour changes. Print CSS is intentionally excluded from colour exceptions because it uses a monochrome output palette.
+The reference theme uses the system Segoe UI/Inter fallback stack through the central typography token; the root layout loads Geist Mono for code and identifiers. Typography tokens and the legacy serif/display aliases resolve centrally. Global theme colours are defined in app/shared/styles/theme-colors.css and mapped to Tailwind in app/globals.css. Root theme switching applies app-wide, but fixed palette utilities do not follow future semantic colour changes. Print CSS is intentionally excluded from colour exceptions because it uses a monochrome output palette.
 
 ## Font candidates
 

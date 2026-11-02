@@ -1,21 +1,4 @@
-/**
- * Chart palette gates.
- *
- * The dashboard chart colours were previously brand and STATUS tokens
- * (`--nx-success`, `--nx-warning`, `--nx-danger`) plus a few un-validated
- * hard-coded hexes, and the slot assigner cycled, so an eighth series reused
- * slot 1. They are now a cool categorical palette computed in OKLCH and
- * checked with the dataviz validator.
- *
- * These values are PINNED. Changing one means re-running the validator:
- *   node scripts/validate_palette.js "<seven hexes>" --mode light  --surface "#ffffff"
- *   node scripts/validate_palette.js "<seven hexes>" --mode dark   --surface "#0b1524"
- *
- * Recorded results for the pinned set:
- *   light - lightness PASS, chroma PASS, CVD deutan dE 17.8 (target 8),
- *           normal-vision dE 18.3 (floor 15), contrast all >= 3:1
- *   dark  - CVD deutan dE 12.8, normal-vision dE 15.3, contrast all >= 3:1
- */
+/** Reference chart palette: preserve stable slots, semantic status, contrast and neutral overflow. */
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
@@ -32,11 +15,11 @@ async function cssSource() {
   return parts;
 }
 
-const LIGHT = ["#4f8fbf", "#713c87", "#03a1b5", "#5d4496", "#019696", "#4b4a9c", "#6487d9"];
-const DARK = ["#0d9de5", "#1d67bb", "#708cef", "#954ea5", "#09aa9d", "#7455b8", "#0098a4"];
+const LIGHT = ["#b87900", "#48523c", "#c4661c", "#82702c", "#687b50", "#92573e", "#4c6860"];
+const DARK = ["#ffbf3b", "#b6c394", "#f0a04a", "#e3ce7a", "#93a57d", "#d69a78", "#91b4a4"];
 
-test("the chart palette is exactly the validated cool set", async () => {
-  const tokens = await readFile(appDir + "theme-colors.css", "utf8");
+test("the chart palette follows the warm reference with readable marks in both themes", async () => {
+  const tokens = await readFile(appDir + "shared/styles/theme-colors.css", "utf8");
   const lower = tokens.toLowerCase();
 
   for (let i = 1; i <= 7; i += 1) {
@@ -52,11 +35,24 @@ test("the chart palette is exactly the validated cool set", async () => {
   const slots = [...tokens.matchAll(/--nx-series-[1-7]:\s*(#[0-9a-fA-F]{6})/g)].map((m) => m[1].toLowerCase());
   assert.equal(slots.length, 14, "seven slots each for light and dark");
 
-  // Cool only: no slot may be red-dominant.
-  for (const hex of slots) {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    assert.ok(r <= b + 8, `series colour ${hex} is warm; this palette is cool-only`);
+  const luminance = (hex) =>
+    hex
+      .slice(1)
+      .match(/../g)
+      .map((v) => parseInt(v, 16) / 255)
+      .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
+      .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+  for (const [palette, surface] of [
+    [LIGHT, "#ffffff"],
+    [DARK, "#20231e"],
+  ]) {
+    assert.equal(new Set(palette).size, 7, "category slots must remain distinct");
+    for (const color of palette) {
+      const contrast =
+        (Math.max(luminance(color), luminance(surface)) + 0.05) /
+        (Math.min(luminance(color), luminance(surface)) + 0.05);
+      assert.ok(contrast >= 3, color + " must clear graphical contrast against its card surface");
+    }
   }
 
   // The ordinal ramp exists for ordered stages (funnels, tiers).
@@ -91,7 +87,7 @@ test("a status colour is never used as a series colour", async () => {
 });
 
 test("series slots are assigned in fixed order and never cycled", async () => {
-  const charts = code(await readFile(appDir + "role-dashboard-charts.tsx", "utf8"));
+  const charts = code(await readFile(appDir + "shared/ui/analytics-charts.tsx", "utf8"));
 
   // Fixed order is the colour-blind-safety mechanism.
   const order = /toneOrder: readonly ChartCategoricalTone\[\] = \[([^\]]*)\]/.exec(charts);
@@ -121,7 +117,7 @@ test("series slots are assigned in fixed order and never cycled", async () => {
 });
 
 test("ordered stages use the ordinal ramp, not categorical identity", async () => {
-  const charts = code(await readFile(appDir + "role-dashboard-charts.tsx", "utf8"));
+  const charts = code(await readFile(appDir + "shared/ui/analytics-charts.tsx", "utf8"));
   // Funnel stages are ordinal: swapping them would change the meaning, so the
   // colour has to carry the order.
   assert.match(charts, /ordinalAt\(index, stages\.length\)/, "funnel stages must take the ordinal ramp");
@@ -129,7 +125,7 @@ test("ordered stages use the ordinal ramp, not categorical identity", async () =
 });
 
 test("scatter carries one slot, because all-pairs separation caps the count", async () => {
-  const charts = code(await readFile(appDir + "role-dashboard-charts.tsx", "utf8"));
+  const charts = code(await readFile(appDir + "shared/ui/analytics-charts.tsx", "utf8"));
   const scatter = charts.slice(charts.indexOf("export function ScatterChart"));
   const circle = scatter.slice(scatter.indexOf("<circle"), scatter.indexOf("</circle>"));
 
@@ -141,7 +137,7 @@ test("scatter carries one slot, because all-pairs separation caps the count", as
 });
 
 test("the drill engine shares the same palette and does not cycle either", async () => {
-  const visuals = code(await readFile(appDir + "drill/visuals.tsx", "utf8"));
+  const visuals = code(await readFile(appDir + "features/drill/core/visuals.tsx", "utf8"));
   assert.match(visuals, /var\(--nx-series-1\)/, "drill visuals must use the shared palette");
   assert.doesNotMatch(visuals, /--nx-viz-[0-9]/, "drill visuals must not use the deleted viz slots");
   assert.doesNotMatch(visuals, /TONES\[index % TONES\.length\]/, "drill slots must never be cycled");

@@ -421,7 +421,7 @@ function Summary({
   warning?: boolean;
 }) {
   return (
-    <article className={`rounded-lg border bg-card p-4 ${warning ? "border-amber-500/50" : "border-border"}`}>
+    <article className={`rounded-lg border bg-card p-4 ${warning ? "border-[var(--nx-warning-border)]/50" : "border-border"}`}>
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <strong className="mt-1 block text-xl font-semibold tabular-nums">{value}</strong>
       <small className="mt-1 block text-xs text-muted-foreground">{detail}</small>

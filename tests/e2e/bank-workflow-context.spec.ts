@@ -57,7 +57,7 @@ test.describe("Real shared masters and Bank workflow context", () => {
     } finally {
       await pool.end();
     }
-    const navigation = page.getByRole("navigation", { name: "All Nexora ERP modules" });
+    const navigation = page.getByRole("navigation", { name: "All Nexora modules" });
     const finance = navigation.locator("button.nx-module-button").filter({ hasText: "Finance" });
     if ((await finance.getAttribute("aria-expanded")) !== "true") await finance.click();
     await navigation.getByRole("button", { name: "Locations / Cities", exact: true }).click();

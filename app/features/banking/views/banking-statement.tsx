@@ -1,4 +1,5 @@
 "use client";
+import { FilterBar } from "../../../shared/ui/filter-bar";
 
 /**
  * Account balances and per-bank statement for the isolated Nexora UI/UX
@@ -95,7 +96,7 @@ export function BankAccountBalances({
       </section>
 
       <section className="nx-card nx-list-card">
-        <div className="nx-filter-bar">
+<FilterBar>
           <label className="nx-search-field">
             <span>⌕</span>
             <Input className="h-auto border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" aria-label="Search bank accounts" onChange={(event) => setQuery(event.target.value)} placeholder="Search bank, account or currency..." value={query} />
@@ -108,7 +109,7 @@ export function BankAccountBalances({
             Filters{activeFilterCount ? ` (${activeFilterCount})` : ""} ▾
           </Button>
           <Button variant="outline" size="icon" className="nx-icon-control" aria-label="Refresh balances" type="button" onClick={() => onAction("Refresh", "Account balances")}>↻</Button>
-        </div>
+        </FilterBar>
         <AdvancedListFilters
           open={advancedOpen}
           creators={creators}

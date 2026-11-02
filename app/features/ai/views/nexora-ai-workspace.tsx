@@ -137,7 +137,7 @@ function CommandCentre({ context, onAction, onNavigate }: NexoraAiWorkspaceProps
       </section>
 
       <div className="nx-aiw-command-grid">
-        <section className="nx-aiw-answer">
+        <section className="nx-aiw-answer min-w-0 [&>header]:flex-wrap [&>header>div]:min-w-0 [&>header>div]:flex-wrap">
           <header><div><i>N</i><span><strong>{report.title}</strong><small>{report.id} / {report.period} / generated from your question</small></span></div><Confidence value={report.confidence} /></header>
           <div className="nx-aiw-answer__summary"><span>Question interpreted as {report.intent.replaceAll("-", " ")}</span><h3>{report.subtitle}</h3><p>{report.executiveSummary}</p></div>
           <section className="nx-aiw-report-metrics">{report.metrics.map((metric) => <article className={`tone-${metric.tone}`} key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong><small>{metric.detail}</small></article>)}</section>

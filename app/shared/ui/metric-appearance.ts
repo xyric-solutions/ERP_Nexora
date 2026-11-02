@@ -1,0 +1,3 @@
+/** Reference dashboard emphasis: only the first metric gets a dark surface. */
+export const featuredMetricClass =
+  "bg-linear-to-br! from-[var(--nx-emphasis-background)] via-[var(--nx-emphasis-background-soft)] to-[var(--nx-emphasis-background-accent)] rounded-2xl! [--nx-text:var(--nx-emphasis-text)] [--nx-text-strong:var(--nx-emphasis-text)] [--nx-text-muted:var(--nx-emphasis-muted)] [--nx-text-subtle:var(--nx-emphasis-muted)] [--nx-success-text:var(--nx-emphasis-text)] [--nx-warning:var(--nx-emphasis-text)] [--nx-danger:var(--nx-emphasis-text)] [--nx-status-good:var(--nx-emphasis-success)] [--nx-status-risk:var(--nx-emphasis-danger)] [--nx-brand:var(--nx-emphasis-text)]";

@@ -196,7 +196,7 @@ export function BankingTransferDetail({
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-[1180px] w-full text-sm">
-            <thead className="bg-sky-500 text-left text-white">
+            <thead className="bg-[var(--nx-info-soft)] text-left text-[var(--nx-emphasis-text)]">
               <tr>
                 {[
                   "Date",

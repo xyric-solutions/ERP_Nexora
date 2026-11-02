@@ -11,6 +11,8 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { NexoraMark } from "../shared/ui/nexora-mark";
+import { application } from "../shared/constants/application";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -115,128 +117,179 @@ export default function LoginPage() {
   }
   return (
     <main className="grid min-h-svh place-items-center bg-[radial-gradient(circle_at_top_left,var(--nx-login-glow),transparent_40%),var(--nx-canvas)] p-6 sm:p-8">
-      <Card className="w-full max-w-[430px] border-border bg-card py-0 shadow-[0_24px_70px_var(--nx-shadow-color-md)]" aria-labelledby="login-title">
+      <Card
+        className="w-full max-w-[430px] border-border bg-card py-0 shadow-[0_24px_70px_var(--nx-shadow-color-md)]"
+        aria-labelledby="login-title"
+      >
         <CardHeader className="gap-0 px-8 pt-8 sm:px-9 sm:pt-9">
           <div className="mb-9 flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-[11px] bg-primary text-lg font-extrabold text-primary-foreground" aria-hidden="true">N</span>
-          <div>
-            <strong className="text-sm font-bold text-foreground">Nexora ERP</strong>
-            <small className="mt-0.5 block text-xs text-muted-foreground">Enterprise operations</small>
+            <span className="grid size-11 place-items-center text-[var(--nx-primary)]" aria-hidden="true">
+              <NexoraMark className="size-9" />
+            </span>
+            <div>
+              <strong className="text-sm font-bold text-foreground">{application.name}</strong>
+              <small className="mt-0.5 block text-xs text-muted-foreground">Enterprise operations</small>
+            </div>
           </div>
-        </div>
-        <header>
-          <p className="mb-2 text-xs font-bold tracking-[0.12em] text-[var(--nx-info)] uppercase">Secure workspace</p>
-          <h1 id="login-title" className="mb-2 font-[family-name:var(--nx-font-serif)] text-4xl font-bold tracking-[-0.035em] text-[var(--nx-text-strong)]">Welcome back</h1>
-          <p className="text-sm text-muted-foreground">Sign in with your organization account.</p>
-        </header>
+          <header>
+            <p className="mb-2 text-xs font-bold tracking-[0.12em] text-[var(--nx-info)] uppercase">Secure workspace</p>
+            <h1
+              id="login-title"
+              className="mb-2 font-[family-name:var(--nx-font-serif)] text-4xl font-bold tracking-[-0.035em] text-[var(--nx-text-strong)]"
+            >
+              Welcome back
+            </h1>
+            <p className="text-sm text-muted-foreground">Sign in with your organization account.</p>
+          </header>
         </CardHeader>
         <CardContent className="px-8 pb-0 sm:px-9">
-        {passwordChange ? (
-          <form onSubmit={submitPasswordChange} className="mt-7 grid gap-4" aria-labelledby="password-change-title">
-            <div className="grid gap-2">
-              <h2 id="password-change-title" className="text-xl font-semibold text-foreground">Create your permanent password</h2>
-              <p className="text-sm text-muted-foreground">Your one-time password was accepted. Set a new password before entering Nexora.</p>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="new-password">New password</Label>
-              <Input id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                autoComplete="new-password"
-                minLength={8}
-                required
-                className="h-11 bg-[var(--nx-surface-soft)]"
-              />
-              <small className="text-xs text-muted-foreground">Use at least 8 characters.</small>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="confirm-password">Confirm new password</Label>
-              <Input id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                autoComplete="new-password"
-                minLength={8}
-                required
-                className="h-11 bg-[var(--nx-surface-soft)]"
-              />
-            </div>
-            {error ? (
-              <LoginError message={error} />
-            ) : null}
-            <Button type="submit" size="lg" className="h-11 w-full" disabled={submitting || newPassword.length < 8 || newPassword !== confirmPassword}>
-              {submitting ? "Updating..." : "Set password and continue"}
-            </Button>
-            <Button type="button" variant="outline" size="lg" className="h-11 w-full" disabled={submitting} onClick={cancelPasswordChange}>
-              Cancel
-            </Button>
-          </form>
-        ) : selection ? (
-          <section className="mt-7 grid gap-4" aria-labelledby="organization-title">
-            <h2 id="organization-title" ref={selectionHeadingRef} tabIndex={-1} className="text-xl font-semibold text-foreground">
-              Choose your organization
-            </h2>
-            <p className="text-sm text-muted-foreground">Your credentials are verified. Select the workspace you want to open.</p>
-            <small className="text-xs text-muted-foreground">This selection expires five minutes after sign-in.</small>
-            <div className="grid gap-2.5">
-              {selection.choices.map((choice) => (
-                <Button key={choice.id} type="button" variant="outline" size="lg" className="h-11 justify-start" disabled={submitting} onClick={() => void chooseOrganization(choice.id)}>
-                  <Building2 data-icon="inline-start" />{choice.organization_name}
-                </Button>
-              ))}
-            </div>
-            {error ? (
-              <LoginError message={error} />
-            ) : null}
-            <Button type="button" variant="outline" size="lg" className="h-11 w-full" disabled={submitting} onClick={() => void cancelSelection()}>
-              Back to sign in
-            </Button>
-          </section>
-        ) : (
-          <form onSubmit={submit} className="mt-7 grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="identifier">Username or email</Label>
-              <Input id="identifier"
-                ref={identifierRef}
-                value={identifier}
-                onChange={(event) => setIdentifier(event.target.value)}
-                autoComplete="username"
-                required
-                className="h-11 bg-[var(--nx-surface-soft)]"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  autoComplete="current-password"
-                  required
-                  className="h-11 bg-[var(--nx-surface-soft)] pr-11"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-1/2 right-1 -translate-y-1/2"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  aria-pressed={showPassword}
-                  title={showPassword ? "Hide password" : "Show password"}
-                  onClick={() => setShowPassword((visible) => !visible)}
-                >
-                  {showPassword ? <EyeOff /> : <Eye />}
-                </Button>
+          {passwordChange ? (
+            <form onSubmit={submitPasswordChange} className="mt-7 grid gap-4" aria-labelledby="password-change-title">
+              <div className="grid gap-2">
+                <h2 id="password-change-title" className="text-xl font-semibold text-foreground">
+                  Create your permanent password
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Your one-time password was accepted. Set a new password before entering Nexora.
+                </p>
               </div>
-            </div>
-            {error ? (
-              <LoginError message={error} />
-            ) : null}
-            <Button type="submit" size="lg" className="h-11 w-full" disabled={submitting}>{submitting ? "Signing in..." : "Sign in"}</Button>
-          </form>
-        )}
+              <div className="grid gap-2">
+                <Label htmlFor="new-password">New password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                  className="h-11 bg-[var(--nx-surface-soft)]"
+                />
+                <small className="text-xs text-muted-foreground">Use at least 8 characters.</small>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="confirm-password">Confirm new password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                  className="h-11 bg-[var(--nx-surface-soft)]"
+                />
+              </div>
+              {error ? <LoginError message={error} /> : null}
+              <Button
+                type="submit"
+                size="lg"
+                className="h-11 w-full"
+                disabled={submitting || newPassword.length < 8 || newPassword !== confirmPassword}
+              >
+                {submitting ? "Updating..." : "Set password and continue"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="h-11 w-full"
+                disabled={submitting}
+                onClick={cancelPasswordChange}
+              >
+                Cancel
+              </Button>
+            </form>
+          ) : selection ? (
+            <section className="mt-7 grid gap-4" aria-labelledby="organization-title">
+              <h2
+                id="organization-title"
+                ref={selectionHeadingRef}
+                tabIndex={-1}
+                className="text-xl font-semibold text-foreground"
+              >
+                Choose your organization
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Your credentials are verified. Select the workspace you want to open.
+              </p>
+              <small className="text-xs text-muted-foreground">
+                This selection expires five minutes after sign-in.
+              </small>
+              <div className="grid gap-2.5">
+                {selection.choices.map((choice) => (
+                  <Button
+                    key={choice.id}
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    className="h-11 justify-start"
+                    disabled={submitting}
+                    onClick={() => void chooseOrganization(choice.id)}
+                  >
+                    <Building2 data-icon="inline-start" />
+                    {choice.organization_name}
+                  </Button>
+                ))}
+              </div>
+              {error ? <LoginError message={error} /> : null}
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="h-11 w-full"
+                disabled={submitting}
+                onClick={() => void cancelSelection()}
+              >
+                Back to sign in
+              </Button>
+            </section>
+          ) : (
+            <form onSubmit={submit} className="mt-7 grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="identifier">Username or email</Label>
+                <Input
+                  id="identifier"
+                  ref={identifierRef}
+                  value={identifier}
+                  onChange={(event) => setIdentifier(event.target.value)}
+                  autoComplete="username"
+                  required
+                  className="h-11 bg-[var(--nx-surface-soft)]"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete="current-password"
+                    required
+                    className="h-11 bg-[var(--nx-surface-soft)] pr-11"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-1/2 right-1 -translate-y-1/2"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                    title={showPassword ? "Hide password" : "Show password"}
+                    onClick={() => setShowPassword((visible) => !visible)}
+                  >
+                    {showPassword ? <EyeOff /> : <Eye />}
+                  </Button>
+                </div>
+              </div>
+              {error ? <LoginError message={error} /> : null}
+              <Button type="submit" size="lg" className="h-11 w-full" disabled={submitting}>
+                {submitting ? "Signing in..." : "Sign in"}
+              </Button>
+            </form>
+          )}
         </CardContent>
         <CardFooter className="mx-8 mt-7 flex gap-2 px-0 py-5 text-xs text-muted-foreground sm:mx-9">
           <ShieldCheck className="size-4 shrink-0 text-[var(--nx-success)]" aria-hidden="true" />

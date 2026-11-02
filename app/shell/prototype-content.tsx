@@ -1,4 +1,5 @@
 "use client";
+import { FilterBar } from "../shared/ui/filter-bar";
 import { HrLearningWorkspace, learningPages } from "@prototype/features/hr/views/hr-learning-workspace";
 import {
   HrReportGovernanceWorkspace,
@@ -623,7 +624,7 @@ function ListView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
         </ActionButton>
       </PageIntro>
       <section className="nx-card nx-list-card">
-        <div className="nx-filter-bar">
+<FilterBar>
           <div className="nx-search-field">
             <span>⌕</span>
             <Input
@@ -678,7 +679,7 @@ function ListView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
           >
             ☷
           </button>
-        </div>
+        </FilterBar>
         <div className="nx-premium-viewbar">
           <label>
             <span>Saved view</span>
