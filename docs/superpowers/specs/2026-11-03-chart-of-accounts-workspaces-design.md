@@ -29,6 +29,9 @@ standard ERP catalogue.
   no-posting behavior of master-data maintenance.
 - Reuse the existing Category, Section, and Nominal records. Do not migrate,
   renumber, reparent, or replace existing accounts.
+- Automatically allocate codes for all three record types on interactive create
+  forms. Existing codes remain unchanged and inactive records continue to reserve
+  their historical numbers.
 - Keep Central Master Data available by direct/internal navigation where it is
   still required, but remove it from this company Chart of Accounts menu.
 - Do not copy the reference application's styling. Use the current Nexora
@@ -123,13 +126,31 @@ The existing Nominal directory remains the authoritative Nominals work page.
 
 - Company is required and company-scoped.
 - Name and accounting type are required.
-- The Category code remains server-generated and immutable.
+- The Category code is a read-only server-generated value using the `CAT-001`
+  convention. Allocation is the next company-scoped `CAT` sequence number,
+  zero-padded to at least three digits.
+- Active and inactive Categories participate in allocation. Historical numbers
+  are never reused and existing codes are never renumbered.
 - Creation is an audited master-data change and performs no posting.
 
 ### Section form
 
-- Company, active Category, name, and four-digit Section code are required.
+- Company, active Category, and name are required. The four-digit Section code is
+  read-only and allocated by the server; the user does not enter it.
 - Accounting type is inherited from the selected Category.
+- Section allocation uses the accounting type's four-digit band:
+  - Liabilities: `1000`-`1999`
+  - Assets: `2000`-`2999`
+  - Capital (Equity): `3000`-`3999`
+  - Revenue: `4000`-`4999`
+  - Expenses: `5000`-`7999`
+- The allocated code is one greater than the highest existing numeric Section
+  code in that company and accounting-type band. A type with no existing code
+  starts at `1001`, `2001`, `3001`, `4001`, or `5001`, respectively. For
+  example, an Asset Section created after `2309` receives `2310`.
+- Active and inactive Sections participate in allocation. Historical numbers are
+  never reused. Exhausting a band returns the standard conflict/problem response
+  instead of allocating outside the band.
 - Creation establishes the existing Section nominal-code policy atomically.
 - Parent Category and code remain immutable after creation.
 
@@ -137,8 +158,10 @@ The existing Nominal directory remains the authoritative Nominals work page.
 
 - Reuse the existing governed form and validation.
 - Company, Category, Section, name, and currency remain required.
-- Automatic code allocation, Bank restrictions, lifecycle state, and audit
-  behavior remain unchanged.
+- The code is read-only and allocated from the selected Section's existing
+  nominal-code policy, for example `230901` beneath Section `2309`.
+- Automatic allocation, Bank restrictions, lifecycle state, and audit behavior
+  remain unchanged.
 
 ## Data and API Design
 
@@ -152,6 +175,16 @@ while preserving bounded responses:
   directory with cursor pagination.
 - Every read and mutation remains tenant- and company-scoped and uses existing
   Finance permissions.
+
+Interactive Category and Section forms omit a client-supplied code. The API
+allocates the final code transactionally and returns it in the created record.
+For backward compatibility, a validated explicit Section code may remain
+available to controlled catalogue/import callers, but it is not exposed by the
+company workspace. Category sequence allocation and automatic Section allocation
+must serialize within the tenant/company scope so concurrent creates cannot
+receive the same code. Existing explicit codes, including legacy Category code
+formats, remain valid and immutable; only matching `CAT-<number>` codes
+participate in the new Category sequence.
 
 The generated contracts, OpenAPI description, generated client, API repository,
 and UI consumers must change together if the summary response requires a new or
@@ -177,11 +210,12 @@ extended endpoint. Browser code must not query PostgreSQL directly.
   lazy Nominal loading, pagination, search, empty/error states, and additional
   user-created Categories.
 - Form tests cover work-page-first navigation, correct cancel destinations,
-  permission gating, Category creation, Section creation, and preserved Nominal
-  creation.
+  permission gating, read-only code fields, automatic Category creation,
+  automatic Section creation, and preserved automatic Nominal creation.
 - API and integration tests cover tenant/company isolation, aggregate totals,
   Category-to-Section validation, immutable hierarchy fields, audit evidence,
-  idempotency, and no posting side effects.
+  idempotency, concurrent allocation, inactive-number retention, exhausted
+  Section bands, and no posting side effects.
 - Run targeted tests, ESLint, full type checking, UI theme audit,
   `git diff --check`, and `npm.cmd run build:web` before handoff.
 
@@ -197,3 +231,6 @@ extended endpoint. Browser code must not query PostgreSQL directly.
   rather than duplicate them.
 - Hidden routes must remain in the catalogue so saved links, detail navigation,
   and edit flows continue to work.
+- Client-generated or previewed codes are not authoritative. The server must
+  reserve the final Category, Section, and Nominal code within the same
+  transaction as creation to prevent duplicate allocation under concurrency.
