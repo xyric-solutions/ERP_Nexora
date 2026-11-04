@@ -9,13 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { employmentSetupOptionLabel } from "../model/employment-setup";
 
 type Requisition = HrManpowerRequisitionDirectory["items"][number];
 type Editor = {
   jobTitle: string;
   designationId: string;
   gradeId: string;
-  employmentTypeId: string;
+  employmentSetupId: string;
   branchId: string;
   departmentId: string;
   positions: string;
@@ -30,7 +31,7 @@ const blankEditor = (): Editor => ({
   jobTitle: "",
   designationId: "",
   gradeId: "",
-  employmentTypeId: "",
+  employmentSetupId: "",
   branchId: "",
   departmentId: "",
   positions: "1",
@@ -113,7 +114,7 @@ export function HrManpowerRequisitionsWorkspace() {
   }, [canRead, client, load, sessionLoading]);
   const selected = records.find((record) => record.id === selectedId),
     designations = masters.filter((item) => item.type === "designation"),
-    employmentTypes = masters.filter((item) => item.type === "employment_type"),
+    employmentSetups = masters.filter((item) => item.type === "employment_setup"),
     branches = units.filter((item) => item.type === "branch"),
     departments = units.filter((item) => item.type === "department");
   const save = async () => {
@@ -123,7 +124,7 @@ export function HrManpowerRequisitionsWorkspace() {
       !editor.jobTitle.trim() ||
       !editor.designationId ||
       !editor.gradeId ||
-      !editor.employmentTypeId ||
+      !editor.employmentSetupId ||
       !editor.branchId ||
       !editor.departmentId ||
       !editor.targetStart ||
@@ -149,7 +150,7 @@ export function HrManpowerRequisitionsWorkspace() {
       job_title: editor.jobTitle.trim(),
       designation_id: editor.designationId,
       job_grade_id: editor.gradeId,
-      employment_type_id: editor.employmentTypeId,
+      employment_setup_id: editor.employmentSetupId,
       branch_id: editor.branchId,
       department_id: editor.departmentId,
       positions_requested: positions,
@@ -435,16 +436,16 @@ export function HrManpowerRequisitionsWorkspace() {
                     </select>
                   </label>
                   <label className="grid gap-1 text-sm">
-                    Employment type
+                    Employment setup
                     <select
                       className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                      value={editor.employmentTypeId}
-                      onChange={(event) => setEditor({ ...editor, employmentTypeId: event.target.value })}
+                      value={editor.employmentSetupId}
+                      onChange={(event) => setEditor({ ...editor, employmentSetupId: event.target.value })}
                     >
                       <option value="">Select</option>
-                      {employmentTypes.map((item) => (
+                      {employmentSetups.map((item) => (
                         <option key={item.id} value={item.id}>
-                          {item.name}
+                          {employmentSetupOptionLabel(item)}
                         </option>
                       ))}
                     </select>
@@ -558,7 +559,7 @@ export function HrManpowerRequisitionsWorkspace() {
                   <span className="nx-eyebrow">{selected.reference}</span>
                   <h2 className="mt-1 text-xl font-semibold">{selected.job_title}</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {selected.designation} · {selected.job_grade} · {selected.employment_type}
+                    {selected.designation} · {selected.job_grade} · {selected.employment_setup}
                   </p>
                 </div>
                 <span

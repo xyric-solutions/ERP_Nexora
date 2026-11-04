@@ -320,6 +320,8 @@ import type {
   UpdateHrMasterRequest,
   ChangeHrMasterStatusRequest,
   HrMasterMutationResult,
+  DeleteHrMasterRequest,
+  HrMasterDeleteResult,
   HrJobGradeDirectory,
   CreateHrJobGradeRequest,
   UpdateHrJobGradeRequest,
@@ -2918,6 +2920,18 @@ export class NexoraApiClient {
       body: JSON.stringify(payload),
     });
   }
+  deleteHrOrganizationUnit(
+    unitId: string,
+    payload: DeleteHrMasterRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrMasterDeleteResult> {
+    return this.request(`/api/v1/hr/organization_units/${encodeURIComponent(unitId)}`, {
+      method: "DELETE",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+  }
   changeHrOrganizationUnitStatus(
     unitId: string,
     payload: ChangeHrOrganizationUnitStatusRequest,
@@ -3126,6 +3140,18 @@ export class NexoraApiClient {
       body: JSON.stringify(payload),
     });
   }
+  deleteHrMaster(
+    masterId: string,
+    payload: DeleteHrMasterRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrMasterDeleteResult> {
+    return this.request(`/api/v1/hr/masters/${encodeURIComponent(masterId)}`, {
+      method: "DELETE",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+  }
   listHrJobGrades(query: string): Promise<HrJobGradeDirectory> {
     return this.request(`/api/v1/hr/job_grades${query}`);
   }
@@ -3148,6 +3174,18 @@ export class NexoraApiClient {
   ): Promise<HrMasterMutationResult> {
     return this.request(`/api/v1/hr/job_grades/${encodeURIComponent(gradeId)}`, {
       method: "PATCH",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+  }
+  deleteHrJobGrade(
+    gradeId: string,
+    payload: DeleteHrMasterRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrMasterDeleteResult> {
+    return this.request(`/api/v1/hr/job_grades/${encodeURIComponent(gradeId)}`, {
+      method: "DELETE",
       headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
       body: JSON.stringify(payload),
     });

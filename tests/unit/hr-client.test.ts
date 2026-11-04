@@ -103,8 +103,7 @@ describe("HR browser client", () => {
       job_grade_id: "grade-1",
       cost_center_id: "cost-center-1",
       work_location_id: "location-1",
-      employment_type_id: "employment-type-1",
-      employee_category_id: "category-1",
+      employment_setup_id: "employment-setup-1",
       effective_on: "2026-10-16",
       reason: "Move the employee to the new operating branch.",
     };

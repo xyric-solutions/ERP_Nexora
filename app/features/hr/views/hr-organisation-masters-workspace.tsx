@@ -15,7 +15,6 @@ import {
   rememberMasterCompany,
   resolveOrganisationMasterPageId,
 } from "../model/organisation-master-navigation";
-import type { HrMasterType } from "@nexora/contracts";
 
 export function HrOrganisationMastersWorkspace({
   pageId,
@@ -66,17 +65,13 @@ export function HrOrganisationMastersWorkspace({
     const requests = organisationMasterPages.map(async (page) => {
       if (!(page.type === null ? canReadOrganisation : canReadMaster)) return [page.id, null] as const;
       try {
-        if (page.type === null)
-          return [
-            page.id,
-            (await client.organizationUnits({ companyId, includeInactive: true })).items.length,
-          ] as const;
-        if (page.type === "job_grade") return [page.id, (await client.jobGrades(companyId)).items.length] as const;
-        const types: readonly HrMasterType[] = typeof page.type === "string" ? [page.type] : page.type;
-        const responses = await Promise.all(
-          types.map((type) => client.masters({ companyId, type, activeOnly: false })),
-        );
-        return [page.id, responses.reduce((total, response) => total + response.items.length, 0)] as const;
+        const response =
+          page.type === null
+            ? await client.organizationUnits({ companyId, includeInactive: true })
+            : page.type === "job_grade"
+              ? await client.jobGrades(companyId)
+              : await client.masters({ companyId, type: page.type, activeOnly: false });
+        return [page.id, response.items.length] as const;
       } catch {
         return [page.id, null] as const;
       }

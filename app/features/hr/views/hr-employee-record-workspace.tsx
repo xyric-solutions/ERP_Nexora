@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
+import { payCycleLabel, paymentRouteLabel } from "../model/employment-setup";
 
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
 type LoadState = "loading" | "ready" | "error";
@@ -158,11 +159,12 @@ export function HrEmployeeRecordWorkspace({
           <dl className="mt-4 grid min-w-0 gap-3">
             <Detail label="Designation" value={employee.designation} />
             <Detail label="Job grade" value={employee.job_grade} />
-            <Detail label="Employment type" value={employee.employment_type} />
+            <Detail label="Employment setup" value={employee.employment_setup} />
+            <Detail label="Payment route" value={paymentRouteLabel(employee.payment_route)} />
+            <Detail label="Pay cycle" value={payCycleLabel(employee.pay_cycle)} />
             <Detail label="Department" value={employee.department} />
             <Detail label="Branch" value={employee.branch} />
             <Detail label="Work location" value={employee.work_location} />
-            <Detail label="Employee category" value={employee.employee_category} />
             <Detail label="Joined" value={employee.joined_on} />
             <Detail label="Reporting manager" value={employee.reporting_manager?.display_name} />
           </dl>

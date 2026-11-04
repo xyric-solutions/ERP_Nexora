@@ -353,6 +353,8 @@ import {
   updateHrMasterRequestSchema,
   changeHrMasterStatusRequestSchema,
   hrMasterMutationResultSchema,
+  deleteHrMasterRequestSchema,
+  hrMasterDeleteResultSchema,
   hrJobGradeDirectorySchema,
   createHrJobGradeRequestSchema,
   updateHrJobGradeRequestSchema,
@@ -5575,6 +5577,28 @@ export function buildOpenApiDocument() {
               ...securityErrors,
             },
           },
+          delete: {
+            operationId: "deleteHrOrganizationUnit",
+            description:
+              "Permanently delete a deactivated organization unit that has no child units. Only an inactive record that nothing references can be deleted; active records return 409 HR_MASTER_DELETE_ACTIVE and referenced records return 409 HR_MASTER_IN_USE. The code is never reissued.",
+            security: [{ cookieAuth: [] }],
+            parameters: [
+              { in: "path", name: "unitId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+              csrfParameter,
+              idempotencyParameter,
+            ],
+            requestBody: {
+              required: true,
+              content: { "application/json": { schema: { $ref: "#/components/schemas/DeleteHrMasterRequest" } } },
+            },
+            responses: {
+              "200": {
+                description: "Record permanently deleted",
+                content: { "application/json": { schema: { $ref: "#/components/schemas/HrMasterDeleteResult" } } },
+              },
+              ...securityErrors,
+            },
+          },
         },
         "/hr/organization_units/{unitId}/status": {
           post: {
@@ -6140,6 +6164,28 @@ export function buildOpenApiDocument() {
             ...securityErrors,
           },
         },
+        delete: {
+          operationId: "deleteHrMaster",
+          description:
+            "Permanently delete a deactivated HR master record (designation, job, cost centre, work location or employment setup). Only an inactive record that nothing references can be deleted; active records return 409 HR_MASTER_DELETE_ACTIVE and referenced records return 409 HR_MASTER_IN_USE. The code is never reissued.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "masterId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/DeleteHrMasterRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Record permanently deleted",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrMasterDeleteResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
       },
       "/hr/masters/{masterId}/status": {
         post: {
@@ -6217,6 +6263,28 @@ export function buildOpenApiDocument() {
             "200": {
               description: "Job grade updated",
               content: { "application/json": { schema: { $ref: "#/components/schemas/HrMasterMutationResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
+        delete: {
+          operationId: "deleteHrJobGrade",
+          description:
+            "Permanently delete a deactivated job grade and its band detail. Only an inactive record that nothing references can be deleted; active records return 409 HR_MASTER_DELETE_ACTIVE and referenced records return 409 HR_MASTER_IN_USE. The code is never reissued.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "gradeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/DeleteHrMasterRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Record permanently deleted",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrMasterDeleteResult" } } },
             },
             ...securityErrors,
           },
@@ -7429,6 +7497,8 @@ export function buildOpenApiDocument() {
         UpdateHrMasterRequest: schema(updateHrMasterRequestSchema),
         ChangeHrMasterStatusRequest: schema(changeHrMasterStatusRequestSchema),
         HrMasterMutationResult: schema(hrMasterMutationResultSchema),
+        DeleteHrMasterRequest: schema(deleteHrMasterRequestSchema),
+        HrMasterDeleteResult: schema(hrMasterDeleteResultSchema),
         HrJobGradeDirectory: schema(hrJobGradeDirectorySchema),
         CreateHrJobGradeRequest: schema(createHrJobGradeRequestSchema),
         UpdateHrJobGradeRequest: schema(updateHrJobGradeRequestSchema),

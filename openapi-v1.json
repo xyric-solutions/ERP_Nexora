@@ -55953,6 +55953,119 @@
               }
             }
           }
+        },
+        "delete": {
+          "operationId": "deleteHrOrganizationUnit",
+          "description": "Permanently delete a deactivated organization unit that has no child units. Only an inactive record that nothing references can be deleted; active records return 409 HR_MASTER_DELETE_ACTIVE and referenced records return 409 HR_MASTER_IN_USE. The code is never reissued.",
+          "security": [
+            {
+              "cookieAuth": []
+            }
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "unitId",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            {
+              "in": "header",
+              "name": "x-csrf-token",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "minLength": 43,
+                "maxLength": 43
+              }
+            },
+            {
+              "in": "header",
+              "name": "idempotency-key",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteHrMasterRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Record permanently deleted",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HrMasterDeleteResult"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Safe structured error",
+              "content": {
+                "application/problem+json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ProblemDetails"
+                  }
+                }
+              }
+            },
+            "401": {
+              "description": "Safe structured error",
+              "content": {
+                "application/problem+json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ProblemDetails"
+                  }
+                }
+              }
+            },
+            "403": {
+              "description": "Safe structured error",
+              "content": {
+                "application/problem+json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ProblemDetails"
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "Safe structured error",
+              "content": {
+                "application/problem+json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ProblemDetails"
+                  }
+                }
+              }
+            },
+            "503": {
+              "description": "Safe structured error",
+              "content": {
+                "application/problem+json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ProblemDetails"
+                  }
+                }
+              }
+            }
+          }
         }
       },
       "/hr/organization_units/{unitId}/status": {
@@ -58253,6 +58366,119 @@
             }
           }
         }
+      },
+      "delete": {
+        "operationId": "deleteHrMaster",
+        "description": "Permanently delete a deactivated HR master record (designation, job, cost centre, work location or employment setup). Only an inactive record that nothing references can be deleted; active records return 409 HR_MASTER_DELETE_ACTIVE and referenced records return 409 HR_MASTER_IN_USE. The code is never reissued.",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "masterId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteHrMasterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Record permanently deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrMasterDeleteResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/hr/masters/{masterId}/status": {
@@ -58612,6 +58838,119 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HrMasterMutationResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteHrJobGrade",
+        "description": "Permanently delete a deactivated job grade and its band detail. Only an inactive record that nothing references can be deleted; active records return 409 HR_MASTER_DELETE_ACTIVE and referenced records return 409 HR_MASTER_IN_USE. The code is never reissued.",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "gradeId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteHrMasterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Record permanently deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrMasterDeleteResult"
                 }
               }
             }
@@ -74634,10 +74973,32 @@
                   "minLength": 1,
                   "maxLength": 160
                 },
-                "employment_type": {
+                "employment_setup_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "employment_setup": {
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 160
+                },
+                "payment_route": {
+                  "type": "string",
+                  "enum": [
+                    "payroll",
+                    "stipend",
+                    "accounts_payable"
+                  ]
+                },
+                "pay_cycle": {
+                  "type": "string",
+                  "enum": [
+                    "monthly",
+                    "fortnightly",
+                    "weekly",
+                    "stipend"
+                  ]
                 },
                 "branch": {
                   "type": "string",
@@ -74779,7 +75140,10 @@
                 "job_title",
                 "designation",
                 "job_grade",
-                "employment_type",
+                "employment_setup_id",
+                "employment_setup",
+                "payment_route",
+                "pay_cycle",
                 "branch",
                 "department",
                 "positions_requested",
@@ -74832,7 +75196,7 @@
             "minLength": 1,
             "maxLength": 128
           },
-          "employment_type_id": {
+          "employment_setup_id": {
             "type": "string",
             "minLength": 1,
             "maxLength": 128
@@ -74902,7 +75266,7 @@
           "job_title",
           "designation_id",
           "job_grade_id",
-          "employment_type_id",
+          "employment_setup_id",
           "branch_id",
           "department_id",
           "positions_requested",
@@ -76284,13 +76648,30 @@
                   "job_grade": {
                     "type": "string"
                   },
-                  "employment_type_id": {
+                  "employment_setup_id": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 128
                   },
-                  "employment_type": {
+                  "employment_setup": {
                     "type": "string"
+                  },
+                  "payment_route": {
+                    "type": "string",
+                    "enum": [
+                      "payroll",
+                      "stipend",
+                      "accounts_payable"
+                    ]
+                  },
+                  "pay_cycle": {
+                    "type": "string",
+                    "enum": [
+                      "monthly",
+                      "fortnightly",
+                      "weekly",
+                      "stipend"
+                    ]
                   },
                   "branch_id": {
                     "type": "string",
@@ -76353,8 +76734,10 @@
                   "designation",
                   "job_grade_id",
                   "job_grade",
-                  "employment_type_id",
-                  "employment_type",
+                  "employment_setup_id",
+                  "employment_setup",
+                  "payment_route",
+                  "pay_cycle",
                   "branch_id",
                   "branch",
                   "department_id",
@@ -76395,13 +76778,30 @@
               "work_location": {
                 "type": "string"
               },
-              "employee_category_id": {
+              "employment_setup_id": {
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 128
               },
-              "employee_category": {
+              "employment_setup": {
                 "type": "string"
+              },
+              "payment_route": {
+                "type": "string",
+                "enum": [
+                  "payroll",
+                  "stipend",
+                  "accounts_payable"
+                ]
+              },
+              "pay_cycle": {
+                "type": "string",
+                "enum": [
+                  "monthly",
+                  "fortnightly",
+                  "weekly",
+                  "stipend"
+                ]
               },
               "reporting_manager_id": {
                 "anyOf": [
@@ -76619,8 +77019,10 @@
               "cost_center",
               "work_location_id",
               "work_location",
-              "employee_category_id",
-              "employee_category",
+              "employment_setup_id",
+              "employment_setup",
+              "payment_route",
+              "pay_cycle",
               "reporting_manager_id",
               "reporting_manager",
               "note",
@@ -79301,7 +79703,7 @@
                         "requires_hr_approval": {
                           "type": "boolean"
                         },
-                        "applicable_category_ids": {
+                        "applicable_employment_setup_ids": {
                           "maxItems": 100,
                           "type": "array",
                           "items": {
@@ -79370,7 +79772,7 @@
                         "minimum_request_days",
                         "maximum_request_days",
                         "requires_hr_approval",
-                        "applicable_category_ids",
+                        "applicable_employment_setup_ids",
                         "applicable_genders",
                         "document_required_after_days",
                         "id",
@@ -79404,7 +79806,7 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
-          "categories": {
+          "employment_setups": {
             "type": "array",
             "items": {
               "type": "object",
@@ -79419,12 +79821,31 @@
                 },
                 "name": {
                   "type": "string"
+                },
+                "payment_route": {
+                  "type": "string",
+                  "enum": [
+                    "payroll",
+                    "stipend",
+                    "accounts_payable"
+                  ]
+                },
+                "pay_cycle": {
+                  "type": "string",
+                  "enum": [
+                    "monthly",
+                    "fortnightly",
+                    "weekly",
+                    "stipend"
+                  ]
                 }
               },
               "required": [
                 "id",
                 "code",
-                "name"
+                "name",
+                "payment_route",
+                "pay_cycle"
               ],
               "additionalProperties": false
             }
@@ -79433,7 +79854,7 @@
         "required": [
           "items",
           "total",
-          "categories"
+          "employment_setups"
         ],
         "additionalProperties": false
       },
@@ -79500,7 +79921,7 @@
               "requires_hr_approval": {
                 "type": "boolean"
               },
-              "applicable_category_ids": {
+              "applicable_employment_setup_ids": {
                 "maxItems": 100,
                 "type": "array",
                 "items": {
@@ -79544,7 +79965,7 @@
               "minimum_request_days",
               "maximum_request_days",
               "requires_hr_approval",
-              "applicable_category_ids",
+              "applicable_employment_setup_ids",
               "applicable_genders",
               "document_required_after_days"
             ],
@@ -79663,7 +80084,7 @@
               "requires_hr_approval": {
                 "type": "boolean"
               },
-              "applicable_category_ids": {
+              "applicable_employment_setup_ids": {
                 "maxItems": 100,
                 "type": "array",
                 "items": {
@@ -79707,7 +80128,7 @@
               "minimum_request_days",
               "maximum_request_days",
               "requires_hr_approval",
-              "applicable_category_ids",
+              "applicable_employment_setup_ids",
               "applicable_genders",
               "document_required_after_days"
             ],
@@ -80392,7 +80813,7 @@
                         "requires_hr_approval": {
                           "type": "boolean"
                         },
-                        "applicable_category_ids": {
+                        "applicable_employment_setup_ids": {
                           "maxItems": 100,
                           "type": "array",
                           "items": {
@@ -80461,7 +80882,7 @@
                         "minimum_request_days",
                         "maximum_request_days",
                         "requires_hr_approval",
-                        "applicable_category_ids",
+                        "applicable_employment_setup_ids",
                         "applicable_genders",
                         "document_required_after_days",
                         "id",
@@ -80650,7 +81071,7 @@
                         "requires_hr_approval": {
                           "type": "boolean"
                         },
-                        "applicable_category_ids": {
+                        "applicable_employment_setup_ids": {
                           "maxItems": 100,
                           "type": "array",
                           "items": {
@@ -80719,7 +81140,7 @@
                         "minimum_request_days",
                         "maximum_request_days",
                         "requires_hr_approval",
-                        "applicable_category_ids",
+                        "applicable_employment_setup_ids",
                         "applicable_genders",
                         "document_required_after_days",
                         "id",
@@ -81439,7 +81860,7 @@
                                 "requires_hr_approval": {
                                   "type": "boolean"
                                 },
-                                "applicable_category_ids": {
+                                "applicable_employment_setup_ids": {
                                   "maxItems": 100,
                                   "type": "array",
                                   "items": {
@@ -81508,7 +81929,7 @@
                                 "minimum_request_days",
                                 "maximum_request_days",
                                 "requires_hr_approval",
-                                "applicable_category_ids",
+                                "applicable_employment_setup_ids",
                                 "applicable_genders",
                                 "document_required_after_days",
                                 "id",
@@ -81697,7 +82118,7 @@
                                 "requires_hr_approval": {
                                   "type": "boolean"
                                 },
-                                "applicable_category_ids": {
+                                "applicable_employment_setup_ids": {
                                   "maxItems": 100,
                                   "type": "array",
                                   "items": {
@@ -81766,7 +82187,7 @@
                                 "minimum_request_days",
                                 "maximum_request_days",
                                 "requires_hr_approval",
-                                "applicable_category_ids",
+                                "applicable_employment_setup_ids",
                                 "applicable_genders",
                                 "document_required_after_days",
                                 "id",
@@ -111566,13 +111987,30 @@
           "job_grade": {
             "type": "string"
           },
-          "employment_type_id": {
+          "employment_setup_id": {
             "type": "string",
             "minLength": 1,
             "maxLength": 128
           },
-          "employment_type": {
+          "employment_setup": {
             "type": "string"
+          },
+          "payment_route": {
+            "type": "string",
+            "enum": [
+              "payroll",
+              "stipend",
+              "accounts_payable"
+            ]
+          },
+          "pay_cycle": {
+            "type": "string",
+            "enum": [
+              "monthly",
+              "fortnightly",
+              "weekly",
+              "stipend"
+            ]
           },
           "branch_id": {
             "type": "string",
@@ -111635,8 +112073,10 @@
           "designation",
           "job_grade_id",
           "job_grade",
-          "employment_type_id",
-          "employment_type",
+          "employment_setup_id",
+          "employment_setup",
+          "payment_route",
+          "pay_cycle",
           "branch_id",
           "branch",
           "department_id",
@@ -111898,13 +112338,30 @@
               "job_grade": {
                 "type": "string"
               },
-              "employment_type_id": {
+              "employment_setup_id": {
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 128
               },
-              "employment_type": {
+              "employment_setup": {
                 "type": "string"
+              },
+              "payment_route": {
+                "type": "string",
+                "enum": [
+                  "payroll",
+                  "stipend",
+                  "accounts_payable"
+                ]
+              },
+              "pay_cycle": {
+                "type": "string",
+                "enum": [
+                  "monthly",
+                  "fortnightly",
+                  "weekly",
+                  "stipend"
+                ]
               },
               "branch_id": {
                 "type": "string",
@@ -111967,8 +112424,10 @@
               "designation",
               "job_grade_id",
               "job_grade",
-              "employment_type_id",
-              "employment_type",
+              "employment_setup_id",
+              "employment_setup",
+              "payment_route",
+              "pay_cycle",
               "branch_id",
               "branch",
               "department_id",
@@ -112009,13 +112468,30 @@
           "work_location": {
             "type": "string"
           },
-          "employee_category_id": {
+          "employment_setup_id": {
             "type": "string",
             "minLength": 1,
             "maxLength": 128
           },
-          "employee_category": {
+          "employment_setup": {
             "type": "string"
+          },
+          "payment_route": {
+            "type": "string",
+            "enum": [
+              "payroll",
+              "stipend",
+              "accounts_payable"
+            ]
+          },
+          "pay_cycle": {
+            "type": "string",
+            "enum": [
+              "monthly",
+              "fortnightly",
+              "weekly",
+              "stipend"
+            ]
           },
           "reporting_manager_id": {
             "anyOf": [
@@ -112233,8 +112709,10 @@
           "cost_center",
           "work_location_id",
           "work_location",
-          "employee_category_id",
-          "employee_category",
+          "employment_setup_id",
+          "employment_setup",
+          "payment_route",
+          "pay_cycle",
           "reporting_manager_id",
           "reporting_manager",
           "note",
@@ -112300,7 +112778,7 @@
             "minLength": 1,
             "maxLength": 128
           },
-          "employee_category_id": {
+          "employment_setup_id": {
             "type": "string",
             "minLength": 1,
             "maxLength": 128
@@ -112339,7 +112817,7 @@
           "notice_days",
           "cost_center_id",
           "work_location_id",
-          "employee_category_id",
+          "employment_setup_id",
           "reporting_manager_id",
           "note",
           "range_exception_reason"
@@ -112394,7 +112872,7 @@
             "minLength": 1,
             "maxLength": 128
           },
-          "employee_category_id": {
+          "employment_setup_id": {
             "type": "string",
             "minLength": 1,
             "maxLength": 128
@@ -112433,7 +112911,7 @@
           "notice_days",
           "cost_center_id",
           "work_location_id",
-          "employee_category_id",
+          "employment_setup_id",
           "reporting_manager_id",
           "note",
           "range_exception_reason"
@@ -113128,10 +113606,27 @@
             "type": "string",
             "maxLength": 40
           },
-          "employment_type": {
+          "employment_setup": {
             "type": "string",
             "minLength": 1,
             "maxLength": 160
+          },
+          "payment_route": {
+            "type": "string",
+            "enum": [
+              "payroll",
+              "stipend",
+              "accounts_payable"
+            ]
+          },
+          "pay_cycle": {
+            "type": "string",
+            "enum": [
+              "monthly",
+              "fortnightly",
+              "weekly",
+              "stipend"
+            ]
           },
           "job_grade": {
             "type": "string",
@@ -113139,11 +113634,6 @@
             "maxLength": 160
           },
           "work_location": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 160
-          },
-          "employee_category": {
             "type": "string",
             "minLength": 1,
             "maxLength": 160
@@ -113209,10 +113699,11 @@
           "designation",
           "preferred_name",
           "phone",
-          "employment_type",
+          "employment_setup",
+          "payment_route",
+          "pay_cycle",
           "job_grade",
           "work_location",
-          "employee_category",
           "reporting_manager",
           "user_account_id"
         ],
@@ -113640,12 +114131,7 @@
             "minLength": 1,
             "maxLength": 128
           },
-          "employment_type_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
-          },
-          "employee_category_id": {
+          "employment_setup_id": {
             "type": "string",
             "minLength": 1,
             "maxLength": 128
@@ -113667,8 +114153,7 @@
           "job_grade_id",
           "cost_center_id",
           "work_location_id",
-          "employment_type_id",
-          "employee_category_id",
+          "employment_setup_id",
           "effective_from"
         ],
         "additionalProperties": false
@@ -114057,6 +114542,7 @@
                     "job_grade",
                     "cost_center",
                     "work_location",
+                    "employment_setup",
                     "employment_type",
                     "employee_category"
                   ]
@@ -114109,6 +114595,37 @@
                       "type": "null"
                     }
                   ]
+                },
+                "payment_route": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "payroll",
+                        "stipend",
+                        "accounts_payable"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "pay_cycle": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "monthly",
+                        "fortnightly",
+                        "weekly",
+                        "stipend"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
@@ -114120,7 +114637,9 @@
                 "description",
                 "status",
                 "configuration_key",
-                "configuration_value"
+                "configuration_value",
+                "payment_route",
+                "pay_cycle"
               ],
               "additionalProperties": false
             }
@@ -114148,6 +114667,7 @@
               "job_grade",
               "cost_center",
               "work_location",
+              "employment_setup",
               "employment_type",
               "employee_category"
             ]
@@ -114172,9 +114692,7 @@
                 "type": "string",
                 "enum": [
                   "default_nominal",
-                  "working_pattern",
-                  "payment_route",
-                  "pay_cycle"
+                  "working_pattern"
                 ]
               },
               {
@@ -114188,6 +114706,37 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payment_route": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "payroll",
+                  "stipend",
+                  "accounts_payable"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pay_cycle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "monthly",
+                  "fortnightly",
+                  "weekly",
+                  "stipend"
+                ]
               },
               {
                 "type": "null"
@@ -114233,9 +114782,7 @@
                 "type": "string",
                 "enum": [
                   "default_nominal",
-                  "working_pattern",
-                  "payment_route",
-                  "pay_cycle"
+                  "working_pattern"
                 ]
               },
               {
@@ -114249,6 +114796,37 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payment_route": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "payroll",
+                  "stipend",
+                  "accounts_payable"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pay_cycle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "monthly",
+                  "fortnightly",
+                  "weekly",
+                  "stipend"
+                ]
               },
               {
                 "type": "null"
@@ -114318,6 +114896,63 @@
         ],
         "additionalProperties": false
       },
+      "DeleteHrMasterRequest": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "company_id"
+        ],
+        "additionalProperties": false
+      },
+      "HrMasterDeleteResult": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "deleted": {
+            "type": "boolean",
+            "const": true
+          },
+          "audit_event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "company_id",
+          "code",
+          "deleted",
+          "audit_event_id",
+          "replayed"
+        ],
+        "additionalProperties": false
+      },
       "HrJobGradeDirectory": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
@@ -114345,6 +114980,7 @@
                     "job_grade",
                     "cost_center",
                     "work_location",
+                    "employment_setup",
                     "employment_type",
                     "employee_category"
                   ]
@@ -114398,6 +115034,37 @@
                     }
                   ]
                 },
+                "payment_route": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "payroll",
+                        "stipend",
+                        "accounts_payable"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "pay_cycle": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "monthly",
+                        "fortnightly",
+                        "weekly",
+                        "stipend"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "grade_level": {
                   "type": "integer",
                   "minimum": 1,
@@ -114436,6 +115103,8 @@
                 "status",
                 "configuration_key",
                 "configuration_value",
+                "payment_route",
+                "pay_cycle",
                 "grade_level",
                 "currency_code",
                 "band_minimum",
@@ -115119,12 +115788,7 @@
                   "minLength": 1,
                   "maxLength": 128
                 },
-                "employment_type_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 128
-                },
-                "employee_category_id": {
+                "employment_setup_id": {
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 128
@@ -115228,7 +115892,7 @@
                   "minLength": 1,
                   "maxLength": 160
                 },
-                "employment_type": {
+                "employment_setup": {
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 160
@@ -115302,14 +115966,13 @@
                 "job_grade_id",
                 "cost_center_id",
                 "work_location_id",
-                "employment_type_id",
-                "employee_category_id",
+                "employment_setup_id",
                 "reporting_manager_id",
                 "organization_placements",
                 "designation",
                 "job",
                 "job_grade",
-                "employment_type",
+                "employment_setup",
                 "work_location",
                 "change_reason",
                 "assignment_status",
@@ -116382,7 +117045,7 @@
                   "minLength": 1,
                   "maxLength": 160
                 },
-                "employment_type": {
+                "employment_setup": {
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 160
@@ -116475,7 +117138,7 @@
                 "profile_draft_assignment_id",
                 "designation",
                 "job_grade",
-                "employment_type",
+                "employment_setup",
                 "work_location",
                 "effective_on",
                 "requested_by",
@@ -116559,7 +117222,7 @@
             "minLength": 1,
             "maxLength": 160
           },
-          "employment_type": {
+          "employment_setup": {
             "type": "string",
             "minLength": 1,
             "maxLength": 160
@@ -116652,7 +117315,7 @@
           "profile_draft_assignment_id",
           "designation",
           "job_grade",
-          "employment_type",
+          "employment_setup",
           "work_location",
           "effective_on",
           "requested_by",
@@ -116714,12 +117377,7 @@
             "minLength": 1,
             "maxLength": 128
           },
-          "employment_type_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
-          },
-          "employee_category_id": {
+          "employment_setup_id": {
             "type": "string",
             "minLength": 1,
             "maxLength": 128
@@ -116748,8 +117406,7 @@
           "job_grade_id",
           "cost_center_id",
           "work_location_id",
-          "employment_type_id",
-          "employee_category_id",
+          "employment_setup_id",
           "effective_on",
           "reason"
         ],

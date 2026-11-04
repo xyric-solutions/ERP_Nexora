@@ -743,11 +743,11 @@ run("governed user administration", () => {
     await pool.query(
       `insert into employee_assignment
         (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,
-         job_grade_id,cost_center_id,work_location_id,employment_type_id,
-         employee_category_id,effective_from,change_reason,created_by,assignment_status,source_reference)
+         job_grade_id,cost_center_id,work_location_id,employment_setup_id,
+         effective_from,change_reason,created_by,assignment_status,source_reference)
        select $1,tenant_id,$2,company_id,branch_id,department_id,designation_id,
-              job_grade_id,cost_center_id,work_location_id,employment_type_id,
-              employee_category_id,effective_from,change_reason,created_by,assignment_status,'linked-account-test'
+              job_grade_id,cost_center_id,work_location_id,employment_setup_id,
+              effective_from,change_reason,created_by,assignment_status,'linked-account-test'
          from employee_assignment
         where tenant_id=$3 and id='r06-uat-assignment-r06-uat-employee-candidate'`,
       [`linked-assignment-${suffix}`, employeeId, sourceTestTenantId],

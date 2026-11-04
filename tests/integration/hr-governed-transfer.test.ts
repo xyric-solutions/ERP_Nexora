@@ -74,14 +74,13 @@ run("governed employee Transfer repository", () => {
     );
     await pool.query(
       `insert into hr_master_record
-        (id,tenant_id,company_id,master_type,code,name,created_by)
+        (id,tenant_id,company_id,master_type,code,name,created_by,payment_route,pay_cycle)
        values
-        ('transfer-designation',$1,$2,'designation','TR-DES','Transfer Designation','r06.maker'),
-        ('transfer-grade',$1,$2,'job_grade','TR-GRD','Transfer Grade','r06.maker'),
-        ('transfer-cost-center',$1,$2,'cost_center','TR-CC','Transfer Cost Center','r06.maker'),
-        ('transfer-location',$1,$2,'work_location','TR-LOC','Transfer Location','r06.maker'),
-        ('transfer-employment-type',$1,$2,'employment_type','TR-ET','Transfer Employment Type','r06.maker'),
-        ('transfer-category',$1,$2,'employee_category','TR-CAT','Transfer Category','r06.maker')
+        ('transfer-designation',$1,$2,'designation','TR-DES','Transfer Designation','r06.maker',null,null),
+        ('transfer-grade',$1,$2,'job_grade','TR-GRD','Transfer Grade','r06.maker',null,null),
+        ('transfer-cost-center',$1,$2,'cost_center','TR-CC','Transfer Cost Center','r06.maker',null,null),
+        ('transfer-location',$1,$2,'work_location','TR-LOC','Transfer Location','r06.maker',null,null),
+        ('transfer-employment-setup',$1,$2,'employment_setup','TR-ES','Transfer Employment Setup','r06.maker','payroll','monthly')
        on conflict (tenant_id,id) do nothing`,
       [sourceTestTenantId, companyId],
     );
@@ -174,8 +173,7 @@ run("governed employee Transfer repository", () => {
         job_grade_id: "transfer-grade",
         cost_center_id: "transfer-cost-center",
         work_location_id: "transfer-location",
-        employment_type_id: "transfer-employment-type",
-        employee_category_id: "transfer-category",
+        employment_setup_id: "transfer-employment-setup",
         effective_from: yesterday,
       },
       `transfer-profile-${suffix}`,
@@ -228,8 +226,7 @@ run("governed employee Transfer repository", () => {
       job_grade_id: "transfer-grade",
       cost_center_id: "transfer-cost-center",
       work_location_id: "transfer-location",
-      employment_type_id: "transfer-employment-type",
-      employee_category_id: "transfer-category",
+      employment_setup_id: "transfer-employment-setup",
       effective_on: today,
       reason: `${label} is moving to the target operating branch.`,
     };

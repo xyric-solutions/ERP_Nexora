@@ -224,6 +224,8 @@ CreateHrLocalization,HrLocalizationDecision,HrLocalizationWorkspace,CreateHrOver
   UpdateHrMasterRequest,
   ChangeHrMasterStatusRequest,
   HrMasterMutationResult,
+  DeleteHrMasterRequest,
+  HrMasterDeleteResult,
   HrJobGradeDirectory,
   CreateHrJobGradeRequest,
   UpdateHrJobGradeRequest,
@@ -896,6 +898,9 @@ export class NexoraApiClient {
   updateHrOrganizationUnit(unitId: string, payload: UpdateHrOrganizationUnitRequest, csrfToken: string, idempotencyKey: string): Promise<HrOrganizationUnitMutationResult> {
     return this.request(\`/api/v1/hr/organization_units/\${encodeURIComponent(unitId)}\`, { method: "PATCH", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
+  deleteHrOrganizationUnit(unitId: string, payload: DeleteHrMasterRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterDeleteResult> {
+    return this.request(\`/api/v1/hr/organization_units/\${encodeURIComponent(unitId)}\`, { method: "DELETE", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
   changeHrOrganizationUnitStatus(unitId: string, payload: ChangeHrOrganizationUnitStatusRequest, csrfToken: string, idempotencyKey: string): Promise<HrOrganizationUnitMutationResult> {
     return this.request(\`/api/v1/hr/organization_units/\${encodeURIComponent(unitId)}/status\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
@@ -952,12 +957,18 @@ export class NexoraApiClient {
   changeHrMasterStatus(masterId: string, payload: ChangeHrMasterStatusRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
     return this.request(\`/api/v1/hr/masters/\${encodeURIComponent(masterId)}/status\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
+  deleteHrMaster(masterId: string, payload: DeleteHrMasterRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterDeleteResult> {
+    return this.request(\`/api/v1/hr/masters/\${encodeURIComponent(masterId)}\`, { method: "DELETE", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
   listHrJobGrades(query: string): Promise<HrJobGradeDirectory> { return this.request(\`/api/v1/hr/job_grades\${query}\`); }
   createHrJobGrade(payload: CreateHrJobGradeRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
     return this.request("/api/v1/hr/job_grades", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
   updateHrJobGrade(gradeId: string, payload: UpdateHrJobGradeRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
     return this.request(\`/api/v1/hr/job_grades/\${encodeURIComponent(gradeId)}\`, { method: "PATCH", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  deleteHrJobGrade(gradeId: string, payload: DeleteHrMasterRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterDeleteResult> {
+    return this.request(\`/api/v1/hr/job_grades/\${encodeURIComponent(gradeId)}\`, { method: "DELETE", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
   createHrJob(payload: CreateHrJobRequest, csrfToken: string, idempotencyKey: string): Promise<HrJobResult> {
     return this.request("/api/v1/hr/jobs", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });

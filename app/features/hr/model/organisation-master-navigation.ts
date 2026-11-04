@@ -60,15 +60,14 @@ export const organisationMasterGroups = [
   {
     id: "employment",
     label: "Employment Setup",
-    description: "Set the employment types and employee categories behind your policies.",
+    description: "Set the payment route and pay cycle behind each employment arrangement.",
     items: [
       {
         id: "employment-setup",
         label: "Employment Setup",
-        description: "Employment types with payment routes and employee categories with pay cycles.",
+        description: "Payment route and pay cycle for each employment arrangement.",
         icon: Users,
-        // Two record kinds share this page; each keeps its own API type and code prefix.
-        type: ["employment_type", "employee_category"],
+        type: "employment_setup",
       },
     ],
   },

@@ -36,6 +36,7 @@ import {
   createHrMasterRequestSchema,
   updateHrMasterRequestSchema,
   changeHrMasterStatusRequestSchema,
+  deleteHrMasterRequestSchema,
   createHrJobGradeRequestSchema,
   updateHrJobGradeRequestSchema,
   hrEmploymentLifecyclePolicyDirectoryQuerySchema,
@@ -107,6 +108,7 @@ export interface HrRouterDependencies {
     | "createOrganizationUnit"
     | "updateOrganizationUnit"
     | "changeOrganizationUnitStatus"
+    | "deleteOrganizationUnit"
     | "listEmployees"
     | "getDashboard"
     | "getFinancePayrollDashboard"
@@ -202,9 +204,11 @@ export interface HrRouterDependencies {
     | "createMaster"
     | "updateMaster"
     | "changeMasterStatus"
+    | "deleteMaster"
     | "listJobGrades"
     | "createJobGrade"
     | "updateJobGrade"
+    | "deleteJobGrade"
     | "createEmployeeDraft"
     | "updateEmployeeDraft"
     | "submitEmployeeDraft"
@@ -266,6 +270,13 @@ function idempotencyKey(req: Request): string {
   const key = req.get("idempotency-key");
   if (!key) throw new HttpError(400, "IDEMPOTENCY_KEY_REQUIRED", "An idempotency key is required.");
   return key;
+}
+
+/** DELETE accepts company_id in the JSON body, or as a query parameter when no body is sent. */
+function deleteRequest(req: Request) {
+  const body: unknown = req.body;
+  const hasBody = typeof body === "object" && body !== null && Object.keys(body).length > 0;
+  return deleteHrMasterRequestSchema.parse(hasBody ? body : { company_id: req.query.company_id });
 }
 
 function parseBoolean(value: unknown): boolean | undefined {
@@ -591,6 +602,15 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
     const input = changeHrOrganizationUnitStatusRequestSchema.parse(req.body);
     res.json(await handle(async () => dependencies.repository.changeOrganizationUnitStatus(
       await loadHrSessionContext(req, dependencies, true), req.params.unitId, input, idempotencyKey(req), currentRequestContext().correlationId,
+    )));
+  });
+
+  router.delete("/organization_units/:unitId", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const unitId = z.string().trim().min(1).max(128).parse(req.params.unitId);
+    const input = deleteRequest(req);
+    res.json(await handle(async () => dependencies.repository.deleteOrganizationUnit(
+      await loadHrSessionContext(req, dependencies, true), unitId, input, idempotencyKey(req), currentRequestContext().correlationId,
     )));
   });
 
@@ -1130,6 +1150,12 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
     const input = changeHrMasterStatusRequestSchema.parse(req.body);
     res.json(await handle(async () => dependencies.repository.changeMasterStatus(await loadHrSessionContext(req, dependencies, true), req.params.masterId, input, idempotencyKey(req), currentRequestContext().correlationId)));
   });
+  router.delete("/masters/:masterId", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const masterId = z.string().trim().min(1).max(128).parse(req.params.masterId);
+    const input = deleteRequest(req);
+    res.json(await handle(async () => dependencies.repository.deleteMaster(await loadHrSessionContext(req, dependencies, true), masterId, input, idempotencyKey(req), currentRequestContext().correlationId)));
+  });
   router.get("/job_grades", async (req, res) => {
     const companyId = z.string().trim().min(1).max(128).parse(req.query.company_id);
     res.json(await handle(async () => dependencies.repository.listJobGrades(await loadHrSessionContext(req, dependencies), companyId)));
@@ -1147,6 +1173,14 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
     const gradeId = z.string().trim().min(1).max(128).parse(req.params.gradeId);
     const input = updateHrJobGradeRequestSchema.parse(req.body);
     res.json(await handle(async () => dependencies.repository.updateJobGrade(
+      await loadHrSessionContext(req, dependencies, true), gradeId, input, idempotencyKey(req), currentRequestContext().correlationId,
+    )));
+  });
+  router.delete("/job_grades/:gradeId", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const gradeId = z.string().trim().min(1).max(128).parse(req.params.gradeId);
+    const input = deleteRequest(req);
+    res.json(await handle(async () => dependencies.repository.deleteJobGrade(
       await loadHrSessionContext(req, dependencies, true), gradeId, input, idempotencyKey(req), currentRequestContext().correlationId,
     )));
   });

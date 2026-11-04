@@ -36,6 +36,9 @@ function appForHr(
     | "createMaster"
     | "updateMaster"
     | "changeMasterStatus"
+    | "deleteMaster"
+    | "deleteJobGrade"
+    | "deleteOrganizationUnit"
     | "listJobGrades"
     | "createJobGrade"
     | "updateJobGrade"
@@ -243,6 +246,42 @@ describe("HR API foundation", () => {
     expect(repository.createMaster).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), payload, "master-create-1", expect.any(String));
   });
 
+  it("protects permanent deletes of deactivated organisation records with browser mutation controls", async () => {
+    const result = (id: string) => ({ id, company_id: "company-a", code: "DSG-004", deleted: true, audit_event_id: "audit-del", replayed: false });
+    const repository = {
+      deleteMaster: vi.fn(async (_c: unknown, id: string) => result(id)),
+      deleteJobGrade: vi.fn(async (_c: unknown, id: string) => result(id)),
+      deleteOrganizationUnit: vi.fn(async (_c: unknown, id: string) => result(id)),
+    } as unknown as Pick<SourceHrRepository, "deleteMaster" | "deleteJobGrade" | "deleteOrganizationUnit">;
+    const app = appForHr(repository);
+    const send = (path: string, options: { csrf?: string; key?: string; origin?: string; body?: object } = {}) => {
+      let call = request(app).delete(path).set("cookie", "nexora_session=token-hr").set("origin", options.origin ?? "https://hr.example.test");
+      if (options.csrf !== "") call = call.set("x-csrf-token", options.csrf ?? session.csrfToken);
+      if (options.key !== "") call = call.set("idempotency-key", options.key ?? "delete-1");
+      return options.body ? call.send(options.body) : call;
+    };
+    for (const [path, method] of [
+      ["/api/v1/hr/masters/master-1", "deleteMaster"],
+      ["/api/v1/hr/job_grades/master-1", "deleteJobGrade"],
+      ["/api/v1/hr/organization_units/master-1", "deleteOrganizationUnit"],
+    ] as const) {
+      const response = await send(path, { body: { company_id: "company-a" } });
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(result("master-1"));
+      expect(repository[method]).toHaveBeenLastCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), "master-1", { company_id: "company-a" }, "delete-1", expect.any(String));
+    }
+    const viaQuery = await send("/api/v1/hr/masters/master-2?company_id=company-a");
+    expect(viaQuery.status).toBe(200);
+    expect(repository.deleteMaster).toHaveBeenLastCalledWith(expect.anything(), "master-2", { company_id: "company-a" }, "delete-1", expect.any(String));
+    const calls = (repository.deleteMaster as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
+    expect((await send("/api/v1/hr/masters/master-3", { body: { company_id: "company-a", status: "inactive" } })).status).toBe(400);
+    expect((await send("/api/v1/hr/masters/master-3", { body: {} })).status).toBe(400);
+    expect((await send("/api/v1/hr/masters/master-3", { body: { company_id: "company-a" }, key: "" })).status).toBe(400);
+    expect((await send("/api/v1/hr/masters/master-3", { body: { company_id: "company-a" }, csrf: "wrong" })).status).toBe(403);
+    expect((await send("/api/v1/hr/masters/master-3", { body: { company_id: "company-a" }, origin: "https://evil.example.test" })).status).toBe(403);
+    expect((repository.deleteMaster as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(calls);
+  });
+
   it("validates type-specific HR master configuration before repository access", async () => {
     const repository = {
       createMaster: vi.fn(async () => ({ id: "location-1", company_id: "company-a", audit_event_id: "audit-location-1", replayed: false })),
@@ -277,9 +316,36 @@ describe("HR API foundation", () => {
       .set("origin", "https://hr.example.test")
       .set("x-csrf-token", session.csrfToken)
       .set("idempotency-key", "configured-master-3")
-      .send({ company_id: "company-a", type: "employee_category", code: "STAFF", name: "Staff", description: "Salaried staff" });
+      .send({ company_id: "company-a", type: "employment_setup", code: "AUTO", name: "Staff", description: "Salaried staff", payment_route: "payroll" });
     expect(missing.status).toBe(400);
     expect(repository.createMaster).toHaveBeenCalledTimes(1);
+
+    const setup = { company_id: "company-a", type: "employment_setup", code: "AUTO", name: "Permanent staff", description: "", payment_route: "payroll", pay_cycle: "monthly" };
+    const setupAccepted = await request(appForHr(repository))
+      .post("/api/v1/hr/masters")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "configured-master-4")
+      .send(setup);
+    expect(setupAccepted.status).toBe(201);
+    expect(repository.createMaster).toHaveBeenLastCalledWith(expect.anything(), setup, "configured-master-4", expect.any(String));
+
+    for (const [key, body] of [
+      ["configured-master-5", { ...setup, pay_cycle: "quarterly" }],
+      ["configured-master-6", { ...setup, configuration_key: "working_pattern", configuration_value: "onsite" }],
+      ["configured-master-7", { ...payload, payment_route: "payroll", pay_cycle: "monthly" }],
+    ] as const) {
+      const invalid = await request(appForHr(repository))
+        .post("/api/v1/hr/masters")
+        .set("cookie", "nexora_session=token-hr")
+        .set("origin", "https://hr.example.test")
+        .set("x-csrf-token", session.csrfToken)
+        .set("idempotency-key", key)
+        .send(body);
+      expect(invalid.status).toBe(400);
+    }
+    expect(repository.createMaster).toHaveBeenCalledTimes(2);
   });
 
   it("returns company-scoped job grades from the dedicated catalogue", async () => {
@@ -443,7 +509,7 @@ describe("HR API foundation", () => {
           designation: "Analyst",
           job: "",
           job_grade: "G1",
-          employment_type: "Full time",
+          employment_setup: "Permanent staff",
           work_location: "Head office",
           change_reason: "initial_appointment",
           assignment_status: "active",
@@ -749,7 +815,7 @@ describe("HR API foundation", () => {
       profile_draft_assignment_id: "assignment-1",
       designation: "Analyst",
       job_grade: "G1",
-      employment_type: "Full time",
+      employment_setup: "Permanent staff",
       work_location: "Head office",
       effective_on: "2026-10-15",
       requested_by: "maker-user",
@@ -843,8 +909,7 @@ describe("HR API foundation", () => {
       job_grade_id: "grade-1",
       cost_center_id: "cost-center-1",
       work_location_id: "location-1",
-      employment_type_id: "employment-type-1",
-      employee_category_id: "category-1",
+      employment_setup_id: "employment-setup-1",
       effective_on: "2026-10-16",
       reason: "Move the employee to the new operating branch.",
     };
@@ -1360,8 +1425,7 @@ describe("HR API foundation", () => {
       job_grade_id: "grade-a",
       cost_center_id: "cost-center-a",
       work_location_id: "location-a",
-      employment_type_id: "employment-type-a",
-      employee_category_id: "category-a",
+      employment_setup_id: "employment-setup-a",
       effective_from: "2026-10-15",
     };
     const response = await request(appForHr(repository))

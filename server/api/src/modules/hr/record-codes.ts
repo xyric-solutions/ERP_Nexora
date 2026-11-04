@@ -16,6 +16,8 @@ const sources = {
   job: ["JOB", "hr_master_record", "code", "company_id"],
   cost_center: ["CC", "hr_master_record", "code", "company_id"],
   work_location: ["LOC", "hr_master_record", "code", "company_id"],
+  employment_setup: ["ES", "hr_master_record", "code", "company_id"],
+  // Retired by HR134; kept so archived ET/EC codes still parse and never reissue.
   employment_type: ["ET", "hr_master_record", "code", "company_id"],
   employee_category: ["EC", "hr_master_record", "code", "company_id"],
   business_unit: ["BU", "organization_unit", "code", null],
@@ -65,4 +67,35 @@ export async function allocateHrCode(
     [tenant, scope, kind, existing.rows[0]!.highest],
   );
   return `${prefix}-${result.rows[0]!.value.padStart(3, "0")}`;
+}
+
+/** Call inside the delete transaction before removing a coded record. Raises the
+ * company/tenant counter past the deleted code so it is never reissued, even when
+ * it was the highest code and no counter row existed yet (seeded/imported codes).
+ */
+export async function retireHrCode(
+  client: PoolClient,
+  tenant: string,
+  company: string,
+  kind: HrCodeKind,
+  code: string,
+): Promise<void> {
+  const [prefix, , , companyColumn] = sources[kind];
+  const match = new RegExp(`^${prefix}-([0-9]+)$`).exec(code);
+  if (!match) return;
+  const scope = companyColumn ? company : tenant;
+  await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+    JSON.stringify(["hr-record-code", tenant, scope, kind]),
+  ]);
+  await client.query(
+    `insert into hr_record_code_counter(tenant_id,scope_id,record_kind,next_value)
+     values($1,$2,$3,$4::bigint+1)
+     on conflict(tenant_id,scope_id,record_kind) do update
+       set next_value=greatest(hr_record_code_counter.next_value,excluded.next_value)`,
+    [tenant, scope, kind, match[1]],
+  );
+}
+
+export function isHrCodeKind(kind: string): kind is HrCodeKind {
+  return Object.hasOwn(sources, kind);
 }

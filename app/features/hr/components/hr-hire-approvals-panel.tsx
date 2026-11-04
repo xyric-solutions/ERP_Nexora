@@ -283,7 +283,10 @@ export function HrHireApprovalsPanel({
                   <dl className="grid gap-2 text-sm sm:grid-cols-2 xl:grid-cols-1">
                     <ReviewField label="Job" value={`${detail.job_name} (${detail.job_code})`} />
                     <ReviewField label="Placement" value={`${detail.designation} · ${detail.work_location}`} />
-                    <ReviewField label="Employment context" value={`${detail.employment_type} · ${detail.job_grade}`} />
+                    <ReviewField
+                      label="Employment context"
+                      value={`${detail.employment_setup} · ${detail.job_grade}`}
+                    />
                     <ReviewField label="Effective date" value={detail.effective_on} />
                     <ReviewField label="Requested" value={new Date(detail.requested_at).toLocaleString()} />
                     <ReviewField label="Business reason" value={detail.reason} />

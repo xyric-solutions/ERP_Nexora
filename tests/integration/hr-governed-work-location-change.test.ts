@@ -86,16 +86,15 @@ run("governed employee work-location-change repository", () => {
     );
     await pool.query(
       `insert into hr_master_record
-        (id,tenant_id,company_id,master_type,code,name,created_by)
+        (id,tenant_id,company_id,master_type,code,name,created_by,payment_route,pay_cycle)
        values
-        ('work-location-designation',$1,$2,'designation','WL-DES','Work Location Role','r06.maker'),
-        ('work-location-grade',$1,$2,'job_grade','WL-GRD','Work Location Grade','r06.maker'),
-        ('work-location-cost-center',$1,$2,'cost_center','WL-CC','Work Location Cost Center','r06.maker'),
-        ('work-location-source',$1,$2,'work_location','WL-SRC','Islamabad Office','r06.maker'),
-        ('work-location-target',$1,$2,'work_location','WL-TGT','Lahore Office','r06.maker'),
-        ('work-location-no-profile',$1,$2,'work_location','WL-NOP','Unreviewed Office','r06.maker'),
-        ('work-location-employment-type',$1,$2,'employment_type','WL-ET','Work Location Employment Type','r06.maker'),
-        ('work-location-category',$1,$2,'employee_category','WL-CAT','Work Location Category','r06.maker')
+        ('work-location-designation',$1,$2,'designation','WL-DES','Work Location Role','r06.maker',null,null),
+        ('work-location-grade',$1,$2,'job_grade','WL-GRD','Work Location Grade','r06.maker',null,null),
+        ('work-location-cost-center',$1,$2,'cost_center','WL-CC','Work Location Cost Center','r06.maker',null,null),
+        ('work-location-source',$1,$2,'work_location','WL-SRC','Islamabad Office','r06.maker',null,null),
+        ('work-location-target',$1,$2,'work_location','WL-TGT','Lahore Office','r06.maker',null,null),
+        ('work-location-no-profile',$1,$2,'work_location','WL-NOP','Unreviewed Office','r06.maker',null,null),
+        ('work-location-employment-setup',$1,$2,'employment_setup','WL-ES','Work Location Employment Setup','r06.maker','payroll','monthly')
        on conflict (tenant_id,id) do nothing`,
       [sourceTestTenantId, companyId],
     );
@@ -209,8 +208,7 @@ run("governed employee work-location-change repository", () => {
         job_grade_id: "work-location-grade",
         cost_center_id: "work-location-cost-center",
         work_location_id: "work-location-source",
-        employment_type_id: "work-location-employment-type",
-        employee_category_id: "work-location-category",
+        employment_setup_id: "work-location-employment-setup",
         effective_from: yesterday,
       },
       `work-location-profile-${suffix}`,
@@ -370,8 +368,7 @@ run("governed employee work-location-change repository", () => {
               target.designation_id=source.designation_id as same_designation,
               target.job_grade_id=source.job_grade_id as same_grade,
               target.cost_center_id=source.cost_center_id as same_cost_center,
-              target.employment_type_id=source.employment_type_id as same_employment_type,
-              target.employee_category_id=source.employee_category_id as same_category,
+              target.employment_setup_id=source.employment_setup_id as same_employment_setup,
               target.reporting_manager_id is not distinct from source.reporting_manager_id as same_manager,
               target.employment_relationship_id=source.employment_relationship_id as same_relationship
          from hr_employee_work_location_change_request request
@@ -395,8 +392,7 @@ run("governed employee work-location-change repository", () => {
         same_designation: true,
         same_grade: true,
         same_cost_center: true,
-        same_employment_type: true,
-        same_category: true,
+        same_employment_setup: true,
         same_manager: true,
         same_relationship: true,
       }),
@@ -648,13 +644,13 @@ run("governed employee work-location-change repository", () => {
     expect((await salaryState(subject.employee.id)).rows).toEqual(salaryBefore);
     const projected = await pool.query(
       `select company_id,designation_id,job_id,job_grade_id,cost_center_id,work_location_id,
-              employment_type_id,employee_category_id,reporting_manager_id,change_reason
+              employment_setup_id,reporting_manager_id,change_reason
          from employee_assignment where tenant_id=$1 and id=$2`,
       [sourceTestTenantId, decision.assignment_id],
     );
     const source = await pool.query(
       `select company_id,designation_id,job_id,job_grade_id,cost_center_id,work_location_id,
-              employment_type_id,employee_category_id,reporting_manager_id
+              employment_setup_id,reporting_manager_id
          from employee_assignment where tenant_id=$1 and id=$2`,
       [sourceTestTenantId, subject.assignmentId],
     );

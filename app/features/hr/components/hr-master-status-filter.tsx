@@ -6,7 +6,7 @@ export type HrMasterStatus = "active" | "inactive" | "all";
 const statusOptions: readonly { value: HrMasterStatus; label: string }[] = [
   { value: "all", label: "All records" },
   { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive / archived" },
+  { value: "inactive", label: "Deactivated" },
 ];
 
 export function HrMasterStatusFilter({

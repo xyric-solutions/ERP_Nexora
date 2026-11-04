@@ -1,4 +1,5 @@
 import type {HrLearningQuery,HrLearningAction} from "@nexora/contracts";
+import type {DeleteHrMasterRequest,HrMasterDeleteResult} from "@nexora/contracts";
 import type {HrPersonalCorrectionQuery,CreateHrPersonalCorrection,HrPersonalCorrectionAction,HrReportGovernanceQuery,HrReportGovernanceAction,HrReportGovernanceResult} from '@nexora/contracts';
 import type {HrSelfLeaveContextQuery,CreateHrSelfLeaveRequest,HrSelfLeaveAction} from '@nexora/contracts';
 import type {HrSelfServiceQuery,HrSelfServiceWorkspace} from '@nexora/contracts';
@@ -310,6 +311,11 @@ export class HrApiClient {
     return this.api.changeHrOrganizationUnitStatus(unitId, input, csrfToken, idempotencyKey);
   }
 
+  /** Permanently deletes an inactive, unreferenced organization unit (no child units). */
+  deleteOrganizationUnit(unitId: string, input: DeleteHrMasterRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterDeleteResult> {
+    return this.api.deleteHrOrganizationUnit(unitId, input, csrfToken, idempotencyKey);
+  }
+
   employees(input: {
     companyId: string;
     search?: string;
@@ -516,6 +522,11 @@ export class HrApiClient {
     return this.api.changeHrMasterStatus(masterId, input, csrfToken, idempotencyKey);
   }
 
+  /** Permanently deletes an inactive, unreferenced HR master record. */
+  deleteMaster(masterId: string, input: DeleteHrMasterRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterDeleteResult> {
+    return this.api.deleteHrMaster(masterId, input, csrfToken, idempotencyKey);
+  }
+
   jobGrades(companyId: string): Promise<HrJobGradeDirectory> {
     return this.api.listHrJobGrades(query({ company_id: companyId }));
   }
@@ -526,6 +537,11 @@ export class HrApiClient {
 
   updateJobGrade(gradeId: string, input: UpdateHrJobGradeRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
     return this.api.updateHrJobGrade(gradeId, input, csrfToken, idempotencyKey);
+  }
+
+  /** Permanently deletes an inactive, unreferenced job grade and its band detail. */
+  deleteJobGrade(gradeId: string, input: DeleteHrMasterRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterDeleteResult> {
+    return this.api.deleteHrJobGrade(gradeId, input, csrfToken, idempotencyKey);
   }
 
   createHireRequest(

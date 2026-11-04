@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 import { ApiError } from "@/lib/api/generated";
 import { HrApiClient } from "../api/hr-client";
+import { payCycleLabel, paymentRouteLabel } from "../model/employment-setup";
 import {
   Field,
   State,
@@ -32,6 +33,7 @@ import {
   hrLeaveRequestActionRequestSchema,
   type HrCompanyDirectory,
   type HrLeaveType,
+  type HrLeaveTypeDirectory,
   type HrLeavePolicyInput,
   type HrLeaveBalance,
   type HrLeaveAllocation,
@@ -107,19 +109,20 @@ const newPolicy = (date: string): HrLeavePolicyInput => ({
   minimum_request_days: "0.5",
   maximum_request_days: "30",
   requires_hr_approval: true,
-  applicable_category_ids: [],
+  applicable_employment_setup_ids: [],
   applicable_genders: [],
   document_required_after_days: null,
 });
+type EmploymentSetupOption = HrLeaveTypeDirectory["employment_setups"][number];
 function PolicyEditor({
   policy,
   setPolicy,
-  categories,
+  employmentSetups,
   busy,
 }: {
   policy: HrLeavePolicyInput;
   setPolicy: (p: HrLeavePolicyInput) => void;
-  categories: { id: string; name: string }[];
+  employmentSetups: EmploymentSetupOption[];
   busy: boolean;
 }) {
   const update = <K extends keyof HrLeavePolicyInput>(key: K, value: HrLeavePolicyInput[K]) =>
@@ -221,24 +224,31 @@ function PolicyEditor({
         </label>
       </div>
       <div>
-        <p className="text-sm font-medium">Employee categories</p>
-        <p className="mt-1 text-xs text-muted-foreground">Leave every category unchecked to apply to all categories.</p>
+        <p className="text-sm font-medium">Eligible employment setups</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Leave every employment setup unchecked to apply to all employment setups.
+        </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {categories.map((c) => (
-            <label htmlFor={"leave-category-" + c.id} key={c.id} className="flex items-center gap-2 text-sm">
+          {employmentSetups.map((c) => (
+            <label htmlFor={"leave-employment-setup-" + c.id} key={c.id} className="flex items-center gap-2 text-sm">
               <Checkbox
-                id={"leave-category-" + c.id}
-                checked={policy.applicable_category_ids.includes(c.id)}
+                id={"leave-employment-setup-" + c.id}
+                checked={policy.applicable_employment_setup_ids.includes(c.id)}
                 onCheckedChange={(v) =>
                   update(
-                    "applicable_category_ids",
+                    "applicable_employment_setup_ids",
                     v === true
-                      ? [...policy.applicable_category_ids, c.id]
-                      : policy.applicable_category_ids.filter((x) => x !== c.id),
+                      ? [...policy.applicable_employment_setup_ids, c.id]
+                      : policy.applicable_employment_setup_ids.filter((x) => x !== c.id),
                   )
                 }
               />
-              {c.name}
+              <span>
+                {c.name}
+                <span className="block text-xs text-muted-foreground">
+                  {c.code} · {paymentRouteLabel(c.payment_route)} / {payCycleLabel(c.pay_cycle)}
+                </span>
+              </span>
             </label>
           ))}
         </div>
@@ -299,7 +309,7 @@ function LeaveTypes(props: Shared) {
               minimum_request_days: p.minimum_request_days,
               maximum_request_days: p.maximum_request_days,
               requires_hr_approval: p.requires_hr_approval,
-              applicable_category_ids: p.applicable_category_ids,
+              applicable_employment_setup_ids: p.applicable_employment_setup_ids,
               applicable_genders: p.applicable_genders,
               document_required_after_days: p.document_required_after_days,
             }
@@ -426,7 +436,7 @@ function LeaveTypes(props: Shared) {
               <PolicyEditor
                 policy={policy}
                 setPolicy={setPolicy}
-                categories={query.data?.categories ?? []}
+                employmentSetups={query.data?.employment_setups ?? []}
                 busy={busy}
               />
               <Field title="Policy change reason">

@@ -92,6 +92,7 @@ import {
   HrConfiguredMasterSheetWorkspace as HrConfiguredMasterWorkspace,
   type HrConfiguredMasterSheetDefinition as HrConfiguredMasterDefinition,
 } from "@prototype/features/hr/views/hr-configured-master-sheet-workspace";
+import { payCycleOptions, paymentRouteOptions } from "@prototype/features/hr/model/employment-setup";
 import { HrDashboardWorkspace } from "@prototype/features/hr/views/hr-dashboard-workspace";
 import { HrFinancePayrollDashboardWorkspace } from "@prototype/features/hr/views/hr-finance-payroll-dashboard-workspace";
 import { BankingRevaluationWorkspace } from "@prototype/features/banking/views/banking-revaluation-workspace";
@@ -188,10 +189,14 @@ const configuredHrMasters: Record<string, HrConfiguredMasterDefinition> = {
     singular: "Cost Centre",
     guidance:
       "Cost centres are the shared company finance dimension used on employee assignments. They remain separate from the organisation tree because one cost centre can span branches. Finance confirms the default nominal before payroll posting is enabled.",
-    configurationKey: "default_nominal",
-    configurationLabel: "Default nominal",
-    configurationHelp: "Finance-owned nominal account code used as the proposed payroll allocation.",
-    configurationPlaceholder: "For example 60-01-00100",
+    fields: [
+      {
+        key: "default_nominal",
+        label: "Default nominal",
+        help: "Finance-owned nominal account code used as the proposed payroll allocation.",
+        placeholder: "For example 60-01-00100",
+      },
+    ],
   },
   "work-locations": {
     type: "work_location",
@@ -199,45 +204,40 @@ const configuredHrMasters: Record<string, HrConfiguredMasterDefinition> = {
     singular: "Work Location",
     guidance:
       "Work locations describe where an employee works and stay separate from legal branches. Location changes remain governed employee-assignment movements.",
-    configurationKey: "working_pattern",
-    configurationLabel: "Working pattern",
-    configurationHelp: "Default physical-working arrangement for assignments at this location.",
-    options: [
-      { value: "on_site", label: "On site" },
-      { value: "hybrid", label: "Hybrid" },
-      { value: "remote", label: "Remote" },
-      { value: "client_site", label: "Client site" },
+    fields: [
+      {
+        key: "working_pattern",
+        label: "Working pattern",
+        help: "Default physical-working arrangement for assignments at this location.",
+        options: [
+          { value: "on_site", label: "On site" },
+          { value: "hybrid", label: "Hybrid" },
+          { value: "remote", label: "Remote" },
+          { value: "client_site", label: "Client site" },
+        ],
+      },
     ],
   },
-  "employment-types": {
-    type: "employment_type",
-    label: "Employment Types",
-    singular: "Employment Type",
+  "employment-setup": {
+    type: "employment_setup",
+    label: "Employment Setup",
+    singular: "Employment Setup",
+    nameLabel: "Name",
     guidance:
-      "Employment types describe the contractual basis of work. The payment route guides downstream setup but does not create payroll or supplier transactions.",
-    configurationKey: "payment_route",
-    configurationLabel: "Payment route",
-    configurationHelp: "Downstream route expected for people using this employment type.",
-    options: [
-      { value: "payroll", label: "Payroll" },
-      { value: "stipend", label: "Stipend" },
-      { value: "accounts_payable", label: "Accounts payable" },
-    ],
-  },
-  "employee-categories": {
-    type: "employee_category",
-    label: "Employee Categories",
-    singular: "Employee Category",
-    guidance:
-      "Employee categories group people for policy, benefit and reporting rules. The pay cycle is configuration and does not release a payroll run.",
-    configurationKey: "pay_cycle",
-    configurationLabel: "Pay cycle",
-    configurationHelp: "Expected pay frequency for this employee category.",
-    options: [
-      { value: "monthly", label: "Monthly" },
-      { value: "fortnightly", label: "Fortnightly" },
-      { value: "weekly", label: "Weekly" },
-      { value: "stipend", label: "Stipend" },
+      "An employment setup describes one employment arrangement: the payment route people are paid through and their pay cycle. It guides downstream setup but does not create payroll runs or supplier transactions.",
+    fields: [
+      {
+        key: "payment_route",
+        label: "Payment route",
+        help: "Downstream route expected for people on this employment setup.",
+        options: paymentRouteOptions,
+      },
+      {
+        key: "pay_cycle",
+        label: "Pay cycle",
+        help: "Expected pay frequency for people on this employment setup.",
+        options: payCycleOptions,
+      },
     ],
   },
 };
@@ -2989,12 +2989,6 @@ export function PrototypeContent(props: PrototypeContentProps) {
           <HrOrganizationStructureWorkspace />
         ) : masterPageId === "job-grades" ? (
           <HrJobGradesWorkspace />
-        ) : masterPageId === "employment-setup" ? (
-          <HrConfiguredMasterWorkspace
-            label="Employment Setup"
-            singular="Employment Setup"
-            definitions={[configuredHrMasters["employment-types"]!, configuredHrMasters["employee-categories"]!]}
-          />
         ) : masterPageId === "designations" ? (
           <HrMasterCatalogueWorkspace
             type="designation"

@@ -271,28 +271,28 @@ export async function ensureSourceTestTenant(pool: DatabasePool): Promise<void> 
     ["r06-uat-grade", "job_grade", "R06-GRD", "R06 UAT Grade"],
     ["r06-uat-cost-center", "cost_center", "R06-CC", "R06 UAT Cost Center"],
     ["r06-uat-location", "work_location", "R06-LOC", "R06 UAT Location"],
-    ["r06-uat-employment-type", "employment_type", "R06-ET", "R06 UAT Employment Type"],
-    ["r06-uat-category", "employee_category", "R06-CAT", "R06 UAT Category"],
+    ["r06-uat-employment-setup", "employment_setup", "R06-ES", "R06 UAT Employment Setup"],
   ] as const) {
+    const setup = masterType === "employment_setup";
     await pool.query(
       `insert into hr_master_record
-        (id,tenant_id,company_id,master_type,code,name,status,created_by)
-       values ($1,$2,'nexora-r06-uat-company',$3,$4,$5,'active','r06.last-admin-a')
+        (id,tenant_id,company_id,master_type,code,name,status,created_by,payment_route,pay_cycle)
+       values ($1,$2,'nexora-r06-uat-company',$3,$4,$5,'active','r06.last-admin-a',$6,$7)
        on conflict (tenant_id,id) do nothing`,
-      [id, sourceTestTenantId, masterType, code, name],
+      [id, sourceTestTenantId, masterType, code, name, setup ? "payroll" : null, setup ? "monthly" : null],
     );
   }
   for (const employeeId of ["r06-uat-employee-target", "r06-uat-employee-candidate"] as const) {
     await pool.query(
       `insert into employee_assignment
         (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,
-         job_grade_id,cost_center_id,work_location_id,employment_type_id,
-         employee_category_id,effective_from,change_reason,created_by,
+         job_grade_id,cost_center_id,work_location_id,employment_setup_id,
+         effective_from,change_reason,created_by,
          assignment_status,source_reference)
        values ($1,$2,$3,'nexora-r06-uat-company','nexora-r06-uat-branch',
                'nexora-r06-uat-department','r06-uat-designation','r06-uat-grade',
-               'r06-uat-cost-center','r06-uat-location','r06-uat-employment-type',
-               'r06-uat-category',date '2026-01-01','initial_appointment',
+               'r06-uat-cost-center','r06-uat-location','r06-uat-employment-setup',
+               date '2026-01-01','initial_appointment',
                'r06.last-admin-a','legacy_compatibility','controlled-test-fixture')
        on conflict (tenant_id,id) do nothing`,
       [`r06-uat-assignment-${employeeId}`, sourceTestTenantId, employeeId],

@@ -88,8 +88,7 @@ run("HR foundation API repository", () => {
         "job_grade",
         "cost_center",
         "work_location",
-        "employment_type",
-        "employee_category",
+        "employment_setup",
       ]),
     );
     expect(result.items.every((item) => item.company_id === "nexora-r06-uat-company")).toBe(true);
@@ -966,8 +965,7 @@ run("HR foundation API repository", () => {
       job_grade_id: "r06-uat-grade",
       cost_center_id: "r06-uat-cost-center",
       work_location_id: "r06-uat-location",
-      employment_type_id: "r06-uat-employment-type",
-      employee_category_id: "r06-uat-category",
+      employment_setup_id: "r06-uat-employment-setup",
       effective_from: "2026-10-15",
     };
     const first = await repository.createProfileDraftAssignment(

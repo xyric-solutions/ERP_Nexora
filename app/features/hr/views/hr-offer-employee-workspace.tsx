@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { payCycleLabel, paymentRouteLabel } from "../model/employment-setup";
 import { HrHireMakerPanel } from "../components/hr-hire-maker-panel";
 
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
@@ -303,8 +304,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
       job_grade_id: o.context.job_grade_id,
       cost_center_id: o.cost_center_id,
       work_location_id: o.work_location_id,
-      employment_type_id: o.context.employment_type_id,
-      employee_category_id: o.employee_category_id,
+      employment_setup_id: o.employment_setup_id,
       reporting_manager_id: o.reporting_manager_id ?? undefined,
       effective_from: o.joining_on,
     };
@@ -538,8 +538,8 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
                       value={`${data.offer.cost_center} / ${data.offer.work_location}`}
                     />
                     <Detail
-                      name="Employment type / category"
-                      value={`${data.offer.context.employment_type} / ${data.offer.employee_category}`}
+                      name="Employment setup"
+                      value={`${data.offer.employment_setup} · ${paymentRouteLabel(data.offer.payment_route)} / ${payCycleLabel(data.offer.pay_cycle)}`}
                     />
                     <Detail name="Reporting manager" value={data.offer.reporting_manager ?? "No manager agreed"} />
                     <Detail

@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { employmentSetupOptionLabel, payCycleLabel, paymentRouteLabel } from "../model/employment-setup";
 import { HrEditButton } from "../components/hr-icon-buttons";
 
 const selectClass =
@@ -87,7 +88,7 @@ function OfferEditor({
     notice_days: detail?.notice_days ?? 30,
     cost_center_id: detail?.cost_center_id ?? "",
     work_location_id: detail?.work_location_id ?? "",
-    employee_category_id: detail?.employee_category_id ?? "",
+    employment_setup_id: detail?.employment_setup_id ?? context.employment_setup_id,
     reporting_manager_id: detail?.reporting_manager_id ?? null,
     note: detail?.note ?? "",
     range_exception_reason: detail?.range_exception_reason ?? "",
@@ -142,7 +143,7 @@ function OfferEditor({
           {context.branch} · {context.department}
         </div>
         <div>
-          {context.employment_type} · {context.requisition_reference}
+          {context.employment_setup} · {context.requisition_reference}
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -203,7 +204,7 @@ function OfferEditor({
           [
             ["cost_center_id", "cost_center", "Cost centre"],
             ["work_location_id", "work_location", "Work location"],
-            ["employee_category_id", "employee_category", "Employee category"],
+            ["employment_setup_id", "employment_setup", "Employment setup"],
           ] as const
         ).map(([key, type, title]) => (
           <label key={key} className="grid gap-1.5 text-sm">
@@ -214,7 +215,9 @@ function OfferEditor({
                 .filter((item) => item.type === type)
                 .map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} ({item.code})
+                    {item.type === "employment_setup"
+                      ? employmentSetupOptionLabel(item)
+                      : `${item.name} (${item.code})`}
                   </option>
                 ))}
             </select>
@@ -513,12 +516,12 @@ export function HrOfferManagementWorkspace() {
     Promise.all([
       client.masters({ companyId, type: "cost_center", limit: 100 }),
       client.masters({ companyId, type: "work_location", limit: 100 }),
-      client.masters({ companyId, type: "employee_category", limit: 100 }),
+      client.masters({ companyId, type: "employment_setup", limit: 100 }),
       client.employees({ companyId, limit: 100 }),
     ])
-      .then(([cc, wl, ec, people]) => {
+      .then(([cc, wl, es, people]) => {
         if (!cancelled) {
-          setMasters([...cc.items, ...wl.items, ...ec.items]);
+          setMasters([...cc.items, ...wl.items, ...es.items]);
           setEmployees(people.items.filter((item) => ["active", "probation", "confirmed"].includes(item.status)));
         }
       })
@@ -961,7 +964,10 @@ export function HrOfferManagementWorkspace() {
                   {[
                     ["Company", detail.context.company_name],
                     ["Department", `${detail.context.department} · ${detail.context.branch}`],
-                    ["Employment", `${detail.context.employment_type} · ${detail.employee_category}`],
+                    [
+                      "Employment setup",
+                      `${detail.employment_setup} · ${paymentRouteLabel(detail.payment_route)} / ${payCycleLabel(detail.pay_cycle)}`,
+                    ],
                     ["Work location", detail.work_location],
                     ["Cost centre", detail.cost_center],
                     ["Reporting manager", detail.reporting_manager ?? "To be assigned"],

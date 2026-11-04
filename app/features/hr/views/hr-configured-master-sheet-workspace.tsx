@@ -12,34 +12,50 @@ import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import { nextMasterCode } from "../model/hr-master-code";
-import { HrMasterArchiveButton } from "../components/hr-master-archive-button";
+import { HrMasterStatusBadge } from "../components/hr-master-status-badge";
+import { HrMasterDeleteButton } from "../components/hr-master-delete-button";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
+import { isPayCycle, isPaymentRoute } from "../model/employment-setup";
 import { preferredMasterCompany, rememberMasterCompany } from "../model/organisation-master-navigation";
 
 type Record = HrMasterDirectory["items"][number];
-type ConfigurationKey = NonNullable<Record["configuration_key"]>;
 type Option = { value: string; label: string };
+type ConfigurationKey = "default_nominal" | "working_pattern";
+type FieldKey = ConfigurationKey | "payment_route" | "pay_cycle";
+type FieldValues = Partial<globalThis.Record<FieldKey, string>>;
 type Editor = {
   mode: "create" | "edit";
-  type: HrConfiguredMasterSheetDefinition["type"];
   code: string;
   name: string;
   description: string;
-  configurationValue: string;
+  values: FieldValues;
+};
+
+/** One configured value on a master record; each field becomes a form control, table column and detail tile. */
+export type HrConfiguredMasterField = {
+  key: FieldKey;
+  label: string;
+  help: string;
+  placeholder?: string;
+  options?: readonly Option[];
 };
 
 export type HrConfiguredMasterSheetDefinition = {
-  type: Extract<HrMasterType, "cost_center" | "work_location" | "employment_type" | "employee_category">;
+  type: Extract<HrMasterType, "cost_center" | "work_location" | "employment_setup">;
   label: string;
   singular: string;
   guidance: string;
-  configurationKey: ConfigurationKey;
-  configurationLabel: string;
-  configurationHelp: string;
-  configurationPlaceholder?: string;
-  options?: readonly Option[];
+  /** Header of the name column; defaults to the singular label. */
+  nameLabel?: string;
+  fields: readonly HrConfiguredMasterField[];
 };
+
+function recordValue(record: Record, key: FieldKey): string | null {
+  if (key === "payment_route") return record.payment_route;
+  if (key === "pay_cycle") return record.pay_cycle;
+  return record.configuration_key === key ? record.configuration_value : null;
+}
 
 function editorFor(
   record: Record | undefined,
@@ -48,7 +64,6 @@ function editorFor(
 ): Editor {
   return {
     mode: record ? "edit" : "create",
-    type: definition.type,
     code:
       record?.code ??
       nextMasterCode(
@@ -57,35 +72,47 @@ function editorFor(
       ),
     name: record?.name ?? "",
     description: record?.description ?? "",
-    configurationValue: record?.configuration_value ?? definition.options?.[0]?.value ?? "",
+    values: Object.fromEntries(
+      definition.fields.map((field) => [
+        field.key,
+        (record ? recordValue(record, field.key) : null) ?? field.options?.[0]?.value ?? "",
+      ]),
+    ),
   };
 }
 
-function configurationLabel(record: Record, definition: HrConfiguredMasterSheetDefinition): string {
-  if (!record.configuration_value) return "Not configured";
-  return (
-    definition.options?.find((option) => option.value === record.configuration_value)?.label ??
-    record.configuration_value
-  );
+function fieldLabel(record: Record, field: HrConfiguredMasterField): string {
+  const value = recordValue(record, field.key);
+  if (!value) return "Not configured";
+  return field.options?.find((option) => option.value === value)?.label ?? value;
 }
 
-type SingleKindProps = { definition: HrConfiguredMasterSheetDefinition };
-/** Several record kinds on one page; each keeps its own API type, code prefix and configuration field. */
-type MergedKindsProps = {
-  definitions: readonly HrConfiguredMasterSheetDefinition[];
-  label: string;
-  singular: string;
-};
+/** Request terms: configuration key/value, or the employment-setup payment route and pay cycle. */
+function termsFor(definition: HrConfiguredMasterSheetDefinition, values: FieldValues) {
+  const terms: {
+    configuration_key?: ConfigurationKey;
+    configuration_value?: string;
+    payment_route?: NonNullable<Record["payment_route"]>;
+    pay_cycle?: NonNullable<Record["pay_cycle"]>;
+  } = {};
+  for (const field of definition.fields) {
+    const value = (values[field.key] ?? "").trim();
+    if (field.key === "payment_route") {
+      if (isPaymentRoute(value)) terms.payment_route = value;
+    } else if (field.key === "pay_cycle") {
+      if (isPayCycle(value)) terms.pay_cycle = value;
+    } else {
+      terms.configuration_key = field.key;
+      terms.configuration_value = value;
+    }
+  }
+  return terms;
+}
 
-export function HrConfiguredMasterSheetWorkspace(props: SingleKindProps | MergedKindsProps) {
-  const single = "definition" in props ? props.definition : undefined;
-  const many = "definitions" in props ? props.definitions : undefined;
-  const definitions = useMemo(() => (single ? [single] : (many ?? [])), [single, many]);
-  const merged = definitions.length > 1;
-  const sectionLabel = "definition" in props ? props.definition.label : props.label;
-  const sectionSingular = "definition" in props ? props.definition.singular : props.singular;
-  const sectionKey = definitions.map((item) => item.type).join("-");
-  const definitionFor = (type: string) => definitions.find((item) => item.type === type) ?? definitions[0]!;
+export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: HrConfiguredMasterSheetDefinition }) {
+  const sectionLabel = definition.label;
+  const sectionSingular = definition.singular;
+  const sectionKey = definition.type;
   const { api, csrfToken, session, loading: sessionLoading, refresh: refreshSession } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
@@ -108,10 +135,11 @@ export function HrConfiguredMasterSheetWorkspace(props: SingleKindProps | Merged
       if (!targetCompanyId) return;
       setLoading(true);
       try {
-        const results = await Promise.all(
-          definitions.map((item) => client.masters({ companyId: targetCompanyId, type: item.type, activeOnly: false })),
-        );
-        const items = results.flatMap((result) => result.items);
+        const { items } = await client.masters({
+          companyId: targetCompanyId,
+          type: definition.type,
+          activeOnly: false,
+        });
         setRecords(items);
         setSelectedId((current) => (items.some((record) => record.id === current) ? current : ""));
         setMessage("");
@@ -121,7 +149,7 @@ export function HrConfiguredMasterSheetWorkspace(props: SingleKindProps | Merged
         setLoading(false);
       }
     },
-    [client, definitions, sectionLabel],
+    [client, definition.type, sectionLabel],
   );
 
   useEffect(() => {
@@ -143,12 +171,10 @@ export function HrConfiguredMasterSheetWorkspace(props: SingleKindProps | Merged
   }, [canRead, client, loadRecords, sessionLoading]);
 
   const selected = records.find((record) => record.id === selectedId);
-  const selectedDefinition = selected ? definitionFor(selected.type) : undefined;
-  const editorDefinition = editor ? definitionFor(editor.type) : undefined;
   const filtered = records
     .filter((record) => statusFilter === "all" || record.status === statusFilter)
     .filter((record) =>
-      `${record.code} ${record.name} ${record.description} ${definitionFor(record.type).singular} ${configurationLabel(record, definitionFor(record.type))}`
+      `${record.code} ${record.name} ${record.description} ${definition.fields.map((field) => fieldLabel(record, field)).join(" ")}`
         .toLowerCase()
         .includes(search.trim().toLowerCase()),
     );
@@ -160,18 +186,18 @@ export function HrConfiguredMasterSheetWorkspace(props: SingleKindProps | Merged
   };
 
   const save = async () => {
-    if (!editor || !editorDefinition || !companyId || !editor.name.trim() || !editor.configurationValue.trim()) {
-      setMessage(`Name and ${(editorDefinition ?? definitions[0]!).configurationLabel.toLowerCase()} are required.`);
+    const missing = definition.fields.some((field) => !(editor?.values[field.key] ?? "").trim());
+    if (!editor || !companyId || !editor.name.trim() || missing) {
+      const required = ["Name", ...definition.fields.map((field) => field.label.toLowerCase())];
+      setMessage(`${required.slice(0, -1).join(", ")} and ${required.at(-1)} are required.`);
       return;
     }
-    const definition = editorDefinition;
     const shared = {
       company_id: companyId,
       code: editor.code,
       name: editor.name.trim(),
       description: editor.description.trim(),
-      configuration_key: definition.configurationKey,
-      configuration_value: editor.configurationValue.trim(),
+      ...termsFor(definition, editor.values),
     };
     setSaving(true);
     try {
@@ -194,8 +220,7 @@ export function HrConfiguredMasterSheetWorkspace(props: SingleKindProps | Merged
   };
 
   const changeStatus = async () => {
-    if (!selected || !selectedDefinition) return;
-    const definition = selectedDefinition;
+    if (!selected) return;
     setSaving(true);
     try {
       const status = selected.status === "active" ? "inactive" : "active";
@@ -207,6 +232,22 @@ export function HrConfiguredMasterSheetWorkspace(props: SingleKindProps | Merged
       await loadRecords(companyId);
     } catch {
       setMessage(`${definition.singular} status could not be changed.`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteRecord = async (record: { id: string; code: string; name: string }) => {
+    setSaving(true);
+    try {
+      await client.deleteMaster(record.id, { company_id: companyId }, csrfToken(), crypto.randomUUID());
+      setMessage(`${record.code} ${record.name} was permanently deleted. Its code will not be reused.`);
+      setSelectedId("");
+      await loadRecords(companyId);
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `${record.name} could not be deleted.`);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -243,7 +284,7 @@ export function HrConfiguredMasterSheetWorkspace(props: SingleKindProps | Merged
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground">
         <Summary label="Total records" value={records.length} />
         <Summary label="Active" value={activeCount} accent />
-        <Summary label="Inactive history" value={records.length - activeCount} />
+        <Summary label="Deactivated" value={records.length - activeCount} />
       </div>
       <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,.8fr)_minmax(14rem,1fr)_auto] md:items-end">
         <label className="grid gap-1 text-sm font-medium" htmlFor={`configured-${sectionKey}-company`}>
@@ -280,7 +321,7 @@ export function HrConfiguredMasterSheetWorkspace(props: SingleKindProps | Merged
             className="w-full md:w-auto"
             onClick={() => {
               setSelectedId("");
-              setEditor(editorFor(undefined, definitions[0]!, records));
+              setEditor(editorFor(undefined, definition, records));
             }}
           >
             + Add {sectionSingular}
@@ -297,15 +338,17 @@ export function HrConfiguredMasterSheetWorkspace(props: SingleKindProps | Merged
               <thead className="border-b border-border bg-muted/60">
                 <tr>
                   <th className="px-4 py-3 text-left">Code</th>
-                  {merged ? <th className="px-4 py-3 text-left">Kind</th> : null}
-                  <th className="px-4 py-3 text-left">{merged ? "Name" : sectionSingular}</th>
-                  {definitions.map((item) => (
-                    <th key={item.type} className="px-4 py-3 text-left">
-                      {item.configurationLabel}
+                  <th className="px-4 py-3 text-left">{definition.nameLabel ?? sectionSingular}</th>
+                  {definition.fields.map((field) => (
+                    <th key={field.key} className="px-4 py-3 text-left">
+                      {field.label}
                     </th>
                   ))}
                   <th className="px-4 py-3 text-left">Description</th>
                   <th className="px-4 py-3 text-left">Status</th>
+                  <th className="w-14 px-4 py-3">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -319,7 +362,6 @@ export function HrConfiguredMasterSheetWorkspace(props: SingleKindProps | Merged
                     }}
                   >
                     <td className="px-4 py-3 font-semibold">{record.code}</td>
-                    {merged ? <td className="px-4 py-3">{definitionFor(record.type).singular}</td> : null}
                     <td className="px-4 py-3 font-medium">
                       <Button
                         variant="link"
@@ -332,23 +374,30 @@ export function HrConfiguredMasterSheetWorkspace(props: SingleKindProps | Merged
                         {record.name}
                       </Button>
                     </td>
-                    {definitions.map((item) => (
-                      <td key={item.type} className="px-4 py-3">
-                        {record.type === item.type ? configurationLabel(record, item) : "—"}
+                    {definition.fields.map((field) => (
+                      <td key={field.key} className="px-4 py-3">
+                        {fieldLabel(record, field)}
                       </td>
                     ))}
                     <td className="max-w-md px-4 py-3 text-muted-foreground">{record.description || "—"}</td>
                     <td className="px-4 py-3">
-                      <span className={`nx-status nx-status-${record.status}`}>{record.status}</span>
+                      <HrMasterStatusBadge status={record.status} />
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      {canUpdate && record.status === "inactive" ? (
+                        <HrMasterDeleteButton
+                          name={record.name}
+                          code={record.code}
+                          saving={saving}
+                          onDelete={() => deleteRecord(record)}
+                        />
+                      ) : null}
                     </td>
                   </tr>
                 ))}
                 {filtered.length === 0 ? (
                   <tr>
-                    <td
-                      className="px-4 py-10 text-center text-muted-foreground"
-                      colSpan={4 + definitions.length + (merged ? 1 : 0)}
-                    >
+                    <td className="px-4 py-10 text-center text-muted-foreground" colSpan={5 + definition.fields.length}>
                       No {sectionLabel.toLowerCase()} records match these filters.
                     </td>
                   </tr>
@@ -368,14 +417,14 @@ export function HrConfiguredMasterSheetWorkspace(props: SingleKindProps | Merged
         title={
           editor
             ? editor.mode === "create"
-              ? `Add ${merged ? sectionSingular : editorDefinition?.singular}`
-              : `Edit ${editorDefinition?.singular}`
+              ? `Add ${sectionSingular}`
+              : `Edit ${sectionSingular}`
             : (selected?.name ?? sectionSingular)
         }
         description={
           editor
             ? "The reference code is generated automatically and remains stable after creation."
-            : `${selected?.code ?? ""} · ${merged && selectedDefinition ? selectedDefinition.singular : "Company master record"}`
+            : `${selected?.code ?? ""} · Company master record`
         }
         footer={
           editor ? (
@@ -387,46 +436,29 @@ export function HrConfiguredMasterSheetWorkspace(props: SingleKindProps | Merged
                 {saving ? "Saving…" : "Save changes"}
               </Button>
             </>
-          ) : canUpdate && selected && selectedDefinition ? (
+          ) : canUpdate && selected ? (
             <>
               <Button variant="outline" disabled={saving} onClick={() => void changeStatus()}>
                 {selected.status === "active" ? "Deactivate" : "Activate"}
               </Button>
               <HrEditButton
-                label={`Edit ${selectedDefinition.singular}`}
-                onClick={() => setEditor(editorFor(selected, selectedDefinition, records))}
+                label={`Edit ${sectionSingular}`}
+                onClick={() => setEditor(editorFor(selected, definition, records))}
               />
-              {selected.status === "active" ? (
-                <HrMasterArchiveButton name={selected.name} saving={saving} onArchive={changeStatus} />
+              {selected.status === "inactive" ? (
+                <HrMasterDeleteButton
+                  name={selected.name}
+                  code={selected.code}
+                  saving={saving}
+                  onDelete={() => deleteRecord(selected)}
+                />
               ) : null}
             </>
           ) : undefined
         }
       >
-        {editor && editorDefinition ? (
+        {editor ? (
           <div className="grid gap-5">
-            {merged ? (
-              <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-kind`}>
-                Kind
-                <select
-                  id={`configured-${sectionKey}-kind`}
-                  className="h-10 rounded-md border border-input bg-background px-3 disabled:opacity-60"
-                  value={editor.type}
-                  disabled={editor.mode === "edit"}
-                  onChange={(event) => {
-                    const next = editorFor(undefined, definitionFor(event.target.value), records);
-                    setEditor({ ...next, name: editor.name, description: editor.description });
-                  }}
-                >
-                  {definitions.map((item) => (
-                    <option key={item.type} value={item.type}>
-                      {item.singular}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-xs font-normal text-muted-foreground">{editorDefinition.guidance}</span>
-              </label>
-            ) : null}
             <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-code`}>
               Auto-generated code
               <Input id={`configured-${sectionKey}-code`} value={editor.code} disabled />
@@ -443,32 +475,42 @@ export function HrConfiguredMasterSheetWorkspace(props: SingleKindProps | Merged
                 onChange={(event) => setEditor({ ...editor, name: event.target.value })}
               />
             </label>
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-configuration`}>
-              {editorDefinition.configurationLabel}
-              {editorDefinition.options ? (
-                <select
-                  id={`configured-${sectionKey}-configuration`}
-                  className="h-10 rounded-md border border-input bg-background px-3"
-                  value={editor.configurationValue}
-                  onChange={(event) => setEditor({ ...editor, configurationValue: event.target.value })}
-                >
-                  {editorDefinition.options.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <Input
-                  id={`configured-${sectionKey}-configuration`}
-                  maxLength={128}
-                  placeholder={editorDefinition.configurationPlaceholder}
-                  value={editor.configurationValue}
-                  onChange={(event) => setEditor({ ...editor, configurationValue: event.target.value.toUpperCase() })}
-                />
-              )}
-              <span className="text-xs font-normal text-muted-foreground">{editorDefinition.configurationHelp}</span>
-            </label>
+            {definition.fields.map((field) => {
+              const isConfiguration = field.key === "default_nominal" || field.key === "working_pattern";
+              const id = `configured-${sectionKey}-${isConfiguration ? "configuration" : field.key}`;
+              const value = editor.values[field.key] ?? "";
+              const setValue = (next: string) =>
+                setEditor({ ...editor, values: { ...editor.values, [field.key]: next } });
+              return (
+                <label key={field.key} className="grid gap-1.5 text-sm font-medium" htmlFor={id}>
+                  {field.label}
+                  {field.options ? (
+                    <select
+                      id={id}
+                      required
+                      className="h-10 rounded-md border border-input bg-background px-3"
+                      value={value}
+                      onChange={(event) => setValue(event.target.value)}
+                    >
+                      {field.options.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <Input
+                      id={id}
+                      maxLength={128}
+                      placeholder={field.placeholder}
+                      value={value}
+                      onChange={(event) => setValue(event.target.value.toUpperCase())}
+                    />
+                  )}
+                  <span className="text-xs font-normal text-muted-foreground">{field.help}</span>
+                </label>
+              );
+            })}
             <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-description`}>
               Description
               <Textarea
@@ -480,16 +522,14 @@ export function HrConfiguredMasterSheetWorkspace(props: SingleKindProps | Merged
               />
             </label>
           </div>
-        ) : selected && selectedDefinition ? (
+        ) : selected ? (
           <div className="grid gap-5">
             <div className="grid gap-3 sm:grid-cols-2">
               <Detail label="Code" value={selected.code} />
               <Detail label="Status" value={selected.status} status />
-              {merged ? <Detail label="Kind" value={selectedDefinition.singular} /> : null}
-              <Detail
-                label={selectedDefinition.configurationLabel}
-                value={configurationLabel(selected, selectedDefinition)}
-              />
+              {definition.fields.map((field) => (
+                <Detail key={field.key} label={field.label} value={fieldLabel(selected, field)} />
+              ))}
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</p>
@@ -514,7 +554,7 @@ function Detail({ label, value, status = false }: { label: string; value: string
     <div className="rounded-lg border border-border bg-muted/35 p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
       {status ? (
-        <span className={`mt-2 inline-flex nx-status nx-status-${value}`}>{value}</span>
+        <HrMasterStatusBadge status={value} className="mt-2 inline-flex" />
       ) : (
         <p className="mt-1 font-semibold">{value}</p>
       )}

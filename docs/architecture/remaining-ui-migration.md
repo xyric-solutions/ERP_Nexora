@@ -3666,3 +3666,76 @@ Company Chart adoption/review checkpoint (2026-10-20):
   `git diff --check`, and the production web build. Safe resume point:
   authenticated visual acceptance of the hub and Employment Setup register,
   including creating one record of each kind.
+
+## 2026-11-04 - Employment Setup single master (HR134 UI batch)
+
+- Supersedes the presentation-only merge above. Employment Setup is now one
+  API master kind (`employment_setup`, server-allocated `ES-nnn` codes; see
+  `docs/architecture/hr-employment-setup-merge.md`). There is no Kind field,
+  column or detail tile anywhere.
+- `HrConfiguredMasterSheetWorkspace` takes one definition again; the
+  multi-definition support was removed and the single configuration field was
+  generalised to a `fields` list (`default_nominal`, `working_pattern`,
+  `payment_route`, `pay_cycle`). Cost Centres and Work Locations still send
+  `configuration_key`/`configuration_value` with unchanged control IDs,
+  columns and messages; Employment Setup sends `payment_route` + `pay_cycle`
+  (both required). Employment Setup register: Code, Name, Payment route,
+  Pay cycle, Description, Status; drawer: auto code, Name, Payment route,
+  Pay cycle, Description; detail tiles Code, Status, Payment route, Pay cycle;
+  footer Deactivate/Activate, Edit icon, Delete (archive) icon.
+- Shared labels live in `app/features/hr/model/employment-setup.ts`
+  (payment route / pay cycle options, label helpers, picker label
+  `ES-001 · Name · Payroll / Monthly`). `hr-master-code.ts` gains `ES`.
+- Hub item `employment-setup` uses the single type `employment_setup`, so the
+  hub count logic is back to one request per page. Hidden aliases
+  `employment-types` / `employee-categories` still resolve to Employment Setup.
+- Retired the unused legacy `hr-configured-master-workspace.tsx` (no imports in
+  app/, tests/, scripts/ or docs).
+- Downstream forms now use one Employment setup reference: Hire maker
+  (profile-draft picker, active setups loaded separately), Hire approvals,
+  Transfer maker (copies the source assignment's setup), Employee assignments,
+  Employee record (Employment setup, Payment route, Pay cycle), Manpower
+  requisitions (picker + detail), Offer management (editable draft term
+  defaulting to the requisition's setup), Offer-to-employee handoff and Leave
+  policies ("Eligible employment setups" from the directory's
+  `employment_setups`).
+- Verification: `npx tsc --noEmit -p tsconfig.json` (0 errors) and
+  `npm run typecheck` passed; ESLint findings on changed files equal HEAD;
+  Prettier clean on authored files; `npm run test:unit` 1084 passed / 2 known
+  failures in `user-management-components.test.ts`; `catalogue:check` passed;
+  UI theme audit `--write`/`--check` (0/109 font, 0/109 colour);
+  isolated production build (`NEXT_DIST_DIR=tmp/next-build-check`) passed;
+  `git diff --check` clean. Live API: ES-002 "Contract Weekly"
+  (accounts_payable / weekly) created for `nexora-r06-uat-company`.
+- Safe resume point: owner visual acceptance of the Employment Setup register
+  and the Hire, Requisition, Offer and Leave policy pickers in light/dark and
+  at desktop/tablet/mobile widths. Mock prototype files (`hr-*-screens.tsx`,
+  `hr-core-data.ts`, etc.) still use the old type/category wording.
+
+## 2026-11-04 - Organisation & Masters: Deactivated wording and permanent delete
+
+- All seven Organisation & Masters areas (Organisation Structure, Work
+  Locations, Cost Centres, Designations, Job Grades, Jobs, Employment Setup)
+  show inactive records as **Deactivated** through the shared
+  `HrMasterStatusBadge`; the shared status filter reads All records / Active /
+  Deactivated and summaries say "Deactivated".
+- The archive-style Delete on active records (`HrMasterArchiveButton`) was
+  removed; Deactivate is the only soft state. The component was replaced by
+  `HrMasterDeleteButton`, a permanent delete with confirmation.
+- Deactivated records show a Delete icon on their row (outside the row button
+  in the Organisation Structure tree) and in the detail drawer footer
+  (Activate, Edit, Delete). Calls `DELETE /api/v1/hr/masters/:id`,
+  `/job_grades/:id` or `/organization_units/:id` (HR135). The server refuses
+  active records (409 `HR_MASTER_DELETE_ACTIVE`), records still referenced
+  (409 `HR_MASTER_IN_USE`), units with children, company units and retired
+  legacy kinds; the page shows the server's reason and the record stays
+  deactivated. Deletes are audited (`hr_master_deletion` keeps the full
+  before-state) and codes are never reissued (`retireHrCode`).
+- Verification passed: `tsc --noEmit`, ESLint on changed UI files (no new
+  findings), Prettier, UI theme audit `--write`/`--check` (0/109),
+  `catalogue:check`, `api:check`, unit tests (1085 passed; the 2 failures in
+  `user-management-components.test.ts` pre-date this work and touch no changed
+  file), production web build, `git diff --check`, and a live API check that
+  deleting the active ES-001 is refused with 409. Safe resume point:
+  authenticated visual acceptance of the Deactivated filter and delete icons in
+  all seven areas, including deleting an unused deactivated record.

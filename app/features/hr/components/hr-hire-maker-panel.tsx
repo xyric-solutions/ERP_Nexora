@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 
 import { HrApiClient } from "../api/hr-client";
+import { employmentSetupOptionLabel } from "../model/employment-setup";
 
 type Props = {
   client: HrApiClient;
@@ -52,8 +53,7 @@ export function HrHireMakerPanel({
   const [jobGradeId, setJobGradeId] = useState("");
   const [costCenterId, setCostCenterId] = useState("");
   const [workLocationId, setWorkLocationId] = useState("");
-  const [employmentTypeId, setEmploymentTypeId] = useState("");
-  const [employeeCategoryId, setEmployeeCategoryId] = useState("");
+  const [employmentSetupId, setEmploymentSetupId] = useState("");
   const [jobId, setJobId] = useState("");
   const [effectiveOn, setEffectiveOn] = useState(() => new Date().toISOString().slice(0, 10));
   const [reason, setReason] = useState("");
@@ -83,10 +83,12 @@ export function HrHireMakerPanel({
     Promise.all([
       client.masters({ companyId, activeOnly: true, limit: 100 }),
       client.organizationUnits({ companyId, limit: 200 }),
+      client.masters({ companyId, type: "employment_setup", activeOnly: true, limit: 100 }),
     ])
-      .then(([masterResult, placementResult]) => {
+      .then(([masterResult, placementResult, setupResult]) => {
         if (!active) return;
-        setMasters(masterResult.items);
+        // Employment setups load separately so the shared 100-record catalogue cannot crowd them out.
+        setMasters([...masterResult.items.filter((item) => item.type !== "employment_setup"), ...setupResult.items]);
         setPlacements(placementResult.items);
         setState("ready");
       })
@@ -109,8 +111,7 @@ export function HrHireMakerPanel({
       jobGradeId,
       costCenterId,
       workLocationId,
-      employmentTypeId,
-      employeeCategoryId,
+      employmentSetupId,
       effectiveOn,
     ];
     if (required.some((value) => !value)) {
@@ -125,8 +126,7 @@ export function HrHireMakerPanel({
       job_grade_id: jobGradeId,
       cost_center_id: costCenterId,
       work_location_id: workLocationId,
-      employment_type_id: employmentTypeId,
-      employee_category_id: employeeCategoryId,
+      employment_setup_id: employmentSetupId,
       effective_from: effectiveOn,
     };
     const fingerprint = JSON.stringify(input);
@@ -281,17 +281,11 @@ export function HrHireMakerPanel({
                 disabled={savingAssignment}
               />
               <MasterSelect
-                label="Employment type"
-                value={employmentTypeId}
-                onChange={setEmploymentTypeId}
-                items={byType("employment_type")}
-                disabled={savingAssignment}
-              />
-              <MasterSelect
-                label="Employee category"
-                value={employeeCategoryId}
-                onChange={setEmployeeCategoryId}
-                items={byType("employee_category")}
+                label="Employment setup"
+                value={employmentSetupId}
+                onChange={setEmploymentSetupId}
+                items={byType("employment_setup")}
+                optionLabel={employmentSetupOptionLabel}
                 disabled={savingAssignment}
               />
               <label htmlFor="hire-profile-effective-on" className="grid gap-1.5 text-sm font-medium text-foreground">
@@ -431,12 +425,14 @@ function MasterSelect({
   value,
   onChange,
   items,
+  optionLabel = (item) => `${item.name} (${item.code})`,
   disabled,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   items: HrMasterDirectory["items"];
+  optionLabel?: (item: HrMasterDirectory["items"][number]) => string;
   disabled: boolean;
 }) {
   const id = `hire-master-${label.toLowerCase().replaceAll(" ", "-")}`;
@@ -453,7 +449,7 @@ function MasterSelect({
         <option value="">Select {label.toLowerCase()}</option>
         {items.map((item) => (
           <option key={item.id} value={item.id}>
-            {item.name} ({item.code})
+            {optionLabel(item)}
           </option>
         ))}
       </select>

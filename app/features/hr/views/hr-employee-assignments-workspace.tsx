@@ -231,7 +231,7 @@ export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialE
                       {assignment.job && <p className="text-xs text-muted-foreground">{assignment.job}</p>}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {assignment.employment_type} · {assignment.job_grade} · {assignment.work_location}
+                      {assignment.employment_setup} · {assignment.job_grade} · {assignment.work_location}
                     </td>
                     <td className="px-4 py-3 capitalize text-muted-foreground">
                       {assignment.change_reason.replaceAll("_", " ")}

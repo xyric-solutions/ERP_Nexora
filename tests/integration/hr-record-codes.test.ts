@@ -56,6 +56,7 @@ run("Transactional HR automatic record codes", () => {
     ["job", "JOB"],
     ["cost_center", "CC"],
     ["work_location", "LOC"],
+    ["employment_setup", "ES"],
     ["employment_type", "ET"],
     ["employee_category", "EC"],
     ["business_unit", "BU"],

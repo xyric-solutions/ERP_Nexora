@@ -11,7 +11,8 @@ import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import { nextGeneratedCode, organizationUnitPrefixes } from "../model/hr-master-code";
-import { HrMasterArchiveButton } from "../components/hr-master-archive-button";
+import { HrMasterStatusBadge } from "../components/hr-master-status-badge";
+import { HrMasterDeleteButton } from "../components/hr-master-delete-button";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
 import { preferredMasterCompany, rememberMasterCompany } from "../model/organisation-master-navigation";
@@ -201,26 +202,48 @@ export function HrOrganizationStructureSheetWorkspace() {
       setSaving(false);
     }
   };
+  const deleteUnit = async (unit: Unit) => {
+    setSaving(true);
+    try {
+      await client.deleteOrganizationUnit(unit.id, { company_id: companyId }, csrfToken(), crypto.randomUUID());
+      setMessage(`${unit.code} ${unit.name} was permanently deleted. Its code will not be reused.`);
+      setSelectedId("");
+      await refresh();
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `${unit.name} could not be deleted.`);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
   const renderUnit = (unit: Unit, depth: number) => (
     <li key={unit.id}>
-      <button
-        className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-0 bg-transparent px-3 py-3 text-left text-sm transition-colors hover:bg-muted sm:grid-cols-[minmax(6rem,.45fr)_minmax(10rem,1fr)_auto]"
-        style={{ paddingLeft: `${12 + depth * 18}px` }}
-        type="button"
-        onClick={() => {
-          setEditor(null);
-          setSelectedId(unit.id);
-        }}
-      >
-        <span className="col-span-2 text-xs font-bold uppercase tracking-wide text-muted-foreground sm:col-span-1">
-          {typeLabels[unit.type]}
-        </span>
-        <span className="min-w-0 truncate font-semibold">
-          {unit.name}
-          <small className="ml-2 font-normal text-muted-foreground">{unit.code}</small>
-        </span>
-        <span className={`nx-status nx-status-${unit.status}`}>{unit.status}</span>
-      </button>
+      <div className="flex items-center transition-colors hover:bg-muted">
+        <button
+          className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-0 bg-transparent px-3 py-3 text-left text-sm sm:grid-cols-[minmax(6rem,.45fr)_minmax(10rem,1fr)_auto]"
+          style={{ paddingLeft: `${12 + depth * 18}px` }}
+          type="button"
+          onClick={() => {
+            setEditor(null);
+            setSelectedId(unit.id);
+          }}
+        >
+          <span className="col-span-2 text-xs font-bold uppercase tracking-wide text-muted-foreground sm:col-span-1">
+            {typeLabels[unit.type]}
+          </span>
+          <span className="min-w-0 truncate font-semibold">
+            {unit.name}
+            <small className="ml-2 font-normal text-muted-foreground">{unit.code}</small>
+          </span>
+          <HrMasterStatusBadge status={unit.status} />
+        </button>
+        {canWrite && unit.status === "inactive" ? (
+          <div className="shrink-0 pr-2">
+            <HrMasterDeleteButton name={unit.name} code={unit.code} saving={saving} onDelete={() => deleteUnit(unit)} />
+          </div>
+        ) : null}
+      </div>
       {visibleChildrenOf(unit.id).length ? (
         <ul className="m-0 list-none border-l border-dashed border-border p-0">
           {visibleChildrenOf(unit.id).map((child) => renderUnit(child, depth + 1))}
@@ -362,8 +385,13 @@ export function HrOrganizationStructureSheetWorkspace() {
                 </Button>
               ) : null}
               <HrEditButton label="Edit unit" onClick={openEdit} />
-              {selected.status === "active" ? (
-                <HrMasterArchiveButton name={selected.name} saving={saving} onArchive={changeStatus} />
+              {selected.status === "inactive" ? (
+                <HrMasterDeleteButton
+                  name={selected.name}
+                  code={selected.code}
+                  saving={saving}
+                  onDelete={() => deleteUnit(selected)}
+                />
               ) : null}
             </>
           ) : canWrite && selectedId === companyId && company ? (
@@ -466,7 +494,7 @@ function Detail({ label, value, status = false }: { label: string; value: string
     <div className="min-w-0 rounded-md border border-border bg-muted/35 px-2.5 py-2">
       <p className="text-[11px] leading-tight text-muted-foreground">{label}</p>
       {status ? (
-        <span className={`mt-1 inline-flex nx-status nx-status-${value}`}>{value}</span>
+        <HrMasterStatusBadge status={value} className="mt-1 inline-flex" />
       ) : (
         <p className="mt-0.5 truncate text-sm font-semibold capitalize" title={value}>
           {value}

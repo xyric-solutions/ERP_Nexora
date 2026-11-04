@@ -70,14 +70,13 @@ run("governed employee Hire repository", () => {
     });
     await pool.query(
       `insert into hr_master_record
-        (id,tenant_id,company_id,master_type,code,name,created_by)
+        (id,tenant_id,company_id,master_type,code,name,created_by,payment_route,pay_cycle)
        values
-        ('hire-test-designation-two',$1,$2,'designation','HIRE-DES-2','Hire Test Designation Two','r06.maker'),
-        ('hire-test-grade-two',$1,$2,'job_grade','HIRE-GRD-2','Hire Test Grade Two','r06.maker'),
-        ('hire-test-cost-center-two',$1,$2,'cost_center','HIRE-CC-2','Hire Test Cost Center Two','r06.maker'),
-        ('hire-test-location-two',$1,$2,'work_location','HIRE-LOC-2','Hire Test Location Two','r06.maker'),
-        ('hire-test-employment-type-two',$1,$2,'employment_type','HIRE-ET-2','Hire Test Employment Type Two','r06.maker'),
-        ('hire-test-category-two',$1,$2,'employee_category','HIRE-CAT-2','Hire Test Category Two','r06.maker')
+        ('hire-test-designation-two',$1,$2,'designation','HIRE-DES-2','Hire Test Designation Two','r06.maker',null,null),
+        ('hire-test-grade-two',$1,$2,'job_grade','HIRE-GRD-2','Hire Test Grade Two','r06.maker',null,null),
+        ('hire-test-cost-center-two',$1,$2,'cost_center','HIRE-CC-2','Hire Test Cost Center Two','r06.maker',null,null),
+        ('hire-test-location-two',$1,$2,'work_location','HIRE-LOC-2','Hire Test Location Two','r06.maker',null,null),
+        ('hire-test-employment-setup',$1,$2,'employment_setup','HIRE-ES','Hire Test Employment Setup','r06.maker','payroll','monthly')
        on conflict (tenant_id,id) do nothing`,
       [sourceTestTenantId, companyId],
     );
@@ -171,8 +170,7 @@ run("governed employee Hire repository", () => {
         job_grade_id: "hire-test-grade-two",
         cost_center_id: "hire-test-cost-center-two",
         work_location_id: "hire-test-location-two",
-        employment_type_id: "hire-test-employment-type-two",
-        employee_category_id: "hire-test-category-two",
+        employment_setup_id: "hire-test-employment-setup",
         effective_from: effectiveOn,
       },
       `hire-profile-assignment-${suffix}`,

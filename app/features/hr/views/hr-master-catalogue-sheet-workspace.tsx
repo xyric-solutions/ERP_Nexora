@@ -12,7 +12,8 @@ import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import { nextMasterCode } from "../model/hr-master-code";
-import { HrMasterArchiveButton } from "../components/hr-master-archive-button";
+import { HrMasterStatusBadge } from "../components/hr-master-status-badge";
+import { HrMasterDeleteButton } from "../components/hr-master-delete-button";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
 import { preferredMasterCompany, rememberMasterCompany } from "../model/organisation-master-navigation";
@@ -174,6 +175,22 @@ export function HrMasterCatalogueSheetWorkspace({
     }
   };
 
+  const deleteRecord = async (record: { id: string; code: string; name: string }) => {
+    setSaving(true);
+    try {
+      await client.deleteMaster(record.id, { company_id: companyId }, csrfToken(), crypto.randomUUID());
+      setMessage(`${record.code} ${record.name} was permanently deleted. Its code will not be reused.`);
+      setSelectedId("");
+      await loadRecords(companyId);
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `${record.name} could not be deleted.`);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (sessionLoading) return <Skeleton className="h-72 w-full" />;
   if (!session)
     return (
@@ -257,6 +274,9 @@ export function HrMasterCatalogueSheetWorkspace({
                   <th className="px-4 py-3 text-left">{singular}</th>
                   <th className="px-4 py-3 text-left">Description</th>
                   <th className="px-4 py-3 text-left">Status</th>
+                  <th className="w-14 px-4 py-3">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -284,13 +304,23 @@ export function HrMasterCatalogueSheetWorkspace({
                     </td>
                     <td className="max-w-md px-4 py-3 text-muted-foreground">{record.description || "—"}</td>
                     <td className="px-4 py-3">
-                      <span className={`nx-status nx-status-${record.status}`}>{record.status}</span>
+                      <HrMasterStatusBadge status={record.status} />
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      {canUpdate && record.status === "inactive" ? (
+                        <HrMasterDeleteButton
+                          name={record.name}
+                          code={record.code}
+                          saving={saving}
+                          onDelete={() => deleteRecord(record)}
+                        />
+                      ) : null}
                     </td>
                   </tr>
                 ))}
                 {filtered.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-10 text-center text-muted-foreground" colSpan={4}>
+                    <td className="px-4 py-10 text-center text-muted-foreground" colSpan={5}>
                       No {label.toLowerCase()} match these filters.
                     </td>
                   </tr>
@@ -331,8 +361,13 @@ export function HrMasterCatalogueSheetWorkspace({
                 {selected.status === "active" ? "Deactivate" : "Activate"}
               </Button>
               <HrEditButton label={`Edit ${singular}`} onClick={() => setEditor(editorFor(selected, type, records))} />
-              {selected.status === "active" ? (
-                <HrMasterArchiveButton name={selected.name} saving={saving} onArchive={changeStatus} />
+              {selected.status === "inactive" ? (
+                <HrMasterDeleteButton
+                  name={selected.name}
+                  code={selected.code}
+                  saving={saving}
+                  onDelete={() => deleteRecord(selected)}
+                />
               ) : null}
             </>
           ) : undefined
@@ -389,7 +424,7 @@ function Detail({ label, value, status }: { label: string; value: string; status
     <div className="rounded-lg border border-border bg-muted/35 p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
       {status ? (
-        <span className={`mt-2 inline-flex nx-status nx-status-${status}`}>{value}</span>
+        <HrMasterStatusBadge status={status} className="mt-2 inline-flex" />
       ) : (
         <p className="mt-1 font-semibold">{value}</p>
       )}

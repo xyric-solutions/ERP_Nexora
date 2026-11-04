@@ -73,14 +73,13 @@ run("governed employee manager-change repository", () => {
     );
     await pool.query(
       `insert into hr_master_record
-        (id,tenant_id,company_id,master_type,code,name,created_by)
+        (id,tenant_id,company_id,master_type,code,name,created_by,payment_route,pay_cycle)
        values
-        ('manager-change-designation',$1,$2,'designation','MC-DES','Manager Change Role','r06.maker'),
-        ('manager-change-grade',$1,$2,'job_grade','MC-GRD','Manager Change Grade','r06.maker'),
-        ('manager-change-cost-center',$1,$2,'cost_center','MC-CC','Manager Change Cost Center','r06.maker'),
-        ('manager-change-location',$1,$2,'work_location','MC-LOC','Manager Change Location','r06.maker'),
-        ('manager-change-employment-type',$1,$2,'employment_type','MC-ET','Manager Change Employment Type','r06.maker'),
-        ('manager-change-category',$1,$2,'employee_category','MC-CAT','Manager Change Category','r06.maker')
+        ('manager-change-designation',$1,$2,'designation','MC-DES','Manager Change Role','r06.maker',null,null),
+        ('manager-change-grade',$1,$2,'job_grade','MC-GRD','Manager Change Grade','r06.maker',null,null),
+        ('manager-change-cost-center',$1,$2,'cost_center','MC-CC','Manager Change Cost Center','r06.maker',null,null),
+        ('manager-change-location',$1,$2,'work_location','MC-LOC','Manager Change Location','r06.maker',null,null),
+        ('manager-change-employment-setup',$1,$2,'employment_setup','MC-ES','Manager Change Employment Setup','r06.maker','payroll','monthly')
        on conflict (tenant_id,id) do nothing`,
       [sourceTestTenantId, companyId],
     );
@@ -182,8 +181,7 @@ run("governed employee manager-change repository", () => {
         job_grade_id: "manager-change-grade",
         cost_center_id: "manager-change-cost-center",
         work_location_id: "manager-change-location",
-        employment_type_id: "manager-change-employment-type",
-        employee_category_id: "manager-change-category",
+        employment_setup_id: "manager-change-employment-setup",
         ...(reportingManagerId ? { reporting_manager_id: reportingManagerId } : {}),
         effective_from: yesterday,
       },
@@ -342,8 +340,7 @@ run("governed employee manager-change repository", () => {
               target.job_grade_id=source.job_grade_id as same_grade,
               target.cost_center_id=source.cost_center_id as same_cost_center,
               target.work_location_id=source.work_location_id as same_location,
-              target.employment_type_id=source.employment_type_id as same_employment_type,
-              target.employee_category_id=source.employee_category_id as same_category,
+              target.employment_setup_id=source.employment_setup_id as same_employment_setup,
               target.employment_relationship_id=source.employment_relationship_id as same_relationship
          from hr_employee_manager_change_request request
          join employee_assignment source on source.tenant_id=request.tenant_id and source.id=request.source_assignment_id
@@ -367,8 +364,7 @@ run("governed employee manager-change repository", () => {
         same_grade: true,
         same_cost_center: true,
         same_location: true,
-        same_employment_type: true,
-        same_category: true,
+        same_employment_setup: true,
         same_relationship: true,
       }),
     ]);

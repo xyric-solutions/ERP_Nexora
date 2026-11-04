@@ -43,7 +43,7 @@ const deny = (message: string): never => {
   throw new HrApiError(403, "PERMISSION_DENIED", message);
 };
 export { leaveUnits, leaveDecimal } from "./leave-balances.js";
-const policyColumns = `id,version_number,effective_from::text,effective_to::text,annual_entitlement_days::text,accrual_method,carry_forward,maximum_carry_forward_days::text,maximum_balance_days::text,minimum_request_days::text,maximum_request_days::text,requires_hr_approval,applicable_category_ids,applicable_genders,document_required_after_days::text,automation_ready`;
+const policyColumns = `id,version_number,effective_from::text,effective_to::text,annual_entitlement_days::text,accrual_method,carry_forward,maximum_carry_forward_days::text,maximum_balance_days::text,minimum_request_days::text,maximum_request_days::text,requires_hr_approval,applicable_employment_setup_ids,applicable_genders,document_required_after_days::text,automation_ready`;
 const requestColumns = `r.id,r.reference,r.company_id,r.employee_id,e.employee_number,concat_ws(' ',e.first_name,e.middle_name,e.last_name) as display_name,r.leave_type_id,t.name as leave_type,t.paid,r.from_date::text,r.to_date::text,r.requested_days::text,r.reason,r.document_id,r.status,r.version,r.workflow_managed,r.requested_by,r.submitted_by,r.manager_user_id,r.manager_decided_by,r.hr_decided_by,r.subject_user_ids,r.requires_hr_approval,r.review_source_hash`;
 const operational = (date: string) =>
   `((a.assignment_status='legacy_compatibility' or (a.assignment_status='ended' and a.employment_relationship_id is null)) or (a.assignment_status in ('active','ended') and er.approval_state='approved' and (er.status='active' or ${date}<current_date)))`;
@@ -173,9 +173,9 @@ export class TimeLeave {
             values,
           )
         ).rows[0]!.total,
-        categories: (
-          await client.query<{ id: string; code: string; name: string }>(
-            `select id,code,name from hr_master_record where tenant_id=$1 and company_id=$2 and master_type='employee_category' and status='active' order by name,id limit 101`,
+        employment_setups: (
+          await client.query<HrLeaveTypeDirectory["employment_setups"][number]>(
+            `select id,code,name,payment_route,pay_cycle from hr_master_record where tenant_id=$1 and company_id=$2 and master_type='employment_setup' and status='active' order by name,id limit 101`,
             [c.tenantId, q.company_id],
           )
         ).rows,
@@ -195,14 +195,14 @@ export class TimeLeave {
       fail(
         "Gender-restricted policies require a verified employee gender authority. No gender eligibility is inferred from names or identity documents.",
       );
-    if (p.applicable_category_ids.length) {
+    if (p.applicable_employment_setup_ids.length) {
       const count = (
         await client.query<{ n: number }>(
-          `select count(*)::int as n from hr_master_record where tenant_id=$1 and company_id=$2 and master_type='employee_category' and status='active' and id=any($3::text[])`,
-          [c.tenantId, company, [...new Set(p.applicable_category_ids)]],
+          `select count(*)::int as n from hr_master_record where tenant_id=$1 and company_id=$2 and master_type='employment_setup' and status='active' and id=any($3::text[])`,
+          [c.tenantId, company, [...new Set(p.applicable_employment_setup_ids)]],
         )
       ).rows[0]!.n;
-      if (count !== new Set(p.applicable_category_ids).size) fail("Choose active employee categories in this company.");
+      if (count !== new Set(p.applicable_employment_setup_ids).size) fail("Choose active employment setups in this company.");
     }
   }
   private async insertPolicy(
@@ -215,7 +215,7 @@ export class TimeLeave {
   ) {
     const id = `leave-policy-${randomUUID()}`;
     await client.query(
-      `insert into hr_leave_policy_version(tenant_id,id,company_id,leave_type_id,version_number,effective_from,annual_entitlement_days,accrual_method,carry_forward,maximum_carry_forward_days,maximum_balance_days,minimum_request_days,maximum_request_days,requires_hr_approval,applicable_category_ids,applicable_genders,document_required_after_days,automation_ready,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,false,$18)`,
+      `insert into hr_leave_policy_version(tenant_id,id,company_id,leave_type_id,version_number,effective_from,annual_entitlement_days,accrual_method,carry_forward,maximum_carry_forward_days,maximum_balance_days,minimum_request_days,maximum_request_days,requires_hr_approval,applicable_employment_setup_ids,applicable_genders,document_required_after_days,automation_ready,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,false,$18)`,
       [
         c.tenantId,
         id,
@@ -231,7 +231,7 @@ export class TimeLeave {
         p.minimum_request_days,
         p.maximum_request_days,
         p.requires_hr_approval,
-        p.applicable_category_ids,
+        p.applicable_employment_setup_ids,
         p.applicable_genders,
         p.document_required_after_days,
         c.actor.userId,
@@ -254,7 +254,7 @@ export class TimeLeave {
         const id = `leave-type-${randomUUID()}`,
           p = input.policy;
         await client.query(
-          `insert into hr_leave_type(tenant_id,id,company_id,code,name,paid,annual_entitlement_days,accrual_method,carry_forward,maximum_carry_forward_days,maximum_balance_days,minimum_request_days,maximum_request_days,requires_hr_approval,applicable_category_ids,applicable_genders,document_required_after_days,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+          `insert into hr_leave_type(tenant_id,id,company_id,code,name,paid,annual_entitlement_days,accrual_method,carry_forward,maximum_carry_forward_days,maximum_balance_days,minimum_request_days,maximum_request_days,requires_hr_approval,applicable_employment_setup_ids,applicable_genders,document_required_after_days,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
           [
             c.tenantId,
             id,
@@ -270,7 +270,7 @@ export class TimeLeave {
             p.minimum_request_days,
             p.maximum_request_days,
             p.requires_hr_approval,
-            p.applicable_category_ids,
+            p.applicable_employment_setup_ids,
             p.applicable_genders,
             p.document_required_after_days,
             c.actor.userId,
@@ -642,9 +642,9 @@ export class TimeLeave {
           on_date: string;
           id: string;
           reporting_manager_id: string | null;
-          employee_category_id: string;
+          employment_setup_id: string;
         }>(
-          `select d.on_date::text,a.id,a.reporting_manager_id,a.employee_category_id from unnest($4::date[]) d(on_date) join employee_assignment a on a.tenant_id=$1 and a.company_id=$2 and a.employee_id=$3 and a.effective_from<=d.on_date and (a.effective_to is null or a.effective_to>=d.on_date) left join hr_employment_relationship er on er.tenant_id=a.tenant_id and er.id=a.employment_relationship_id where ${operational("d.on_date")} order by d.on_date,a.id`,
+          `select d.on_date::text,a.id,a.reporting_manager_id,a.employment_setup_id from unnest($4::date[]) d(on_date) join employee_assignment a on a.tenant_id=$1 and a.company_id=$2 and a.employee_id=$3 and a.effective_from<=d.on_date and (a.effective_to is null or a.effective_to>=d.on_date) left join hr_employment_relationship er on er.tenant_id=a.tenant_id and er.id=a.employment_relationship_id where ${operational("d.on_date")} order by d.on_date,a.id`,
           [c.tenantId, q.company_id, q.employee_id, dates],
         )
       ).rows;
@@ -753,12 +753,12 @@ export class TimeLeave {
         const chargeable = !!row && !["off_day", "holiday"].includes(row.status);
         if (chargeable && type && !policy) issues.push("No leave policy covers this date.");
         if (
-          policy?.applicable_category_ids.length &&
-          !policy.applicable_category_ids.includes(
-            placements.find((p) => p.on_date === date)?.employee_category_id ?? "",
+          policy?.applicable_employment_setup_ids.length &&
+          !policy.applicable_employment_setup_ids.includes(
+            placements.find((p) => p.on_date === date)?.employment_setup_id ?? "",
           )
         )
-          issues.push("The effective employee category is outside this policy.");
+          issues.push("The effective employment setup is outside this policy.");
         if (policy?.applicable_genders.length)
           issues.push("Verified employee gender eligibility is required for this restricted legacy policy.");
         days.push({
