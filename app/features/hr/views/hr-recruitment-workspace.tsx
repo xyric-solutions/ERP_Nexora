@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Search } from "lucide-react";
+import { ArrowRight, Search } from "lucide-react";
+import { HrBackButton } from "../components/hr-icon-buttons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { recruitmentGroups, recruitmentPages } from "../model/recruitment-navigation";
@@ -30,14 +31,9 @@ export function HrRecruitmentWorkspace({
 
   return (
     <section aria-label="Recruitment workspace" className="min-w-0">
-      <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="m-0! text-2xl font-bold tracking-tight">{active?.label ?? "Recruitment"}</h1>
-        {active ? (
-          <Button variant="ghost" onClick={() => go("recruitment-workspace")}>
-            <ArrowLeft />
-            All recruitment
-          </Button>
-        ) : null}
+      <header className="mb-3 flex items-center gap-2">
+        {active ? <HrBackButton label="Back to all recruitment" onClick={() => go("recruitment-workspace")} /> : null}
+        <h1 className="m-0! min-w-0 text-2xl font-bold tracking-tight">{active?.label ?? "Recruitment"}</h1>
       </header>
       <nav aria-label="Recruitment stages" className="mb-3 flex flex-wrap gap-2">
         {recruitmentGroups.map((item, index) => (

@@ -12,6 +12,7 @@ import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import { nextGeneratedCode, organizationUnitPrefixes } from "../model/hr-master-code";
 import { HrMasterArchiveButton } from "../components/hr-master-archive-button";
+import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
 import { preferredMasterCompany, rememberMasterCompany } from "../model/organisation-master-navigation";
 
@@ -352,9 +353,6 @@ export function HrOrganizationStructureSheetWorkspace() {
             </>
           ) : canWrite && selected ? (
             <>
-              {selected.status === "active" ? (
-                <HrMasterArchiveButton name={selected.name} saving={saving} onArchive={changeStatus} />
-              ) : null}
               <Button variant="outline" disabled={saving} onClick={() => void changeStatus()}>
                 {selected.status === "active" ? "Deactivate" : "Activate"}
               </Button>
@@ -363,7 +361,10 @@ export function HrOrganizationStructureSheetWorkspace() {
                   Add child
                 </Button>
               ) : null}
-              <Button onClick={openEdit}>Edit unit</Button>
+              <HrEditButton label="Edit unit" onClick={openEdit} />
+              {selected.status === "active" ? (
+                <HrMasterArchiveButton name={selected.name} saving={saving} onArchive={changeStatus} />
+              ) : null}
             </>
           ) : canWrite && selectedId === companyId && company ? (
             <Button onClick={() => openCreate(company.id, "company")}>Add child unit</Button>
@@ -436,7 +437,7 @@ export function HrOrganizationStructureSheetWorkspace() {
           </div>
         ) : (
           <div className="grid gap-5">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               <Detail label="Status" value={selected?.status ?? "active"} status />
               <Detail
                 label="Reports into"
@@ -462,12 +463,14 @@ export function HrOrganizationStructureSheetWorkspace() {
 }
 function Detail({ label, value, status = false }: { label: string; value: string; status?: boolean }) {
   return (
-    <div className="rounded-lg border border-border bg-muted/35 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
+    <div className="min-w-0 rounded-md border border-border bg-muted/35 px-2.5 py-2">
+      <p className="text-[11px] leading-tight text-muted-foreground">{label}</p>
       {status ? (
-        <span className={`mt-2 inline-flex nx-status nx-status-${value}`}>{value}</span>
+        <span className={`mt-1 inline-flex nx-status nx-status-${value}`}>{value}</span>
       ) : (
-        <p className="mt-1 font-semibold capitalize">{value}</p>
+        <p className="mt-0.5 truncate text-sm font-semibold capitalize" title={value}>
+          {value}
+        </p>
       )}
     </div>
   );

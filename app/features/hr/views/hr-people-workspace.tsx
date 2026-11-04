@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Search } from "lucide-react";
+import { ArrowRight, Search } from "lucide-react";
+import { HrBackButton } from "../components/hr-icon-buttons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { peopleGroups, peoplePages } from "../model/people-navigation";
@@ -42,21 +43,14 @@ export function HrPeopleWorkspace({
 
   return (
     <section aria-label="People workspace" className="min-w-0">
-      <div
-        className={`mb-3 flex flex-wrap items-center gap-2 ${dashboardHasHeading ? "justify-end" : "justify-between"}`}
-      >
-        {!dashboardHasHeading ? (
-          <h1 className="m-0! text-2xl font-bold tracking-tight">{active?.label ?? "People"}</h1>
-        ) : null}
-        <div className="flex flex-wrap gap-2">
-          {pageId === "employees" ? <Button onClick={() => go("add-employee")}>+ Add Employee</Button> : null}
-          {active ? (
-            <Button variant="ghost" onClick={() => go("people-workspace")}>
-              <ArrowLeft />
-              All people
-            </Button>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          {active ? <HrBackButton label="Back to all people" onClick={() => go("people-workspace")} /> : null}
+          {!dashboardHasHeading ? (
+            <h1 className="m-0! min-w-0 text-2xl font-bold tracking-tight">{active?.label ?? "People"}</h1>
           ) : null}
         </div>
+        {pageId === "employees" ? <Button onClick={() => go("add-employee")}>+ Add Employee</Button> : null}
       </div>
       {active && currentGroup ? (
         <>

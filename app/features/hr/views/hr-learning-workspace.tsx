@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrDeleteButton } from "../components/hr-icon-buttons";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { HrCompanyScope } from "../components/hr-company-scope";
 import { Field, State, Metric, panel, selectClass, useAttendanceRead } from "../components/hr-workspace-controls";
@@ -759,17 +760,15 @@ export function HrLearningBody({
                         />
                       </Field>
                       {editor.terms.kind === "session" && editor.terms.slots.length > 1 && (
-                        <Button
-                          type="button"
+                        <HrDeleteButton
+                          label={`Remove lesson ${index + 1}`}
                           variant="outline"
                           disabled={busy}
                           onClick={() => {
                             if (editor.terms.kind === "session")
                               patch({ slots: editor.terms.slots.filter((_, i) => i !== index) });
                           }}
-                        >
-                          Remove lesson {index + 1}
-                        </Button>
+                        />
                       )}
                     </div>
                   ))}

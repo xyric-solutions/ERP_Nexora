@@ -756,8 +756,9 @@ export const prototypeModules = [
         p("jobs", "Jobs", "list", "live"),
         p("cost-centres", "Cost Centres", "list", "live"),
         p("work-locations", "Work Locations", "list", "live"),
-        p("employment-types", "Employment Types", "list", "live"),
-        p("employee-categories", "Employee Categories", "list", "live"),
+        p("employment-setup", "Employment Setup", "list", "live"),
+        p("employment-types", "Employment Types", "list", "live", true),
+        p("employee-categories", "Employee Categories", "list", "live", true),
       ]),
       g("people", "People", [
         p("people-workspace", "People", "dashboard", "live"),

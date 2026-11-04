@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrDeleteButton } from "../components/hr-icon-buttons";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import {
   Field,
@@ -459,15 +460,13 @@ function RecordEditor({
                       }
                     />
                   </Field>
-                  <Button
-                    type="button"
+                  <HrDeleteButton
+                    label={`Remove component ${index + 1}`}
                     variant="outline"
                     className="self-end"
                     disabled={items.length === 1}
                     onClick={() => setItems((s) => s.filter((_, n) => n !== index))}
-                  >
-                    Remove
-                  </Button>
+                  />
                 </div>
               );
             })}

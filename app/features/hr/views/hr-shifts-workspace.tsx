@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrEditButton } from "../components/hr-icon-buttons";
 
 const selectClass =
   "h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50";
@@ -1016,17 +1017,14 @@ export function HrShiftsWorkspace({
                     </div>
                     {canManage && (
                       <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
+                        <HrEditButton
+                          label="Edit rules"
                           disabled={busy || !!editor || detailLoading || current.rules_locked}
                           onClick={() => {
                             setEditor({ detail: current, copy: false });
                             setError("");
                           }}
-                        >
-                          Edit rules
-                        </Button>
+                        />
                         <Button
                           type="button"
                           variant="outline"

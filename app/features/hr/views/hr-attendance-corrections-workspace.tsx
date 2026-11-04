@@ -36,6 +36,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrEditButton } from "../components/hr-icon-buttons";
 import {
   AttendanceStatusBadge,
   attendanceLabel as label,
@@ -1034,13 +1035,11 @@ export function HrAttendanceCorrectionsWorkspace({
               )}
               <div className="flex flex-wrap gap-2">
                 {detail.can_edit && !editor && (
-                  <Button
-                    variant="outline"
+                  <HrEditButton
+                    label="Edit draft"
                     disabled={busy}
                     onClick={() => setEditor({ initial: detail, key: Date.now() })}
-                  >
-                    Edit draft
-                  </Button>
+                  />
                 )}
                 {session?.user.permissions.includes("hr.attendance.read") && (
                   <Button variant="outline" onClick={view}>

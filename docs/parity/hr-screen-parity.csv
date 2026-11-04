@@ -6,6 +6,7 @@ hr,organisation,Organisation & Masters,job-grades,Job Grades,list,live,HrJobGrad
 hr,organisation,Organisation & Masters,jobs,Jobs,list,live,HrMasterCatalogueSheetWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M03 Organisation
 hr,organisation,Organisation & Masters,cost-centres,Cost Centres,list,live,HrConfiguredMasterSheetWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M03 Organisation
 hr,organisation,Organisation & Masters,work-locations,Work Locations,list,live,HrConfiguredMasterSheetWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M03 Organisation
+hr,organisation,Organisation & Masters,employment-setup,Employment Setup,list,live,HrConfiguredMasterSheetWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M03 Organisation
 hr,organisation,Organisation & Masters,employment-types,Employment Types,list,live,HrConfiguredMasterSheetWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M03 Organisation
 hr,organisation,Organisation & Masters,employee-categories,Employee Categories,list,live,HrConfiguredMasterSheetWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M03 Organisation
 hr,people,People,people-workspace,People,dashboard,live,HrPeopleWorkspace,NAVIGATION_ONLY,NAVIGATION_ONLY,M04 Employee Core

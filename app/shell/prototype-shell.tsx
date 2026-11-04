@@ -241,8 +241,9 @@ export function PrototypeShell({
   identityContent?: ReactNode;
 }) {
   const [route, setRoute] = useState<RouteState>(initialRoute);
-  const [expandedModule, setExpandedModule] = useState<string | null>(initialRoute.moduleId);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["dashboard:command-centres"]));
+  // The sidebar starts fully collapsed after sign-in/reload; menus open only when the user expands them or navigates.
+  const [expandedModule, setExpandedModule] = useState<string | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarQuery, setSidebarQuery] = useState("");
@@ -790,7 +791,8 @@ export function PrototypeShell({
                                     );
                                   }
                                   const groupKey = `${module.id}:${group.id}`;
-                                  const groupOpen = expandedGroups.has(groupKey) || group.id === current.group.id;
+                                  // Navigating into a group adds it to expandedGroups, so its chevron can still close it.
+                                  const groupOpen = expandedGroups.has(groupKey);
                                   return (
                                     <li key={group.id}>
                                       <button

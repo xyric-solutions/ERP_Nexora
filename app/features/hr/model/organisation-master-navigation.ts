@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, GraduationCap, Layers3, MapPin, Network, Tags, Users, Wallet } from "lucide-react";
+import { BriefcaseBusiness, GraduationCap, Layers3, MapPin, Network, Users, Wallet } from "lucide-react";
 
 export const organisationMasterGroups = [
   {
@@ -60,29 +60,33 @@ export const organisationMasterGroups = [
   {
     id: "employment",
     label: "Employment Setup",
-    description: "Set the employment categories behind your policies.",
+    description: "Set the employment types and employee categories behind your policies.",
     items: [
       {
-        id: "employment-types",
-        label: "Employment Types",
-        description: "Permanent, contract, internship and other arrangements.",
+        id: "employment-setup",
+        label: "Employment Setup",
+        description: "Employment types with payment routes and employee categories with pay cycles.",
         icon: Users,
-        type: "employment_type",
-      },
-      {
-        id: "employee-categories",
-        label: "Employee Categories",
-        description: "Group employees for policies, benefits and pay cycles.",
-        icon: Tags,
-        type: "employee_category",
+        // Two record kinds share this page; each keeps its own API type and code prefix.
+        type: ["employment_type", "employee_category"],
       },
     ],
   },
 ] as const;
 
 export const organisationMasterPages = organisationMasterGroups.flatMap((group) => [...group.items]);
-export const isOrganisationMasterPage = (pageId: string) =>
-  pageId === "organisation-masters" || organisationMasterPages.some((page) => page.id === pageId);
+export type OrganisationMasterPage = (typeof organisationMasterPages)[number];
+
+/** Former page IDs that now open a merged page, so saved links keep working. */
+const legacyMasterPageAliases: Readonly<Record<string, string>> = {
+  "employment-types": "employment-setup",
+  "employee-categories": "employment-setup",
+};
+export const resolveOrganisationMasterPageId = (pageId: string) => legacyMasterPageAliases[pageId] ?? pageId;
+export const isOrganisationMasterPage = (pageId: string) => {
+  const resolved = resolveOrganisationMasterPageId(pageId);
+  return resolved === "organisation-masters" || organisationMasterPages.some((page) => page.id === resolved);
+};
 
 const companyStorageKey = "nexora.hr.master.company";
 export function rememberMasterCompany(companyId: string) {

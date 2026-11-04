@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrEditButton } from "../components/hr-icon-buttons";
 
 const selectClass =
   "h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50";
@@ -928,16 +929,14 @@ export function HrOfferManagementWorkspace() {
                     </p>
                   </div>
                   {detail.state === "draft" && canEdit ? (
-                    <Button
-                      variant="outline"
+                    <HrEditButton
+                      label="Edit draft terms"
                       disabled={busy}
                       onClick={() => {
                         setContext(detail.context);
                         setEditor("edit");
                       }}
-                    >
-                      Edit draft terms
-                    </Button>
+                    />
                   ) : (
                     <Badge variant="secondary">{label(detail.state)}</Badge>
                   )}

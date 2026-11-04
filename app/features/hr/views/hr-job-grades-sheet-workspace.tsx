@@ -13,6 +13,7 @@ import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import { nextMasterCode } from "../model/hr-master-code";
 import { HrMasterArchiveButton } from "../components/hr-master-archive-button";
+import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
 import { preferredMasterCompany, rememberMasterCompany } from "../model/organisation-master-navigation";
 
@@ -352,13 +353,13 @@ export function HrJobGradesSheetWorkspace() {
             </>
           ) : canUpdate && selected ? (
             <>
-              {selected.status === "active" ? (
-                <HrMasterArchiveButton name={selected.name} saving={saving} onArchive={changeStatus} />
-              ) : null}
               <Button variant="outline" disabled={saving} onClick={() => void changeStatus()}>
                 {selected.status === "active" ? "Deactivate" : "Activate"}
               </Button>
-              <Button onClick={() => setEditor(editorFor(selected, records))}>Edit Job Grade</Button>
+              <HrEditButton label="Edit Job Grade" onClick={() => setEditor(editorFor(selected, records))} />
+              {selected.status === "active" ? (
+                <HrMasterArchiveButton name={selected.name} saving={saving} onArchive={changeStatus} />
+              ) : null}
             </>
           ) : undefined
         }

@@ -200,7 +200,11 @@ export async function buildHrParityRows() {
       else if (page.id === "designations") renderer = "HrMasterCatalogueSheetWorkspace";
       else if (page.id === "job-grades") renderer = "HrJobGradesSheetWorkspace";
       else if (page.id === "jobs") renderer = "HrMasterCatalogueSheetWorkspace";
-      else if (["cost-centres", "work-locations", "employment-types", "employee-categories"].includes(page.id))
+      else if (
+        ["cost-centres", "work-locations", "employment-setup", "employment-types", "employee-categories"].includes(
+          page.id,
+        )
+      )
         renderer = "HrConfiguredMasterSheetWorkspace";
       else if (sets.masters.has(page.id)) renderer = "HrMasterScreen";
       else if (["performance-cycles", "goals-kpis", "performance-reviews", "performance-outcomes"].includes(page.id))

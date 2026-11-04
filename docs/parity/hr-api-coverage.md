@@ -2,7 +2,7 @@
 
 Generated from the active route renderer map. Regenerate with `npm run catalogue:generate`.
 
-Of 87 HR catalogue routes: 76 connect to API-backed views, 0 use read-only API views, 11 are navigation hubs, and 0 are mock or unlinked views.
+Of 88 HR catalogue routes: 77 connect to API-backed views, 0 use read-only API views, 11 are navigation hubs, and 0 are mock or unlinked views.
 
 Pages left to connect to an API: none in the current HR catalogue. Navigation hubs link to their connected child pages and do not need their own mutation API.
 
@@ -17,6 +17,7 @@ Source evidence: `app/shell/prototype-content.tsx` selects the renderers below; 
 | Organisation & Masters | Jobs | `/#/hr/jobs` | `HrMasterCatalogueSheetWorkspace` | API_CONNECTED_SOURCE |
 | Organisation & Masters | Cost Centres | `/#/hr/cost-centres` | `HrConfiguredMasterSheetWorkspace` | API_CONNECTED_SOURCE |
 | Organisation & Masters | Work Locations | `/#/hr/work-locations` | `HrConfiguredMasterSheetWorkspace` | API_CONNECTED_SOURCE |
+| Organisation & Masters | Employment Setup | `/#/hr/employment-setup` | `HrConfiguredMasterSheetWorkspace` | API_CONNECTED_SOURCE |
 | Organisation & Masters | Employment Types | `/#/hr/employment-types` | `HrConfiguredMasterSheetWorkspace` | API_CONNECTED_SOURCE |
 | Organisation & Masters | Employee Categories | `/#/hr/employee-categories` | `HrConfiguredMasterSheetWorkspace` | API_CONNECTED_SOURCE |
 | People | People | `/#/hr/people-workspace` | `HrPeopleWorkspace` | NAVIGATION_ONLY |

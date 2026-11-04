@@ -84,7 +84,10 @@ import { isRecruitmentPage } from "@prototype/features/hr/model/recruitment-navi
 import { findTimeWorkspace } from "@prototype/features/hr/model/time-workspace-navigation";
 import { findHrSectionWorkspace } from "@prototype/features/hr/model/hr-section-navigation";
 import { HrOperationsWorkspace } from "@prototype/features/hr/views/hr-operations-workspace";
-import { isOrganisationMasterPage } from "@prototype/features/hr/model/organisation-master-navigation";
+import {
+  isOrganisationMasterPage,
+  resolveOrganisationMasterPageId,
+} from "@prototype/features/hr/model/organisation-master-navigation";
 import {
   HrConfiguredMasterSheetWorkspace as HrConfiguredMasterWorkspace,
   type HrConfiguredMasterSheetDefinition as HrConfiguredMasterDefinition,
@@ -624,7 +627,7 @@ function ListView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
         </ActionButton>
       </PageIntro>
       <section className="nx-card nx-list-card">
-<FilterBar>
+        <FilterBar>
           <div className="nx-search-field">
             <span>⌕</span>
             <Input
@@ -2978,21 +2981,28 @@ export function PrototypeContent(props: PrototypeContentProps) {
   }
 
   if (context.moduleId === "hr" && isOrganisationMasterPage(context.pageId)) {
-    const definition = configuredHrMasters[context.pageId];
+    const masterPageId = resolveOrganisationMasterPageId(context.pageId);
+    const definition = configuredHrMasters[masterPageId];
     return (
-      <HrOrganisationMastersWorkspace key={context.pageId} pageId={context.pageId} onNavigate={props.onNavigate}>
-        {context.pageId === "org-structure" ? (
+      <HrOrganisationMastersWorkspace key={masterPageId} pageId={masterPageId} onNavigate={props.onNavigate}>
+        {masterPageId === "org-structure" ? (
           <HrOrganizationStructureWorkspace />
-        ) : context.pageId === "job-grades" ? (
+        ) : masterPageId === "job-grades" ? (
           <HrJobGradesWorkspace />
-        ) : context.pageId === "designations" ? (
+        ) : masterPageId === "employment-setup" ? (
+          <HrConfiguredMasterWorkspace
+            label="Employment Setup"
+            singular="Employment Setup"
+            definitions={[configuredHrMasters["employment-types"]!, configuredHrMasters["employee-categories"]!]}
+          />
+        ) : masterPageId === "designations" ? (
           <HrMasterCatalogueWorkspace
             type="designation"
             label="Designations"
             singular="Designation"
             guidance="Designations identify an employee's formal title. Deactivation prevents new assignments while preserving employment history."
           />
-        ) : context.pageId === "jobs" ? (
+        ) : masterPageId === "jobs" ? (
           <HrMasterCatalogueWorkspace
             type="job"
             label="Jobs"

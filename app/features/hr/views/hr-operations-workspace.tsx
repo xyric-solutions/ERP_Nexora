@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Search, type LucideIcon } from "lucide-react";
+import { ArrowRight, Search, type LucideIcon } from "lucide-react";
+import { HrBackButton } from "../components/hr-icon-buttons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HrOperationsScopeContext, type HrOperationsScope } from "../components/hr-operations-scope";
@@ -45,14 +46,11 @@ export function HrOperationsWorkspace({
     .filter((group) => group.pages.length);
   return (
     <section className="min-w-0" aria-label={`${definition.label} workspace`}>
-      <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="m-0! text-2xl font-bold tracking-tight">{active?.label ?? definition.label}</h1>
+      <header className="mb-3 flex items-center gap-2">
         {active ? (
-          <Button variant="ghost" onClick={() => go(definition.id)}>
-            <ArrowLeft />
-            All {definition.label.toLowerCase()}
-          </Button>
+          <HrBackButton label={`Back to all ${definition.label.toLowerCase()}`} onClick={() => go(definition.id)} />
         ) : null}
+        <h1 className="m-0! min-w-0 text-2xl font-bold tracking-tight">{active?.label ?? definition.label}</h1>
       </header>
       {activeGroup ? (
         <>

@@ -21,6 +21,7 @@ import {
   type HrLifecycleCaseWorkspace,
 } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
+import { HrDeleteButton } from "../components/hr-icon-buttons";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import {
   Field,
@@ -419,8 +420,8 @@ function LifecycleCaseForm({
                 />
               </Field>
               {(lines.length > 1 || line.encashment_source_id || line.benefit_source_id) && (
-                <Button
-                  type="button"
+                <HrDeleteButton
+                  label={`Remove line ${index + 1}`}
                   variant="outline"
                   disabled={busy}
                   onClick={() =>
@@ -431,9 +432,7 @@ function LifecycleCaseForm({
                         : [{ direction: "earning", description: "", amount_minor: "0", source_reference: "" }];
                     })
                   }
-                >
-                  Remove line {index + 1}
-                </Button>
+                />
               )}
             </fieldset>
           ))}

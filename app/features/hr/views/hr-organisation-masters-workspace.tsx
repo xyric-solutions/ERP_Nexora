@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, LayoutGrid, List, Search } from "lucide-react";
+import { ArrowRight, LayoutGrid, List } from "lucide-react";
+import { HrBackButton } from "../components/hr-icon-buttons";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
@@ -13,7 +13,9 @@ import {
   organisationMasterPages,
   preferredMasterCompany,
   rememberMasterCompany,
+  resolveOrganisationMasterPageId,
 } from "../model/organisation-master-navigation";
+import type { HrMasterType } from "@nexora/contracts";
 
 export function HrOrganisationMastersWorkspace({
   pageId,
@@ -29,12 +31,11 @@ export function HrOrganisationMastersWorkspace({
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [counts, setCounts] = useState<Record<string, number | null>>({});
-  const [category, setCategory] = useState("all");
-  const [search, setSearch] = useState("");
   const [display, setDisplay] = useState<"cards" | "list">("cards");
   const [message, setMessage] = useState("");
   const [retry, setRetry] = useState(0);
-  const active = organisationMasterPages.find((page) => page.id === pageId);
+  const resolvedPageId = resolveOrganisationMasterPageId(pageId);
+  const active = organisationMasterPages.find((page) => page.id === resolvedPageId);
   const permissions = session?.user.permissions ?? [];
   const canReadMaster = permissions.includes("hr.master.read");
   const canReadOrganisation = permissions.includes("hr.organization.read");
@@ -65,13 +66,17 @@ export function HrOrganisationMastersWorkspace({
     const requests = organisationMasterPages.map(async (page) => {
       if (!(page.type === null ? canReadOrganisation : canReadMaster)) return [page.id, null] as const;
       try {
-        const response =
-          page.type === null
-            ? await client.organizationUnits({ companyId, includeInactive: true })
-            : page.type === "job_grade"
-              ? await client.jobGrades(companyId)
-              : await client.masters({ companyId, type: page.type, activeOnly: false });
-        return [page.id, response.items.length] as const;
+        if (page.type === null)
+          return [
+            page.id,
+            (await client.organizationUnits({ companyId, includeInactive: true })).items.length,
+          ] as const;
+        if (page.type === "job_grade") return [page.id, (await client.jobGrades(companyId)).items.length] as const;
+        const types: readonly HrMasterType[] = typeof page.type === "string" ? [page.type] : page.type;
+        const responses = await Promise.all(
+          types.map((type) => client.masters({ companyId, type, activeOnly: false })),
+        );
+        return [page.id, responses.reduce((total, response) => total + response.items.length, 0)] as const;
       } catch {
         return [page.id, null] as const;
       }
@@ -84,26 +89,14 @@ export function HrOrganisationMastersWorkspace({
     };
   }, [active, canReadMaster, canReadOrganisation, client, companyId, retry]);
 
-  const filtered = organisationMasterGroups
-    .filter((group) => category === "all" || category === group.id)
-    .map((group) => ({
-      ...group,
-      items: group.items.filter((page) =>
-        `${page.label} ${page.description}`.toLowerCase().includes(search.trim().toLowerCase()),
-      ),
-    }))
-    .filter((group) => group.items.length);
   const navigate = (id: string) => onNavigate("hr", id);
   return (
     <section className="min-w-0" aria-label="Organisation & Masters workspace">
       {active ? (
         <>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h1 className="m-0! text-2xl font-bold tracking-tight">{active.label}</h1>
-            <Button variant="ghost" onClick={() => navigate("organisation-masters")}>
-              <ArrowLeft />
-              All masters
-            </Button>
+          <div className="mb-3 flex items-center gap-2">
+            <HrBackButton label="Back to all masters" onClick={() => navigate("organisation-masters")} />
+            <h1 className="m-0! min-w-0 text-2xl font-bold tracking-tight">{active.label}</h1>
           </div>
           <nav aria-label="Master pages" className="mb-3 flex gap-2 overflow-x-auto border-b border-border pb-2">
             {organisationMasterPages.map((page) => (
@@ -168,34 +161,8 @@ export function HrOrganisationMastersWorkspace({
                   <AlertDescription>No authorized company is available.</AlertDescription>
                 </Alert>
               ) : null}
-              <div className="mb-6 grid gap-4 rounded-xl border border-border bg-card p-4 xl:grid-cols-[1fr_auto] xl:items-center">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-3 size-4 text-muted-foreground" />
-                  <Input
-                    aria-label="Find a master page"
-                    className="h-10 pl-10"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Find a master page…"
-                  />
-                </div>
-                <div className="flex flex-wrap gap-1" aria-label="Filter master groups">
-                  {[{ id: "all", label: "All masters" }, ...organisationMasterGroups].map((group) => (
-                    <Button
-                      key={group.id}
-                      variant={category === group.id ? "default" : "ghost"}
-                      aria-pressed={category === group.id}
-                      onClick={() => setCategory(group.id)}
-                    >
-                      {group.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
               <div className="mb-5 flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  {filtered.reduce((total, group) => total + group.items.length, 0)} master pages
-                </span>
+                <span className="text-sm text-muted-foreground">{organisationMasterPages.length} master pages</span>
                 <div className="flex gap-1 rounded-lg border border-border bg-card p-1">
                   <Button
                     size="icon-sm"
@@ -218,11 +185,11 @@ export function HrOrganisationMastersWorkspace({
                 </div>
               </div>
               <div className="space-y-8">
-                {filtered.map((group) => (
+                {organisationMasterGroups.map((group, groupIndex) => (
                   <section key={group.id} aria-label={group.label}>
                     <div className="mb-4 flex gap-3">
                       <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-primary">
-                        {organisationMasterGroups.findIndex((item) => item.id === group.id) + 1}
+                        {groupIndex + 1}
                       </span>
                       <div>
                         <h2 className="m-0 text-lg font-semibold">{group.label}</h2>
@@ -270,20 +237,6 @@ export function HrOrganisationMastersWorkspace({
                   </section>
                 ))}
               </div>
-              {!filtered.length ? (
-                <div className="rounded-xl border border-dashed border-border p-10 text-center">
-                  <p>No master pages found.</p>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSearch("");
-                      setCategory("all");
-                    }}
-                  >
-                    Clear filters
-                  </Button>
-                </div>
-              ) : null}
             </>
           )}
         </>

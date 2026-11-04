@@ -13,6 +13,7 @@ import {
   type HrPerformanceWorkspace,
 } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
+import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import {
   Field,
@@ -839,27 +840,35 @@ export function HrPerformanceWorkspace({
                             <Button size="sm" variant="outline" onClick={() => setOpened(i.id)}>
                               Open
                             </Button>
-                            {i.allowed_actions.map((a) => (
-                              <Button
-                                key={a}
-                                size="sm"
-                                variant="outline"
-                                disabled={busy || !!editor || !!decision}
-                                onClick={() => {
-                                  if (a === "edit") {
+                            {i.allowed_actions.map((a) =>
+                              a === "edit" ? (
+                                <HrEditButton
+                                  key={a}
+                                  label="Edit draft"
+                                  className="size-7"
+                                  disabled={busy || !!editor || !!decision}
+                                  onClick={() => {
                                     setEditor(i);
                                     setError("");
-                                  } else {
+                                  }}
+                                />
+                              ) : (
+                                <Button
+                                  key={a}
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={busy || !!editor || !!decision}
+                                  onClick={() => {
                                     setDecision({ r: i, action: a });
                                     setEditor(null);
                                     setReason("");
                                     setError("");
-                                  }
-                                }}
-                              >
-                                {a === "edit" ? "Edit draft" : (actionTitles[a] ?? a)}
-                              </Button>
-                            ))}
+                                  }}
+                                >
+                                  {actionTitles[a] ?? a}
+                                </Button>
+                              ),
+                            )}
                           </div>
                         </td>
                       </tr>

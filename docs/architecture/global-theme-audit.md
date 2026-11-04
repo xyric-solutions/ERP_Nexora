@@ -9,7 +9,7 @@ This is a static source audit. The percentage denominator is **110 feature view 
 | Font families outside central tokens | 0/110 | 0.00% |
 | Colours outside central semantic tokens | 0/110 | 0.00% |
 
-Across all 301 application TS/TSX/CSS files: 1 files contain candidate font overrides and 1 files contain candidate colour overrides (1 matching lines). Shared-source findings below can affect more routes than the view-only percentage.
+Across all 302 application TS/TSX/CSS files: 1 files contain candidate font overrides and 1 files contain candidate colour overrides (1 matching lines). Shared-source findings below can affect more routes than the view-only percentage.
 
 The reference theme uses the system Segoe UI/Inter fallback stack through the central typography token; the root layout loads Geist Mono for code and identifiers. Typography tokens and the legacy serif/display aliases resolve centrally. Global theme colours are defined in app/shared/styles/theme-colors.css and mapped to Tailwind in app/globals.css. Root theme switching applies app-wide, but fixed palette utilities do not follow future semantic colour changes. Print CSS is intentionally excluded from colour exceptions because it uses a monochrome output palette.
 

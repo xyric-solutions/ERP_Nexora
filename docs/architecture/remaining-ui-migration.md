@@ -3605,3 +3605,64 @@ Company Chart adoption/review checkpoint (2026-10-20):
   the production build was unaffected. Safe resume point: authenticated desktop
   and narrow-width visual acceptance of the open transaction and recurring
   drawers when the local development runtime is available.
+
+## 2026-11-04 - HR icon-only back, edit and delete actions
+
+- Added `app/features/hr/components/hr-icon-buttons.tsx` (`HrBackButton`,
+  `HrEditButton`, `HrDeleteButton`): icon-only shadcn `Button`s whose previous
+  wording is kept as `aria-label` and hover `title`.
+- Back navigation in the four HR hub shells (Organisation & Masters, People,
+  Recruitment, and `HrOperationsWorkspace`, which serves Attendance & Shifts,
+  Time & Leave, Payroll, Performance, Learning, Lifecycle, Benefits and
+  Reporting) is now an icon at the left of the page title instead of a labelled
+  button on the right.
+- Organisation Structure, Designations/Jobs, Job Grades and configured master
+  drawers now order footer actions as Deactivate/Activate, Add child (structure
+  only), Edit icon, Delete icon. `HrMasterArchiveButton` keeps its confirmation
+  dialog; only its trigger became a trash icon.
+- Organisation Structure detail tiles are compact (three per row from `sm`,
+  smaller padding and type, truncated values with a title).
+- Edit draft (attendance corrections, performance), Edit draft terms (offers),
+  Edit rules (shifts) and line removal (learning lessons, lifecycle settlement
+  lines, payroll structure components) now use the edit/delete icons.
+- Unchanged by design: text-only "Back to directory" (employee record), "Back
+  to requests" (leave planner) and "Back to permitted reports" (mock reporting
+  fallback), which have no back icon; unreachable mock views
+  (`hr-*-screens.tsx`, `organisation-masters-demo.tsx`) and the unused
+  non-sheet master views.
+- No API, contract, migration, permission or handler behaviour changed.
+- Verification passed: `tsc --noEmit`, targeted ESLint (no new findings; the
+  44 existing findings in attendance corrections, offers and shifts are
+  unchanged), UI theme audit `--write`/`--check` (0 font and 0 colour view
+  exceptions across 110 views), `git diff --check`, and the Next.js 16.3.8
+  production web build. Safe resume point: authenticated desktop, tablet and
+  mobile visual acceptance of the HR hub headers and master drawers.
+
+## 2026-11-04 - Organisation & Masters hub, status filters and Employment Setup
+
+- The Organisation & Masters hub no longer shows the page search box or the
+  All masters / Organisation / Job Structure / Employment Setup group filters;
+  every master page is listed directly in its group, with the card/list toggle
+  and company selector unchanged.
+- `HrMasterStatusFilter` (shared by Organisation Structure, Designations, Jobs,
+  Job Grades, Cost Centres, Work Locations and Employment Setup) now orders
+  All records, Active, Inactive / archived, and marks the selected option
+  with the same `default` (primary) button variant as the hub tabs. Every page
+  still defaults to Active.
+- Employment Types and Employee Categories are presented as one
+  **Employment Setup** page (`#/hr/employment-setup`). This is a presentation
+  merge only, as chosen by the owner: both remain separate API master types
+  with their own codes (ET-/EC-), configuration (Payment route / Pay cycle)
+  and references from employees, offers, requisitions, leave and settlements.
+  `HrConfiguredMasterSheetWorkspace` now accepts several definitions; the
+  merged register shows Kind, Payment route and Pay cycle columns, and the
+  add drawer asks for the kind. The old page IDs remain hidden route aliases
+  (`resolveOrganisationMasterPageId`) so saved links open Employment Setup.
+- Regenerated `docs/parity/*` with `npm run catalogue:generate`; the manifest
+  also picked up earlier un-regenerated `hiddenFromNavigation` drift.
+- No API, contract, migration or permission change. Verification passed:
+  `tsc --noEmit`, ESLint on changed files (no findings), `catalogue:check`,
+  UI theme audit `--write`/`--check` (0 font, 0 colour view exceptions),
+  `git diff --check`, and the production web build. Safe resume point:
+  authenticated visual acceptance of the hub and Employment Setup register,
+  including creating one record of each kind.

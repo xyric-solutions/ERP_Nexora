@@ -10,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { HrDeleteButton } from "./hr-icon-buttons";
 
 export function HrMasterArchiveButton({
   name,
@@ -23,9 +24,7 @@ export function HrMasterArchiveButton({
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button variant="destructive" disabled={saving} onClick={() => setOpen(true)}>
-        Delete
-      </Button>
+      <HrDeleteButton label={`Delete ${name}`} disabled={saving} onClick={() => setOpen(true)} />
       <AlertDialog
         open={open}
         onOpenChange={(next) => {
