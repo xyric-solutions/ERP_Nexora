@@ -20,6 +20,14 @@ Source evidence: `app/shell/prototype-content.tsx` selects the renderers below; 
 | Organisation & Masters | Employment Setup | `/#/hr/employment-setup` | `HrConfiguredMasterSheetWorkspace` | API_CONNECTED_SOURCE |
 | Organisation & Masters | Employment Types | `/#/hr/employment-types` | `HrConfiguredMasterSheetWorkspace` | API_CONNECTED_SOURCE |
 | Organisation & Masters | Employee Categories | `/#/hr/employee-categories` | `HrConfiguredMasterSheetWorkspace` | API_CONNECTED_SOURCE |
+| Recruitment | Recruitment | `/#/hr/recruitment-workspace` | `HrRecruitmentWorkspace` | NAVIGATION_ONLY |
+| Recruitment | Manpower Requisitions | `/#/hr/manpower-requisitions` | `HrManpowerRequisitionsWorkspace` | API_CONNECTED_SOURCE |
+| Recruitment | Job Openings | `/#/hr/job-openings` | `HrJobOpeningsWorkspace` | API_CONNECTED_SOURCE |
+| Recruitment | Candidate Directory | `/#/hr/candidates` | `HrCandidateDirectoryWorkspace` | API_CONNECTED_SOURCE |
+| Recruitment | Recruitment Pipeline | `/#/hr/recruitment-pipeline` | `HrRecruitmentPipelineWorkspace` | API_CONNECTED_SOURCE |
+| Recruitment | Interviews & Evaluations | `/#/hr/interviews` | `HrInterviewsWorkspace` | API_CONNECTED_SOURCE |
+| Recruitment | Offer Management | `/#/hr/offers` | `HrOfferManagementWorkspace` | API_CONNECTED_SOURCE |
+| Recruitment | Create Employee from Offer | `/#/hr/create-employee-from-offer` | `HrOfferEmployeeWorkspace` | API_CONNECTED_SOURCE |
 | People | People | `/#/hr/people-workspace` | `HrPeopleWorkspace` | NAVIGATION_ONLY |
 | People | HR Dashboard | `/#/hr/hr-dashboard` | `HrDashboardWorkspace` | API_CONNECTED_SOURCE |
 | People | Finance / Payroll Dashboard | `/#/hr/finance-payroll-dashboard` | `HrFinancePayrollDashboardWorkspace` | API_CONNECTED_SOURCE |
@@ -34,30 +42,22 @@ Source evidence: `app/shell/prototype-content.tsx` selects the renderers below; 
 | People | Employee History | `/#/hr/employee-status-history` | `HrEmployeeHistoryWorkspace` | API_CONNECTED_SOURCE |
 | People | Employee Record | `/#/hr/employee-record` | `HrEmployeeRecordWorkspace` | API_CONNECTED_SOURCE |
 | People | Positions & Organisation | `/#/hr/positions-org` | `HrPositionsOrganizationWorkspace` | API_CONNECTED_SOURCE |
-| Recruitment | Recruitment | `/#/hr/recruitment-workspace` | `HrRecruitmentWorkspace` | NAVIGATION_ONLY |
-| Recruitment | Manpower Requisitions | `/#/hr/manpower-requisitions` | `HrManpowerRequisitionsWorkspace` | API_CONNECTED_SOURCE |
-| Recruitment | Job Openings | `/#/hr/job-openings` | `HrJobOpeningsWorkspace` | API_CONNECTED_SOURCE |
-| Recruitment | Candidate Directory | `/#/hr/candidates` | `HrCandidateDirectoryWorkspace` | API_CONNECTED_SOURCE |
-| Recruitment | Recruitment Pipeline | `/#/hr/recruitment-pipeline` | `HrRecruitmentPipelineWorkspace` | API_CONNECTED_SOURCE |
-| Recruitment | Interviews & Evaluations | `/#/hr/interviews` | `HrInterviewsWorkspace` | API_CONNECTED_SOURCE |
-| Recruitment | Offer Management | `/#/hr/offers` | `HrOfferManagementWorkspace` | API_CONNECTED_SOURCE |
-| Recruitment | Create Employee from Offer | `/#/hr/create-employee-from-offer` | `HrOfferEmployeeWorkspace` | API_CONNECTED_SOURCE |
-| Attendance & Shifts | Attendance & Shifts | `/#/hr/attendance-workspace` | `HrOperationsWorkspace` | NAVIGATION_ONLY |
-| Attendance & Shifts | Shifts & Rules | `/#/hr/shifts` | `HrShiftsWorkspace` | API_CONNECTED_SOURCE |
-| Attendance & Shifts | Shift Assignments | `/#/hr/shift-assignments` | `HrShiftAssignmentsWorkspace` | API_CONNECTED_SOURCE |
-| Attendance & Shifts | Daily Attendance | `/#/hr/daily-attendance` | `HrDailyAttendanceWorkspace` | API_CONNECTED_SOURCE |
-| Attendance & Shifts | Monthly Attendance | `/#/hr/monthly-attendance` | `HrMonthlyAttendanceWorkspace` | API_CONNECTED_SOURCE |
-| Attendance & Shifts | Attendance Corrections | `/#/hr/attendance-corrections` | `HrAttendanceCorrectionsWorkspace` | API_CONNECTED_SOURCE |
-| Attendance & Shifts | Overtime | `/#/hr/overtime` | `HrAttendanceCompletionWorkspace` | API_CONNECTED_SOURCE |
-| Attendance & Shifts | Attendance Period Close | `/#/hr/attendance-period` | `HrAttendanceCompletionWorkspace` | API_CONNECTED_SOURCE |
-| Attendance & Shifts | Attendance → Payroll Inputs | `/#/hr/attendance-payroll-inputs` | `HrAttendanceCompletionWorkspace` | API_CONNECTED_SOURCE |
-| Time & Leave | Time & Leave | `/#/hr/time-leave-workspace` | `HrOperationsWorkspace` | NAVIGATION_ONLY |
-| Time & Leave | Leave Types | `/#/hr/leave-types` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
-| Time & Leave | Leave Balances | `/#/hr/leave-balances` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
-| Time & Leave | Attendance | `/#/hr/attendance` | `HrDailyAttendanceWorkspace` | API_CONNECTED_SOURCE |
-| Time & Leave | Leave Requests | `/#/hr/leave-requests` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
-| Time & Leave | Add Leave Request | `/#/hr/leave-request` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
-| Time & Leave | Leave Approval | `/#/hr/leave-approval` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Attendance & Leave | `/#/hr/attendance-workspace` | `HrOperationsWorkspace` | NAVIGATION_ONLY |
+| Attendance & Leave | Shifts & Rules | `/#/hr/shifts` | `HrShiftsWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Shift Assignments | `/#/hr/shift-assignments` | `HrShiftAssignmentsWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Leave Types | `/#/hr/leave-types` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Leave Balances | `/#/hr/leave-balances` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Daily Attendance | `/#/hr/daily-attendance` | `HrDailyAttendanceWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Attendance Corrections | `/#/hr/attendance-corrections` | `HrAttendanceCorrectionsWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Overtime | `/#/hr/overtime` | `HrAttendanceCompletionWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Leave Requests | `/#/hr/leave-requests` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Add Leave Request | `/#/hr/leave-request` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Leave Approval | `/#/hr/leave-approval` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Monthly Attendance | `/#/hr/monthly-attendance` | `HrMonthlyAttendanceWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Attendance Period Close | `/#/hr/attendance-period` | `HrAttendanceCompletionWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Attendance → Payroll Inputs | `/#/hr/attendance-payroll-inputs` | `HrAttendanceCompletionWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Time & Leave | `/#/hr/time-leave-workspace` | `HrOperationsWorkspace` | NAVIGATION_ONLY |
+| Attendance & Leave | Attendance | `/#/hr/attendance` | `HrDailyAttendanceWorkspace` | API_CONNECTED_SOURCE |
 | Payroll | Payroll | `/#/hr/payroll-workspace` | `HrOperationsWorkspace` | NAVIGATION_ONLY |
 | Payroll | Pay Components | `/#/hr/payroll-setup` | `HrPayrollWorkspace` | API_CONNECTED_SOURCE |
 | Payroll | Salary Structures | `/#/hr/salary-structures` | `HrPayrollWorkspace` | API_CONNECTED_SOURCE |

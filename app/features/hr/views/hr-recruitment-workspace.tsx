@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { ArrowRight, Search } from "lucide-react";
+import type { ReactNode } from "react";
+import { ArrowRight } from "lucide-react";
 import { HrBackButton } from "../components/hr-icon-buttons";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { recruitmentGroups, recruitmentPages } from "../model/recruitment-navigation";
 
 export function HrRecruitmentWorkspace({
@@ -16,18 +15,9 @@ export function HrRecruitmentWorkspace({
   onNavigate: (moduleId: string, pageId: string) => void;
   children?: ReactNode;
 }) {
-  const [search, setSearch] = useState("");
   const active = recruitmentPages.find((page) => page.id === pageId);
   const group = recruitmentGroups.find((item) => item.pages.some((page) => page.id === pageId));
   const go = (target: string) => onNavigate("hr", target);
-  const filtered = recruitmentGroups
-    .map((item) => ({
-      ...item,
-      pages: item.pages.filter((page) =>
-        `${item.label} ${page.label} ${page.description}`.toLowerCase().includes(search.trim().toLowerCase()),
-      ),
-    }))
-    .filter((item) => item.pages.length);
 
   return (
     <section aria-label="Recruitment workspace" className="min-w-0">
@@ -35,21 +25,21 @@ export function HrRecruitmentWorkspace({
         {active ? <HrBackButton label="Back to all recruitment" onClick={() => go("recruitment-workspace")} /> : null}
         <h1 className="m-0! min-w-0 text-2xl font-bold tracking-tight">{active?.label ?? "Recruitment"}</h1>
       </header>
-      <nav aria-label="Recruitment stages" className="mb-3 flex flex-wrap gap-2">
-        {recruitmentGroups.map((item, index) => (
-          <Button
-            key={item.id}
-            variant={group?.id === item.id ? "default" : "outline"}
-            aria-current={group?.id === item.id ? "true" : undefined}
-            onClick={() => go(item.pages[0].id)}
-          >
-            <span className="opacity-70">0{index + 1}</span>
-            {item.label}
-          </Button>
-        ))}
-      </nav>
       {active && group ? (
         <>
+          <nav aria-label="Recruitment stages" className="mb-3 flex flex-wrap gap-2">
+            {recruitmentGroups.map((item, index) => (
+              <Button
+                key={item.id}
+                variant={group?.id === item.id ? "default" : "outline"}
+                aria-current={group?.id === item.id ? "true" : undefined}
+                onClick={() => go(item.pages[0].id)}
+              >
+                <span className="opacity-70">0{index + 1}</span>
+                {item.label}
+              </Button>
+            ))}
+          </nav>
           <nav aria-label="Recruitment pages" className="mb-4 flex gap-2 overflow-x-auto border-b border-border pb-2">
             {group.pages.map((page) => (
               <Button
@@ -66,18 +56,8 @@ export function HrRecruitmentWorkspace({
         </>
       ) : (
         <>
-          <div className="relative mb-5 max-w-xl">
-            <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
-            <Input
-              aria-label="Find a recruitment page"
-              placeholder="Find vacancies, candidates, interviews or offers..."
-              className="pl-10"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </div>
           <div className="space-y-6">
-            {filtered.map((item) => (
+            {recruitmentGroups.map((item) => (
               <section key={item.id} aria-label={item.label}>
                 <h2 className="m-0! text-lg font-semibold">{item.label}</h2>
                 <p className="mb-3! mt-1! text-sm text-muted-foreground">{item.description}</p>
@@ -101,14 +81,6 @@ export function HrRecruitmentWorkspace({
               </section>
             ))}
           </div>
-          {!filtered.length ? (
-            <div className="rounded-lg border border-dashed border-border p-6 text-center">
-              <p>No recruitment pages match your search.</p>
-              <Button variant="outline" onClick={() => setSearch("")}>
-                Clear search
-              </Button>
-            </div>
-          ) : null}
         </>
       )}
     </section>

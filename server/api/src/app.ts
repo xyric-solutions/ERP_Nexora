@@ -222,6 +222,7 @@ export interface AppDependencies {
     | "changeMasterStatus"
     | "deleteMaster"
     | "listJobGrades"
+    | "listJobGradeCurrencies"
     | "createJobGrade"
     | "updateJobGrade"
     | "deleteJobGrade"

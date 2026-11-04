@@ -84,6 +84,7 @@ import type {
   ChangeHrMasterStatusRequest,
   HrMasterMutationResult,
   HrJobGradeDirectory,
+  HrJobGradeCurrencyDirectory,
   CreateHrJobGradeRequest,
   UpdateHrJobGradeRequest,
   CreateHrJobRequest,
@@ -529,6 +530,11 @@ export class HrApiClient {
 
   jobGrades(companyId: string): Promise<HrJobGradeDirectory> {
     return this.api.listHrJobGrades(query({ company_id: companyId }));
+  }
+
+  /** Active company currencies configured under Finance, available for job grades. */
+  jobGradeCurrencies(companyId: string): Promise<HrJobGradeCurrencyDirectory> {
+    return this.api.listHrJobGradeCurrencies(query({ company_id: companyId }));
   }
 
   createJobGrade(input: CreateHrJobGradeRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {

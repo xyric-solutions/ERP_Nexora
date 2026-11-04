@@ -227,6 +227,7 @@ CreateHrLocalization,HrLocalizationDecision,HrLocalizationWorkspace,CreateHrOver
   DeleteHrMasterRequest,
   HrMasterDeleteResult,
   HrJobGradeDirectory,
+  HrJobGradeCurrencyDirectory,
   CreateHrJobGradeRequest,
   UpdateHrJobGradeRequest,
   HrEmployeeContactDirectory,
@@ -961,6 +962,7 @@ export class NexoraApiClient {
     return this.request(\`/api/v1/hr/masters/\${encodeURIComponent(masterId)}\`, { method: "DELETE", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
   listHrJobGrades(query: string): Promise<HrJobGradeDirectory> { return this.request(\`/api/v1/hr/job_grades\${query}\`); }
+  listHrJobGradeCurrencies(query: string): Promise<HrJobGradeCurrencyDirectory> { return this.request(\`/api/v1/hr/job_grade_currencies\${query}\`); }
   createHrJobGrade(payload: CreateHrJobGradeRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
     return this.request("/api/v1/hr/job_grades", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }

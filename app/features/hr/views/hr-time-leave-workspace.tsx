@@ -1483,7 +1483,7 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
                     onClick={() =>
                       onNavigate(
                         "hr",
-                        "attendance",
+                        "daily-attendance",
                         JSON.stringify({
                           company_id: company,
                           on_date: d.on_date,

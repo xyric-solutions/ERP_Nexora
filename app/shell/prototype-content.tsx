@@ -81,7 +81,7 @@ import { HrPeopleWorkspace } from "@prototype/features/hr/views/hr-people-worksp
 import { isPeoplePage } from "@prototype/features/hr/model/people-navigation";
 import { HrRecruitmentWorkspace } from "@prototype/features/hr/views/hr-recruitment-workspace";
 import { isRecruitmentPage } from "@prototype/features/hr/model/recruitment-navigation";
-import { findTimeWorkspace } from "@prototype/features/hr/model/time-workspace-navigation";
+import { findTimeWorkspace, resolveTimePageId } from "@prototype/features/hr/model/time-workspace-navigation";
 import { findHrSectionWorkspace } from "@prototype/features/hr/model/hr-section-navigation";
 import { HrOperationsWorkspace } from "@prototype/features/hr/views/hr-operations-workspace";
 import {
@@ -2879,6 +2879,8 @@ export function PrototypeContent(props: PrototypeContentProps) {
 
   const timeWorkspace = context.moduleId === "hr" ? findTimeWorkspace(context.pageId) : undefined;
   if (timeWorkspace) {
+    // Former Time & Leave addresses resolve to their Attendance & Leave pages.
+    const timePageId = resolveTimePageId(context.pageId);
     const pages = {
       shifts: <HrShiftsWorkspace initialReference={context.recordRef} onNavigate={props.onNavigate} />,
       "shift-assignments": (
@@ -2887,7 +2889,6 @@ export function PrototypeContent(props: PrototypeContentProps) {
       "daily-attendance": (
         <HrDailyAttendanceWorkspace initialReference={context.recordRef} onNavigate={props.onNavigate} />
       ),
-      attendance: <HrDailyAttendanceWorkspace initialReference={context.recordRef} onNavigate={props.onNavigate} />,
       "monthly-attendance": (
         <HrMonthlyAttendanceWorkspace initialReference={context.recordRef} onNavigate={props.onNavigate} />
       ),
@@ -2896,29 +2897,27 @@ export function PrototypeContent(props: PrototypeContentProps) {
       ),
     };
     const page =
-      pages[context.pageId as keyof typeof pages] ??
-      (["overtime", "attendance-period", "attendance-payroll-inputs"].includes(context.pageId) ? (
+      pages[timePageId as keyof typeof pages] ??
+      (["overtime", "attendance-period", "attendance-payroll-inputs"].includes(timePageId) ? (
         <HrAttendanceCompletionWorkspace
-          mode={context.pageId as "overtime" | "attendance-period" | "attendance-payroll-inputs"}
+          mode={timePageId as "overtime" | "attendance-period" | "attendance-payroll-inputs"}
           initialReference={context.recordRef}
           onNavigate={props.onNavigate}
         />
       ) : ["leave-types", "leave-balances", "leave-request", "leave-requests", "leave-approval"].includes(
-          context.pageId,
+          timePageId,
         ) ? (
         <HrTimeLeaveWorkspace
-          mode={
-            context.pageId as "leave-types" | "leave-balances" | "leave-request" | "leave-requests" | "leave-approval"
-          }
+          mode={timePageId as "leave-types" | "leave-balances" | "leave-request" | "leave-requests" | "leave-approval"}
           initialReference={context.recordRef}
           onNavigate={props.onNavigate}
         />
       ) : null);
     return (
       <HrOperationsWorkspace
-        key={context.pageId + (context.recordRef ?? "")}
+        key={timePageId + (context.recordRef ?? "")}
         definition={timeWorkspace}
-        pageId={context.pageId}
+        pageId={timePageId}
         onNavigate={props.onNavigate}
       >
         {page}

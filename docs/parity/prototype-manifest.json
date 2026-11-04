@@ -3,7 +3,7 @@
   "source": "app/prototype-data.ts",
   "counts": {
     "modules": 35,
-    "groups": 147,
+    "groups": 146,
     "pages": 817
   },
   "modules": [
@@ -3187,6 +3187,68 @@
           ]
         },
         {
+          "id": "recruitment",
+          "label": "Recruitment",
+          "pages": [
+            {
+              "id": "recruitment-workspace",
+              "label": "Recruitment",
+              "archetype": "dashboard",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "manpower-requisitions",
+              "label": "Manpower Requisitions",
+              "archetype": "approval",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "job-openings",
+              "label": "Job Openings",
+              "archetype": "list",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "candidates",
+              "label": "Candidate Directory",
+              "archetype": "list",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "recruitment-pipeline",
+              "label": "Recruitment Pipeline",
+              "archetype": "workflow",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "interviews",
+              "label": "Interviews & Evaluations",
+              "archetype": "workflow",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "offers",
+              "label": "Offer Management",
+              "archetype": "approval",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "create-employee-from-offer",
+              "label": "Create Employee from Offer",
+              "archetype": "workflow",
+              "status": "live",
+              "hiddenFromNavigation": false
+            }
+          ]
+        },
+        {
           "id": "people",
           "label": "People",
           "pages": [
@@ -3291,74 +3353,12 @@
           ]
         },
         {
-          "id": "recruitment",
-          "label": "Recruitment",
-          "pages": [
-            {
-              "id": "recruitment-workspace",
-              "label": "Recruitment",
-              "archetype": "dashboard",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "manpower-requisitions",
-              "label": "Manpower Requisitions",
-              "archetype": "approval",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "job-openings",
-              "label": "Job Openings",
-              "archetype": "list",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "candidates",
-              "label": "Candidate Directory",
-              "archetype": "list",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "recruitment-pipeline",
-              "label": "Recruitment Pipeline",
-              "archetype": "workflow",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "interviews",
-              "label": "Interviews & Evaluations",
-              "archetype": "workflow",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "offers",
-              "label": "Offer Management",
-              "archetype": "approval",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "create-employee-from-offer",
-              "label": "Create Employee from Offer",
-              "archetype": "workflow",
-              "status": "live",
-              "hiddenFromNavigation": false
-            }
-          ]
-        },
-        {
-          "id": "attendance-shifts",
-          "label": "Attendance & Shifts",
+          "id": "attendance-leave",
+          "label": "Attendance & Leave",
           "pages": [
             {
               "id": "attendance-workspace",
-              "label": "Attendance & Shifts",
+              "label": "Attendance & Leave",
               "archetype": "dashboard",
               "status": "live",
               "hiddenFromNavigation": false
@@ -3378,15 +3378,22 @@
               "hiddenFromNavigation": false
             },
             {
-              "id": "daily-attendance",
-              "label": "Daily Attendance",
+              "id": "leave-types",
+              "label": "Leave Types",
+              "archetype": "settings",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "leave-balances",
+              "label": "Leave Balances",
               "archetype": "list",
               "status": "live",
               "hiddenFromNavigation": false
             },
             {
-              "id": "monthly-attendance",
-              "label": "Monthly Attendance",
+              "id": "daily-attendance",
+              "label": "Daily Attendance",
               "archetype": "list",
               "status": "live",
               "hiddenFromNavigation": false
@@ -3402,54 +3409,6 @@
               "id": "overtime",
               "label": "Overtime",
               "archetype": "approval",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "attendance-period",
-              "label": "Attendance Period Close",
-              "archetype": "workflow",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "attendance-payroll-inputs",
-              "label": "Attendance → Payroll Inputs",
-              "archetype": "report",
-              "status": "live",
-              "hiddenFromNavigation": false
-            }
-          ]
-        },
-        {
-          "id": "time-leave",
-          "label": "Time & Leave",
-          "pages": [
-            {
-              "id": "time-leave-workspace",
-              "label": "Time & Leave",
-              "archetype": "dashboard",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "leave-types",
-              "label": "Leave Types",
-              "archetype": "settings",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "leave-balances",
-              "label": "Leave Balances",
-              "archetype": "list",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "attendance",
-              "label": "Attendance",
-              "archetype": "list",
               "status": "live",
               "hiddenFromNavigation": false
             },
@@ -3473,6 +3432,41 @@
               "archetype": "approval",
               "status": "live",
               "hiddenFromNavigation": false
+            },
+            {
+              "id": "monthly-attendance",
+              "label": "Monthly Attendance",
+              "archetype": "list",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "attendance-period",
+              "label": "Attendance Period Close",
+              "archetype": "workflow",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "attendance-payroll-inputs",
+              "label": "Attendance → Payroll Inputs",
+              "archetype": "report",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "time-leave-workspace",
+              "label": "Time & Leave",
+              "archetype": "dashboard",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "attendance",
+              "label": "Attendance",
+              "archetype": "list",
+              "status": "live",
+              "hiddenFromNavigation": true
             }
           ]
         },

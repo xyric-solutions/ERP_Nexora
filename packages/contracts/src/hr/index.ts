@@ -1277,6 +1277,18 @@ export const updateHrJobGradeRequestSchema = z.strictObject(hrJobGradeFields).re
 export type HrJobGradeDirectory = z.infer<typeof hrJobGradeDirectorySchema>;
 export type CreateHrJobGradeRequest = z.infer<typeof createHrJobGradeRequestSchema>;
 export type UpdateHrJobGradeRequest = z.infer<typeof updateHrJobGradeRequestSchema>;
+/**
+ * Read-only view of the company currencies configured under Finance, scoped for
+ * HR job-grade maintenance. Active currencies only, base currency first.
+ */
+export const hrJobGradeCurrencySchema = z.strictObject({
+  currency_code: z.string().regex(/^[A-Z]{3}$/),
+  currency_name: z.string().min(1).max(160),
+  is_base: z.boolean(),
+});
+export const hrJobGradeCurrencyDirectorySchema = z.strictObject({ items: z.array(hrJobGradeCurrencySchema).max(300) });
+export type HrJobGradeCurrency = z.infer<typeof hrJobGradeCurrencySchema>;
+export type HrJobGradeCurrencyDirectory = z.infer<typeof hrJobGradeCurrencyDirectorySchema>;
 
 /**
  * A hire request captures proposed employment context only. It must not be

@@ -377,7 +377,7 @@ export const roleDashboardDefinitions = {
     contextNote: "Privacy-aware mock view; sensitive employee and payroll fields remain presentation-only.",
     kpis: [
       { id: "hr-headcount", label: "Active headcount", value: "248", delta: "+6", comparison: "vs last month", tone: "positive", target: { moduleId: "hr", pageId: "employees" } },
-      { id: "hr-attendance", label: "Attendance rate", value: "96.2%", delta: "+0.7 pts", comparison: "vs prior month", tone: "positive", target: { moduleId: "hr", pageId: "attendance" } },
+      { id: "hr-attendance", label: "Attendance rate", value: "96.2%", delta: "+0.7 pts", comparison: "vs prior month", tone: "positive", target: { moduleId: "hr", pageId: "daily-attendance" } },
       { id: "hr-leave", label: "Leave awaiting approval", value: "9", delta: "3 due today", comparison: "manager queue", tone: "warning", target: { moduleId: "hr", pageId: "leave-requests" } },
       { id: "hr-onboarding", label: "Onboarding in progress", value: "7", delta: "2 start this week", comparison: "1 task overdue", tone: "warning", target: { moduleId: "hr", pageId: "onboarding" } },
       { id: "hr-payroll", label: "Payroll readiness", value: "94.8%", delta: "13 exceptions", comparison: "95% validation target", tone: "warning", target: { moduleId: "hr", pageId: "payroll-validation" } },
@@ -401,13 +401,13 @@ export const roleDashboardDefinitions = {
     ],
     exceptions: [
       { id: "hr-exception-bank", title: "Missing payroll bank details", detail: "Four employee records cannot proceed to payment handoff.", severity: "high", owner: "HR Operations", target: { moduleId: "hr", pageId: "payroll-inputs" } },
-      { id: "hr-exception-time", title: "Attendance inputs unapproved", detail: "Six timesheets remain outside the approved payroll input set.", severity: "high", owner: "Department Managers", target: { moduleId: "hr", pageId: "attendance" } },
+      { id: "hr-exception-time", title: "Attendance inputs unapproved", detail: "Six timesheets remain outside the approved payroll input set.", severity: "high", owner: "Department Managers", target: { moduleId: "hr", pageId: "daily-attendance" } },
       { id: "hr-exception-contract", title: "Contracts nearing expiry", detail: "Three contracts require renewal or separation decisions.", severity: "medium", owner: "HR Business Partner", target: { moduleId: "hr", pageId: "employees" } },
       { id: "hr-exception-position", title: "Vacant critical position", detail: "Production planning role has been open for 42 days.", severity: "medium", owner: "Talent Acquisition", target: { moduleId: "hr", pageId: "positions-org" } },
     ],
     quickActions: [
       { id: "hr-action-employee", label: "Add employee", description: "Open the mock employee onboarding form.", kind: "primary", target: { moduleId: "hr", pageId: "add-employee" } },
-      { id: "hr-action-attendance", label: "Review attendance", description: "Inspect attendance and input exceptions.", kind: "secondary", target: { moduleId: "hr", pageId: "attendance" } },
+      { id: "hr-action-attendance", label: "Review attendance", description: "Inspect attendance and input exceptions.", kind: "secondary", target: { moduleId: "hr", pageId: "daily-attendance" } },
       { id: "hr-action-leave", label: "Approve leave", description: "Open the prototype leave approval queue.", kind: "secondary", target: { moduleId: "hr", pageId: "leave-approval" } },
       { id: "hr-action-payroll", label: "Validate payroll", description: "Review payroll readiness without posting.", kind: "secondary", target: { moduleId: "hr", pageId: "payroll-validation" } },
     ],

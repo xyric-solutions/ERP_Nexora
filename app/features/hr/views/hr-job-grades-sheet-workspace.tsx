@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { CreateHrJobGradeRequest, HrJobGradeDirectory } from "@nexora/contracts";
+import type { CreateHrJobGradeRequest, HrJobGradeCurrency, HrJobGradeDirectory } from "@nexora/contracts";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,22 @@ type Editor = {
   bandMaximum: string;
 };
 
-function editorFor(record: JobGrade | undefined, records: readonly JobGrade[]): Editor {
+const currencySetupHint = "Configure currencies for this company under Finance → Company currencies.";
+
+/** New grades default to the company base currency, else the first configured currency. */
+function defaultCurrency(currencies: readonly HrJobGradeCurrency[] | null): string {
+  return currencies?.find((item) => item.is_base)?.currency_code ?? currencies?.[0]?.currency_code ?? "";
+}
+
+function currencyLabel(currency: HrJobGradeCurrency): string {
+  return `${currency.currency_code} — ${currency.currency_name}${currency.is_base ? " (base)" : ""}`;
+}
+
+function editorFor(
+  record: JobGrade | undefined,
+  records: readonly JobGrade[],
+  currencies: readonly HrJobGradeCurrency[] | null,
+): Editor {
   return {
     mode: record ? "edit" : "create",
     code:
@@ -43,7 +58,7 @@ function editorFor(record: JobGrade | undefined, records: readonly JobGrade[]): 
     name: record?.name ?? "",
     description: record?.description ?? "",
     gradeLevel: record ? String(record.grade_level) : "",
-    currencyCode: record?.currency_code ?? "PKR",
+    currencyCode: record?.currency_code ?? defaultCurrency(currencies),
     bandMinimum: record?.band_minimum ?? "",
     bandMidpoint: record?.band_midpoint ?? "",
     bandMaximum: record?.band_maximum ?? "",
@@ -62,7 +77,7 @@ function toPayload(companyId: string, editor: Editor): CreateHrJobGradeRequest |
   if (!Number.isInteger(gradeLevel) || gradeLevel < 1 || gradeLevel > 999)
     return "Grade level must be a whole number from 1 to 999.";
   const currencyCode = editor.currencyCode.trim().toUpperCase();
-  if (!/^[A-Z]{3}$/.test(currencyCode)) return "Currency must be a three-letter ISO code such as PKR or USD.";
+  if (!/^[A-Z]{3}$/.test(currencyCode)) return `Choose a currency. ${currencySetupHint}`;
   const fields = [editor.bandMinimum.trim(), editor.bandMidpoint.trim(), editor.bandMaximum.trim()];
   const populated = fields.filter(Boolean).length;
   if (populated !== 0 && populated !== 3)
@@ -99,6 +114,8 @@ export function HrJobGradesSheetWorkspace() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [currencies, setCurrencies] = useState<HrJobGradeCurrency[] | null>(null);
+  const [currencyError, setCurrencyError] = useState("");
   const permissions = session?.user.permissions ?? [];
   const canRead = permissions.includes("hr.master.read"),
     canCreate = permissions.includes("hr.master.create"),
@@ -121,6 +138,32 @@ export function HrJobGradesSheetWorkspace() {
     [client],
   );
 
+  const loadCurrencies = useCallback(
+    async (targetCompanyId: string) => {
+      if (!targetCompanyId) return;
+      setCurrencies(null);
+      setCurrencyError("");
+      try {
+        const result = await client.jobGradeCurrencies(targetCompanyId);
+        setCurrencies(result.items);
+        // A new grade opened before the list arrived picks up the company default once it loads.
+        setEditor((current) =>
+          current && current.mode === "create" && !current.currencyCode
+            ? { ...current, currencyCode: defaultCurrency(result.items) }
+            : current,
+        );
+      } catch (error) {
+        setCurrencies([]);
+        setCurrencyError(
+          error instanceof Error && error.message
+            ? error.message
+            : "Company currencies could not be loaded from the authorized API.",
+        );
+      }
+    },
+    [client],
+  );
+
   useEffect(() => {
     if (sessionLoading || !canRead) {
       return;
@@ -131,13 +174,14 @@ export function HrJobGradesSheetWorkspace() {
         setCompanies(result.items);
         const first = preferredMasterCompany(result.items);
         setCompanyId(first);
+        void loadCurrencies(first);
         return loadRecords(first);
       })
       .catch(() => {
         setMessage("Authorized companies could not be loaded.");
         setLoading(false);
       });
-  }, [canRead, client, loadRecords, sessionLoading]);
+  }, [canRead, client, loadCurrencies, loadRecords, sessionLoading]);
 
   const selected = records.find((record) => record.id === selectedId);
   const filtered = records
@@ -155,6 +199,18 @@ export function HrJobGradesSheetWorkspace() {
   };
   const save = async () => {
     if (!editor || !companyId) return;
+    const configured = currencies?.some((item) => item.currency_code === editor.currencyCode) ?? false;
+    const keepsLegacyCurrency = editor.mode === "edit" && selected?.currency_code === editor.currencyCode;
+    if (!configured && !keepsLegacyCurrency) {
+      setMessage(
+        currencies === null
+          ? "Company currencies are still loading. Try again in a moment."
+          : currencies.length === 0
+            ? `No currencies are configured for this company. ${currencySetupHint}`
+            : `Choose a currency configured for this company. ${currencySetupHint}`,
+      );
+      return;
+    }
     const payload = toPayload(companyId, editor);
     if (typeof payload === "string") {
       setMessage(payload);
@@ -173,8 +229,12 @@ export function HrJobGradesSheetWorkspace() {
       setEditor(null);
       setSelectedId("");
       await loadRecords(companyId);
-    } catch {
-      setMessage("The job-grade change was rejected. Check the grade level, compensation band, and uniqueness.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error && error.message
+          ? error.message
+          : "The job-grade change was rejected. Check the grade level, compensation band, and uniqueness.",
+      );
     } finally {
       setSaving(false);
     }
@@ -250,6 +310,7 @@ export function HrJobGradesSheetWorkspace() {
               setCompanyId(event.target.value);
               rememberMasterCompany(event.target.value);
               closeSheet();
+              void loadCurrencies(event.target.value);
               void loadRecords(event.target.value);
             }}
           >
@@ -274,7 +335,8 @@ export function HrJobGradesSheetWorkspace() {
             className="w-full md:w-auto"
             onClick={() => {
               setSelectedId("");
-              setEditor(editorFor(undefined, records));
+              setEditor(editorFor(undefined, records, currencies));
+              void loadCurrencies(companyId);
             }}
           >
             + Add Job Grade
@@ -386,7 +448,13 @@ export function HrJobGradesSheetWorkspace() {
               <Button variant="outline" disabled={saving} onClick={() => void changeStatus()}>
                 {selected.status === "active" ? "Deactivate" : "Activate"}
               </Button>
-              <HrEditButton label="Edit Job Grade" onClick={() => setEditor(editorFor(selected, records))} />
+              <HrEditButton
+                label="Edit Job Grade"
+                onClick={() => {
+                  setEditor(editorFor(selected, records, currencies));
+                  void loadCurrencies(companyId);
+                }}
+              />
               {selected.status === "inactive" ? (
                 <HrMasterDeleteButton
                   name={selected.name}
@@ -440,15 +508,12 @@ export function HrJobGradesSheetWorkspace() {
                 onChange={(event) => setEditor({ ...editor, description: event.target.value })}
               />
             </label>
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor="job-grade-currency">
-              Currency
-              <Input
-                id="job-grade-currency"
-                maxLength={3}
-                value={editor.currencyCode}
-                onChange={(event) => setEditor({ ...editor, currencyCode: event.target.value.toUpperCase() })}
-              />
-            </label>
+            <CurrencySelect
+              currencies={currencies}
+              error={currencyError}
+              value={editor.currencyCode}
+              onChange={(currencyCode) => setEditor({ ...editor, currencyCode })}
+            />
             <fieldset className="grid gap-4 rounded-lg border border-border p-4">
               <legend className="px-1 text-sm font-semibold">Optional compensation band</legend>
               <div className="grid gap-4 sm:grid-cols-3">
@@ -488,6 +553,65 @@ export function HrJobGradesSheetWorkspace() {
         ) : null}
       </HrMasterSheet>
     </section>
+  );
+}
+
+function CurrencySelect({
+  currencies,
+  error,
+  value,
+  onChange,
+}: {
+  currencies: readonly HrJobGradeCurrency[] | null;
+  error: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const loadingCurrencies = currencies === null;
+  const empty = !loadingCurrencies && currencies.length === 0;
+  // An existing grade may hold a currency Finance no longer lists; keep it visible so the grade stays editable.
+  const legacy = value && !currencies?.some((item) => item.currency_code === value) ? value : "";
+  const blocked = empty && !legacy;
+  return (
+    <label className="grid gap-1.5 text-sm font-medium" htmlFor="job-grade-currency">
+      Currency
+      <select
+        id="job-grade-currency"
+        className="h-10 min-w-0 rounded-md border border-input bg-background px-3 disabled:cursor-not-allowed disabled:opacity-60"
+        value={value}
+        disabled={loadingCurrencies || empty}
+        aria-describedby="job-grade-currency-help"
+        aria-invalid={blocked || undefined}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {value ? null : (
+          <option value="" disabled>
+            {loadingCurrencies
+              ? "Loading company currencies…"
+              : empty
+                ? "No company currencies configured"
+                : "Choose a currency"}
+          </option>
+        )}
+        {legacy ? <option value={legacy}>{`${legacy} (not configured)`}</option> : null}
+        {currencies?.map((currency) => (
+          <option key={currency.currency_code} value={currency.currency_code}>
+            {currencyLabel(currency)}
+          </option>
+        ))}
+      </select>
+      <span
+        id="job-grade-currency-help"
+        className={`text-xs font-normal ${error || blocked ? "text-destructive" : "text-muted-foreground"}`}
+      >
+        {error ||
+          (empty
+            ? `No currencies are configured for this company. ${currencySetupHint}`
+            : legacy
+              ? `${legacy} is no longer an active company currency. Keep it, or choose a configured currency.`
+              : "Synced from the company currencies configured under Finance → Company currencies.")}
+      </span>
+    </label>
   );
 }
 

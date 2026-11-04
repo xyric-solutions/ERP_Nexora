@@ -13,13 +13,19 @@ import {
   Wallet,
 } from "lucide-react";
 
-export const attendanceWorkspace = {
+/**
+ * Attendance & Leave: the former "Attendance & Shifts" and "Time & Leave" areas, merged. Every page keeps its
+ * route; the duplicate Time & Leave "Attendance" page (same screen as Daily Attendance) and the old landing page
+ * are hidden aliases (see timePageAliases).
+ */
+export const attendanceLeaveWorkspace = {
   id: "attendance-workspace",
-  label: "Attendance & Shifts",
+  label: "Attendance & Leave",
+  finder: false,
   groups: [
     {
-      id: "setup",
-      label: "Shifts & Assignments",
+      id: "shift-setup",
+      label: "Shift Setup",
       description: "Define working rules and assign effective schedules.",
       pages: [
         {
@@ -37,65 +43,8 @@ export const attendanceWorkspace = {
       ],
     },
     {
-      id: "attendance",
-      label: "Attendance & Review",
-      description: "Review attendance, corrections and overtime evidence.",
-      pages: [
-        {
-          id: "daily-attendance",
-          label: "Daily Attendance",
-          description: "Review daily attendance, punches and exceptions.",
-          icon: CalendarCheck,
-        },
-        {
-          id: "monthly-attendance",
-          label: "Monthly Attendance",
-          description: "Inspect employee attendance across the month.",
-          icon: CalendarDays,
-        },
-        {
-          id: "attendance-corrections",
-          label: "Attendance Corrections",
-          description: "Prepare corrections and review their approval evidence.",
-          icon: ClipboardCheck,
-        },
-        {
-          id: "overtime",
-          label: "Overtime",
-          description: "Maintain operational rules and review overtime requests.",
-          icon: Clock3,
-        },
-      ],
-    },
-    {
-      id: "close",
-      label: "Period Close & Inputs",
-      description: "Review attendance before closing the month and preparing payroll inputs.",
-      pages: [
-        {
-          id: "attendance-period",
-          label: "Attendance Period Close",
-          description: "Process and review the attendance month before locking it.",
-          icon: LockKeyhole,
-        },
-        {
-          id: "attendance-payroll-inputs",
-          label: "Attendance → Payroll Inputs",
-          description: "Inspect finalized attendance inputs and their source evidence.",
-          icon: FileCheck2,
-        },
-      ],
-    },
-  ],
-} as const;
-
-export const leaveWorkspace = {
-  id: "time-leave-workspace",
-  label: "Time & Leave",
-  groups: [
-    {
-      id: "policies",
-      label: "Policies & Balances",
+      id: "leave-setup",
+      label: "Leave Setup",
       description: "Maintain leave policies and review employee entitlements.",
       pages: [
         {
@@ -113,8 +62,33 @@ export const leaveWorkspace = {
       ],
     },
     {
-      id: "requests",
-      label: "Requests & Approvals",
+      id: "daily-attendance",
+      label: "Daily Attendance",
+      description: "Review attendance, corrections and overtime evidence.",
+      pages: [
+        {
+          id: "daily-attendance",
+          label: "Daily Attendance",
+          description: "Review daily attendance, punches and exceptions.",
+          icon: CalendarCheck,
+        },
+        {
+          id: "attendance-corrections",
+          label: "Attendance Corrections",
+          description: "Prepare corrections and review their approval evidence.",
+          icon: ClipboardCheck,
+        },
+        {
+          id: "overtime",
+          label: "Overtime",
+          description: "Maintain operational rules and review overtime requests.",
+          icon: Clock3,
+        },
+      ],
+    },
+    {
+      id: "leave-requests",
+      label: "Leave Requests",
       description: "Prepare requests and manage the existing review process.",
       pages: [
         {
@@ -138,24 +112,45 @@ export const leaveWorkspace = {
       ],
     },
     {
-      id: "attendance",
-      label: "Attendance",
-      description: "Check the attendance record alongside leave information.",
+      id: "month-end",
+      label: "Month-end & Payroll",
+      description: "Review the month, close it and prepare payroll inputs.",
       pages: [
         {
-          id: "attendance",
-          label: "Attendance",
-          description: "Open daily attendance and follow links to corrections and monthly review.",
-          icon: CalendarCheck,
+          id: "monthly-attendance",
+          label: "Monthly Attendance",
+          description: "Inspect employee attendance across the month.",
+          icon: CalendarDays,
+        },
+        {
+          id: "attendance-period",
+          label: "Attendance Period Close",
+          description: "Process and review the attendance month before locking it.",
+          icon: LockKeyhole,
+        },
+        {
+          id: "attendance-payroll-inputs",
+          label: "Attendance → Payroll Inputs",
+          description: "Inspect finalized attendance inputs and their source evidence.",
+          icon: FileCheck2,
         },
       ],
     },
   ],
 } as const;
 
-export const timeWorkspaces = [attendanceWorkspace, leaveWorkspace];
-export const findTimeWorkspace = (pageId: string) =>
-  timeWorkspaces.find(
+/** Former page IDs kept so saved links and existing cross-links keep opening the right screen. */
+const timePageAliases: Readonly<Record<string, string>> = {
+  "time-leave-workspace": "attendance-workspace",
+  attendance: "daily-attendance",
+};
+export const resolveTimePageId = (pageId: string) => timePageAliases[pageId] ?? pageId;
+
+export const timeWorkspaces = [attendanceLeaveWorkspace];
+export const findTimeWorkspace = (pageId: string) => {
+  const resolved = resolveTimePageId(pageId);
+  return timeWorkspaces.find(
     (workspace) =>
-      workspace.id === pageId || workspace.groups.some((group) => group.pages.some((page) => page.id === pageId)),
+      workspace.id === resolved || workspace.groups.some((group) => group.pages.some((page) => page.id === resolved)),
   );
+};

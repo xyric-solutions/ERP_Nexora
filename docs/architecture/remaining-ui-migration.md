@@ -3739,3 +3739,61 @@ Company Chart adoption/review checkpoint (2026-10-20):
   deleting the active ES-001 is refused with 409. Safe resume point:
   authenticated visual acceptance of the Deactivated filter and delete icons in
   all seven areas, including deleting an unused deactivated record.
+
+## 2026-11-04 - Job Grades: currency synced from Finance company currencies
+
+- New HR-scoped read `GET /api/v1/hr/job_grade_currencies?company_id=`
+  (`listHrJobGradeCurrencies`) returns `{ items: [{ currency_code,
+  currency_name, is_base }] }`: the company's active currencies from Finance
+  (`company_currency` + active `currency`, name from the selected
+  country/currency mapping), base first then by code, bounded to 300. It needs
+  `hr.master.read` plus company access (403 `PERMISSION_DENIED` /
+  `COMPANY_ACCESS_DENIED`), so HR users do not need Finance permissions.
+- Job-grade create/update now validate on the server that `currency_code` is
+  an active company currency; otherwise 409
+  `HR_JOB_GRADE_CURRENCY_NOT_CONFIGURED`. An update that keeps the grade's
+  existing currency unchanged is still accepted, so legacy grades stay editable.
+- `hr-job-grades-sheet-workspace.tsx`: the free-text Currency input is now a
+  native Tailwind select loaded per company (and refreshed when the drawer
+  opens). New grades default to the base currency (else the first). Options
+  read `PKR — Pakistani Rupee (base)`; a legacy currency is shown as
+  `EUR (not configured)`. With no configured currencies the select is disabled,
+  helper text points to Finance → Company currencies, and create is blocked.
+  Server problem details are shown on save failure. Everything else in the
+  drawer is unchanged.
+- Verification: contracts/server `tsc -b`, `tsc --noEmit`, ESLint (no new
+  findings vs HEAD), Prettier on authored files, unit tests, integration tests
+  (`hr-job-grade-currencies` plus existing job-grade suites), `api:check`, UI
+  theme audit (0/109), `git diff --check`, and a live API read for
+  `nexora-r06-uat-company` (USD base, PKR). Safe resume point: authenticated
+  visual acceptance of the currency dropdown in Add/Edit Job Grade.
+
+## 2026-11-04 - HR area order, simpler hubs, and Attendance & Leave merge
+
+- HR sidebar order is now Organisation & Masters, Recruitment, People,
+  Attendance & Leave, Payroll, Performance Management, Learning &
+  Development, Employee Lifecycle, Benefits & Self-service, Reporting,
+  Compliance & Audit (10 areas).
+- Recruitment and People landing pages no longer show a search box or the
+  group filter/stage buttons; every page is listed as a card under its group.
+  Inner pages keep their section and page tabs, and the back icon.
+- Attendance & Shifts and Time & Leave are merged into **Attendance &
+  Leave** (`attendanceLeaveWorkspace`, landing `#/hr/attendance-workspace`)
+  with sections Shift Setup, Leave Setup, Daily Attendance, Leave Requests,
+  Month-end & Payroll (13 working pages). The duplicate Time & Leave
+  "Attendance" page (same screen as Daily Attendance) and the old landing are
+  hidden aliases (`resolveTimePageId`: `time-leave-workspace` →
+  `attendance-workspace`, `attendance` → `daily-attendance`). HR dashboard,
+  AI and leave-detail links now open Daily Attendance directly. The shared
+  `HrOperationsWorkspace` gained an optional `finder: false` used only here.
+  No API, migration or permission change; `hr.attendance.*` and `hr.leave.*`
+  still govern their pages. Catalogue segments keep M11/M12 per page.
+- Verification passed: `tsc --noEmit`, ESLint (no new findings), Prettier,
+  route resolution check for all 14 pages and both aliases, UI theme audit,
+  `catalogue:check`, `api:check`, unit tests (1087 passed; 2 known
+  pre-existing failures in user-management-components), production build,
+  `git diff --check`. `tests/e2e/baseline.spec.ts` still expects 67 HR
+  screens (register has had 87+ since before this work) and needs its
+  screenshots re-baselined. Safe resume point: visual acceptance of the
+  Attendance & Leave landing, the five sections and the Job Grade currency
+  dropdown.

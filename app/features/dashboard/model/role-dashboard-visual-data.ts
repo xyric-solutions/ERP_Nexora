@@ -255,7 +255,7 @@ export const roleDashboardVisuals = {
       unit: "Readiness score / 100",
       accessibleSummary: "Attendance and retention are on track; payroll inputs and critical-role coverage need attention, with onboarding under watch.",
       bars: [
-        { id: "hr-driver-attendance", label: "Attendance", value: 96, max: 100, valueLabel: "96.2%", benchmark: 95, benchmarkLabel: "Target 95%", status: "on-track", target: { moduleId: "hr", pageId: "attendance" } },
+        { id: "hr-driver-attendance", label: "Attendance", value: 96, max: 100, valueLabel: "96.2%", benchmark: 95, benchmarkLabel: "Target 95%", status: "on-track", target: { moduleId: "hr", pageId: "daily-attendance" } },
         { id: "hr-driver-payroll", label: "Payroll input readiness", value: 81, max: 100, valueLabel: "13 exceptions", benchmark: 95, benchmarkLabel: "Target 95%", status: "at-risk", target: { moduleId: "hr", pageId: "payroll-validation" } },
         { id: "hr-driver-onboarding", label: "Onboarding completion", value: 86, max: 100, valueLabel: "6 of 7 on plan", benchmark: 90, benchmarkLabel: "Target 90%", status: "watch", target: { moduleId: "hr", pageId: "onboarding" } },
         { id: "hr-driver-retention", label: "Retention health", value: 91, max: 100, valueLabel: "8.6% turnover", benchmark: 88, benchmarkLabel: "Target 88", status: "on-track", target: { moduleId: "hr", pageId: "hr-reports" } },

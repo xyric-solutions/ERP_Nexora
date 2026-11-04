@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { ArrowRight, Search } from "lucide-react";
+import type { ReactNode } from "react";
+import { ArrowRight } from "lucide-react";
 import { HrBackButton } from "../components/hr-icon-buttons";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { peopleGroups, peoplePages } from "../model/people-navigation";
 
 export function HrPeopleWorkspace({
@@ -18,8 +17,6 @@ export function HrPeopleWorkspace({
   onNavigate: (moduleId: string, pageId: string, recordRef?: string) => void;
   children?: ReactNode;
 }) {
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("all");
   const active = peoplePages.find((page) => page.id === pageId);
   const dashboardHasHeading = pageId === "hr-dashboard" || pageId === "finance-payroll-dashboard";
   const currentGroup = peopleGroups.find((group) => group.pages.some((page) => page.id === pageId));
@@ -31,15 +28,6 @@ export function HrPeopleWorkspace({
         ? employeeId
         : undefined,
     );
-  const filtered = peopleGroups
-    .filter((group) => category === "all" || group.id === category)
-    .map((group) => ({
-      ...group,
-        cards: group.cards.filter((card) =>
-          `${group.label} ${card.label} ${card.description}`.toLowerCase().includes(search.trim().toLowerCase()),
-      ),
-    }))
-    .filter((group) => group.cards.length);
 
   return (
     <section aria-label="People workspace" className="min-w-0">
@@ -84,32 +72,8 @@ export function HrPeopleWorkspace({
         </>
       ) : (
         <>
-          <div className="mb-5 grid gap-3 rounded-lg border border-border bg-card p-3 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
-              <Input
-                className="h-9 pl-10"
-                aria-label="Find a People page"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Find employee records, drafts, approvals…"
-              />
-            </div>
-            <div className="flex flex-wrap gap-1" aria-label="Filter People groups">
-              {[{ id: "all", label: "All people" }, ...peopleGroups].map((group) => (
-                <Button
-                  key={group.id}
-                  variant={category === group.id ? "default" : "ghost"}
-                  aria-pressed={category === group.id}
-                  onClick={() => setCategory(group.id)}
-                >
-                  {group.label}
-                </Button>
-              ))}
-            </div>
-          </div>
           <div className="space-y-6">
-            {filtered.map((group) => (
+            {peopleGroups.map((group) => (
               <section key={group.id} aria-label={group.label}>
                 <div className="mb-3">
                   <h2 className="m-0! text-lg font-semibold">{group.label}</h2>
@@ -135,20 +99,6 @@ export function HrPeopleWorkspace({
               </section>
             ))}
           </div>
-          {!filtered.length ? (
-            <div className="rounded-lg border border-dashed border-border p-6 text-center">
-              <p>No People pages match your search.</p>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSearch("");
-                  setCategory("all");
-                }}
-              >
-                Clear filters
-              </Button>
-            </div>
-          ) : null}
         </>
       )}
     </section>

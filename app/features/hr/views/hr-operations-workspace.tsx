@@ -10,6 +10,8 @@ import { HrOperationsScopeContext, type HrOperationsScope } from "../components/
 type Workspace = {
   id: string;
   label: string;
+  /** false hides the landing-page search and section filter; every page is still listed. */
+  finder?: boolean;
   groups: readonly {
     id: string;
     label: string;
@@ -85,32 +87,34 @@ export function HrOperationsWorkspace({
         </>
       ) : (
         <>
-          <div className="mb-5 grid gap-3 rounded-lg border border-border bg-card p-3 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
-              <Input
-                aria-label={`Find a ${definition.label} page`}
-                placeholder="Find a page or workflow..."
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="pl-10"
-              />
+          {definition.finder === false ? null : (
+            <div className="mb-5 grid gap-3 rounded-lg border border-border bg-card p-3 lg:grid-cols-[1fr_auto] lg:items-center">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                <Input
+                  aria-label={`Find a ${definition.label} page`}
+                  placeholder="Find a page or workflow..."
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="flex flex-wrap gap-1" aria-label="Filter workspace sections">
+                {[{ id: "all", label: "All pages" }, ...definition.groups].map((group) => (
+                  <Button
+                    key={group.id}
+                    variant={category === group.id ? "default" : "ghost"}
+                    aria-pressed={category === group.id}
+                    onClick={() => setCategory(group.id)}
+                  >
+                    {group.label}
+                  </Button>
+                ))}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-1" aria-label="Filter workspace sections">
-              {[{ id: "all", label: "All pages" }, ...definition.groups].map((group) => (
-                <Button
-                  key={group.id}
-                  variant={category === group.id ? "default" : "ghost"}
-                  aria-pressed={category === group.id}
-                  onClick={() => setCategory(group.id)}
-                >
-                  {group.label}
-                </Button>
-              ))}
-            </div>
-          </div>
+          )}
           <div className="space-y-6">
-            {filtered.map((group) => (
+            {(definition.finder === false ? definition.groups : filtered).map((group) => (
               <section key={group.id} aria-label={group.label}>
                 <h2 className="m-0! text-lg font-semibold">{group.label}</h2>
                 <p className="mb-3! mt-1! text-sm text-muted-foreground">{group.description}</p>
@@ -134,7 +138,7 @@ export function HrOperationsWorkspace({
               </section>
             ))}
           </div>
-          {!filtered.length ? (
+          {definition.finder !== false && !filtered.length ? (
             <div className="rounded-lg border border-dashed border-border p-6 text-center">
               <p>No pages match your search.</p>
               <Button

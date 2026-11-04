@@ -388,4 +388,15 @@ describe("HR browser client", () => {
     expect(api.listHrEmployeeLifecycleEvents).toHaveBeenCalledWith("employee/a", "?limit=10&cursor=next%2Fvalue");
     expect(api.listHrEmployeeProfileHistory).toHaveBeenCalledWith("employee/a", "?limit=25");
   });
+
+  it("reads company-configured job-grade currencies through the generated client", async () => {
+    const directory = { items: [{ currency_code: "USD", currency_name: "US Dollar", is_base: true }] };
+    const api = {
+      listHrJobGradeCurrencies: vi.fn(async () => directory),
+    } as unknown as NexoraApiClient;
+    const client = new HrApiClient(api);
+
+    await expect(client.jobGradeCurrencies("company/a")).resolves.toEqual(directory);
+    expect(api.listHrJobGradeCurrencies).toHaveBeenCalledWith("?company_id=company%2Fa");
+  });
 });

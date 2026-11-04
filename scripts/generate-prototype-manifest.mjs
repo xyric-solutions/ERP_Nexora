@@ -93,8 +93,17 @@ function productionModuleFor(groupId, pageId) {
       : "M04 Employee Core";
   if (groupId === "recruitment")
     return pageId === "manpower-requisitions" ? "M05 Manpower Planning" : "M06 Recruitment";
-  if (groupId === "attendance-shifts") return "M11 Time & Attendance";
-  if (groupId === "time-leave") return pageId === "attendance" ? "M11 Time & Attendance" : "M12 Leave";
+  if (groupId === "attendance-leave")
+    return [
+      "time-leave-workspace",
+      "leave-types",
+      "leave-balances",
+      "leave-requests",
+      "leave-request",
+      "leave-approval",
+    ].includes(pageId)
+      ? "M12 Leave"
+      : "M11 Time & Attendance";
   if (groupId === "payroll")
     return ["payroll-journal", "payment-batch"].includes(pageId) ? "M15 Payments & Finance" : "M13 Payroll & Statutory";
   if (["performance", "learning"].includes(groupId)) return "M08 Manage & Develop";

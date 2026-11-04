@@ -356,6 +356,7 @@ import {
   deleteHrMasterRequestSchema,
   hrMasterDeleteResultSchema,
   hrJobGradeDirectorySchema,
+  hrJobGradeCurrencyDirectorySchema,
   createHrJobGradeRequestSchema,
   updateHrJobGradeRequestSchema,
   hrEmployeeContactDirectorySchema,
@@ -6246,6 +6247,29 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/hr/job_grade_currencies": {
+        get: {
+          operationId: "listHrJobGradeCurrencies",
+          description:
+            "Active company currencies configured under Finance → Company currencies, read for job-grade maintenance. Base currency first, then by code. Requires hr.master.read and company access.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Active company currencies available for job grades",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrJobGradeCurrencyDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
       "/hr/job_grades/{gradeId}": {
         patch: {
           operationId: "updateHrJobGrade",
@@ -7500,6 +7524,7 @@ export function buildOpenApiDocument() {
         DeleteHrMasterRequest: schema(deleteHrMasterRequestSchema),
         HrMasterDeleteResult: schema(hrMasterDeleteResultSchema),
         HrJobGradeDirectory: schema(hrJobGradeDirectorySchema),
+        HrJobGradeCurrencyDirectory: schema(hrJobGradeCurrencyDirectorySchema),
         CreateHrJobGradeRequest: schema(createHrJobGradeRequestSchema),
         UpdateHrJobGradeRequest: schema(updateHrJobGradeRequestSchema),
         HrEmployeeContactDirectory: schema(hrEmployeeContactDirectorySchema),

@@ -102,6 +102,7 @@ import type {
   DeleteHrMasterRequest,
   HrMasterDeleteResult,
   HrJobGradeDirectory,
+  HrJobGradeCurrencyDirectory,
   CreateHrJobGradeRequest,
   UpdateHrJobGradeRequest,
   UpdateHrEmployeeDraftRequest,
@@ -7379,6 +7380,45 @@ export class SourceHrRepository {
     });
   }
 
+  /**
+   * Active company currencies configured under Finance, read for job-grade
+   * maintenance. Read-only; Finance remains the owner of currency setup.
+   */
+  async listJobGradeCurrencies(context: HrActorContext, companyId: string): Promise<HrJobGradeCurrencyDirectory> {
+    return this.read(context, "hr.master.read", async (client) => {
+      await this.requireCompanyAccess(client, context, companyId);
+      return { items: await this.activeCompanyCurrencies(client, context, companyId) };
+    });
+  }
+
+  /** Company currency rows are protected by company-scoped row security keyed on the acting user. */
+  private async activeCompanyCurrencies(
+    client: PoolClient,
+    context: HrActorContext,
+    companyId: string,
+  ): Promise<HrJobGradeCurrencyDirectory["items"]> {
+    await client.query("select set_config('nexora.user_id',$1,true)", [context.actor.userId]);
+    const result = await client.query<HrJobGradeCurrencyDirectory["items"][number]>(
+      `select company_currency.currency_code,
+              coalesce(mapping.currency_name,standard.name,company_currency.currency_code) as currency_name,
+              company_currency.is_base
+         from company_currency
+         join currency standard
+           on standard.tenant_id=company_currency.tenant_id
+          and standard.code=company_currency.currency_code
+          and standard.status='active'
+         left join country_currency_catalog mapping
+           on mapping.country_code=company_currency.selected_country_code
+          and mapping.currency_code=company_currency.currency_code
+        where company_currency.tenant_id=$1 and company_currency.company_id=$2
+          and company_currency.status='active'
+        order by company_currency.is_base desc,company_currency.currency_code,company_currency.id
+        limit 300`,
+      [context.tenantId, companyId],
+    );
+    return result.rows;
+  }
+
   async createJobGrade(
     context: HrActorContext,
     input: CreateHrJobGradeRequest,
@@ -7434,6 +7474,17 @@ export class SourceHrRepository {
         [context.tenantId, gradeId, input.company_id],
       )).rows[0] : null;
       if (gradeId && !before) throw new HrApiError(404, "HR_JOB_GRADE_NOT_FOUND", "Job grade was not found.");
+      const currencyCode = input.currency_code.toUpperCase();
+      // A legacy grade may keep its existing currency; any new or changed currency must be configured for the company.
+      if (!(before && before.currency_code === currencyCode)) {
+        const configured = await this.activeCompanyCurrencies(client, context, input.company_id);
+        if (!configured.some((item) => item.currency_code === currencyCode))
+          throw new HrApiError(
+            409,
+            "HR_JOB_GRADE_CURRENCY_NOT_CONFIGURED",
+            "Choose a currency configured for this company under Finance → Company currencies.",
+          );
+      }
       let id = gradeId;
       if (operation === "create") {
         input = { ...input, code: await allocateHrCode(client, context.tenantId, input.company_id, "job_grade", input.code) };

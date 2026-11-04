@@ -31,7 +31,7 @@ import {
   WalletCards,
 } from "lucide-react";
 
-import { attendanceWorkspace, leaveWorkspace } from "./time-workspace-navigation";
+import { attendanceLeaveWorkspace } from "./time-workspace-navigation";
 
 export const payrollWorkspace = {
   id: "payroll-workspace",
@@ -386,8 +386,7 @@ export const compactHrWorkspaces: Record<string, string> = {
   organisation: "organisation-masters",
   people: "people-workspace",
   recruitment: "recruitment-workspace",
-  "attendance-shifts": attendanceWorkspace.id,
-  "time-leave": leaveWorkspace.id,
+  "attendance-leave": attendanceLeaveWorkspace.id,
   payroll: payrollWorkspace.id,
   performance: performanceWorkspace.id,
   learning: learningWorkspace.id,

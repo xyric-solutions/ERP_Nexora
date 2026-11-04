@@ -40,6 +40,7 @@ function appForHr(
     | "deleteJobGrade"
     | "deleteOrganizationUnit"
     | "listJobGrades"
+    | "listJobGradeCurrencies"
     | "createJobGrade"
     | "updateJobGrade"
     | "createEmployeeDraft"
@@ -364,6 +365,35 @@ describe("HR API foundation", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual(directory);
     expect(repository.listJobGrades).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), "company-a");
+  });
+
+  it("returns company-configured currencies for job-grade maintenance", async () => {
+    const directory = {
+      items: [
+        { currency_code: "USD", currency_name: "US Dollar", is_base: true },
+        { currency_code: "PKR", currency_name: "Pakistani Rupee", is_base: false },
+      ],
+    };
+    const repository = { listJobGradeCurrencies: vi.fn(async () => directory) } as unknown as Pick<
+      SourceHrRepository,
+      "listJobGradeCurrencies"
+    >;
+    const response = await request(appForHr(repository))
+      .get("/api/v1/hr/job_grade_currencies?company_id=company-a")
+      .set("cookie", "nexora_session=token-hr");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(directory);
+    expect(repository.listJobGradeCurrencies).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "company-a",
+    );
+
+    const missingCompany = await request(appForHr(repository))
+      .get("/api/v1/hr/job_grade_currencies")
+      .set("cookie", "nexora_session=token-hr");
+    expect(missingCompany.status).toBe(400);
+    expect(repository.listJobGradeCurrencies).toHaveBeenCalledTimes(1);
   });
 
   it("validates and protects job-grade creation with browser mutation controls", async () => {

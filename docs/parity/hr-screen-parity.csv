@@ -9,6 +9,14 @@ hr,organisation,Organisation & Masters,work-locations,Work Locations,list,live,H
 hr,organisation,Organisation & Masters,employment-setup,Employment Setup,list,live,HrConfiguredMasterSheetWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M03 Organisation
 hr,organisation,Organisation & Masters,employment-types,Employment Types,list,live,HrConfiguredMasterSheetWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M03 Organisation
 hr,organisation,Organisation & Masters,employee-categories,Employee Categories,list,live,HrConfiguredMasterSheetWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M03 Organisation
+hr,recruitment,Recruitment,recruitment-workspace,Recruitment,dashboard,live,HrRecruitmentWorkspace,NAVIGATION_ONLY,NAVIGATION_ONLY,M06 Recruitment
+hr,recruitment,Recruitment,manpower-requisitions,Manpower Requisitions,approval,live,HrManpowerRequisitionsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M05 Manpower Planning
+hr,recruitment,Recruitment,job-openings,Job Openings,list,live,HrJobOpeningsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M06 Recruitment
+hr,recruitment,Recruitment,candidates,Candidate Directory,list,live,HrCandidateDirectoryWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M06 Recruitment
+hr,recruitment,Recruitment,recruitment-pipeline,Recruitment Pipeline,workflow,live,HrRecruitmentPipelineWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M06 Recruitment
+hr,recruitment,Recruitment,interviews,Interviews & Evaluations,workflow,live,HrInterviewsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M06 Recruitment
+hr,recruitment,Recruitment,offers,Offer Management,approval,live,HrOfferManagementWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M06 Recruitment
+hr,recruitment,Recruitment,create-employee-from-offer,Create Employee from Offer,workflow,live,HrOfferEmployeeWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M06 Recruitment
 hr,people,People,people-workspace,People,dashboard,live,HrPeopleWorkspace,NAVIGATION_ONLY,NAVIGATION_ONLY,M04 Employee Core
 hr,people,People,hr-dashboard,HR Dashboard,dashboard,live,HrDashboardWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M17 Reporting & Compliance
 hr,people,People,finance-payroll-dashboard,Finance / Payroll Dashboard,dashboard,live,HrFinancePayrollDashboardWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M17 Reporting & Compliance
@@ -23,30 +31,22 @@ hr,people,People,employee-assignments,Employment Assignments,list,live,HrEmploye
 hr,people,People,employee-status-history,Employee History,list,live,HrEmployeeHistoryWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M04 Employee Core
 hr,people,People,employee-record,Employee Record,detail,live,HrEmployeeRecordWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M04 Employee Core
 hr,people,People,positions-org,Positions & Organisation,list,live,HrPositionsOrganizationWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M04 Employee Core
-hr,recruitment,Recruitment,recruitment-workspace,Recruitment,dashboard,live,HrRecruitmentWorkspace,NAVIGATION_ONLY,NAVIGATION_ONLY,M06 Recruitment
-hr,recruitment,Recruitment,manpower-requisitions,Manpower Requisitions,approval,live,HrManpowerRequisitionsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M05 Manpower Planning
-hr,recruitment,Recruitment,job-openings,Job Openings,list,live,HrJobOpeningsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M06 Recruitment
-hr,recruitment,Recruitment,candidates,Candidate Directory,list,live,HrCandidateDirectoryWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M06 Recruitment
-hr,recruitment,Recruitment,recruitment-pipeline,Recruitment Pipeline,workflow,live,HrRecruitmentPipelineWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M06 Recruitment
-hr,recruitment,Recruitment,interviews,Interviews & Evaluations,workflow,live,HrInterviewsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M06 Recruitment
-hr,recruitment,Recruitment,offers,Offer Management,approval,live,HrOfferManagementWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M06 Recruitment
-hr,recruitment,Recruitment,create-employee-from-offer,Create Employee from Offer,workflow,live,HrOfferEmployeeWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M06 Recruitment
-hr,attendance-shifts,Attendance & Shifts,attendance-workspace,Attendance & Shifts,dashboard,live,HrOperationsWorkspace,NAVIGATION_ONLY,NAVIGATION_ONLY,M11 Time & Attendance
-hr,attendance-shifts,Attendance & Shifts,shifts,Shifts & Rules,settings,live,HrShiftsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
-hr,attendance-shifts,Attendance & Shifts,shift-assignments,Shift Assignments,list,live,HrShiftAssignmentsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
-hr,attendance-shifts,Attendance & Shifts,daily-attendance,Daily Attendance,list,live,HrDailyAttendanceWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
-hr,attendance-shifts,Attendance & Shifts,monthly-attendance,Monthly Attendance,list,live,HrMonthlyAttendanceWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
-hr,attendance-shifts,Attendance & Shifts,attendance-corrections,Attendance Corrections,approval,live,HrAttendanceCorrectionsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
-hr,attendance-shifts,Attendance & Shifts,overtime,Overtime,approval,live,HrAttendanceCompletionWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
-hr,attendance-shifts,Attendance & Shifts,attendance-period,Attendance Period Close,workflow,live,HrAttendanceCompletionWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
-hr,attendance-shifts,Attendance & Shifts,attendance-payroll-inputs,Attendance → Payroll Inputs,report,live,HrAttendanceCompletionWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
-hr,time-leave,Time & Leave,time-leave-workspace,Time & Leave,dashboard,live,HrOperationsWorkspace,NAVIGATION_ONLY,NAVIGATION_ONLY,M12 Leave
-hr,time-leave,Time & Leave,leave-types,Leave Types,settings,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
-hr,time-leave,Time & Leave,leave-balances,Leave Balances,list,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
-hr,time-leave,Time & Leave,attendance,Attendance,list,live,HrDailyAttendanceWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
-hr,time-leave,Time & Leave,leave-requests,Leave Requests,list,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
-hr,time-leave,Time & Leave,leave-request,Add Leave Request,form,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
-hr,time-leave,Time & Leave,leave-approval,Leave Approval,approval,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
+hr,attendance-leave,Attendance & Leave,attendance-workspace,Attendance & Leave,dashboard,live,HrOperationsWorkspace,NAVIGATION_ONLY,NAVIGATION_ONLY,M11 Time & Attendance
+hr,attendance-leave,Attendance & Leave,shifts,Shifts & Rules,settings,live,HrShiftsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
+hr,attendance-leave,Attendance & Leave,shift-assignments,Shift Assignments,list,live,HrShiftAssignmentsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
+hr,attendance-leave,Attendance & Leave,leave-types,Leave Types,settings,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
+hr,attendance-leave,Attendance & Leave,leave-balances,Leave Balances,list,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
+hr,attendance-leave,Attendance & Leave,daily-attendance,Daily Attendance,list,live,HrDailyAttendanceWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
+hr,attendance-leave,Attendance & Leave,attendance-corrections,Attendance Corrections,approval,live,HrAttendanceCorrectionsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
+hr,attendance-leave,Attendance & Leave,overtime,Overtime,approval,live,HrAttendanceCompletionWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
+hr,attendance-leave,Attendance & Leave,leave-requests,Leave Requests,list,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
+hr,attendance-leave,Attendance & Leave,leave-request,Add Leave Request,form,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
+hr,attendance-leave,Attendance & Leave,leave-approval,Leave Approval,approval,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
+hr,attendance-leave,Attendance & Leave,monthly-attendance,Monthly Attendance,list,live,HrMonthlyAttendanceWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
+hr,attendance-leave,Attendance & Leave,attendance-period,Attendance Period Close,workflow,live,HrAttendanceCompletionWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
+hr,attendance-leave,Attendance & Leave,attendance-payroll-inputs,Attendance → Payroll Inputs,report,live,HrAttendanceCompletionWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
+hr,attendance-leave,Attendance & Leave,time-leave-workspace,Time & Leave,dashboard,live,HrOperationsWorkspace,NAVIGATION_ONLY,NAVIGATION_ONLY,M12 Leave
+hr,attendance-leave,Attendance & Leave,attendance,Attendance,list,live,HrDailyAttendanceWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
 hr,payroll,Payroll,payroll-workspace,Payroll,dashboard,live,HrOperationsWorkspace,NAVIGATION_ONLY,NAVIGATION_ONLY,M13 Payroll & Statutory
 hr,payroll,Payroll,payroll-setup,Pay Components,settings,live,HrPayrollWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M13 Payroll & Statutory
 hr,payroll,Payroll,salary-structures,Salary Structures,list,live,HrPayrollWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M13 Payroll & Statutory
