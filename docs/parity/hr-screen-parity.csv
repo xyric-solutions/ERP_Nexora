@@ -36,15 +36,15 @@ hr,attendance-leave,Attendance & Leave,shifts,Shifts & Rules,settings,live,HrShi
 hr,attendance-leave,Attendance & Leave,shift-assignments,Shift Assignments,list,live,HrShiftAssignmentsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
 hr,attendance-leave,Attendance & Leave,leave-types,Leave Types,settings,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
 hr,attendance-leave,Attendance & Leave,leave-balances,Leave Balances,list,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
+hr,attendance-leave,Attendance & Leave,leave-requests,Leave Request,list,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
+hr,attendance-leave,Attendance & Leave,leave-approval,Leave Approval,approval,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
 hr,attendance-leave,Attendance & Leave,daily-attendance,Daily Attendance,list,live,HrDailyAttendanceWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
 hr,attendance-leave,Attendance & Leave,attendance-corrections,Attendance Corrections,approval,live,HrAttendanceCorrectionsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
 hr,attendance-leave,Attendance & Leave,overtime,Overtime,approval,live,HrAttendanceCompletionWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
-hr,attendance-leave,Attendance & Leave,leave-requests,Leave Requests,list,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
-hr,attendance-leave,Attendance & Leave,leave-request,Add Leave Request,form,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
-hr,attendance-leave,Attendance & Leave,leave-approval,Leave Approval,approval,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
 hr,attendance-leave,Attendance & Leave,monthly-attendance,Monthly Attendance,list,live,HrMonthlyAttendanceWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
 hr,attendance-leave,Attendance & Leave,attendance-period,Attendance Period Close,workflow,live,HrAttendanceCompletionWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
 hr,attendance-leave,Attendance & Leave,attendance-payroll-inputs,Attendance → Payroll Inputs,report,live,HrAttendanceCompletionWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
+hr,attendance-leave,Attendance & Leave,leave-request,Add Leave Request,form,live,HrTimeLeaveWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M12 Leave
 hr,attendance-leave,Attendance & Leave,time-leave-workspace,Time & Leave,dashboard,live,HrOperationsWorkspace,NAVIGATION_ONLY,NAVIGATION_ONLY,M12 Leave
 hr,attendance-leave,Attendance & Leave,attendance,Attendance,list,live,HrDailyAttendanceWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M11 Time & Attendance
 hr,payroll,Payroll,payroll-workspace,Payroll,dashboard,live,HrOperationsWorkspace,NAVIGATION_ONLY,NAVIGATION_ONLY,M13 Payroll & Statutory

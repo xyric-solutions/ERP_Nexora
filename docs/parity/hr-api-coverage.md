@@ -47,15 +47,15 @@ Source evidence: `app/shell/prototype-content.tsx` selects the renderers below; 
 | Attendance & Leave | Shift Assignments | `/#/hr/shift-assignments` | `HrShiftAssignmentsWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Leave Types | `/#/hr/leave-types` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Leave Balances | `/#/hr/leave-balances` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Leave Request | `/#/hr/leave-requests` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Leave Approval | `/#/hr/leave-approval` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Daily Attendance | `/#/hr/daily-attendance` | `HrDailyAttendanceWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Attendance Corrections | `/#/hr/attendance-corrections` | `HrAttendanceCorrectionsWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Overtime | `/#/hr/overtime` | `HrAttendanceCompletionWorkspace` | API_CONNECTED_SOURCE |
-| Attendance & Leave | Leave Requests | `/#/hr/leave-requests` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
-| Attendance & Leave | Add Leave Request | `/#/hr/leave-request` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
-| Attendance & Leave | Leave Approval | `/#/hr/leave-approval` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Monthly Attendance | `/#/hr/monthly-attendance` | `HrMonthlyAttendanceWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Attendance Period Close | `/#/hr/attendance-period` | `HrAttendanceCompletionWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Attendance → Payroll Inputs | `/#/hr/attendance-payroll-inputs` | `HrAttendanceCompletionWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Add Leave Request | `/#/hr/leave-request` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Time & Leave | `/#/hr/time-leave-workspace` | `HrOperationsWorkspace` | NAVIGATION_ONLY |
 | Attendance & Leave | Attendance | `/#/hr/attendance` | `HrDailyAttendanceWorkspace` | API_CONNECTED_SOURCE |
 | Payroll | Payroll | `/#/hr/payroll-workspace` | `HrOperationsWorkspace` | NAVIGATION_ONLY |

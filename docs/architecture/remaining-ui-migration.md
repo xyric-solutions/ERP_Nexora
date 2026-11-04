@@ -3797,3 +3797,18 @@ Company Chart adoption/review checkpoint (2026-10-20):
   screenshots re-baselined. Safe resume point: visual acceptance of the
   Attendance & Leave landing, the five sections and the Job Grade currency
   dropdown.
+
+## 2026-11-04 - Attendance & Leave: single Leave Setup section and Leave Request
+
+- Attendance & Leave now has four sections: Shift Setup; Leave Setup (Leave
+  Types, Leave Balances, Leave Request, Leave Approval); Daily Attendance;
+  Month-end & Payroll.
+- "Leave Requests" and "Add Leave Request" were the same screen (the add page
+  is the request list with the add form open), so the menu shows one item,
+  **Leave Request** (`leave-requests`). Its "+ Add leave request" button and
+  the Leave Balances request link still open the add form at
+  `#/hr/leave-request`, now a hidden page whose tab highlight falls under
+  Leave Request (`timeNavigationPageId`).
+- Verification: route resolution for all 13 visible pages and 3 hidden
+  addresses, `tsc --noEmit`, ESLint, Prettier, `catalogue:check`, production
+  build and `git diff --check` passed. No API or permission change.

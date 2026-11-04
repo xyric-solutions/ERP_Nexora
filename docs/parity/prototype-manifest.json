@@ -3392,6 +3392,20 @@
               "hiddenFromNavigation": false
             },
             {
+              "id": "leave-requests",
+              "label": "Leave Request",
+              "archetype": "list",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "leave-approval",
+              "label": "Leave Approval",
+              "archetype": "approval",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
               "id": "daily-attendance",
               "label": "Daily Attendance",
               "archetype": "list",
@@ -3408,27 +3422,6 @@
             {
               "id": "overtime",
               "label": "Overtime",
-              "archetype": "approval",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "leave-requests",
-              "label": "Leave Requests",
-              "archetype": "list",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "leave-request",
-              "label": "Add Leave Request",
-              "archetype": "form",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "leave-approval",
-              "label": "Leave Approval",
               "archetype": "approval",
               "status": "live",
               "hiddenFromNavigation": false
@@ -3453,6 +3446,13 @@
               "archetype": "report",
               "status": "live",
               "hiddenFromNavigation": false
+            },
+            {
+              "id": "leave-request",
+              "label": "Add Leave Request",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
             },
             {
               "id": "time-leave-workspace",

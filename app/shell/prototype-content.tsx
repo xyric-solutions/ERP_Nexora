@@ -81,7 +81,11 @@ import { HrPeopleWorkspace } from "@prototype/features/hr/views/hr-people-worksp
 import { isPeoplePage } from "@prototype/features/hr/model/people-navigation";
 import { HrRecruitmentWorkspace } from "@prototype/features/hr/views/hr-recruitment-workspace";
 import { isRecruitmentPage } from "@prototype/features/hr/model/recruitment-navigation";
-import { findTimeWorkspace, resolveTimePageId } from "@prototype/features/hr/model/time-workspace-navigation";
+import {
+  findTimeWorkspace,
+  resolveTimePageId,
+  timeNavigationPageId,
+} from "@prototype/features/hr/model/time-workspace-navigation";
 import { findHrSectionWorkspace } from "@prototype/features/hr/model/hr-section-navigation";
 import { HrOperationsWorkspace } from "@prototype/features/hr/views/hr-operations-workspace";
 import {
@@ -2917,7 +2921,7 @@ export function PrototypeContent(props: PrototypeContentProps) {
       <HrOperationsWorkspace
         key={timePageId + (context.recordRef ?? "")}
         definition={timeWorkspace}
-        pageId={timePageId}
+        pageId={timeNavigationPageId(timePageId)}
         onNavigate={props.onNavigate}
       >
         {page}

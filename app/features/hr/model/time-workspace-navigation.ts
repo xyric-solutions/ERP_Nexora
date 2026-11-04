@@ -2,7 +2,6 @@ import {
   CalendarCheck,
   CalendarDays,
   CalendarRange,
-  CalendarClock,
   ClipboardCheck,
   Clock3,
   FileCheck2,
@@ -45,7 +44,7 @@ export const attendanceLeaveWorkspace = {
     {
       id: "leave-setup",
       label: "Leave Setup",
-      description: "Maintain leave policies and review employee entitlements.",
+      description: "Maintain leave policies and balances, raise leave requests and record approvals.",
       pages: [
         {
           id: "leave-types",
@@ -58,6 +57,18 @@ export const attendanceLeaveWorkspace = {
           label: "Leave Balances",
           description: "Review balances, reservations and authorized ledger adjustments.",
           icon: Wallet,
+        },
+        {
+          id: "leave-requests",
+          label: "Leave Request",
+          description: "Find leave requests, review their history and add a new request.",
+          icon: CalendarRange,
+        },
+        {
+          id: "leave-approval",
+          label: "Leave Approval",
+          description: "Review request evidence and record authorized decisions.",
+          icon: ClipboardCheck,
         },
       ],
     },
@@ -83,31 +94,6 @@ export const attendanceLeaveWorkspace = {
           label: "Overtime",
           description: "Maintain operational rules and review overtime requests.",
           icon: Clock3,
-        },
-      ],
-    },
-    {
-      id: "leave-requests",
-      label: "Leave Requests",
-      description: "Prepare requests and manage the existing review process.",
-      pages: [
-        {
-          id: "leave-requests",
-          label: "Leave Requests",
-          description: "Find leave requests and review their status and history.",
-          icon: CalendarRange,
-        },
-        {
-          id: "leave-request",
-          label: "Add Leave Request",
-          description: "Prepare a request using the employee's eligible leave policy.",
-          icon: CalendarClock,
-        },
-        {
-          id: "leave-approval",
-          label: "Leave Approval",
-          description: "Review request evidence and record authorized decisions.",
-          icon: ClipboardCheck,
         },
       ],
     },
@@ -146,11 +132,16 @@ const timePageAliases: Readonly<Record<string, string>> = {
 };
 export const resolveTimePageId = (pageId: string) => timePageAliases[pageId] ?? pageId;
 
+/** Pages without their own menu entry, shown under the page they belong to (the add form opens on Leave Request). */
+const timeNavigationParents: Readonly<Record<string, string>> = { "leave-request": "leave-requests" };
+export const timeNavigationPageId = (pageId: string) => timeNavigationParents[pageId] ?? pageId;
+
 export const timeWorkspaces = [attendanceLeaveWorkspace];
 export const findTimeWorkspace = (pageId: string) => {
   const resolved = resolveTimePageId(pageId);
   return timeWorkspaces.find(
     (workspace) =>
-      workspace.id === resolved || workspace.groups.some((group) => group.pages.some((page) => page.id === resolved)),
+      workspace.id === resolved ||
+      workspace.groups.some((group) => group.pages.some((page) => page.id === timeNavigationPageId(resolved))),
   );
 };
