@@ -4130,3 +4130,21 @@ Company Chart adoption/review checkpoint (2026-10-20):
   through governed corrections, assignments and exit cases.
 - Verification: `tsc --noEmit`, ESLint (only pre-existing findings), UI
   theme audit, production build, `git diff --check`.
+
+## 2026-11-05 - Shifts & Rules list rows open a detail drawer
+
+- Removed the "Consistent working rules across the company" banner with its
+  Refresh and Assign shifts buttons (Shift Assignments stays in the side menu).
+- New shift sits at the end of the Company / Search / Status filter row,
+  replacing the Search button; Enter in the search box still searches.
+- Company shifts render as a table (Shift, Type, Working hours, Time zone,
+  Status) styled like the Employee Directory; no shift is auto-selected.
+- A row (click, Enter or Space) opens the standard-width `HrMasterSheet` with
+  `HrDetailGroup`/`HrDetailTile` tiles, break policy or weekly rotation,
+  availability (status change) and rule history; Copy and Edit rules sit in
+  the drawer footer. The editor still opens as the elevated `HrRecordDrawer`.
+- Attendance & Leave: the "Daily Attendance" page under the Daily Attendance
+  section is labelled "Attendance"; the Overtime / Period close / Payroll
+  inputs switcher was removed from the month-end and overtime screens.
+- Verification: ESLint (only pre-existing findings), UI theme audit,
+  production build, `git diff --check`. Browser check pending.
