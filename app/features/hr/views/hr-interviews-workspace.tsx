@@ -14,8 +14,6 @@ import {
   ClipboardCheck,
   Clock3,
   Plus,
-  RefreshCw,
-  Search,
   ShieldCheck,
   Users,
   X,
@@ -573,28 +571,6 @@ export function HrInterviewsWorkspace() {
       aria-label="Live interviews and evaluations"
       className="grid min-w-0 gap-5 font-sans text-foreground [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_h4]:mb-0 [&_ul]:m-0 [&_ul]:pl-5"
     >
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-5 sm:p-6">
-        <div>
-          <Badge variant="outline" className="border-primary/30 bg-card text-primary">
-            Recruitment · interview evidence
-          </Badge>
-          <h2 className="mt-3 text-xl font-semibold tracking-tight">Thoughtful interviews. Traceable decisions.</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Coordinate the panel, record individual scorecards and review selection readiness in one place.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          disabled={busy || loading || !applicationId}
-          onClick={() => {
-            setError("");
-            void load();
-          }}
-        >
-          <RefreshCw className="size-4" />
-          Refresh
-        </Button>
-      </div>
       {error ? (
         <Alert variant="destructive">
           <AlertTitle>Action needs attention</AlertTitle>
@@ -607,7 +583,7 @@ export function HrInterviewsWorkspace() {
         </div>
       ) : null}
       <form
-        className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 md:grid-cols-[1fr_1fr_auto]"
+        className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 md:grid-cols-3"
         onSubmit={(e) => {
           e.preventDefault();
           setError("");
@@ -643,20 +619,17 @@ export function HrInterviewsWorkspace() {
             )}
           </select>
         </label>
-        <label className="grid gap-1.5 text-sm font-medium">
+        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
           Find application
           <Input
+            type="search"
             value={search}
             maxLength={160}
-            placeholder="Candidate, application reference or role"
+            placeholder="Candidate, reference or role, then Enter"
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
-        <Button type="submit" variant="outline" disabled={busy || !companyId}>
-          <Search className="size-4" />
-          Search
-        </Button>
-        <label className="grid min-w-0 gap-1.5 text-sm font-medium md:col-span-3">
+        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
           Application
           <select
             className={selectClass}
@@ -679,29 +652,6 @@ export function HrInterviewsWorkspace() {
             )}
           </select>
         </label>
-        <div className="flex flex-wrap items-center justify-between gap-2 md:col-span-3">
-          <span className="text-xs text-muted-foreground">{apps.total} matching applications · up to 50 per page</span>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={busy || query.offset === 0}
-              onClick={() => setQuery((current) => ({ ...current, offset: Math.max(0, current.offset - 50) }))}
-            >
-              Previous
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={busy || query.offset + 50 >= apps.total}
-              onClick={() => setQuery((current) => ({ ...current, offset: current.offset + 50 }))}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
       </form>
       {loading && !workspace ? (
         <Skeleton className="h-80 w-full" />
@@ -1143,6 +1093,29 @@ export function HrInterviewsWorkspace() {
           </div>
         </>
       )}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 py-2">
+        <span className="text-xs text-muted-foreground">{apps.total} matching applications · up to 50 per page</span>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy || query.offset === 0}
+            onClick={() => setQuery((current) => ({ ...current, offset: Math.max(0, current.offset - 50) }))}
+          >
+            Previous
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy || query.offset + 50 >= apps.total}
+            onClick={() => setQuery((current) => ({ ...current, offset: current.offset + 50 }))}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
     </section>
   );
 }

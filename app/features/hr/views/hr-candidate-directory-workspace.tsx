@@ -11,15 +11,8 @@ import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 
 type Candidate = HrCandidateDirectory["items"][number];
-type CandidateForm = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  source: "direct" | "referral" | "agency" | "job_board" | "other";
-};
-const emptyForm: CandidateForm = { firstName: "", lastName: "", email: "", phone: "", source: "direct" };
-const sourceLabel: Record<CandidateForm["source"], string> = {
+type CandidateSource = Candidate["source"];
+const sourceLabel: Record<CandidateSource, string> = {
   direct: "Direct",
   referral: "Referral",
   agency: "Agency",
@@ -33,7 +26,6 @@ export function HrCandidateDirectoryWorkspace() {
   const client = useMemo(() => new HrApiClient(api), [api]);
   const permissions = session?.user.permissions ?? [];
   const canRead = permissions.includes("hr.employee.read");
-  const canCreate = permissions.includes("hr.employee.create");
   const canUpdate = permissions.includes("hr.employee.update");
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [companyId, setCompanyId] = useState("");
@@ -44,8 +36,6 @@ export function HrCandidateDirectoryWorkspace() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const [editor, setEditor] = useState(false);
-  const [form, setForm] = useState<CandidateForm>(emptyForm);
 
   const load = useCallback(
     async (company: string, nextSearch = search, nextStatus = status) => {
@@ -91,38 +81,6 @@ export function HrCandidateDirectoryWorkspace() {
   }, [canRead, client, load, sessionLoading]);
 
   const selected = records.find((record) => record.id === selectedId);
-  const submit = async () => {
-    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) {
-      setMessage("First name, last name and email are required.");
-      return;
-    }
-    setSaving(true);
-    try {
-      const result = await client.createCandidate(
-        {
-          company_id: companyId,
-          first_name: form.firstName.trim(),
-          last_name: form.lastName.trim(),
-          email: form.email.trim(),
-          phone: form.phone.trim(),
-          source: form.source,
-        },
-        csrfToken(),
-        crypto.randomUUID(),
-      );
-      setMessage(`${result.reference} was added to the live candidate directory.`);
-      setEditor(false);
-      setForm(emptyForm);
-      setSelectedId(result.id);
-      await load(companyId);
-    } catch {
-      setMessage(
-        "The candidate could not be saved. Email addresses must be unique among active candidates in this company.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
   const updateStatus = async (next: "active" | "archived") => {
     if (!selected) return;
     setSaving(true);
@@ -214,83 +172,7 @@ export function HrCandidateDirectoryWorkspace() {
         <Button variant="outline" onClick={() => void load(companyId)}>
           Search
         </Button>
-        {canCreate ? (
-          <Button
-            onClick={() => {
-              setEditor(true);
-              setMessage("");
-            }}
-          >
-            + Add candidate
-          </Button>
-        ) : null}
       </div>
-      {editor ? (
-        <HrRecordDrawer
-          title="Add candidate"
-          open={editor}
-          onClose={() => setEditor(false)}
-          busy={saving}
-          notice={message}
-        >
-          <aside className="grid min-w-0 gap-4 rounded-lg border bg-card p-5 border-border">
-            <div>
-              <span className="nx-eyebrow">Recruitment register</span>
-
-              <p className="mt-1 text-sm text-muted-foreground">
-                This creates only the candidate identity record; it does not create an application or employee.
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="grid gap-1 text-sm">
-                First name
-                <Input
-                  value={form.firstName}
-                  onChange={(event) => setForm({ ...form, firstName: event.target.value })}
-                />
-              </label>
-              <label className="grid gap-1 text-sm">
-                Last name
-                <Input value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} />
-              </label>
-              <label className="grid gap-1 text-sm">
-                Email
-                <Input
-                  type="email"
-                  value={form.email}
-                  onChange={(event) => setForm({ ...form, email: event.target.value })}
-                />
-              </label>
-              <label className="grid gap-1 text-sm">
-                Phone
-                <Input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
-              </label>
-              <label className="grid gap-1 text-sm">
-                Source
-                <select
-                  className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                  value={form.source}
-                  onChange={(event) => setForm({ ...form, source: event.target.value as CandidateForm["source"] })}
-                >
-                  {Object.entries(sourceLabel).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button disabled={saving} onClick={() => void submit()}>
-                {saving ? "Saving..." : "Save candidate"}
-              </Button>
-              <Button variant="outline" disabled={saving} onClick={() => setEditor(false)}>
-                Cancel
-              </Button>
-            </div>
-          </aside>
-        </HrRecordDrawer>
-      ) : null}
       {loading ? (
         <Skeleton className="h-64 w-full" />
       ) : (
@@ -354,7 +236,7 @@ export function HrCandidateDirectoryWorkspace() {
           </div>
           <HrRecordDrawer
             title="Candidate details"
-            open={detailsOpen && !editor}
+            open={detailsOpen}
             onClose={() => setDetailsOpen(false)}
             busy={saving}
             notice={message}

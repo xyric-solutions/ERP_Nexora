@@ -4166,3 +4166,28 @@ Company Chart adoption/review checkpoint (2026-10-20):
   by the Shifts & Rules drawer.
 - Verification: ESLint (only pre-existing findings), UI theme audit,
   production build, `git diff --check`. Browser check pending.
+
+## 2026-11-05 - Recruitment toolbars, rows and detail drawers
+
+- Candidate Directory: removed Add candidate and its create drawer (only
+  entry point; user decision). Company / Search / Status / Search unchanged.
+- Recruitment Pipeline: removed the "A clear path from application to
+  evaluation" banner and Refresh; Add application replaces Apply filters in
+  the toolbar. Stage applies on change; search applies on Enter.
+- Interviews & Evaluations: removed the banner and Refresh; Company, Find
+  application and Application sit in one row (Search button dropped, Enter
+  searches); Previous/Next moved below the application workspace.
+- Offer Management: removed the banner and Refresh; Prepare offer replaces
+  Apply filters (status applies on change). The Offer register is a table;
+  a row opens the standard `HrMasterSheet` with terms/placement tiles,
+  exception and acceptance notes, Update offer (inline, same actions),
+  generated letter and history; Edit draft terms is in the drawer footer.
+- Create Employee from Offer: removed the banner and Refresh; lists all
+  offers (new Offer status filter, default All) as rows. Accepted offers
+  open the full handoff in the drawer (terms, progress, assignment/hire
+  panel, inline Create employee draft); other offers show their summary and
+  a link to Offer Management, since the server allows creation only after
+  acceptance.
+- Shared `model/hr-offer-display.ts` (offer states and money format).
+- Verification: ESLint (no new findings; Candidate Directory 6 -> 2), UI
+  theme audit, production build, `git diff --check`. Browser check pending.

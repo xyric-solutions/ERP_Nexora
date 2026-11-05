@@ -10,8 +10,6 @@ import {
   CircleDot,
   History,
   Plus,
-  RefreshCw,
-  Search,
   Users,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -327,38 +325,6 @@ export function HrRecruitmentPipelineWorkspace() {
       aria-label="Live recruitment pipeline"
       className="grid min-w-0 gap-5 font-sans text-foreground [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_h4]:mb-0 [&_ol]:m-0 [&_ol]:list-none [&_ol]:p-0"
     >
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-5 sm:p-6">
-        <div>
-          <Badge variant="outline" className="border-primary/30 bg-card text-primary">
-            Recruitment workspace
-          </Badge>
-          <h2 className="mt-3 text-xl font-semibold tracking-tight">A clear path from application to evaluation</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Review candidates for each opening, record decisions, and keep the application history together.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            disabled={loading || saving || !companyId}
-            onClick={() => void load()}
-            aria-label="Refresh pipeline"
-          >
-            <RefreshCw className="size-4" />
-            Refresh
-          </Button>
-          {canCreate ? (
-            <Button
-              className="text-primary-foreground!"
-              disabled={!companyId || saving}
-              onClick={openEditor}
-            >
-              <Plus className="size-4" />
-              Add application
-            </Button>
-          ) : null}
-        </div>
-      </div>
       {error ? (
         <Alert variant="destructive" role="alert">
           <AlertTitle>Action needs attention</AlertTitle>
@@ -408,7 +374,8 @@ export function HrRecruitmentPipelineWorkspace() {
         <label className="grid min-w-0 gap-1.5 text-sm font-medium">
           Search applications
           <Input
-            placeholder="Candidate, reference or job title"
+            type="search"
+            placeholder="Candidate, reference or job title, then Enter"
             maxLength={160}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -416,7 +383,15 @@ export function HrRecruitmentPipelineWorkspace() {
         </label>
         <label className="grid gap-1.5 text-sm font-medium">
           Stage
-          <select className={selectStyle} value={stageFilter} onChange={(event) => setStageFilter(event.target.value)}>
+          <select
+            className={selectStyle}
+            value={stageFilter}
+            disabled={saving || !companyId}
+            onChange={(event) => {
+              setStageFilter(event.target.value);
+              setFilter({ search, stage: event.target.value, offset: 0 });
+            }}
+          >
             <option value="">All stages</option>
             {stages.map((stage) => (
               <option key={stage} value={stage}>
@@ -425,10 +400,12 @@ export function HrRecruitmentPipelineWorkspace() {
             ))}
           </select>
         </label>
-        <Button variant="outline" type="submit" disabled={saving || !companyId}>
-          <Search className="size-4" />
-          Apply filters
-        </Button>
+        {canCreate ? (
+          <Button type="button" className="text-primary-foreground!" disabled={!companyId || saving} onClick={openEditor}>
+            <Plus className="size-4" />
+            Add application
+          </Button>
+        ) : null}
       </form>
       {editor ? (
         <HrRecordDrawer

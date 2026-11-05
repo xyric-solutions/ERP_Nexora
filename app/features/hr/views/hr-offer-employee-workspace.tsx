@@ -1,13 +1,11 @@
 "use client";
-import { HrRecordDrawer } from "../components/hr-record-drawer";
-
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type {
   CreateHrOfferEmployeeRequest,
   HrOfferDirectory,
   HrOfferEmployeeWorkspace as Workspace,
 } from "@nexora/contracts";
-import { ArrowRight, CheckCircle2, FileCheck2, RefreshCw, Search, ShieldCheck, UserRoundPlus } from "lucide-react";
+import { ArrowRight, CheckCircle2, FileCheck2, UserRoundPlus } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +17,9 @@ import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { payCycleLabel, paymentRouteLabel } from "../model/employment-setup";
 import { HrHireMakerPanel } from "../components/hr-hire-maker-panel";
+import { HrMasterSheet } from "../components/hr-master-sheet";
+import { HrDetailGroup, HrDetailSection, HrDetailTile } from "../components/hr-detail-tile";
+import { offerMoney, offerStates } from "../model/hr-offer-display";
 
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
 const selectClass =
@@ -26,15 +27,6 @@ const selectClass =
 const fail = (error: unknown) =>
   error instanceof ApiError ? error.message : "The handoff could not be loaded or saved. Please retry.";
 const label = (value: string) => value.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
-function Detail({ name, value }: { name: string; value: string | null }) {
-  return (
-    <div className="min-w-0 rounded-lg border border-border/70 bg-background/60 p-3">
-      <dt className="text-xs font-medium text-muted-foreground">{name}</dt>
-      <dd className="m-0 mt-1 break-words text-sm font-semibold">{value || "Not recorded"}</dd>
-    </div>
-  );
-}
-
 function HandoffForm({
   busy,
   onSave,
@@ -47,15 +39,15 @@ function HandoffForm({
   const [reason, setReason] = useState("");
   return (
     <form
-      className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-5"
+      aria-label="Prepare the employee draft"
+      className="grid min-w-0 gap-4"
       onSubmit={(e) => {
         e.preventDefault();
         void onSave({ employee_number: number, work_email: email || undefined, reason });
       }}
     >
       <div>
-        <h3 className="text-base font-semibold">Prepare the employee draft</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           The candidate name, personal email, phone and agreed joining date carry forward automatically. Keep the
           employee number is allocated automatically across the company group.
         </p>
@@ -179,6 +171,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
   const [company, setCompany] = useState("");
   const [search, setSearch] = useState("");
   const [applied, setApplied] = useState("");
+  const [stateFilter, setStateFilter] = useState("");
   const [offset, setOffset] = useState(0);
   const [offers, setOffers] = useState<HrOfferDirectory>({ items: [], total: 0 });
   const [selected, setSelected] = useState("");
@@ -219,11 +212,11 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
     let current = true;
     setLoading(true);
     client
-      .offers({ companyId: company, state: "accepted", search: applied || undefined, offset })
+      .offers({ companyId: company, state: stateFilter || undefined, search: applied || undefined, offset })
       .then((result) => {
         if (current) {
           setOffers(result);
-          setSelected((value) => (result.items.some((o) => o.id === value) ? value : (result.items[0]?.id ?? "")));
+          setSelected((value) => (result.items.some((o) => o.id === value) ? value : ""));
           setLoading(false);
         }
       })
@@ -237,9 +230,10 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
     return () => {
       current = false;
     };
-  }, [client, company, canRead, applied, offset, revision]);
+  }, [client, company, canRead, applied, stateFilter, offset, revision]);
+  const selectedAccepted = offers.items.find((o) => o.id === selected)?.state === "accepted";
   useEffect(() => {
-    if (!selected || !company) {
+    if (!selected || !company || !selectedAccepted) {
       setWorkspace(null);
       return;
     }
@@ -263,7 +257,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
     return () => {
       current = false;
     };
-  }, [client, company, selected, revision]);
+  }, [client, company, selected, selectedAccepted, revision]);
   const reload = useCallback(() => setRevision((value) => value + 1), []);
   const save = async (fields: Pick<CreateHrOfferEmployeeRequest, "employee_number" | "work_email" | "reason">) => {
     if (!workspace || !csrfToken || mutation.current) return;
@@ -337,39 +331,35 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
     );
   const data = workspace?.offer.id === selected ? workspace : null;
   const handoff = data?.handoff;
+  const summary = offers.items.find((o) => o.id === selected);
+  const openOffer = (id: string) => {
+    if (busy) return;
+    setSelected(id);
+    setWorkspace(null);
+    setError("");
+    setNotice("");
+  };
+  const openRow = (o: HrOfferDirectory["items"][number]) => ({
+    role: "button" as const,
+    tabIndex: 0,
+    "aria-label": `Open ${o.candidate_name} (${o.reference})`,
+    onClick: () => openOffer(o.id),
+    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openOffer(o.id);
+      }
+    },
+  });
   return (
     <div className="grid min-w-0 gap-5 font-sans text-foreground [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0">
-      <section className="flex flex-wrap items-start justify-between gap-4 rounded-xl border border-primary/20 bg-primary/5 p-5">
-        <div className="flex min-w-0 gap-3">
-          <ShieldCheck className="mt-1 size-6 shrink-0 text-primary" />
-          <div>
-            <h2 className="text-lg font-semibold">From accepted offer to governed employment</h2>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Preserve the approved offer, prepare the employee profile and complete independent approvals. Salary setup
-              and payroll remain separate governed steps.
-            </p>
-          </div>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={loading || busy}
-          onClick={() => {
-            setError("");
-            reload();
-          }}
-        >
-          <RefreshCw className="size-4" />
-          Refresh
-        </Button>
-      </section>
-      {error && (
+      {error && !selected && (
         <Alert variant="destructive">
           <AlertTitle>Action needs attention</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      {notice && (
+      {notice && !selected && (
         <div
           role="status"
           className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm"
@@ -379,7 +369,8 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
         </div>
       )}
       <form
-        className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+        aria-label="Find offers"
+        className="grid min-w-0 items-end gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_12rem]"
         onSubmit={(e) => {
           e.preventDefault();
           setError("");
@@ -412,19 +403,36 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
           </select>
         </label>
         <label className="grid min-w-0 gap-2 text-sm font-medium">
-          Find an accepted offer
+          Find an offer
           <Input
+            type="search"
             value={search}
             disabled={busy}
             onChange={(e) => setSearch(e.target.value)}
             maxLength={160}
-            placeholder="Candidate, offer reference or opening"
+            placeholder="Candidate, offer reference or opening, then Enter"
           />
         </label>
-        <Button variant="outline" className="self-end" disabled={!company || busy} type="submit">
-          <Search className="size-4" />
-          Search
-        </Button>
+        <label className="grid min-w-0 gap-2 text-sm font-medium">
+          Offer status
+          <select
+            className={selectClass}
+            value={stateFilter}
+            disabled={busy || !company}
+            onChange={(e) => {
+              setStateFilter(e.target.value);
+              setOffset(0);
+              setError("");
+            }}
+          >
+            <option value="">All statuses</option>
+            {offerStates.map((s) => (
+              <option key={s} value={s}>
+                {label(s)}
+              </option>
+            ))}
+          </select>
+        </label>
       </form>
       {!company && !loading && (
         <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
@@ -432,50 +440,69 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
         </div>
       )}
       {company && (
-        <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(15rem,0.75fr)_minmax(0,2fr)]">
-          <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-card">
-            <div className="flex items-center justify-between gap-2 border-b border-border p-4">
-              <h3 className="text-sm font-semibold">Accepted offers</h3>
-              <Badge variant="secondary">{offers.total}</Badge>
+        <div className="relative overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+          {loading && !offers.items.length ? (
+            <div className="grid gap-2 p-4" aria-live="polite">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
             </div>
-            {loading && !offers.items.length ? (
-              <Skeleton className="m-4 h-40" />
-            ) : offers.items.length ? (
-              <div className="grid max-h-80 gap-2 overflow-y-auto p-3 xl:max-h-[48rem]">
-                {offers.items.map((o) => (
-                  <button
-                    type="button"
-                    key={o.id}
-                    disabled={busy}
-                    aria-pressed={selected === o.id}
-                    className={`grid min-w-0 gap-2 rounded-lg border p-3 text-left text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50 ${selected === o.id ? "border-primary bg-primary/10" : "border-border bg-background hover:bg-muted"}`}
-                    onClick={() => {
-                      setSelected(o.id);
-                      setWorkspace(null);
-                      setError("");
-                      setNotice("");
-                    }}
-                  >
-                    <span className="break-words text-sm font-semibold">{o.candidate_name}</span>
-                    <span className="break-words text-xs text-muted-foreground">
-                      {o.reference} · {o.opening_title}
-                    </span>
-                    <span className="text-xs text-muted-foreground">Joining {o.joining_on}</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="grid gap-3 p-5 text-sm text-muted-foreground">
-                <p>
-                  No accepted offers match this company and search. Complete offer approval, letter delivery and
-                  recorded acceptance first.
-                </p>
-                <Button type="button" variant="outline" onClick={() => onNavigate("hr", "offers")}>
-                  Open Offer Management
-                </Button>
-              </div>
-            )}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border p-3">
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-200 border-collapse text-left text-sm" aria-label="Offers">
+                <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3">Candidate</th>
+                    <th className="px-4 py-3">Opening</th>
+                    <th className="px-4 py-3">Joining date</th>
+                    <th className="px-4 py-3">Monthly gross</th>
+                    <th className="px-4 py-3">Offer status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {offers.items.map((o) => (
+                    <tr
+                      key={o.id}
+                      aria-disabled={busy}
+                      className={`cursor-pointer border-b border-border/70 transition-colors last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selected === o.id ? "bg-primary/5" : ""}`}
+                      {...openRow(o)}
+                    >
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-foreground">{o.candidate_name}</p>
+                        <p className="font-mono text-xs text-muted-foreground">{o.reference}</p>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{o.opening_title}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{o.joining_on}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{offerMoney(o.proposed_gross, o.currency_code)}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant={o.is_overdue ? "destructive" : o.state === "accepted" ? "secondary" : "outline"}>
+                          {o.is_overdue ? "Overdue" : label(o.state)}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                  {offers.items.length === 0 && (
+                    <tr>
+                      <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
+                        <div className="grid justify-items-center gap-3">
+                          <p>No offers match this company, search and status.</p>
+                          <Button type="button" variant="outline" size="sm" onClick={() => onNavigate("hr", "offers")}>
+                            Open Offer Management
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2">
+            <span className="text-xs text-muted-foreground">
+              {offers.total ? `${offset + 1}–${Math.min(offset + 50, offers.total)}` : "0"} of {offers.total} offers ·
+              employee creation opens on accepted offers
+            </span>
+            <div className="flex gap-2">
               <Button
                 size="sm"
                 variant="outline"
@@ -484,9 +511,6 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
               >
                 Previous
               </Button>
-              <span className="text-xs text-muted-foreground">
-                {offers.total ? `${offset + 1}–${Math.min(offset + 50, offers.total)}` : "0"} of {offers.total}
-              </span>
               <Button
                 size="sm"
                 variant="outline"
@@ -496,187 +520,228 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
                 Next
               </Button>
             </div>
-          </section>
-          <div className="grid min-w-0 gap-5" aria-busy={detailLoading || busy}>
-            {detailLoading && !data ? (
-              <Skeleton className="h-96 w-full" />
-            ) : data ? (
-              <>
-                <section className="overflow-hidden rounded-xl border border-border bg-card">
-                  <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-5">
-                    <div>
-                      <div className="text-xs font-medium uppercase tracking-wider text-primary">
-                        Accepted offer · {data.offer.reference}
-                      </div>
-                      <h2 className="mt-2 break-words text-xl font-semibold">{data.offer.candidate_name}</h2>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {data.offer.context.opening_title} · {data.offer.context.company_name}
-                      </p>
-                    </div>
-                    <Badge variant="secondary">
-                      {handoff
-                        ? label(handoff.employee_status)
-                        : data.blockers.length
-                          ? "Needs review"
-                          : "Ready for profile"}
-                    </Badge>
-                  </div>
-                  <dl className="m-0 grid gap-3 p-5 sm:grid-cols-2">
-                    <Detail name="Candidate personal email" value={data.candidate.email} />
-                    <Detail name="Phone" value={data.candidate.phone} />
-                    <Detail
-                      name="Designation / grade"
-                      value={`${data.offer.context.designation} / ${data.offer.context.job_grade}`}
-                    />
-                    <Detail name="Joining date" value={data.offer.joining_on} />
-                    <Detail
-                      name="Branch / department"
-                      value={`${data.offer.context.branch ?? "Branch not set"} / ${data.offer.context.department}`}
-                    />
-                    <Detail
-                      name="Cost centre / work location"
-                      value={`${data.offer.cost_center} / ${data.offer.work_location}`}
-                    />
-                    <Detail
-                      name="Employment setup"
-                      value={`${data.offer.employment_setup} · ${paymentRouteLabel(data.offer.payment_route)} / ${payCycleLabel(data.offer.pay_cycle)}`}
-                    />
-                    <Detail name="Reporting manager" value={data.offer.reporting_manager ?? "No manager agreed"} />
-                    <Detail
-                      name="Agreed monthly gross (offer evidence)"
-                      value={`${data.offer.currency_code} ${data.offer.proposed_gross}`}
-                    />
-                    <Detail
-                      name="Probation / notice"
-                      value={`${data.offer.probation_months} months / ${data.offer.notice_days} days`}
-                    />
-                    <Detail
-                      name="Application / requisition"
-                      value={`${data.offer.application_reference} / ${data.offer.context.requisition_reference}`}
-                    />
-                    <Detail
-                      name="Acceptance evidence"
-                      value={`${data.offer.responded_on} · ${data.offer.response_reference}`}
-                    />
-                  </dl>
-                </section>
-                <section className="rounded-xl border border-border bg-card p-5">
-                  <h3 className="text-base font-semibold">Employment handoff progress</h3>
-                  <ol className="m-0 mt-4 grid list-none gap-3 p-0 sm:grid-cols-2">
-                    {[
-                      ["1. Accepted offer", "Approved terms and acceptance retained", true],
-                      [
-                        "2. Employee profile",
-                        handoff
-                          ? `${handoff.employee_number} · ${label(handoff.profile_approval)}`
-                          : "Create and submit the profile draft",
-                        !!handoff,
-                      ],
-                      [
-                        "3. Initial assignment",
-                        handoff?.assignment_id
-                          ? "Prepared from accepted offer terms"
-                          : "Prepare after profile approval",
-                        !!handoff?.assignment_id,
-                      ],
-                      [
-                        "4. Governed hire",
-                        handoff?.hire_state ? label(handoff.hire_state) : "Request hire and independent approval",
-                        data.application_stage === "hired",
-                      ],
-                    ].map(([title, description, done]) => (
-                      <li key={String(title)} className="flex gap-3 rounded-lg bg-muted/50 p-3">
-                        <FileCheck2
-                          className={`mt-0.5 size-5 shrink-0 ${done ? "text-primary" : "text-muted-foreground"}`}
-                        />
-                        <div>
-                          <div className="text-sm font-semibold">{title}</div>
-                          <div className="mt-1 text-xs text-muted-foreground">{description}</div>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                  {handoff && (
-                    <div className="mt-4 grid gap-3">
-                      <p className="text-sm text-muted-foreground">
-                        Created {new Date(handoff.created_at).toLocaleDateString()} · {handoff.reason}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        <Button type="button" variant="outline" onClick={() => onNavigate("hr", "employee-drafts")}>
-                          Employee Drafts
-                          <ArrowRight className="size-4" />
-                        </Button>
-                        <Button type="button" variant="outline" onClick={() => onNavigate("hr", "employee-approvals")}>
-                          Profile &amp; Hire Approvals
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => onNavigate("hr", "employee-assignments")}
-                        >
-                          Assignments &amp; Hire
-                        </Button>
-                        {canAssign &&
-                          handoff.profile_approval === "approved" &&
-                          !handoff.assignment_id &&
-                          data.application_stage !== "hired" && (
-                            <Button
-                              type="button"
-                              className="text-primary-foreground!"
-                              disabled={busy || detailLoading}
-                              onClick={() => void createAssignment()}
-                            >
-                              Prepare agreed assignment
-                            </Button>
-                          )}
-                      </div>
-                    </div>
-                  )}
-                </section>
-                {handoff?.assignment_id &&
-                  data.application_stage !== "hired" &&
-                  handoff.hire_state !== "pending" &&
-                  canHire && (
-                    <OfferHirePreparation
-                      key={handoff.assignment_id}
-                      client={client}
-                      csrfToken={csrfToken}
-                      workspace={data}
-                      onUpdated={reload}
-                    />
-                  )}
-                {!handoff &&
-                  (data.blockers.length ? (
-                    <div role="status" className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
-                      {data.blockers.map((text) => (
-                        <p key={text}>{text}</p>
-                      ))}
-                    </div>
-                  ) : canCreate ? (
-                    <HrRecordDrawer
-                      title="Create employee from offer"
-                      triggerLabel="Create employee draft"
-                      completionKey={notice}
-                      busy={busy || detailLoading}
-                      error={error}
-                      notice={notice}
-                    >
-                      <HandoffForm key={`${company}:${selected}`} busy={busy || detailLoading} onSave={save} />
-                    </HrRecordDrawer>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Employee creation permission is required to prepare this profile.
-                    </p>
-                  ))}
-              </>
-            ) : (
-              <div className="rounded-xl border border-dashed border-border p-8 text-sm text-muted-foreground">
-                Choose an accepted offer to review the employment handoff.
-              </div>
-            )}
           </div>
         </div>
       )}
+      <HrMasterSheet
+        open={Boolean(selected)}
+        onOpenChange={(open) => {
+          if (!open && !busy) {
+            setSelected("");
+            setWorkspace(null);
+          }
+        }}
+        eyebrow="Create Employee from Offer"
+        title={data?.offer.candidate_name ?? summary?.candidate_name ?? "Offer"}
+        description={
+          data
+            ? `${data.offer.reference} · ${data.offer.context.opening_title} · ${data.offer.context.company_name}`
+            : summary
+              ? `${summary.reference} · ${summary.opening_title}`
+              : ""
+        }
+      >
+        <div className="grid min-w-0 gap-5" aria-busy={detailLoading || busy}>
+          {error && (
+            <Alert variant="destructive">
+              <AlertTitle>Action needs attention</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {notice && (
+            <div role="status" className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+              <CheckCircle2 className="size-5 shrink-0 text-primary" />
+              {notice}
+            </div>
+          )}
+          {summary && summary.state !== "accepted" ? (
+            <>
+              <HrDetailGroup title="Offer">
+                <HrDetailTile label="Offer status" value={summary.is_overdue ? "Overdue" : label(summary.state)} />
+                <HrDetailTile label="Opening" value={summary.opening_title} />
+                <HrDetailTile label="Joining date" value={summary.joining_on} />
+                <HrDetailTile label="Valid until" value={summary.valid_until} />
+                <HrDetailTile label="Monthly gross" value={offerMoney(summary.proposed_gross, summary.currency_code)} />
+                <HrDetailTile label="Reference" value={summary.reference} />
+              </HrDetailGroup>
+              <div role="status" className="grid gap-3 rounded-lg border border-border bg-muted/40 p-3 text-sm">
+                <p>
+                  An employee can be created only after the offer is approved, delivered and its acceptance recorded.
+                  Continue this offer in Offer Management.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="justify-self-start"
+                  onClick={() => onNavigate("hr", "offers")}
+                >
+                  Open Offer Management
+                  <ArrowRight className="size-4" />
+                </Button>
+              </div>
+            </>
+          ) : detailLoading && !data ? (
+            <Skeleton className="h-80 w-full" />
+          ) : data ? (
+            <>
+              <HrDetailGroup title="Accepted terms">
+                <HrDetailTile
+                  label="Handoff status"
+                  value={
+                    handoff
+                      ? label(handoff.employee_status)
+                      : data.blockers.length
+                        ? "Needs review"
+                        : "Ready for profile"
+                  }
+                />
+                <HrDetailTile label="Joining date" value={data.offer.joining_on} />
+                <HrDetailTile label="Candidate personal email" value={data.candidate.email} />
+                <HrDetailTile label="Phone" value={data.candidate.phone} />
+                <HrDetailTile
+                  label="Designation / grade"
+                  value={`${data.offer.context.designation} / ${data.offer.context.job_grade}`}
+                />
+                <HrDetailTile
+                  label="Branch / department"
+                  value={`${data.offer.context.branch ?? "Branch not set"} / ${data.offer.context.department}`}
+                />
+                <HrDetailTile
+                  label="Cost centre / work location"
+                  value={`${data.offer.cost_center} / ${data.offer.work_location}`}
+                />
+                <HrDetailTile
+                  label="Employment setup"
+                  value={`${data.offer.employment_setup} · ${paymentRouteLabel(data.offer.payment_route)} / ${payCycleLabel(data.offer.pay_cycle)}`}
+                />
+                <HrDetailTile label="Reporting manager" value={data.offer.reporting_manager ?? "No manager agreed"} />
+                <HrDetailTile
+                  label="Agreed monthly gross (offer evidence)"
+                  value={`${data.offer.currency_code} ${data.offer.proposed_gross}`}
+                />
+                <HrDetailTile
+                  label="Probation / notice"
+                  value={`${data.offer.probation_months} months / ${data.offer.notice_days} days`}
+                />
+                <HrDetailTile
+                  label="Application / requisition"
+                  value={`${data.offer.application_reference} / ${data.offer.context.requisition_reference}`}
+                />
+                <HrDetailTile
+                  label="Acceptance evidence"
+                  value={`${data.offer.responded_on} · ${data.offer.response_reference}`}
+                />
+              </HrDetailGroup>
+              <HrDetailSection title="Employment handoff progress">
+                <ol className="m-0 grid list-none gap-2 p-0 sm:grid-cols-2">
+                  {[
+                    ["1. Accepted offer", "Approved terms and acceptance retained", true],
+                    [
+                      "2. Employee profile",
+                      handoff
+                        ? `${handoff.employee_number} · ${label(handoff.profile_approval)}`
+                        : "Create and submit the profile draft",
+                      !!handoff,
+                    ],
+                    [
+                      "3. Initial assignment",
+                      handoff?.assignment_id ? "Prepared from accepted offer terms" : "Prepare after profile approval",
+                      !!handoff?.assignment_id,
+                    ],
+                    [
+                      "4. Governed hire",
+                      handoff?.hire_state ? label(handoff.hire_state) : "Request hire and independent approval",
+                      data.application_stage === "hired",
+                    ],
+                  ].map(([title, description, done]) => (
+                    <li key={String(title)} className="flex gap-3 rounded-lg border border-border bg-muted/35 p-3">
+                      <FileCheck2
+                        className={`mt-0.5 size-5 shrink-0 ${done ? "text-primary" : "text-muted-foreground"}`}
+                      />
+                      <div>
+                        <div className="text-sm font-semibold">{title}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">{description}</div>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+                {handoff && (
+                  <div className="grid gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      Created {new Date(handoff.created_at).toLocaleDateString()} · {handoff.reason}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={() => onNavigate("hr", "employee-drafts")}>
+                        Employee Drafts
+                        <ArrowRight className="size-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onNavigate("hr", "employee-approvals")}
+                      >
+                        Profile &amp; Hire Approvals
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onNavigate("hr", "employee-assignments")}
+                      >
+                        Assignments &amp; Hire
+                      </Button>
+                      {canAssign &&
+                        handoff.profile_approval === "approved" &&
+                        !handoff.assignment_id &&
+                        data.application_stage !== "hired" && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="text-primary-foreground!"
+                            disabled={busy || detailLoading}
+                            onClick={() => void createAssignment()}
+                          >
+                            Prepare agreed assignment
+                          </Button>
+                        )}
+                    </div>
+                  </div>
+                )}
+              </HrDetailSection>
+              {handoff?.assignment_id &&
+                data.application_stage !== "hired" &&
+                handoff.hire_state !== "pending" &&
+                canHire && (
+                  <OfferHirePreparation
+                    key={handoff.assignment_id}
+                    client={client}
+                    csrfToken={csrfToken}
+                    workspace={data}
+                    onUpdated={reload}
+                  />
+                )}
+              {!handoff &&
+                (data.blockers.length ? (
+                  <div role="status" className="grid gap-1 rounded-lg border border-border bg-muted/40 p-3 text-sm">
+                    {data.blockers.map((text) => (
+                      <p key={text}>{text}</p>
+                    ))}
+                  </div>
+                ) : canCreate ? (
+                  <HrDetailSection title="Create employee draft">
+                    <HandoffForm key={`${company}:${selected}`} busy={busy || detailLoading} onSave={save} />
+                  </HrDetailSection>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Employee creation permission is required to prepare this profile.
+                  </p>
+                ))}
+            </>
+          ) : null}
+        </div>
+      </HrMasterSheet>
     </div>
   );
 }
