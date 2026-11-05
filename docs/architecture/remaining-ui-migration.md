@@ -3997,3 +3997,14 @@ Company Chart adoption/review checkpoint (2026-10-20):
   group descriptions stay in the navigation models (unused by the UI).
 - Verification: `tsc --noEmit`, ESLint, UI theme audit, production build,
   `git diff --check`.
+
+## 2026-11-05 - HR landing cards share one fixed size
+
+- Every HR landing card is the Employee Directory size: icon/name/arrow
+  line plus exactly two reserved detail lines (`h-12`, one line each,
+  ellipsis with full text on hover). Names truncate instead of wrapping;
+  loading, empty, unavailable and access states use the same frame.
+- `details()` keeps at most two facts; the HR Dashboard card folds setup
+  gaps into its first line and uses "Pending: N approvals · N movements".
+- Verification: summary unit tests, `tsc --noEmit`, ESLint, UI theme
+  audit, production build, `git diff --check`.

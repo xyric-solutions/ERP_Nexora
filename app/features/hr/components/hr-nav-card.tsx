@@ -41,10 +41,12 @@ export function HrNavCard({
       </button>
     );
   return (
-    <button type="button" disabled={disabled} onClick={onClick} className={`${base} flex h-full flex-col p-4`}>
+    <button type="button" disabled={disabled} onClick={onClick} className={`${base} flex flex-col p-4`}>
       <span className="flex items-center gap-2.5">
         <Icon className="size-5 shrink-0 text-primary" aria-hidden="true" />
-        <span className="min-w-0 flex-1 font-semibold leading-snug group-hover:text-primary">{label}</span>
+        <span className="min-w-0 flex-1 truncate font-semibold leading-snug group-hover:text-primary" title={label}>
+          {label}
+        </span>
         <ArrowRight className="size-4 shrink-0 text-primary" aria-hidden="true" />
       </span>
       <SummaryDetails summary={summary} />
@@ -52,23 +54,29 @@ export function HrNavCard({
   );
 }
 
+/** Every card reserves exactly two detail lines, so all landing cards share one height. */
 function SummaryDetails({ summary }: { summary?: HrNavCardSummary }) {
-  const muted = "mt-2 text-sm leading-relaxed text-muted-foreground";
+  const frame = "mt-2 grid h-12 grid-rows-2 text-sm leading-6 text-muted-foreground";
   if (!summary || summary.state === "loading")
     return (
-      <span className="mt-3 grid gap-1.5" aria-hidden="true">
+      <span className={`${frame} items-center`} aria-hidden="true">
         <span className="h-3 w-3/4 animate-pulse rounded bg-muted" />
         <span className="h-3 w-1/2 animate-pulse rounded bg-muted" />
       </span>
     );
-  if (summary.state === "restricted") return <span className={muted}>{summary.message}</span>;
-  if (summary.state === "unavailable") return <span className={muted}>Details unavailable</span>;
-  if (!summary.details.length) return <span className={muted}>No records yet</span>;
+  const lines =
+    summary.state === "restricted"
+      ? [summary.message]
+      : summary.state === "unavailable"
+        ? ["Details unavailable"]
+        : summary.details.length
+          ? summary.details.slice(0, 2)
+          : ["No records yet"];
   return (
-    <span className="mt-2 grid gap-0.5 text-sm leading-relaxed text-muted-foreground">
-      {summary.details.map((detail) => (
-        <span key={detail} className="break-words">
-          {detail}
+    <span className={frame}>
+      {lines.map((line) => (
+        <span key={line} className="truncate" title={line}>
+          {line}
         </span>
       ))}
     </span>

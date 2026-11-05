@@ -42,7 +42,7 @@ describe("HR landing summary helpers", () => {
     expect(countLabel(4, "branch", "branches")).toBe("4 branches");
     expect(nameList(["Dubai", "Lahore", " Dubai ", "", "Karachi", "Riyadh"])).toBe("Dubai · Lahore · Karachi +1 more");
     expect(tally(["draft", "approved", "draft"])).toBe("2 draft · 1 approved");
-    expect(details("a", null, "", false, "b", "c", "d")).toEqual(["a", "b", "c"]);
+    expect(details("a", null, "", false, "b", "c")).toEqual(["a", "b"]);
   });
 });
 
@@ -82,7 +82,6 @@ describe("Organisation & Masters landing summaries", () => {
     await expect(organisationLandingSummaries["cost-centres"]!(context({ masters }))).resolves.toEqual([
       "2 cost centres",
       "Head office · Projects",
-      "1 with a default nominal code",
     ]);
   });
 
@@ -98,7 +97,6 @@ describe("Organisation & Masters landing summaries", () => {
     await expect(organisationLandingSummaries["job-grades"]!(context({ jobGrades }))).resolves.toEqual([
       "Grades 1–3",
       "3 grades · PKR",
-      "1 without a salary band",
     ]);
   });
 });
@@ -123,7 +121,7 @@ describe("People and Recruitment landing summaries", () => {
     ]);
     await expect(peopleLandingSummaries["hr-dashboard"]!(shared)).resolves.toEqual([
       "12 active employees",
-      "2 pending approvals · 1 pending movement",
+      "Pending: 2 approvals · 1 movement",
     ]);
     expect(dashboard).toHaveBeenCalledTimes(1);
   });
@@ -138,7 +136,7 @@ describe("People and Recruitment landing summaries", () => {
     }));
     await expect(
       recruitmentLandingSummaries["manpower-requisitions"]!(context({ manpowerRequisitions })),
-    ).resolves.toEqual(["3 requisitions", "2 draft · 1 approved", "Permanent · Project-Based"]);
+    ).resolves.toEqual(["3 requisitions", "2 draft · 1 approved"]);
     const failing = vi.fn(async () => {
       throw new Error("forbidden");
     });

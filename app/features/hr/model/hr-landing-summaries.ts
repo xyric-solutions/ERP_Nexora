@@ -148,9 +148,10 @@ export const peopleLandingSummaries: HrLandingSummaryLoaders = {
   "hr-dashboard": async (context) => {
     const { metrics } = await dashboard(context);
     return details(
-      `${countLabel(metrics.active_headcount, "active employee")}`,
-      `${countLabel(metrics.pending_employee_approvals, "pending approval")} · ${countLabel(metrics.pending_movements, "pending movement")}`,
-      metrics.master_configuration_gaps ? countLabel(metrics.master_configuration_gaps, "setup gap") : null,
+      metrics.master_configuration_gaps
+        ? `${countLabel(metrics.active_headcount, "active employee")} · ${countLabel(metrics.master_configuration_gaps, "setup gap")}`
+        : countLabel(metrics.active_headcount, "active employee"),
+      `Pending: ${countLabel(metrics.pending_employee_approvals, "approval")} · ${countLabel(metrics.pending_movements, "movement")}`,
     );
   },
   "finance-payroll-dashboard": async ({ client, companyId }) => {

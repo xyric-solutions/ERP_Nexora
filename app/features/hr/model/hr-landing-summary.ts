@@ -1,8 +1,8 @@
 import type { HrApiClient } from "../api/hr-client";
 
 /**
- * Data-driven landing-card details for HR & Payroll hubs. A loader returns two
- * or three short facts read from the authorized API; an empty array means the
+ * Data-driven landing-card details for HR & Payroll hubs. A loader returns up
+ * to two short facts read from the authorized API; an empty array means the
  * area has no records yet. Loaders never invent data: a failed read renders as
  * "Details unavailable".
  */
@@ -45,7 +45,7 @@ export function humanize(value: string): string {
   return value.replaceAll("_", " ");
 }
 
-/** Keeps only non-empty details and at most three of them. */
+/** Keeps only non-empty details and at most two of them (cards show two lines). */
 export function details(...values: readonly (string | false | null | undefined)[]): string[] {
-  return values.filter((value): value is string => typeof value === "string" && value.trim().length > 0).slice(0, 3);
+  return values.filter((value): value is string => typeof value === "string" && value.trim().length > 0).slice(0, 2);
 }
