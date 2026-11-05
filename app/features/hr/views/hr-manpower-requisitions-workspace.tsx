@@ -6,6 +6,7 @@ import type {
   CreateHrManpowerRequisitionRequest,
   HrHiringBasis,
   HrManpowerRequisitionDirectory,
+  HrWorkArrangement,
 } from "@nexora/contracts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -15,10 +16,12 @@ import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { employmentSetupOptionLabel } from "../model/employment-setup";
 import { hiringBasisLabel, hiringBasisOptions, isHiringBasis } from "../model/hiring-basis";
+import { isWorkArrangement, workArrangementLabel, workArrangementOptions } from "../model/work-arrangement";
 
 type Requisition = HrManpowerRequisitionDirectory["items"][number];
 type Editor = {
   jobTitle: string;
+  workArrangement: HrWorkArrangement | "";
   designationId: string;
   gradeId: string;
   employmentSetupId: string;
@@ -35,6 +38,7 @@ type Editor = {
 };
 const blankEditor = (): Editor => ({
   jobTitle: "",
+  workArrangement: "",
   designationId: "",
   gradeId: "",
   employmentSetupId: "",
@@ -135,6 +139,10 @@ export function HrManpowerRequisitionsWorkspace() {
     grades.filter((item) => item.grade_level === grade.grade_level).length > 1
       ? `Grade ${grade.grade_level} · ${grade.name}`
       : `Grade ${grade.grade_level}`;
+  const missingSetup = [
+    grades.length ? "" : "an active job grade with a salary band",
+    projects.length ? "" : "an active Finance project",
+  ].filter(Boolean);
   const editorGrade = editor ? grades.find((item) => item.id === editor.gradeId) : undefined;
   const currencyOptions = [
     ...currencies.map((item) => ({ code: item.currency_code, label: `${item.currency_code} · ${item.currency_name}` })),
@@ -147,6 +155,7 @@ export function HrManpowerRequisitionsWorkspace() {
     const positions = Number(editor.positions);
     if (
       !editor.jobTitle.trim() ||
+      !editor.workArrangement ||
       !editor.designationId ||
       !editor.gradeId ||
       !editor.employmentSetupId ||
@@ -187,6 +196,7 @@ export function HrManpowerRequisitionsWorkspace() {
       employment_setup_id: editor.employmentSetupId,
       project_id: editor.projectId,
       hiring_basis: editor.hiringBasis,
+      work_arrangement: editor.workArrangement,
       department_id: editor.departmentId,
       positions_requested: positions,
       position_type: "new_position",
@@ -381,6 +391,7 @@ export function HrManpowerRequisitionsWorkspace() {
                       {record.department}
                       <span className="block text-xs text-muted-foreground">
                         {record.project ?? record.branch} · {hiringBasisLabel(record.hiring_basis)}
+                        {record.work_arrangement ? ` · ${workArrangementLabel(record.work_arrangement)}` : ""}
                       </span>
                     </td>
                     <td className="px-4 py-3">{record.positions_requested}</td>
@@ -416,31 +427,44 @@ export function HrManpowerRequisitionsWorkspace() {
                 <div>
                   <span className="nx-eyebrow">New controlled request</span>
                 </div>
-                {grades.length === 0 ? (
-                  <Alert>
-                    <AlertTitle>Job-grade setup required</AlertTitle>
-                    <AlertDescription>
-                      Configure an active job grade with a complete salary band for this company before creating a
-                      requisition.
-                    </AlertDescription>
-                  </Alert>
+                {missingSetup.length ? (
+                  <p
+                    role="status"
+                    className="m-0! truncate rounded-md border border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] px-3 py-1.5 text-xs text-[var(--nx-warning)]"
+                    title={`Setup required: ${missingSetup.join(" and ")}`}
+                  >
+                    Setup required: {missingSetup.join(" and ")}
+                  </p>
                 ) : null}
-                {projects.length === 0 ? (
-                  <Alert>
-                    <AlertTitle>Project setup required</AlertTitle>
-                    <AlertDescription>
-                      Add an active project for this company under Finance reporting projects before creating a
-                      requisition.
-                    </AlertDescription>
-                  </Alert>
-                ) : null}
-                <label className="grid gap-1 text-sm">
-                  Job title
-                  <Input
-                    value={editor.jobTitle}
-                    onChange={(event) => setEditor({ ...editor, jobTitle: event.target.value })}
-                  />
-                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1 text-sm">
+                    Job title
+                    <Input
+                      value={editor.jobTitle}
+                      onChange={(event) => setEditor({ ...editor, jobTitle: event.target.value })}
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Location
+                    <select
+                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
+                      value={editor.workArrangement}
+                      onChange={(event) =>
+                        setEditor({
+                          ...editor,
+                          workArrangement: isWorkArrangement(event.target.value) ? event.target.value : "",
+                        })
+                      }
+                    >
+                      <option value="">Select</option>
+                      {workArrangementOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="grid gap-1 text-sm">
                     Designation
@@ -652,6 +676,10 @@ export function HrManpowerRequisitionsWorkspace() {
                   <div>
                     <dt className="text-muted-foreground">Hiring basis</dt>
                     <dd className="font-medium">{hiringBasisLabel(selected.hiring_basis)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Location</dt>
+                    <dd className="font-medium">{workArrangementLabel(selected.work_arrangement)}</dd>
                   </div>
                   <div>
                     <dt className="text-muted-foreground">Headcount</dt>

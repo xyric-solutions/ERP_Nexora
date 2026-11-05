@@ -90,6 +90,7 @@ import {
   findHrSectionWorkspace,
   findHrSectionWorkspaceForPage,
 } from "@prototype/features/hr/model/hr-section-navigation";
+import { workArrangementOptions } from "@prototype/features/hr/model/work-arrangement";
 import { HrOperationsWorkspace } from "@prototype/features/hr/views/hr-operations-workspace";
 import {
   isOrganisationMasterPage,
@@ -216,12 +217,7 @@ const configuredHrMasters: Record<string, HrConfiguredMasterDefinition> = {
         key: "working_pattern",
         label: "Working pattern",
         help: "Default physical-working arrangement for assignments at this location.",
-        options: [
-          { value: "on_site", label: "On site" },
-          { value: "hybrid", label: "Hybrid" },
-          { value: "remote", label: "Remote" },
-          { value: "client_site", label: "Client site" },
-        ],
+        options: workArrangementOptions,
       },
     ],
   },

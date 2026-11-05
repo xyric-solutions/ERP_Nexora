@@ -71,16 +71,24 @@ async function project(id: string, companyId: string, status: "active" | "inacti
 }
 
 /** Inserts a C1 requisition; `extra` names the HR136 columns to set. */
-async function requisition(id: string, extra: { branch?: boolean; project?: string; basis?: string } = {}) {
-  const columns = ["branch_id", "project_id", "hiring_basis"];
-  const values = [extra.branch ? `${C1}-branch` : null, extra.project ?? null, extra.basis ?? null];
+async function requisition(
+  id: string,
+  extra: { branch?: boolean; project?: string; basis?: string; arrangement?: string } = {},
+) {
+  const columns = ["branch_id", "project_id", "hiring_basis", "work_arrangement"];
+  const values = [
+    extra.branch ? `${C1}-branch` : null,
+    extra.project ?? null,
+    extra.basis ?? null,
+    extra.arrangement ?? null,
+  ];
   const hr136 = extra.project !== undefined || extra.basis !== undefined;
   await q(
     `insert into hr_manpower_requisition (id,tenant_id,company_id,reference,job_title,designation_id,job_grade_id,employment_setup_id,
        department_id,positions_requested,position_type,salary_minimum,salary_maximum,currency_code,target_start_date,reason,created_by,
        ${hr136 ? columns.join(",") : "branch_id"})
      values ($1,$2,$3,$4,'Data Analyst',$5,$6,$7,$8,1,'new_position',1000,3000,'USD','2026-12-01','Growth',$9,
-       ${hr136 ? "$10,$11,$12" : "$10"})`,
+       ${hr136 ? "$10,$11,$12,$13" : "$10"})`,
     [
       id,
       T,
@@ -137,16 +145,21 @@ describe("HR136 requisition project and hiring basis migration", () => {
     }
   });
 
-  it("records HR136 as the latest HR migration", async () => {
-    await expect(inspectSourceMigrationState(pool)).resolves.toMatchObject({ hr: 136 });
+  it("records HR137 as the latest HR migration", async () => {
+    await expect(inspectSourceMigrationState(pool)).resolves.toMatchObject({ hr: 137 });
   });
 
   it("keeps legacy requisitions unchanged and still lets them progress", async () => {
-    const [legacy] = await q<{ branch_id: string; project_id: string | null; hiring_basis: string | null }>(
-      `select branch_id,project_id,hiring_basis from hr_manpower_requisition where tenant_id=$1 and id='hr136-req-legacy01'`,
+    const [legacy] = await q(
+      `select branch_id,project_id,hiring_basis,work_arrangement from hr_manpower_requisition where tenant_id=$1 and id='hr136-req-legacy01'`,
       [T],
     );
-    expect(legacy).toEqual({ branch_id: `${C1}-branch`, project_id: null, hiring_basis: null });
+    expect(legacy).toEqual({
+      branch_id: `${C1}-branch`,
+      project_id: null,
+      hiring_basis: null,
+      work_arrangement: null,
+    });
     await q(
       `update hr_manpower_requisition set state='submitted',submitted_by=$2,submitted_at=now() where tenant_id=$1 and id='hr136-req-legacy01'`,
       [T, actor],
@@ -181,6 +194,17 @@ describe("HR136 requisition project and hiring basis migration", () => {
     );
     await expect(
       requisition("hr136-req-badbase", { project: "prj-active-001", basis: "freelance" }),
+    ).rejects.toMatchObject({ code: "23514" });
+  });
+  it("stores a requisition work arrangement and rejects unknown values (HR137)", async () => {
+    await requisition("hr137-req-remote1", { project: "prj-active-001", basis: "permanent", arrangement: "remote" });
+    const [row] = await q(
+      `select work_arrangement from hr_manpower_requisition where tenant_id=$1 and id='hr137-req-remote1'`,
+      [T],
+    );
+    expect(row).toEqual({ work_arrangement: "remote" });
+    await expect(
+      requisition("hr137-req-moon001", { project: "prj-active-001", basis: "permanent", arrangement: "moon_base" }),
     ).rejects.toMatchObject({ code: "23514" });
   });
 });

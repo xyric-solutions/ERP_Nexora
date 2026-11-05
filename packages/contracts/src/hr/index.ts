@@ -545,6 +545,9 @@ const hrMoneySchema = z.string().regex(/^\d+(?:\.\d{1,4})?$/);
 /** How the requisitioned role is engaged; independent of the Employment Setup (pay route and cycle). */
 export const hrHiringBasisSchema = z.enum(["permanent", "temporary", "project_based", "contract", "internship", "part_time"]);
 export type HrHiringBasis = z.infer<typeof hrHiringBasisSchema>;
+/** Where a role works; same values as the Work Location master's working pattern. */
+export const hrWorkArrangementSchema = z.enum(["on_site", "hybrid", "remote", "client_site"]);
+export type HrWorkArrangement = z.infer<typeof hrWorkArrangementSchema>;
 export const hrManpowerRequisitionQuerySchema = z.strictObject({
   company_id: identifier,
   search: z.string().trim().max(160).optional(),
@@ -556,7 +559,7 @@ export const hrManpowerRequisitionSchema = z.strictObject({
   job_title: z.string().min(1).max(160), designation: z.string().min(1).max(160), job_grade: z.string().min(1).max(160),
   employment_setup_id: identifier, employment_setup: z.string().min(1).max(160), payment_route: hrPaymentRouteSchema, pay_cycle: hrPayCycleSchema,
   branch: z.string().min(1).max(200).nullable(), project_id: identifier.nullable(), project: z.string().min(1).max(200).nullable(),
-  hiring_basis: hrHiringBasisSchema.nullable(), department: z.string().min(1).max(200),
+  hiring_basis: hrHiringBasisSchema.nullable(), work_arrangement: hrWorkArrangementSchema.nullable(), department: z.string().min(1).max(200),
   positions_requested: z.number().int().min(1), position_type: z.enum(["new_position", "replacement"]),
   salary_minimum: hrMoneySchema, salary_maximum: hrMoneySchema, currency_code: z.string().regex(/^[A-Z]{3}$/),
   target_start_date: isoDate, reason: z.string().min(1).max(2000), required_skills: z.array(z.string().min(1).max(100)).max(30),
@@ -567,7 +570,7 @@ export const hrManpowerRequisitionSchema = z.strictObject({
 export const hrManpowerRequisitionDirectorySchema = z.strictObject({ items: z.array(hrManpowerRequisitionSchema) });
 export const createHrManpowerRequisitionRequestSchema = z.strictObject({
   company_id: identifier, job_title: z.string().trim().min(1).max(160), designation_id: identifier, job_grade_id: identifier,
-  employment_setup_id: identifier, project_id: identifier, hiring_basis: hrHiringBasisSchema,
+  employment_setup_id: identifier, project_id: identifier, hiring_basis: hrHiringBasisSchema, work_arrangement: hrWorkArrangementSchema,
   /** Legacy: new requisitions name a project; the offer derives the branch from the department. */
   branch_id: identifier.optional(), department_id: identifier, positions_requested: z.number().int().min(1).max(999),
   position_type: z.enum(["new_position", "replacement"]), replacement_employee_id: identifier.optional(),

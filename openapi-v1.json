@@ -75224,6 +75224,22 @@
                     }
                   ]
                 },
+                "work_arrangement": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "on_site",
+                        "hybrid",
+                        "remote",
+                        "client_site"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "department": {
                   "type": "string",
                   "minLength": 1,
@@ -75367,6 +75383,7 @@
                 "project_id",
                 "project",
                 "hiring_basis",
+                "work_arrangement",
                 "department",
                 "positions_requested",
                 "position_type",
@@ -75439,6 +75456,15 @@
               "part_time"
             ]
           },
+          "work_arrangement": {
+            "type": "string",
+            "enum": [
+              "on_site",
+              "hybrid",
+              "remote",
+              "client_site"
+            ]
+          },
           "branch_id": {
             "type": "string",
             "minLength": 1,
@@ -75507,6 +75533,7 @@
           "employment_setup_id",
           "project_id",
           "hiring_basis",
+          "work_arrangement",
           "department_id",
           "positions_requested",
           "position_type",

@@ -11,6 +11,7 @@ const base = {
   employment_setup_id: "setup-1",
   project_id: "project-1",
   hiring_basis: "project_based",
+  work_arrangement: "hybrid",
   department_id: "department-1",
   positions_requested: 1,
   position_type: "new_position",
@@ -31,6 +32,9 @@ describe("manpower requisition contract (HR136)", () => {
     delete withoutProject.project_id;
     expect(createHrManpowerRequisitionRequestSchema.safeParse(withoutProject).success).toBe(false);
     expect(createHrManpowerRequisitionRequestSchema.safeParse({ ...base, hiring_basis: "freelance" }).success).toBe(
+      false,
+    );
+    expect(createHrManpowerRequisitionRequestSchema.safeParse({ ...base, work_arrangement: "office" }).success).toBe(
       false,
     );
   });

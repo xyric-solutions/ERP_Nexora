@@ -4008,3 +4008,20 @@ Company Chart adoption/review checkpoint (2026-10-20):
   gaps into its first line and uses "Pending: N approvals · N movements".
 - Verification: summary unit tests, `tsc --noEmit`, ESLint, UI theme
   audit, production build, `git diff --check`.
+
+## 2026-11-05 - HR137 requisition location; one-line setup notice
+
+- New requisition drawer: the job-grade and project setup notices are one
+  compact line ("Setup required: ..."), and Job title sits beside a new
+  Location picker (On-site, Hybrid, Remote, Client site - the Work Location
+  master's working-pattern values, now shared via
+  `app/features/hr/model/work-arrangement.ts`, also used by the Work
+  Locations master form; its "On site" label reads "On-site").
+- Migration `hr/0137_requisition_work_arrangement.forward.sql` (additive):
+  nullable `work_arrangement` with an allowed-values check; legacy rows stay
+  NULL. The create contract requires `work_arrangement`; list/detail show it.
+- Verification: integration (HR136/HR137 upgrade, postgres-migrations at
+  HR137, HR134), contract unit test, full unit suite (2 known
+  user-management failures), `api:check`, `tsc`, ESLint (no new findings),
+  UI theme audit, production build, `git diff --check`.
+- Resume point: apply HR136 and HR137 to the local/UAT database.
