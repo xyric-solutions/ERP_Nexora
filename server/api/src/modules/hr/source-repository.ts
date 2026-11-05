@@ -103,6 +103,7 @@ import type {
   HrMasterDeleteResult,
   HrJobGradeDirectory,
   HrJobGradeCurrencyDirectory,
+  HrRequisitionProjectDirectory,
   CreateHrJobGradeRequest,
   UpdateHrJobGradeRequest,
   UpdateHrEmployeeDraftRequest,
@@ -1166,7 +1167,7 @@ export class SourceHrRepository {
       const result = await client.query<HrManpowerRequisitionDirectory["items"][number] & { salary_minimum: string; salary_maximum: string; submitted_at: Date | null; decided_at: Date | null; created_at: Date }>(
         `select request.id,request.company_id,request.reference,request.job_title,designation.name as designation,grade.name as job_grade,
                 request.employment_setup_id,employment_setup.name as employment_setup,employment_setup.payment_route,employment_setup.pay_cycle,
-                branch.name as branch,department.name as department,request.positions_requested,
+                branch.name as branch,request.project_id,project.name as project,request.hiring_basis,department.name as department,request.positions_requested,
                 request.position_type,request.salary_minimum::text,request.salary_maximum::text,request.currency_code,request.target_start_date::text,
                 request.reason,request.required_skills,request.state,request.created_by,request.submitted_by,request.submitted_at,request.decided_by,
                 request.decided_at,request.decision_reason,request.created_at
@@ -1174,7 +1175,8 @@ export class SourceHrRepository {
            join hr_master_record designation on designation.tenant_id=request.tenant_id and designation.id=request.designation_id
            join hr_master_record grade on grade.tenant_id=request.tenant_id and grade.id=request.job_grade_id
            join hr_master_record employment_setup on employment_setup.tenant_id=request.tenant_id and employment_setup.id=request.employment_setup_id
-           join organization_unit branch on branch.tenant_id=request.tenant_id and branch.id=request.branch_id
+           left join organization_unit branch on branch.tenant_id=request.tenant_id and branch.id=request.branch_id
+           left join erp_project project on project.tenant_id=request.tenant_id and project.company_id=request.company_id and project.id=request.project_id
            join organization_unit department on department.tenant_id=request.tenant_id and department.id=request.department_id
           where ${filters.join(" and ")} order by request.created_at desc,request.id desc limit $${values.length}`,
         values,
@@ -1193,7 +1195,7 @@ export class SourceHrRepository {
       const replay = await client.query<{request_fingerprint:string;response_body:HrManpowerRequisitionResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update", [context.tenantId,context.actor.userId,path,idempotencyKey]);
       if (replay.rows[0]) { if (replay.rows[0].request_fingerprint!==fingerprint) throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","The idempotency key was already used for another request."); await client.query("commit"); return {...replay.rows[0].response_body,replayed:true}; }
       const id=`manpower-requisition-${randomUUID()}`, reference=`MRQ-${new Date().getUTCFullYear()}-${randomUUID().replaceAll("-","").slice(0,6).toUpperCase()}`;
-      await client.query(`insert into hr_manpower_requisition (id,tenant_id,company_id,reference,job_title,designation_id,job_grade_id,employment_setup_id,branch_id,department_id,positions_requested,position_type,replacement_employee_id,salary_minimum,salary_maximum,currency_code,target_start_date,reason,required_skills,created_by) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20)`, [id,context.tenantId,input.company_id,reference,input.job_title,input.designation_id,input.job_grade_id,input.employment_setup_id,input.branch_id,input.department_id,input.positions_requested,input.position_type,input.replacement_employee_id??null,input.salary_minimum,input.salary_maximum,input.currency_code,input.target_start_date,input.reason,JSON.stringify(input.required_skills),context.actor.userId]);
+      await client.query(`insert into hr_manpower_requisition (id,tenant_id,company_id,reference,job_title,designation_id,job_grade_id,employment_setup_id,branch_id,department_id,positions_requested,position_type,replacement_employee_id,salary_minimum,salary_maximum,currency_code,target_start_date,reason,required_skills,created_by,project_id,hiring_basis) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20,$21,$22)`, [id,context.tenantId,input.company_id,reference,input.job_title,input.designation_id,input.job_grade_id,input.employment_setup_id,input.branch_id??null,input.department_id,input.positions_requested,input.position_type,input.replacement_employee_id??null,input.salary_minimum,input.salary_maximum,input.currency_code,input.target_start_date,input.reason,JSON.stringify(input.required_skills),context.actor.userId,input.project_id,input.hiring_basis]);
       const audit = await this.appendPlatformAudit(client,context,correlationId,"hr.manpower_requisition.create",{entityId:id,entityType:"hr_manpower_requisition",before:null,after:{reference,...input,state:"draft"}});
       const result:HrManpowerRequisitionResult={id,reference,state:"draft",company_id:input.company_id,audit_event_id:audit,replayed:false};
       await client.query("insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,201,$6,$7)",[context.tenantId,context.actor.userId,path,idempotencyKey,fingerprint,result,stateHash(result)]);
@@ -1202,7 +1204,7 @@ export class SourceHrRepository {
       await client.query("rollback").catch(()=>undefined);
       if (error instanceof HrApiError) throw error;
       const pg = error as { code?: string; message?: string };
-      if (pg.code === "23514" || pg.code === "23503") throw new HrApiError(409, "HR_MANPOWER_REQUISITION_INVALID", pg.code === "23514" && typeof pg.message === "string" && /must be (active|within)|replacement employee/.test(pg.message) ? `The requisition is invalid: ${pg.message}.` : "The requisition references unavailable master data for this company.");
+      if (pg.code === "23514" || pg.code === "23503") throw new HrApiError(409, "HR_MANPOWER_REQUISITION_INVALID", pg.code === "23514" && typeof pg.message === "string" && /must be (active|within)|replacement employee|are required/.test(pg.message) ? `The requisition is invalid: ${pg.message}.` : "The requisition references unavailable master data for this company.");
       throw error;
     } finally { client.release(); }
   }
@@ -1517,11 +1519,11 @@ export class SourceHrRepository {
     this.requireOfferRead(context);return this.read(context,"hr.employee.read",async client=>{await this.requireCompanyAccess(client,context,query.company_id);return this.readOfferContext(client,context,query.company_id,query.application_id);});
   }
   private async readOfferContext(client: PoolClient, context: HrActorContext, companyId:string, applicationId:string, excludeOfferId=""): Promise<HrOfferContext> {
-    const result=await client.query<HrOfferContext & {application_stage:string;candidate_status:string;opening_state:string;requisition_state:string;active_offer:boolean}>(`select a.id as application_id,a.reference as application_reference,concat_ws(' ',c.first_name,c.last_name) as candidate_name,company.name as company_name,o.id as opening_id,o.title as opening_title,o.reference as opening_reference,r.id as requisition_id,r.reference as requisition_reference,r.designation_id,designation.name as designation,r.job_grade_id,grade.name as job_grade,r.employment_setup_id,es.name as employment_setup,es.payment_route,es.pay_cycle,r.branch_id,branch.name as branch,r.department_id,department.name as department,r.salary_minimum::text,r.salary_maximum::text,r.currency_code,o.positions_requested::int as positions_authorized,
+    const result=await client.query<HrOfferContext & {application_stage:string;candidate_status:string;opening_state:string;requisition_state:string;active_offer:boolean}>(`select a.id as application_id,a.reference as application_reference,concat_ws(' ',c.first_name,c.last_name) as candidate_name,company.name as company_name,o.id as opening_id,o.title as opening_title,o.reference as opening_reference,r.id as requisition_id,r.reference as requisition_reference,r.designation_id,designation.name as designation,r.job_grade_id,grade.name as job_grade,r.employment_setup_id,es.name as employment_setup,es.payment_route,es.pay_cycle,branch.id as branch_id,branch.name as branch,project.name as project,r.hiring_basis,r.department_id,department.name as department,r.salary_minimum::text,r.salary_maximum::text,r.currency_code,o.positions_requested::int as positions_authorized,
       (select count(*)::int from hr_recruitment_offer reserved where reserved.tenant_id=a.tenant_id and reserved.opening_id=o.id and (reserved.state='accepted' or (reserved.state in ('approved','generated','sent') and reserved.valid_until>=current_date))) as positions_reserved,
       current_date::text as today,a.stage as application_stage,c.status as candidate_status,o.state as opening_state,r.state as requisition_state,
       exists(select 1 from hr_recruitment_offer existing where existing.tenant_id=a.tenant_id and existing.application_id=a.id and existing.id<>$4 and existing.state in ('draft','submitted','approved','generated','sent','accepted')) as active_offer
-      from hr_recruitment_application a join hr_candidate c on c.tenant_id=a.tenant_id and c.id=a.candidate_id join organization_unit company on company.tenant_id=a.tenant_id and company.id=a.company_id join hr_job_opening o on o.tenant_id=a.tenant_id and o.id=a.opening_id join hr_manpower_requisition r on r.tenant_id=o.tenant_id and r.id=o.requisition_id join hr_master_record designation on designation.tenant_id=r.tenant_id and designation.id=r.designation_id join hr_master_record grade on grade.tenant_id=r.tenant_id and grade.id=r.job_grade_id join hr_master_record es on es.tenant_id=r.tenant_id and es.id=r.employment_setup_id join organization_unit branch on branch.tenant_id=r.tenant_id and branch.id=r.branch_id join organization_unit department on department.tenant_id=r.tenant_id and department.id=r.department_id where a.tenant_id=$1 and a.company_id=$2 and a.id=$3`,[context.tenantId,companyId,applicationId,excludeOfferId]);
+      from hr_recruitment_application a join hr_candidate c on c.tenant_id=a.tenant_id and c.id=a.candidate_id join organization_unit company on company.tenant_id=a.tenant_id and company.id=a.company_id join hr_job_opening o on o.tenant_id=a.tenant_id and o.id=a.opening_id join hr_manpower_requisition r on r.tenant_id=o.tenant_id and r.id=o.requisition_id join hr_master_record designation on designation.tenant_id=r.tenant_id and designation.id=r.designation_id join hr_master_record grade on grade.tenant_id=r.tenant_id and grade.id=r.job_grade_id join hr_master_record es on es.tenant_id=r.tenant_id and es.id=r.employment_setup_id join organization_unit department on department.tenant_id=r.tenant_id and department.id=r.department_id left join organization_unit branch on branch.tenant_id=r.tenant_id and branch.type='branch' and branch.id=coalesce(r.branch_id,department.parent_id) left join erp_project project on project.tenant_id=r.tenant_id and project.company_id=r.company_id and project.id=r.project_id where a.tenant_id=$1 and a.company_id=$2 and a.id=$3`,[context.tenantId,companyId,applicationId,excludeOfferId]);
     const row=result.rows[0];if(!row)throw new HrApiError(404,"HR_APPLICATION_NOT_FOUND","The application is unavailable in your company scope.");
     const {application_stage,candidate_status,opening_state,requisition_state,active_offer,...facts}=row;
     const blockers:string[]=[];
@@ -1529,6 +1531,7 @@ export class SourceHrRepository {
     if(candidate_status!=="active")blockers.push("The candidate must be active.");
     if(opening_state!=="open")blockers.push("The job opening must be open.");
     if(requisition_state!=="approved")blockers.push("An approved manpower requisition is required.");
+    if(!facts.branch_id)blockers.push("The requisition department must sit under a branch before an offer can be prepared.");
     if(active_offer)blockers.push("An active or accepted offer already exists for this application.");
     return {...facts,blockers};
   }
@@ -7388,6 +7391,21 @@ export class SourceHrRepository {
     return this.read(context, "hr.master.read", async (client) => {
       await this.requireCompanyAccess(client, context, companyId);
       return { items: await this.activeCompanyCurrencies(client, context, companyId) };
+    });
+  }
+
+  /**
+   * Active Finance reporting projects of a company, read for manpower
+   * requisitions. Read-only; Finance remains the owner of project setup.
+   */
+  async listRequisitionProjects(context: HrActorContext, companyId: string): Promise<HrRequisitionProjectDirectory> {
+    return this.read(context, "hr.employee.read", async (client) => {
+      await this.requireCompanyAccess(client, context, companyId);
+      const result = await client.query<HrRequisitionProjectDirectory["items"][number]>(
+        "select id,code,name from erp_project where tenant_id=$1 and company_id=$2 and status='active' order by code,id limit 500",
+        [context.tenantId, companyId],
+      );
+      return { items: result.rows };
     });
   }
 

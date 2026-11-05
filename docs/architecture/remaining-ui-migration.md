@@ -3922,8 +3922,44 @@ Company Chart adoption/review checkpoint (2026-10-20):
   bottom "Close drawer" button are removed (header cross remains, Cancel
   stays). `HrRecordDrawer` gains `closeFooter` (default true; other drawers
   unchanged).
-- Manpower Requisition form changes (remove Designation, Branch -> Project,
-  hiring basis, company currencies) touch the requisition/offer/employee
-  hand-off schema and are pending a backend decision.
+- Manpower Requisition form changes followed in the HR136 batch below.
 - Verification: `tsc --noEmit`, ESLint (no new findings vs HEAD), UI theme
   audit, production build, `git diff --check`.
+
+## 2026-11-05 - HR136 Manpower Requisition: Project, hiring basis, currencies
+
+- User decisions: keep Job Title and Designation; Branch is replaced by a
+  Finance reporting Project and the offer derives its branch; a fixed
+  hiring basis field; currency picker of company currencies while the
+  existing grade-currency rule stays.
+- Migration `packages/db/source-migrations/hr/0136_requisition_project_hiring_basis.forward.sql`
+  (additive): `branch_id` becomes nullable, `project_id` (composite FK to
+  `erp_project` of the same company) and `hiring_basis` (permanent,
+  temporary, project_based, contract, internship, part_time) are added.
+  Legacy rows keep their branch with NULL project/basis; the scope trigger
+  requires project + basis on INSERT and an active same-company project.
+  Rollback runbook is in the migration header.
+- Contract: create request takes `project_id` + `hiring_basis` (`branch_id`
+  optional, legacy); requisition/offer context expose nullable branch plus
+  project and hiring basis. New read-only `GET /api/v1/hr/requisition_projects`
+  (hr.employee.read + company access) mirrors `job_grade_currencies`.
+  OpenAPI snapshot and generated client regenerated.
+- Offer context branch = requisition branch, else the department's parent
+  branch; an offer is blocked with a clear message when neither exists (the
+  existing offer check already required department-under-branch).
+- Form: Project and Hiring basis replace Branch; Job grade options read
+  "Grade N" (name appended only when two grades share a level); Currency is
+  a dropdown of company currencies, defaulted from the grade, and a
+  mismatch is explained before saving. List/detail show project and hiring
+  basis; offer screens show "Branch not set" instead of a blank.
+- Verification: integration `hr-requisition-project-migration`,
+  `hr-employment-setup-migration` (now pinned through HR135),
+  `postgres-migrations` (HR latest 136) all pass against the test database;
+  unit tests for the route, client and contract pass; full unit suite has
+  the 2 known user-management failures; contract suite's path-list
+  assertion was already stale (snapshot equality passes); `api:check`,
+  `tsc`, ESLint (no new findings), UI audit, production build,
+  `git diff --check`.
+- Resume point: apply HR136 to the local/UAT database (`npm run db:migrate
+  --workspace @nexora/db`), configure Finance projects per company, then a
+  signed-in check of create requisition -> approve -> opening -> offer.

@@ -223,6 +223,7 @@ export interface AppDependencies {
     | "deleteMaster"
     | "listJobGrades"
     | "listJobGradeCurrencies"
+    | "listRequisitionProjects"
     | "createJobGrade"
     | "updateJobGrade"
     | "deleteJobGrade"

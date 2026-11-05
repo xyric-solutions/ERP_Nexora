@@ -357,6 +357,7 @@ import {
   hrMasterDeleteResultSchema,
   hrJobGradeDirectorySchema,
   hrJobGradeCurrencyDirectorySchema,
+  hrRequisitionProjectDirectorySchema,
   createHrJobGradeRequestSchema,
   updateHrJobGradeRequestSchema,
   hrEmployeeContactDirectorySchema,
@@ -6270,6 +6271,29 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/hr/requisition_projects": {
+        get: {
+          operationId: "listHrRequisitionProjects",
+          description:
+            "Active Finance reporting projects of a company, read for manpower requisitions. Ordered by code, at most 500. Requires hr.employee.read and company access.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Active company projects available for requisitions",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrRequisitionProjectDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
       "/hr/job_grades/{gradeId}": {
         patch: {
           operationId: "updateHrJobGrade",
@@ -7525,6 +7549,7 @@ export function buildOpenApiDocument() {
         HrMasterDeleteResult: schema(hrMasterDeleteResultSchema),
         HrJobGradeDirectory: schema(hrJobGradeDirectorySchema),
         HrJobGradeCurrencyDirectory: schema(hrJobGradeCurrencyDirectorySchema),
+        HrRequisitionProjectDirectory: schema(hrRequisitionProjectDirectorySchema),
         CreateHrJobGradeRequest: schema(createHrJobGradeRequestSchema),
         UpdateHrJobGradeRequest: schema(updateHrJobGradeRequestSchema),
         HrEmployeeContactDirectory: schema(hrEmployeeContactDirectorySchema),

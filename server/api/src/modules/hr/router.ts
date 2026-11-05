@@ -207,6 +207,7 @@ export interface HrRouterDependencies {
     | "deleteMaster"
     | "listJobGrades"
     | "listJobGradeCurrencies"
+    | "listRequisitionProjects"
     | "createJobGrade"
     | "updateJobGrade"
     | "deleteJobGrade"
@@ -1164,6 +1165,10 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
   router.get("/job_grade_currencies", async (req, res) => {
     const companyId = z.string().trim().min(1).max(128).parse(req.query.company_id);
     res.json(await handle(async () => dependencies.repository.listJobGradeCurrencies(await loadHrSessionContext(req, dependencies), companyId)));
+  });
+  router.get("/requisition_projects", async (req, res) => {
+    const companyId = z.string().trim().min(1).max(128).parse(req.query.company_id);
+    res.json(await handle(async () => dependencies.repository.listRequisitionProjects(await loadHrSessionContext(req, dependencies), companyId)));
   });
   router.post("/job_grades", async (req, res) => {
     trustedOrigin(req, dependencies.allowedOrigins);

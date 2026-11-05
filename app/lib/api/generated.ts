@@ -324,6 +324,7 @@ import type {
   HrMasterDeleteResult,
   HrJobGradeDirectory,
   HrJobGradeCurrencyDirectory,
+  HrRequisitionProjectDirectory,
   CreateHrJobGradeRequest,
   UpdateHrJobGradeRequest,
   HrEmployeeContactDirectory,
@@ -3158,6 +3159,9 @@ export class NexoraApiClient {
   }
   listHrJobGradeCurrencies(query: string): Promise<HrJobGradeCurrencyDirectory> {
     return this.request(`/api/v1/hr/job_grade_currencies${query}`);
+  }
+  listHrRequisitionProjects(query: string): Promise<HrRequisitionProjectDirectory> {
+    return this.request(`/api/v1/hr/requisition_projects${query}`);
   }
   createHrJobGrade(
     payload: CreateHrJobGradeRequest,

@@ -399,4 +399,15 @@ describe("HR browser client", () => {
     await expect(client.jobGradeCurrencies("company/a")).resolves.toEqual(directory);
     expect(api.listHrJobGradeCurrencies).toHaveBeenCalledWith("?company_id=company%2Fa");
   });
+
+  it("reads requisition projects through the generated client", async () => {
+    const directory = { items: [{ id: "project-1", code: "PRJ-001", name: "Data platform" }] };
+    const api = {
+      listHrRequisitionProjects: vi.fn(async () => directory),
+    } as unknown as NexoraApiClient;
+    const client = new HrApiClient(api);
+
+    await expect(client.requisitionProjects("company/a")).resolves.toEqual(directory);
+    expect(api.listHrRequisitionProjects).toHaveBeenCalledWith("?company_id=company%2Fa");
+  });
 });

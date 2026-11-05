@@ -542,6 +542,9 @@ export type HrPositionsOrganizationQuery = z.infer<typeof hrPositionsOrganizatio
 export type HrPositionsOrganization = z.infer<typeof hrPositionsOrganizationSchema>;
 
 const hrMoneySchema = z.string().regex(/^\d+(?:\.\d{1,4})?$/);
+/** How the requisitioned role is engaged; independent of the Employment Setup (pay route and cycle). */
+export const hrHiringBasisSchema = z.enum(["permanent", "temporary", "project_based", "contract", "internship", "part_time"]);
+export type HrHiringBasis = z.infer<typeof hrHiringBasisSchema>;
 export const hrManpowerRequisitionQuerySchema = z.strictObject({
   company_id: identifier,
   search: z.string().trim().max(160).optional(),
@@ -552,7 +555,8 @@ export const hrManpowerRequisitionSchema = z.strictObject({
   id: identifier, company_id: identifier, reference: z.string().min(1).max(32),
   job_title: z.string().min(1).max(160), designation: z.string().min(1).max(160), job_grade: z.string().min(1).max(160),
   employment_setup_id: identifier, employment_setup: z.string().min(1).max(160), payment_route: hrPaymentRouteSchema, pay_cycle: hrPayCycleSchema,
-  branch: z.string().min(1).max(200), department: z.string().min(1).max(200),
+  branch: z.string().min(1).max(200).nullable(), project_id: identifier.nullable(), project: z.string().min(1).max(200).nullable(),
+  hiring_basis: hrHiringBasisSchema.nullable(), department: z.string().min(1).max(200),
   positions_requested: z.number().int().min(1), position_type: z.enum(["new_position", "replacement"]),
   salary_minimum: hrMoneySchema, salary_maximum: hrMoneySchema, currency_code: z.string().regex(/^[A-Z]{3}$/),
   target_start_date: isoDate, reason: z.string().min(1).max(2000), required_skills: z.array(z.string().min(1).max(100)).max(30),
@@ -563,7 +567,9 @@ export const hrManpowerRequisitionSchema = z.strictObject({
 export const hrManpowerRequisitionDirectorySchema = z.strictObject({ items: z.array(hrManpowerRequisitionSchema) });
 export const createHrManpowerRequisitionRequestSchema = z.strictObject({
   company_id: identifier, job_title: z.string().trim().min(1).max(160), designation_id: identifier, job_grade_id: identifier,
-  employment_setup_id: identifier, branch_id: identifier, department_id: identifier, positions_requested: z.number().int().min(1).max(999),
+  employment_setup_id: identifier, project_id: identifier, hiring_basis: hrHiringBasisSchema,
+  /** Legacy: new requisitions name a project; the offer derives the branch from the department. */
+  branch_id: identifier.optional(), department_id: identifier, positions_requested: z.number().int().min(1).max(999),
   position_type: z.enum(["new_position", "replacement"]), replacement_employee_id: identifier.optional(),
   salary_minimum: hrMoneySchema, salary_maximum: hrMoneySchema, currency_code: z.string().regex(/^[A-Z]{3}$/), target_start_date: isoDate,
   reason: z.string().trim().min(1).max(2000), required_skills: z.array(z.string().trim().min(1).max(100)).max(30).default([]),
@@ -682,7 +688,7 @@ export const hrOfferStateSchema = z.enum(["draft","submitted","approved","genera
 export const hrOfferQuerySchema = z.strictObject({company_id:identifier,search:z.string().trim().max(160).optional(),state:hrOfferStateSchema.optional(),limit:z.number().int().min(1).max(100).default(50),offset:z.number().int().min(0).max(100000).default(0)});
 export const hrOfferScopeQuerySchema = z.strictObject({company_id:identifier});
 export const hrOfferContextQuerySchema = z.strictObject({company_id:identifier,application_id:identifier});
-export const hrOfferContextSchema = z.strictObject({application_id:identifier,application_reference:z.string(),candidate_name:z.string(),company_name:z.string(),opening_id:identifier,opening_title:z.string(),opening_reference:z.string(),requisition_id:identifier,requisition_reference:z.string(),designation_id:identifier,designation:z.string(),job_grade_id:identifier,job_grade:z.string(),employment_setup_id:identifier,employment_setup:z.string(),payment_route:hrPaymentRouteSchema,pay_cycle:hrPayCycleSchema,branch_id:identifier,branch:z.string(),department_id:identifier,department:z.string(),salary_minimum:z.string(),salary_maximum:z.string(),currency_code:z.string(),positions_authorized:z.number().int(),positions_reserved:z.number().int(),today:isoDate,blockers:z.array(z.string())});
+export const hrOfferContextSchema = z.strictObject({application_id:identifier,application_reference:z.string(),candidate_name:z.string(),company_name:z.string(),opening_id:identifier,opening_title:z.string(),opening_reference:z.string(),requisition_id:identifier,requisition_reference:z.string(),designation_id:identifier,designation:z.string(),job_grade_id:identifier,job_grade:z.string(),employment_setup_id:identifier,employment_setup:z.string(),payment_route:hrPaymentRouteSchema,pay_cycle:hrPayCycleSchema,branch_id:identifier.nullable(),branch:z.string().nullable(),project:z.string().nullable(),hiring_basis:hrHiringBasisSchema.nullable(),department_id:identifier,department:z.string(),salary_minimum:z.string(),salary_maximum:z.string(),currency_code:z.string(),positions_authorized:z.number().int(),positions_reserved:z.number().int(),today:isoDate,blockers:z.array(z.string())});
 const hrOfferTermsFields = {proposed_gross:z.string().regex(/^\d{1,16}(?:\.\d{1,4})?$/).refine(value=>/[1-9]/.test(value),"Proposed gross must be positive."),joining_on:isoDate,valid_until:isoDate,probation_months:z.number().int().min(0).max(24),notice_days:z.number().int().min(0).max(365),cost_center_id:identifier,work_location_id:identifier,employment_setup_id:identifier,reporting_manager_id:identifier.nullable().default(null),note:z.string().trim().max(2000).default(""),range_exception_reason:z.string().trim().max(1000).default("")};
 export const createHrOfferRequestSchema = z.strictObject({company_id:identifier,application_id:identifier,...hrOfferTermsFields}).refine(value=>value.valid_until<=value.joining_on,"Offer validity must end on or before the joining date.");
 export const updateHrOfferRequestSchema = z.strictObject({company_id:identifier,expected_version:z.number().int().positive(),...hrOfferTermsFields}).refine(value=>value.valid_until<=value.joining_on,"Offer validity must end on or before the joining date.");
@@ -1289,6 +1295,15 @@ export const hrJobGradeCurrencySchema = z.strictObject({
 export const hrJobGradeCurrencyDirectorySchema = z.strictObject({ items: z.array(hrJobGradeCurrencySchema).max(300) });
 export type HrJobGradeCurrency = z.infer<typeof hrJobGradeCurrencySchema>;
 export type HrJobGradeCurrencyDirectory = z.infer<typeof hrJobGradeCurrencyDirectorySchema>;
+/** Active Finance reporting projects of a company, read for manpower requisitions. */
+export const hrRequisitionProjectSchema = z.strictObject({
+  id: z.string().min(1).max(128),
+  code: z.string().min(1).max(64),
+  name: z.string().min(1).max(200),
+});
+export const hrRequisitionProjectDirectorySchema = z.strictObject({ items: z.array(hrRequisitionProjectSchema).max(500) });
+export type HrRequisitionProject = z.infer<typeof hrRequisitionProjectSchema>;
+export type HrRequisitionProjectDirectory = z.infer<typeof hrRequisitionProjectDirectorySchema>;
 
 /**
  * A hire request captures proposed employment context only. It must not be

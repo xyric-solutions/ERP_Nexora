@@ -2,7 +2,11 @@
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { CreateHrManpowerRequisitionRequest, HrManpowerRequisitionDirectory } from "@nexora/contracts";
+import type {
+  CreateHrManpowerRequisitionRequest,
+  HrHiringBasis,
+  HrManpowerRequisitionDirectory,
+} from "@nexora/contracts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { employmentSetupOptionLabel } from "../model/employment-setup";
+import { hiringBasisLabel, hiringBasisOptions, isHiringBasis } from "../model/hiring-basis";
 
 type Requisition = HrManpowerRequisitionDirectory["items"][number];
 type Editor = {
@@ -17,7 +22,8 @@ type Editor = {
   designationId: string;
   gradeId: string;
   employmentSetupId: string;
-  branchId: string;
+  projectId: string;
+  hiringBasis: HrHiringBasis | "";
   departmentId: string;
   positions: string;
   minimum: string;
@@ -32,12 +38,13 @@ const blankEditor = (): Editor => ({
   designationId: "",
   gradeId: "",
   employmentSetupId: "",
-  branchId: "",
+  projectId: "",
+  hiringBasis: "",
   departmentId: "",
   positions: "1",
   minimum: "",
   maximum: "",
-  currency: "PKR",
+  currency: "",
   targetStart: "",
   reason: "",
   skills: "",
@@ -65,22 +72,29 @@ export function HrManpowerRequisitionsWorkspace() {
     [saving, setSaving] = useState(false);
   const [masters, setMasters] = useState<Awaited<ReturnType<HrApiClient["masters"]>>["items"]>([]),
     [grades, setGrades] = useState<Awaited<ReturnType<HrApiClient["jobGrades"]>>["items"]>([]),
-    [units, setUnits] = useState<Awaited<ReturnType<HrApiClient["organizationUnits"]>>["items"]>([]);
+    [units, setUnits] = useState<Awaited<ReturnType<HrApiClient["organizationUnits"]>>["items"]>([]),
+    [projects, setProjects] = useState<Awaited<ReturnType<HrApiClient["requisitionProjects"]>>["items"]>([]),
+    [currencies, setCurrencies] = useState<Awaited<ReturnType<HrApiClient["jobGradeCurrencies"]>>["items"]>([]);
   const load = useCallback(
     async (company: string) => {
       if (!company) return;
       setLoading(true);
       try {
-        const [items, masterItems, gradeItems, unitItems] = await Promise.all([
+        const [items, masterItems, gradeItems, unitItems, projectItems, currencyItems] = await Promise.all([
           client.manpowerRequisitions({ companyId: company, search: query, state: state || undefined }),
           client.masters({ companyId: company, activeOnly: true }),
           client.jobGrades(company),
           client.organizationUnits({ companyId: company }),
+          client.requisitionProjects(company),
+          // Currencies only fill the picker; the grade currency is still offered if they fail.
+          client.jobGradeCurrencies(company).catch(() => ({ items: [] })),
         ]);
         setRecords(items.items);
         setMasters(masterItems.items);
         setGrades(gradeItems.items.filter((grade) => grade.status === "active"));
         setUnits(unitItems.items.filter((unit) => unit.status === "active"));
+        setProjects(projectItems.items);
+        setCurrencies(currencyItems.items);
         setSelectedId((current) =>
           items.items.some((item) => item.id === current) ? current : (items.items[0]?.id ?? ""),
         );
@@ -115,8 +129,19 @@ export function HrManpowerRequisitionsWorkspace() {
   const selected = records.find((record) => record.id === selectedId),
     designations = masters.filter((item) => item.type === "designation"),
     employmentSetups = masters.filter((item) => item.type === "employment_setup"),
-    branches = units.filter((item) => item.type === "branch"),
     departments = units.filter((item) => item.type === "department");
+  // Grade level is the visible grade; the name is added only when two grades share a level.
+  const gradeLabel = (grade: (typeof grades)[number]) =>
+    grades.filter((item) => item.grade_level === grade.grade_level).length > 1
+      ? `Grade ${grade.grade_level} · ${grade.name}`
+      : `Grade ${grade.grade_level}`;
+  const editorGrade = editor ? grades.find((item) => item.id === editor.gradeId) : undefined;
+  const currencyOptions = [
+    ...currencies.map((item) => ({ code: item.currency_code, label: `${item.currency_code} · ${item.currency_name}` })),
+    ...(editorGrade && !currencies.some((item) => item.currency_code === editorGrade.currency_code)
+      ? [{ code: editorGrade.currency_code, label: editorGrade.currency_code }]
+      : []),
+  ];
   const save = async () => {
     if (!editor || !companyId) return;
     const positions = Number(editor.positions);
@@ -125,8 +150,10 @@ export function HrManpowerRequisitionsWorkspace() {
       !editor.designationId ||
       !editor.gradeId ||
       !editor.employmentSetupId ||
-      !editor.branchId ||
+      !editor.projectId ||
+      !editor.hiringBasis ||
       !editor.departmentId ||
+      !editor.currency ||
       !editor.targetStart ||
       !editor.reason.trim()
     ) {
@@ -145,13 +172,21 @@ export function HrManpowerRequisitionsWorkspace() {
       setMessage("Enter a valid salary range with the maximum at least the minimum.");
       return;
     }
+    const grade = grades.find((item) => item.id === editor.gradeId);
+    if (grade && grade.currency_code !== editor.currency) {
+      setMessage(
+        `Use ${grade.currency_code} for this requisition: the selected job grade's salary band is set in ${grade.currency_code}.`,
+      );
+      return;
+    }
     const payload: CreateHrManpowerRequisitionRequest = {
       company_id: companyId,
       job_title: editor.jobTitle.trim(),
       designation_id: editor.designationId,
       job_grade_id: editor.gradeId,
       employment_setup_id: editor.employmentSetupId,
-      branch_id: editor.branchId,
+      project_id: editor.projectId,
+      hiring_basis: editor.hiringBasis,
       department_id: editor.departmentId,
       positions_requested: positions,
       position_type: "new_position",
@@ -344,7 +379,9 @@ export function HrManpowerRequisitionsWorkspace() {
                     </td>
                     <td className="px-4 py-3">
                       {record.department}
-                      <span className="block text-xs text-muted-foreground">{record.branch}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {record.project ?? record.branch} · {hiringBasisLabel(record.hiring_basis)}
+                      </span>
                     </td>
                     <td className="px-4 py-3">{record.positions_requested}</td>
                     <td className="px-4 py-3">{record.target_start_date}</td>
@@ -384,6 +421,15 @@ export function HrManpowerRequisitionsWorkspace() {
                     <AlertTitle>Job-grade setup required</AlertTitle>
                     <AlertDescription>
                       Configure an active job grade with a complete salary band for this company before creating a
+                      requisition.
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+                {projects.length === 0 ? (
+                  <Alert>
+                    <AlertTitle>Project setup required</AlertTitle>
+                    <AlertDescription>
+                      Add an active project for this company under Finance reporting projects before creating a
                       requisition.
                     </AlertDescription>
                   </Alert>
@@ -430,7 +476,7 @@ export function HrManpowerRequisitionsWorkspace() {
                       <option value="">Select</option>
                       {grades.map((item) => (
                         <option key={item.id} value={item.id}>
-                          {item.name} · {item.currency_code} {item.band_minimum ?? "band unset"}
+                          {gradeLabel(item)}
                         </option>
                       ))}
                     </select>
@@ -459,16 +505,36 @@ export function HrManpowerRequisitionsWorkspace() {
                     />
                   </label>
                   <label className="grid gap-1 text-sm">
-                    Branch
+                    Project
                     <select
                       className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                      value={editor.branchId}
-                      onChange={(event) => setEditor({ ...editor, branchId: event.target.value })}
+                      value={editor.projectId}
+                      onChange={(event) => setEditor({ ...editor, projectId: event.target.value })}
+                    >
+                      <option value="">{projects.length ? "Select" : "No active projects"}</option>
+                      {projects.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.code} · {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Hiring basis
+                    <select
+                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
+                      value={editor.hiringBasis}
+                      onChange={(event) =>
+                        setEditor({
+                          ...editor,
+                          hiringBasis: isHiringBasis(event.target.value) ? event.target.value : "",
+                        })
+                      }
                     >
                       <option value="">Select</option>
-                      {branches.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
+                      {hiringBasisOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
                       ))}
                     </select>
@@ -506,11 +572,18 @@ export function HrManpowerRequisitionsWorkspace() {
                   </label>
                   <label className="grid gap-1 text-sm">
                     Currency
-                    <Input
-                      maxLength={3}
+                    <select
+                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
                       value={editor.currency}
-                      onChange={(event) => setEditor({ ...editor, currency: event.target.value.toUpperCase() })}
-                    />
+                      onChange={(event) => setEditor({ ...editor, currency: event.target.value })}
+                    >
+                      <option value="">{currencyOptions.length ? "Select" : "No company currencies"}</option>
+                      {currencyOptions.map((option) => (
+                        <option key={option.code} value={option.code}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   <label className="grid gap-1 text-sm">
                     Target start
@@ -537,7 +610,7 @@ export function HrManpowerRequisitionsWorkspace() {
                   />
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  <Button disabled={saving || grades.length === 0} onClick={() => void save()}>
+                  <Button disabled={saving || grades.length === 0 || projects.length === 0} onClick={() => void save()}>
                     {saving ? "Saving..." : "Save draft"}
                   </Button>
                   <Button variant="outline" onClick={() => setEditor(null)}>
@@ -573,8 +646,12 @@ export function HrManpowerRequisitionsWorkspace() {
                     <dd className="font-medium">
                       {selected.department}
                       <br />
-                      {selected.branch}
+                      {selected.project ?? selected.branch}
                     </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Hiring basis</dt>
+                    <dd className="font-medium">{hiringBasisLabel(selected.hiring_basis)}</dd>
                   </div>
                   <div>
                     <dt className="text-muted-foreground">Headcount</dt>

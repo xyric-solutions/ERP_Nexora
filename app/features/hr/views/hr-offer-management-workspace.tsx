@@ -140,7 +140,7 @@ function OfferEditor({
           </p>
         </div>
         <div>
-          {context.branch} · {context.department}
+          {context.branch ?? "Branch not set"} · {context.department}
         </div>
         <div>
           {context.employment_setup} · {context.requisition_reference}
@@ -963,7 +963,7 @@ export function HrOfferManagementWorkspace() {
                 <dl className="m-0 grid gap-3 text-sm sm:grid-cols-2">
                   {[
                     ["Company", detail.context.company_name],
-                    ["Department", `${detail.context.department} · ${detail.context.branch}`],
+                    ["Department", `${detail.context.department} · ${detail.context.branch ?? "Branch not set"}`],
                     [
                       "Employment setup",
                       `${detail.employment_setup} · ${paymentRouteLabel(detail.payment_route)} / ${payCycleLabel(detail.pay_cycle)}`,

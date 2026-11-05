@@ -58866,6 +58866,91 @@
         }
       }
     },
+    "/hr/requisition_projects": {
+      "get": {
+        "operationId": "listHrRequisitionProjects",
+        "description": "Active Finance reporting projects of a company, read for manpower requisitions. Ordered by code, at most 500. Requires hr.employee.read and company access.",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active company projects available for requisitions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrRequisitionProjectDirectory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/hr/job_grades/{gradeId}": {
       "patch": {
         "operationId": "updateHrJobGrade",
@@ -75086,9 +75171,58 @@
                   ]
                 },
                 "branch": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 200
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "project_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "project": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "hiring_basis": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "permanent",
+                        "temporary",
+                        "project_based",
+                        "contract",
+                        "internship",
+                        "part_time"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "department": {
                   "type": "string",
@@ -75230,6 +75364,9 @@
                 "payment_route",
                 "pay_cycle",
                 "branch",
+                "project_id",
+                "project",
+                "hiring_basis",
                 "department",
                 "positions_requested",
                 "position_type",
@@ -75285,6 +75422,22 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 128
+          },
+          "project_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "hiring_basis": {
+            "type": "string",
+            "enum": [
+              "permanent",
+              "temporary",
+              "project_based",
+              "contract",
+              "internship",
+              "part_time"
+            ]
           },
           "branch_id": {
             "type": "string",
@@ -75352,7 +75505,8 @@
           "designation_id",
           "job_grade_id",
           "employment_setup_id",
-          "branch_id",
+          "project_id",
+          "hiring_basis",
           "department_id",
           "positions_requested",
           "position_type",
@@ -76759,12 +76913,46 @@
                     ]
                   },
                   "branch_id": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 128
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "branch": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "project": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "hiring_basis": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "permanent",
+                          "temporary",
+                          "project_based",
+                          "contract",
+                          "internship",
+                          "part_time"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "department_id": {
                     "type": "string",
@@ -76825,6 +77013,8 @@
                   "pay_cycle",
                   "branch_id",
                   "branch",
+                  "project",
+                  "hiring_basis",
                   "department_id",
                   "department",
                   "salary_minimum",
@@ -112098,12 +112288,46 @@
             ]
           },
           "branch_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "branch": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hiring_basis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "permanent",
+                  "temporary",
+                  "project_based",
+                  "contract",
+                  "internship",
+                  "part_time"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "department_id": {
             "type": "string",
@@ -112164,6 +112388,8 @@
           "pay_cycle",
           "branch_id",
           "branch",
+          "project",
+          "hiring_basis",
           "department_id",
           "department",
           "salary_minimum",
@@ -112449,12 +112675,46 @@
                 ]
               },
               "branch_id": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 128
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "branch": {
-                "type": "string"
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "project": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "hiring_basis": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "permanent",
+                      "temporary",
+                      "project_based",
+                      "contract",
+                      "internship",
+                      "part_time"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "department_id": {
                 "type": "string",
@@ -112515,6 +112775,8 @@
               "pay_cycle",
               "branch_id",
               "branch",
+              "project",
+              "hiring_basis",
               "department_id",
               "department",
               "salary_minimum",
@@ -115232,6 +115494,46 @@
                 "currency_code",
                 "currency_name",
                 "is_base"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "HrRequisitionProjectDirectory": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "items": {
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "code": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              },
+              "required": [
+                "id",
+                "code",
+                "name"
               ],
               "additionalProperties": false
             }

@@ -396,6 +396,30 @@ describe("HR API foundation", () => {
     expect(repository.listJobGradeCurrencies).toHaveBeenCalledTimes(1);
   });
 
+  it("returns active company projects for manpower requisitions", async () => {
+    const directory = { items: [{ id: "project-1", code: "PRJ-001", name: "Data platform" }] };
+    const repository = { listRequisitionProjects: vi.fn(async () => directory) } as unknown as Pick<
+      SourceHrRepository,
+      "listRequisitionProjects"
+    >;
+    const response = await request(appForHr(repository))
+      .get("/api/v1/hr/requisition_projects?company_id=company-a")
+      .set("cookie", "nexora_session=token-hr");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(directory);
+    expect(repository.listRequisitionProjects).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "company-a",
+    );
+
+    const missingCompany = await request(appForHr(repository))
+      .get("/api/v1/hr/requisition_projects")
+      .set("cookie", "nexora_session=token-hr");
+    expect(missingCompany.status).toBe(400);
+    expect(repository.listRequisitionProjects).toHaveBeenCalledTimes(1);
+  });
+
   it("validates and protects job-grade creation with browser mutation controls", async () => {
     const repository = {
       createJobGrade: vi.fn(async () => ({ id: "grade-5", company_id: "company-a", audit_event_id: "audit-grade-5", replayed: false })),

@@ -259,7 +259,8 @@ describe("HR134 Employment Setup migration", () => {
       [T, C1, ["ec-l"], actor, ["ec-x", "ec-l"]],
     );
 
-    await migrateSourceModule(pool, "hr");
+    // Later HR migrations (HR136 requires a project on new requisitions) have their own proofs.
+    await migrateSourceModule(pool, "hr", { throughVersion: 135 });
     await migrateSourceModule(pool, "runtime");
   }, 180_000);
 

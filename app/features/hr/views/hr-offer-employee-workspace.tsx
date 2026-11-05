@@ -298,7 +298,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
     const o = workspace.offer;
     const input = {
       company_id: company,
-      branch_id: o.context.branch_id,
+      branch_id: o.context.branch_id ?? undefined,
       department_id: o.context.department_id,
       designation_id: o.context.designation_id,
       job_grade_id: o.context.job_grade_id,
@@ -531,7 +531,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
                     <Detail name="Joining date" value={data.offer.joining_on} />
                     <Detail
                       name="Branch / department"
-                      value={`${data.offer.context.branch} / ${data.offer.context.department}`}
+                      value={`${data.offer.context.branch ?? "Branch not set"} / ${data.offer.context.department}`}
                     />
                     <Detail
                       name="Cost centre / work location"
