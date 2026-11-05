@@ -24,6 +24,14 @@ export function HrPeopleWorkspace({
 }) {
   const active = peoplePages.find((page) => page.id === pageId);
   const currentGroup = peopleGroups.find((group) => group.pages.some((page) => page.id === pageId));
+  // Groups with `tabs` show only those pages as tabs; `tools` become header actions.
+  const groupTabs: readonly string[] | undefined =
+    currentGroup && "tabs" in currentGroup ? currentGroup.tabs : undefined;
+  const groupTools: readonly string[] = currentGroup && "tools" in currentGroup ? currentGroup.tools : [];
+  const sectionTabs = (currentGroup?.pages ?? []).filter((page) =>
+    groupTabs ? groupTabs.includes(page.id) : page.id !== "employee-record" || employeeId,
+  );
+  const recordTools = (currentGroup?.pages ?? []).filter((page) => groupTools.includes(page.id));
   const go = (target: string) =>
     onNavigate(
       "hr",
@@ -41,16 +49,31 @@ export function HrPeopleWorkspace({
             title={currentGroup.label}
             backLabel="Back to all people"
             onBack={() => go("people-workspace")}
-            pages={currentGroup.pages.filter((page) => page.id !== "employee-record" || employeeId)}
-            activeId={active.id}
+            pages={sectionTabs}
+            activeId={sectionTabs.some((page) => page.id === pageId) ? pageId : (sectionTabs[0]?.id ?? pageId)}
             onSelect={go}
             navLabel={`${currentGroup.label} pages`}
             actions={
-              pageId === "employees" ? (
-                <Button type="button" onClick={() => go("add-employee")}>
-                  + Add Employee
-                </Button>
-              ) : null
+              pageId === "add-employee" ? null : (
+                <div className="flex flex-wrap gap-2">
+                  {recordTools.map((page) => (
+                    <Button
+                      key={page.id}
+                      type="button"
+                      variant={page.id === pageId ? "default" : "outline"}
+                      aria-current={page.id === pageId ? "page" : undefined}
+                      onClick={() => go(page.id)}
+                    >
+                      {page.label}
+                    </Button>
+                  ))}
+                  {pageId === "employees" ? (
+                    <Button type="button" onClick={() => go("add-employee")}>
+                      + Add Employee
+                    </Button>
+                  ) : null}
+                </div>
+              )
             }
           />
           {children}

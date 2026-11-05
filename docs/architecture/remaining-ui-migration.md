@@ -4043,3 +4043,15 @@ Company Chart adoption/review checkpoint (2026-10-20):
   Employee" button are unchanged.
 - Verification: `tsc --noEmit`, landing summary unit tests, production
   build, `git diff --check`.
+
+## 2026-11-05 - Employee record areas move into Employee Directory
+
+- Employee Records tabs are only Employee Directory and Add Employee
+  (`tabs` in `people-navigation.ts`). Contacts, Emergency Contacts,
+  Documents, Assignments and History (`tools`) are header actions beside
+  "+ Add Employee" on Employee Directory and on each of those pages (the
+  open one is highlighted, Employee Directory stays the active tab). Page
+  ids, routes, employee pickers and the Overview's related-record links are
+  unchanged.
+- Verification: `tsc --noEmit`, ESLint, UI theme audit, production build,
+  `git diff --check`.

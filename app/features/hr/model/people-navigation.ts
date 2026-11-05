@@ -15,6 +15,16 @@ export const peopleGroups = [
       { id: "employee-assignments", label: "Assignments" },
       { id: "employee-status-history", label: "History" },
     ],
+    /** Section tabs; the other record pages open from Employee Directory's actions. */
+    tabs: ["employees", "add-employee"],
+    /** Employee record areas offered as actions beside "+ Add Employee". */
+    tools: [
+      "employee-contacts",
+      "employee-emergency-contacts",
+      "employee-documents",
+      "employee-assignments",
+      "employee-status-history",
+    ],
     cards: [
       {
         id: "employees",
