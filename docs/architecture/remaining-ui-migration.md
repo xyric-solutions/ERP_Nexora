@@ -3847,3 +3847,16 @@ Company Chart adoption/review checkpoint (2026-10-20):
   pre-existing failures), production build, `catalogue:check`,
   `git diff --check`. Visual acceptance of the drawer and table widths at
   desktop/tablet/mobile is the resume point.
+
+## 2026-11-05 - Daily Attendance matches Monthly Attendance
+
+- Daily Attendance table fits the available width (no 950px minimum, no
+  horizontal scrollbar, tighter cells) and has no Review/actions column;
+  clicking a row (Enter/Space when focused, or tapping a mobile card) opens
+  the attendance evidence in the shared right-side drawer (`HrMasterSheet`
+  `size="wide"`) with the employee, date and time zone in the drawer header.
+  The "Close details" button is replaced by the drawer close control; the
+  "Review shift assignments" navigation link stays inside the drawer.
+- Verification: `tsc --noEmit`, ESLint (4 pre-existing findings, none new),
+  Prettier, UI theme audit, unit tests (2 known pre-existing failures),
+  production build, `git diff --check`.

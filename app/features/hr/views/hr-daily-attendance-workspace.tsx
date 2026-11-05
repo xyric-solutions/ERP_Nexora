@@ -1,6 +1,6 @@
 "use client";
 import { useHrOperationsScope } from "../components/hr-operations-scope";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import {
   hrDailyAttendanceQuerySchema,
   type HrDailyAttendanceDirectory,
@@ -29,6 +29,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrMasterSheet } from "../components/hr-master-sheet";
 const selectClass =
   "h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
 const localDate = () => {
@@ -133,6 +134,18 @@ export function HrDailyAttendanceWorkspace({
     [data],
   );
   const detail = data?.items.find((r) => r.employee_id === selected);
+  const openRow = (row: HrDailyAttendanceRow) => ({
+    role: "button" as const,
+    tabIndex: 0,
+    "aria-label": `Open ${row.display_name} (${row.employee_number}) attendance evidence`,
+    onClick: () => setSelected(row.employee_id),
+    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        setSelected(row.employee_id);
+      }
+    },
+  });
   if (sessionLoading) return <Skeleton className="h-64 w-full" />;
   if (!canRead)
     return (
@@ -274,13 +287,13 @@ export function HrDailyAttendanceWorkspace({
             ))}
           </div>
         ) : data?.items.length ? (
-          <div className="hidden max-h-[38rem] overflow-auto md:block">
-            <table className="w-full min-w-[950px] text-left text-sm">
+          <div className="hidden max-h-[38rem] overflow-y-auto md:block">
+            <table className="w-full text-left text-sm">
               <thead className="sticky top-0 z-10 bg-muted">
                 <tr>
-                  {["Employee", "Shift / department", "In / out", "Worked", "Late", "Status", ""].map((h, i) => (
-                    <th key={i} scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">
-                      {h || <span className="sr-only">Actions</span>}
+                  {["Employee", "Shift / department", "In / out", "Worked", "Late", "Status"].map((h) => (
+                    <th key={h} scope="col" className="px-3 py-3 text-xs font-semibold text-muted-foreground">
+                      {h}
                     </th>
                   ))}
                 </tr>
@@ -289,39 +302,30 @@ export function HrDailyAttendanceWorkspace({
                 {data.items.map((row) => (
                   <tr
                     key={row.employee_id}
-                    className={`border-t border-border transition-colors hover:bg-muted/40 ${selected === row.employee_id ? "bg-primary/5" : ""}`}
+                    {...openRow(row)}
+                    className={`cursor-pointer border-t border-border outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selected === row.employee_id ? "bg-primary/5" : ""}`}
                   >
-                    <td className="px-4 py-4">
+                    <td className="px-3 py-3">
                       <span className="block font-semibold">{row.display_name}</span>
                       <span className="mt-1 block text-xs text-muted-foreground">{row.employee_number}</span>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-3 py-3">
                       <span className="block">{row.shift_name ?? "Shift not assigned"}</span>
                       <span className="mt-1 block text-xs text-muted-foreground">
                         {row.department ?? "No department"}
                       </span>
                     </td>
-                    <td className="px-4 py-4 text-xs">
+                    <td className="px-3 py-3 text-xs">
                       <span className="block">{time(row.first_in, row.time_zone)}</span>
                       <span className="mt-1 block text-muted-foreground">{time(row.last_out, row.time_zone)}</span>
                     </td>
-                    <td className="px-4 py-4 tabular-nums">{minutes(row.worked_minutes)}</td>
-                    <td className="px-4 py-4 tabular-nums">{row.late_minutes}m</td>
-                    <td className="px-4 py-4">
+                    <td className="px-3 py-3 tabular-nums">{minutes(row.worked_minutes)}</td>
+                    <td className="px-3 py-3 tabular-nums">{row.late_minutes}m</td>
+                    <td className="px-3 py-3">
                       <Status row={row} />
                       {row.correction_applied && (
                         <span className="mt-1 block text-xs text-muted-foreground">Approved correction</span>
                       )}
-                    </td>
-                    <td className="px-4 py-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        aria-label={`Review ${row.employee_number}`}
-                        onClick={() => setSelected(row.employee_id)}
-                      >
-                        Review
-                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -341,7 +345,11 @@ export function HrDailyAttendanceWorkspace({
       {!loading && !!data?.items.length && (
         <div className="grid gap-3 md:hidden">
           {data.items.map((row) => (
-            <article key={row.employee_id} className="grid min-w-0 gap-3 rounded-xl border border-border bg-card p-4">
+            <article
+              key={row.employee_id}
+              {...openRow(row)}
+              className="grid min-w-0 cursor-pointer gap-3 rounded-xl border border-border bg-card p-4 outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring"
+            >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <h3 className="break-words text-sm font-semibold">{row.display_name}</h3>
@@ -368,13 +376,6 @@ export function HrDailyAttendanceWorkspace({
                   </dd>
                 </div>
               </dl>
-              <Button
-                variant="outline"
-                aria-label={`Review ${row.employee_number}`}
-                onClick={() => setSelected(row.employee_id)}
-              >
-                Review evidence
-              </Button>
             </article>
           ))}
         </div>
@@ -402,79 +403,80 @@ export function HrDailyAttendanceWorkspace({
           </Button>
         </div>
       </div>
-      {detail && (
-        <section
-          aria-label="Attendance evidence"
-          className="grid min-w-0 gap-4 rounded-xl border border-primary/25 bg-card p-5"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-3">
+      <HrMasterSheet
+        open={Boolean(detail)}
+        onOpenChange={(open) => {
+          if (!open) setSelected("");
+        }}
+        size="wide"
+        eyebrow="Daily Attendance"
+        title={detail?.display_name ?? "Attendance evidence"}
+        description={
+          detail ? `${detail.employee_number} · ${date} · ${detail.time_zone ?? "Timezone not configured"}` : ""
+        }
+      >
+        {detail && (
+          <section aria-label="Attendance evidence" className="grid min-w-0 gap-4">
             <div>
-              <h3 className="text-lg font-semibold">{detail.display_name}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {detail.employee_number} · {date} · {detail.time_zone ?? "Timezone not configured"}
-              </p>
+              <Status row={detail} />
             </div>
-            <Status row={detail} />
-          </div>
-          <dl className="m-0 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {[
-              [
-                "Scheduled window",
-                `${time(detail.scheduled_start, detail.time_zone)} → ${time(detail.scheduled_end, detail.time_zone)}`,
-              ],
-              [
-                "Shift source",
-                detail.allocation_scope ? `${label(detail.allocation_scope)} assignment` : "Not assigned",
-              ],
-              ["Approved leave", `${detail.leave_days} day(s)`],
-              [
-                "Extra / approved overtime",
-                `${minutes(detail.potential_overtime_minutes)} / ${minutes(detail.approved_overtime_minutes)}`,
-              ],
-            ].map(([name, value]) => (
-              <div key={name} className="min-w-0 rounded-lg border border-border bg-background p-3">
-                <dt className="text-xs text-muted-foreground">{name}</dt>
-                <dd className="m-0 mt-2 break-words text-sm font-medium">{value}</dd>
-              </div>
-            ))}
-          </dl>
-          {detail.issues.length > 0 && (
-            <ul className="m-0 grid gap-2 rounded-lg border border-[var(--nx-warning-border)]/30 bg-[var(--nx-warning-soft)]/5 p-4 pl-8 text-sm">
-              {detail.issues.map((issue) => (
-                <li key={issue}>{issue}</li>
+            <dl className="m-0 grid gap-3 sm:grid-cols-2">
+              {[
+                [
+                  "Scheduled window",
+                  `${time(detail.scheduled_start, detail.time_zone)} → ${time(detail.scheduled_end, detail.time_zone)}`,
+                ],
+                [
+                  "Shift source",
+                  detail.allocation_scope ? `${label(detail.allocation_scope)} assignment` : "Not assigned",
+                ],
+                ["Approved leave", `${detail.leave_days} day(s)`],
+                [
+                  "Extra / approved overtime",
+                  `${minutes(detail.potential_overtime_minutes)} / ${minutes(detail.approved_overtime_minutes)}`,
+                ],
+              ].map(([name, value]) => (
+                <div key={name} className="min-w-0 rounded-lg border border-border bg-background p-3">
+                  <dt className="text-xs text-muted-foreground">{name}</dt>
+                  <dd className="m-0 mt-2 break-words text-sm font-medium">{value}</dd>
+                </div>
               ))}
-            </ul>
-          )}
-          <div>
-            <h3 className="text-sm font-semibold">Raw punch evidence</h3>
-            {detail.punches === null ? (
-              <p className="mt-2 text-sm text-muted-foreground">Raw evidence requires punch read permission.</p>
-            ) : detail.punches.length ? (
-              <ol className="m-0 mt-3 grid max-h-64 list-none gap-2 overflow-auto p-0 sm:grid-cols-2">
-                {detail.punches.map((p, i) => (
-                  <li key={i} className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
-                    <strong className="mr-2 uppercase">{p.direction}</strong>
-                    {time(p.occurred_at, detail.time_zone)}
-                    <span className="ml-2 text-xs text-muted-foreground">{label(p.source)}</span>
-                  </li>
+            </dl>
+            {detail.issues.length > 0 && (
+              <ul className="m-0 grid gap-2 rounded-lg border border-[var(--nx-warning-border)]/30 bg-[var(--nx-warning-soft)]/5 p-4 pl-8 text-sm">
+                {detail.issues.map((issue) => (
+                  <li key={issue}>{issue}</li>
                 ))}
-              </ol>
-            ) : (
-              <p className="mt-2 text-sm text-muted-foreground">No raw punches recorded for this working date.</p>
+              </ul>
             )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {session?.user.permissions.includes("hr.attendance.shift.read") && (
-              <Button variant="outline" onClick={() => onNavigate("hr", "shift-assignments")}>
-                Review shift assignments
-              </Button>
-            )}
-            <Button variant="ghost" onClick={() => setSelected("")}>
-              Close details
-            </Button>
-          </div>
-        </section>
-      )}
+            <div>
+              <h3 className="text-sm font-semibold">Raw punch evidence</h3>
+              {detail.punches === null ? (
+                <p className="mt-2 text-sm text-muted-foreground">Raw evidence requires punch read permission.</p>
+              ) : detail.punches.length ? (
+                <ol className="m-0 mt-3 grid max-h-64 list-none gap-2 overflow-auto p-0 sm:grid-cols-2">
+                  {detail.punches.map((p, i) => (
+                    <li key={i} className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                      <strong className="mr-2 uppercase">{p.direction}</strong>
+                      {time(p.occurred_at, detail.time_zone)}
+                      <span className="ml-2 text-xs text-muted-foreground">{label(p.source)}</span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">No raw punches recorded for this working date.</p>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {session?.user.permissions.includes("hr.attendance.shift.read") && (
+                <Button variant="outline" onClick={() => onNavigate("hr", "shift-assignments")}>
+                  Review shift assignments
+                </Button>
+              )}
+            </div>
+          </section>
+        )}
+      </HrMasterSheet>
       <p className="rounded-lg border border-border bg-muted/30 p-4 text-xs leading-relaxed text-muted-foreground">
         This operational view reads immutable punches and approved corrections and leave. Worked time deducts unpaid
         breaks after recorded gaps; incomplete or conflicting evidence requires review. Extra minutes are an indicator;
