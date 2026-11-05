@@ -1141,7 +1141,7 @@ export function PrototypeShell({
 
       {drawerModule ? (
         <aside
-          className="nx-submenu-drawer rounded-2xl! [--nx-surface:var(--nx-sidebar-surface)] [--nx-surface-raised:var(--nx-sidebar)] [--nx-text:var(--nx-sidebar-text)] [--nx-text-strong:var(--nx-sidebar-text)] [--nx-text-muted:var(--nx-sidebar-muted)] [--nx-text-subtle:var(--nx-sidebar-muted)] [--nx-border:var(--nx-sidebar-line)] [--nx-brand-soft:var(--nx-sidebar-hover)] [--nx-brand-strong:var(--nx-sidebar-accent)]"
+          className={`nx-submenu-drawer rounded-2xl! ${drawerModule.id === "hr" ? "md:w-60!" : ""} [--nx-surface:var(--nx-sidebar-surface)] [--nx-surface-raised:var(--nx-sidebar)] [--nx-text:var(--nx-sidebar-text)] [--nx-text-strong:var(--nx-sidebar-text)] [--nx-text-muted:var(--nx-sidebar-muted)] [--nx-text-subtle:var(--nx-sidebar-muted)] [--nx-border:var(--nx-sidebar-line)] [--nx-brand-soft:var(--nx-sidebar-hover)] [--nx-brand-strong:var(--nx-sidebar-accent)]`}
           aria-label={`${drawerModule.label} pages`}
         >
           <div className="nx-submenu-drawer__header">

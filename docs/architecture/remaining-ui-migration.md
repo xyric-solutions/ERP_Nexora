@@ -4025,3 +4025,12 @@ Company Chart adoption/review checkpoint (2026-10-20):
   user-management failures), `api:check`, `tsc`, ESLint (no new findings),
   UI theme audit, production build, `git diff --check`.
 - Resume point: apply HR136 and HR137 to the local/UAT database.
+
+## 2026-11-05 - Narrower HR & Payroll module drawer
+
+- The collapsed-sidebar module drawer for HR & Payroll is 240px wide from
+  the md breakpoint (`md:w-60!` in `prototype-shell.tsx`); other modules
+  keep 360px (their links carry an archetype tag), and the mobile bottom
+  sheet stays full width.
+- Verification: `tsc --noEmit`, UI theme audit, production build,
+  `git diff --check`.
