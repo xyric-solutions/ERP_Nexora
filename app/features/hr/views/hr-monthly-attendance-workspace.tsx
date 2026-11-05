@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import type { HrMonthlyAttendanceDirectory, HrMonthlyAttendanceRow } from "@nexora/contracts";
 import {
   CalendarRange,
-  RefreshCw,
   Search,
   Users,
   CheckCircle2,
@@ -234,7 +233,7 @@ export function HrMonthlyAttendanceWorkspace({
     [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
     [offset, setOffset] = useState(0),
-    [revision, setRevision] = useState(0),
+    [revision] = useState(0),
     [selected, setSelected] = useState("");
   const [data, setData] = useState<HrMonthlyAttendanceDirectory | null>(null),
     [loading, setLoading] = useState(false),
@@ -332,10 +331,6 @@ export function HrMonthlyAttendanceWorkspace({
             </p>
           </div>
         </div>
-        <Button variant="outline" disabled={loading || companyLoading} onClick={() => setRevision((v) => v + 1)}>
-          <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
       </div>
       {error && (
         <Alert variant="destructive">

@@ -6,9 +6,7 @@ import { hrApplicationTransitions, type HrApplicationDirectory, type HrApplicati
 import {
   ArrowRight,
   BriefcaseBusiness,
-  CalendarDays,
   CircleDot,
-  History,
   Plus,
   Users,
 } from "lucide-react";
@@ -21,6 +19,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrMasterSheet } from "../components/hr-master-sheet";
+import { HrDetailGroup, HrDetailSection, HrDetailTile } from "../components/hr-detail-tile";
 
 type Application = HrApplicationDirectory["items"][number];
 const labels: Record<HrApplicationStage, string> = {
@@ -126,9 +126,7 @@ export function HrRecruitmentPipelineWorkspace() {
       });
       if (sequence !== requestSequence.current) return;
       setData(result);
-      setSelectedId((current) =>
-        result.items.some((item) => item.id === current) ? current : (result.items[0]?.id ?? ""),
-      );
+      setSelectedId((current) => (result.items.some((item) => item.id === current) ? current : ""));
     } catch (err) {
       if (sequence === requestSequence.current) {
         setError(failure(err, "The recruitment pipeline could not be loaded."));
@@ -325,13 +323,13 @@ export function HrRecruitmentPipelineWorkspace() {
       aria-label="Live recruitment pipeline"
       className="grid min-w-0 gap-5 font-sans text-foreground [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_h4]:mb-0 [&_ol]:m-0 [&_ol]:list-none [&_ol]:p-0"
     >
-      {error ? (
+      {error && !selected ? (
         <Alert variant="destructive" role="alert">
           <AlertTitle>Action needs attention</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
-      {notice ? (
+      {notice && !selected ? (
         <div role="status" className="rounded-xl border border-primary/25 bg-primary/5 p-4 text-sm">
           {notice}
         </div>
@@ -530,7 +528,7 @@ export function HrRecruitmentPipelineWorkspace() {
           ) : null}
         </div>
       ) : (
-        <div className="grid min-w-0 items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid min-w-0 items-start gap-5">
           <div className="min-w-0">
             <div
               className="relative min-w-0 flex gap-3 overflow-x-auto pb-4"
@@ -578,108 +576,6 @@ export function HrRecruitmentPipelineWorkspace() {
               </div>
             ) : null}
           </div>
-          {selected ? (
-            <aside
-              className="grid gap-5 rounded-2xl border border-border bg-card p-5 shadow-sm"
-              aria-label="Application details"
-            >
-              <div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-muted-foreground">{selected.reference}</span>
-                  <StageBadge stage={selected.stage} />
-                </div>
-                <h3 className="mt-3 text-lg font-semibold">{selected.candidate_name}</h3>
-                <p className="mt-1 break-all text-sm text-muted-foreground">{selected.candidate_email}</p>
-              </div>
-              <div className="rounded-xl bg-muted/50 p-3">
-                <p className="text-sm font-medium">{selected.opening_title}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{selected.opening_reference}</p>
-                <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                  <CalendarDays className="size-3.5" />
-                  Applied {date(selected.created_at)}
-                </p>
-              </div>
-              {selected.stage === "evaluation" ? (
-                <Alert>
-                  <AlertTitle>Interview evidence required</AlertTitle>
-                  <AlertDescription>
-                    Open Interviews & Evaluations to review panel scorecards, assessment outcomes and the selection
-                    readiness check.
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-              {canUpdate && allowed.length ? (
-                <HrRecordDrawer
-                  title="Update application stage"
-                  triggerLabel="Update application stage"
-                  completionKey={notice}
-                  busy={saving}
-                  error={error}
-                  notice={notice}
-                >
-                  <form className="grid gap-3 border-t border-border pt-4" onSubmit={move}>
-                    <h4 className="text-sm font-semibold">Record a stage decision</h4>
-                    <label className="grid gap-1.5 text-sm">
-                      Next stage
-                      <select
-                        className={selectStyle}
-                        required
-                        disabled={saving}
-                        value={nextStage}
-                        onChange={(event) => setNextStage(event.target.value as HrApplicationStage)}
-                      >
-                        <option value="">Choose next stage</option>
-                        {allowed.map((stage) => (
-                          <option key={stage} value={stage}>
-                            {labels[stage]}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="grid gap-1.5 text-sm">
-                      Decision reason
-                      <Textarea
-                        required
-                        maxLength={1000}
-                        value={reason}
-                        disabled={saving}
-                        placeholder="Record the screening outcome or decision context"
-                        onChange={(event) => setReason(event.target.value)}
-                      />
-                    </label>
-                    <Button
-                      className="text-primary-foreground!"
-                      type="submit"
-                      disabled={saving || !nextStage || !reason.trim()}
-                    >
-                      {saving ? "Saving decision…" : "Save stage decision"}
-                      <ArrowRight className="size-4" />
-                    </Button>
-                  </form>
-                </HrRecordDrawer>
-              ) : null}
-              <div className="border-t border-border pt-4">
-                <h4 className="mb-4 flex items-center gap-2 text-sm font-semibold">
-                  <History className="size-4 text-primary" />
-                  Application history
-                </h4>
-                <ol className="grid min-w-0 gap-4">
-                  {selected.history.map((event) => (
-                    <li key={event.id} className="border-l-2 border-primary/25 pl-3">
-                      <p className="text-sm font-medium">
-                        {event.from_stage ? `${labels[event.from_stage]} → ` : ""}
-                        {labels[event.to_stage]}
-                      </p>
-                      <p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">
-                        {event.reason}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">{date(event.occurred_at)}</p>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </aside>
-          ) : null}
         </div>
       )}
       <div className="flex items-center justify-end gap-2">
@@ -700,6 +596,104 @@ export function HrRecruitmentPipelineWorkspace() {
           Next
         </Button>
       </div>
+      <HrMasterSheet
+        open={Boolean(selected)}
+        onOpenChange={(open) => {
+          if (!open && !saving) setSelectedId("");
+        }}
+        eyebrow="Recruitment Pipeline"
+        title={selected?.candidate_name ?? "Application"}
+        description={selected ? `${selected.reference} · ${selected.opening_title}` : ""}
+      >
+        {selected ? (
+          <div className="grid min-w-0 gap-5" aria-label="Application details">
+            {error ? (
+              <Alert variant="destructive" role="alert">
+                <AlertTitle>Action needs attention</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            ) : null}
+            {notice ? (
+              <div role="status" className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-sm">
+                {notice}
+              </div>
+            ) : null}
+            <HrDetailGroup title="Application">
+              <HrDetailTile label="Reference" value={selected.reference} />
+              <HrDetailTile label="Stage" value={labels[selected.stage]} />
+              <HrDetailTile label="Candidate email" value={selected.candidate_email} />
+              <HrDetailTile label="Applied" value={date(selected.created_at)} />
+              <HrDetailTile label="Opening" value={selected.opening_title} />
+              <HrDetailTile label="Opening reference" value={selected.opening_reference} />
+            </HrDetailGroup>
+            {selected.stage === "evaluation" ? (
+              <Alert>
+                <AlertTitle>Interview evidence required</AlertTitle>
+                <AlertDescription>
+                  Open Interviews & Evaluations to review panel scorecards, assessment outcomes and the selection
+                  readiness check.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {canUpdate && allowed.length ? (
+              <HrDetailSection title="Update application stage">
+                <form className="grid gap-3" onSubmit={move}>
+                  <label className="grid gap-1.5 text-sm">
+                    Next stage
+                    <select
+                      className={selectStyle}
+                      required
+                      disabled={saving}
+                      value={nextStage}
+                      onChange={(event) => setNextStage(event.target.value as HrApplicationStage)}
+                    >
+                      <option value="">Choose next stage</option>
+                      {allowed.map((stage) => (
+                        <option key={stage} value={stage}>
+                          {labels[stage]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-1.5 text-sm">
+                    Decision reason
+                    <Textarea
+                      required
+                      maxLength={1000}
+                      value={reason}
+                      disabled={saving}
+                      placeholder="Record the screening outcome or decision context"
+                      onChange={(event) => setReason(event.target.value)}
+                    />
+                  </label>
+                  <Button
+                    className="justify-self-start text-primary-foreground!"
+                    type="submit"
+                    disabled={saving || !nextStage || !reason.trim()}
+                  >
+                    {saving ? "Saving decision…" : "Save stage decision"}
+                    <ArrowRight className="size-4" />
+                  </Button>
+                </form>
+              </HrDetailSection>
+            ) : null}
+            <HrDetailSection title="Application history">
+              <ol className="grid min-w-0 gap-2">
+                {selected.history.map((event) => (
+                  <li key={event.id} className="rounded-lg border border-border bg-muted/35 p-3">
+                    <p className="text-sm font-medium">
+                      {event.from_stage ? `${labels[event.from_stage]} → ` : ""}
+                      {labels[event.to_stage]}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">{event.reason}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{date(event.occurred_at)}</p>
+                  </li>
+                ))}
+              </ol>
+            </HrDetailSection>
+          </div>
+        ) : null}
+      </HrMasterSheet>
     </section>
   );
 }

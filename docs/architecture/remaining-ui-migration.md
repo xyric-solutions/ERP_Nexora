@@ -4191,3 +4191,23 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Shared `model/hr-offer-display.ts` (offer states and money format).
 - Verification: ESLint (no new findings; Candidate Directory 6 -> 2), UI
   theme audit, production build, `git diff --check`. Browser check pending.
+
+## 2026-11-05 - Monthly Attendance refresh; pipeline drawer; local DEMO recruitment data
+
+- Monthly Attendance (Attendance & Leave > Month-end & Payroll): removed the
+  Refresh button only; heading, filters and data loading unchanged.
+- Recruitment Pipeline: application details moved from the inline side panel
+  into the standard `HrMasterSheet` drawer (tiles, inline stage update,
+  history); no card is auto-selected, so the drawer opens on click.
+- Local DEMO data (local DB only, not a migration): `tmp/recruitment-dummy/
+  seed.ts` (gitignored) creates records through the API repositories with
+  audit and fixed idempotency keys (re-runs replay). Company "Nexora R06 UAT
+  Company": 1 opening JOP-2026-584261 "Frontend Developer (DEMO)" (open, from
+  approved requisition MRQ-2026-0F0133), 4 candidates "(Demo)" with
+  @example.com emails, 2 applications (Ayesha Khan, Bilal Raza) at Applied.
+  Prerequisites the company lacked were added as DEMO: designation DSG-001,
+  banded grade GRD-002 (USD 1500-3000), project DEMO-PRJ-001. The local DB
+  was migrated to HR 137 (0136 requisition project column was missing).
+- Verification: ESLint (only pre-existing findings), UI theme audit,
+  production build, `git diff --check`, repository list reads show the
+  records. Browser click-through pending.
