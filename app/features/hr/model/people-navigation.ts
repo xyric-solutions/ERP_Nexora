@@ -7,6 +7,7 @@ export const peopleGroups = [
     description: "Find a person and manage their employee information.",
     pages: [
       { id: "employees", label: "Employee Directory" },
+      { id: "add-employee", label: "Add Employee" },
       { id: "employee-record", label: "Employee Overview" },
       { id: "employee-contacts", label: "Contacts" },
       { id: "employee-emergency-contacts", label: "Emergency Contacts" },
@@ -22,6 +23,12 @@ export const peopleGroups = [
           "Employee overview, contacts, emergency contacts, documents, assignments and history in one workspace.",
         icon: Users,
       },
+      {
+        id: "add-employee",
+        label: "Add Employee",
+        description: "Create a new employee draft for review.",
+        icon: UserPlus,
+      },
     ],
   },
   {
@@ -29,17 +36,10 @@ export const peopleGroups = [
     label: "Joining & Approvals",
     description: "Create employee drafts and manage their review.",
     pages: [
-      { id: "add-employee", label: "Add Employee" },
       { id: "employee-drafts", label: "Employee Drafts" },
       { id: "employee-approvals", label: "Employee Approvals" },
     ],
     cards: [
-      {
-        id: "add-employee",
-        label: "Add Employee",
-        description: "Create a new employee draft for review.",
-        icon: UserPlus,
-      },
       {
         id: "employee-drafts",
         label: "Employee Drafts",

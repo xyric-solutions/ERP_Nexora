@@ -4034,3 +4034,12 @@ Company Chart adoption/review checkpoint (2026-10-20):
   sheet stays full width.
 - Verification: `tsc --noEmit`, UI theme audit, production build,
   `git diff --check`.
+
+## 2026-11-05 - Add Employee moves to Employee Records
+
+- `people-navigation.ts`: Add Employee is now the second card and tab of
+  Employee Records (after Employee Directory); Joining & Approvals keeps
+  Employee Drafts and Employee Approvals. Page id, route and the "+ Add
+  Employee" button are unchanged.
+- Verification: `tsc --noEmit`, landing summary unit tests, production
+  build, `git diff --check`.
