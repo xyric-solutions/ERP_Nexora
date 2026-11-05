@@ -42,18 +42,6 @@ export function HrPeopleWorkspace({
       </div>
       {active && currentGroup ? (
         <>
-          <nav aria-label="People sections" className="mb-2 flex flex-wrap gap-1">
-            {peopleGroups.map((group) => (
-              <Button
-                key={group.id}
-                variant={currentGroup.id === group.id ? "secondary" : "ghost"}
-                onClick={() => go(group.pages[0].id)}
-                aria-current={currentGroup.id === group.id ? "true" : undefined}
-              >
-                {group.label}
-              </Button>
-            ))}
-          </nav>
           <nav aria-label="People pages" className="mb-4 flex gap-2 overflow-x-auto border-b border-border pb-2">
             {currentGroup.pages
               .filter((page) => page.id !== "employee-record" || employeeId)

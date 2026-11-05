@@ -3829,3 +3829,21 @@ Company Chart adoption/review checkpoint (2026-10-20):
   theme audit, unit tests (2 known pre-existing failures), production build,
   `catalogue:check`, `git diff --check`. Visual acceptance in light/dark at
   desktop, tablet and mobile widths is the resume point.
+
+## 2026-11-05 - Inner HR pages without section rows; Monthly Attendance drawer
+
+- Inner pages of every HR hub (`HrOperationsWorkspace` areas, Recruitment,
+  People) no longer show the row of main section buttons under the page
+  title; the page tabs of the current section and the left back icon remain.
+- Monthly Attendance: the table fits the available width (no 1050px
+  minimum, no horizontal scrollbar, tighter cells); the "Review month"
+  button and actions column are removed; clicking a row (or Enter/Space on
+  a focused row, or tapping a mobile card) opens the employee month in the
+  shared right-side drawer (`HrMasterSheet`, new optional `size="wide"`),
+  replacing the panel that opened below the list. The count column is
+  labelled "Needs review" to match the mobile card.
+- Verification: `tsc --noEmit`, ESLint (no new findings; 4 pre-existing in
+  the monthly view), Prettier, UI theme audit, unit tests (2 known
+  pre-existing failures), production build, `catalogue:check`,
+  `git diff --check`. Visual acceptance of the drawer and table widths at
+  desktop/tablet/mobile is the resume point.

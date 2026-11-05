@@ -1,6 +1,6 @@
 "use client";
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import type { HrMonthlyAttendanceDirectory, HrMonthlyAttendanceRow } from "@nexora/contracts";
 import {
   CalendarRange,
@@ -21,6 +21,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrMasterSheet } from "../components/hr-master-sheet";
 import {
   AttendanceStatusBadge,
   attendanceLabel,
@@ -51,12 +52,10 @@ function EmployeeMonth({
   item,
   data,
   onNavigate,
-  onClose,
 }: {
   item: HrMonthlyAttendanceRow;
   data: HrMonthlyAttendanceDirectory;
   onNavigate: Navigate;
-  onClose: () => void;
 }) {
   const [date, setDate] = useState(item.days[0]?.on_date ?? "");
   const chosen = item.days.find((d) => d.on_date === date),
@@ -66,22 +65,7 @@ function EmployeeMonth({
     (_, i) => `${data.month.slice(0, 7)}-${String(i + 1).padStart(2, "0")}`,
   );
   return (
-    <section
-      aria-label="Employee monthly detail"
-      className="grid min-w-0 gap-5 rounded-xl border border-primary/25 bg-card p-4 sm:p-6"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="break-words text-lg font-semibold">{item.display_name}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {item.employee_number} · {item.covered_days} covered dates ·{" "}
-            {item.departments.join(" / ") || "No department"}
-          </p>
-        </div>
-        <Button variant="ghost" onClick={onClose}>
-          Close details
-        </Button>
-      </div>
+    <section aria-label="Employee monthly detail" className="grid min-w-0 gap-5">
       <p className="text-sm text-muted-foreground">
         Choose a day to review its result. Dates without an operational placement are excluded from the totals.
       </p>
@@ -319,16 +303,18 @@ export function HrMonthlyAttendanceWorkspace({
         <AlertDescription>Your role needs attendance read permission to open this workspace.</AlertDescription>
       </Alert>
     );
-  const reviewButton = (row: HrMonthlyAttendanceRow) => (
-    <Button
-      variant="outline"
-      size="sm"
-      aria-label={`Review ${row.employee_number}`}
-      onClick={() => setSelected(row.employee_id)}
-    >
-      Review month
-    </Button>
-  );
+  const openRow = (row: HrMonthlyAttendanceRow) => ({
+    role: "button" as const,
+    tabIndex: 0,
+    "aria-label": `Open ${row.display_name} (${row.employee_number}) monthly attendance`,
+    onClick: () => setSelected(row.employee_id),
+    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        setSelected(row.employee_id);
+      }
+    },
+  });
   return (
     <section
       aria-label="Monthly attendance workspace"
@@ -463,8 +449,8 @@ export function HrMonthlyAttendanceWorkspace({
       ) : data?.items.length ? (
         <>
           <div className="hidden min-w-0 overflow-hidden rounded-xl border border-border bg-card md:block">
-            <div className="max-h-[38rem] overflow-auto">
-              <table className="w-full min-w-[1050px] text-left text-sm">
+            <div className="max-h-[38rem] overflow-y-auto">
+              <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 z-10 bg-muted">
                   <tr>
                     {[
@@ -473,12 +459,11 @@ export function HrMonthlyAttendanceWorkspace({
                       "Present / half",
                       "Absent",
                       "Leave days",
-                      "Review",
+                      "Needs review",
                       "Worked",
-                      "",
-                    ].map((h, i) => (
-                      <th key={i} scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">
-                        {h || <span className="sr-only">Actions</span>}
+                    ].map((h) => (
+                      <th key={h} scope="col" className="px-3 py-3 text-xs font-semibold text-muted-foreground">
+                        {h}
                       </th>
                     ))}
                   </tr>
@@ -487,21 +472,21 @@ export function HrMonthlyAttendanceWorkspace({
                   {data.items.map((row) => (
                     <tr
                       key={row.employee_id}
-                      className={`border-t border-border hover:bg-muted/40 ${selected === row.employee_id ? "bg-primary/5" : ""}`}
+                      {...openRow(row)}
+                      className={`cursor-pointer border-t border-border outline-none hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selected === row.employee_id ? "bg-primary/5" : ""}`}
                     >
-                      <td className="px-4 py-4">
+                      <td className="px-3 py-3">
                         <strong className="block">{row.display_name}</strong>
                         <span className="mt-1 block text-xs text-muted-foreground">{row.employee_number}</span>
                       </td>
-                      <td className="px-4 py-4 tabular-nums">{row.covered_days}</td>
-                      <td className="px-4 py-4 tabular-nums">
+                      <td className="px-3 py-3 tabular-nums">{row.covered_days}</td>
+                      <td className="px-3 py-3 tabular-nums">
                         {row.counts.present} / {row.counts.half_day}
                       </td>
-                      <td className="px-4 py-4 tabular-nums">{row.counts.absent}</td>
-                      <td className="px-4 py-4 tabular-nums">{row.approved_leave_days}</td>
-                      <td className="px-4 py-4 tabular-nums">{row.counts.needs_review}</td>
-                      <td className="px-4 py-4 tabular-nums">{attendanceMinutes(row.worked_minutes)}</td>
-                      <td className="px-4 py-4">{reviewButton(row)}</td>
+                      <td className="px-3 py-3 tabular-nums">{row.counts.absent}</td>
+                      <td className="px-3 py-3 tabular-nums">{row.approved_leave_days}</td>
+                      <td className="px-3 py-3 tabular-nums">{row.counts.needs_review}</td>
+                      <td className="px-3 py-3 tabular-nums">{attendanceMinutes(row.worked_minutes)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -510,7 +495,11 @@ export function HrMonthlyAttendanceWorkspace({
           </div>
           <div className="grid gap-3 md:hidden">
             {data.items.map((row) => (
-              <article key={row.employee_id} className="grid min-w-0 gap-3 rounded-xl border border-border bg-card p-4">
+              <article
+                key={row.employee_id}
+                {...openRow(row)}
+                className="grid min-w-0 cursor-pointer gap-3 rounded-xl border border-border bg-card p-4 outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <div>
                   <h3 className="break-words text-sm font-semibold">{row.display_name}</h3>
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -530,7 +519,6 @@ export function HrMonthlyAttendanceWorkspace({
                     </div>
                   ))}
                 </dl>
-                {reviewButton(row)}
               </article>
             ))}
           </div>
@@ -568,15 +556,29 @@ export function HrMonthlyAttendanceWorkspace({
           </Button>
         </div>
       </div>
-      {detail && data && (
-        <EmployeeMonth
-          key={`${data.company_id}:${data.month}:${detail.employee_id}`}
-          item={detail}
-          data={data}
-          onNavigate={onNavigate}
-          onClose={() => setSelected("")}
-        />
-      )}
+      <HrMasterSheet
+        open={Boolean(detail && data)}
+        onOpenChange={(open) => {
+          if (!open) setSelected("");
+        }}
+        size="wide"
+        eyebrow="Monthly Attendance"
+        title={detail?.display_name ?? "Employee month"}
+        description={
+          detail
+            ? `${detail.employee_number} · ${detail.covered_days} covered dates · ${detail.departments.join(" / ") || "No department"}`
+            : ""
+        }
+      >
+        {detail && data ? (
+          <EmployeeMonth
+            key={`${data.company_id}:${data.month}:${detail.employee_id}`}
+            item={detail}
+            data={data}
+            onNavigate={onNavigate}
+          />
+        ) : null}
+      </HrMasterSheet>
       <p className="rounded-lg border border-border bg-muted/30 p-4 text-xs leading-relaxed text-muted-foreground">
         These are operational monthly results from the daily attendance rules. Present, half day, leave, official duty,
         off days and unfinished shifts remain separate. This view does not calculate paid days or approve payroll.

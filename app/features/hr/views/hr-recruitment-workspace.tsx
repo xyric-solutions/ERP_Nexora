@@ -27,19 +27,6 @@ export function HrRecruitmentWorkspace({
       </header>
       {active && group ? (
         <>
-          <nav aria-label="Recruitment stages" className="mb-3 flex flex-wrap gap-2">
-            {recruitmentGroups.map((item, index) => (
-              <Button
-                key={item.id}
-                variant={group?.id === item.id ? "default" : "outline"}
-                aria-current={group?.id === item.id ? "true" : undefined}
-                onClick={() => go(item.pages[0].id)}
-              >
-                <span className="opacity-70">0{index + 1}</span>
-                {item.label}
-              </Button>
-            ))}
-          </nav>
           <nav aria-label="Recruitment pages" className="mb-4 flex gap-2 overflow-x-auto border-b border-border pb-2">
             {group.pages.map((page) => (
               <Button

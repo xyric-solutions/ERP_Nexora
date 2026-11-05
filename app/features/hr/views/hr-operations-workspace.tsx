@@ -57,18 +57,6 @@ export function HrOperationsWorkspace({
       </header>
       {activeGroup ? (
         <>
-          <nav aria-label={`${definition.label} sections`} className="mb-2 flex flex-wrap gap-1">
-            {definition.groups.map((group) => (
-              <Button
-                key={group.id}
-                variant={group.id === activeGroup.id ? "secondary" : "ghost"}
-                aria-current={group.id === activeGroup.id ? "true" : undefined}
-                onClick={() => go(group.pages[0].id)}
-              >
-                {group.label}
-              </Button>
-            ))}
-          </nav>
           <nav
             aria-label={`${definition.label} pages`}
             className="mb-4 flex gap-2 overflow-x-auto border-b border-border pb-2"

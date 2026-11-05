@@ -14,6 +14,7 @@ export function HrMasterSheet({
   footer,
   message,
   elevated = false,
+  size = "default",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -24,11 +25,13 @@ export function HrMasterSheet({
   footer?: ReactNode;
   message?: string;
   elevated?: boolean;
+  /** "wide" suits calendars and dense detail; forms keep the default width. */
+  size?: "default" | "wide";
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        className={`${elevated ? "z-[1401]!" : "z-[1301]!"} w-full! gap-0 overflow-hidden border-border p-0 sm:max-w-xl!`}
+        className={`${elevated ? "z-[1401]!" : "z-[1301]!"} w-full! gap-0 overflow-hidden border-border p-0 ${size === "wide" ? "sm:max-w-3xl!" : "sm:max-w-xl!"}`}
         overlayClassName={elevated ? "z-[1400]!" : "z-[1300]!"}
         side="right"
       >
