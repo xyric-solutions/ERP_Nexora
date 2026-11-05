@@ -10,6 +10,16 @@ export function HrDetailTile({ label, value }: { label: string; value?: ReactNod
   );
 }
 
+/** Single-column titled section inside a drawer (lists, forms, history), titled like HrDetailGroup. */
+export function HrDetailSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="grid gap-2" aria-label={title}>
+      <h3 className="m-0! text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
 /** Titled group of detail tiles inside a drawer. */
 export function HrDetailGroup({ title, children }: { title: string; children: ReactNode }) {
   return (

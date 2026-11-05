@@ -4148,3 +4148,21 @@ Company Chart adoption/review checkpoint (2026-10-20):
   inputs switcher was removed from the month-end and overtime screens.
 - Verification: ESLint (only pre-existing findings), UI theme audit,
   production build, `git diff --check`. Browser check pending.
+
+## 2026-11-05 - Shift Assignments list rows open a detail drawer
+
+- Same pattern as Shifts & Rules: removed "The right shift, for the right
+  people and dates" banner with its Refresh and Manage shift rules buttons.
+- Company now sits in one filter row with Search / Scope / State, ending with
+  New assignment (replaces the Search button; Enter still searches). In
+  Employee preview only Company and New assignment show.
+- Recorded allocations render as a table (Assigned to + reference, Scope,
+  Shift, Effective, State); no allocation is auto-selected.
+- A row opens the standard-width `HrMasterSheet`: Assignment tiles, recorded
+  reason, identity note, End or cancel form (inline, unchanged validation)
+  and allocation history; a Related reference closes the drawer and filters
+  the list.
+- New shared `HrDetailSection` in `components/hr-detail-tile.tsx`, also used
+  by the Shifts & Rules drawer.
+- Verification: ESLint (only pre-existing findings), UI theme audit,
+  production build, `git diff --check`. Browser check pending.

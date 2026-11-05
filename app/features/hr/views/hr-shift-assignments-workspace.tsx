@@ -1,7 +1,7 @@
 "use client";
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   createHrShiftAllocationRequestSchema,
   closeHrShiftAllocationRequestSchema,
@@ -14,7 +14,7 @@ import {
   type HrShiftSummary,
   type HrShiftResolution,
 } from "@nexora/contracts";
-import { CalendarClock, Plus, RefreshCw, Search, CheckCircle2, ShieldCheck, ArrowRight, X } from "lucide-react";
+import { Plus, CheckCircle2, ShieldCheck, ArrowRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +25,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrMasterSheet } from "../components/hr-master-sheet";
+import { HrDetailGroup, HrDetailSection, HrDetailTile } from "../components/hr-detail-tile";
 type Scope = CreateHrShiftAllocationRequest["scope"];
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
 const selectClass =
@@ -466,7 +468,7 @@ function EndAllocation({
   return (
     <form
       aria-label="End shift assignment"
-      className="grid gap-4 rounded-xl border border-border bg-card p-5"
+      className="grid gap-4"
       onSubmit={(e) => {
         e.preventDefault();
         const result = closeHrShiftAllocationRequestSchema.safeParse({
@@ -484,7 +486,6 @@ function EndAllocation({
         void onSave(detail.id, result.data);
       }}
     >
-      <h3 className="text-base font-semibold">End or cancel the allocation</h3>
       <p className="text-sm text-muted-foreground">
         Closing shortens the interval without replacing history. Cancellation is available only for an allocation that
         has not started before today. Lower-priority defaults may then apply; check the employee preview.
@@ -711,10 +712,10 @@ function EmployeePreview({
 }
 
 export function HrShiftAssignmentsWorkspace({
-  onNavigate,
   initialReference,
 }: {
   initialReference?: string;
+  /** Kept for the shell's call signature; Shifts & Rules is reached from the side menu. */
   onNavigate: Navigate;
 }) {
   const initialScope = useMemo(() => readHrOperationsScope(initialReference), [initialReference]);
@@ -782,7 +783,7 @@ export function HrShiftAssignmentsWorkspace({
       .then((data) => {
         if (current) {
           setItems(data);
-          setSelected((value) => (data.items.some((a) => a.id === value) ? value : (data.items[0]?.id ?? "")));
+          setSelected((value) => (data.items.some((a) => a.id === value) ? value : ""));
           setLoading(false);
         }
       })
@@ -874,100 +875,181 @@ export function HrShiftAssignmentsWorkspace({
       </Alert>
     );
   const current = detail?.id === selected && detail.company_id === company ? detail : null;
+  const summary = items.items.find((a) => a.id === selected);
+  const openAllocation = (id: string) => {
+    if (busy || editor) return;
+    setSelected(id);
+    setDetail(null);
+    setError("");
+    setNotice("");
+  };
+  const closeAllocation = () => {
+    if (busy) return;
+    setSelected("");
+    setDetail(null);
+  };
+  const openRow = (a: HrShiftAllocationSummary) => ({
+    role: "button" as const,
+    tabIndex: 0,
+    "aria-label": `Open ${a.reference} (${a.scope_name})`,
+    onClick: () => openAllocation(a.id),
+    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openAllocation(a.id);
+      }
+    },
+  });
+  const register = view === "register";
   return (
     <section
       aria-label="Live shift assignments"
       className="grid min-w-0 gap-5 font-sans text-foreground [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0"
     >
-      <div className="flex flex-wrap items-start justify-between gap-4 rounded-xl border border-primary/20 bg-primary/5 p-5">
-        <div className="flex min-w-0 gap-3">
-          <CalendarClock className="mt-1 size-6 shrink-0 text-primary" />
-          <div>
-            <h2 className="text-lg font-semibold">The right shift, for the right people and dates</h2>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Employee → department → branch. Effective placement determines the applicable roster; replacements
-              preserve previous intervals and locked attendance stays protected.
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy || loading}
-            onClick={() => {
-              setError("");
-              reload();
-            }}
-          >
-            <RefreshCw className="size-4" />
-            Refresh
-          </Button>
-          <Button type="button" variant="outline" onClick={() => onNavigate("hr", "shifts")} disabled={busy || editor}>
-            Manage shift rules
-          </Button>
-          {canManage && (
-            <Button
-              type="button"
-              className="text-primary-foreground!"
-              disabled={busy || editor || !company}
-              onClick={() => {
-                setEditor(true);
-                setView("register");
-                setError("");
-                setNotice("");
-              }}
-            >
-              <Plus className="size-4" />
-              New assignment
-            </Button>
-          )}
-        </div>
-      </div>
-      {error && (
+      {error && !selected && (
         <Alert variant="destructive">
           <AlertTitle>Assignment action needs attention</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      {notice && (
+      {notice && !selected && (
         <div role="status" className="flex gap-2 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm">
           <CheckCircle2 className="size-5 shrink-0 text-primary" />
           {notice}
         </div>
       )}
-      <label className="grid gap-2 rounded-xl border border-border bg-card p-4 text-sm font-medium">
-        Company
-        <select
-          className={selectClass}
-          value={company}
-          disabled={busy || editor}
-          onChange={(e) => {
-            setCompany(e.target.value);
-            setItems({ items: [], total: 0 });
-            setSelected("");
-            setDetail(null);
-            setOffset(0);
-            setError("");
-            setNotice("");
-          }}
+      <form
+        aria-label="Find shift assignments"
+        className={`grid items-end gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-2 ${register ? "xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_9rem_9rem_auto]" : "xl:grid-cols-[minmax(0,1fr)_auto]"}`}
+        onSubmit={(e) => {
+          e.preventDefault();
+          setApplied(search.trim());
+          setOffset(0);
+          setError("");
+        }}
+      >
+        <label className="grid min-w-0 gap-2 text-sm font-medium">
+          Company
+          <select
+            className={selectClass}
+            value={company}
+            disabled={busy || editor}
+            onChange={(e) => {
+              setCompany(e.target.value);
+              setItems({ items: [], total: 0 });
+              setSelected("");
+              setDetail(null);
+              setOffset(0);
+              setError("");
+              setNotice("");
+            }}
+          >
+            <option value="">Select an authorized company</option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {register && (
+          <>
+            <label className="grid min-w-0 gap-2 text-sm font-medium">
+              Search assignments
+              <Input
+                type="search"
+                value={search}
+                maxLength={160}
+                disabled={busy || editor}
+                placeholder="Reference, employee, organisation or shift"
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium">
+              Scope
+              <select
+                className={selectClass}
+                value={scope}
+                disabled={busy || editor}
+                onChange={(e) => {
+                  setScope(e.target.value);
+                  setOffset(0);
+                }}
+              >
+                <option value="">All scopes</option>
+                {["employee", "department", "branch"].map((s) => (
+                  <option key={s} value={s}>
+                    {label(s)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-medium">
+              State
+              <select
+                className={selectClass}
+                value={state}
+                disabled={busy || editor}
+                onChange={(e) => {
+                  setState(e.target.value);
+                  setOffset(0);
+                }}
+              >
+                <option value="">All states</option>
+                {["active", "scheduled", "ended", "cancelled"].map((s) => (
+                  <option key={s} value={s}>
+                    {label(s)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        )}
+        {canManage && (
+          <Button
+            type="button"
+            className="text-primary-foreground!"
+            disabled={busy || editor || !company}
+            onClick={() => {
+              setEditor(true);
+              setView("register");
+              setError("");
+              setNotice("");
+            }}
+          >
+            <Plus className="size-4" />
+            New assignment
+          </Button>
+        )}
+      </form>
+      {editor && (
+        <HrRecordDrawer
+          title="Add shift assignment"
+          open={editor}
+          onClose={() => setEditor(false)}
+          busy={busy}
+          error={error}
+          notice={notice}
         >
-          <option value="">Select an authorized company</option>
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </label>
+          <AllocationEditor
+            today={today}
+            client={client}
+            companyId={company}
+            busy={busy}
+            revision={revision}
+            onSave={(input) => save(input)}
+            onClose={() => setEditor(false)}
+          />
+        </HrRecordDrawer>
+      )}
       {company ? (
         <>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              variant={view === "register" ? "default" : "outline"}
-              className={view === "register" ? "text-primary-foreground!" : ""}
-              aria-pressed={view === "register"}
+              variant={register ? "default" : "outline"}
+              className={register ? "text-primary-foreground!" : ""}
+              aria-pressed={register}
               disabled={busy || editor}
               onClick={() => setView("register")}
             >
@@ -975,279 +1057,101 @@ export function HrShiftAssignmentsWorkspace({
             </Button>
             <Button
               type="button"
-              variant={view === "preview" ? "default" : "outline"}
-              className={view === "preview" ? "text-primary-foreground!" : ""}
-              aria-pressed={view === "preview"}
+              variant={!register ? "default" : "outline"}
+              className={!register ? "text-primary-foreground!" : ""}
+              aria-pressed={!register}
               disabled={busy || editor}
-              onClick={() => setView("preview")}
+              onClick={() => {
+                setView("preview");
+                setSelected("");
+              }}
             >
               Employee preview
             </Button>
           </div>
-          {view === "preview" ? (
+          {!register ? (
             <EmployeePreview key={company} client={client} companyId={company} revision={revision} />
           ) : (
-            <>
-              <form
-                className="grid gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_10rem_10rem_auto]"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setApplied(search.trim());
-                  setOffset(0);
-                  setError("");
-                }}
-              >
-                <label className="grid gap-2 text-sm font-medium">
-                  Search assignments
-                  <Input
-                    value={search}
-                    maxLength={160}
-                    disabled={busy || editor}
-                    placeholder="Reference, employee, organisation or shift"
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </label>
-                <label className="grid gap-2 text-sm font-medium">
-                  Scope filter
-                  <select
-                    className={selectClass}
-                    value={scope}
-                    disabled={busy || editor}
-                    onChange={(e) => {
-                      setScope(e.target.value);
-                      setOffset(0);
-                    }}
-                  >
-                    <option value="">All scopes</option>
-                    {["employee", "department", "branch"].map((s) => (
-                      <option key={s} value={s}>
-                        {label(s)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-2 text-sm font-medium">
-                  State filter
-                  <select
-                    className={selectClass}
-                    value={state}
-                    disabled={busy || editor}
-                    onChange={(e) => {
-                      setState(e.target.value);
-                      setOffset(0);
-                    }}
-                  >
-                    <option value="">All states</option>
-                    {["active", "scheduled", "ended", "cancelled"].map((s) => (
-                      <option key={s} value={s}>
-                        {label(s)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <Button type="submit" variant="outline" className="self-end" disabled={busy || editor}>
-                  <Search className="size-4" />
-                  Search
-                </Button>
-              </form>
-              {editor && (
-                <HrRecordDrawer
-                  title="Add shift assignment"
-                  open={editor}
-                  onClose={() => setEditor(false)}
-                  busy={busy}
-                  error={error}
-                  notice={notice}
-                >
-                  <AllocationEditor
-                    today={today}
-                    client={client}
-                    companyId={company}
-                    busy={busy}
-                    revision={revision}
-                    onSave={(input) => save(input)}
-                    onClose={() => setEditor(false)}
-                  />
-                </HrRecordDrawer>
-              )}
-              <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(15rem,0.8fr)_minmax(0,2fr)]">
-                <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-card">
-                  <div className="flex items-center justify-between gap-2 border-b border-border p-4">
-                    <h3 className="text-sm font-semibold">Recorded allocations</h3>
-                    <Badge variant="secondary">{items.total}</Badge>
-                  </div>
-                  {loading && !items.items.length ? (
-                    <Skeleton className="m-4 h-40" />
-                  ) : items.items.length ? (
-                    <div className="grid max-h-80 gap-2 overflow-y-auto p-3 xl:max-h-[48rem]">
+            <div className="relative overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+              {loading && !items.items.length ? (
+                <div className="grid gap-2 p-4" aria-live="polite">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-200 border-collapse text-left text-sm">
+                    <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-3">Assigned to</th>
+                        <th className="px-4 py-3">Scope</th>
+                        <th className="px-4 py-3">Shift</th>
+                        <th className="px-4 py-3">Effective</th>
+                        <th className="px-4 py-3">State</th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {items.items.map((a) => (
-                        <button
-                          type="button"
+                        <tr
                           key={a.id}
-                          disabled={busy || editor}
-                          aria-pressed={selected === a.id}
-                          onClick={() => {
-                            setSelected(a.id);
-                            setDetail(null);
-                            setError("");
-                            setNotice("");
-                          }}
-                          className={`grid min-w-0 gap-2 rounded-lg border p-3 text-left text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 ${selected === a.id ? "border-primary bg-primary/10" : "border-border bg-background hover:bg-muted"}`}
+                          aria-disabled={busy || editor}
+                          className={`cursor-pointer border-b border-border/70 transition-colors last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selected === a.id ? "bg-primary/5" : ""}`}
+                          {...openRow(a)}
                         >
-                          <span className="flex flex-wrap justify-between gap-2">
-                            <span className="text-xs font-semibold">{a.reference}</span>
-                            <Badge variant={a.state === "active" ? "secondary" : "outline"}>{label(a.state)}</Badge>
-                          </span>
-                          <span className="break-words text-sm font-semibold">{a.scope_name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {label(a.scope)} · {a.shift_code}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-foreground">{a.scope_name}</p>
+                            <p className="font-mono text-xs text-muted-foreground">{a.reference}</p>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">{label(a.scope)}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{a.shift_code}</td>
+                          <td className="px-4 py-3 text-muted-foreground">
                             {a.effective_from} → {a.effective_to ?? "open-ended"}
-                          </span>
-                        </button>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge variant={a.state === "active" ? "secondary" : "outline"}>{label(a.state)}</Badge>
+                          </td>
+                        </tr>
                       ))}
-                    </div>
-                  ) : (
-                    <div className="grid gap-2 p-5">
-                      <h3 className="text-base font-semibold">No assignments to display</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Create a company allocation or adjust the filters. Approved employee placement and configured
-                        shifts are required.
-                      </p>
-                    </div>
-                  )}
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border p-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy || loading || editor || !offset}
-                      onClick={() => setOffset(Math.max(0, offset - 50))}
-                    >
-                      Previous
-                    </Button>
-                    <span className="text-xs text-muted-foreground">
-                      {items.total ? `${offset + 1}–${Math.min(offset + 50, items.total)}` : "0"} of {items.total}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy || loading || editor || offset + 50 >= items.total}
-                      onClick={() => setOffset(offset + 50)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </section>
-                <div className="grid min-w-0 gap-5" aria-busy={busy || detailLoading}>
-                  {detailLoading && !current ? (
-                    <Skeleton className="h-96 w-full" />
-                  ) : current ? (
-                    <>
-                      <section className="overflow-hidden rounded-xl border border-border bg-card">
-                        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-5">
-                          <div>
-                            <div className="text-xs font-semibold uppercase tracking-wider text-primary">
-                              {current.reference} · version {current.version}
-                            </div>
-                            <h2 className="mt-2 break-words text-xl font-semibold">{current.scope_name}</h2>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              {label(current.scope)} allocation · {current.shift_code} / {current.shift_name}
-                            </p>
-                          </div>
-                          <Badge variant="secondary">{label(current.state)}</Badge>
-                        </div>
-                        <dl className="m-0 grid gap-3 p-5 sm:grid-cols-2">
-                          <Fact name="Target" value={`${current.scope_code} · ${label(current.scope)}`} />
-                          <Fact
-                            name="Effective interval"
-                            value={`${current.effective_from} → ${current.effective_to ?? "open-ended"}`}
-                          />
-                          <Fact name="Shift timezone" value={current.time_zone ?? "Configuration required"} />
-                          <Fact name="Shift work location" value={current.work_location ?? "Company-wide"} />
-                        </dl>
-                        <div className="border-t border-border p-5">
-                          <h3 className="text-sm font-semibold">Recorded reason</h3>
-                          <p className="mt-2 break-words text-sm text-muted-foreground">{current.note}</p>
-                        </div>
-                        <div className="m-5 mt-0 flex gap-2 rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
-                          <ShieldCheck className="size-5 shrink-0 text-primary" />
-                          Shift and target identity stay fixed. Use a dated replacement or close the allocation to
-                          retain its history.
-                        </div>
-                      </section>
-                      {canManage && !editor && (
-                        <HrRecordDrawer
-                          title="End shift assignment"
-                          triggerLabel="End shift assignment"
-                          disabled={["ended", "cancelled"].includes(current.state)}
-                          busy={busy || detailLoading}
-                          error={error}
-                          notice={notice}
-                          completionKey={notice}
-                        >
-                          <EndAllocation
-                            key={`${current.id}:${current.version}`}
-                            detail={current}
-                            today={today}
-                            busy={busy || detailLoading}
-                            onSave={(id, input) => save(input, id)}
-                          />
-                        </HrRecordDrawer>
+                      {items.items.length === 0 && (
+                        <tr>
+                          <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
+                            No assignments match these filters. Approved employee placement and configured shifts are
+                            required.
+                          </td>
+                        </tr>
                       )}
-                      <section className="rounded-xl border border-border bg-card p-5">
-                        <h3 className="text-base font-semibold">Allocation history</h3>
-                        <div className="mt-4 grid gap-3">
-                          {current.history.length ? (
-                            current.history.map((h) => (
-                              <div key={h.id} className="rounded-lg border border-border bg-background/50 p-3">
-                                <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-                                  <span>
-                                    Version {h.version} · {label(h.action)} · {h.actor_name}
-                                  </span>
-                                  <time dateTime={h.occurred_at}>{new Date(h.occurred_at).toLocaleString()}</time>
-                                </div>
-                                <p className="mt-2 break-words text-sm">{h.reason}</p>
-                                {h.related_reference && (
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    className="mt-3"
-                                    disabled={busy || editor}
-                                    onClick={() => {
-                                      setSearch(h.related_reference!);
-                                      setApplied(h.related_reference!);
-                                      setScope("");
-                                      setState("");
-                                      setOffset(0);
-                                    }}
-                                  >
-                                    Related: {h.related_reference}
-                                    <ArrowRight className="size-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-sm text-muted-foreground">
-                              Legacy allocation: its original interval remains retained. New changes will record
-                              immutable events here.
-                            </p>
-                          )}
-                        </div>
-                      </section>
-                    </>
-                  ) : (
-                    <p className="rounded-xl border border-dashed border-border p-8 text-sm text-muted-foreground">
-                      Select an allocation to review its effective dates and history.
-                    </p>
-                  )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2">
+                <span className="text-xs text-muted-foreground">
+                  {items.total ? `${offset + 1}–${Math.min(offset + 50, items.total)}` : "0"} of {items.total} recorded
+                  allocations
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={busy || loading || editor || !offset}
+                    onClick={() => setOffset(Math.max(0, offset - 50))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={busy || loading || editor || offset + 50 >= items.total}
+                    onClick={() => setOffset(offset + 50)}
+                  >
+                    Next
+                  </Button>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </>
       ) : (
@@ -1257,6 +1161,115 @@ export function HrShiftAssignmentsWorkspace({
           </p>
         )
       )}
+      <HrMasterSheet
+        open={Boolean(selected)}
+        onOpenChange={(open) => {
+          if (!open) closeAllocation();
+        }}
+        eyebrow="Shift Assignments"
+        title={current?.scope_name ?? summary?.scope_name ?? "Shift assignment"}
+        description={
+          current
+            ? `${current.reference} · version ${current.version} · ${label(current.scope)} allocation · ${current.shift_code} / ${current.shift_name}`
+            : summary
+              ? `${summary.reference} · ${label(summary.scope)} allocation`
+              : ""
+        }
+      >
+        <div className="grid min-w-0 gap-5" aria-busy={busy || detailLoading}>
+          {error && (
+            <Alert variant="destructive">
+              <AlertTitle>Assignment action needs attention</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {notice && (
+            <div role="status" className="flex gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+              <CheckCircle2 className="size-5 shrink-0 text-primary" />
+              {notice}
+            </div>
+          )}
+          {detailLoading && !current ? (
+            <Skeleton className="h-80 w-full" />
+          ) : current ? (
+            <>
+              <HrDetailGroup title="Assignment">
+                <HrDetailTile label="Reference" value={current.reference} />
+                <HrDetailTile label="State" value={label(current.state)} />
+                <HrDetailTile label="Target" value={`${current.scope_code} · ${label(current.scope)}`} />
+                <HrDetailTile label="Shift" value={`${current.shift_code} · ${current.shift_name}`} />
+                <HrDetailTile
+                  label="Effective interval"
+                  value={`${current.effective_from} → ${current.effective_to ?? "open-ended"}`}
+                />
+                <HrDetailTile label="Version" value={String(current.version)} />
+                <HrDetailTile label="Shift timezone" value={current.time_zone ?? "Configuration required"} />
+                <HrDetailTile label="Shift work location" value={current.work_location ?? "Company-wide"} />
+              </HrDetailGroup>
+              <HrDetailSection title="Recorded reason">
+                <p className="break-words rounded-lg border border-border bg-muted/35 p-3 text-sm">{current.note}</p>
+              </HrDetailSection>
+              <div className="flex gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
+                <ShieldCheck className="size-5 shrink-0 text-primary" />
+                Shift and target identity stay fixed. Use a dated replacement or close the allocation to retain its
+                history.
+              </div>
+              {canManage && !["ended", "cancelled"].includes(current.state) && (
+                <HrDetailSection title="End or cancel">
+                  <EndAllocation
+                    key={`${current.id}:${current.version}`}
+                    detail={current}
+                    today={today}
+                    busy={busy || detailLoading || editor}
+                    onSave={(id, input) => save(input, id)}
+                  />
+                </HrDetailSection>
+              )}
+              <HrDetailSection title="Allocation history">
+                {current.history.length ? (
+                  current.history.map((h) => (
+                    <div key={h.id} className="rounded-lg border border-border bg-muted/35 p-3">
+                      <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
+                        <span>
+                          Version {h.version} · {label(h.action)} · {h.actor_name}
+                        </span>
+                        <time dateTime={h.occurred_at}>{new Date(h.occurred_at).toLocaleString()}</time>
+                      </div>
+                      <p className="mt-2 break-words text-sm">{h.reason}</p>
+                      {h.related_reference && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="mt-3"
+                          disabled={busy || editor}
+                          onClick={() => {
+                            setSearch(h.related_reference!);
+                            setApplied(h.related_reference!);
+                            setScope("");
+                            setState("");
+                            setOffset(0);
+                            setSelected("");
+                            setDetail(null);
+                          }}
+                        >
+                          Related: {h.related_reference}
+                          <ArrowRight className="size-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Legacy allocation: its original interval remains retained. New changes will record immutable events
+                    here.
+                  </p>
+                )}
+              </HrDetailSection>
+            </>
+          ) : null}
+        </div>
+      </HrMasterSheet>
     </section>
   );
 }

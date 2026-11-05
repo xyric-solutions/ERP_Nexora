@@ -1,7 +1,7 @@
 "use client";
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   createHrShiftRequestSchema,
   updateHrShiftRequestSchema,
@@ -25,7 +25,7 @@ import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterSheet } from "../components/hr-master-sheet";
-import { HrDetailGroup, HrDetailTile } from "../components/hr-detail-tile";
+import { HrDetailGroup, HrDetailSection, HrDetailTile } from "../components/hr-detail-tile";
 
 const selectClass =
   "h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50";
@@ -45,15 +45,6 @@ const shiftWindow = (s: HrShiftSummary) =>
   s.kind === "rotating"
     ? "Weekly cycle"
     : `${time(s.start_minute)}–${time(s.end_minute)}${s.end_minute >= 1440 ? " +1 day" : ""}`;
-/** Single-column drawer section, titled like HrDetailGroup. */
-function DrawerSection({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="grid gap-2" aria-label={title}>
-      <h3 className="m-0! text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
-      {children}
-    </section>
-  );
-}
 
 function ShiftEditor({
   client,
@@ -1118,7 +1109,7 @@ export function HrShiftsWorkspace({
                       value={current.weekly_off_days.map((d) => days[d]).join(", ") || "No weekly off days configured"}
                     />
                   </HrDetailGroup>
-                  <DrawerSection title="Break policy">
+                  <HrDetailSection title="Break policy">
                     {current.breaks.length ? (
                       current.breaks.map((b, i) => (
                         <div
@@ -1134,10 +1125,10 @@ export function HrShiftsWorkspace({
                     ) : (
                       <p className="text-sm text-muted-foreground">No scheduled breaks.</p>
                     )}
-                  </DrawerSection>
+                  </HrDetailSection>
                 </>
               ) : (
-                <DrawerSection title="Weekly rotation">
+                <HrDetailSection title="Weekly rotation">
                   <p className="text-sm text-muted-foreground">
                     Week 1 starts Monday {current.rotation_anchor_date ?? "(anchor not configured)"}. The cycle repeats
                     every {current.rotation.length} weeks; each member supplies its own rules.
@@ -1173,10 +1164,10 @@ export function HrShiftsWorkspace({
                       ? `${current.preview_date}: ${current.resolved.code} · ${time(current.resolved.start_minute)}–${time(current.resolved.end_minute)}${current.resolved.end_minute >= 1440 ? " (following day)" : ""}`
                       : "Complete the cycle configuration before resolving a working date."}
                   </div>
-                </DrawerSection>
+                </HrDetailSection>
               )}
               {canManage && (
-                <DrawerSection title="Availability">
+                <HrDetailSection title="Availability">
                   <form
                     className="grid gap-3"
                     onSubmit={(e) => {
@@ -1209,9 +1200,9 @@ export function HrShiftsWorkspace({
                       {current.status === "active" ? "Deactivate shift" : "Reactivate shift"}
                     </Button>
                   </form>
-                </DrawerSection>
+                </HrDetailSection>
               )}
-              <DrawerSection title="Rule history">
+              <HrDetailSection title="Rule history">
                 {current.history.length ? (
                   current.history.map((h) => (
                     <div key={h.id} className="rounded-lg border border-border bg-muted/35 p-3">
@@ -1229,7 +1220,7 @@ export function HrShiftsWorkspace({
                     This legacy shift has no recorded rule changes in the live workspace yet.
                   </p>
                 )}
-              </DrawerSection>
+              </HrDetailSection>
             </>
           ) : null}
         </div>
