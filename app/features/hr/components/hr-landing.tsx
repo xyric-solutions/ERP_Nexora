@@ -205,7 +205,7 @@ export function HrLandingSections({
     <div className="space-y-6">
       {groups.map((group, groupIndex) => (
         <section key={group.id} aria-label={group.label}>
-          <HrGroupHeading number={groupIndex + 1} label={group.label} description={group.description} />
+          <HrGroupHeading number={groupIndex + 1} label={group.label} />
           <div className={display === "cards" ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3" : "grid gap-1.5"}>
             {group.pages.map((page) => (
               <HrNavCard

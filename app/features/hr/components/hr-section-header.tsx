@@ -6,24 +6,13 @@ import { Button } from "@/components/ui/button";
 import { HrBackButton } from "./hr-icon-buttons";
 
 /** Numbered main-section heading used on every HR & Payroll landing page. */
-export function HrGroupHeading({
-  number,
-  label,
-  description,
-}: {
-  number: number;
-  label: string;
-  description: string;
-}) {
+export function HrGroupHeading({ number, label }: { number: number; label: string }) {
   return (
-    <div className="mb-4 flex gap-3">
+    <div className="mb-3 flex items-center gap-3">
       <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-primary">
         {number}
       </span>
-      <div>
-        <h2 className="m-0! text-lg font-semibold">{label}</h2>
-        <p className="mb-0! mt-1! text-sm text-muted-foreground">{description}</p>
-      </div>
+      <h2 className="m-0! text-lg font-semibold">{label}</h2>
     </div>
   );
 }

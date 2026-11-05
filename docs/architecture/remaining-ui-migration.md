@@ -3989,3 +3989,11 @@ Company Chart adoption/review checkpoint (2026-10-20):
   (new `hr-landing-summaries.test.ts`; 2 known user-management failures),
   UI theme audit, production build, `git diff --check`. Signed-in browser
   check of each landing in both views is the resume point.
+
+## 2026-11-05 - HR landing section headings without descriptions
+
+- `HrGroupHeading` shows only the number and section name; the sentence
+  under each main section is removed on every HR & Payroll landing. The
+  group descriptions stay in the navigation models (unused by the UI).
+- Verification: `tsc --noEmit`, ESLint, UI theme audit, production build,
+  `git diff --check`.
