@@ -4116,3 +4116,17 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Verification: `tsc --noEmit`, ESLint (only pre-existing findings), unit
   suite (2 known user-management failures), UI theme audit, production
   build, `git diff --check`.
+
+## 2026-11-05 - Employee Directory drawer matches the other drawers
+
+- The employee drawer uses the standard `HrMasterSheet` width (no longer
+  `size="wide"`).
+- `HrEmployeeRecordWorkspace presentation="drawer"` now renders status and
+  Refresh, then labelled two-column tiles (new shared
+  `components/hr-detail-tile.tsx`, same style as the Organisation & Masters
+  drawers) grouped as Employment, Pay setup and Work profile, and compact
+  Related records buttons. The full-page overview is unchanged.
+- No Edit/Delete icons (user decision): active employees change only
+  through governed corrections, assignments and exit cases.
+- Verification: `tsc --noEmit`, ESLint (only pre-existing findings), UI
+  theme audit, production build, `git diff --check`.

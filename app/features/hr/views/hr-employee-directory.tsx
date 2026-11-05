@@ -244,7 +244,6 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
         onOpenChange={(open) => {
           if (!open) setSelectedId("");
         }}
-        size="wide"
         eyebrow="Employee Directory"
         title={selected?.display_name ?? "Employee"}
         description={selected ? `${selected.employee_number} · ${selected.designation} · ${selected.department}` : ""}

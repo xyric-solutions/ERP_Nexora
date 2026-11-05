@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
+import { HrDetailGroup, HrDetailTile } from "../components/hr-detail-tile";
 import { payCycleLabel, paymentRouteLabel } from "../model/employment-setup";
 
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
@@ -130,43 +131,80 @@ export function HrEmployeeRecordWorkspace({
     ["Employee history", "employee-status-history"],
   ] as const;
 
-  return (
-    <section className="grid min-w-0 w-full gap-5" aria-label={`Employee record for ${employee.display_name}`}>
-      {presentation === "drawer" ? (
+  if (presentation === "drawer")
+    return (
+      <section className="grid min-w-0 gap-5" aria-label={`Employee record for ${employee.display_name}`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Badge variant={statusVariant(employee.status)}>{employee.status.replaceAll("_", " ")}</Badge>
           <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
             Refresh
           </Button>
         </div>
-      ) : (
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-5 shadow-sm">
-          <div className="flex min-w-0 items-center gap-4">
-            <span className="grid size-14 shrink-0 place-items-center rounded-full bg-primary/15 text-lg font-semibold text-primary">
-              {initials}
-            </span>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-2xl font-semibold text-foreground">{employee.display_name}</h2>
-                <Badge variant={statusVariant(employee.status)}>{employee.status.replaceAll("_", " ")}</Badge>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {employee.employee_number} · {employee.designation} · {employee.department}
-              </p>
-            </div>
-          </div>
+        <HrDetailGroup title="Employment">
+          <HrDetailTile label="Designation" value={employee.designation} />
+          <HrDetailTile label="Job grade" value={employee.job_grade} />
+          <HrDetailTile label="Department" value={employee.department} />
+          <HrDetailTile label="Branch" value={employee.branch} />
+          <HrDetailTile label="Work location" value={employee.work_location} />
+          <HrDetailTile label="Reporting manager" value={employee.reporting_manager?.display_name} />
+          <HrDetailTile label="Joined" value={employee.joined_on} />
+        </HrDetailGroup>
+        <HrDetailGroup title="Pay setup">
+          <HrDetailTile label="Employment setup" value={employee.employment_setup} />
+          <HrDetailTile label="Payment route" value={paymentRouteLabel(employee.payment_route)} />
+          <HrDetailTile label="Pay cycle" value={payCycleLabel(employee.pay_cycle)} />
+        </HrDetailGroup>
+        <HrDetailGroup title="Work profile">
+          <HrDetailTile label="Preferred name" value={employee.preferred_name} />
+          <HrDetailTile label="Work email" value={employee.work_email} />
+          <HrDetailTile label="Phone" value={employee.phone} />
+          <HrDetailTile label="Linked user account" value={employee.user_account_id ? "Connected" : "Not connected"} />
+        </HrDetailGroup>
+        <section className="grid gap-2" aria-label="Related records">
+          <h3 className="m-0! text-xs font-semibold uppercase tracking-wide text-muted-foreground">Related records</h3>
           <div className="flex flex-wrap gap-2">
-            {presentation === "page" ? (
-              <Button type="button" variant="outline" onClick={() => onNavigate("hr", "employees")}>
-                Back to directory
+            {destinations.map(([label, pageId]) => (
+              <Button
+                key={pageId}
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onNavigate("hr", pageId, employee.id)}
+              >
+                {label}
               </Button>
-            ) : null}
-            <Button type="button" variant="outline" onClick={() => void load()}>
-              Refresh
-            </Button>
+            ))}
+          </div>
+        </section>
+      </section>
+    );
+
+  return (
+    <section className="grid min-w-0 w-full gap-5" aria-label={`Employee record for ${employee.display_name}`}>
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-5 shadow-sm">
+        <div className="flex min-w-0 items-center gap-4">
+          <span className="grid size-14 shrink-0 place-items-center rounded-full bg-primary/15 text-lg font-semibold text-primary">
+            {initials}
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="truncate text-2xl font-semibold text-foreground">{employee.display_name}</h2>
+              <Badge variant={statusVariant(employee.status)}>{employee.status.replaceAll("_", " ")}</Badge>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {employee.employee_number} · {employee.designation} · {employee.department}
+            </p>
           </div>
         </div>
-      )}
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={() => onNavigate("hr", "employees")}>
+            Back to directory
+          </Button>
+          <Button type="button" variant="outline" onClick={() => void load()}>
+            Refresh
+          </Button>
+        </div>
+      </div>
 
       <div className="grid min-w-0 grid-cols-1 gap-4">
         <article className="rounded-lg border border-border bg-card p-5 shadow-sm">
