@@ -15,9 +15,10 @@ export const peopleGroups = [
       { id: "employee-assignments", label: "Assignments" },
       { id: "employee-status-history", label: "History" },
     ],
-    /** Section tabs; the other record pages open from Employee Directory's actions. */
+    /** Section tabs; the other record pages open from the Add Employee drawer or an employee overview. */
     tabs: ["employees", "add-employee"],
-    /** Employee record areas offered as actions beside "+ Add Employee". */
+    /** Employee record areas listed in the Add Employee drawer; they keep Add Employee as the active tab. */
+    toolsTab: "add-employee",
     tools: [
       "employee-contacts",
       "employee-emergency-contacts",
@@ -98,3 +99,12 @@ export const peopleGroups = [
 
 export const peoplePages = peopleGroups.flatMap((group) => [...group.pages]);
 export const isPeoplePage = (id: string) => id === "people-workspace" || peoplePages.some((page) => page.id === id);
+
+/** Actions for each employee record area, shown in the Add Employee drawer. */
+export const employeeRecordAreaActions = [
+  { pageId: "employee-contacts", label: "Add contact" },
+  { pageId: "employee-emergency-contacts", label: "Add emergency contact" },
+  { pageId: "employee-documents", label: "Add document" },
+  { pageId: "employee-assignments", label: "Add assignment" },
+  { pageId: "employee-status-history", label: "View history" },
+] as const;

@@ -5,7 +5,6 @@ import { peopleLandingSummaries } from "../model/hr-landing-summaries";
 
 import type { ReactNode } from "react";
 import { HrSectionHeader } from "../components/hr-section-header";
-import { Button } from "@/components/ui/button";
 import { peopleGroups, peoplePages } from "../model/people-navigation";
 
 /** Landing cards are the People entry points; inner tabs use each group's pages. */
@@ -31,7 +30,7 @@ export function HrPeopleWorkspace({
   const sectionTabs = (currentGroup?.pages ?? []).filter((page) =>
     groupTabs ? groupTabs.includes(page.id) : page.id !== "employee-record" || employeeId,
   );
-  const recordTools = (currentGroup?.pages ?? []).filter((page) => groupTools.includes(page.id));
+  const groupToolsTab = currentGroup && "toolsTab" in currentGroup ? currentGroup.toolsTab : undefined;
   const go = (target: string) =>
     onNavigate(
       "hr",
@@ -50,26 +49,15 @@ export function HrPeopleWorkspace({
             backLabel="Back to all people"
             onBack={() => go("people-workspace")}
             pages={sectionTabs}
-            activeId={sectionTabs.some((page) => page.id === pageId) ? pageId : (sectionTabs[0]?.id ?? pageId)}
+            activeId={
+              sectionTabs.some((page) => page.id === pageId)
+                ? pageId
+                : groupTools.includes(pageId) && groupToolsTab
+                  ? groupToolsTab
+                  : (sectionTabs[0]?.id ?? pageId)
+            }
             onSelect={go}
             navLabel={`${currentGroup.label} pages`}
-            actions={
-              pageId === "add-employee" ? null : (
-                <div className="flex flex-wrap gap-2">
-                  {recordTools.map((page) => (
-                    <Button
-                      key={page.id}
-                      type="button"
-                      variant={page.id === pageId ? "default" : "outline"}
-                      aria-current={page.id === pageId ? "page" : undefined}
-                      onClick={() => go(page.id)}
-                    >
-                      {page.label}
-                    </Button>
-                  ))}
-                </div>
-              )
-            }
           />
           {children}
         </>

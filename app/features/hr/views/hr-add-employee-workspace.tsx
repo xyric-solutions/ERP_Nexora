@@ -47,6 +47,7 @@ export function HrAddEmployeeWorkspace({
             onAction(action, subject);
           }}
           onClose={() => setOpen(false)}
+          onOpenRecordArea={(pageId) => onNavigate("hr", pageId)}
         />
       ) : null}
     </section>

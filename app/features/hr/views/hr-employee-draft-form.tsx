@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
+import { employeeRecordAreaActions } from "../model/people-navigation";
 
 type FormValues = {
   employeeNumber: string;
@@ -36,9 +37,12 @@ const initialValues: FormValues = {
 export function HrEmployeeDraftForm({
   onAction,
   onClose,
+  onOpenRecordArea,
 }: {
   onAction: (action: string, subject?: string) => void;
   onClose: () => void;
+  /** Opens an employee record area (contacts, documents, ...) from the drawer. */
+  onOpenRecordArea?: (pageId: string) => void;
 }) {
   const { api, csrfToken, session } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
@@ -279,6 +283,32 @@ export function HrEmployeeDraftForm({
           </Button>
         </div>
       </form>
+      {onOpenRecordArea ? (
+        <section aria-labelledby="employee-record-areas" className="grid gap-3 border-t border-border pt-4">
+          <div>
+            <h3 id="employee-record-areas" className="m-0! text-sm font-semibold">
+              Employee records
+            </h3>
+            <p className="m-0! mt-1! text-xs text-muted-foreground">
+              Contacts, emergency contacts and documents can be added once the employee is approved and active.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {employeeRecordAreaActions.map((area) => (
+              <Button
+                key={area.pageId}
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={saving}
+                onClick={() => onOpenRecordArea(area.pageId)}
+              >
+                {area.label}
+              </Button>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </HrRecordDrawer>
   );
 }

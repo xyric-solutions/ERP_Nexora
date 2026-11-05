@@ -4067,3 +4067,21 @@ Company Chart adoption/review checkpoint (2026-10-20):
   longer rendered behind the form.
 - Verification: `tsc --noEmit`, ESLint, Prettier, UI theme audit,
   production build, `git diff --check`.
+
+## 2026-11-05 - Employee record areas in the Add Employee drawer; no "Close drawer"
+
+- Employee Records header no longer lists Contacts, Emergency Contacts,
+  Documents, Assignments and History. The Add Employee drawer
+  (`HrEmployeeDraftForm`, `onOpenRecordArea`) has an "Employee records"
+  section: Add contact, Add emergency contact, Add document, Add
+  assignment, View history (`employeeRecordAreaActions`), each opening the
+  existing page with its employee picker; those pages keep Add Employee as
+  the active tab (`toolsTab`). The drawer notes that contacts, emergency
+  contacts and documents need an approved, active employee (the server
+  requires an active employee scope for those writes).
+- `HrRecordDrawer` no longer renders the bottom "Close drawer" button
+  anywhere (the `closeFooter` option is removed); the header cross closes
+  every HR drawer.
+- Verification: `tsc --noEmit`, ESLint, unit suite (2 known
+  user-management failures), UI theme audit, production build,
+  `git diff --check`.

@@ -439,7 +439,6 @@ export function HrRecruitmentPipelineWorkspace() {
           error={error}
           notice={notice}
           description="Choose an active candidate and an open vacancy in this company."
-          closeFooter={false}
         >
           <form
             onSubmit={create}
