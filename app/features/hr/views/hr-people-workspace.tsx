@@ -1,10 +1,15 @@
 "use client";
 
+import { HrLandingPage } from "../components/hr-landing";
+import { peopleLandingSummaries } from "../model/hr-landing-summaries";
+
 import type { ReactNode } from "react";
-import { HrGroupHeading, HrSectionHeader } from "../components/hr-section-header";
-import { HrNavCard } from "../components/hr-nav-card";
+import { HrSectionHeader } from "../components/hr-section-header";
 import { Button } from "@/components/ui/button";
 import { peopleGroups, peoplePages } from "../model/people-navigation";
+
+/** Landing cards are the People entry points; inner tabs use each group's pages. */
+const peopleLandingGroups = peopleGroups.map((group) => ({ ...group, pages: group.cards }));
 
 export function HrPeopleWorkspace({
   pageId,
@@ -51,27 +56,13 @@ export function HrPeopleWorkspace({
           {children}
         </>
       ) : (
-        <>
-          <h1 className="mb-3! mt-0! min-w-0 text-2xl font-bold tracking-tight">People</h1>
-          <div className="space-y-6">
-            {peopleGroups.map((group, groupIndex) => (
-              <section key={group.id} aria-label={group.label}>
-                <HrGroupHeading number={groupIndex + 1} label={group.label} description={group.description} />
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {group.cards.map((card) => (
-                    <HrNavCard
-                      key={card.id}
-                      icon={card.icon}
-                      label={card.label}
-                      description={card.description}
-                      onClick={() => go(card.id)}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        </>
+        <HrLandingPage
+          title="People"
+          idPrefix="people-hub"
+          groups={peopleLandingGroups}
+          loaders={peopleLandingSummaries}
+          onOpen={go}
+        />
       )}
     </section>
   );

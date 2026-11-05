@@ -1,0 +1,733 @@
+import type { HrPayrollRunWorkspace, HrPayrollSection } from "@nexora/contracts";
+
+import {
+  benefitsWorkspace,
+  complianceWorkspace,
+  learningWorkspace,
+  lifecycleWorkspace,
+  payrollWorkspace,
+  performanceWorkspace,
+} from "./hr-section-navigation";
+import {
+  countLabel,
+  details,
+  humanize,
+  nameList,
+  tally,
+  type HrLandingSummaryContext,
+  type HrLandingSummaryLoader,
+  type HrLandingSummaryLoaders,
+} from "./hr-landing-summary";
+import { attendanceLeaveWorkspace } from "./time-workspace-navigation";
+
+/**
+ * Landing-card facts for the operations hubs (Attendance & Leave, Payroll, Performance, Learning, Lifecycle,
+ * Benefits and Compliance). Every fact is read from the authorized API; list reads are bounded, so state
+ * breakdowns are shown only when the whole list fitted in one page.
+ */
+
+/** Page ids of a workspace definition, so a page without a loader is a type error. */
+type PageIdOf<Workspace> = Workspace extends { groups: readonly (infer Group)[] }
+  ? Group extends { pages: readonly (infer Page)[] }
+    ? Page extends { id: infer Id extends string }
+      ? Id
+      : never
+    : never
+  : never;
+type WorkspaceLoaders<Workspace> = Readonly<Record<PageIdOf<Workspace>, HrLandingSummaryLoader>>;
+
+const pad = (value: number) => String(value).padStart(2, "0");
+/** Today in the browser's local calendar, as an ISO date. */
+const today = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+};
+/** First day of the local month, `offset` months from now. */
+const monthStart = (offset = 0) => {
+  const now = new Date();
+  const month = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  return `${month.getFullYear()}-${pad(month.getMonth() + 1)}-01`;
+};
+/** "2026-10-01" -> "Oct 2026". */
+const monthLabel = (isoMonth: string) => {
+  const [year, month] = isoMonth.split("-").map(Number);
+  return new Date(year!, (month ?? 1) - 1, 1).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+};
+const amount = (value: string, currency: string | null | undefined) =>
+  `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(Number(value))}${currency ? ` ${currency}` : ""}`;
+/** A state breakdown only when every record was read; a partial page would misstate the counts. */
+const stateTally = (states: readonly string[], total: number, label?: (value: string) => string) =>
+  states.length && states.length >= total ? tally(states, label) : null;
+const joined = (...parts: readonly (string | false | null | undefined)[]) =>
+  parts.filter((part): part is string => typeof part === "string" && part.length > 0).join(" · ");
+
+/* ------------------------------------------------------------------ Attendance & Leave */
+
+const leaveStatusCount = (
+  { client, companyId, once }: HrLandingSummaryContext,
+  status: "pending_manager" | "pending_hr" | "approved",
+) =>
+  once(`leave-requests:${status}`, () =>
+    client
+      .listLeaveRequests({
+        company_id: companyId,
+        as_of: today(),
+        status,
+        queue_only: "false",
+        limit: 1,
+        offset: 0,
+      })
+      .then((directory) => directory.total),
+  );
+const attendancePeriod = ({ client, companyId, once }: HrLandingSummaryContext, month: string) =>
+  once(`attendance-period:${month}`, () =>
+    client.periodWorkspace({ company_id: companyId, month, limit: 1, offset: 0 }),
+  );
+const attendanceInputs = ({ client, companyId, once }: HrLandingSummaryContext, month: string) =>
+  once(`attendance-payroll-inputs:${month}`, () =>
+    client.payrollInputs({ company_id: companyId, month, limit: 1, offset: 0 }),
+  );
+const correctionCount = (
+  { client, companyId, once }: HrLandingSummaryContext,
+  status?: "pending_manager" | "pending_hr",
+) =>
+  once(`attendance-corrections:${status ?? "all"}`, () =>
+    client.corrections({ company_id: companyId, status, limit: 1, offset: 0 }).then((directory) => directory.total),
+  );
+
+const attendanceSummaries: WorkspaceLoaders<typeof attendanceLeaveWorkspace> = {
+  shifts: async ({ client, companyId, once }) => {
+    const { items, total } = await once("shifts:all", () => client.shifts({ companyId, limit: 100 }));
+    if (!total) return [];
+    const active = items.filter((shift) => shift.status === "active");
+    const inactive = items.length - active.length;
+    return details(
+      joined(countLabel(active.length, "active shift"), inactive > 0 && `${inactive} inactive`),
+      stateTally(
+        active.map((shift) => shift.kind),
+        active.length,
+        (kind) => `${humanize(kind)}`,
+      ),
+      nameList(active.map((shift) => shift.name)),
+    );
+  },
+  "shift-assignments": async ({ client, companyId, once }) => {
+    const [active, scheduled] = await Promise.all([
+      once("shift-allocations:active", () => client.shiftAllocations({ companyId, state: "active", limit: 50 })),
+      once("shift-allocations:scheduled", () => client.shiftAllocations({ companyId, state: "scheduled", limit: 1 })),
+    ]);
+    if (!active.total && !scheduled.total) return [];
+    return details(
+      joined(countLabel(active.total, "active assignment"), scheduled.total > 0 && `${scheduled.total} scheduled`),
+      stateTally(
+        active.items.map((allocation) => allocation.scope),
+        active.total,
+        (scope) => `by ${scope}`,
+      ),
+      active.items.length
+        ? `Shifts: ${nameList(
+            active.items.map((allocation) => allocation.shift_name),
+            2,
+          )}`
+        : null,
+    );
+  },
+  "leave-types": async ({ client, companyId, once }) => {
+    const { items, total } = await once("leave-types", () =>
+      client.listLeaveTypes({ company_id: companyId, as_of: today(), limit: 50, offset: 0 }),
+    );
+    if (!total) return [];
+    const active = items.filter((type) => type.status === "active");
+    const paid = active.filter((type) => type.paid).length;
+    return details(
+      countLabel(active.length, "active leave type"),
+      items.length >= total ? joined(`${paid} paid`, `${active.length - paid} unpaid`) : null,
+      nameList(active.map((type) => type.name)),
+    );
+  },
+  "leave-balances": async ({ client, companyId, once }) => {
+    const { items, total } = await once("leave-balances", () =>
+      client.listLeaveBalances({ company_id: companyId, as_of: today(), limit: 50, offset: 0 }),
+    );
+    if (!total) return [];
+    const complete = items.length >= total;
+    const reserved = items.filter((balance) => Number(balance.reserved) > 0).length;
+    return details(
+      countLabel(total, "balance record"),
+      complete &&
+        joined(
+          countLabel(new Set(items.map((balance) => balance.employee_id)).size, "employee"),
+          countLabel(new Set(items.map((balance) => balance.leave_type_id)).size, "leave type"),
+        ),
+      complete && reserved > 0 && `${reserved} with reserved days`,
+    );
+  },
+  "leave-requests": async (context) => {
+    const { client, companyId, once } = context;
+    const [total, manager, hr, approved] = await Promise.all([
+      once("leave-requests:all", () =>
+        client
+          .listLeaveRequests({ company_id: companyId, as_of: today(), queue_only: "false", limit: 1, offset: 0 })
+          .then((directory) => directory.total),
+      ),
+      leaveStatusCount(context, "pending_manager"),
+      leaveStatusCount(context, "pending_hr"),
+      leaveStatusCount(context, "approved"),
+    ]);
+    if (!total) return [];
+    return details(
+      countLabel(total, "leave request"),
+      manager + hr > 0 ? joined(`${manager} awaiting manager`, `${hr} awaiting HR`) : "None awaiting approval",
+      approved > 0 && `${approved} approved`,
+    );
+  },
+  "leave-approval": async (context) => {
+    const { client, companyId, once } = context;
+    const [queue, manager, hr] = await Promise.all([
+      once("leave-requests:queue", () =>
+        client
+          .listLeaveRequests({ company_id: companyId, as_of: today(), queue_only: "true", limit: 1, offset: 0 })
+          .then((directory) => directory.total),
+      ),
+      leaveStatusCount(context, "pending_manager"),
+      leaveStatusCount(context, "pending_hr"),
+    ]);
+    if (!queue && !manager && !hr) return [];
+    return details(
+      queue > 0 ? `${queue} in your approval queue` : "Your approval queue is clear",
+      manager > 0 && `${manager} awaiting manager`,
+      hr > 0 && `${hr} awaiting HR`,
+    );
+  },
+  "daily-attendance": async ({ client, companyId, once }) => {
+    const day = await once("daily-attendance:today", () =>
+      client.dailyAttendance({ company_id: companyId, on_date: today(), limit: 100, offset: 0 }),
+    );
+    if (!day.total) return [];
+    const complete = day.items.length >= day.total;
+    const withIssues = day.items.filter((row) => row.issues.length > 0).length;
+    return details(
+      `${countLabel(day.total, "employee")} today`,
+      stateTally(
+        day.items.map((row) => row.status),
+        day.total,
+      ),
+      complete && withIssues > 0 && `${withIssues} with exceptions`,
+    );
+  },
+  "attendance-corrections": async (context) => {
+    const [total, manager, hr] = await Promise.all([
+      correctionCount(context),
+      correctionCount(context, "pending_manager"),
+      correctionCount(context, "pending_hr"),
+    ]);
+    if (!total) return [];
+    return details(
+      countLabel(total, "correction"),
+      manager + hr > 0 ? joined(`${manager} awaiting manager`, `${hr} awaiting HR`) : "None awaiting approval",
+    );
+  },
+  overtime: async ({ client, companyId, once }) => {
+    const month = monthStart();
+    const [requests, rules] = await Promise.all([
+      once(`overtime:${month}`, () => client.listOvertime({ company_id: companyId, month, limit: 50, offset: 0 })),
+      once("overtime-context:today", () => client.overtimeContext({ company_id: companyId, on_date: today() })),
+    ]);
+    if (!requests.total && !rules.rules.length) return [];
+    return details(
+      rules.rules.length
+        ? `${countLabel(rules.rules.length, "rule")}: ${nameList(rules.rules.map((rule) => humanize(rule.category)))}`
+        : "No overtime rules in effect",
+      `${monthLabel(month)}: ${countLabel(requests.total, "request")}`,
+      stateTally(
+        requests.items.map((request) => request.status),
+        requests.total,
+      ),
+    );
+  },
+  "monthly-attendance": async ({ client, companyId, once }) => {
+    const month = monthStart();
+    const sheet = await once(`monthly-attendance:${month}`, () =>
+      client.monthlyAttendance({ company_id: companyId, month, limit: 1, offset: 0 }),
+    );
+    if (!sheet.total) return [];
+    return details(
+      `${monthLabel(month)}: ${countLabel(sheet.total, "employee")}`,
+      sheet.period_state ? `Period ${humanize(sheet.period_state)}` : "Period not opened",
+    );
+  },
+  "attendance-period": async (context) => {
+    const [current, previous] = await Promise.all([
+      attendancePeriod(context, monthStart()),
+      attendancePeriod(context, monthStart(-1)),
+    ]);
+    if (!current.period && !previous.period) return [];
+    const line = (month: string, workspace: typeof current) =>
+      `${monthLabel(month)} ${workspace.period ? humanize(workspace.period.state) : "not opened"}`;
+    return details(
+      line(monthStart(), current),
+      current.period &&
+        joined(
+          countLabel(current.period.employee_count, "employee"),
+          countLabel(current.period.exception_count, "exception"),
+        ),
+      line(monthStart(-1), previous),
+    );
+  },
+  "attendance-payroll-inputs": async (context) => {
+    const [current, previous] = await Promise.all([
+      attendanceInputs(context, monthStart()),
+      attendanceInputs(context, monthStart(-1)),
+    ]);
+    if (!current.period && !previous.period) return [];
+    const line = (month: string, inputs: typeof current) =>
+      `${monthLabel(month)}: ${inputs.locked ? countLabel(inputs.total, "finalized input") : "not locked"}`;
+    return details(line(monthStart(), current), line(monthStart(-1), previous));
+  },
+};
+
+/* ------------------------------------------------------------------ Payroll */
+
+const payrollRecords = ({ client, companyId, once }: HrLandingSummaryContext, section: HrPayrollSection) => {
+  const month = monthStart();
+  return once(`payroll:${section}:${month}`, () =>
+    client.payrollWorkspace({ company_id: companyId, section, month, search: "", limit: 50, offset: 0 }),
+  );
+};
+/** A governed payroll master: count, state breakdown and a few names. */
+const payrollRecordSummary =
+  (section: HrPayrollSection, singular: string, options: { names?: boolean; month?: boolean } = {}) =>
+  async (context: HrLandingSummaryContext) => {
+    const { items, total } = await payrollRecords(context, section);
+    if (!total) return [];
+    return details(
+      options.month ? `${monthLabel(monthStart())}: ${countLabel(total, singular)}` : countLabel(total, singular),
+      stateTally(
+        items.map((item) => item.status),
+        total,
+      ),
+      options.names && nameList(items.map((item) => item.title)),
+    );
+  };
+
+const payrollRun = ({ client, companyId, once }: HrLandingSummaryContext, month: string) =>
+  once(`payroll-run:${month}`, () => client.payrollRunWorkspace({ company_id: companyId, month, limit: 1, offset: 0 }));
+/** The current month's run, or last month's when this month has not been opened yet. */
+const latestPayrollRun = (context: HrLandingSummaryContext) =>
+  context.once("payroll-run:latest", async (): Promise<HrPayrollRunWorkspace | null> => {
+    const current = await payrollRun(context, monthStart());
+    if (current.period) return current;
+    const previous = await payrollRun(context, monthStart(-1));
+    return previous.period ? previous : null;
+  });
+const runLabel = (run: HrPayrollRunWorkspace) =>
+  `${monthLabel(run.month)} run ${run.period?.run_number ?? 1} · ${humanize(run.period?.state ?? "not opened")}`;
+
+const payrollSummaries: WorkspaceLoaders<typeof payrollWorkspace> = {
+  "payroll-setup": payrollRecordSummary("components", "pay component", { names: true }),
+  "salary-structures": payrollRecordSummary("structures", "salary structure", { names: true }),
+  "salary-revisions": payrollRecordSummary("salaries", "salary record"),
+  "payroll-inputs": payrollRecordSummary("adjustments", "adjustment", { month: true }),
+  "employee-loans": payrollRecordSummary("loans", "loan"),
+  "payroll-runs": async (context) => {
+    const run = await latestPayrollRun(context);
+    if (!run) return [];
+    return details(
+      runLabel(run),
+      run.totals
+        ? joined(countLabel(run.total, "employee"), `Net ${amount(run.totals.net, run.totals.currency_code)}`)
+        : countLabel(run.total, "employee"),
+      run.blocked.length > 0 && countLabel(run.blocked.length, "blocker"),
+    );
+  },
+  "payroll-validation": async (context) => {
+    const run = await latestPayrollRun(context);
+    if (!run) return [];
+    return details(
+      runLabel(run),
+      run.review_access && `Review access: ${humanize(run.review_access)}`,
+      run.allowed_actions.length ? `Next: ${run.allowed_actions.map(humanize).join(", ")}` : "No action open to you",
+    );
+  },
+  "payroll-journal": async (context) => {
+    const run = await latestPayrollRun(context);
+    if (!run) return [];
+    const journal = await context.once(`payroll-journal:${run.month}`, () =>
+      context.client.payrollJournalWorkspace({ company_id: context.companyId, month: run.month }),
+    );
+    const proposal = journal.proposal;
+    return details(
+      `${monthLabel(run.month)} journal ${proposal ? humanize(proposal.state) : "not prepared"}`,
+      proposal?.external_entry_number
+        ? `Entry ${proposal.external_entry_number}`
+        : journal.totals.employee_count > 0 &&
+            `${countLabel(journal.totals.employee_count, "employee")} · Net ${amount(journal.totals.net, journal.currency_code)}`,
+      journal.blocked.length > 0 && countLabel(journal.blocked.length, "blocker"),
+    );
+  },
+  "payment-batch": async (context) => {
+    const run = await latestPayrollRun(context);
+    if (!run) return [];
+    const payment = await context.once(`payroll-payment:${run.month}`, () =>
+      context.client.payrollPaymentWorkspace({ company_id: context.companyId, month: run.month }),
+    );
+    return details(
+      `${monthLabel(run.month)} batch ${payment.batch ? humanize(payment.batch.state) : "not prepared"}`,
+      payment.totals.employee_count > 0 &&
+        joined(
+          countLabel(payment.totals.employee_count, "employee"),
+          `Outstanding ${amount(payment.totals.outstanding, payment.currency_code)}`,
+        ),
+      payment.blocked.length > 0 && countLabel(payment.blocked.length, "blocker"),
+    );
+  },
+  payslips: async (context) => {
+    const run = await latestPayrollRun(context);
+    if (!run) return [];
+    const slips = await context.once(`payslips:${run.month}`, () =>
+      context.client.payslipWorkspace({
+        company_id: context.companyId,
+        month: run.month,
+        search: "",
+        state: "all",
+        limit: 1,
+        offset: 0,
+      }),
+    );
+    if (!slips.counts.results) return details(`${monthLabel(run.month)}: no payslips yet`);
+    return details(
+      `${monthLabel(run.month)}: ${countLabel(slips.counts.results, "payslip")}`,
+      joined(`${slips.counts.released} released`, `${slips.counts.pending} pending`),
+    );
+  },
+};
+
+/* ------------------------------------------------------------------ Performance */
+
+const performance = (
+  { client, companyId, once }: HrLandingSummaryContext,
+  section: "cycles" | "goals" | "reviews" | "outcomes",
+) =>
+  once(`performance:${section}`, () =>
+    client.performanceWorkspace({
+      company_id: companyId,
+      section,
+      search: "",
+      employee_search: "",
+      limit: 25,
+      offset: 0,
+    }),
+  );
+const performanceRecordSummary =
+  (section: "goals" | "reviews" | "outcomes", singular: string) => async (context: HrLandingSummaryContext) => {
+    const workspace = await performance(context, section);
+    if (!workspace.total) return [];
+    const cycle = workspace.cycles.find((item) => item.id === workspace.cycle_id);
+    return details(
+      countLabel(workspace.total, singular),
+      stateTally(
+        workspace.items.map((item) => item.state),
+        workspace.total,
+      ),
+      cycle && `Cycle: ${cycle.label}`,
+    );
+  };
+
+const performanceSummaries: WorkspaceLoaders<typeof performanceWorkspace> = {
+  "performance-cycles": async (context) => {
+    const workspace = await performance(context, "cycles");
+    const { cycles } = workspace;
+    if (!cycles.length) return [];
+    const current = cycles.find((item) => item.id === workspace.cycle_id);
+    return details(
+      countLabel(cycles.length, "cycle"),
+      tally(cycles.map((item) => item.state)),
+      current && `Current: ${current.label}`,
+    );
+  },
+  "goals-kpis": performanceRecordSummary("goals", "goal"),
+  "performance-reviews": performanceRecordSummary("reviews", "review"),
+  "performance-outcomes": performanceRecordSummary("outcomes", "outcome"),
+};
+
+/* ------------------------------------------------------------------ Learning */
+
+const learning = (
+  { client, companyId, once }: HrLandingSummaryContext,
+  section: "programmes" | "requests" | "sessions" | "completions",
+) =>
+  once(`learning:${section}`, () =>
+    client.learning({
+      company_id: companyId,
+      section,
+      mode: "hr",
+      search: "",
+      state: "all",
+      limit: 50,
+      offset: 0,
+    }),
+  );
+
+const learningSummaries: WorkspaceLoaders<typeof learningWorkspace> = {
+  "training-programs": async (context) => {
+    const workspace = await learning(context, "programmes");
+    if (!workspace.total) return [];
+    const mandatory = workspace.items.filter((item) => item.terms.kind === "programme" && item.terms.mandatory).length;
+    return details(
+      joined(
+        countLabel(workspace.total, "programme"),
+        workspace.items.length >= workspace.total && mandatory > 0 && `${mandatory} mandatory`,
+      ),
+      stateTally(
+        workspace.items.map((item) => item.state),
+        workspace.total,
+      ),
+      workspace.gap_total > 0 && countLabel(workspace.gap_total, "mandatory training gap"),
+    );
+  },
+  "training-requests": async (context) => {
+    const workspace = await learning(context, "requests");
+    if (!workspace.total) return [];
+    return details(
+      countLabel(workspace.total, "training request"),
+      stateTally(
+        workspace.items.map((item) => item.state),
+        workspace.total,
+      ),
+    );
+  },
+  "training-sessions": async (context) => {
+    const workspace = await learning(context, "sessions");
+    if (!workspace.total) return [];
+    return details(
+      countLabel(workspace.total, "session"),
+      stateTally(
+        workspace.items.map((item) => item.state),
+        workspace.total,
+      ),
+      nameList(
+        workspace.items.map((item) => (item.terms.kind === "session" ? item.terms.title : "")),
+        2,
+      ),
+    );
+  },
+  "training-completions": async (context) => {
+    const workspace = await learning(context, "completions");
+    if (!workspace.total) return [];
+    const complete = workspace.items.length >= workspace.total;
+    const expired = workspace.items.filter((item) => item.expired).length;
+    return details(
+      countLabel(workspace.total, "completion record"),
+      complete &&
+        tally(workspace.items.map((item) => (item.terms.kind === "completion" ? item.terms.result : item.state))),
+      complete && expired > 0 && `${expired} expired`,
+    );
+  },
+};
+
+/* ------------------------------------------------------------------ Employee Lifecycle */
+
+type LifecycleSection =
+  "onboarding" | "probation" | "resignation" | "termination" | "clearance" | "settlement" | "offboarding";
+const lifecycleCaseSummary =
+  (section: LifecycleSection, singular: string) =>
+  async ({ client, companyId, once }: HrLandingSummaryContext) => {
+    const workspace = await once(`lifecycle-cases:${section}`, () =>
+      client.lifecycleCaseWorkspace({ company_id: companyId, section, search: "", limit: 25, offset: 0 }),
+    );
+    if (!workspace.total) return [];
+    return details(
+      countLabel(workspace.total, singular),
+      stateTally(
+        workspace.items.map((item) => item.state),
+        workspace.total,
+      ),
+      nameList(
+        workspace.items.map((item) => item.employee_name),
+        2,
+      ),
+    );
+  };
+
+const lifecycleSummaries: WorkspaceLoaders<typeof lifecycleWorkspace> = {
+  "lifecycle-policies": async ({ client, companyId, once }) => {
+    const { items } = await once("lifecycle-policies", () =>
+      client.employmentLifecyclePolicies({ companyId, limit: 50 }),
+    );
+    if (!items.length) return [];
+    const active = items.filter((policy) => policy.status === "active");
+    return details(
+      countLabel(items.length, "policy", "policies"),
+      tally(items.map((policy) => policy.status)),
+      active.length > 0 &&
+        `Active: ${nameList(
+          active.map((policy) => policy.name),
+          2,
+        )}`,
+    );
+  },
+  onboarding: lifecycleCaseSummary("onboarding", "onboarding case"),
+  "probation-reviews": lifecycleCaseSummary("probation", "probation review"),
+  "employee-movements": async ({ client, companyId, once }) => {
+    const [dashboard, transfers, promotions] = await Promise.all([
+      once("hr-dashboard", () => client.dashboard(companyId)),
+      once("transfer-requests", () => client.transferRequests({ companyId, limit: 50 })),
+      once("promotion-requests", () => client.promotionRequests({ companyId, limit: 50 })),
+    ]);
+    const pending = (items: readonly { status: string }[]) => items.filter((item) => item.status === "pending").length;
+    const bounded = (items: readonly unknown[], singular: string) =>
+      items.length >= 50 ? `50+ ${singular}s` : countLabel(items.length, singular);
+    if (!dashboard.metrics.pending_movements && !transfers.items.length && !promotions.items.length) return [];
+    return details(
+      `${dashboard.metrics.pending_movements} pending approval`,
+      joined(bounded(transfers.items, "transfer"), bounded(promotions.items, "promotion")),
+      joined(
+        pending(transfers.items) > 0 && `${pending(transfers.items)} transfers pending`,
+        pending(promotions.items) > 0 && `${pending(promotions.items)} promotions pending`,
+      ),
+    );
+  },
+  resignations: lifecycleCaseSummary("resignation", "resignation"),
+  terminations: lifecycleCaseSummary("termination", "termination case"),
+  clearance: lifecycleCaseSummary("clearance", "clearance case"),
+  "final-settlements": lifecycleCaseSummary("settlement", "settlement"),
+  offboarding: lifecycleCaseSummary("offboarding", "exit case"),
+};
+
+/* ------------------------------------------------------------------ Benefits & Self-service */
+
+const localization = (
+  { client, companyId, once }: HrLandingSummaryContext,
+  kind: "legal_profile" | "payroll_configuration",
+) =>
+  once(`payroll-localization:${kind}`, () =>
+    client.payrollLocalization({ company_id: companyId, kind, on_date: today(), search: "", limit: 25, offset: 0 }),
+  );
+
+const benefitsSummaries: WorkspaceLoaders<typeof benefitsWorkspace> = {
+  "loans-benefits": async (context) => {
+    const { client, companyId, once } = context;
+    const [loans, rules] = await Promise.all([
+      payrollRecords(context, "loans"),
+      once("settlement-benefit-rules", () =>
+        client.settlementBenefits({ company_id: companyId, limit: 25, offset: 0 }),
+      ),
+    ]);
+    if (!loans.total && !rules.total) return [];
+    return details(
+      countLabel(loans.total, "loan"),
+      stateTally(
+        loans.items.map((item) => item.status),
+        loans.total,
+      ),
+      joined(
+        countLabel(rules.total, "benefit rule"),
+        stateTally(
+          rules.items.map((rule) => rule.state),
+          rules.total,
+        ),
+      ),
+    );
+  },
+  "statutory-deductions": async (context) => {
+    const [profiles, configurations] = await Promise.all([
+      localization(context, "legal_profile"),
+      localization(context, "payroll_configuration"),
+    ]);
+    if (!profiles.total && !configurations.total) return [];
+    const loaded = [...profiles.items, ...configurations.items];
+    const submitted = loaded.filter((record) => record.status === "submitted").length;
+    return details(
+      countLabel(profiles.total, "legal profile"),
+      joined(
+        countLabel(configurations.total, "payroll configuration"),
+        stateTally(
+          configurations.items.map((record) => record.status),
+          configurations.total,
+        ),
+      ),
+      submitted > 0 && `${submitted} awaiting approval`,
+    );
+  },
+  "employee-self-service": async ({ client, companyId, once }) => {
+    const month = monthStart();
+    const workspace = await once(`self-service:${month}`, () =>
+      client.selfService({ company_id: companyId, month, limit: 1, offset: 0 }),
+    );
+    if (workspace.status === "link_required") return details("No employee record linked to you");
+    return details(
+      countLabel(workspace.payslip_total, "published payslip"),
+      countLabel(workspace.request_total, "leave request"),
+      workspace.loan_total > 0 && countLabel(workspace.loan_total, "loan"),
+    );
+  },
+  "hr-report-centre": async ({ client, companyId, once }) => {
+    const { metrics, action_items } = await once("hr-dashboard", () => client.dashboard(companyId));
+    const attention = action_items.filter((item) => item.tone === "attention" && item.count > 0).length;
+    if (!metrics.active_headcount && !metrics.active_departments) return [];
+    return details(
+      countLabel(metrics.active_headcount, "active employee"),
+      countLabel(metrics.active_departments, "active department"),
+      attention > 0 && countLabel(attention, "item needing attention", "items needing attention"),
+    );
+  },
+};
+
+/* ------------------------------------------------------------------ Reporting, Compliance & Audit */
+
+const governance = ({ client, companyId, once }: HrLandingSummaryContext, section: "policies" | "exports" | "audit") =>
+  once(`report-governance:${section}`, () =>
+    client.reportGovernance({ company_id: companyId, section, limit: section === "audit" ? 1 : 25, offset: 0 }),
+  );
+
+const complianceSummaries: WorkspaceLoaders<typeof complianceWorkspace> = {
+  "hr-compliance-configuration": async (context) => {
+    const workspace = await governance(context, "policies");
+    const policy = workspace.active_policy;
+    const submitted = workspace.policies.filter((item) => item.state === "submitted").length;
+    if (!policy && !workspace.policies.length) return [];
+    const reportTitles = policy
+      ? workspace.catalogue.filter((report) => policy.terms.reports.includes(report.id)).map((report) => report.title)
+      : [];
+    return details(
+      policy
+        ? `Up to ${policy.terms.max_rows} rows · ${policy.terms.expires_after_hours}h expiry`
+        : "No approved disclosure policy",
+      reportTitles.length > 0 && nameList(reportTitles, 2),
+      submitted > 0 && `${submitted} policy change${submitted === 1 ? "" : "s"} awaiting approval`,
+    );
+  },
+  "hr-export-centre": async (context) => {
+    const workspace = await governance(context, "exports");
+    if (!workspace.total) return [];
+    const complete = workspace.exports.length >= workspace.total;
+    const downloadable = workspace.exports.filter((item) => item.can_download && !item.expired).length;
+    const expired = workspace.exports.filter((item) => item.expired).length;
+    return details(
+      // The API returns only the signed-in user's own export receipts.
+      `${countLabel(workspace.total, "export receipt")} created by you`,
+      complete && downloadable > 0 && `${downloadable} ready to download`,
+      complete && expired > 0 && `${expired} expired`,
+    );
+  },
+  "hr-report-audit-log": async (context) => {
+    const workspace = await governance(context, "audit");
+    if (!workspace.total) return [];
+    const latest = workspace.events[0];
+    return details(
+      countLabel(workspace.total, "audit event"),
+      latest && `Latest: ${humanize(latest.kind)} · ${latest.occurred_at.slice(0, 10)}`,
+    );
+  },
+};
+
+/** Landing-card loaders for the operations hubs, by workspace id and then page id. */
+export const hrOperationsLandingSummaries: Readonly<Record<string, HrLandingSummaryLoaders>> = {
+  [attendanceLeaveWorkspace.id]: attendanceSummaries,
+  [payrollWorkspace.id]: payrollSummaries,
+  [performanceWorkspace.id]: performanceSummaries,
+  [learningWorkspace.id]: learningSummaries,
+  [lifecycleWorkspace.id]: lifecycleSummaries,
+  [benefitsWorkspace.id]: benefitsSummaries,
+  [complianceWorkspace.id]: complianceSummaries,
+};

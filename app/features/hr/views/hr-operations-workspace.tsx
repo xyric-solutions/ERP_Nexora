@@ -2,9 +2,12 @@
 
 import { useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { HrGroupHeading, HrSectionHeader } from "../components/hr-section-header";
-import { HrNavCard } from "../components/hr-nav-card";
+import { HrSectionHeader } from "../components/hr-section-header";
+import { HrLandingPage } from "../components/hr-landing";
+import { hrOperationsLandingSummaries } from "../model/hr-operations-landing-summaries";
 import { HrOperationsScopeContext, type HrOperationsScope } from "../components/hr-operations-scope";
+
+const noSummaries = {};
 
 type Workspace = {
   id: string;
@@ -48,29 +51,13 @@ export function HrOperationsWorkspace({
           <HrOperationsScopeContext.Provider value={setScope}>{children}</HrOperationsScopeContext.Provider>
         </>
       ) : (
-        <>
-          <header className="mb-4 flex items-center gap-2">
-            <h1 className="m-0! min-w-0 text-2xl font-bold tracking-tight">{definition.label}</h1>
-          </header>
-          <div className="space-y-6">
-            {definition.groups.map((group, groupIndex) => (
-              <section key={group.id} aria-label={group.label}>
-                <HrGroupHeading number={groupIndex + 1} label={group.label} description={group.description} />
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {group.pages.map((page) => (
-                    <HrNavCard
-                      key={page.id}
-                      icon={page.icon}
-                      label={page.label}
-                      description={page.description}
-                      onClick={() => go(page.id)}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        </>
+        <HrLandingPage
+          title={definition.label}
+          idPrefix={definition.id}
+          groups={definition.groups}
+          loaders={hrOperationsLandingSummaries[definition.id] ?? noSummaries}
+          onOpen={go}
+        />
       )}
     </section>
   );

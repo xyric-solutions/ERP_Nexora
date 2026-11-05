@@ -3963,3 +3963,29 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Resume point: apply HR136 to the local/UAT database (`npm run db:migrate
   --workspace @nexora/db`), configure Finance projects per company, then a
   signed-in check of create requisition -> approve -> opening -> offer.
+
+## 2026-11-05 - HR landings: live card details, compact list view
+
+- Every HR & Payroll landing (Organisation & Masters, People, Recruitment,
+  Attendance & Leave and the six operations hubs) now renders through the
+  shared `HrLandingPage` (`app/features/hr/components/hr-landing.tsx`):
+  title, company picker (shared remembered company), Card/List toggle
+  (remembered per browser via `useSyncExternalStore`) and numbered sections.
+  The "7 master pages" count is removed.
+- `HrNavCard` cards keep icon, name and arrow on one line and replace the
+  generic description and record count with 2–3 live facts from the
+  authorized API (`model/hr-landing-summaries.ts` for Organisation, People
+  and Recruitment; `model/hr-operations-landing-summaries.ts` for the
+  operations hubs, typed so every page needs a loader). States: loading
+  skeleton, "No records yet", "Details unavailable" (failed/forbidden read),
+  "Access required", "Select a company". Reads are bounded; full pages show
+  "100+" and partial pages never show state breakdowns.
+- List view rows show only icon and name in a compact row.
+- Known cost: the Payroll landing reads the latest run's journal and payment
+  batch workspaces (no limit parameter on those endpoints); Performance and
+  Learning workspace reads include side lists. Consider dedicated summary
+  endpoints if these landings become slow.
+- Verification: `tsc --noEmit`, ESLint on changed files, unit tests
+  (new `hr-landing-summaries.test.ts`; 2 known user-management failures),
+  UI theme audit, production build, `git diff --check`. Signed-in browser
+  check of each landing in both views is the resume point.
