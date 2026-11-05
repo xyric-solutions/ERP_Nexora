@@ -806,27 +806,6 @@ export function PrototypeShell({
                                       </button>
                                       {groupOpen ? (
                                         <ul className="nx-submenu__list">
-                                          {group.pages.map((page) => (
-                                            <li key={page.id}>
-                                              <button
-                                                className={`nx-submenu-link${page.id === current.page.id ? " nx-submenu-link--active" : ""}`}
-                                                aria-current={page.id === current.page.id ? "page" : undefined}
-                                                type="button"
-                                                onClick={() => navigate(module.id, page.id)}
-                                              >
-                                                <span>{page.label}</span>
-                                                {page.status === "in-progress" ? (
-                                                  <small>In progress</small>
-                                                ) : page.status === "live" ? (
-                                                  <small>Live</small>
-                                                ) : page.status === "read-only" ? (
-                                                  <small>Read only</small>
-                                                ) : page.status !== "prototype" ? (
-                                                  <small>Soon</small>
-                                                ) : null}
-                                              </button>
-                                            </li>
-                                          ))}
                                           {group.pages
                                             .filter((page) => !page.hiddenFromNavigation)
                                             .map((page) => (
