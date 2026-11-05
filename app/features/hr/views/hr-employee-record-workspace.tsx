@@ -33,9 +33,12 @@ function statusVariant(status: HrEmployeeDetail["status"]) {
 export function HrEmployeeRecordWorkspace({
   employeeId,
   onNavigate,
+  presentation = "page",
 }: {
   employeeId: string;
   onNavigate: Navigate;
+  /** "drawer" omits directory navigation when shown inside the directory's side drawer. */
+  presentation?: "page" | "drawer";
 }) {
   const { api, session, loading: sessionLoading, refresh: refreshSession } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
@@ -100,9 +103,11 @@ export function HrEmployeeRecordWorkspace({
         <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
           The employee may be outside your active company scope, or the live API is unavailable.
           <span className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => onNavigate("hr", "employees")}>
-              Back to directory
-            </Button>
+            {presentation === "page" ? (
+              <Button type="button" variant="outline" onClick={() => onNavigate("hr", "employees")}>
+                Back to directory
+              </Button>
+            ) : null}
             <Button type="button" onClick={() => void load()}>
               Retry
             </Button>
@@ -127,30 +132,41 @@ export function HrEmployeeRecordWorkspace({
 
   return (
     <section className="grid min-w-0 w-full gap-5" aria-label={`Employee record for ${employee.display_name}`}>
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-5 shadow-sm">
-        <div className="flex min-w-0 items-center gap-4">
-          <span className="grid size-14 shrink-0 place-items-center rounded-full bg-primary/15 text-lg font-semibold text-primary">
-            {initials}
-          </span>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="truncate text-2xl font-semibold text-foreground">{employee.display_name}</h2>
-              <Badge variant={statusVariant(employee.status)}>{employee.status.replaceAll("_", " ")}</Badge>
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {employee.employee_number} · {employee.designation} · {employee.department}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={() => onNavigate("hr", "employees")}>
-            Back to directory
-          </Button>
-          <Button type="button" variant="outline" onClick={() => void load()}>
+      {presentation === "drawer" ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Badge variant={statusVariant(employee.status)}>{employee.status.replaceAll("_", " ")}</Badge>
+          <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
             Refresh
           </Button>
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-5 shadow-sm">
+          <div className="flex min-w-0 items-center gap-4">
+            <span className="grid size-14 shrink-0 place-items-center rounded-full bg-primary/15 text-lg font-semibold text-primary">
+              {initials}
+            </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="truncate text-2xl font-semibold text-foreground">{employee.display_name}</h2>
+                <Badge variant={statusVariant(employee.status)}>{employee.status.replaceAll("_", " ")}</Badge>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {employee.employee_number} · {employee.designation} · {employee.department}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {presentation === "page" ? (
+              <Button type="button" variant="outline" onClick={() => onNavigate("hr", "employees")}>
+                Back to directory
+              </Button>
+            ) : null}
+            <Button type="button" variant="outline" onClick={() => void load()}>
+              Refresh
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="grid min-w-0 grid-cols-1 gap-4">
         <article className="rounded-lg border border-border bg-card p-5 shadow-sm">
@@ -178,10 +194,7 @@ export function HrEmployeeRecordWorkspace({
               <Detail label="Preferred name" value={employee.preferred_name} />
               <Detail label="Work email" value={employee.work_email} />
               <Detail label="Phone" value={employee.phone} />
-              <Detail
-                label="Linked user account"
-                value={employee.user_account_id ? "Connected" : "Not connected"}
-              />
+              <Detail label="Linked user account" value={employee.user_account_id ? "Connected" : "Not connected"} />
             </dl>
           </article>
           <Alert>

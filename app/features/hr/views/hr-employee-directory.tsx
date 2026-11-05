@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 
 import type { HrEmployeeDirectory } from "@nexora/contracts";
 
@@ -12,14 +12,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
+import { HrMasterSheet } from "../components/hr-master-sheet";
+import { HrEmployeeRecordWorkspace } from "./hr-employee-record-workspace";
 
 type LoadState = "loading" | "ready" | "unavailable";
+type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
 
 function employeeStatusVariant(status: HrEmployeeDirectory["items"][number]["status"]) {
   return ["terminated", "resigned", "inactive"].includes(status) ? "outline" : "secondary";
 }
 
-export function HrEmployeeDirectory({ onOpenEmployee }: { onOpenEmployee: (employeeId: string) => void }) {
+/** Live employee directory; a row opens the employee overview in the side drawer. */
+export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
   const { api, session } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
   const [companyId, setCompanyId] = useState("");
@@ -29,6 +33,20 @@ export function HrEmployeeDirectory({ onOpenEmployee }: { onOpenEmployee: (emplo
   const [appliedQuery, setAppliedQuery] = useState("");
   const [companyState, setCompanyState] = useState<LoadState>("loading");
   const [directoryState, setDirectoryState] = useState<LoadState>("loading");
+  const [selectedId, setSelectedId] = useState("");
+  const selected = employees.find((employee) => employee.id === selectedId);
+  const openRow = (employee: HrEmployeeDirectory["items"][number]) => ({
+    role: "button" as const,
+    tabIndex: 0,
+    "aria-label": `Open ${employee.display_name} (${employee.employee_number})`,
+    onClick: () => setSelectedId(employee.id),
+    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        setSelectedId(employee.id);
+      }
+    },
+  });
 
   const reloadCompanies = () => {
     if (!session?.user.permissions.includes("hr.employee.read")) {
@@ -178,14 +196,15 @@ export function HrEmployeeDirectory({ onOpenEmployee }: { onOpenEmployee: (emplo
                 <th className="px-4 py-3">Department</th>
                 <th className="px-4 py-3">Joined</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">
-                  <span className="sr-only">Actions</span>
-                </th>
               </tr>
             </thead>
             <tbody>
               {employees.map((employee) => (
-                <tr className="border-b border-border/70 last:border-0" key={employee.id}>
+                <tr
+                  className="cursor-pointer border-b border-border/70 transition-colors last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                  key={employee.id}
+                  {...openRow(employee)}
+                >
                   <td className="px-4 py-3">
                     <p className="font-medium text-foreground">{employee.display_name}</p>
                     <p className="text-xs text-muted-foreground">
@@ -204,16 +223,11 @@ export function HrEmployeeDirectory({ onOpenEmployee }: { onOpenEmployee: (emplo
                       {employee.status.replaceAll("_", " ")}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <Button type="button" variant="ghost" size="sm" onClick={() => onOpenEmployee(employee.id)}>
-                      Open
-                    </Button>
-                  </td>
                 </tr>
               ))}
               {employees.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-muted-foreground" colSpan={6}>
+                  <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
                     No employees match this company and search.
                   </td>
                 </tr>
@@ -225,6 +239,25 @@ export function HrEmployeeDirectory({ onOpenEmployee }: { onOpenEmployee: (emplo
           </p>
         </div>
       ) : null}
+      <HrMasterSheet
+        open={Boolean(selected)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedId("");
+        }}
+        size="wide"
+        eyebrow="Employee Directory"
+        title={selected?.display_name ?? "Employee"}
+        description={selected ? `${selected.employee_number} · ${selected.designation} · ${selected.department}` : ""}
+      >
+        {selected ? (
+          <HrEmployeeRecordWorkspace
+            key={selected.id}
+            employeeId={selected.id}
+            onNavigate={onNavigate}
+            presentation="drawer"
+          />
+        ) : null}
+      </HrMasterSheet>
     </section>
   );
 }

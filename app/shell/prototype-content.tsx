@@ -2961,7 +2961,7 @@ function PrototypeContentBody(props: PrototypeContentProps) {
     const pages = {
       "hr-dashboard": <HrDashboardWorkspace onNavigate={props.onNavigate} />,
       "finance-payroll-dashboard": <HrFinancePayrollDashboardWorkspace onNavigate={props.onNavigate} />,
-      employees: <HrEmployeeDirectory onOpenEmployee={(id) => props.onNavigate("hr", "employee-record", id)} />,
+      employees: <HrEmployeeDirectory onNavigate={props.onNavigate} />,
       "employee-record": (
         <HrEmployeeRecordWorkspace employeeId={context.recordRef ?? ""} onNavigate={props.onNavigate} />
       ),

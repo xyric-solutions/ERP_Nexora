@@ -4085,3 +4085,16 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Verification: `tsc --noEmit`, ESLint, unit suite (2 known
   user-management failures), UI theme audit, production build,
   `git diff --check`.
+
+## 2026-11-05 - Employee Directory rows open the overview in a drawer
+
+- `HrEmployeeDirectory` (prop now `onNavigate`) drops the Open button and
+  actions column; each row is keyboard accessible (`role="button"`,
+  Enter/Space) and opens the employee overview in the shared wide
+  `HrMasterSheet`, matching Monthly/Daily Attendance. The overview reuses
+  `HrEmployeeRecordWorkspace` with `presentation="drawer"` (status and
+  Refresh on one line; no Back to directory). The `employee-record` page
+  route and its related-record links are unchanged.
+- Verification: `tsc --noEmit`, ESLint (only pre-existing
+  set-state-in-effect findings), UI theme audit, production build,
+  `git diff --check`.
