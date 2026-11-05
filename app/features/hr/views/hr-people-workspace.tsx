@@ -67,11 +67,6 @@ export function HrPeopleWorkspace({
                       {page.label}
                     </Button>
                   ))}
-                  {pageId === "employees" ? (
-                    <Button type="button" onClick={() => go("add-employee")}>
-                      + Add Employee
-                    </Button>
-                  ) : null}
                 </div>
               )
             }

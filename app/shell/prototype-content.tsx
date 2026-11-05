@@ -122,7 +122,7 @@ import { HrOfferManagementWorkspace } from "@prototype/features/hr/views/hr-offe
 import { HrInterviewsWorkspace } from "@prototype/features/hr/views/hr-interviews-workspace";
 import { HrRecruitmentPipelineWorkspace } from "@prototype/features/hr/views/hr-recruitment-pipeline-workspace";
 import { HrCandidateDirectoryWorkspace } from "@prototype/features/hr/views/hr-candidate-directory-workspace";
-import { HrEmployeeDraftForm } from "@prototype/features/hr/views/hr-employee-draft-form";
+import { HrAddEmployeeWorkspace } from "@prototype/features/hr/views/hr-add-employee-workspace";
 import { HrEmployeeDraftsWorkspace } from "@prototype/features/hr/views/hr-employee-drafts-workspace";
 import { HrPeopleApprovalsWorkspace as HrEmployeeApprovalsWorkspace } from "@prototype/features/hr/views/hr-personal-corrections";
 import { HrEmployeeContactsWorkspace } from "@prototype/features/hr/views/hr-employee-contacts-workspace";
@@ -2972,12 +2972,7 @@ function PrototypeContentBody(props: PrototypeContentProps) {
       "employee-documents": <HrEmployeeDocumentsWorkspace initialEmployeeId={context.recordRef} />,
       "employee-assignments": <HrEmployeeAssignmentsWorkspace initialEmployeeId={context.recordRef} />,
       "employee-status-history": <HrEmployeeHistoryWorkspace initialEmployeeId={context.recordRef} />,
-      "add-employee": (
-        <>
-          <HrEmployeeDirectory onOpenEmployee={(id) => props.onNavigate("hr", "employee-record", id)} />
-          <HrEmployeeDraftForm onAction={onAction} onClose={() => props.onNavigate("hr", "employees")} />
-        </>
-      ),
+      "add-employee": <HrAddEmployeeWorkspace onAction={onAction} onNavigate={props.onNavigate} />,
       "employee-drafts": <HrEmployeeDraftsWorkspace onAction={onAction} />,
       "employee-approvals": <HrEmployeeApprovalsWorkspace onAction={onAction} />,
       "positions-org": <HrPositionsOrganizationWorkspace onNavigate={props.onNavigate} />,

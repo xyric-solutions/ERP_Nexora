@@ -4055,3 +4055,15 @@ Company Chart adoption/review checkpoint (2026-10-20):
   unchanged.
 - Verification: `tsc --noEmit`, ESLint, UI theme audit, production build,
   `git diff --check`.
+
+## 2026-11-05 - Add Employee opens on demand; no add button in the directory
+
+- Employee Directory no longer shows "+ Add Employee" (the Add Employee
+  section owns it).
+- Add Employee page (`views/hr-add-employee-workspace.tsx`) shows a short
+  panel with "+ Add Employee"; the existing `HrEmployeeDraftForm` drawer
+  mounts only after that click and closes back to the page. After a draft
+  is created a status line links to Employee Drafts. The directory is no
+  longer rendered behind the form.
+- Verification: `tsc --noEmit`, ESLint, Prettier, UI theme audit,
+  production build, `git diff --check`.
