@@ -3812,3 +3812,20 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Verification: route resolution for all 13 visible pages and 3 hidden
   addresses, `tsc --noEmit`, ESLint, Prettier, `catalogue:check`, production
   build and `git diff --check` passed. No API or permission change.
+
+## 2026-11-05 - Compact HR landing cards
+
+- New shared `app/features/hr/components/hr-nav-card.tsx` (`HrNavCard`):
+  icon and page name on one line with the arrow at the right, description
+  below, optional meta line; `layout="row"` for list views. Cards use `p-4`,
+  `gap-3` grids and `space-y-6` between sections in every hub.
+- Used by all HR landing pages: Organisation & Masters (keeps record counts,
+  access-required disabled state and the card/list toggle), Recruitment,
+  People, and `HrOperationsWorkspace` (Attendance & Leave, Payroll,
+  Performance, Learning, Employee Lifecycle, Benefits & Self-service,
+  Reporting). The HR Report Centre report selector uses the same header
+  layout while keeping its selected state.
+- Verification: `tsc --noEmit`, ESLint and Prettier (no new findings), UI
+  theme audit, unit tests (2 known pre-existing failures), production build,
+  `catalogue:check`, `git diff --check`. Visual acceptance in light/dark at
+  desktop, tablet and mobile widths is the resume point.

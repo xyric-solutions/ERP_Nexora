@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ArrowRight } from "lucide-react";
 import { HrBackButton } from "../components/hr-icon-buttons";
+import { HrNavCard } from "../components/hr-nav-card";
 import { Button } from "@/components/ui/button";
 import { recruitmentGroups, recruitmentPages } from "../model/recruitment-navigation";
 
@@ -63,19 +63,13 @@ export function HrRecruitmentWorkspace({
                 <p className="mb-3! mt-1! text-sm text-muted-foreground">{item.description}</p>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {item.pages.map((page) => (
-                    <button
+                    <HrNavCard
                       key={page.id}
-                      type="button"
+                      icon={page.icon}
+                      label={page.label}
+                      description={page.description}
                       onClick={() => go(page.id)}
-                      className="group flex flex-col rounded-xl border border-border bg-card p-4 text-left text-foreground shadow-sm transition-colors hover:border-primary/50 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <page.icon className="mb-3 size-6 text-primary" />
-                      <strong className="group-hover:text-primary">{page.label}</strong>
-                      <span className="mt-1 flex-1 text-sm leading-relaxed text-muted-foreground">
-                        {page.description}
-                      </span>
-                      <ArrowRight className="mt-4 size-4 self-end text-primary" />
-                    </button>
+                    />
                   ))}
                 </div>
               </section>

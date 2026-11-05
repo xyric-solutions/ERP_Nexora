@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowRight, LayoutGrid, List } from "lucide-react";
+import { LayoutGrid, List } from "lucide-react";
 import { HrBackButton } from "../components/hr-icon-buttons";
+import { HrNavCard } from "../components/hr-nav-card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -179,7 +180,7 @@ export function HrOrganisationMastersWorkspace({
                   </Button>
                 </div>
               </div>
-              <div className="space-y-8">
+              <div className="space-y-6">
                 {organisationMasterGroups.map((group, groupIndex) => (
                   <section key={group.id} aria-label={group.label}>
                     <div className="mb-4 flex gap-3">
@@ -191,41 +192,28 @@ export function HrOrganisationMastersWorkspace({
                         <p className="mb-0 mt-1 text-sm text-muted-foreground">{group.description}</p>
                       </div>
                     </div>
-                    <div className={display === "cards" ? "grid gap-4 md:grid-cols-2 xl:grid-cols-3" : "grid gap-2"}>
+                    <div className={display === "cards" ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3" : "grid gap-2"}>
                       {group.items.map((page) => {
                         const permitted = page.type === null ? canReadOrganisation : canReadMaster;
                         return (
-                          <button
-                            type="button"
+                          <HrNavCard
                             key={page.id}
+                            icon={page.icon}
+                            label={page.label}
+                            description={page.description}
+                            layout={display === "cards" ? "card" : "row"}
                             disabled={!permitted || !companyId}
                             onClick={() => navigate(page.id)}
-                            className={`group rounded-xl border border-border bg-card p-5 text-left text-foreground shadow-sm transition-colors hover:border-primary/50 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${display === "cards" ? "flex flex-col" : "flex flex-wrap items-center gap-4"}`}
-                          >
-                            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                              <page.icon className="size-5" />
-                            </span>
-                            <span className={display === "cards" ? "mt-4 flex-1" : "min-w-0 flex-1"}>
-                              <span className="block font-semibold group-hover:text-primary">{page.label}</span>
-                              <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">
-                                {page.description}
-                              </span>
-                            </span>
-                            <span
-                              className={`flex items-center justify-between gap-3 text-xs ${display === "cards" ? "mt-5 w-full border-t border-border pt-3" : "shrink-0"}`}
-                            >
-                              <span className="text-muted-foreground">
-                                {!permitted
-                                  ? "Access required"
-                                  : counts[page.id] === undefined
-                                    ? "Loading records…"
-                                    : counts[page.id] === null
-                                      ? "Count unavailable"
-                                      : `${counts[page.id]} records`}
-                              </span>
-                              <ArrowRight className="size-4 text-primary" />
-                            </span>
-                          </button>
+                            meta={
+                              !permitted
+                                ? "Access required"
+                                : counts[page.id] === undefined
+                                  ? "Loading records…"
+                                  : counts[page.id] === null
+                                    ? "Count unavailable"
+                                    : `${counts[page.id]} records`
+                            }
+                          />
                         );
                       })}
                     </div>

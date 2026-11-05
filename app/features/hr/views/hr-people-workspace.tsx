@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ArrowRight } from "lucide-react";
 import { HrBackButton } from "../components/hr-icon-buttons";
+import { HrNavCard } from "../components/hr-nav-card";
 import { Button } from "@/components/ui/button";
 import { peopleGroups, peoplePages } from "../model/people-navigation";
 
@@ -81,19 +81,13 @@ export function HrPeopleWorkspace({
                 </div>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {group.cards.map((card) => (
-                    <button
-                      type="button"
+                    <HrNavCard
                       key={card.id}
+                      icon={card.icon}
+                      label={card.label}
+                      description={card.description}
                       onClick={() => go(card.id)}
-                      className="group flex flex-col rounded-xl border border-border bg-card p-4 text-left text-foreground shadow-sm transition-colors hover:border-primary/50 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <card.icon className="mb-3 size-6 text-primary" />
-                      <span className="font-semibold group-hover:text-primary">{card.label}</span>
-                      <span className="mt-1 flex-1 text-sm leading-relaxed text-muted-foreground">
-                        {card.description}
-                      </span>
-                      <ArrowRight className="mt-4 size-4 self-end text-primary" />
-                    </button>
+                    />
                   ))}
                 </div>
               </section>

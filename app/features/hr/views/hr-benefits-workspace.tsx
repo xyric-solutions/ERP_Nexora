@@ -472,9 +472,11 @@ function ReportCentre({ onNavigate }: { onNavigate: Navigate }) {
             }
             onClick={() => setReport(r.id)}
           >
-            <FileText className="mb-3 size-5 text-primary" />
-            <h2 className="font-semibold">{r.title}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">{r.description}</p>
+            <span className="flex items-center gap-2.5">
+              <FileText className="size-5 shrink-0 text-primary" aria-hidden="true" />
+              <h2 className="font-semibold leading-snug">{r.title}</h2>
+            </span>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{r.description}</p>
           </button>
         ))}
       </div>
