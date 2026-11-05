@@ -78,7 +78,7 @@ export const attendanceLeaveWorkspace = {
       pages: [
         {
           id: "daily-attendance",
-          label: "Daily Attendance",
+          label: "Attendance",
           description: "Review daily attendance, punches and exceptions.",
           icon: CalendarCheck,
         },

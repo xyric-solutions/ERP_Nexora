@@ -12,7 +12,7 @@ import {
   dayValue,
 } from "../components/hr-workspace-controls";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Clock3, LockKeyhole, ArrowRight, RefreshCw, CheckCircle2, FileCheck2, ChevronDown } from "lucide-react";
+import { LockKeyhole, ArrowRight, RefreshCw, CheckCircle2, FileCheck2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -1182,39 +1182,6 @@ export function HrAttendanceCompletionWorkspace({
   if (!canRead) return <div className={panel}>You do not have permission to view this attendance workspace.</div>;
   return (
     <div className="grid min-w-0 gap-5 font-sans [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_td]:font-sans!">
-      <nav aria-label="Attendance completion workflow" className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3">
-        {(
-          [
-            ["overtime", "Overtime", Clock3],
-            ["attendance-period", "Period close", FileCheck2],
-            ["attendance-payroll-inputs", "Payroll inputs", LockKeyhole],
-          ] as const
-        ).map(([id, title, Icon]) => (
-          <Button
-            key={id}
-            variant="outline"
-            className={
-              "h-auto min-w-0 justify-start gap-2 whitespace-normal px-4 py-3 " +
-              (mode === id ? "border-primary bg-primary/10 text-primary!" : "")
-            }
-            disabled={
-              busy ||
-              editing ||
-              !permissions.includes(
-                id === "overtime"
-                  ? "hr.attendance.overtime.read"
-                  : id === "attendance-period"
-                    ? "hr.attendance.period.read"
-                    : "hr.attendance.payroll_input.read",
-              )
-            }
-            onClick={() => onNavigate("hr", id, JSON.stringify({ company_id: company, month }))}
-          >
-            <Icon className="size-4 shrink-0" />
-            {title}
-          </Button>
-        ))}
-      </nav>
       <div className={panel + " grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,220px)_auto] md:items-end"}>
         <Field title="Company">
           <select
