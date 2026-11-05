@@ -293,7 +293,7 @@ export function HrEmployeeEmergencyContactsWorkspace({
                     <Input value={phone} type="tel" onChange={(event) => setPhone(event.target.value)} />
                   </label>
                   <label className="grid gap-1.5 text-sm font-medium">
-                    Email (optional)
+                    Email
                     <Input value={email} type="email" onChange={(event) => setEmail(event.target.value)} />
                   </label>
                   <label className="grid gap-1.5 text-sm font-medium">

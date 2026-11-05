@@ -231,7 +231,7 @@ export function HrEmployeeDraftForm({
             />
           </label>
           <label className="grid gap-1.5 text-sm font-medium text-foreground">
-            Middle name <span className="font-normal text-muted-foreground">(optional)</span>
+            Middle name
             <Input
               maxLength={100}
               value={values.middleName}
@@ -239,7 +239,7 @@ export function HrEmployeeDraftForm({
             />
           </label>
           <label className="grid gap-1.5 text-sm font-medium text-foreground">
-            Preferred name <span className="font-normal text-muted-foreground">(optional)</span>
+            Preferred name
             <Input
               maxLength={100}
               value={values.preferredName}
@@ -247,7 +247,7 @@ export function HrEmployeeDraftForm({
             />
           </label>
           <label className="grid gap-1.5 text-sm font-medium text-foreground">
-            Work email <span className="font-normal text-muted-foreground">(optional)</span>
+            Work email
             <Input
               type="email"
               maxLength={320}
@@ -256,7 +256,7 @@ export function HrEmployeeDraftForm({
             />
           </label>
           <label className="grid gap-1.5 text-sm font-medium text-foreground">
-            Phone <span className="font-normal text-muted-foreground">(optional)</span>
+            Phone
             <Input maxLength={40} value={values.phone} onChange={(event) => update("phone", event.target.value)} />
           </label>
         </div>

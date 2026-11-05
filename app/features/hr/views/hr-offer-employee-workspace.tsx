@@ -73,7 +73,7 @@ function HandoffForm({
           />
         </label>
         <label className="grid gap-2 text-sm font-medium">
-          Company work email (optional)
+          Company work email
           <Input
             type="email"
             maxLength={320}

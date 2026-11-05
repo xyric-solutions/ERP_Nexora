@@ -486,7 +486,6 @@ export function HrJobGradesSheetWorkspace() {
                   value={editor.gradeLevel}
                   onChange={(event) => setEditor({ ...editor, gradeLevel: event.target.value })}
                 />
-                <span className="text-xs font-normal text-muted-foreground">Whole number from 1 to 999.</span>
               </label>
             </div>
             <label className="grid gap-1.5 text-sm font-medium" htmlFor="job-grade-name">
@@ -515,7 +514,7 @@ export function HrJobGradesSheetWorkspace() {
               onChange={(currencyCode) => setEditor({ ...editor, currencyCode })}
             />
             <fieldset className="grid gap-4 rounded-lg border border-border p-4">
-              <legend className="px-1 text-sm font-semibold">Optional compensation band</legend>
+              <legend className="px-1 text-sm font-semibold">Compensation band</legend>
               <div className="grid gap-4 sm:grid-cols-3">
                 <Money
                   label="Minimum"

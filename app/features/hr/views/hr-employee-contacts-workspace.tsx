@@ -301,7 +301,7 @@ export function HrEmployeeContactsWorkspace({
                     />
                   </label>
                   <label className="grid gap-1.5 text-sm font-medium">
-                    Label (optional)
+                    Label
                     <Input value={label} onChange={(event) => setLabel(event.target.value)} />
                   </label>
                   <label className="flex items-center gap-2 text-sm">

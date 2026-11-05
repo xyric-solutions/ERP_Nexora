@@ -3903,3 +3903,27 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Verification: `tsc --noEmit`, ESLint on changed files, UI theme audit,
   production build, `git diff --check`. Signed-in browser check is the
   resume point.
+
+## 2026-11-05 - HR field labels and New Application drawer
+
+- Job Grades sheet: the "Whole number from 1 to 999." helper under Grade
+  level is removed (input min/max/step and server validation unchanged);
+  "Optional compensation band" legend is now "Compensation band".
+- "(optional)" label markers removed across HR & Payroll field labels
+  (employee draft, contacts, emergency contacts, candidate directory, offer
+  management, offer-to-employee, shift assignments, attendance completion,
+  learning, leave types). Fields stay optional; no validation changed. The
+  interviews assessment status "Required/Optional" is data, not a field
+  label, and is unchanged.
+- Recruitment Pipeline New Application drawer: one "Candidate name" and one
+  "Opening title" field (searchable input + server-backed suggestion list,
+  up to 100 matches, narrowed as you type) replace the separate find inputs,
+  selects and "Find matching options" button; the in-form cross and the
+  bottom "Close drawer" button are removed (header cross remains, Cancel
+  stays). `HrRecordDrawer` gains `closeFooter` (default true; other drawers
+  unchanged).
+- Manpower Requisition form changes (remove Designation, Branch -> Project,
+  hiring basis, company currencies) touch the requisition/offer/employee
+  hand-off schema and are pending a backend decision.
+- Verification: `tsc --noEmit`, ESLint (no new findings vs HEAD), UI theme
+  audit, production build, `git diff --check`.

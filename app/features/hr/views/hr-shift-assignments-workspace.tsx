@@ -343,7 +343,7 @@ function AllocationEditor({
           />
         </label>
         <label className="grid gap-2 text-sm font-medium">
-          Effective to (optional)
+          Effective to
           <Input type="date" min={from} value={to} disabled={busy} onChange={(e) => setTo(e.target.value)} />
         </label>
       </div>

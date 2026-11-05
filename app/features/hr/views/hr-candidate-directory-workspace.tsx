@@ -262,7 +262,7 @@ export function HrCandidateDirectoryWorkspace() {
                 />
               </label>
               <label className="grid gap-1 text-sm">
-                Phone <span className="text-muted-foreground">(optional)</span>
+                Phone
                 <Input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
               </label>
               <label className="grid gap-1 text-sm">

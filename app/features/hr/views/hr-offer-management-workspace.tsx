@@ -224,7 +224,7 @@ function OfferEditor({
           </label>
         ))}
         <label className="grid gap-1.5 text-sm sm:col-span-2">
-          Reporting manager (optional)
+          Reporting manager
           <select
             className={selectClass}
             value={terms.reporting_manager_id ?? ""}

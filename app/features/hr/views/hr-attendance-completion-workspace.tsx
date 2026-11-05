@@ -440,7 +440,7 @@ function Overtime({
                       required
                     />
                   </Field>
-                  <Field title="Effective to (optional)">
+                  <Field title="Effective to">
                     <Input
                       type="date"
                       className="box-border! min-w-0! max-w-full!"

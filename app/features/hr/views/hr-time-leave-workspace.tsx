@@ -191,7 +191,7 @@ function PolicyEditor({
             required
           />
         </Field>
-        <Field title="Document required above (days, optional)">
+        <Field title="Document required above (days)">
           <Input
             inputMode="decimal"
             value={policy.document_required_after_days ?? ""}

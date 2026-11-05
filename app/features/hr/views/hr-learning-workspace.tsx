@@ -535,7 +535,7 @@ export function HrLearningBody({
                       onChange={(e) => patch({ minimum_attendance_percent: Number(e.target.value) })}
                     />
                   </Field>
-                  <Field title="Assessment pass mark (optional)">
+                  <Field title="Assessment pass mark">
                     <Input
                       type="number"
                       min={0}
@@ -546,7 +546,7 @@ export function HrLearningBody({
                       onChange={(e) => patch({ pass_mark: e.target.value === "" ? null : Number(e.target.value) })}
                     />
                   </Field>
-                  <Field title="Certificate validity months (optional)">
+                  <Field title="Certificate validity months">
                     <Input
                       type="number"
                       min={1}
@@ -662,7 +662,7 @@ export function HrLearningBody({
                 {mode === "hr" && (
                   <div className="grid gap-4 sm:grid-cols-2">
                     {(["goal", "outcome"] as const).map((k) => (
-                      <Field key={k} title={"Linked performance " + k + " (optional)"}>
+                      <Field key={k} title={"Linked performance " + k}>
                         <select
                           className={selectClass}
                           disabled={busy}

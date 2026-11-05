@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Search,
   Users,
-  X,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +41,8 @@ const activeStages = stages.slice(0, 5);
 const selectStyle =
   "h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50";
 const failure = (error: unknown, fallback: string) => (error instanceof ApiError ? error.message : fallback);
+const candidateLabel = (item: { display_name: string; email: string }) => `${item.display_name} — ${item.email}`;
+const openingLabel = (item: { title: string; reference: string }) => `${item.title} — ${item.reference}`;
 const date = (value: string) =>
   new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
@@ -82,7 +83,9 @@ export function HrRecruitmentPipelineWorkspace() {
   const [candidateSearch, setCandidateSearch] = useState(""),
     [openingSearch, setOpeningSearch] = useState("");
   const [lookup, setLookup] = useState({ candidates: "", openings: "" });
-  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [candidatesLoading, setCandidatesLoading] = useState(false),
+    [openingsLoading, setOpeningsLoading] = useState(false);
+  const optionsLoading = candidatesLoading || openingsLoading;
   const [candidates, setCandidates] = useState<Awaited<ReturnType<HrApiClient["candidates"]>>["items"]>([]);
   const [openings, setOpenings] = useState<Awaited<ReturnType<HrApiClient["jobOpenings"]>>["items"]>([]);
   const requestSequence = useRef(0);
@@ -148,36 +151,86 @@ export function HrRecruitmentPipelineWorkspace() {
     setReason("");
   }, [selectedId, data]);
 
+  // Each field searches its own list; picking an option keeps that list as loaded.
   useEffect(() => {
     if (!editor || !companyId) return;
     let cancelled = false;
-    setOptionsLoading(true);
-    setCandidates([]);
-    setOpenings([]);
-    setCandidateId("");
-    setOpeningId("");
-    Promise.all([
-      client.candidates({ companyId, status: "active", search: lookup.candidates, limit: 100 }),
-      client.jobOpenings({ companyId, state: "open", search: lookup.openings, limit: 100 }),
-    ])
-      .then(([people, jobs]) => {
-        if (!cancelled) {
-          setCandidates(people.items);
-          setOpenings(
-            jobs.items.filter((item) => !item.closing_on || item.closing_on >= new Date().toISOString().slice(0, 10)),
-          );
-        }
+    setCandidatesLoading(true);
+    client
+      .candidates({ companyId, status: "active", search: lookup.candidates, limit: 100 })
+      .then((people) => {
+        if (!cancelled) setCandidates(people.items);
       })
       .catch((err) => {
-        if (!cancelled) setError(failure(err, "Candidate and opening options could not be loaded."));
+        if (!cancelled) setError(failure(err, "Candidate options could not be loaded."));
       })
       .finally(() => {
-        if (!cancelled) setOptionsLoading(false);
+        if (!cancelled) setCandidatesLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [client, editor, companyId, lookup]);
+  }, [client, editor, companyId, lookup.candidates]);
+
+  useEffect(() => {
+    if (!editor || !companyId) return;
+    let cancelled = false;
+    setOpeningsLoading(true);
+    client
+      .jobOpenings({ companyId, state: "open", search: lookup.openings, limit: 100 })
+      .then((jobs) => {
+        if (!cancelled)
+          setOpenings(
+            jobs.items.filter((item) => !item.closing_on || item.closing_on >= new Date().toISOString().slice(0, 10)),
+          );
+      })
+      .catch((err) => {
+        if (!cancelled) setError(failure(err, "Opening options could not be loaded."));
+      })
+      .finally(() => {
+        if (!cancelled) setOpeningsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, editor, companyId, lookup.openings]);
+
+  // Typing narrows the server list after a short pause, until an option is picked.
+  useEffect(() => {
+    if (!editor || candidateId) return;
+    const timer = setTimeout(
+      () =>
+        setLookup((current) =>
+          current.candidates === candidateSearch.trim() ? current : { ...current, candidates: candidateSearch.trim() },
+        ),
+      300,
+    );
+    return () => clearTimeout(timer);
+  }, [editor, candidateSearch, candidateId]);
+
+  useEffect(() => {
+    if (!editor || openingId) return;
+    const timer = setTimeout(
+      () =>
+        setLookup((current) =>
+          current.openings === openingSearch.trim() ? current : { ...current, openings: openingSearch.trim() },
+        ),
+      300,
+    );
+    return () => clearTimeout(timer);
+  }, [editor, openingSearch, openingId]);
+
+  const openEditor = () => {
+    setCandidateId("");
+    setOpeningId("");
+    setCandidateSearch("");
+    setOpeningSearch("");
+    setCandidates([]);
+    setOpenings([]);
+    setLookup({ candidates: "", openings: "" });
+    setError("");
+    setEditor(true);
+  };
 
   const selected = data.items.find((item) => item.id === selectedId);
   const allowed = selected ? hrApplicationTransitions[selected.stage] : [];
@@ -298,10 +351,7 @@ export function HrRecruitmentPipelineWorkspace() {
             <Button
               className="text-primary-foreground!"
               disabled={!companyId || saving}
-              onClick={() => {
-                setEditor(true);
-                setError("");
-              }}
+              onClick={openEditor}
             >
               <Plus className="size-4" />
               Add application
@@ -388,102 +438,68 @@ export function HrRecruitmentPipelineWorkspace() {
           busy={saving}
           error={error}
           notice={notice}
+          description="Choose an active candidate and an open vacancy in this company."
+          closeFooter={false}
         >
           <form
             onSubmit={create}
             className="grid min-w-0 gap-4 rounded-2xl border border-primary/30 bg-card p-5 shadow-sm"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold">New application</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Choose an active candidate and an open vacancy in this company.
-                </p>
-              </div>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                disabled={saving}
-                aria-label="Close application form"
-                onClick={() => setEditor(false)}
-              >
-                <X className="size-4" />
-              </Button>
+            <div className="grid min-w-0 gap-4">
+              <label className="grid gap-1.5 text-sm font-medium">
+                Candidate name
+                <Input
+                  required
+                  list="pipeline-candidate-options"
+                  autoComplete="off"
+                  disabled={saving}
+                  value={candidateSearch}
+                  placeholder="Type a name or email, then pick a candidate"
+                  aria-invalid={!!candidateSearch && !candidateId}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setCandidateSearch(value);
+                    setCandidateId(candidates.find((item) => candidateLabel(item) === value)?.id ?? "");
+                  }}
+                />
+                <datalist id="pipeline-candidate-options">
+                  {candidates.map((item) => (
+                    <option key={item.id} value={candidateLabel(item)} />
+                  ))}
+                </datalist>
+              </label>
+              <label className="grid gap-1.5 text-sm font-medium">
+                Opening title
+                <Input
+                  required
+                  list="pipeline-opening-options"
+                  autoComplete="off"
+                  disabled={saving}
+                  value={openingSearch}
+                  placeholder="Type an opening title, then pick an opening"
+                  aria-invalid={!!openingSearch && !openingId}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setOpeningSearch(value);
+                    setOpeningId(openings.find((item) => openingLabel(item) === value)?.id ?? "");
+                  }}
+                />
+                <datalist id="pipeline-opening-options">
+                  {openings.map((item) => (
+                    <option key={item.id} value={openingLabel(item)} />
+                  ))}
+                </datalist>
+              </label>
+              <p className="m-0! text-xs text-muted-foreground">
+                {optionsLoading ? "Loading matches…" : "Up to 100 matches per field. Keep typing to narrow the list."}
+              </p>
             </div>
-            <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-              <div className="grid gap-2">
-                <label className="grid gap-1.5 text-sm font-medium">
-                  Find candidate
-                  <Input
-                    value={candidateSearch}
-                    placeholder="Search name or email"
-                    onChange={(event) => setCandidateSearch(event.target.value)}
-                  />
-                </label>
-                <label className="grid gap-1.5 text-sm font-medium">
-                  Candidate
-                  <select
-                    required
-                    disabled={optionsLoading || saving}
-                    className={selectStyle}
-                    value={candidateId}
-                    onChange={(event) => setCandidateId(event.target.value)}
-                  >
-                    <option value="">Select a candidate</option>
-                    {candidates.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.display_name} — {item.email}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div className="grid gap-2">
-                <label className="grid gap-1.5 text-sm font-medium">
-                  Find opening
-                  <Input
-                    value={openingSearch}
-                    placeholder="Search opening title"
-                    onChange={(event) => setOpeningSearch(event.target.value)}
-                  />
-                </label>
-                <label className="grid gap-1.5 text-sm font-medium">
-                  Job opening
-                  <select
-                    required
-                    disabled={optionsLoading || saving}
-                    className={selectStyle}
-                    value={openingId}
-                    onChange={(event) => setOpeningId(event.target.value)}
-                  >
-                    <option value="">Select an opening</option>
-                    {openings.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.title} — {item.reference}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={optionsLoading || saving}
-                onClick={() => setLookup({ candidates: candidateSearch, openings: openingSearch })}
-              >
-                Find matching options
-              </Button>
-              <p className="text-xs text-muted-foreground">Up to 100 matches per list. Refine your search if needed.</p>
-            </div>
-            {!optionsLoading && (!candidates.length || !openings.length) ? (
+            {!optionsLoading && !lookup.candidates && !lookup.openings && (!candidates.length || !openings.length) ? (
               <Alert>
                 <AlertTitle>Recruitment setup required</AlertTitle>
                 <AlertDescription>
-                  No matching {candidates.length ? "open job openings" : "active candidates"}. Create the missing record
-                  in Candidate Directory or Job Openings, then retry.
+                  No {candidates.length ? "open job openings" : "active candidates"} in this company. Create the missing
+                  record in Candidate Directory or Job Openings, then retry.
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -531,7 +547,7 @@ export function HrRecruitmentPipelineWorkspace() {
             Add an application to an open vacancy, or adjust your company and stage filters to find an existing record.
           </p>
           {canCreate ? (
-            <Button variant="outline" disabled={!companyId} onClick={() => setEditor(true)}>
+            <Button variant="outline" disabled={!companyId} onClick={openEditor}>
               <Plus className="size-4" />
               Add application
             </Button>

@@ -18,6 +18,7 @@ export function HrRecordDrawer({
   error,
   notice,
   completionKey,
+  closeFooter = true,
 }: {
   title: string;
   children: ReactNode;
@@ -30,6 +31,8 @@ export function HrRecordDrawer({
   error?: string;
   notice?: string;
   completionKey?: string;
+  /** false drops the bottom "Close drawer" button; the header cross still closes. */
+  closeFooter?: boolean;
 }) {
   const [localOpen, setLocalOpen] = useState(false);
   const [completedAtOpen, setCompletedAtOpen] = useState(completionKey);
@@ -64,9 +67,11 @@ export function HrRecordDrawer({
         title={title}
         description={description}
         footer={
-          <Button type="button" variant="outline" disabled={busy} onClick={close}>
-            Close drawer
-          </Button>
+          closeFooter ? (
+            <Button type="button" variant="outline" disabled={busy} onClick={close}>
+              Close drawer
+            </Button>
+          ) : undefined
         }
       >
         <div
