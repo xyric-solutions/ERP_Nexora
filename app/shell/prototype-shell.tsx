@@ -776,7 +776,7 @@ export function PrototypeShell({
                                     return (
                                       <li key={group.id}>
                                         <button
-                                          className={`nx-submenu-button${current.module.id === "hr" && current.group.id === group.id ? " bg-primary/15 font-semibold" : ""}`}
+                                          className={`nx-submenu-button${current.module.id === "hr" && current.group.id === group.id ? " bg-[color-mix(in_srgb,var(--nx-sidebar-accent)_22%,var(--nx-sidebar-surface))]! font-semibold text-[var(--nx-sidebar-accent)]! shadow-[inset_2px_0_0_var(--nx-sidebar-accent)]" : ""}`}
                                           type="button"
                                           aria-current={
                                             current.module.id === "hr" && current.group.id === group.id

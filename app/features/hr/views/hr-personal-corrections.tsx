@@ -1,7 +1,7 @@
 "use client";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useRef, useState } from "react";
-import { RefreshCw, UserRound } from "lucide-react";
+import { ClipboardCheck, RefreshCw, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -415,21 +415,41 @@ export function HrPersonalCorrections({
     </section>
   );
 }
+const approvalAreas = [
+  {
+    value: "employee",
+    label: "Employee approvals",
+    hint: "Drafts, hires, movements and placement changes",
+    icon: ClipboardCheck,
+  },
+  {
+    value: "corrections",
+    label: "Personal data corrections",
+    hint: "Employee-requested changes to personal details",
+    icon: UserRound,
+  },
+] as const;
+
 export function HrPeopleApprovalsWorkspace({ onAction }: { onAction: (action: string, subject?: string) => void }) {
   const [busy, setBusy] = useState(false);
   return (
     <Tabs defaultValue="employee">
-      <div className="max-w-full overflow-x-auto">
-        <TabsList className="w-max">
-          <TabsTrigger value="employee" disabled={busy}>
-            Employee approvals
+      <TabsList className="grid h-auto! w-full grid-cols-1 gap-2 bg-transparent! p-0! sm:grid-cols-2">
+        {approvalAreas.map((area) => (
+          <TabsTrigger
+            key={area.value}
+            value={area.value}
+            disabled={busy}
+            className="h-auto! justify-start gap-3 rounded-xl! border-border! bg-card! px-4 py-3 text-left whitespace-normal text-foreground! shadow-sm hover:border-primary/50! data-active:border-primary! data-active:bg-primary/10! data-active:text-primary! after:hidden"
+          >
+            <area.icon className="size-5! shrink-0 text-primary" aria-hidden="true" />
+            <span className="grid min-w-0 gap-0.5">
+              <span className="text-sm font-semibold">{area.label}</span>
+              <span className="text-xs font-normal text-muted-foreground">{area.hint}</span>
+            </span>
           </TabsTrigger>
-          <TabsTrigger value="corrections" disabled={busy}>
-            <UserRound className="mr-1 size-4" />
-            Personal data corrections
-          </TabsTrigger>
-        </TabsList>
-      </div>
+        ))}
+      </TabsList>
       <TabsContent value="employee">
         <HrEmployeeApprovalsWorkspace onAction={onAction} />
       </TabsContent>

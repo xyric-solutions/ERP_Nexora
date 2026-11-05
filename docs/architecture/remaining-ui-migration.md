@@ -4098,3 +4098,21 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Verification: `tsc --noEmit`, ESLint (only pre-existing
   set-state-in-effect findings), UI theme audit, production build,
   `git diff --check`.
+
+## 2026-11-05 - Employee Approvals categorized; active HR area highlighted
+
+- Employee Approvals page: "Employee approvals" and "Personal data
+  corrections" are two highlighted tiles (icon, name, one-line hint; the
+  open one uses the primary border/tint) built on the existing Tabs.
+- Inside Employee approvals, an "Approval types" navigator groups queues
+  into Joining (Employee drafts, Hire), Movements (Transfers, Promotions)
+  and Reporting & placement (Manager changes, Work locations, Organisation
+  placement), each with its live pending count (same list endpoints the
+  panels use, "50+" at the page size, refreshed after any decision). Only
+  the selected queue renders; permissions, panels, decisions and audit are
+  unchanged. Lifecycle movements still embeds the same workspace.
+- Sidebar: the open HR & Payroll area (e.g. People) uses the sidebar accent
+  text, tint and inset bar like the active submenu link.
+- Verification: `tsc --noEmit`, ESLint (only pre-existing findings), unit
+  suite (2 known user-management failures), UI theme audit, production
+  build, `git diff --check`.
