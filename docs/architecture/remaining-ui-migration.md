@@ -3887,3 +3887,19 @@ Company Chart adoption/review checkpoint (2026-10-20):
   (`--write`/`--check`), production build, `git diff --check`. Signed-in
   browser check of every HR section at desktop/tablet/mobile is the resume
   point.
+
+## 2026-11-05 - HR landings: no finder, numbered main sections
+
+- `HrOperationsWorkspace` landing pages (Payroll, Performance Management,
+  Learning & Development, Employee Lifecycle, Benefits & Self-service,
+  Reporting, Compliance & Audit) no longer show the search bar or the
+  "All pages"/section filter buttons; all sections are listed like
+  Organisation & Masters. The unused `finder` option was removed (Attendance
+  & Leave already had it off).
+- New shared `HrGroupHeading` (in `hr-section-header.tsx`) gives every HR
+  landing the numbered main-section heading (1, 2, 3...) previously only in
+  Organisation & Masters: Organisation & Masters, People, Recruitment and all
+  `HrOperationsWorkspace` hubs including Attendance & Leave.
+- Verification: `tsc --noEmit`, ESLint on changed files, UI theme audit,
+  production build, `git diff --check`. Signed-in browser check is the
+  resume point.

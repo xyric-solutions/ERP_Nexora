@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { HrSectionHeader } from "../components/hr-section-header";
+import { HrGroupHeading, HrSectionHeader } from "../components/hr-section-header";
 import { HrNavCard } from "../components/hr-nav-card";
 import { Button } from "@/components/ui/button";
 import { peopleGroups, peoplePages } from "../model/people-navigation";
@@ -54,12 +54,9 @@ export function HrPeopleWorkspace({
         <>
           <h1 className="mb-3! mt-0! min-w-0 text-2xl font-bold tracking-tight">People</h1>
           <div className="space-y-6">
-            {peopleGroups.map((group) => (
+            {peopleGroups.map((group, groupIndex) => (
               <section key={group.id} aria-label={group.label}>
-                <div className="mb-3">
-                  <h2 className="m-0! text-lg font-semibold">{group.label}</h2>
-                  <p className="mb-0! mt-1! text-sm text-muted-foreground">{group.description}</p>
-                </div>
+                <HrGroupHeading number={groupIndex + 1} label={group.label} description={group.description} />
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {group.cards.map((card) => (
                     <HrNavCard

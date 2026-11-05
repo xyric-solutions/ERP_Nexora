@@ -20,7 +20,6 @@ import {
 export const attendanceLeaveWorkspace = {
   id: "attendance-workspace",
   label: "Attendance & Leave",
-  finder: false,
   groups: [
     {
       id: "shift-setup",

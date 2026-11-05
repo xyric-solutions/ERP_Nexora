@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { HrNavCard } from "../components/hr-nav-card";
-import { HrSectionHeader } from "../components/hr-section-header";
+import { HrGroupHeading, HrSectionHeader } from "../components/hr-section-header";
 import { recruitmentGroups, recruitmentPages } from "../model/recruitment-navigation";
 
 export function HrRecruitmentWorkspace({
@@ -37,10 +37,9 @@ export function HrRecruitmentWorkspace({
         <>
           <h1 className="mb-3! mt-0! min-w-0 text-2xl font-bold tracking-tight">Recruitment</h1>
           <div className="space-y-6">
-            {recruitmentGroups.map((item) => (
+            {recruitmentGroups.map((item, itemIndex) => (
               <section key={item.id} aria-label={item.label}>
-                <h2 className="m-0! text-lg font-semibold">{item.label}</h2>
-                <p className="mb-3! mt-1! text-sm text-muted-foreground">{item.description}</p>
+                <HrGroupHeading number={itemIndex + 1} label={item.label} description={item.description} />
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {item.pages.map((page) => (
                     <HrNavCard

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { LayoutGrid, List } from "lucide-react";
-import { HrSectionHeader } from "../components/hr-section-header";
+import { HrGroupHeading, HrSectionHeader } from "../components/hr-section-header";
 import { HrNavCard } from "../components/hr-nav-card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -179,15 +179,7 @@ export function HrOrganisationMastersWorkspace({
               <div className="space-y-6">
                 {organisationMasterGroups.map((group, groupIndex) => (
                   <section key={group.id} aria-label={group.label}>
-                    <div className="mb-4 flex gap-3">
-                      <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-primary">
-                        {groupIndex + 1}
-                      </span>
-                      <div>
-                        <h2 className="m-0 text-lg font-semibold">{group.label}</h2>
-                        <p className="mb-0 mt-1 text-sm text-muted-foreground">{group.description}</p>
-                      </div>
-                    </div>
+                    <HrGroupHeading number={groupIndex + 1} label={group.label} description={group.description} />
                     <div className={display === "cards" ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3" : "grid gap-2"}>
                       {group.items.map((page) => {
                         const permitted = page.type === null ? canReadOrganisation : canReadMaster;
