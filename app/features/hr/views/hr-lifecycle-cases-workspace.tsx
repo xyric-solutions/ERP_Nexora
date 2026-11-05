@@ -577,33 +577,6 @@ export function HrLifecycleCasesWorkspace({
     return <section className={panel}>Company-scoped employment history read permission is required.</section>;
   return (
     <div className="min-w-0 space-y-5" data-lifecycle-workspace>
-      <nav aria-label="Employee Lifecycle pages" className="flex flex-wrap gap-2">
-        {Object.entries(lifecycleCasePages).map(([id, k]) => (
-          <Button
-            key={id}
-            variant={id === page ? "default" : "outline"}
-            className={id === page ? "text-primary-foreground!" : ""}
-            disabled={busy || !!editor || !!decision}
-            onClick={() => onNavigate("hr", id)}
-          >
-            {titles[k]}
-          </Button>
-        ))}
-        <Button
-          variant="outline"
-          disabled={busy || !!editor || !!decision}
-          onClick={() => onNavigate("hr", "employee-movements")}
-        >
-          Transfers & promotions
-        </Button>
-        <Button
-          variant="outline"
-          disabled={busy || !!editor || !!decision}
-          onClick={() => onNavigate("hr", "lifecycle-policies")}
-        >
-          Lifecycle Policies
-        </Button>
-      </nav>
       <section className={panel + " space-y-4"}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

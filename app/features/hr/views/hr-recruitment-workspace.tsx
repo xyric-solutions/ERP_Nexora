@@ -1,9 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { HrBackButton } from "../components/hr-icon-buttons";
 import { HrNavCard } from "../components/hr-nav-card";
-import { Button } from "@/components/ui/button";
+import { HrSectionHeader } from "../components/hr-section-header";
 import { recruitmentGroups, recruitmentPages } from "../model/recruitment-navigation";
 
 export function HrRecruitmentWorkspace({
@@ -21,28 +20,22 @@ export function HrRecruitmentWorkspace({
 
   return (
     <section aria-label="Recruitment workspace" className="min-w-0">
-      <header className="mb-3 flex items-center gap-2">
-        {active ? <HrBackButton label="Back to all recruitment" onClick={() => go("recruitment-workspace")} /> : null}
-        <h1 className="m-0! min-w-0 text-2xl font-bold tracking-tight">{active?.label ?? "Recruitment"}</h1>
-      </header>
       {active && group ? (
         <>
-          <nav aria-label="Recruitment pages" className="mb-4 flex gap-2 overflow-x-auto border-b border-border pb-2">
-            {group.pages.map((page) => (
-              <Button
-                key={page.id}
-                variant={page.id === pageId ? "secondary" : "ghost"}
-                aria-current={page.id === pageId ? "page" : undefined}
-                onClick={() => go(page.id)}
-              >
-                {page.label}
-              </Button>
-            ))}
-          </nav>
+          <HrSectionHeader
+            title={group.label}
+            backLabel="Back to all recruitment"
+            onBack={() => go("recruitment-workspace")}
+            pages={group.pages}
+            activeId={active.id}
+            onSelect={go}
+            navLabel={`${group.label} pages`}
+          />
           {children}
         </>
       ) : (
         <>
+          <h1 className="mb-3! mt-0! min-w-0 text-2xl font-bold tracking-tight">Recruitment</h1>
           <div className="space-y-6">
             {recruitmentGroups.map((item) => (
               <section key={item.id} aria-label={item.label}>

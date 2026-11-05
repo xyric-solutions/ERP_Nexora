@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { LayoutGrid, List } from "lucide-react";
-import { HrBackButton } from "../components/hr-icon-buttons";
+import { HrSectionHeader } from "../components/hr-section-header";
 import { HrNavCard } from "../components/hr-nav-card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -36,6 +36,9 @@ export function HrOrganisationMastersWorkspace({
   const [retry, setRetry] = useState(0);
   const resolvedPageId = resolveOrganisationMasterPageId(pageId);
   const active = organisationMasterPages.find((page) => page.id === resolvedPageId);
+  const activeGroup = organisationMasterGroups.find((group) =>
+    group.items.some((page) => page.id === resolvedPageId),
+  );
   const permissions = session?.user.permissions ?? [];
   const canReadMaster = permissions.includes("hr.master.read");
   const canReadOrganisation = permissions.includes("hr.organization.read");
@@ -88,24 +91,17 @@ export function HrOrganisationMastersWorkspace({
   const navigate = (id: string) => onNavigate("hr", id);
   return (
     <section className="min-w-0" aria-label="Organisation & Masters workspace">
-      {active ? (
+      {active && activeGroup ? (
         <>
-          <div className="mb-3 flex items-center gap-2">
-            <HrBackButton label="Back to all masters" onClick={() => navigate("organisation-masters")} />
-            <h1 className="m-0! min-w-0 text-2xl font-bold tracking-tight">{active.label}</h1>
-          </div>
-          <nav aria-label="Master pages" className="mb-3 flex gap-2 overflow-x-auto border-b border-border pb-2">
-            {organisationMasterPages.map((page) => (
-              <Button
-                key={page.id}
-                variant={active.id === page.id ? "default" : "outline"}
-                aria-current={active.id === page.id ? "page" : undefined}
-                onClick={() => navigate(page.id)}
-              >
-                {page.label}
-              </Button>
-            ))}
-          </nav>
+          <HrSectionHeader
+            title={activeGroup.label}
+            backLabel="Back to all masters"
+            onBack={() => navigate("organisation-masters")}
+            pages={activeGroup.items}
+            activeId={active.id}
+            onSelect={navigate}
+            navLabel={`${activeGroup.label} pages`}
+          />
           {children}
         </>
       ) : (

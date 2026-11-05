@@ -525,7 +525,6 @@ function PerformanceForm({
 }
 export function HrPerformanceWorkspace({
   page,
-  onNavigate,
 }: {
   page: keyof typeof performancePages;
   onNavigate: (module: string, page: string, reference?: string) => void;
@@ -611,19 +610,6 @@ export function HrPerformanceWorkspace({
   if (!canRead) return <PersonalPerformanceInbox />;
   return (
     <div className="min-w-0 space-y-5" data-performance-workspace>
-      <nav aria-label="Performance Management pages" className="flex flex-wrap gap-2">
-        {Object.entries(performancePages).map(([p, s]) => (
-          <Button
-            key={p}
-            variant={p === page ? "default" : "outline"}
-            className={p === page ? "text-primary-foreground!" : ""}
-            disabled={busy || !!editor || !!decision}
-            onClick={() => onNavigate("hr", p)}
-          >
-            {titles[s]}
-          </Button>
-        ))}
-      </nav>
       <section className={panel + " space-y-4"}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

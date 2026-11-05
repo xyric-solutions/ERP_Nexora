@@ -69,7 +69,6 @@ export function HrLearningBody({
   section,
   mode = "hr",
   onBusy,
-  onNavigate,
 }: {
   company: string;
   section: Section;
@@ -1255,21 +1254,6 @@ export function HrLearningBody({
             <p className="text-sm text-muted-foreground">No mandatory learning gaps in this authorized scope.</p>
           )}
         </div>
-      )}
-      {onNavigate && (
-        <nav className="flex flex-wrap gap-2" aria-label="Connected Learning screens">
-          {sections.map((s, index) => (
-            <Button
-              key={s}
-              type="button"
-              variant="outline"
-              disabled={busy || s === section}
-              onClick={() => onNavigate("hr", learningPages[index]!)}
-            >
-              {label(s)}
-            </Button>
-          ))}
-        </nav>
       )}
       <Dialog
         open={!!decision}

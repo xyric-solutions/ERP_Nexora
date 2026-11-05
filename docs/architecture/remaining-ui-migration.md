@@ -3860,3 +3860,30 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Verification: `tsc --noEmit`, ESLint (4 pre-existing findings, none new),
   Prettier, UI theme audit, unit tests (2 known pre-existing failures),
   production build, `git diff --check`.
+
+## 2026-11-05 - HR inner pages show the parent section and its tabs only
+
+- New shared `app/features/hr/components/hr-section-header.tsx`: back icon,
+  the parent section name as the heading, and only that section's pages as
+  tabs (open page = primary/yellow button, others outline, `aria-current`).
+- Used by Organisation & Masters (now one group per header, e.g.
+  Organisation / Job Structure / Employment Setup), Recruitment (tabs were
+  secondary/ghost, now the shared yellow active state), People (HR and
+  Finance/Payroll dashboards now also show "Workforce & Insights") and
+  `HrOperationsWorkspace` (Attendance & Leave).
+- Payroll, Performance, Learning, Employee Lifecycle, Benefits &
+  Self-service and Compliance inner pages are now wrapped by
+  `PrototypeContent` in `HrOperationsWorkspace` (lookup
+  `findHrSectionWorkspaceForPage`), so they get the same header. The old
+  in-page rows that mixed pages from several sections were removed from the
+  Payroll workspace, Payroll Runs, Performance, Learning and Lifecycle cases
+  views. Those rows were disabled while a draft/dialog was busy and Payroll
+  buttons were disabled without read permission; the destination pages
+  still enforce permissions, but the header tabs are not locked during an
+  unsaved edit (same as the sidebar).
+- In-page content tabs (self-service, loans/benefits, personal learning) are
+  unchanged.
+- Verification: `tsc --noEmit`, ESLint on changed files, UI theme audit
+  (`--write`/`--check`), production build, `git diff --check`. Signed-in
+  browser check of every HR section at desktop/tablet/mobile is the resume
+  point.

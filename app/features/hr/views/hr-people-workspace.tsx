@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { HrBackButton } from "../components/hr-icon-buttons";
+import { HrSectionHeader } from "../components/hr-section-header";
 import { HrNavCard } from "../components/hr-nav-card";
 import { Button } from "@/components/ui/button";
 import { peopleGroups, peoplePages } from "../model/people-navigation";
@@ -18,7 +18,6 @@ export function HrPeopleWorkspace({
   children?: ReactNode;
 }) {
   const active = peoplePages.find((page) => page.id === pageId);
-  const dashboardHasHeading = pageId === "hr-dashboard" || pageId === "finance-payroll-dashboard";
   const currentGroup = peopleGroups.find((group) => group.pages.some((page) => page.id === pageId));
   const go = (target: string) =>
     onNavigate(
@@ -31,35 +30,29 @@ export function HrPeopleWorkspace({
 
   return (
     <section aria-label="People workspace" className="min-w-0">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          {active ? <HrBackButton label="Back to all people" onClick={() => go("people-workspace")} /> : null}
-          {!dashboardHasHeading ? (
-            <h1 className="m-0! min-w-0 text-2xl font-bold tracking-tight">{active?.label ?? "People"}</h1>
-          ) : null}
-        </div>
-        {pageId === "employees" ? <Button onClick={() => go("add-employee")}>+ Add Employee</Button> : null}
-      </div>
       {active && currentGroup ? (
         <>
-          <nav aria-label="People pages" className="mb-4 flex gap-2 overflow-x-auto border-b border-border pb-2">
-            {currentGroup.pages
-              .filter((page) => page.id !== "employee-record" || employeeId)
-              .map((page) => (
-                <Button
-                  key={page.id}
-                  variant={page.id === pageId ? "default" : "outline"}
-                  aria-current={page.id === pageId ? "page" : undefined}
-                  onClick={() => go(page.id)}
-                >
-                  {page.label}
+          <HrSectionHeader
+            title={currentGroup.label}
+            backLabel="Back to all people"
+            onBack={() => go("people-workspace")}
+            pages={currentGroup.pages.filter((page) => page.id !== "employee-record" || employeeId)}
+            activeId={active.id}
+            onSelect={go}
+            navLabel={`${currentGroup.label} pages`}
+            actions={
+              pageId === "employees" ? (
+                <Button type="button" onClick={() => go("add-employee")}>
+                  + Add Employee
                 </Button>
-              ))}
-          </nav>
+              ) : null
+            }
+          />
           {children}
         </>
       ) : (
         <>
+          <h1 className="mb-3! mt-0! min-w-0 text-2xl font-bold tracking-tight">People</h1>
           <div className="space-y-6">
             {peopleGroups.map((group) => (
               <section key={group.id} aria-label={group.label}>

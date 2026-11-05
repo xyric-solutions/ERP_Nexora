@@ -884,23 +884,6 @@ export function HrPayrollWorkspace({
       aria-label="Payroll workspace"
       className="grid min-w-0 gap-5 font-sans [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_select]:font-normal! [&_textarea]:font-normal! [&_input]:font-normal!"
     >
-      <nav className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5" aria-label="Payroll navigation">
-        {Object.entries(payrollPages).map(([id, [, title, g]]) => (
-          <Button
-            key={id}
-            variant="outline"
-            className={
-              "h-auto min-h-11 min-w-0 justify-start whitespace-normal px-3 py-2 text-left text-xs " +
-              (id === page ? "border-primary bg-primary/10 text-primary!" : "")
-            }
-            disabled={editing || busy || !permissions.includes("hr.payroll." + g + ".read")}
-            onClick={() => onNavigate("hr", id)}
-          >
-            <Wallet className="h-3.5 w-3.5 shrink-0" />
-            {title}
-          </Button>
-        ))}
-      </nav>
       <section className={panel}>
         <div className="grid min-w-0 items-end gap-4 md:grid-cols-2 xl:grid-cols-[1.5fr_1fr_1.5fr_auto]">
           <Field title="Company">

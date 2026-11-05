@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { Search, type LucideIcon } from "lucide-react";
-import { HrBackButton } from "../components/hr-icon-buttons";
+import { HrSectionHeader } from "../components/hr-section-header";
 import { HrNavCard } from "../components/hr-nav-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,33 +49,24 @@ export function HrOperationsWorkspace({
     .filter((group) => group.pages.length);
   return (
     <section className="min-w-0" aria-label={`${definition.label} workspace`}>
-      <header className="mb-3 flex items-center gap-2">
-        {active ? (
-          <HrBackButton label={`Back to all ${definition.label.toLowerCase()}`} onClick={() => go(definition.id)} />
-        ) : null}
-        <h1 className="m-0! min-w-0 text-2xl font-bold tracking-tight">{active?.label ?? definition.label}</h1>
-      </header>
-      {activeGroup ? (
+      {activeGroup && active ? (
         <>
-          <nav
-            aria-label={`${definition.label} pages`}
-            className="mb-4 flex gap-2 overflow-x-auto border-b border-border pb-2"
-          >
-            {activeGroup.pages.map((page) => (
-              <Button
-                key={page.id}
-                variant={page.id === pageId ? "default" : "outline"}
-                aria-current={page.id === pageId ? "page" : undefined}
-                onClick={() => go(page.id)}
-              >
-                {page.label}
-              </Button>
-            ))}
-          </nav>
+          <HrSectionHeader
+            title={activeGroup.label}
+            backLabel={`Back to all ${definition.label.toLowerCase()}`}
+            onBack={() => go(definition.id)}
+            pages={activeGroup.pages}
+            activeId={active.id}
+            onSelect={go}
+            navLabel={`${activeGroup.label} pages`}
+          />
           <HrOperationsScopeContext.Provider value={setScope}>{children}</HrOperationsScopeContext.Provider>
         </>
       ) : (
         <>
+          <header className="mb-3 flex items-center gap-2">
+            <h1 className="m-0! min-w-0 text-2xl font-bold tracking-tight">{definition.label}</h1>
+          </header>
           {definition.finder === false ? null : (
             <div className="mb-5 grid gap-3 rounded-lg border border-border bg-card p-3 lg:grid-cols-[1fr_auto] lg:items-center">
               <div className="relative">

@@ -86,7 +86,10 @@ import {
   resolveTimePageId,
   timeNavigationPageId,
 } from "@prototype/features/hr/model/time-workspace-navigation";
-import { findHrSectionWorkspace } from "@prototype/features/hr/model/hr-section-navigation";
+import {
+  findHrSectionWorkspace,
+  findHrSectionWorkspaceForPage,
+} from "@prototype/features/hr/model/hr-section-navigation";
 import { HrOperationsWorkspace } from "@prototype/features/hr/views/hr-operations-workspace";
 import {
   isOrganisationMasterPage,
@@ -2750,6 +2753,18 @@ function BankingReconciliationPage({
 }
 
 export function PrototypeContent(props: PrototypeContentProps) {
+  const { context } = props;
+  // Inner HR operations pages open under their parent section's header and tabs.
+  const section = context.moduleId === "hr" ? findHrSectionWorkspaceForPage(context.pageId) : undefined;
+  if (!section) return <PrototypeContentBody {...props} />;
+  return (
+    <HrOperationsWorkspace key={section.id} definition={section} pageId={context.pageId} onNavigate={props.onNavigate}>
+      <PrototypeContentBody {...props} />
+    </HrOperationsWorkspace>
+  );
+}
+
+function PrototypeContentBody(props: PrototypeContentProps) {
   const { context, viewState, onAction } = props;
   const [selectedBankingRecord, setSelectedBankingRecord] = useState<{
     pageId: string;

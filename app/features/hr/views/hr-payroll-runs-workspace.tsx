@@ -6,7 +6,6 @@ import {
   ShieldCheck,
   ArrowRight,
   LockKeyhole,
-  Wallet,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -27,7 +26,6 @@ import {
   localDate,
 } from "../components/hr-workspace-controls";
 import { HrPayrollRunComparison } from "../components/hr-payroll-run-comparison";
-import { payrollPages } from "./hr-payroll-workspace";
 const actionTitle = {
   policy: "Create payroll policy",
   open: "Open payroll period",
@@ -147,29 +145,11 @@ export function HrPayrollRunsWorkspace({
   const set = (update: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...update } : d));
   if (loading) return <section className={panel}>Loading Payroll session…</section>;
   if (!canRead) return <section className={panel}>Payroll period read permission is required.</section>;
-  const mode = review ? "payroll-validation" : "payroll-runs";
   return (
     <div
       aria-label="Payroll execution workspace"
       className="grid min-w-0 gap-5 font-sans [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_input]:font-normal! [&_select]:font-normal! [&_textarea]:font-normal!"
     >
-      <nav aria-label="Payroll navigation" className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
-        {Object.entries(payrollPages).map(([id, [, title, group]]) => (
-          <Button
-            key={id}
-            variant="outline"
-            className={
-              "h-auto min-h-11 min-w-0 justify-start whitespace-normal px-3 py-2 text-left text-xs " +
-              (id === mode ? "border-primary bg-primary/10 text-primary!" : "")
-            }
-            disabled={busy || !!draft || !permissions.includes("hr.payroll." + group + ".read")}
-            onClick={() => onNavigate("hr", id)}
-          >
-            <Wallet className="h-3.5 w-3.5 shrink-0" />
-            {title}
-          </Button>
-        ))}
-      </nav>
       <section className={panel}>
         <div className="grid min-w-0 items-end gap-4 md:grid-cols-[1.5fr_1fr_auto]">
           <Field title="Company">

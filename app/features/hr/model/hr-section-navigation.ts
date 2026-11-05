@@ -382,6 +382,12 @@ export const hrSectionWorkspaces = [
 export const findHrSectionWorkspace = (pageId: string) =>
   hrSectionWorkspaces.find((workspace) => workspace.id === pageId);
 
+/** The operations hub that owns an inner page, so it opens under its parent section's header. */
+export const findHrSectionWorkspaceForPage = (pageId: string) =>
+  hrSectionWorkspaces.find((workspace) =>
+    workspace.groups.some((group) => group.pages.some((page) => page.id === pageId)),
+  );
+
 export const compactHrWorkspaces: Record<string, string> = {
   organisation: "organisation-masters",
   people: "people-workspace",
