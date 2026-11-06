@@ -134,17 +134,16 @@ export function HrEmployeeRecordWorkspace({
   if (presentation === "drawer")
     return (
       <section className="grid min-w-0 gap-5" aria-label={`Employee record for ${employee.display_name}`}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <Badge variant={statusVariant(employee.status)}>{employee.status.replaceAll("_", " ")}</Badge>
-          <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
-            Refresh
-          </Button>
-        </div>
         <HrDetailGroup title="Employment">
+          <HrDetailTile label="Employee number" value={employee.employee_number} />
+          <HrDetailTile
+            label="Status"
+            value={<Badge variant={statusVariant(employee.status)}>{employee.status.replaceAll("_", " ")}</Badge>}
+          />
           <HrDetailTile label="Designation" value={employee.designation} />
           <HrDetailTile label="Job grade" value={employee.job_grade} />
           <HrDetailTile label="Department" value={employee.department} />
-          <HrDetailTile label="Branch" value={employee.branch} />
+          <HrDetailTile label="Project" value={employee.branch} />
           <HrDetailTile label="Work location" value={employee.work_location} />
           <HrDetailTile label="Reporting manager" value={employee.reporting_manager?.display_name} />
           <HrDetailTile label="Joined" value={employee.joined_on} />
@@ -160,22 +159,6 @@ export function HrEmployeeRecordWorkspace({
           <HrDetailTile label="Phone" value={employee.phone} />
           <HrDetailTile label="Linked user account" value={employee.user_account_id ? "Connected" : "Not connected"} />
         </HrDetailGroup>
-        <section className="grid gap-2" aria-label="Related records">
-          <h3 className="m-0! text-xs font-semibold uppercase tracking-wide text-muted-foreground">Related records</h3>
-          <div className="flex flex-wrap gap-2">
-            {destinations.map(([label, pageId]) => (
-              <Button
-                key={pageId}
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => onNavigate("hr", pageId, employee.id)}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
-        </section>
       </section>
     );
 

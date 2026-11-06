@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import {
@@ -826,7 +827,7 @@ function Overtime({
                     audited.
                   </label>
                 )}
-                <div className="flex gap-2">
+                <HrDrawerActions>
                   <Button
                     type="submit"
                     className="text-primary-foreground!"
@@ -837,7 +838,7 @@ function Overtime({
                   <Button variant="outline" disabled={busy} onClick={() => setDecision("")}>
                     Back
                   </Button>
-                </div>
+                </HrDrawerActions>
               </form>
             </HrRecordDrawer>
           )}
@@ -1057,7 +1058,7 @@ function CloseAndInputs({
                 month.
               </label>
             )}
-            <div className="flex flex-wrap gap-2">
+            <HrDrawerActions>
               <Button
                 className="text-primary-foreground!"
                 type="submit"
@@ -1068,7 +1069,7 @@ function CloseAndInputs({
               <Button variant="outline" disabled={busy} onClick={() => setAction("")}>
                 Cancel
               </Button>
-            </div>
+            </HrDrawerActions>
           </form>
         </HrRecordDrawer>
       )}

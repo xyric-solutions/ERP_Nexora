@@ -359,6 +359,12 @@ import {
   hrJobGradeCurrencyDirectorySchema,
   hrRequisitionProjectDirectorySchema,
   hrRequisitionWorkLocationDirectorySchema,
+  hrEmployeeRecordMutationResultSchema,
+  removeHrEmployeeRecordRequestSchema,
+  hrEmployeeEmploymentHistoryDirectorySchema,
+  hrEmployeeEmploymentHistoryRequestSchema,
+  hrEmployeeNumberPreviewSchema,
+  withdrawHrEmployeeDraftRequestSchema,
   hrCostCentreNominalDirectorySchema,
   createHrJobGradeRequestSchema,
   updateHrJobGradeRequestSchema,
@@ -5991,6 +5997,195 @@ export function buildOpenApiDocument() {
             ...securityErrors,
           },
         },
+        post: {
+          operationId: "uploadHrEmployeeDocument",
+          description: "Uploads an employee document file to private storage (PDF, HTML, JPEG, PNG, JSON, CSV or text; at most 10 MB). Drafts and active employees in the actor's company scope. Requires hr.employee_document.manage.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "multipart/form-data": { schema: { type: "object", required: ["file", "document_type", "title"], properties: { file: { type: "string", format: "binary" }, document_type: { type: "string", maxLength: 80 }, title: { type: "string", maxLength: 200 }, reference: { type: "string", maxLength: 120 }, issued_on: { type: "string", format: "date" }, expires_on: { type: "string", format: "date" }, notes: { type: "string", maxLength: 1000 } } } } } },
+          responses: {
+            "201": { description: "Document stored", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employee_number_preview": {
+        get: {
+          operationId: "getHrEmployeeNumberPreview",
+          description: "Next automatic employee number for display before saving; the server reserves the final number on create. Requires hr.employee.create and company access.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "query", name: "company_id", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }],
+          responses: {
+            "200": { description: "Next employee number", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeNumberPreview" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employee_drafts/{employeeId}/withdraw": {
+        post: {
+          operationId: "withdrawHrEmployeeDraft",
+          description: "Deletes an unsubmitted employee draft by withdrawing it (status inactive); the audit trail is kept. Requires hr.employee.update.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/WithdrawHrEmployeeDraftRequest" } } } },
+          responses: {
+            "200": { description: "Draft withdrawn", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/contacts/{contactId}": {
+        post: {
+          operationId: "updateHrEmployeeContact",
+          description: "Edits a contact by closing the current version and starting its replacement today. Requires hr.employee_contact.manage.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "contactId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrEmployeeContactRequest" } } } },
+          responses: {
+            "200": { description: "Contact replaced", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/contacts/{contactId}/remove": {
+        post: {
+          operationId: "removeHrEmployeeContact",
+          description: "Closes an active contact; history is retained. Requires hr.employee_contact.manage.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "contactId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } } },
+          responses: {
+            "200": { description: "Contact closed", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/emergency_contacts/{contactId}": {
+        post: {
+          operationId: "updateHrEmployeeEmergencyContact",
+          description: "Edits an emergency contact by closing the current version and recording a superseding one. Requires hr.employee_emergency_contact.manage.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "contactId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrEmployeeEmergencyContactRequest" } } } },
+          responses: {
+            "200": { description: "Emergency contact replaced", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/emergency_contacts/{contactId}/remove": {
+        post: {
+          operationId: "removeHrEmployeeEmergencyContact",
+          description: "Closes an active emergency contact; history is retained. Requires hr.employee_emergency_contact.manage.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "contactId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } } },
+          responses: {
+            "200": { description: "Emergency contact closed", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/documents/{documentId}/replace": {
+        post: {
+          operationId: "replaceHrEmployeeDocument",
+          description: "Uploads a new file that supersedes and removes an active document (PDF, HTML, JPEG, PNG, JSON, CSV or text; at most 10 MB). Requires hr.employee_document.manage.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "documentId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "multipart/form-data": { schema: { type: "object", required: ["file", "document_type", "title"], properties: { file: { type: "string", format: "binary" }, document_type: { type: "string", maxLength: 80 }, title: { type: "string", maxLength: 200 }, reference: { type: "string", maxLength: 120 }, issued_on: { type: "string", format: "date" }, expires_on: { type: "string", format: "date" }, notes: { type: "string", maxLength: 1000 } } } } } },
+          responses: {
+            "201": { description: "Replacement document stored", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/documents/{documentId}/remove": {
+        post: {
+          operationId: "removeHrEmployeeDocument",
+          description: "Removes a document from the active record once; metadata and file are kept for audit. Requires hr.employee_document.manage.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "documentId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } } },
+          responses: {
+            "200": { description: "Document removed", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/documents/{documentId}/content": {
+        get: {
+          operationId: "downloadHrEmployeeDocument",
+          description: "Streams a stored document file. HTML is served with a sandboxing content security policy. Requires hr.employee_document.read.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "documentId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "query", name: "disposition", required: false, schema: { type: "string", enum: ["inline", "attachment"] } }],
+          responses: {
+            "200": { description: "Document file", content: { "application/octet-stream": { schema: { type: "string", format: "binary" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/employment_history": {
+        get: {
+          operationId: "listHrEmployeeEmploymentHistory",
+          description: "Active previous-employment entries of an employee. Requires hr.employee.read.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }],
+          responses: {
+            "200": { description: "Employment history", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeEmploymentHistoryDirectory" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+        post: {
+          operationId: "createHrEmployeeEmploymentHistory",
+          description: "Adds a previous-employment entry. Requires hr.employee.update.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeEmploymentHistoryRequest" } } } },
+          responses: {
+            "201": { description: "Employment history added", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/employment_history/{historyId}": {
+        post: {
+          operationId: "updateHrEmployeeEmploymentHistory",
+          description: "Edits a previous-employment entry. Requires hr.employee.update.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "historyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeEmploymentHistoryRequest" } } } },
+          responses: {
+            "200": { description: "Employment history updated", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/employment_history/{historyId}/remove": {
+        post: {
+          operationId: "removeHrEmployeeEmploymentHistory",
+          description: "Removes a previous-employment entry (soft status change, audited). Requires hr.employee.update.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "historyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } } },
+          responses: {
+            "200": { description: "Employment history removed", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
       },
       "/hr/employees/{employeeId}/assignments": {
         get: {
@@ -7609,6 +7804,12 @@ export function buildOpenApiDocument() {
         CreateHrEmployeeEmergencyContactRequest: schema(createHrEmployeeEmergencyContactRequestSchema),
         HrEmployeeEmergencyContactResult: schema(hrEmployeeEmergencyContactResultSchema),
         HrEmployeeDocumentDirectory: schema(hrEmployeeDocumentDirectorySchema),
+        HrEmployeeRecordMutationResult: schema(hrEmployeeRecordMutationResultSchema),
+        RemoveHrEmployeeRecordRequest: schema(removeHrEmployeeRecordRequestSchema),
+        HrEmployeeEmploymentHistoryDirectory: schema(hrEmployeeEmploymentHistoryDirectorySchema),
+        HrEmployeeEmploymentHistoryRequest: schema(hrEmployeeEmploymentHistoryRequestSchema),
+        HrEmployeeNumberPreview: schema(hrEmployeeNumberPreviewSchema),
+        WithdrawHrEmployeeDraftRequest: schema(withdrawHrEmployeeDraftRequestSchema),
         HrEmployeeAssignmentDirectory: schema(hrEmployeeAssignmentDirectorySchema),
         HrEmployeeStatusHistoryDirectory: schema(hrEmployeeStatusHistoryDirectorySchema),
         HrEmployeeLifecycleEventDirectory: schema(hrEmployeeLifecycleEventDirectorySchema),

@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { useRef, useState } from "react";
 import { useSession } from "@/lib/session/session-provider";
 import { Button } from "@/components/ui/button";
@@ -109,14 +110,14 @@ function ContributionForm({
           onChange={(e) => setReason(e.target.value)}
         />
       </Field>
-      <div className="flex flex-wrap gap-2">
+      <HrDrawerActions>
         <Button type="submit" disabled={busy} className="text-primary-foreground!">
           Submit assessment
         </Button>
         <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>
           Cancel
         </Button>
-      </div>
+      </HrDrawerActions>
     </form>
   );
 }
@@ -352,7 +353,7 @@ export function PerformanceParticipation({
                 The invited employee can submit after all goal weights are approved and total 100%.
               </p>
             )}
-            <div className="flex flex-wrap gap-2">
+            <HrDrawerActions>
               {i.can_submit && (
                 <Button variant="outline" disabled={busy || !!editing || !!decision} onClick={() => setEditing(i)}>
                   Write assessment
@@ -370,7 +371,7 @@ export function PerformanceParticipation({
                   Withdraw invitation
                 </Button>
               )}
-            </div>
+            </HrDrawerActions>
           </article>
         ))}
       </div>
@@ -487,14 +488,14 @@ export function PerformanceParticipation({
               onChange={(e) => setReason(e.target.value)}
             />
           </Field>
-          <div className="flex flex-wrap gap-2">
+          <HrDrawerActions>
             <Button type="submit" className="text-primary-foreground!" disabled={busy}>
               Confirm {decision.action}
             </Button>
             <Button type="button" variant="outline" disabled={busy} onClick={() => setDecision(null)}>
               Cancel
             </Button>
-          </div>
+          </HrDrawerActions>
         </form>
       )}
       {data?.truncated && (

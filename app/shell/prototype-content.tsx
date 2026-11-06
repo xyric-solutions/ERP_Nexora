@@ -123,6 +123,7 @@ import { HrInterviewsWorkspace } from "@prototype/features/hr/views/hr-interview
 import { HrRecruitmentPipelineWorkspace } from "@prototype/features/hr/views/hr-recruitment-pipeline-workspace";
 import { HrCandidateDirectoryWorkspace } from "@prototype/features/hr/views/hr-candidate-directory-workspace";
 import { HrAddEmployeeWorkspace } from "@prototype/features/hr/views/hr-add-employee-workspace";
+import { HrDrawerSectionProvider } from "@prototype/features/hr/components/hr-drawer-context";
 import { HrEmployeeDraftsWorkspace } from "@prototype/features/hr/views/hr-employee-drafts-workspace";
 import { HrPeopleApprovalsWorkspace as HrEmployeeApprovalsWorkspace } from "@prototype/features/hr/views/hr-personal-corrections";
 import { HrEmployeeContactsWorkspace } from "@prototype/features/hr/views/hr-employee-contacts-workspace";
@@ -2753,11 +2754,18 @@ export function PrototypeContent(props: PrototypeContentProps) {
   const { context } = props;
   // Inner HR operations pages open under their parent section's header and tabs.
   const section = context.moduleId === "hr" ? findHrSectionWorkspaceForPage(context.pageId) : undefined;
-  if (!section) return <PrototypeContentBody {...props} />;
-  return (
+  const content = section ? (
     <HrOperationsWorkspace key={section.id} definition={section} pageId={context.pageId} onNavigate={props.onNavigate}>
       <PrototypeContentBody {...props} />
     </HrOperationsWorkspace>
+  ) : (
+    <PrototypeContentBody {...props} />
+  );
+  // Every HR & Payroll drawer shows the page it belongs to at the top of its header.
+  return context.moduleId === "hr" ? (
+    <HrDrawerSectionProvider section={context.pageLabel}>{content}</HrDrawerSectionProvider>
+  ) : (
+    content
   );
 }
 

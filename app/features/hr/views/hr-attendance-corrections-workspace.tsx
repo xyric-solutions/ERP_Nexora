@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -432,14 +433,14 @@ function Editor({
           placeholder="Explain the missing or incorrect evidence and why this correction is needed"
         />
       </label>
-      <div className="flex flex-wrap gap-2">
+      <HrDrawerActions>
         <Button type="submit" className="text-primary-foreground!" disabled={busy || blocked}>
           {busy ? "Saving…" : initial ? "Save draft changes" : "Save correction draft"}
         </Button>
         <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
           Cancel editing
         </Button>
-      </div>
+      </HrDrawerActions>
     </form>
   );
 }

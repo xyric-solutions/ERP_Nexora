@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import {
   SettlementSalaryFactors,
   SettlementSalaryComponents,
@@ -547,14 +548,14 @@ export function HrSettlementBenefits({
                   <Field title="Benefit rule preparation reason">
                     <Textarea name="reason" required minLength={10} maxLength={500} disabled={busy} />
                   </Field>
-                  <div className="flex flex-wrap gap-2">
+                  <HrDrawerActions>
                     <Button type="submit" disabled={busy}>
                       Save benefit rule draft
                     </Button>
                     <Button type="button" variant="outline" disabled={busy} onClick={() => setCreate(false)}>
                       Cancel benefit rule
                     </Button>
-                  </div>
+                  </HrDrawerActions>
                 </form>
               </HrRecordDrawer>
             ) : null}
@@ -684,14 +685,14 @@ export function HrSettlementBenefits({
                     onChange={(e) => setReason(e.target.value)}
                   />
                 </Field>
-                <div className="flex flex-wrap gap-2">
+                <HrDrawerActions>
                   <Button type="submit" disabled={busy}>
                     Confirm benefit rule decision
                   </Button>
                   <Button type="button" variant="outline" disabled={busy} onClick={() => setDecision(null)}>
                     Cancel benefit decision
                   </Button>
-                </div>
+                </HrDrawerActions>
               </form>
             )}
           </TabsContent>

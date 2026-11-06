@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { learningCertificateHtml } from "../components/learning-certificate";
 import { attendanceLabel as label } from "../components/attendance-status";
 import { useId, useRef, useState } from "react";
@@ -804,14 +805,14 @@ export function HrLearningBody({
                 onChange={(e) => setReason(e.target.value)}
               />
             </Field>
-            <div className="flex flex-wrap gap-2">
+            <HrDrawerActions>
               <Button type="submit" disabled={busy || reason.trim().length < 12}>
                 Save learning draft
               </Button>
               <Button type="button" variant="outline" disabled={busy} onClick={() => setEditor(null)}>
                 Close editor
               </Button>
-            </div>
+            </HrDrawerActions>
           </form>
         </HrRecordDrawer>
       ) : null}
@@ -1215,14 +1216,14 @@ export function HrLearningBody({
                 onChange={(e) => setReason(e.target.value)}
               />
             </Field>
-            <div className="flex flex-wrap gap-2">
+            <HrDrawerActions>
               <Button type="submit" disabled={busy || reason.trim().length < 12}>
                 Save attendance evidence
               </Button>
               <Button type="button" variant="outline" disabled={busy} onClick={() => setAttendance(null)}>
                 Close attendance editor
               </Button>
-            </div>
+            </HrDrawerActions>
           </form>
         </HrRecordDrawer>
       )}

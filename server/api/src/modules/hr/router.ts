@@ -29,6 +29,11 @@ import {
   decideHrEmployeeDraftApprovalRequestSchema,
   createHrProfileDraftAssignmentRequestSchema,
   createHrEmployeeContactRequestSchema,
+  hrEmployeeDocumentMaxBytes,
+  hrEmployeeEmploymentHistoryRequestSchema,
+  removeHrEmployeeRecordRequestSchema,
+  uploadHrEmployeeDocumentFieldsSchema,
+  withdrawHrEmployeeDraftRequestSchema,
   createHrEmployeeEmergencyContactRequestSchema,
   hrEmployeeDirectoryQuerySchema,
   hrEmployeeDraftDirectoryQuerySchema,
@@ -91,6 +96,7 @@ import {
 } from "@nexora/contracts";
 
 import { HttpError } from "../../http/errors.js";
+import { parseSingleFileMultipart } from "./shared/multipart.js";
 import { currentRequestContext } from "../../http/request-context.js";
 import type { TenantAuthApiService, TenantSessionApiService } from "../auth/tenant-router.js";
 import { HrEmployeeService } from "./employees/service.js";
@@ -208,6 +214,18 @@ export interface HrRouterDependencies {
     | "listJobGrades"
     | "listJobGradeCurrencies"
     | "listRequisitionProjects"
+    | "employeeNumberPreview"
+    | "withdrawEmployeeDraft"
+    | "updateEmployeeContact"
+    | "removeEmployeeContact"
+    | "updateEmployeeEmergencyContact"
+    | "removeEmployeeEmergencyContact"
+    | "uploadEmployeeDocument"
+    | "employeeDocumentContent"
+    | "removeEmployeeDocument"
+    | "listEmployeeEmploymentHistory"
+    | "saveEmployeeEmploymentHistory"
+    | "removeEmployeeEmploymentHistory"
     | "listRequisitionWorkLocations"
     | "listCostCentreNominals"
     | "createJobGrade"
@@ -1088,6 +1106,113 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
     res.json(
       await handle(async () => employees.listDocuments(await loadHrSessionContext(req, dependencies), employeeId)),
     );
+  });
+  // Employee record satellites (HR139): numbers, draft withdrawal, contact edits, files and history.
+  const recordId = (value: unknown) => z.string().trim().min(1).max(128).parse(value);
+  const recordWrite = async <T>(
+    req: Request,
+    operation: (context: Awaited<ReturnType<typeof loadHrSessionContext>>, key: string, correlationId: string) => Promise<T>,
+  ) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    return handle(async () =>
+      operation(await loadHrSessionContext(req, dependencies, true), idempotencyKey(req), currentRequestContext().correlationId),
+    );
+  };
+  router.get("/employee_number_preview", async (req, res) => {
+    const companyId = recordId(req.query.company_id);
+    res.json(await handle(async () => dependencies.repository.employeeNumberPreview(await loadHrSessionContext(req, dependencies), companyId)));
+  });
+  router.post("/employee_drafts/:employeeId/withdraw", async (req, res) => {
+    const employeeId = recordId(req.params.employeeId);
+    const input = withdrawHrEmployeeDraftRequestSchema.parse(req.body ?? {});
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.withdrawEmployeeDraft(context, employeeId, input, key, corr)));
+  });
+  router.post("/employees/:employeeId/contacts/:contactId", async (req, res) => {
+    const employeeId = recordId(req.params.employeeId), contactId = recordId(req.params.contactId);
+    const input = createHrEmployeeContactRequestSchema.parse(req.body);
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.updateEmployeeContact(context, employeeId, contactId, input, key, corr)));
+  });
+  router.post("/employees/:employeeId/contacts/:contactId/remove", async (req, res) => {
+    const employeeId = recordId(req.params.employeeId), contactId = recordId(req.params.contactId);
+    const input = removeHrEmployeeRecordRequestSchema.parse(req.body ?? {});
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.removeEmployeeContact(context, employeeId, contactId, input, key, corr)));
+  });
+  router.post("/employees/:employeeId/emergency_contacts/:contactId", async (req, res) => {
+    const employeeId = recordId(req.params.employeeId), contactId = recordId(req.params.contactId);
+    const input = createHrEmployeeEmergencyContactRequestSchema.parse(req.body);
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.updateEmployeeEmergencyContact(context, employeeId, contactId, input, key, corr)));
+  });
+  router.post("/employees/:employeeId/emergency_contacts/:contactId/remove", async (req, res) => {
+    const employeeId = recordId(req.params.employeeId), contactId = recordId(req.params.contactId);
+    const input = removeHrEmployeeRecordRequestSchema.parse(req.body ?? {});
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.removeEmployeeEmergencyContact(context, employeeId, contactId, input, key, corr)));
+  });
+  const documentUploadFields = new Set(["document_type", "title", "reference", "issued_on", "expires_on", "notes"]);
+  const uploadDocument = async (req: Request, replaces?: string) => {
+    const employeeId = recordId(req.params.employeeId);
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const context = await handle(() => loadHrSessionContext(req, dependencies, true));
+    const key = idempotencyKey(req);
+    const { fields, file } = await parseSingleFileMultipart(req, {
+      maxFileBytes: hrEmployeeDocumentMaxBytes,
+      allowedFields: documentUploadFields,
+      label: "employee document",
+    });
+    const input = uploadHrEmployeeDocumentFieldsSchema.parse(
+      Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== "")),
+    );
+    return handle(() =>
+      dependencies.repository.uploadEmployeeDocument(context, employeeId, input, file, key, currentRequestContext().correlationId, replaces),
+    );
+  };
+  router.post("/employees/:employeeId/documents", async (req, res) => {
+    const result = await uploadDocument(req);
+    res.status(result.replayed ? 200 : 201).json(result);
+  });
+  router.post("/employees/:employeeId/documents/:documentId/replace", async (req, res) => {
+    const result = await uploadDocument(req, recordId(req.params.documentId));
+    res.status(result.replayed ? 200 : 201).json(result);
+  });
+  router.post("/employees/:employeeId/documents/:documentId/remove", async (req, res) => {
+    const employeeId = recordId(req.params.employeeId), documentId = recordId(req.params.documentId);
+    const input = removeHrEmployeeRecordRequestSchema.parse(req.body ?? {});
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.removeEmployeeDocument(context, employeeId, documentId, input, key, corr)));
+  });
+  router.get("/employees/:employeeId/documents/:documentId/content", async (req, res) => {
+    const employeeId = recordId(req.params.employeeId), documentId = recordId(req.params.documentId);
+    const download = req.query.disposition === "attachment";
+    const content = await handle(async () =>
+      dependencies.repository.employeeDocumentContent(await loadHrSessionContext(req, dependencies), employeeId, documentId),
+    );
+    const encoded = encodeURIComponent(content.fileName).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16)}`);
+    res.setHeader("content-type", content.contentType);
+    res.setHeader("content-length", String(content.sizeBytes));
+    res.setHeader("content-disposition", `${download ? "attachment" : "inline"}; filename*=UTF-8''${encoded}`);
+    res.setHeader("x-content-type-options", "nosniff");
+    // Uploaded HTML must never run script in the API origin.
+    if (content.contentType === "text/html") res.setHeader("content-security-policy", "sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'");
+    content.body.on("error", () => res.destroy());
+    content.body.pipe(res);
+  });
+  router.get("/employees/:employeeId/employment_history", async (req, res) => {
+    const employeeId = recordId(req.params.employeeId);
+    res.json(await handle(async () => dependencies.repository.listEmployeeEmploymentHistory(await loadHrSessionContext(req, dependencies), employeeId)));
+  });
+  router.post("/employees/:employeeId/employment_history", async (req, res) => {
+    const employeeId = recordId(req.params.employeeId);
+    const input = hrEmployeeEmploymentHistoryRequestSchema.parse(req.body);
+    const result = await recordWrite(req, (context, key, corr) => dependencies.repository.saveEmployeeEmploymentHistory(context, employeeId, undefined, input, key, corr));
+    res.status(result.replayed ? 200 : 201).json(result);
+  });
+  router.post("/employees/:employeeId/employment_history/:historyId", async (req, res) => {
+    const employeeId = recordId(req.params.employeeId), historyId = recordId(req.params.historyId);
+    const input = hrEmployeeEmploymentHistoryRequestSchema.parse(req.body);
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.saveEmployeeEmploymentHistory(context, employeeId, historyId, input, key, corr)));
+  });
+  router.post("/employees/:employeeId/employment_history/:historyId/remove", async (req, res) => {
+    const employeeId = recordId(req.params.employeeId), historyId = recordId(req.params.historyId);
+    const input = removeHrEmployeeRecordRequestSchema.parse(req.body ?? {});
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.removeEmployeeEmploymentHistory(context, employeeId, historyId, input, key, corr)));
   });
   router.get("/employees/:employeeId/assignments", async (req, res) => {
     const employeeId = z.string().trim().min(1).max(128).parse(req.params.employeeId);

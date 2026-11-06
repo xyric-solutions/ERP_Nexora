@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -446,7 +447,7 @@ export function HrRecruitmentPipelineWorkspace() {
                 </AlertDescription>
               </Alert>
             ) : null}
-            <div className="flex flex-wrap gap-2">
+            <HrDrawerActions>
               <Button
                 className="text-primary-foreground!"
                 type="submit"
@@ -457,7 +458,7 @@ export function HrRecruitmentPipelineWorkspace() {
               <Button type="button" variant="outline" disabled={saving} onClick={() => setEditor(false)}>
                 Cancel
               </Button>
-            </div>
+            </HrDrawerActions>
           </form>
         </HrRecordDrawer>
       ) : null}

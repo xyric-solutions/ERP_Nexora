@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { SettlementCorrectionExecution } from "../components/settlement-correction-execution";
 import { SettlementCorrectionReview } from "../components/settlement-correction-review";
 import { SettlementCountryEvidence } from "../components/settlement-country-controls";
@@ -475,14 +476,14 @@ function LifecycleCaseForm({
           onChange={(e) => setReason(e.target.value)}
         />
       </Field>
-      <div className="flex flex-wrap gap-2">
+      <HrDrawerActions>
         <Button type="submit" className="text-primary-foreground!" disabled={busy}>
           Save draft
         </Button>
         <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>
           Cancel editing
         </Button>
-      </div>
+      </HrDrawerActions>
     </form>
   );
 }
@@ -909,14 +910,14 @@ export function HrLifecycleCasesWorkspace({
                   onChange={(e) => setReason(e.target.value)}
                 />
               </Field>
-              <div className="flex flex-wrap gap-2">
+              <HrDrawerActions>
                 <Button type="submit" className="text-primary-foreground!" disabled={busy}>
                   Confirm action
                 </Button>
                 <Button type="button" variant="outline" disabled={busy} onClick={() => setDecision(null)}>
                   Cancel review
                 </Button>
-              </div>
+              </HrDrawerActions>
             </form>
           )}
           {r && (

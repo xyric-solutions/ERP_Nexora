@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "./hr-drawer-context";
 import { HrRecordDrawer } from "./hr-record-drawer";
 
 import { useEffect, useRef, useState } from "react";
@@ -313,7 +314,7 @@ export function HrPromotionApprovalsPanel({
                           placeholder="Explain the approval or rejection for the immutable audit record."
                         />
                       </label>
-                      <div className="flex flex-wrap gap-2">
+                      <HrDrawerActions>
                         <Button
                           type="button"
                           disabled={saving || !reason.trim()}
@@ -329,7 +330,7 @@ export function HrPromotionApprovalsPanel({
                         >
                           Reject Promotion
                         </Button>
-                      </div>
+                      </HrDrawerActions>
                     </>
                   )}
                 </div>

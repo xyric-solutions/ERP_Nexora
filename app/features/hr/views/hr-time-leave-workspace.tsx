@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -486,14 +487,14 @@ function LeaveTypes(props: Shared) {
                 required
               />
             </Field>
-            <div className="flex gap-2">
+            <HrDrawerActions>
               <Button className="text-primary-foreground!" disabled={busy} type="submit">
                 Confirm status
               </Button>
               <Button variant="outline" disabled={busy} onClick={() => setStatusTarget(null)}>
                 Cancel
               </Button>
-            </div>
+            </HrDrawerActions>
           </form>
         </HrRecordDrawer>
       )}
@@ -538,7 +539,7 @@ function LeaveTypes(props: Shared) {
                   </p>
                 </div>
                 {permissions.includes("hr.leave.type.manage") && (
-                  <div className="flex flex-wrap gap-2">
+                  <HrDrawerActions>
                     <Button variant="outline" disabled={busy || !!editor || !!statusTarget} onClick={() => edit(t)}>
                       New policy version
                     </Button>
@@ -552,7 +553,7 @@ function LeaveTypes(props: Shared) {
                     >
                       {t.status === "active" ? "Deactivate" : "Activate"}
                     </Button>
-                  </div>
+                  </HrDrawerActions>
                 )}
               </div>
               {t.policy && (
@@ -741,7 +742,7 @@ function LeaveBalances(props: Shared) {
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">{selected.employee_number} · Immutable ledger</p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <HrDrawerActions>
               {permissions.includes("hr.leave.balance.adjust") && selected.paid && (
                 <Button
                   className="text-primary-foreground!"
@@ -759,7 +760,7 @@ function LeaveBalances(props: Shared) {
               <Button variant="ghost" disabled={busy || posting} onClick={() => setSelected(null)}>
                 Close ledger
               </Button>
-            </div>
+            </HrDrawerActions>
           </div>
           {posting && (
             <HrRecordDrawer
@@ -836,14 +837,14 @@ function LeaveBalances(props: Shared) {
                   Opening balances can be posted once. Repeated policy postings for the same source period are rejected.
                   Corrections use a separate audited adjustment; history remains intact.
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <HrDrawerActions>
                   <Button className="text-primary-foreground!" disabled={busy || ledger.loading} type="submit">
                     Confirm posting
                   </Button>
                   <Button variant="outline" disabled={busy} onClick={() => setPosting(false)}>
                     Cancel posting
                   </Button>
-                </div>
+                </HrDrawerActions>
                 {ledger.data?.balance.hash !== postingHash && (
                   <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--nx-warning)]">
                     Balance evidence changed.
@@ -1239,7 +1240,7 @@ function RequestEditor(props: Shared) {
               required
             />
           </Field>
-          <div className="flex flex-wrap gap-2">
+          <HrDrawerActions>
             <Button
               className="text-primary-foreground!"
               disabled={
@@ -1256,7 +1257,7 @@ function RequestEditor(props: Shared) {
             >
               View leave policies
             </Button>
-          </div>
+          </HrDrawerActions>
         </form>
       </section>
     </HrRecordDrawer>
@@ -1552,7 +1553,7 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
                       I explicitly acknowledge an audited super-administrator override of actor separation.
                     </label>
                   )}
-                  <div className="flex flex-wrap gap-2">
+                  <HrDrawerActions>
                     <Button
                       className="text-primary-foreground!"
                       type="submit"
@@ -1565,7 +1566,7 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
                     <Button variant="outline" disabled={busy} onClick={() => setAction("")}>
                       Back
                     </Button>
-                  </div>
+                  </HrDrawerActions>
                 </form>
               </HrRecordDrawer>
             )}

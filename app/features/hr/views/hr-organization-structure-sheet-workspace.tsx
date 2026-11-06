@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
+import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import { nextGeneratedCode, organizationUnitPrefixes } from "../model/hr-master-code";
@@ -461,26 +462,24 @@ export function HrOrganizationStructureSheetWorkspace() {
             </label>
           </div>
         ) : (
-          <div className="grid gap-5">
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              <Detail label="Status" value={selected?.status ?? "active"} status />
-              <Detail
-                label="Reports into"
-                value={
-                  selected
-                    ? (units.find((unit) => unit.id === selected.parent_id)?.name ?? company?.name ?? "—")
-                    : "Top of the tree"
-                }
-              />
-              <Detail label="Direct children" value={String(childrenOf(selectedId).length)} />
-              <Detail label="Employees here" value={String(selected?.employee_count ?? 0)} />
-              <Detail label="Head" value={selected?.head_name ?? "Not assigned"} />
-              <Detail
-                label="Created"
-                value={selected ? new Date(selected.created_at).toLocaleDateString() : "Platform record"}
-              />
-            </div>
-          </div>
+          <HrDetailList>
+            <Detail label="Name" value={selected?.name ?? company?.name ?? "—"} />
+            <Detail label="Type" value={selected ? typeLabels[selected.type] : "Company"} />
+            <Detail label="Code" value={selected?.code ?? company?.code ?? "—"} />
+            <Detail label="Status" value={selected?.status ?? "active"} status />
+            <Detail
+              label="Reports into"
+              value={
+                selected
+                  ? (units.find((unit) => unit.id === selected.parent_id)?.name ?? company?.name ?? "—")
+                  : "Top of the tree"
+              }
+            />
+            <Detail label="Head" value={selected?.head_name ?? "Not assigned"} />
+            <Detail label="Direct children" value={String(childrenOf(selectedId).length)} />
+            <Detail label="Employees here" value={String(selected?.employee_count ?? 0)} />
+            {selected ? <RecordStamps record={selected} /> : <Detail label="Created" value="Platform record" />}
+          </HrDetailList>
         )}
       </HrMasterSheet>
     </section>
@@ -488,15 +487,17 @@ export function HrOrganizationStructureSheetWorkspace() {
 }
 function Detail({ label, value, status = false }: { label: string; value: string; status?: boolean }) {
   return (
-    <div className="min-w-0 rounded-md border border-border bg-muted/35 px-2.5 py-2">
-      <p className="text-[11px] leading-tight text-muted-foreground">{label}</p>
-      {status ? (
-        <HrMasterStatusBadge status={value} className="mt-1 inline-flex" />
-      ) : (
-        <p className="mt-0.5 truncate text-sm font-semibold capitalize" title={value}>
-          {value}
-        </p>
-      )}
-    </div>
+    <HrDetailTile label={label} value={status ? <HrMasterStatusBadge status={value} className="inline-flex" /> : value} />
+  );
+}
+/** "Created by", "Created" and "Last updated" rows, shown when the API provides them. */
+function RecordStamps({ record }: { record: { created_by_name?: string | null; created_at?: string; updated_at?: string } }) {
+  const when = (value?: string) => (value ? new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "");
+  return (
+    <>
+      {record.created_by_name ? <Detail label="Created by" value={record.created_by_name} /> : null}
+      {record.created_at ? <Detail label="Created" value={when(record.created_at)} /> : null}
+      {record.updated_at ? <Detail label="Last updated" value={when(record.updated_at)} /> : null}
+    </>
   );
 }

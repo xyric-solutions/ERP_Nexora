@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -14,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
 import { employmentSetupOptionLabel } from "../model/employment-setup";
 import { hiringBasisLabel, hiringBasisOptions, isHiringBasis } from "../model/hiring-basis";
 import { isWorkArrangement, jobTypeOptions, workArrangementLabel } from "../model/work-arrangement";
@@ -691,7 +693,7 @@ export function HrManpowerRequisitionsWorkspace() {
                     />
                   </label>
                 </FormSection>
-                <div className="flex flex-wrap gap-2">
+                <HrDrawerActions>
                   <Button
                     disabled={saving || grades.length === 0 || projects.length === 0}
                     onClick={() => void save()}
@@ -701,82 +703,51 @@ export function HrManpowerRequisitionsWorkspace() {
                   <Button variant="outline" onClick={() => setEditor(null)}>
                     Cancel
                   </Button>
-                </div>
+                </HrDrawerActions>
               </aside>
             </HrRecordDrawer>
           ) : selected ? (
             <HrRecordDrawer
-              title="Requisition details"
+              title={selected.job_title}
               open={detailsOpen && !editor}
               onClose={() => setDetailsOpen(false)}
               busy={saving}
               notice={message}
             >
               <aside className="grid min-w-0 gap-4 rounded-lg border bg-card p-5 border-border">
-                <div>
-                  <span className="nx-eyebrow">{selected.reference}</span>
-                  <h2 className="mt-1 text-xl font-semibold">{selected.job_title}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {selected.designation} · {selected.job_grade} · {selected.employment_setup}
-                  </p>
-                </div>
-                <span
-                  className={`w-fit nx-status nx-status-${selected.state === "approved" ? "active" : selected.state === "rejected" ? "inactive" : "draft"}`}
-                >
-                  {stateLabel(selected.state)}
-                </span>
-                <dl className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <dt className="text-muted-foreground">Organisation</dt>
-                    <dd className="font-medium">
-                      {selected.department}
-                      {selected.project ?? selected.branch ? (
-                        <span className="block text-muted-foreground">{selected.project ?? selected.branch}</span>
-                      ) : null}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Hiring basis</dt>
-                    <dd className="font-medium">{hiringBasisLabel(selected.hiring_basis)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Location</dt>
-                    <dd className="font-medium">{requisitionLocation(selected)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Job type</dt>
-                    <dd className="font-medium">{workArrangementLabel(selected.work_arrangement)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Headcount</dt>
-                    <dd className="font-medium">{selected.positions_requested}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Salary range</dt>
-                    <dd className="font-medium">
-                      {selected.currency_code} {selected.salary_minimum} – {selected.salary_maximum}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Target start</dt>
-                    <dd className="font-medium">{selected.target_start_date}</dd>
-                  </div>
-                </dl>
-                {selected.reason ? (
-                  <div>
-                    <h3 className="text-sm font-medium">Business reason</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">{selected.reason}</p>
-                  </div>
-                ) : null}
-                {selected.required_skills.length ? (
-                  <p className="text-sm text-muted-foreground">Skills: {selected.required_skills.join(", ")}</p>
-                ) : null}
-                {selected.decision_reason ? (
-                  <p className="rounded-md bg-muted p-3 text-sm">
-                    <strong>Decision:</strong> {selected.decision_reason}
-                  </p>
-                ) : null}
-                <div className="flex flex-wrap gap-2">
+                <HrDetailList>
+                  <HrDetailTile label="Reference" value={selected.reference} />
+                  <HrDetailTile
+                    label="State"
+                    value={
+                      <span
+                        className={`nx-status nx-status-${selected.state === "approved" ? "active" : selected.state === "rejected" ? "inactive" : "draft"}`}
+                      >
+                        {stateLabel(selected.state)}
+                      </span>
+                    }
+                  />
+                  <HrDetailTile label="Job title" value={selected.job_title} />
+                  <HrDetailTile label="Designation" value={selected.designation} />
+                  <HrDetailTile label="Job grade" value={selected.job_grade} />
+                  <HrDetailTile label="Employment setup" value={selected.employment_setup} />
+                  <HrDetailTile label="Hiring basis" value={hiringBasisLabel(selected.hiring_basis)} />
+                  <HrDetailTile label="Headcount" value={String(selected.positions_requested)} />
+                  <HrDetailTile label="Department" value={selected.department} />
+                  <HrDetailTile label="Project" value={selected.project ?? selected.branch} />
+                  <HrDetailTile label="Location" value={requisitionLocation(selected)} />
+                  <HrDetailTile label="Job type" value={workArrangementLabel(selected.work_arrangement)} />
+                  <HrDetailTile
+                    label="Salary range"
+                    value={`${selected.currency_code} ${selected.salary_minimum} – ${selected.salary_maximum}`}
+                  />
+                  <HrDetailTile label="Target start" value={selected.target_start_date} />
+                  <HrDetailTile label="Required skills" value={selected.required_skills.join(", ")} />
+                  <HrDetailTile label="Business reason" value={selected.reason} />
+                  {selected.decision_reason ? <HrDetailTile label="Decision" value={selected.decision_reason} /> : null}
+                  <HrDetailTile label="Created" value={new Date(selected.created_at).toLocaleString()} />
+                </HrDetailList>
+                <HrDrawerActions>
                   {selected.state === "draft" && canSubmit ? (
                     <Button disabled={saving} onClick={() => void transition("submit")}>
                       Submit for approval
@@ -792,7 +763,7 @@ export function HrManpowerRequisitionsWorkspace() {
                       </Button>
                     </>
                   ) : null}
-                </div>
+                </HrDrawerActions>
               </aside>
             </HrRecordDrawer>
           ) : (

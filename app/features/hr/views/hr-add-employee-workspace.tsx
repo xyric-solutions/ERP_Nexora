@@ -4,9 +4,9 @@ import { useState } from "react";
 import { UserPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { HrEmployeeDraftForm } from "./hr-employee-draft-form";
+import { HrEmployeeWizard } from "./hr-employee-wizard";
 
-/** Add Employee page: the draft drawer opens only when the user asks for it. */
+/** Add Employee page: the step-by-step drawer opens only when the user asks for it. */
 export function HrAddEmployeeWorkspace({
   onAction,
   onNavigate,
@@ -22,7 +22,7 @@ export function HrAddEmployeeWorkspace({
         <div className="flex min-w-0 items-center gap-3">
           <UserPlus className="size-5 shrink-0 text-primary" aria-hidden="true" />
           <p className="m-0! text-sm text-muted-foreground">
-            Create a company-scoped employee draft. It stays inactive until it is submitted and approved.
+            Add an employee with contacts, emergency contacts, documents and employment history in five steps.
           </p>
         </div>
         <Button type="button" onClick={() => setOpen(true)}>
@@ -34,20 +34,21 @@ export function HrAddEmployeeWorkspace({
           role="status"
           className="m-0! flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted p-3 text-sm"
         >
-          Draft {created} was created.
+          {created}
           <Button type="button" variant="outline" size="sm" onClick={() => onNavigate("hr", "employee-drafts")}>
             Open Employee Drafts
           </Button>
         </p>
       ) : null}
       {open ? (
-        <HrEmployeeDraftForm
-          onAction={(action, subject) => {
-            if (action === "Employee draft created" && subject) setCreated(subject);
-            onAction(action, subject);
-          }}
+        <HrEmployeeWizard
+          target={{ kind: "create" }}
           onClose={() => setOpen(false)}
-          onOpenRecordArea={(pageId) => onNavigate("hr", pageId)}
+          onSaved={(message, employeeNumber) => {
+            setCreated(message);
+            setOpen(false);
+            onAction("Employee draft created", employeeNumber);
+          }}
         />
       ) : null}
     </section>

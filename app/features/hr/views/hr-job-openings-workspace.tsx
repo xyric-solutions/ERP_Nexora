@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { HrJobOpeningDirectory } from "@nexora/contracts";
@@ -8,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
 type Opening = HrJobOpeningDirectory["items"][number];
 export function HrJobOpeningsWorkspace() {
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -356,57 +358,40 @@ export function HrJobOpeningsWorkspace() {
                   Closing date
                   <Input type="date" value={closingOn} onChange={(event) => setClosingOn(event.target.value)} />
                 </label>
-                <div className="flex flex-wrap gap-2">
+                <HrDrawerActions>
                   <Button disabled={saving || !approved.length} onClick={() => void save()}>
                     Create opening
                   </Button>
                   <Button variant="outline" onClick={() => setEditor(false)}>
                     Cancel
                   </Button>
-                </div>
+                </HrDrawerActions>
               </aside>
             </HrRecordDrawer>
           ) : selected ? (
             <HrRecordDrawer
-              title="Job opening details"
+              title={selected.title}
               open={detailsOpen && !editor}
               onClose={() => setDetailsOpen(false)}
               busy={saving}
               notice={message}
             >
               <aside className="grid min-w-0 gap-4 rounded-lg border bg-card p-5 border-border">
-                <div>
-                  <span className="nx-eyebrow">{selected.reference}</span>
-                  <h2 className="mt-1 text-xl font-semibold">{selected.title}</h2>
-                </div>
-                <dl className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <dt className="text-muted-foreground">Requisition</dt>
-                    <dd className="font-medium">{selected.requisition_reference}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Positions</dt>
-                    <dd className="font-medium">
-                      {selected.remaining_positions} of {selected.positions_requested} unfilled
-                      <span className="block text-xs font-normal text-muted-foreground">
-                        {selected.filled_positions} hired so far
-                      </span>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Advertised on</dt>
-                    <dd className="font-medium">{selected.channels.join(", ")}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Closing</dt>
-                    <dd className="font-medium">{selected.closing_on ?? "Not set"}</dd>
-                  </div>
-                </dl>
-                {selected.state_reason ? (
-                  <p className="text-sm text-muted-foreground">{selected.state_reason}</p>
-                ) : null}
+                <HrDetailList>
+                  <HrDetailTile label="Reference" value={selected.reference} />
+                  <HrDetailTile label="State" value={selected.state.replaceAll("_", " ")} />
+                  <HrDetailTile label="Opening title" value={selected.title} />
+                  <HrDetailTile label="Requisition" value={selected.requisition_reference} />
+                  <HrDetailTile label="Positions to fill" value={String(selected.positions_requested)} />
+                  <HrDetailTile label="Unfilled" value={String(selected.remaining_positions)} />
+                  <HrDetailTile label="Hired so far" value={String(selected.filled_positions)} />
+                  <HrDetailTile label="Advertised on" value={selected.channels.join(", ")} />
+                  <HrDetailTile label="Closing date" value={selected.closing_on ?? "Not set"} />
+                  {selected.state_reason ? <HrDetailTile label="Last state change" value={selected.state_reason} /> : null}
+                  <HrDetailTile label="Created" value={new Date(selected.created_at).toLocaleString()} />
+                </HrDetailList>
                 {canUpdate ? (
-                  <div className="flex flex-wrap gap-2">
+                  <HrDrawerActions>
                     {selected.state !== "on_hold" && selected.state !== "cancelled" ? (
                       <Button variant="outline" onClick={() => void change("on_hold")}>
                         Put on hold
@@ -423,7 +408,7 @@ export function HrJobOpeningsWorkspace() {
                         Cancel
                       </Button>
                     ) : null}
-                  </div>
+                  </HrDrawerActions>
                 ) : null}
               </aside>
             </HrRecordDrawer>

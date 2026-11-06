@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useRef, useState } from "react";
 import { ClipboardCheck, RefreshCw, UserRound } from "lucide-react";
@@ -253,14 +254,14 @@ export function HrPersonalCorrections({
                 placeholder="Describe what is incorrect and the supporting information HR should verify."
               />
             </Field>
-            <div className="flex flex-wrap gap-2">
+            <HrDrawerActions>
               <Button type="submit" disabled={busy || reason.trim().length < 12 || edit.hash !== w?.source_hash}>
                 Submit correction for HR review
               </Button>
               <Button type="button" variant="outline" disabled={busy} onClick={() => setEdit(null)}>
                 Close correction form
               </Button>
-            </div>
+            </HrDrawerActions>
           </form>
         </HrRecordDrawer>
       )}
@@ -315,7 +316,7 @@ export function HrPersonalCorrections({
               </p>
             </div>
           )}
-          <div className="flex flex-wrap gap-2">
+          <HrDrawerActions>
             {record.allowed_actions.map((action) => (
               <Button
                 key={action}
@@ -336,7 +337,7 @@ export function HrPersonalCorrections({
                     : "Cancel correction request"}
               </Button>
             ))}
-          </div>
+          </HrDrawerActions>
         </article>
       ))}
       {w && (

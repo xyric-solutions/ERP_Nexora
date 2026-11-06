@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
@@ -433,7 +434,7 @@ function AllocationEditor({
           placeholder="Explain this employee arrangement or organisational default"
         />
       </label>
-      <div className="flex flex-wrap gap-2">
+      <HrDrawerActions>
         <Button
           type="submit"
           className="text-primary-foreground!"
@@ -444,7 +445,7 @@ function AllocationEditor({
         <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
           Cancel
         </Button>
-      </div>
+      </HrDrawerActions>
     </form>
   );
 }

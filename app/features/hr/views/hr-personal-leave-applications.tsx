@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { useRef, useState } from "react";
 import { Plus, RefreshCw, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -436,7 +437,7 @@ export function HrPersonalLeaveApplications({ company, items, opened, onOpen, on
                   placeholder="Explain your submission or cancellation."
                 />
               </Field>
-              <div className="flex flex-wrap gap-2">
+              <HrDrawerActions>
                 {d.allowed_actions.includes("submit") && (
                   <Button
                     type="button"
@@ -456,7 +457,7 @@ export function HrPersonalLeaveApplications({ company, items, opened, onOpen, on
                     Cancel request
                   </Button>
                 )}
-              </div>
+              </HrDrawerActions>
             </div>
           )}
           {d.status === "approved" && (

@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrEmploymentPolicyUpgrades } from "./hr-employment-policy-upgrades";
 
 import { useEffect, useMemo, useState } from "react";
@@ -557,14 +558,14 @@ export function HrLifecyclePoliciesWorkspace() {
             The standard pre-employment, employed, confirmed and ended states are created in draft. Independent approval
             is still required before activation.
           </p>
-          <div className="flex flex-wrap gap-2">
+          <HrDrawerActions>
             <Button type="button" onClick={() => void createPolicy()} disabled={saving}>
               {saving ? "Creating…" : "Create draft policy"}
             </Button>
             <Button type="button" variant="outline" disabled={saving} onClick={() => setCreateOpen(false)}>
               Cancel
             </Button>
-          </div>
+          </HrDrawerActions>
         </div>
       </HrRecordDrawer>
       <HrEmploymentPolicyUpgrades key={companyId} companyId={companyId} policyRevision={refreshKey} />

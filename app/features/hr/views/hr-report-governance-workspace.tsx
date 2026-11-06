@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { useId, useRef, useState } from "react";
 import { Download, FileText, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -180,7 +181,7 @@ function ReportGovernanceBody({
         {p.decision_reason && (
           <p className="rounded-lg border border-border bg-muted p-3 text-sm">{p.decision_reason}</p>
         )}
-        <div className="flex flex-wrap gap-2">
+        <HrDrawerActions>
           {p.allowed_actions.map((action) => (
             <Button
               type="button"
@@ -196,7 +197,7 @@ function ReportGovernanceBody({
               {action === "approve_policy" ? "Approve disclosure policy" : "Reject disclosure policy"}
             </Button>
           ))}
-        </div>
+        </HrDrawerActions>
       </article>
     );
   }
@@ -338,14 +339,14 @@ function ReportGovernanceBody({
                     onChange={(e) => setPolicyReason(e.target.value)}
                   />
                 </Field>
-                <div className="flex flex-wrap gap-2">
+                <HrDrawerActions>
                   <Button type="submit" disabled={busy || !selected.length || policyReason.trim().length < 12}>
                     Submit disclosure policy
                   </Button>
                   <Button type="button" variant="outline" disabled={busy} onClick={() => setPolicyForm(false)}>
                     Close policy form
                   </Button>
-                </div>
+                </HrDrawerActions>
               </form>
             </HrRecordDrawer>
           ) : null}

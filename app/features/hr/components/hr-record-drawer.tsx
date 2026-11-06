@@ -18,6 +18,7 @@ export function HrRecordDrawer({
   error,
   notice,
   completionKey,
+  footer,
 }: {
   title: string;
   children: ReactNode;
@@ -30,6 +31,8 @@ export function HrRecordDrawer({
   error?: string;
   notice?: string;
   completionKey?: string;
+  /** Actions for the drawer's bottom action area (HrDrawerActions in the body also land there). */
+  footer?: ReactNode;
 }) {
   const [localOpen, setLocalOpen] = useState(false);
   const [completedAtOpen, setCompletedAtOpen] = useState(completionKey);
@@ -63,6 +66,7 @@ export function HrRecordDrawer({
         eyebrow="Record details"
         title={title}
         description={description}
+        footer={footer}
       >
         <div
           aria-busy={busy}

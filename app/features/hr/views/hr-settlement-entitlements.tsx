@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import {
   SettlementSalaryFactors,
   SettlementSalaryComponents,
@@ -434,14 +435,14 @@ export function HrSettlementEntitlements({
                   disabled={busy}
                 />
               </Field>
-              <div className="flex flex-wrap gap-2">
+              <HrDrawerActions>
                 <Button type="submit" disabled={busy} className="text-primary-foreground!">
                   Confirm rule decision
                 </Button>
                 <Button type="button" variant="outline" disabled={busy} onClick={() => setDecision(null)}>
                   Cancel review
                 </Button>
-              </div>
+              </HrDrawerActions>
             </form>
           )}
           {showCreate && w ? (
@@ -633,14 +634,14 @@ export function HrSettlementEntitlements({
                     disabled={busy}
                   />
                 </Field>
-                <div className="flex flex-wrap gap-2">
+                <HrDrawerActions>
                   <Button type="submit" className="text-primary-foreground!" disabled={busy}>
                     Save company rule draft
                   </Button>
                   <Button type="button" variant="outline" disabled={busy} onClick={() => setShowCreate(false)}>
                     Cancel editing
                   </Button>
-                </div>
+                </HrDrawerActions>
               </form>
             </HrRecordDrawer>
           ) : null}

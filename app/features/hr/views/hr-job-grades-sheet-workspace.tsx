@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
+import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import { nextMasterCode } from "../model/hr-master-code";
@@ -535,20 +536,17 @@ export function HrJobGradesSheetWorkspace() {
             </fieldset>
           </div>
         ) : selected ? (
-          <div className="grid gap-5">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Detail label="Code" value={selected.code} />
-              <Detail label="Status" value={selected.status} status />
-              <Detail label="Currency" value={selected.currency_code} />
-              <Detail label="Minimum" value={amount(selected.band_minimum, selected.currency_code)} />
-              <Detail label="Midpoint" value={amount(selected.band_midpoint, selected.currency_code)} />
-              <Detail label="Maximum" value={amount(selected.band_maximum, selected.currency_code)} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</p>
-              <p className="mt-2 leading-relaxed">{selected.description || "No description recorded."}</p>
-            </div>
-          </div>
+          <HrDetailList>
+            <Detail label="Name" value={selected.name} />
+            <Detail label="Code" value={selected.code} />
+            <Detail label="Status" value={selected.status} status />
+            <Detail label="Currency" value={selected.currency_code} />
+            <Detail label="Minimum" value={amount(selected.band_minimum, selected.currency_code)} />
+            <Detail label="Midpoint" value={amount(selected.band_midpoint, selected.currency_code)} />
+            <Detail label="Maximum" value={amount(selected.band_maximum, selected.currency_code)} />
+            <Detail label="Description" value={selected.description || "No description recorded."} />
+            <RecordStamps record={selected} />
+          </HrDetailList>
         ) : null}
       </HrMasterSheet>
     </section>
@@ -625,13 +623,17 @@ function Money({ label, value, set }: { label: string; value: string; set: (valu
 }
 function Detail({ label, value, status = false }: { label: string; value: string; status?: boolean }) {
   return (
-    <div className="rounded-lg border border-border bg-muted/35 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      {status ? (
-        <HrMasterStatusBadge status={value} className="mt-2 inline-flex" />
-      ) : (
-        <p className="mt-1 font-semibold">{value}</p>
-      )}
-    </div>
+    <HrDetailTile label={label} value={status ? <HrMasterStatusBadge status={value} className="inline-flex" /> : value} />
+  );
+}
+/** "Created by", "Created" and "Last updated" rows, shown when the API provides them. */
+function RecordStamps({ record }: { record: { created_by_name?: string | null; created_at?: string; updated_at?: string } }) {
+  const when = (value?: string) => (value ? new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "");
+  return (
+    <>
+      {record.created_by_name ? <Detail label="Created by" value={record.created_by_name} /> : null}
+      {record.created_at ? <Detail label="Created" value={when(record.created_at)} /> : null}
+      {record.updated_at ? <Detail label="Last updated" value={when(record.updated_at)} /> : null}
+    </>
   );
 }

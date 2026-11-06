@@ -125,7 +125,7 @@ const app = createApp({
   chartTemplateRepository: new SourceChartTemplateRepository(pool),
   referenceMasterRepository: new SourceReferenceMasterRepository(pool),
   bankSelfApprovalRepository: new SourceBankSelfApprovalRepository(pool),
-  hrRepository: new SourceHrRepository(pool),
+  hrRepository: new SourceHrRepository(pool, "production", objectStorage),
   readiness: {
     master_data_foundation: async () => {
       const result = await pool.query<{ available: boolean }>(

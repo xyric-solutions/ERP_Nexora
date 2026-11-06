@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "./hr-drawer-context";
 import { HrRecordDrawer } from "./hr-record-drawer";
 
 import { useEffect, useRef, useState } from "react";
@@ -284,7 +285,7 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
                 }}
               />
             </label>
-            <div className="flex flex-wrap gap-2">
+            <HrDrawerActions>
               <Button
                 type="button"
                 disabled={
@@ -302,7 +303,7 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
               >
                 Reject
               </Button>
-            </div>
+            </HrDrawerActions>
           </>
         )}
       </HrRecordDrawer>

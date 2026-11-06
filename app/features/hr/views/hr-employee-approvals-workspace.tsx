@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -517,7 +518,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
                           placeholder="Explain the approval or rejection for the audit record."
                         />
                       </label>
-                      <div className="flex flex-wrap gap-2">
+                      <HrDrawerActions>
                         <Button
                           type="button"
                           disabled={saving || !reason.trim()}
@@ -533,7 +534,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
                         >
                           Reject draft
                         </Button>
-                      </div>
+                      </HrDrawerActions>
                       <p className="text-xs text-muted-foreground">
                         Approving this draft does not activate employment or payroll access.
                       </p>

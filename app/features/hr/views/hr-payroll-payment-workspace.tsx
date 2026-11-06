@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { useMemo, useRef, useState } from "react";
 import { ArrowRight, RefreshCw, ShieldCheck, Landmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -454,7 +455,7 @@ export function HrPayrollPaymentWorkspace({
                     disabled={busy}
                   />
                 </Field>
-                <div className="flex flex-wrap gap-2">
+                <HrDrawerActions>
                   <Button
                     type="submit"
                     className="text-primary-foreground!"
@@ -465,7 +466,7 @@ export function HrPayrollPaymentWorkspace({
                   <Button type="button" variant="outline" disabled={busy} onClick={() => setReview(null)}>
                     Cancel review
                   </Button>
-                </div>
+                </HrDrawerActions>
               </form>
             </HrRecordDrawer>
           )}

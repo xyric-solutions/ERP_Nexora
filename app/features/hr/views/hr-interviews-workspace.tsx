@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -190,7 +191,7 @@ function ScheduleForm({
           <Textarea required maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} />
         </label>
       )}
-      <div className="flex flex-wrap gap-2">
+      <HrDrawerActions>
         <Button
           type="submit"
           className="text-primary-foreground!"
@@ -201,7 +202,7 @@ function ScheduleForm({
         <Button type="button" variant="outline" disabled={busy} onClick={close}>
           Cancel
         </Button>
-      </div>
+      </HrDrawerActions>
     </form>
   );
 }

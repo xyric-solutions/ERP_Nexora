@@ -64,6 +64,11 @@ import type {
   CreateHrEmployeeEmergencyContactRequest,
   HrEmployeeEmergencyContactResult,
   HrEmployeeDocumentDirectory,
+  UploadHrEmployeeDocumentFields,
+  HrEmployeeRecordMutationResult,
+  HrEmployeeEmploymentHistoryDirectory,
+  HrEmployeeEmploymentHistoryRequest,
+  HrEmployeeNumberPreview,
   HrEmployeeAssignmentDirectory,
   HrEmployeeStatusHistoryDirectory,
   HrEmployeeLifecycleEventDirectory,
@@ -425,6 +430,49 @@ export class HrApiClient {
 
   employeeDocuments(employeeId: string): Promise<HrEmployeeDocumentDirectory> {
     return this.api.listHrEmployeeDocuments(employeeId);
+  }
+
+  // Employee record satellites (HR139): drafts and active employees in company scope.
+  employeeNumberPreview(companyId: string): Promise<HrEmployeeNumberPreview> {
+    return this.api.getHrEmployeeNumberPreview(query({ company_id: companyId }));
+  }
+  withdrawEmployeeDraft(employeeId: string, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.withdrawHrEmployeeDraft(employeeId, {}, csrfToken, idempotencyKey);
+  }
+  updateEmployeeContact(employeeId: string, contactId: string, input: CreateHrEmployeeContactRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.updateHrEmployeeContact(employeeId, contactId, input, csrfToken, idempotencyKey);
+  }
+  removeEmployeeContact(employeeId: string, contactId: string, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.removeHrEmployeeContact(employeeId, contactId, {}, csrfToken, idempotencyKey);
+  }
+  updateEmployeeEmergencyContact(employeeId: string, contactId: string, input: CreateHrEmployeeEmergencyContactRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.updateHrEmployeeEmergencyContact(employeeId, contactId, input, csrfToken, idempotencyKey);
+  }
+  removeEmployeeEmergencyContact(employeeId: string, contactId: string, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.removeHrEmployeeEmergencyContact(employeeId, contactId, {}, csrfToken, idempotencyKey);
+  }
+  uploadEmployeeDocument(employeeId: string, fields: UploadHrEmployeeDocumentFields, file: File, csrfToken: string, idempotencyKey: string, replacesDocumentId?: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.uploadHrEmployeeDocument(employeeId, fields, file, csrfToken, idempotencyKey, replacesDocumentId);
+  }
+  downloadEmployeeDocument(employeeId: string, documentId: string): Promise<Blob> {
+    return this.api.downloadHrEmployeeDocument(employeeId, documentId);
+  }
+  employeeDocumentUrl(employeeId: string, documentId: string, disposition: "inline" | "attachment" = "inline"): string {
+    return this.api.hrEmployeeDocumentContentUrl(employeeId, documentId, disposition);
+  }
+  removeEmployeeDocument(employeeId: string, documentId: string, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.removeHrEmployeeDocument(employeeId, documentId, {}, csrfToken, idempotencyKey);
+  }
+  employmentHistory(employeeId: string): Promise<HrEmployeeEmploymentHistoryDirectory> {
+    return this.api.listHrEmployeeEmploymentHistory(employeeId);
+  }
+  saveEmploymentHistory(employeeId: string, historyId: string | undefined, input: HrEmployeeEmploymentHistoryRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return historyId
+      ? this.api.updateHrEmployeeEmploymentHistory(employeeId, historyId, input, csrfToken, idempotencyKey)
+      : this.api.createHrEmployeeEmploymentHistory(employeeId, input, csrfToken, idempotencyKey);
+  }
+  removeEmploymentHistory(employeeId: string, historyId: string, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.removeHrEmployeeEmploymentHistory(employeeId, historyId, {}, csrfToken, idempotencyKey);
   }
 
   employeeAssignments(employeeId: string): Promise<HrEmployeeAssignmentDirectory> {

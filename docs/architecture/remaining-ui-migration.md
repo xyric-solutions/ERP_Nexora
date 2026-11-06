@@ -4267,3 +4267,51 @@ Company Chart adoption/review checkpoint (2026-10-20):
   `tests/contract/openapi.test.ts` path list (already stale) and
   `tests/unit/user-management-components.test.ts`. Browser click-through at
   desktop/tablet/mobile widths and light/dark is pending.
+
+## 2026-11-06 - Add Employee steps, employee record files and one drawer layout
+
+- HR139 (`packages/db/source-migrations/hr/0139_*`): employee documents carry an
+  uploaded file (private object storage, `storage_key` never exposed) with file
+  name, media type, size and SHA-256; documents stay append-only except one
+  audited removal; replacements supersede. New `hr_employee_employment_history`
+  (company, position, period, skills, last salary/currency) with tenant RLS.
+- API (`server/api/src/modules/hr/employees/employee-records.ts`, routes in the
+  HR router, OpenAPI and generated client): employee number preview; draft
+  withdraw (delete of an unsubmitted draft, audit kept); contact and emergency
+  contact edit (close + replace) and remove; document upload/replace
+  (multipart, 10 MB, PDF/HTML/JPEG/PNG/JSON/CSV/text with content checks),
+  content download (HTML served with a sandbox CSP) and remove; employment
+  history list/create/update/remove. Contacts, emergency contacts and documents
+  now accept drafts in the actor's draft company scope (read-only while pending
+  approval). Approved employees keep governed profile edits (Personal Data
+  Corrections) and cannot be deleted.
+- Add Employee (`views/hr-employee-wizard.tsx`): one drawer, five steps (basic,
+  contacts, emergency contacts, documents, employment history) with Previous /
+  Next; the read-only employee number preview sits at the top; Create saves the
+  draft and every entry; partial failures keep the saved draft and the failed
+  rows for retry. The same drawer edits drafts (Employee Drafts) and approved
+  employees (Employee Directory) with Save changes. `hr-employee-draft-form.tsx`
+  and `employeeRecordAreaActions` were removed (no remaining references).
+- Employee Directory: compact rows with an Edit icon at the row end; the
+  overview drawer no longer shows the five Related records buttons. Employee
+  Drafts: Edit and Delete icons at the row end and in the review drawer footer.
+- One drawer layout for HR & Payroll (`components/hr-master-sheet.tsx`): one
+  width (sm:max-w-2xl) and full height; compact header with the page's section
+  name (`HrDrawerSectionProvider` in the shell) and the record name only (the
+  description is screen-reader only); one bottom action area without the top
+  border. `HrDrawerActions` renders a drawer's action row there (48 rows moved
+  across 29 files) and falls back in place outside drawers; submit buttons keep
+  submitting their form. `HrDetailTile`/`HrDetailGroup`/`HrDetailList` are now
+  vertical label/value rows; Organisation Structure, Cost Centres, Work
+  Locations, Employment Setup, Designations, Jobs, Job Grades, Manpower
+  Requisitions and Job Openings use them, with Created by / Created / Last
+  updated where the API provides them (org units read the creator from the
+  audit log).
+- Verification: API and web `tsc`, ESLint (new files clean; no new findings in
+  changed files vs HEAD), unit tests (new `hr-employee-wizard.test.tsx`: step
+  gating, data kept across steps, full Create sequence, partial-failure retry,
+  drawer action submit bridge), 22 repository checks against a throwaway clone
+  with real MinIO (orphan test objects removed afterwards), UI theme audit,
+  `git diff --check`, `api:check`, production build. Pre-existing failures:
+  OpenAPI path-list test and `user-management-components.test.ts`. Browser
+  click-through at desktop/tablet/mobile and light/dark is pending.

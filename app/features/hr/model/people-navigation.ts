@@ -99,12 +99,3 @@ export const peopleGroups = [
 
 export const peoplePages = peopleGroups.flatMap((group) => [...group.pages]);
 export const isPeoplePage = (id: string) => id === "people-workspace" || peoplePages.some((page) => page.id === id);
-
-/** Actions for each employee record area, shown in the Add Employee drawer. */
-export const employeeRecordAreaActions = [
-  { pageId: "employee-contacts", label: "Add contact" },
-  { pageId: "employee-emergency-contacts", label: "Add emergency contact" },
-  { pageId: "employee-documents", label: "Add document" },
-  { pageId: "employee-assignments", label: "Add assignment" },
-  { pageId: "employee-status-history", label: "View history" },
-] as const;

@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
@@ -581,14 +582,14 @@ function ShiftEditor({
           placeholder="Explain the company working arrangement and reason for these rules"
         />
       </label>
-      <div className="flex flex-wrap gap-2">
+      <HrDrawerActions>
         <Button type="submit" className="text-primary-foreground!" disabled={busy || !context || contextBusy}>
           {busy ? "Saving…" : initial && !editor.copy ? "Save shift rules" : "Create shift"}
         </Button>
         <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
           Cancel
         </Button>
-      </div>
+      </HrDrawerActions>
     </form>
   );
 }

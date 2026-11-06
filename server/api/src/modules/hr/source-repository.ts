@@ -1,4 +1,10 @@
 import { allocateHrCode, isHrCodeKind, retireHrCode } from "./record-codes.js";
+import {
+  HrEmployeeRecords,
+  requireEmployeeRecordScope,
+  type EmployeeDocumentFile,
+  type HrEmployeeRecordAuditAction,
+} from "./employees/employee-records.js";
 import {LearningDevelopment} from "./learning.js";
 import type {HrLearningQuery,HrLearningAction} from "@nexora/contracts";
 import type {HrSelfLeaveContextQuery,CreateHrSelfLeaveRequest,HrSelfLeaveAction} from '@nexora/contracts';
@@ -483,7 +489,63 @@ function decodeEmployeeHistoryCursor(
 }
 
 export class SourceHrRepository {
-  constructor(private readonly pool: Pool,private readonly statutoryMode:StatutoryExecutionMode='production') {}
+  constructor(
+    private readonly pool: Pool,
+    private readonly statutoryMode: StatutoryExecutionMode = "production",
+    /** Private object storage for employee document files (HR139). */
+    private readonly documentStorage?: ConstructorParameters<typeof HrEmployeeRecords>[0]["storage"],
+  ) {}
+
+  private employeeRecords() {
+    return new HrEmployeeRecords({
+      pool: this.pool,
+      ...(this.documentStorage ? { storage: this.documentStorage } : {}),
+      audit: (client, c, corr, action, entityType, entityId, before, after) =>
+        this.appendPlatformAudit(client, c, corr, action, {
+          entityId,
+          entityType,
+          before,
+          after,
+          sourceReference: `hr:employee-records:${entityId}`,
+        }),
+    });
+  }
+  async employeeNumberPreview(c: HrActorContext, companyId: string) {
+    return this.employeeRecords().employeeNumberPreview(c, companyId);
+  }
+  async withdrawEmployeeDraft(c: HrActorContext, employeeId: string, input: Parameters<HrEmployeeRecords["withdrawDraft"]>[2], key: string, corr: string) {
+    return this.employeeRecords().withdrawDraft(c, employeeId, input, key, corr);
+  }
+  async updateEmployeeContact(c: HrActorContext, employeeId: string, contactId: string, input: CreateHrEmployeeContactRequest, key: string, corr: string) {
+    return this.employeeRecords().updateContact(c, employeeId, contactId, input, key, corr);
+  }
+  async removeEmployeeContact(c: HrActorContext, employeeId: string, contactId: string, input: Parameters<HrEmployeeRecords["removeContact"]>[3], key: string, corr: string) {
+    return this.employeeRecords().removeContact(c, employeeId, contactId, input, key, corr);
+  }
+  async updateEmployeeEmergencyContact(c: HrActorContext, employeeId: string, contactId: string, input: CreateHrEmployeeEmergencyContactRequest, key: string, corr: string) {
+    return this.employeeRecords().updateEmergencyContact(c, employeeId, contactId, input, key, corr);
+  }
+  async removeEmployeeEmergencyContact(c: HrActorContext, employeeId: string, contactId: string, input: Parameters<HrEmployeeRecords["removeEmergencyContact"]>[3], key: string, corr: string) {
+    return this.employeeRecords().removeEmergencyContact(c, employeeId, contactId, input, key, corr);
+  }
+  async uploadEmployeeDocument(c: HrActorContext, employeeId: string, fields: Parameters<HrEmployeeRecords["uploadDocument"]>[2], file: EmployeeDocumentFile, key: string, corr: string, replaces?: string) {
+    return this.employeeRecords().uploadDocument(c, employeeId, fields, file, key, corr, replaces);
+  }
+  async employeeDocumentContent(c: HrActorContext, employeeId: string, documentId: string) {
+    return this.employeeRecords().documentContent(c, employeeId, documentId);
+  }
+  async removeEmployeeDocument(c: HrActorContext, employeeId: string, documentId: string, input: Parameters<HrEmployeeRecords["removeDocument"]>[3], key: string, corr: string) {
+    return this.employeeRecords().removeDocument(c, employeeId, documentId, input, key, corr);
+  }
+  async listEmployeeEmploymentHistory(c: HrActorContext, employeeId: string) {
+    return this.employeeRecords().listHistory(c, employeeId);
+  }
+  async saveEmployeeEmploymentHistory(c: HrActorContext, employeeId: string, historyId: string | undefined, input: Parameters<HrEmployeeRecords["saveHistory"]>[3], key: string, corr: string) {
+    return this.employeeRecords().saveHistory(c, employeeId, historyId, input, key, corr);
+  }
+  async removeEmployeeEmploymentHistory(c: HrActorContext, employeeId: string, historyId: string, input: Parameters<HrEmployeeRecords["removeHistory"]>[3], key: string, corr: string) {
+    return this.employeeRecords().removeHistory(c, employeeId, historyId, input, key, corr);
+  }
 
   private attendanceDependencies():AttendanceCompletionDependencies{return {pool:this.pool,read:(context,permission,operation)=>this.read(context,permission,operation),company:(...args)=>this.requireCompanyAccess(...args),evidence:(...args)=>this.correctionEvidence(...args),employees:(...args)=>this.selectAttendanceEmployees(...args),days:(...args)=>this.readAttendanceDays(...args),override:(...args)=>this.resolveApprovalOverride(...args),audit:(client,context,corr,id,before,after)=>this.appendPlatformAudit(client,context,corr,'hr.attendance.completion',{entityId:id,before,after,sourceReference:'hr:attendance-completion:'+id})};}
   private completion(){return new AttendanceCompletion(this.attendanceDependencies());}
@@ -655,16 +717,21 @@ export class SourceHrRepository {
         values.push(query.limit);
         const result = await client.query<HrOrganizationUnitDirectory["items"][number]>(
           `with recursive company_tree as (
-           select id,parent_id,type,code,name,status,created_at
+           select id,parent_id,type,code,name,status,created_at,updated_at
              from organization_unit
             where tenant_id=$1 and id=$2 and type='company' and status='active'
            union all
-           select child.id,child.parent_id,child.type,child.code,child.name,child.status,child.created_at
+           select child.id,child.parent_id,child.type,child.code,child.name,child.status,child.created_at,child.updated_at
              from organization_unit child
              join company_tree parent on child.parent_id=parent.id
             where child.tenant_id=$1
          )
-         select unit.id,unit.parent_id,unit.type,unit.code,unit.name,unit.status,unit.created_at,
+         select unit.id,unit.parent_id,unit.type,unit.code,unit.name,unit.status,unit.created_at,unit.updated_at,
+                (select coalesce(account.display_name,account.email,event.actor_id)
+                   from platform_admin_audit_event event
+                   left join security_user_account account on account.tenant_id=event.tenant_id and account.id=event.actor_id
+                  where event.tenant_id=$1 and event.entity_id=unit.id and event.action='hr.organization.create'
+                  order by event.sequence limit 1) as created_by_name,
                 (select concat_ws(' ',employee.first_name,employee.last_name)
                    from hr_organization_head_assignment head_assignment
                    join employee on employee.tenant_id=head_assignment.tenant_id and employee.id=head_assignment.employee_id
@@ -3723,7 +3790,7 @@ export class SourceHrRepository {
 
   async listEmployeeContacts(context: HrActorContext, employeeId: string): Promise<HrEmployeeContactDirectory> {
     return this.read(context, "hr.employee_contact.read", async (client) => {
-      await this.requireActiveEmployeeCompanyScope(client, context, employeeId);
+      await requireEmployeeRecordScope(client, context, employeeId, "read");
       const result = await client.query<{
         id: string;
         employee_id: string;
@@ -3772,7 +3839,7 @@ export class SourceHrRepository {
       await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
         `nexora:hr:employee-contact:${context.tenantId}:${employeeId}`,
       ]);
-      await this.requireActiveEmployeeCompanyScope(client, context, employeeId);
+      await requireEmployeeRecordScope(client, context, employeeId, "write");
       const path = `/api/v1/hr/employees/${employeeId}/contacts`;
       const fingerprint = stateHash(input);
       const replay = await client.query<{ request_fingerprint: string; response_body: HrEmployeeContactResult }>(
@@ -3850,7 +3917,7 @@ export class SourceHrRepository {
     employeeId: string,
   ): Promise<HrEmployeeEmergencyContactDirectory> {
     return this.read(context, "hr.employee_emergency_contact.read", async (client) => {
-      await this.requireActiveEmployeeCompanyScope(client, context, employeeId);
+      await requireEmployeeRecordScope(client, context, employeeId, "read");
       const result = await client.query<{
         id: string;
         employee_id: string;
@@ -3899,7 +3966,7 @@ export class SourceHrRepository {
       await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
         `nexora:hr:employee-emergency-contact:${context.tenantId}:${employeeId}`,
       ]);
-      await this.requireActiveEmployeeCompanyScope(client, context, employeeId);
+      await requireEmployeeRecordScope(client, context, employeeId, "write");
       const path = `/api/v1/hr/employees/${employeeId}/emergency_contacts`;
       const fingerprint = stateHash(input);
       const replay = await client.query<{
@@ -3978,39 +4045,8 @@ export class SourceHrRepository {
   }
 
   async listEmployeeDocuments(context: HrActorContext, employeeId: string): Promise<HrEmployeeDocumentDirectory> {
-    return this.read(context, "hr.employee_document.read", async (client) => {
-      await this.requireActiveEmployeeCompanyScope(client, context, employeeId);
-      const result = await client.query<{
-        id: string;
-        employee_id: string;
-        document_type: string;
-        title: string;
-        reference: string;
-        issued_on: string | Date | null;
-        expires_on: string | Date | null;
-        restricted: boolean;
-        issuing_authority: string;
-        verification_status: "unverified" | "pending" | "verified" | "rejected" | "expired";
-        status: "active" | "inactive";
-        created_at: string | Date;
-      }>(
-        `select id,employee_id,document_type,title,reference,issued_on,expires_on,restricted,
-                issuing_authority,verification_status,status,created_at
-           from employee_document
-          where tenant_id=$1 and employee_id=$2
-          order by status='active' desc,expires_on nulls last,created_at desc,id
-          limit 100`,
-        [context.tenantId, employeeId],
-      );
-      return {
-        items: result.rows.map((row) => ({
-          ...row,
-          issued_on: row.issued_on === null ? null : dateOnly(row.issued_on),
-          expires_on: row.expires_on === null ? null : dateOnly(row.expires_on),
-          created_at: new Date(row.created_at).toISOString(),
-        })),
-      };
-    });
+    // Draft-aware scope and file metadata (HR139) live in the employee-records module.
+    return this.employeeRecords().listDocuments(context, employeeId);
   }
 
   async listEmployeeAssignments(context: HrActorContext, employeeId: string): Promise<HrEmployeeAssignmentDirectory> {
@@ -7382,12 +7418,19 @@ export class SourceHrRepository {
         pay_cycle: HrMasterDirectory["items"][number]["pay_cycle"];
         owning_org_unit_id: string | null;
         owning_org_unit: string | null;
+        created_by_name: string | null;
+        created_at: string;
+        updated_at: string;
       }>(
         `select master.id, master.company_id, master.master_type as type, master.code, master.name, master.description, master.status,
                 master.configuration_key,master.configuration_value,master.payment_route,master.pay_cycle,
-                master.owning_org_unit_id,owner.name as owning_org_unit
+                master.owning_org_unit_id,owner.name as owning_org_unit,
+                coalesce(account.display_name,account.email,master.created_by) as created_by_name,
+                to_char(master.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
+                to_char(master.updated_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at
            from hr_master_record master
            left join organization_unit owner on owner.tenant_id=master.tenant_id and owner.id=master.owning_org_unit_id
+           left join security_user_account account on account.tenant_id=master.tenant_id and account.id=master.created_by
           where ${filters.map((filter) => `master.${filter}`).join(" and ")}
           order by master.master_type, master.code, master.id limit $${values.length}`,
         values,
@@ -8505,6 +8548,7 @@ export class SourceHrRepository {
       | "hr.employee_assignment.work_location_change.decide"
       | "hr.employee_assignment.organization_change.request"
       | "hr.employee_assignment.organization_change.decide"
+      | HrEmployeeRecordAuditAction
       | "hr.manpower_requisition.create"
       | "hr.manpower_requisition.submitted"
       | "hr.manpower_requisition.approved"
@@ -8531,7 +8575,7 @@ export class SourceHrRepository {
       | "hr.learning.workflow",
     mutation: {
       entityId: string;
-      entityType?: "hr_learning_record" | "hr_personal_data_correction" | "hr_report_export" | "hr_settlement_entitlement" | "hr_employment_policy_adoption" | "hr_lifecycle_case" | "hr_performance_record" | "hr_payroll_workspace" | "employee" | "employment_lifecycle_policy" | "hr_master_record" | "employment_relationship" | "organization_unit" | "hr_manpower_requisition" | "hr_job_opening" | "hr_candidate" | "hr_recruitment_application" | "hr_recruitment_offer" | "hr_shift" | "hr_shift_assignment" | "hr_attendance_correction";
+      entityType?: "employee_contact" | "employee_emergency_contact" | "employee_document" | "hr_employee_employment_history" | "hr_learning_record" | "hr_personal_data_correction" | "hr_report_export" | "hr_settlement_entitlement" | "hr_employment_policy_adoption" | "hr_lifecycle_case" | "hr_performance_record" | "hr_payroll_workspace" | "employee" | "employment_lifecycle_policy" | "hr_master_record" | "employment_relationship" | "organization_unit" | "hr_manpower_requisition" | "hr_job_opening" | "hr_candidate" | "hr_recruitment_application" | "hr_recruitment_offer" | "hr_shift" | "hr_shift_assignment" | "hr_attendance_correction";
       before: unknown;
       after: unknown;
       sourceReference?: string;

@@ -75,6 +75,9 @@ export const hrOrganizationUnitDirectorySchema = z.strictObject({
       created_at: z.string().datetime(),
       head_name: z.string().nullable(),
       employee_count: z.number().int().nonnegative(),
+      /** Who created the unit (from its audit event) and when it last changed. */
+      created_by_name: z.string().max(320).nullable().optional(),
+      updated_at: z.string().datetime().optional(),
     }),
   ),
 });
@@ -248,8 +251,98 @@ export const hrEmployeeDocumentSchema = z.strictObject({
   verification_status: z.enum(["unverified", "pending", "verified", "rejected", "expired"]),
   status: z.enum(["active", "inactive"]),
   created_at: z.string().datetime(),
+  /** Uploaded file metadata (HR139); the storage key is never exposed. */
+  notes: z.string().max(1000),
+  has_file: z.boolean(),
+  file_name: z.string().min(1).max(255).nullable(),
+  content_type: z.string().min(3).max(120).nullable(),
+  size_bytes: z.number().int().min(1).nullable(),
+  supersedes_document_id: identifier.nullable(),
 });
 export const hrEmployeeDocumentDirectorySchema = z.strictObject({ items: z.array(hrEmployeeDocumentSchema) });
+
+/** Largest employee document upload, in bytes (10 MiB). */
+export const hrEmployeeDocumentMaxBytes = 10 * 1024 * 1024;
+/** File types accepted for employee documents, by extension and media type. */
+export const hrEmployeeDocumentFileTypes = [
+  { extension: "pdf", mediaType: "application/pdf", label: "PDF" },
+  { extension: "html", mediaType: "text/html", label: "HTML" },
+  { extension: "htm", mediaType: "text/html", label: "HTML" },
+  { extension: "jpg", mediaType: "image/jpeg", label: "JPEG" },
+  { extension: "jpeg", mediaType: "image/jpeg", label: "JPEG" },
+  { extension: "png", mediaType: "image/png", label: "PNG" },
+  { extension: "json", mediaType: "application/json", label: "JSON" },
+  { extension: "csv", mediaType: "text/csv", label: "CSV" },
+  { extension: "txt", mediaType: "text/plain", label: "Text" },
+] as const;
+/** Multipart text fields sent with an employee document file. */
+export const uploadHrEmployeeDocumentFieldsSchema = z
+  .strictObject({
+    document_type: z.string().trim().min(1).max(80),
+    title: z.string().trim().min(1).max(200),
+    reference: z.string().trim().max(120).default(""),
+    issued_on: isoDate.optional(),
+    expires_on: isoDate.optional(),
+    notes: z.string().trim().max(1000).default(""),
+  })
+  .refine((value) => !value.issued_on || !value.expires_on || value.expires_on >= value.issued_on, {
+    path: ["expires_on"],
+    message: "The expiry date cannot be before the issue date.",
+  });
+/** Result of an employee record satellite write (document, contact, history, draft withdrawal). */
+export const hrEmployeeRecordMutationResultSchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  audit_event_id: identifier,
+  replayed: z.boolean(),
+});
+export const removeHrEmployeeRecordRequestSchema = z.strictObject({
+  reason: z.string().trim().max(500).default(""),
+});
+
+/** Previous employment captured on the employee record (HR139). */
+export const hrEmployeeEmploymentHistorySchema = z.strictObject({
+  id: identifier,
+  employee_id: identifier,
+  company_name: z.string().min(1).max(200),
+  job_title: z.string().min(1).max(160),
+  start_on: isoDate,
+  end_on: isoDate.nullable(),
+  skills: z.array(z.string().min(1).max(100)).max(30),
+  last_salary: z.string().regex(/^\d{1,14}(\.\d{1,4})?$/).nullable(),
+  salary_currency: z.string().regex(/^[A-Z]{3}$/).nullable(),
+  responsibilities: z.string().max(2000),
+  reason_for_leaving: z.string().max(500),
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+});
+export const hrEmployeeEmploymentHistoryDirectorySchema = z.strictObject({
+  items: z.array(hrEmployeeEmploymentHistorySchema),
+});
+export const hrEmployeeEmploymentHistoryRequestSchema = z
+  .strictObject({
+    company_name: z.string().trim().min(1).max(200),
+    job_title: z.string().trim().min(1).max(160),
+    start_on: isoDate,
+    end_on: isoDate.optional(),
+    skills: z.array(z.string().trim().min(1).max(100)).max(30).default([]),
+    last_salary: z.string().trim().regex(/^\d{1,14}(\.\d{1,4})?$/).optional(),
+    salary_currency: z.string().trim().regex(/^[A-Z]{3}$/).optional(),
+    responsibilities: z.string().trim().max(2000).default(""),
+    reason_for_leaving: z.string().trim().max(500).default(""),
+  })
+  .superRefine((value, context) => {
+    if (value.end_on && value.end_on < value.start_on)
+      context.addIssue({ code: "custom", path: ["end_on"], message: "The end date cannot be before the start date." });
+    if ((value.last_salary === undefined) !== (value.salary_currency === undefined))
+      context.addIssue({ code: "custom", path: ["salary_currency"], message: "Give the previous salary with its currency." });
+  });
+
+/** Next automatic employee number, shown before saving; the server reserves the final code on create. */
+export const hrEmployeeNumberPreviewSchema = z.strictObject({ employee_number: z.string().min(1).max(32) });
+export const withdrawHrEmployeeDraftRequestSchema = z.strictObject({
+  reason: z.string().trim().max(500).default(""),
+});
 
 /** Immutable, scoped assignment timeline; it does not authorize a movement. */
 /** Employment Setup terms (HR134). */
@@ -1169,6 +1262,9 @@ export const hrMasterRecordSchema = z.strictObject({
   /** Jobs: the department the job title belongs to. */
   owning_org_unit_id: identifier.nullable().optional(),
   owning_org_unit: z.string().min(1).max(200).nullable().optional(),
+  created_by_name: z.string().max(320).nullable().optional(),
+  created_at: z.string().datetime().optional(),
+  updated_at: z.string().datetime().optional(),
 });
 export const createHrJobRequestSchema = z.strictObject({
   company_id: identifier,
@@ -1753,6 +1849,14 @@ export type CreateHrEmployeeContactRequest = z.infer<typeof createHrEmployeeCont
 export type HrEmployeeContactResult = z.infer<typeof hrEmployeeContactResultSchema>;
 export type HrEmployeeEmergencyContactDirectory = z.infer<typeof hrEmployeeEmergencyContactDirectorySchema>;
 export type CreateHrEmployeeEmergencyContactRequest = z.infer<typeof createHrEmployeeEmergencyContactRequestSchema>;
+export type UploadHrEmployeeDocumentFields = z.input<typeof uploadHrEmployeeDocumentFieldsSchema>;
+export type HrEmployeeRecordMutationResult = z.infer<typeof hrEmployeeRecordMutationResultSchema>;
+export type RemoveHrEmployeeRecordRequest = z.input<typeof removeHrEmployeeRecordRequestSchema>;
+export type HrEmployeeEmploymentHistory = z.infer<typeof hrEmployeeEmploymentHistorySchema>;
+export type HrEmployeeEmploymentHistoryDirectory = z.infer<typeof hrEmployeeEmploymentHistoryDirectorySchema>;
+export type HrEmployeeEmploymentHistoryRequest = z.input<typeof hrEmployeeEmploymentHistoryRequestSchema>;
+export type HrEmployeeNumberPreview = z.infer<typeof hrEmployeeNumberPreviewSchema>;
+export type WithdrawHrEmployeeDraftRequest = z.input<typeof withdrawHrEmployeeDraftRequestSchema>;
 export type HrEmployeeEmergencyContactResult = z.infer<typeof hrEmployeeEmergencyContactResultSchema>;
 export type HrEmployeeDocumentDirectory = z.infer<typeof hrEmployeeDocumentDirectorySchema>;
 export type HrEmployeeAssignmentDirectory = z.infer<typeof hrEmployeeAssignmentDirectorySchema>;

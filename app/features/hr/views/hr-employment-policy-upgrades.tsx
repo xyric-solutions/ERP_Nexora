@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -251,14 +252,14 @@ export function HrEmploymentPolicyUpgrades({
                 onChange={(e) => setReason(e.target.value)}
               />
             </Field>
-            <div className="flex flex-wrap gap-2">
+            <HrDrawerActions>
               <Button type="submit" className="text-primary-foreground!" disabled={busy}>
                 Submit upgrade request
               </Button>
               <Button type="button" variant="outline" disabled={busy} onClick={() => setRequesting(false)}>
                 Cancel preparation
               </Button>
-            </div>
+            </HrDrawerActions>
           </form>
         </HrRecordDrawer>
       )}
@@ -291,7 +292,7 @@ export function HrEmploymentPolicyUpgrades({
                       <State value={i.state} />
                     </td>
                     <td className="px-3 py-4">
-                      <div className="flex flex-wrap gap-2">
+                      <HrDrawerActions>
                         <Button size="sm" variant="outline" disabled={busy} onClick={() => setOpened(i.id)}>
                           Review upgrade
                         </Button>
@@ -314,7 +315,7 @@ export function HrEmploymentPolicyUpgrades({
                                 : "Cancel request"}
                           </Button>
                         ))}
-                      </div>
+                      </HrDrawerActions>
                     </td>
                   </tr>
                 ))}
@@ -391,14 +392,14 @@ export function HrEmploymentPolicyUpgrades({
               onChange={(e) => setReason(e.target.value)}
             />
           </Field>
-          <div className="flex flex-wrap gap-2">
+          <HrDrawerActions>
             <Button type="submit" className="text-primary-foreground!" disabled={busy}>
               Confirm upgrade decision
             </Button>
             <Button type="button" variant="outline" disabled={busy} onClick={() => setDecision(null)}>
               Close decision
             </Button>
-          </div>
+          </HrDrawerActions>
           <UpgradeDetail record={decision.record} />
         </form>
       )}

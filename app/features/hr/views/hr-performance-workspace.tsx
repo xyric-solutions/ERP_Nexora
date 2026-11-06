@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { PerformanceParticipation, PersonalPerformanceInbox } from "./hr-performance-participation";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -512,14 +513,14 @@ function PerformanceForm({
           disabled={busy}
         />
       </Field>
-      <div className="flex flex-wrap gap-2">
+      <HrDrawerActions>
         <Button type="submit" disabled={busy} className="text-primary-foreground!">
           {busy ? "Saving…" : "Save draft"}
         </Button>
         <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>
           Cancel editing
         </Button>
-      </div>
+      </HrDrawerActions>
     </form>
   );
 }
@@ -952,14 +953,14 @@ export function HrPerformanceWorkspace({
                   onChange={(e) => setReason(e.target.value)}
                 />
               </Field>
-              <div className="flex flex-wrap gap-2">
+              <HrDrawerActions>
                 <Button type="submit" className="text-primary-foreground!" disabled={busy}>
                   {busy ? "Saving…" : "Confirm action"}
                 </Button>
                 <Button type="button" variant="outline" disabled={busy} onClick={() => setDecision(null)}>
                   Cancel review
                 </Button>
-              </div>
+              </HrDrawerActions>
             </form>
           )}
           {r && (

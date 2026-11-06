@@ -1,4 +1,5 @@
 "use client";
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type {
@@ -254,14 +255,14 @@ function OfferEditor({
         Terms become fixed on submission. Active master choices are limited to 100 per type; up to 100 employee matches
         are shown.
       </p>
-      <div className="flex flex-wrap gap-2">
+      <HrDrawerActions>
         <Button type="submit" className="text-primary-foreground!" disabled={busy}>
           {busy ? "Saving…" : "Save offer draft"}
         </Button>
         <Button type="button" variant="outline" disabled={busy} onClick={close}>
           Cancel
         </Button>
-      </div>
+      </HrDrawerActions>
     </form>
   );
 }
