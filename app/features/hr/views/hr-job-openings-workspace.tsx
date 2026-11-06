@@ -72,11 +72,35 @@ export function HrJobOpeningsWorkspace() {
       });
   }, [canRead, client, load, sessionLoading]);
   const selected = items.find((item) => item.id === selectedId);
+  // Mirrors the server rule: non-cancelled openings draw down the requisition's approved headcount.
+  const chosenRequisition = approved.find((item) => item.id === requisitionId);
+  const raisedHeadcount = items
+    .filter((item) => item.requisition_id === requisitionId && item.state !== "cancelled")
+    .reduce((total, item) => total + item.positions_requested, 0);
+  const availableHeadcount = chosenRequisition
+    ? Math.max(0, chosenRequisition.positions_requested - raisedHeadcount)
+    : null;
+  const chooseRequisition = (id: string) => {
+    const requisition = approved.find((item) => item.id === id);
+    setRequisitionId(id);
+    // Start from the requisition's job title; recruiters can still adjust the advertised wording.
+    if (requisition && (!title.trim() || approved.some((item) => item.job_title === title))) setTitle(requisition.job_title);
+  };
   const save = async () => {
     if (saving) return;
     const count = Number(headcount);
     if (!requisitionId || !title.trim() || !Number.isInteger(count) || count < 1) {
-      setMessage("Select an approved requisition and provide a title and valid headcount.");
+      setMessage("Select an approved requisition and provide a title and the number of positions to fill.");
+      return;
+    }
+    if (availableHeadcount !== null && count > availableHeadcount) {
+      setMessage(
+        `Only ${availableHeadcount} approved position${availableHeadcount === 1 ? " is" : "s are"} still unassigned on this requisition.`,
+      );
+      return;
+    }
+    if (!channels.split(",").some((value) => value.trim())) {
+      setMessage("Name at least one channel where this vacancy will be advertised.");
       return;
     }
     setSaving(true);
@@ -101,7 +125,9 @@ export function HrJobOpeningsWorkspace() {
       setSelectedId(result.id);
       await load(companyId);
     } catch {
-      setMessage("The opening was rejected. An approved requisition with enough unused headcount is required.");
+      setMessage(
+        "The opening was rejected. It needs an approved requisition with enough positions that are not already in another opening.",
+      );
     } finally {
       setSaving(false);
     }
@@ -190,7 +216,7 @@ export function HrJobOpeningsWorkspace() {
           <Button
             onClick={() => {
               setEditor(true);
-              setRequisitionId(approved[0]?.id ?? "");
+              chooseRequisition(approved[0]?.id ?? "");
             }}
           >
             + Create opening
@@ -208,7 +234,7 @@ export function HrJobOpeningsWorkspace() {
                   <th className="px-4 py-3 text-left">Reference</th>
                   <th className="px-4 py-3 text-left">Opening</th>
                   <th className="px-4 py-3 text-left">Requisition</th>
-                  <th className="px-4 py-3 text-left">Headcount</th>
+                  <th className="px-4 py-3 text-left">Unfilled positions</th>
                   <th className="px-4 py-3 text-left">Closing</th>
                   <th className="px-4 py-3 text-left">State</th>
                 </tr>
@@ -244,6 +270,9 @@ export function HrJobOpeningsWorkspace() {
                     <td className="px-4 py-3">{item.requisition_reference}</td>
                     <td className="px-4 py-3">
                       {item.remaining_positions} of {item.positions_requested}
+                      <span className="block text-xs text-muted-foreground">
+                        {item.filled_positions} hired
+                      </span>
                     </td>
                     <td className="px-4 py-3">{item.closing_on ?? "Not set"}</td>
                     <td className="px-4 py-3">
@@ -283,12 +312,12 @@ export function HrJobOpeningsWorkspace() {
                   <select
                     className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
                     value={requisitionId}
-                    onChange={(event) => setRequisitionId(event.target.value)}
+                    onChange={(event) => chooseRequisition(event.target.value)}
                   >
                     <option value="">Select</option>
                     {approved.map((item) => (
                       <option key={item.id} value={item.id}>
-                        {item.reference} · {item.job_title} ({item.positions_requested})
+                        {item.reference} · {item.job_title} ({item.positions_requested} approved)
                       </option>
                     ))}
                   </select>
@@ -298,12 +327,30 @@ export function HrJobOpeningsWorkspace() {
                   <Input value={title} onChange={(event) => setTitle(event.target.value)} />
                 </label>
                 <label className="grid gap-1 text-sm">
-                  Headcount
-                  <Input inputMode="numeric" value={headcount} onChange={(event) => setHeadcount(event.target.value)} />
+                  Positions to fill
+                  <Input
+                    inputMode="numeric"
+                    value={headcount}
+                    onChange={(event) => setHeadcount(event.target.value)}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    How many people this opening will hire.
+                    {chosenRequisition && availableHeadcount !== null
+                      ? ` ${availableHeadcount} of ${chosenRequisition.positions_requested} approved position${chosenRequisition.positions_requested === 1 ? "" : "s"} on ${chosenRequisition.reference} ${availableHeadcount === 1 ? "is" : "are"} not yet in another opening.`
+                      : " It cannot exceed the positions still available on the approved requisition."}
+                  </span>
                 </label>
                 <label className="grid gap-1 text-sm">
-                  Channels (comma separated)
-                  <Input value={channels} onChange={(event) => setChannels(event.target.value)} />
+                  Advertising channels
+                  <Input
+                    value={channels}
+                    placeholder="Company website, LinkedIn, Employee referral"
+                    onChange={(event) => setChannels(event.target.value)}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    Where the vacancy is published or sourced, separated by commas. Recorded on the opening for
+                    reporting; nothing is posted automatically.
+                  </span>
                 </label>
                 <label className="grid gap-1 text-sm">
                   Closing date
@@ -339,10 +386,15 @@ export function HrJobOpeningsWorkspace() {
                   </div>
                   <div>
                     <dt className="text-muted-foreground">Positions</dt>
-                    <dd className="font-medium">{selected.remaining_positions} remaining</dd>
+                    <dd className="font-medium">
+                      {selected.remaining_positions} of {selected.positions_requested} unfilled
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        {selected.filled_positions} hired so far
+                      </span>
+                    </dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">Channels</dt>
+                    <dt className="text-muted-foreground">Advertised on</dt>
                     <dd className="font-medium">{selected.channels.join(", ")}</dd>
                   </div>
                   <div>

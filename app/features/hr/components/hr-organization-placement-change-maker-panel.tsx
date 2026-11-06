@@ -17,16 +17,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 
 import { HrApiClient } from "../api/hr-client";
+import {
+  isWithinUnit,
+  organizationUnitTypeLabels,
+  selectableOrganizationUnitTypes,
+  type OrganizationUnitType as PlacementType,
+} from "../model/organization-hierarchy";
 
-type PlacementType = HrOrganizationUnitDirectory["items"][number]["type"];
 type LoadState = "loading" | "ready" | "error";
-const levels: Array<{ type: PlacementType; key: keyof HrOrganizationPlacementSnapshot; label: string }> = [
-  { type: "business_unit", key: "business_unit_id", label: "Business unit" },
-  { type: "division", key: "division_id", label: "Division" },
-  { type: "branch", key: "branch_id", label: "Branch" },
-  { type: "department", key: "department_id", label: "Department" },
-  { type: "warehouse", key: "warehouse_id", label: "Warehouse" },
-];
+const placementKeys: Record<PlacementType, keyof HrOrganizationPlacementSnapshot> = {
+  business_unit: "business_unit_id",
+  branch: "branch_id",
+  division: "division_id",
+  department: "department_id",
+  warehouse: "warehouse_id",
+};
+/** Company -> Project -> Location -> Department; legacy levels follow their hierarchy position. */
+const allLevels: Array<{ type: PlacementType; key: keyof HrOrganizationPlacementSnapshot; label: string }> = (
+  ["business_unit", "branch", "division", "department", "warehouse"] as const
+).map((type) => ({ type, key: placementKeys[type], label: organizationUnitTypeLabels[type] }));
 
 function localDate(): string {
   const now = new Date();
@@ -105,6 +114,13 @@ export function HrOrganizationPlacementChangeMakerPanel({
     );
 
   const selection = proposed ?? current;
+  // Business units and warehouses are legacy levels: shown only while this company or employee still uses them.
+  const levels = allLevels.filter(
+    (level) =>
+      (selectableOrganizationUnitTypes as readonly PlacementType[]).includes(level.type) ||
+      units.some((unit) => unit.type === level.type) ||
+      Boolean(current[level.key]),
+  );
   const changed = JSON.stringify(selection) !== JSON.stringify(current);
   const retained = Object.values(selection).some(Boolean);
 
@@ -195,9 +211,14 @@ export function HrOrganizationPlacementChangeMakerPanel({
           <>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {levels.map((level, index) => {
-                const parentId = index === 0 ? null : selection[levels[index - 1]!.key];
+                // Options sit beneath the nearest level already chosen above this one.
+                const ancestorId = levels
+                  .slice(0, index)
+                  .map((item) => selection[item.key])
+                  .filter(Boolean)
+                  .at(-1);
                 const options = units.filter(
-                  (unit) => unit.type === level.type && (index === 0 || !parentId || unit.parent_id === parentId),
+                  (unit) => unit.type === level.type && (!ancestorId || isWithinUnit(units, unit.id, ancestorId)),
                 );
                 return (
                   <label key={level.type} className="grid gap-1.5 text-sm font-medium">

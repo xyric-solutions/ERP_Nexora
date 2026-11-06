@@ -224,6 +224,8 @@ export interface AppDependencies {
     | "listJobGrades"
     | "listJobGradeCurrencies"
     | "listRequisitionProjects"
+    | "listRequisitionWorkLocations"
+    | "listCostCentreNominals"
     | "createJobGrade"
     | "updateJobGrade"
     | "deleteJobGrade"

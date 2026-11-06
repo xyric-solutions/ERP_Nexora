@@ -358,6 +358,8 @@ import {
   hrJobGradeDirectorySchema,
   hrJobGradeCurrencyDirectorySchema,
   hrRequisitionProjectDirectorySchema,
+  hrRequisitionWorkLocationDirectorySchema,
+  hrCostCentreNominalDirectorySchema,
   createHrJobGradeRequestSchema,
   updateHrJobGradeRequestSchema,
   hrEmployeeContactDirectorySchema,
@@ -6271,6 +6273,52 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/hr/requisition_work_locations": {
+        get: {
+          operationId: "listHrRequisitionWorkLocations",
+          description:
+            "Active work locations of a company with the city from their current approved address profile, read for manpower requisitions. Ordered by name, at most 500. Requires hr.employee.read and company access.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Active company work locations available for requisitions",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrRequisitionWorkLocationDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/cost_centre_nominals": {
+        get: {
+          operationId: "listHrCostCentreNominals",
+          description:
+            "Active Finance nominals of a company offered as a cost centre's default nominal: postable, non-bank accounts with an active general-nominal approval where one applies. Ordered by code, at most 500. Requires hr.master.read and company access.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Finance nominals available as cost-centre default nominals",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrCostCentreNominalDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
       "/hr/requisition_projects": {
         get: {
           operationId: "listHrRequisitionProjects",
@@ -7550,6 +7598,8 @@ export function buildOpenApiDocument() {
         HrJobGradeDirectory: schema(hrJobGradeDirectorySchema),
         HrJobGradeCurrencyDirectory: schema(hrJobGradeCurrencyDirectorySchema),
         HrRequisitionProjectDirectory: schema(hrRequisitionProjectDirectorySchema),
+        HrRequisitionWorkLocationDirectory: schema(hrRequisitionWorkLocationDirectorySchema),
+        HrCostCentreNominalDirectory: schema(hrCostCentreNominalDirectorySchema),
         CreateHrJobGradeRequest: schema(createHrJobGradeRequestSchema),
         UpdateHrJobGradeRequest: schema(updateHrJobGradeRequestSchema),
         HrEmployeeContactDirectory: schema(hrEmployeeContactDirectorySchema),

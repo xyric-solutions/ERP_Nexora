@@ -16,7 +16,7 @@ import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { employmentSetupOptionLabel } from "../model/employment-setup";
 import { hiringBasisLabel, hiringBasisOptions, isHiringBasis } from "../model/hiring-basis";
-import { isWorkArrangement, workArrangementLabel, workArrangementOptions } from "../model/work-arrangement";
+import { isWorkArrangement, jobTypeOptions, workArrangementLabel } from "../model/work-arrangement";
 
 type Requisition = HrManpowerRequisitionDirectory["items"][number];
 type Editor = {
@@ -28,6 +28,7 @@ type Editor = {
   projectId: string;
   hiringBasis: HrHiringBasis | "";
   departmentId: string;
+  workLocationId: string;
   positions: string;
   minimum: string;
   maximum: string;
@@ -45,6 +46,7 @@ const blankEditor = (): Editor => ({
   projectId: "",
   hiringBasis: "",
   departmentId: "",
+  workLocationId: "",
   positions: "1",
   minimum: "",
   maximum: "",
@@ -54,6 +56,26 @@ const blankEditor = (): Editor => ({
   skills: "",
 });
 const stateLabel = (value: Requisition["state"]) => value.replaceAll("_", " ");
+type WorkLocation = Awaited<ReturnType<HrApiClient["requisitionWorkLocations"]>>["items"][number];
+/** "Lahore · Head Office" when the location's address names a city. */
+const workLocationLabel = (item: Pick<WorkLocation, "name" | "city">) =>
+  item.city ? `${item.city} · ${item.name}` : item.name;
+const requisitionLocation = (record: Requisition) =>
+  record.work_location
+    ? workLocationLabel({ name: record.work_location, city: record.work_location_city })
+    : "Not recorded";
+const selectClass = "h-9 min-w-0 w-full rounded-md border border-input bg-background px-2";
+
+function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <fieldset className="m-0 grid min-w-0 gap-3 border-0 border-t border-border p-0 pt-3 first:border-t-0 first:pt-0">
+      <legend className="float-left mb-1 w-full p-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </legend>
+      {children}
+    </fieldset>
+  );
+}
 
 export function HrManpowerRequisitionsWorkspace() {
   const { api, csrfToken, session, loading: sessionLoading, refresh: refreshSession } = useSession();
@@ -78,13 +100,14 @@ export function HrManpowerRequisitionsWorkspace() {
     [grades, setGrades] = useState<Awaited<ReturnType<HrApiClient["jobGrades"]>>["items"]>([]),
     [units, setUnits] = useState<Awaited<ReturnType<HrApiClient["organizationUnits"]>>["items"]>([]),
     [projects, setProjects] = useState<Awaited<ReturnType<HrApiClient["requisitionProjects"]>>["items"]>([]),
+    [workLocations, setWorkLocations] = useState<WorkLocation[]>([]),
     [currencies, setCurrencies] = useState<Awaited<ReturnType<HrApiClient["jobGradeCurrencies"]>>["items"]>([]);
   const load = useCallback(
     async (company: string) => {
       if (!company) return;
       setLoading(true);
       try {
-        const [items, masterItems, gradeItems, unitItems, projectItems, currencyItems] = await Promise.all([
+        const [items, masterItems, gradeItems, unitItems, projectItems, currencyItems, locationItems] = await Promise.all([
           client.manpowerRequisitions({ companyId: company, search: query, state: state || undefined }),
           client.masters({ companyId: company, activeOnly: true }),
           client.jobGrades(company),
@@ -92,6 +115,7 @@ export function HrManpowerRequisitionsWorkspace() {
           client.requisitionProjects(company),
           // Currencies only fill the picker; the grade currency is still offered if they fail.
           client.jobGradeCurrencies(company).catch(() => ({ items: [] })),
+          client.requisitionWorkLocations(company),
         ]);
         setRecords(items.items);
         setMasters(masterItems.items);
@@ -99,6 +123,7 @@ export function HrManpowerRequisitionsWorkspace() {
         setUnits(unitItems.items.filter((unit) => unit.status === "active"));
         setProjects(projectItems.items);
         setCurrencies(currencyItems.items);
+        setWorkLocations(locationItems.items);
         setSelectedId((current) =>
           items.items.some((item) => item.id === current) ? current : (items.items[0]?.id ?? ""),
         );
@@ -163,14 +188,13 @@ export function HrManpowerRequisitionsWorkspace() {
       !editor.hiringBasis ||
       !editor.departmentId ||
       !editor.currency ||
-      !editor.targetStart ||
-      !editor.reason.trim()
+      !editor.targetStart
     ) {
       setMessage("Complete every required field before saving the requisition.");
       return;
     }
     if (!Number.isInteger(positions) || positions < 1) {
-      setMessage("Requested positions must be a whole number of at least one.");
+      setMessage("Headcount must be a whole number of at least one.");
       return;
     }
     if (
@@ -198,6 +222,7 @@ export function HrManpowerRequisitionsWorkspace() {
       hiring_basis: editor.hiringBasis,
       work_arrangement: editor.workArrangement,
       department_id: editor.departmentId,
+      ...(editor.workLocationId ? { work_location_id: editor.workLocationId } : {}),
       positions_requested: positions,
       position_type: "new_position",
       salary_minimum: editor.minimum,
@@ -390,7 +415,8 @@ export function HrManpowerRequisitionsWorkspace() {
                     <td className="px-4 py-3">
                       {record.department}
                       <span className="block text-xs text-muted-foreground">
-                        {record.project ?? record.branch} · {hiringBasisLabel(record.hiring_basis)}
+                        {record.work_location ? `${requisitionLocation(record)} · ` : ""}
+                        {hiringBasisLabel(record.hiring_basis)}
                         {record.work_arrangement ? ` · ${workArrangementLabel(record.work_arrangement)}` : ""}
                       </span>
                     </td>
@@ -436,168 +462,188 @@ export function HrManpowerRequisitionsWorkspace() {
                     Setup required: {missingSetup.join(" and ")}
                   </p>
                 ) : null}
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1 text-sm">
-                    Job title
-                    <Input
-                      value={editor.jobTitle}
-                      onChange={(event) => setEditor({ ...editor, jobTitle: event.target.value })}
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Location
-                    <select
-                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                      value={editor.workArrangement}
-                      onChange={(event) =>
-                        setEditor({
-                          ...editor,
-                          workArrangement: isWorkArrangement(event.target.value) ? event.target.value : "",
-                        })
-                      }
-                    >
-                      <option value="">Select</option>
-                      {workArrangementOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1 text-sm">
-                    Designation
-                    <select
-                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                      value={editor.designationId}
-                      onChange={(event) => setEditor({ ...editor, designationId: event.target.value })}
-                    >
-                      <option value="">Select</option>
-                      {designations.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Job grade
-                    <select
-                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                      value={editor.gradeId}
-                      onChange={(event) => {
-                        const grade = grades.find((item) => item.id === event.target.value);
-                        setEditor({
-                          ...editor,
-                          gradeId: event.target.value,
-                          currency: grade?.currency_code ?? editor.currency,
-                          minimum: grade?.band_minimum ?? editor.minimum,
-                          maximum: grade?.band_maximum ?? editor.maximum,
-                        });
-                      }}
-                    >
-                      <option value="">Select</option>
-                      {grades.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {gradeLabel(item)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Employment setup
-                    <select
-                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                      value={editor.employmentSetupId}
-                      onChange={(event) => setEditor({ ...editor, employmentSetupId: event.target.value })}
-                    >
-                      <option value="">Select</option>
-                      {employmentSetups.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {employmentSetupOptionLabel(item)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Requested positions
-                    <Input
-                      inputMode="numeric"
-                      value={editor.positions}
-                      onChange={(event) => setEditor({ ...editor, positions: event.target.value })}
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Project
-                    <select
-                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                      value={editor.projectId}
-                      onChange={(event) => setEditor({ ...editor, projectId: event.target.value })}
-                    >
-                      <option value="">{projects.length ? "Select" : "No active projects"}</option>
-                      {projects.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.code} · {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Hiring basis
-                    <select
-                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                      value={editor.hiringBasis}
-                      onChange={(event) =>
-                        setEditor({
-                          ...editor,
-                          hiringBasis: isHiringBasis(event.target.value) ? event.target.value : "",
-                        })
-                      }
-                    >
-                      <option value="">Select</option>
-                      {hiringBasisOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Department
-                    <select
-                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                      value={editor.departmentId}
-                      onChange={(event) => setEditor({ ...editor, departmentId: event.target.value })}
-                    >
-                      <option value="">Select</option>
-                      {departments.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Salary minimum
-                    <Input
-                      inputMode="decimal"
-                      value={editor.minimum}
-                      onChange={(event) => setEditor({ ...editor, minimum: event.target.value })}
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Salary maximum
-                    <Input
-                      inputMode="decimal"
-                      value={editor.maximum}
-                      onChange={(event) => setEditor({ ...editor, maximum: event.target.value })}
-                    />
-                  </label>
+                <FormSection title="Role">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="grid gap-1 text-sm sm:col-span-2">
+                      Job title
+                      <Input
+                        value={editor.jobTitle}
+                        placeholder="For example Community Handler – Marketing"
+                        onChange={(event) => setEditor({ ...editor, jobTitle: event.target.value })}
+                      />
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      Designation
+                      <select
+                        className={selectClass}
+                        value={editor.designationId}
+                        onChange={(event) => setEditor({ ...editor, designationId: event.target.value })}
+                      >
+                        <option value="">Select</option>
+                        {designations.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      Job grade
+                      <select
+                        className={selectClass}
+                        value={editor.gradeId}
+                        onChange={(event) => {
+                          const grade = grades.find((item) => item.id === event.target.value);
+                          setEditor({
+                            ...editor,
+                            gradeId: event.target.value,
+                            currency: grade?.currency_code ?? editor.currency,
+                            minimum: grade?.band_minimum ?? editor.minimum,
+                            maximum: grade?.band_maximum ?? editor.maximum,
+                          });
+                        }}
+                      >
+                        <option value="">Select</option>
+                        {grades.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {gradeLabel(item)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      Employment setup
+                      <select
+                        className={selectClass}
+                        value={editor.employmentSetupId}
+                        onChange={(event) => setEditor({ ...editor, employmentSetupId: event.target.value })}
+                      >
+                        <option value="">Select</option>
+                        {employmentSetups.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {employmentSetupOptionLabel(item)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      Hiring basis
+                      <select
+                        className={selectClass}
+                        value={editor.hiringBasis}
+                        onChange={(event) =>
+                          setEditor({
+                            ...editor,
+                            hiringBasis: isHiringBasis(event.target.value) ? event.target.value : "",
+                          })
+                        }
+                      >
+                        <option value="">Select</option>
+                        {hiringBasisOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      Headcount
+                      <Input
+                        inputMode="numeric"
+                        value={editor.positions}
+                        onChange={(event) => setEditor({ ...editor, positions: event.target.value })}
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        People to hire. Job openings can advertise up to this number.
+                      </span>
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      Target start
+                      <Input
+                        type="date"
+                        value={editor.targetStart}
+                        onChange={(event) => setEditor({ ...editor, targetStart: event.target.value })}
+                      />
+                    </label>
+                  </div>
+                </FormSection>
+                <FormSection title="Where the role works">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="grid gap-1 text-sm">
+                      Department
+                      <select
+                        className={selectClass}
+                        value={editor.departmentId}
+                        onChange={(event) => setEditor({ ...editor, departmentId: event.target.value })}
+                      >
+                        <option value="">Select</option>
+                        {departments.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      Project
+                      <select
+                        className={selectClass}
+                        value={editor.projectId}
+                        onChange={(event) => setEditor({ ...editor, projectId: event.target.value })}
+                      >
+                        <option value="">{projects.length ? "Select" : "No active projects"}</option>
+                        {projects.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.code} · {item.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      Location
+                      <select
+                        className={selectClass}
+                        value={editor.workLocationId}
+                        onChange={(event) => setEditor({ ...editor, workLocationId: event.target.value })}
+                      >
+                        <option value="">{workLocations.length ? "Select" : "No active work locations yet"}</option>
+                        {workLocations.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {workLocationLabel(item)}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-xs text-muted-foreground">
+                        City and office from Work Locations, for example Lahore or Dubai.
+                      </span>
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      Job type
+                      <select
+                        className={selectClass}
+                        value={editor.workArrangement}
+                        onChange={(event) =>
+                          setEditor({
+                            ...editor,
+                            workArrangement: isWorkArrangement(event.target.value) ? event.target.value : "",
+                          })
+                        }
+                      >
+                        <option value="">Select</option>
+                        {jobTypeOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                </FormSection>
+                <FormSection title="Salary range">
                   <label className="grid gap-1 text-sm">
                     Currency
                     <select
-                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
+                      className={selectClass}
                       value={editor.currency}
                       onChange={(event) => setEditor({ ...editor, currency: event.target.value })}
                     >
@@ -609,32 +655,47 @@ export function HrManpowerRequisitionsWorkspace() {
                       ))}
                     </select>
                   </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="grid min-w-0 gap-1 text-sm">
+                      Minimum salary
+                      <Input
+                        inputMode="decimal"
+                        value={editor.minimum}
+                        onChange={(event) => setEditor({ ...editor, minimum: event.target.value })}
+                      />
+                    </label>
+                    <label className="grid min-w-0 gap-1 text-sm">
+                      Maximum salary
+                      <Input
+                        inputMode="decimal"
+                        value={editor.maximum}
+                        onChange={(event) => setEditor({ ...editor, maximum: event.target.value })}
+                      />
+                    </label>
+                  </div>
+                </FormSection>
+                <FormSection title="Requirements">
                   <label className="grid gap-1 text-sm">
-                    Target start
+                    Required skills (comma separated)
                     <Input
-                      type="date"
-                      value={editor.targetStart}
-                      onChange={(event) => setEditor({ ...editor, targetStart: event.target.value })}
+                      value={editor.skills}
+                      onChange={(event) => setEditor({ ...editor, skills: event.target.value })}
                     />
                   </label>
-                </div>
-                <label className="grid gap-1 text-sm">
-                  Required skills (comma separated)
-                  <Input
-                    value={editor.skills}
-                    onChange={(event) => setEditor({ ...editor, skills: event.target.value })}
-                  />
-                </label>
-                <label className="grid gap-1 text-sm">
-                  Business reason
-                  <textarea
-                    className="min-h-24 rounded-md border border-input bg-background p-2"
-                    value={editor.reason}
-                    onChange={(event) => setEditor({ ...editor, reason: event.target.value })}
-                  />
-                </label>
+                  <label className="grid gap-1 text-sm">
+                    Business reason
+                    <textarea
+                      className="min-h-24 rounded-md border border-input bg-background p-2"
+                      value={editor.reason}
+                      onChange={(event) => setEditor({ ...editor, reason: event.target.value })}
+                    />
+                  </label>
+                </FormSection>
                 <div className="flex flex-wrap gap-2">
-                  <Button disabled={saving || grades.length === 0 || projects.length === 0} onClick={() => void save()}>
+                  <Button
+                    disabled={saving || grades.length === 0 || projects.length === 0}
+                    onClick={() => void save()}
+                  >
                     {saving ? "Saving..." : "Save draft"}
                   </Button>
                   <Button variant="outline" onClick={() => setEditor(null)}>
@@ -669,8 +730,9 @@ export function HrManpowerRequisitionsWorkspace() {
                     <dt className="text-muted-foreground">Organisation</dt>
                     <dd className="font-medium">
                       {selected.department}
-                      <br />
-                      {selected.project ?? selected.branch}
+                      {selected.project ?? selected.branch ? (
+                        <span className="block text-muted-foreground">{selected.project ?? selected.branch}</span>
+                      ) : null}
                     </dd>
                   </div>
                   <div>
@@ -679,6 +741,10 @@ export function HrManpowerRequisitionsWorkspace() {
                   </div>
                   <div>
                     <dt className="text-muted-foreground">Location</dt>
+                    <dd className="font-medium">{requisitionLocation(selected)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Job type</dt>
                     <dd className="font-medium">{workArrangementLabel(selected.work_arrangement)}</dd>
                   </div>
                   <div>
@@ -696,10 +762,12 @@ export function HrManpowerRequisitionsWorkspace() {
                     <dd className="font-medium">{selected.target_start_date}</dd>
                   </div>
                 </dl>
-                <div>
-                  <h3 className="text-sm font-medium">Business reason</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{selected.reason}</p>
-                </div>
+                {selected.reason ? (
+                  <div>
+                    <h3 className="text-sm font-medium">Business reason</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">{selected.reason}</p>
+                  </div>
+                ) : null}
                 {selected.required_skills.length ? (
                   <p className="text-sm text-muted-foreground">Skills: {selected.required_skills.join(", ")}</p>
                 ) : null}

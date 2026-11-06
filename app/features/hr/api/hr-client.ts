@@ -86,6 +86,8 @@ import type {
   HrJobGradeDirectory,
   HrJobGradeCurrencyDirectory,
   HrRequisitionProjectDirectory,
+  HrRequisitionWorkLocationDirectory,
+  HrCostCentreNominalDirectory,
   CreateHrJobGradeRequest,
   UpdateHrJobGradeRequest,
   CreateHrJobRequest,
@@ -541,6 +543,14 @@ export class HrApiClient {
   /** Active Finance projects a manpower requisition can name. */
   requisitionProjects(companyId: string): Promise<HrRequisitionProjectDirectory> {
     return this.api.listHrRequisitionProjects(query({ company_id: companyId }));
+  }
+  /** Active work locations with their city, for the requisition Location field. */
+  requisitionWorkLocations(companyId: string): Promise<HrRequisitionWorkLocationDirectory> {
+    return this.api.listHrRequisitionWorkLocations(query({ company_id: companyId }));
+  }
+  /** Active Finance nominals offered as a cost centre's default nominal. */
+  costCentreNominals(companyId: string): Promise<HrCostCentreNominalDirectory> {
+    return this.api.listHrCostCentreNominals(query({ company_id: companyId }));
   }
 
   createJobGrade(input: CreateHrJobGradeRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {

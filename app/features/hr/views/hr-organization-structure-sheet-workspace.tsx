@@ -16,32 +16,16 @@ import { HrMasterDeleteButton } from "../components/hr-master-delete-button";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
 import { preferredMasterCompany, rememberMasterCompany } from "../model/organisation-master-navigation";
+import {
+  canReportTo,
+  defaultChildType,
+  organizationUnitTypeLabels as typeLabels,
+  selectableOrganizationUnitTypes,
+  type OrganizationUnitType as UnitType,
+} from "../model/organization-hierarchy";
 
 type Unit = HrOrganizationUnitDirectory["items"][number];
-type UnitType = Unit["type"];
 type Editor = { mode: "create" | "edit"; parentId: string; type: UnitType; code: string; name: string };
-const typeLabels: Record<UnitType, string> = {
-  business_unit: "Business unit",
-  division: "Division",
-  branch: "Branch",
-  department: "Department",
-  warehouse: "Warehouse",
-};
-function initialChildType(parentType: UnitType | "company"): UnitType {
-  if (parentType === "branch") return "department";
-  if (parentType === "business_unit") return "division";
-  return "branch";
-}
-function canReportTo(childType: UnitType, parentType: UnitType | "company"): boolean {
-  const allowed: Record<UnitType, readonly (UnitType | "company")[]> = {
-    business_unit: ["company"],
-    division: ["company", "business_unit"],
-    branch: ["company", "business_unit", "division"],
-    department: ["company", "business_unit", "division", "branch"],
-    warehouse: ["company", "business_unit", "division", "branch"],
-  };
-  return allowed[childType].includes(parentType);
-}
 
 export function HrOrganizationStructureSheetWorkspace() {
   const { api, csrfToken, session, loading: sessionLoading, refresh: refreshSession } = useSession();
@@ -124,7 +108,7 @@ export function HrOrganizationStructureSheetWorkspace() {
     parentId = selectedId || companyId,
     parentType: UnitType | "company" = selected?.type ?? "company",
   ) => {
-    const type = initialChildType(parentType);
+    const type = defaultChildType(parentType);
     setEditor({ mode: "create", parentId, type, code: generatedCode(type), name: "" });
     setMessage("");
   };
@@ -379,9 +363,9 @@ export function HrOrganizationStructureSheetWorkspace() {
               <Button variant="outline" disabled={saving} onClick={() => void changeStatus()}>
                 {selected.status === "active" ? "Deactivate" : "Activate"}
               </Button>
-              {selected.status === "active" ? (
+              {selected.status === "active" && selectableOrganizationUnitTypes.some((type) => canReportTo(type, selected.type)) ? (
                 <Button variant="outline" onClick={() => openCreate(selected.id, selected.type)}>
-                  Add child
+                  Add {typeLabels[defaultChildType(selected.type)].toLowerCase()}
                 </Button>
               ) : null}
               <HrEditButton label="Edit unit" onClick={openEdit} />
@@ -410,20 +394,33 @@ export function HrOrganizationStructureSheetWorkspace() {
                   value={editor.type}
                   onChange={(event) => {
                     const type = event.target.value as UnitType;
+                    const parentType =
+                      editor.parentId === companyId
+                        ? "company"
+                        : units.find((unit) => unit.id === editor.parentId)?.type;
                     setEditor({
                       ...editor,
                       type,
                       code: generatedCode(type),
-                      parentId: canReportTo(type, "company") ? companyId : "",
+                      // Keep the chosen parent while it can still hold this type.
+                      parentId:
+                        parentType && canReportTo(type, parentType)
+                          ? editor.parentId
+                          : canReportTo(type, "company")
+                            ? companyId
+                            : "",
                     });
                   }}
                 >
-                  {Object.entries(typeLabels).map(([value, label]) => (
+                  {selectableOrganizationUnitTypes.map((value) => (
                     <option key={value} value={value}>
-                      {label}
+                      {typeLabels[value]}
                     </option>
                   ))}
                 </select>
+                <span className="text-xs font-normal text-muted-foreground">
+                  Company → Project → Location → Department
+                </span>
               </label>
             ) : null}
             <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-parent">
@@ -444,7 +441,7 @@ export function HrOrganizationStructureSheetWorkspace() {
                   )
                   .map((unit) => (
                     <option key={unit.id} value={unit.id}>
-                      {unit.name}
+                      {typeLabels[unit.type]} · {unit.name}
                     </option>
                   ))}
               </select>

@@ -9,7 +9,7 @@ export const organisationMasterGroups = [
       {
         id: "org-structure",
         label: "Organisation Structure",
-        description: "Companies, branches and departments in one hierarchy.",
+        description: "Company, projects, locations and departments in one hierarchy.",
         icon: Network,
         type: null,
       },
@@ -37,7 +37,7 @@ export const organisationMasterGroups = [
       {
         id: "designations",
         label: "Designations",
-        description: "Standard titles used across employee assignments.",
+        description: "Employee positions, such as Software Engineer or Community Handler.",
         icon: BriefcaseBusiness,
         type: "designation",
       },
@@ -51,7 +51,7 @@ export const organisationMasterGroups = [
       {
         id: "jobs",
         label: "Jobs",
-        description: "Reusable job definitions for hiring and placement.",
+        description: "Job titles linked to the department they belong to.",
         icon: Layers3,
         type: "job",
       },

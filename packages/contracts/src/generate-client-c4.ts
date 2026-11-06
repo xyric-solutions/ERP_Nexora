@@ -229,6 +229,8 @@ CreateHrLocalization,HrLocalizationDecision,HrLocalizationWorkspace,CreateHrOver
   HrJobGradeDirectory,
   HrJobGradeCurrencyDirectory,
   HrRequisitionProjectDirectory,
+  HrRequisitionWorkLocationDirectory,
+  HrCostCentreNominalDirectory,
   CreateHrJobGradeRequest,
   UpdateHrJobGradeRequest,
   HrEmployeeContactDirectory,
@@ -965,6 +967,8 @@ export class NexoraApiClient {
   listHrJobGrades(query: string): Promise<HrJobGradeDirectory> { return this.request(\`/api/v1/hr/job_grades\${query}\`); }
   listHrJobGradeCurrencies(query: string): Promise<HrJobGradeCurrencyDirectory> { return this.request(\`/api/v1/hr/job_grade_currencies\${query}\`); }
   listHrRequisitionProjects(query: string): Promise<HrRequisitionProjectDirectory> { return this.request(\`/api/v1/hr/requisition_projects\${query}\`); }
+  listHrRequisitionWorkLocations(query: string): Promise<HrRequisitionWorkLocationDirectory> { return this.request(\`/api/v1/hr/requisition_work_locations\${query}\`); }
+  listHrCostCentreNominals(query: string): Promise<HrCostCentreNominalDirectory> { return this.request(\`/api/v1/hr/cost_centre_nominals\${query}\`); }
   createHrJobGrade(payload: CreateHrJobGradeRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
     return this.request("/api/v1/hr/job_grades", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }

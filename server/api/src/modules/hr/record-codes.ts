@@ -21,8 +21,10 @@ const sources = {
   employment_type: ["ET", "hr_master_record", "code", "company_id"],
   employee_category: ["EC", "hr_master_record", "code", "company_id"],
   business_unit: ["BU", "organization_unit", "code", null],
-  division: ["DIV", "organization_unit", "code", null],
-  branch: ["BR", "organization_unit", "code", null],
+  // Division units are shown as Locations and branch units as Projects. Earlier
+  // DIV-/BR- codes keep their values; new records use the visible names.
+  division: ["LCN", "organization_unit", "code", null],
+  branch: ["PRJ", "organization_unit", "code", null],
   department: ["DEPT", "organization_unit", "code", null],
   warehouse: ["WH", "organization_unit", "code", null],
 } as const;

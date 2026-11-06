@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 
 import { HrApiClient } from "../api/hr-client";
+import { isWithinUnit } from "../model/organization-hierarchy";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -95,7 +96,8 @@ export function HrTransferMakerPanel({
 
   const branches = placements.filter((item) => item.type === "branch");
   const departments = placements.filter(
-    (item) => item.type === "department" && (!branchId || item.parent_id === branchId),
+    // A department may sit directly under the project or under one of its locations.
+    (item) => item.type === "department" && (!branchId || isWithinUnit(placements, item.id, branchId)),
   );
   const placementChanged = branchId !== (source.branch_id ?? "") || departmentId !== (source.department_id ?? "");
 
@@ -103,7 +105,7 @@ export function HrTransferMakerPanel({
     if (submitting) return;
     const trimmed = reason.trim();
     if (!branchId || !departmentId || !placementChanged || !trimmed || trimmed.length > 1000) {
-      setError("Select a different branch or department and enter a business reason of 1 to 1000 characters.");
+      setError("Select a different project or department and enter a business reason of 1 to 1000 characters.");
       return;
     }
     if (!source.job_id || !source.employment_relationship_id) {
@@ -152,7 +154,7 @@ export function HrTransferMakerPanel({
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
 
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Propose a branch or department change for an independent checker. Job, grade, manager, and employment
+              Propose a project or department change for an independent checker. Job, grade, manager, and employment
               context remain unchanged in this Transfer slice.
             </p>
           </div>
@@ -183,7 +185,7 @@ export function HrTransferMakerPanel({
             </dl>
             <div className="grid gap-3 md:grid-cols-3">
               <PlacementSelect
-                label="Proposed branch"
+                label="Proposed project"
                 value={branchId}
                 items={branches}
                 disabled={submitting}
@@ -219,7 +221,7 @@ export function HrTransferMakerPanel({
                   setReason(event.target.value);
                   retry.current = null;
                 }}
-                placeholder="Explain the operational reason for this branch or department transfer."
+                placeholder="Explain the operational reason for this project or department transfer."
               />
             </label>
             <div>

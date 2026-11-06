@@ -39,6 +39,10 @@ export type HrConfiguredMasterField = {
   help: string;
   placeholder?: string;
   options?: readonly Option[];
+  /** Options read from live records instead of a fixed list. */
+  optionsSource?: "cost_centre_nominals";
+  /** An optional field may be left unset. */
+  optional?: boolean;
 };
 
 export type HrConfiguredMasterSheetDefinition = {
@@ -62,6 +66,8 @@ function editorFor(
   definition: HrConfiguredMasterSheetDefinition,
   records: readonly Record[],
 ): Editor {
+  const initialValue = (field: HrConfiguredMasterField) =>
+    (record ? recordValue(record, field.key) : null) ?? (field.optional ? "" : (field.options?.[0]?.value ?? ""));
   return {
     mode: record ? "edit" : "create",
     code:
@@ -72,26 +78,21 @@ function editorFor(
       ),
     name: record?.name ?? "",
     description: record?.description ?? "",
-    values: Object.fromEntries(
-      definition.fields.map((field) => [
-        field.key,
-        (record ? recordValue(record, field.key) : null) ?? field.options?.[0]?.value ?? "",
-      ]),
-    ),
+    values: Object.fromEntries(definition.fields.map((field) => [field.key, initialValue(field)])),
   };
 }
 
-function fieldLabel(record: Record, field: HrConfiguredMasterField): string {
+function fieldLabel(record: Record, field: HrConfiguredMasterField, liveOptions: readonly Option[] = []): string {
   const value = recordValue(record, field.key);
   if (!value) return "Not configured";
-  return field.options?.find((option) => option.value === value)?.label ?? value;
+  return [...(field.options ?? []), ...liveOptions].find((option) => option.value === value)?.label ?? value;
 }
 
 /** Request terms: configuration key/value, or the employment-setup payment route and pay cycle. */
 function termsFor(definition: HrConfiguredMasterSheetDefinition, values: FieldValues) {
   const terms: {
-    configuration_key?: ConfigurationKey;
-    configuration_value?: string;
+    configuration_key?: ConfigurationKey | null;
+    configuration_value?: string | null;
     payment_route?: NonNullable<Record["payment_route"]>;
     pay_cycle?: NonNullable<Record["pay_cycle"]>;
   } = {};
@@ -101,9 +102,12 @@ function termsFor(definition: HrConfiguredMasterSheetDefinition, values: FieldVa
       if (isPaymentRoute(value)) terms.payment_route = value;
     } else if (field.key === "pay_cycle") {
       if (isPayCycle(value)) terms.pay_cycle = value;
-    } else {
+    } else if (value) {
       terms.configuration_key = field.key;
       terms.configuration_value = value;
+    } else if (field.optional) {
+      terms.configuration_key = null;
+      terms.configuration_value = null;
     }
   }
   return terms;
@@ -125,6 +129,9 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  // Loaded nominals are keyed by company, so switching company shows "Loading" until its own list arrives.
+  const [nominals, setNominals] = useState<{ companyId: string; options: Option[] }>({ companyId: "", options: [] });
+  const usesNominals = definition.fields.some((field) => field.optionsSource === "cost_centre_nominals");
   const permissions = session?.user.permissions ?? [];
   const canRead = permissions.includes("hr.master.read");
   const canCreate = permissions.includes("hr.master.create");
@@ -170,11 +177,39 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
       });
   }, [canRead, client, loadRecords, sessionLoading]);
 
+  // Finance owns the nominals; HR only reads the active ones of the selected company.
+  useEffect(() => {
+    if (!usesNominals || !companyId || !canRead) return;
+    let cancelled = false;
+    client
+      .costCentreNominals(companyId)
+      .then(({ items }) => {
+        if (!cancelled)
+          setNominals({
+            companyId,
+            options: items.map((item) => ({
+              value: item.code,
+              label: `${item.code} · ${item.name}${item.section ? ` (${item.section})` : ""}`,
+            })),
+          });
+      })
+      .catch(() => {
+        if (!cancelled) setNominals({ companyId, options: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canRead, client, companyId, usesNominals]);
+  const nominalsLoaded = nominals.companyId === companyId;
+  const liveOptions = (field: HrConfiguredMasterField): readonly Option[] =>
+    field.optionsSource === "cost_centre_nominals" && nominalsLoaded ? nominals.options : [];
+  const label = (record: Record, field: HrConfiguredMasterField) => fieldLabel(record, field, liveOptions(field));
+
   const selected = records.find((record) => record.id === selectedId);
   const filtered = records
     .filter((record) => statusFilter === "all" || record.status === statusFilter)
     .filter((record) =>
-      `${record.code} ${record.name} ${record.description} ${definition.fields.map((field) => fieldLabel(record, field)).join(" ")}`
+      `${record.code} ${record.name} ${record.description} ${definition.fields.map((field) => label(record, field)).join(" ")}`
         .toLowerCase()
         .includes(search.trim().toLowerCase()),
     );
@@ -186,10 +221,14 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
   };
 
   const save = async () => {
-    const missing = definition.fields.some((field) => !(editor?.values[field.key] ?? "").trim());
+    const missing = definition.fields.some((field) => !field.optional && !(editor?.values[field.key] ?? "").trim());
     if (!editor || !companyId || !editor.name.trim() || missing) {
-      const required = ["Name", ...definition.fields.map((field) => field.label.toLowerCase())];
-      setMessage(`${required.slice(0, -1).join(", ")} and ${required.at(-1)} are required.`);
+      const required = ["Name", ...definition.fields.filter((field) => !field.optional).map((field) => field.label.toLowerCase())];
+      setMessage(
+        required.length === 1
+          ? "Name is required."
+          : `${required.slice(0, -1).join(", ")} and ${required.at(-1)} are required.`,
+      );
       return;
     }
     const shared = {
@@ -376,7 +415,7 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
                     </td>
                     {definition.fields.map((field) => (
                       <td key={field.key} className="px-4 py-3">
-                        {fieldLabel(record, field)}
+                        {label(record, field)}
                       </td>
                     ))}
                     <td className="max-w-md px-4 py-3 text-muted-foreground">{record.description || "—"}</td>
@@ -484,7 +523,15 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
               return (
                 <label key={field.key} className="grid gap-1.5 text-sm font-medium" htmlFor={id}>
                   {field.label}
-                  {field.options ? (
+                  {field.optionsSource ? (
+                    <LiveOptionSelect
+                      id={id}
+                      value={value}
+                      options={liveOptions(field)}
+                      loaded={nominalsLoaded}
+                      onChange={setValue}
+                    />
+                  ) : field.options ? (
                     <select
                       id={id}
                       required
@@ -528,7 +575,7 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
               <Detail label="Code" value={selected.code} />
               <Detail label="Status" value={selected.status} status />
               {definition.fields.map((field) => (
-                <Detail key={field.key} label={field.label} value={fieldLabel(selected, field)} />
+                <Detail key={field.key} label={field.label} value={label(selected, field)} />
               ))}
             </div>
             <div>
@@ -539,6 +586,40 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
         ) : null}
       </HrMasterSheet>
     </section>
+  );
+}
+
+/** Optional dropdown of live records; keeps a saved value visible even if it is no longer offered. */
+function LiveOptionSelect({
+  id,
+  value,
+  options,
+  loaded,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  options: readonly Option[];
+  loaded: boolean;
+  onChange: (value: string) => void;
+}) {
+  const offered =
+    value && !options.some((option) => option.value === value) ? [{ value, label: value }, ...options] : options;
+  return (
+    <select
+      id={id}
+      className="h-10 rounded-md border border-input bg-background px-3 disabled:opacity-50"
+      value={value}
+      disabled={!loaded}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      <option value="">{!loaded ? "Loading nominals…" : options.length ? "Not set" : "No Finance nominals yet"}</option>
+      {offered.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
   );
 }
 

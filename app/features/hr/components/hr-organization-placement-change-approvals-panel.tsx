@@ -23,15 +23,13 @@ import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warn
 
 import { HrApiClient } from "../api/hr-client";
 import { approvalOverrideReviewState } from "../approval-override-ui";
+import {
+  organizationHierarchyOrder,
+  organizationUnitTypeLabels,
+  selectableOrganizationUnitTypes,
+} from "../model/organization-hierarchy";
 
 type Decision = "approved" | "rejected";
-const placementLabels: Record<string, string> = {
-  business_unit: "Business unit",
-  division: "Division",
-  branch: "Branch",
-  department: "Department",
-  warehouse: "Warehouse",
-};
 
 function message(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -350,9 +348,12 @@ function PlacementCard({ title, names }: { title: string; names: Record<string, 
     <div className="rounded-md border border-border p-3">
       <h3 className="font-semibold">{title}</h3>
       <dl className="mt-2 grid gap-1 text-sm">
-        {Object.entries(placementLabels).map(([type, label]) => (
+        {organizationHierarchyOrder
+          // Legacy business-unit and warehouse rows appear only when the request names one.
+          .filter((type) => (selectableOrganizationUnitTypes as readonly string[]).includes(type) || names[type])
+          .map((type) => (
           <div key={type} className="flex justify-between gap-3">
-            <dt className="text-muted-foreground">{label}</dt>
+            <dt className="text-muted-foreground">{organizationUnitTypeLabels[type]}</dt>
             <dd className="text-right font-medium">{names[type] ?? "Not assigned"}</dd>
           </div>
         ))}

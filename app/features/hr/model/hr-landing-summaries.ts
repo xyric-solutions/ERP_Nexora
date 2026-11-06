@@ -36,17 +36,11 @@ export const organisationLandingSummaries: HrLandingSummaryLoaders = {
     return details(
       [
         countLabel(companies.items.length, "company", "companies"),
-        countLabel(count("branch"), "branch", "branches"),
+        countLabel(count("branch"), "project"),
+        countLabel(count("division"), "location"),
         countLabel(count("department"), "department"),
       ].join(" · "),
-      count("business_unit") || count("division")
-        ? [
-            count("business_unit") ? countLabel(count("business_unit"), "business unit") : "",
-            count("division") ? countLabel(count("division"), "division") : "",
-          ]
-            .filter(Boolean)
-            .join(" · ")
-        : null,
+      count("business_unit") ? countLabel(count("business_unit"), "business unit") : null,
       count("warehouse") ? countLabel(count("warehouse"), "warehouse") : null,
     );
   },

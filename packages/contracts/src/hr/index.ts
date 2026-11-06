@@ -560,9 +560,10 @@ export const hrManpowerRequisitionSchema = z.strictObject({
   employment_setup_id: identifier, employment_setup: z.string().min(1).max(160), payment_route: hrPaymentRouteSchema, pay_cycle: hrPayCycleSchema,
   branch: z.string().min(1).max(200).nullable(), project_id: identifier.nullable(), project: z.string().min(1).max(200).nullable(),
   hiring_basis: hrHiringBasisSchema.nullable(), work_arrangement: hrWorkArrangementSchema.nullable(), department: z.string().min(1).max(200),
+  work_location_id: identifier.nullable(), work_location: z.string().min(1).max(160).nullable(), work_location_city: z.string().min(1).max(160).nullable(),
   positions_requested: z.number().int().min(1), position_type: z.enum(["new_position", "replacement"]),
   salary_minimum: hrMoneySchema, salary_maximum: hrMoneySchema, currency_code: z.string().regex(/^[A-Z]{3}$/),
-  target_start_date: isoDate, reason: z.string().min(1).max(2000), required_skills: z.array(z.string().min(1).max(100)).max(30),
+  target_start_date: isoDate, reason: z.string().max(2000), required_skills: z.array(z.string().min(1).max(100)).max(30),
   state: z.enum(["draft", "submitted", "approved", "rejected", "cancelled"]), created_by: identifier,
   submitted_by: identifier.nullable(), submitted_at: z.string().datetime().nullable(), decided_by: identifier.nullable(),
   decided_at: z.string().datetime().nullable(), decision_reason: z.string().max(1000).nullable(), created_at: z.string().datetime(),
@@ -572,10 +573,10 @@ export const createHrManpowerRequisitionRequestSchema = z.strictObject({
   company_id: identifier, job_title: z.string().trim().min(1).max(160), designation_id: identifier, job_grade_id: identifier,
   employment_setup_id: identifier, project_id: identifier, hiring_basis: hrHiringBasisSchema, work_arrangement: hrWorkArrangementSchema,
   /** Legacy: new requisitions name a project; the offer derives the branch from the department. */
-  branch_id: identifier.optional(), department_id: identifier, positions_requested: z.number().int().min(1).max(999),
+  branch_id: identifier.optional(), department_id: identifier, work_location_id: identifier.optional(), positions_requested: z.number().int().min(1).max(999),
   position_type: z.enum(["new_position", "replacement"]), replacement_employee_id: identifier.optional(),
   salary_minimum: hrMoneySchema, salary_maximum: hrMoneySchema, currency_code: z.string().regex(/^[A-Z]{3}$/), target_start_date: isoDate,
-  reason: z.string().trim().min(1).max(2000), required_skills: z.array(z.string().trim().min(1).max(100)).max(30).default([]),
+  reason: z.string().trim().max(2000).default(""), required_skills: z.array(z.string().trim().min(1).max(100)).max(30).default([]),
 }).superRefine((value, context) => {
   if (value.position_type === "replacement" && !value.replacement_employee_id) context.addIssue({ code: "custom", path: ["replacement_employee_id"], message: "Replacement employee is required." });
   if (value.position_type === "new_position" && value.replacement_employee_id) context.addIssue({ code: "custom", path: ["replacement_employee_id"], message: "New positions cannot name a replacement employee." });
@@ -1165,6 +1166,9 @@ export const hrMasterRecordSchema = z.strictObject({
   configuration_value: z.string().min(1).max(128).nullable(),
   payment_route: hrPaymentRouteSchema.nullable(),
   pay_cycle: hrPayCycleSchema.nullable(),
+  /** Jobs: the department the job title belongs to. */
+  owning_org_unit_id: identifier.nullable().optional(),
+  owning_org_unit: z.string().min(1).max(200).nullable().optional(),
 });
 export const createHrJobRequestSchema = z.strictObject({
   company_id: identifier,
@@ -1188,6 +1192,8 @@ const hrMasterConfigurationFields = {
   configuration_value: z.string().trim().min(1).max(128).nullable().optional(),
   payment_route: hrPaymentRouteSchema.nullable().optional(),
   pay_cycle: hrPayCycleSchema.nullable().optional(),
+  /** Jobs only: the active department the job title belongs to. */
+  owning_org_unit_id: identifier.nullable().optional(),
 };
 const coherentMasterConfiguration = (value: { configuration_key?: string | null | undefined; configuration_value?: string | null | undefined }) =>
   (value.configuration_key == null) === (value.configuration_value == null);
@@ -1205,8 +1211,10 @@ const validMasterConfiguration = (value: HrMasterTermsInput & { type: z.infer<ty
     return value.payment_route != null && value.pay_cycle != null && value.configuration_key == null && value.configuration_value == null;
   }
   if (value.payment_route != null || value.pay_cycle != null) return false;
+  // A cost centre's default nominal is optional until Finance has created nominals.
+  if (value.type === "cost_center")
+    return value.configuration_key == null ? value.configuration_value == null : value.configuration_key === "default_nominal" && value.configuration_value != null;
   const expected = {
-    cost_center: "default_nominal",
     work_location: "working_pattern",
   } as const;
   const expectedKey = expected[value.type as keyof typeof expected];
@@ -1307,6 +1315,27 @@ export const hrRequisitionProjectSchema = z.strictObject({
 export const hrRequisitionProjectDirectorySchema = z.strictObject({ items: z.array(hrRequisitionProjectSchema).max(500) });
 export type HrRequisitionProject = z.infer<typeof hrRequisitionProjectSchema>;
 export type HrRequisitionProjectDirectory = z.infer<typeof hrRequisitionProjectDirectorySchema>;
+/** Active work locations of a company with their city, read for manpower requisitions. */
+export const hrRequisitionWorkLocationSchema = z.strictObject({
+  id: z.string().min(1).max(128),
+  code: z.string().min(1).max(32),
+  name: z.string().min(1).max(160),
+  city: z.string().min(1).max(160).nullable(),
+  country_code: z.string().min(2).max(3).nullable(),
+});
+export const hrRequisitionWorkLocationDirectorySchema = z.strictObject({ items: z.array(hrRequisitionWorkLocationSchema).max(500) });
+export type HrRequisitionWorkLocation = z.infer<typeof hrRequisitionWorkLocationSchema>;
+export type HrRequisitionWorkLocationDirectory = z.infer<typeof hrRequisitionWorkLocationDirectorySchema>;
+/** Active Finance nominals of a company, read as cost-centre default nominal options. Finance owns them. */
+export const hrCostCentreNominalSchema = z.strictObject({
+  id: z.string().min(1).max(128),
+  code: z.string().min(1).max(64),
+  name: z.string().min(1).max(200),
+  section: z.string().min(1).max(200).nullable(),
+});
+export const hrCostCentreNominalDirectorySchema = z.strictObject({ items: z.array(hrCostCentreNominalSchema).max(500) });
+export type HrCostCentreNominal = z.infer<typeof hrCostCentreNominalSchema>;
+export type HrCostCentreNominalDirectory = z.infer<typeof hrCostCentreNominalDirectorySchema>;
 
 /**
  * A hire request captures proposed employment context only. It must not be

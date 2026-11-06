@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 
 import { HrApiClient } from "../api/hr-client";
+import { isWithinUnit } from "../model/organization-hierarchy";
 import { employmentSetupOptionLabel } from "../model/employment-setup";
 
 type Props = {
@@ -70,7 +71,8 @@ export function HrHireMakerPanel({
   }, [profileAssignment?.id, profileAssignment?.effective_from]);
   const branches = placements.filter((item) => item.type === "branch");
   const departments = placements.filter(
-    (item) => item.type === "department" && (!branchId || item.parent_id === branchId),
+    // A department may sit directly under the project or under one of its locations.
+    (item) => item.type === "department" && (!branchId || isWithinUnit(placements, item.id, branchId)),
   );
   const byType = useMemo(
     () => (type: HrMasterDirectory["items"][number]["type"]) => masters.filter((item) => item.type === type),
@@ -115,7 +117,7 @@ export function HrHireMakerPanel({
       effectiveOn,
     ];
     if (required.some((value) => !value)) {
-      setError("Select a branch, department, and every required employment master before saving the profile draft.");
+      setError("Select a project, department, and every required employment master before saving the profile draft.");
       return;
     }
     const input = {
@@ -236,7 +238,7 @@ export function HrHireMakerPanel({
             </div>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               <SelectField
-                label="Branch"
+                label="Project"
                 value={branchId}
                 onChange={(value) => {
                   setBranchId(value);

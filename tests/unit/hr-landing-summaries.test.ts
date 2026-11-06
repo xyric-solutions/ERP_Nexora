@@ -47,16 +47,24 @@ describe("HR landing summary helpers", () => {
 });
 
 describe("Organisation & Masters landing summaries", () => {
-  it("counts active companies, branches and departments for Organisation Structure", async () => {
+  it("counts active companies, projects, locations and departments for Organisation Structure", async () => {
+    // Branch units are shown as Projects and division units as Locations.
     const client = {
       companies: vi.fn(async () => ({ items: [{ id: "a" }, { id: "b" }] })),
       organizationUnits: vi.fn(async () => ({
-        items: [unit("branch"), unit("branch"), unit("department"), unit("department", "inactive"), unit("division")],
+        items: [
+          unit("branch"),
+          unit("branch"),
+          unit("department"),
+          unit("department", "inactive"),
+          unit("division"),
+          unit("business_unit"),
+        ],
       })),
     };
     await expect(organisationLandingSummaries["org-structure"]!(context(client))).resolves.toEqual([
-      "2 companies · 2 branches · 1 department",
-      "1 division",
+      "2 companies · 2 projects · 1 location · 1 department",
+      "1 business unit",
     ]);
   });
 

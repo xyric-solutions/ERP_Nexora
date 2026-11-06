@@ -8,6 +8,9 @@ export const workArrangementOptions = [
   { value: "client_site", label: "Client site" },
 ] as const satisfies readonly { value: HrWorkArrangement; label: string }[];
 
+/** Job types offered on new requisitions; earlier client-site requisitions still display. */
+export const jobTypeOptions = workArrangementOptions.filter((option) => option.value !== "client_site");
+
 export function workArrangementLabel(value: string | null | undefined): string {
   if (!value) return "Not recorded";
   return workArrangementOptions.find((option) => option.value === value)?.label ?? value;

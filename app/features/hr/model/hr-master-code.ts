@@ -13,8 +13,9 @@ const masterPrefixes: Partial<Record<HrMasterType, string>> = {
 
 export const organizationUnitPrefixes = {
   business_unit: "BU",
-  division: "DIV",
-  branch: "BR",
+  // Shown as Location and Project; earlier DIV-/BR- codes are kept as they are.
+  division: "LCN",
+  branch: "PRJ",
   department: "DEPT",
   warehouse: "WH",
 } as const;

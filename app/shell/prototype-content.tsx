@@ -196,13 +196,14 @@ const configuredHrMasters: Record<string, HrConfiguredMasterDefinition> = {
     label: "Cost Centres",
     singular: "Cost Centre",
     guidance:
-      "Cost centres are the shared company finance dimension used on employee assignments. They remain separate from the organisation tree because one cost centre can span branches. Finance confirms the default nominal before payroll posting is enabled.",
+      "Cost centres are the shared company finance dimension used on employee assignments. They remain separate from the organisation tree because one cost centre can span projects. Finance confirms the default nominal before payroll posting is enabled.",
     fields: [
       {
         key: "default_nominal",
         label: "Default nominal",
-        help: "Finance-owned nominal account code used as the proposed payroll allocation.",
-        placeholder: "For example 60-01-00100",
+        help: "Proposed payroll allocation, chosen from the active nominals Finance has created for this company. New nominals appear here once Finance activates them.",
+        optionsSource: "cost_centre_nominals",
+        optional: true,
       },
     ],
   },
@@ -3003,14 +3004,21 @@ function PrototypeContentBody(props: PrototypeContentProps) {
             type="designation"
             label="Designations"
             singular="Designation"
-            guidance="Designations identify an employee's formal title. Deactivation prevents new assignments while preserving employment history."
+            nameLabel="Position"
+            namePlaceholder="For example Software Engineer"
+            nameHelp="The employee's position, independent of department. Link it to a department through a job."
+            guidance="Designations are employee positions, such as Software Engineer or Community Handler. Deactivation prevents new assignments while preserving employment history."
           />
         ) : masterPageId === "jobs" ? (
           <HrMasterCatalogueWorkspace
             type="job"
             label="Jobs"
             singular="Job"
-            guidance="Jobs are reusable company master records. Creating one does not hire, assign, or activate an employee."
+            nameLabel="Job title"
+            namePlaceholder="For example Software Engineer – Development"
+            nameHelp="The specific title used for hiring and placement in its department."
+            withDepartment
+            guidance="Jobs are specific job titles that belong to a department, such as Software Engineer in Development or Community Handler in Marketing. Creating one does not hire, assign, or activate an employee."
           />
         ) : definition ? (
           <HrConfiguredMasterWorkspace key={definition.type} definition={definition} />

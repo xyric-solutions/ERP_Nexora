@@ -4211,3 +4211,59 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Verification: ESLint (only pre-existing findings), UI theme audit,
   production build, `git diff --check`, repository list reads show the
   records. Browser click-through pending.
+
+## 2026-11-06 - HR138 Project/Location hierarchy; jobs by department; recruitment layouts
+
+- Organisation Structure: Company -> Project -> Location -> Department. Stored
+  types are unchanged: `branch` is shown as Project (new codes PRJ-) and
+  `division` as Location (new codes LCN-); existing DIV-/BR- codes keep their
+  values and counters, so the first new Location in a tenant can be LCN-002.
+  Business unit and Warehouse are no longer offered in the Type dropdown;
+  existing records still display. Shared rules and labels live in
+  `app/features/hr/model/organization-hierarchy.ts` (mirrors the API rule in
+  `assertOrganizationParentType`: Location may sit under a Project; Project no
+  longer under a Location). "Add child" is hidden on Departments.
+- HR138 migration (`packages/db/source-migrations/hr/0138_*`): placement
+  coherence ranks branch (Project) above division (Location); requisitions gain
+  optional `work_location_id` (own trigger, checked only when set/changed) and
+  the business reason may be blank. Rollback steps are in the file header.
+- Hierarchy-aware workflows: hire and transfer panels list departments anywhere
+  beneath the chosen Project (were direct children only); placement change
+  panels order Project/Location/Department and show legacy levels only when
+  used; offers derive the Project through a Location and validate by ancestry.
+- Cost Centres: Default nominal is an optional dropdown fed by
+  `GET /api/v1/hr/cost_centre_nominals` (active, postable, non-bank Finance
+  nominals, approved where governed). The server rejects a new/changed nominal
+  that is not in that set; existing free-text values stay readable.
+- Designations are worded as employee positions; Jobs carry a required
+  Department (existing `owning_org_unit_id`), validated server-side as an active
+  department of the company. Editing a job without the field keeps it.
+- Manpower Requisitions: grouped form (Role / Where the role works / Salary
+  range / Requirements); Location from Work Locations with the city from the
+  active address profile (`GET /api/v1/hr/requisition_work_locations`); Job type
+  is the existing work arrangement (On-site/Hybrid/Remote; Client site only on
+  older records); Currency above side-by-side Minimum/Maximum salary; Business
+  reason optional with no "Optional" label. "Requested positions" was kept (it
+  is the approved headcount cap enforced on Job Openings) and renamed Headcount.
+- Job Openings: Positions to fill (shows remaining approved headcount on the
+  requisition) and Advertising channels (where it is published; nothing is
+  posted automatically); title pre-fills from the requisition.
+- Recruitment Pipeline: Candidate and Opening title are dropdowns of active
+  candidates and open, unfilled, unexpired openings; nine stages are grouped as
+  In progress / Outcome / Closed with clickable count chips; the board wraps
+  instead of scrolling sideways; outcome groups appear only when populated.
+- Interviews & Evaluations: candidate-wise layout. Left: candidates with their
+  applications and stages. Right: candidate header and readiness tiles, every
+  interview round as a card (schedule, panel, per-member evaluation status,
+  outcome/reschedule/evaluate actions, scorecards), assessments, selection
+  readiness and evidence activity. All existing actions and forms unchanged.
+- Verification: API/web `tsc`, ESLint (no new findings vs HEAD), unit tests
+  (HR suites pass; landing-summary test updated to the new wording),
+  repository checks against a throwaway clone of the local DB (19/19: hierarchy
+  rules and codes, placement coherence, nominal options and rejection, job
+  department, requisition with location and blank reason, application in
+  Applied, offer project derivation), UI theme audit, `git diff --check`,
+  production build. Pre-existing failures not caused by this batch:
+  `tests/contract/openapi.test.ts` path list (already stale) and
+  `tests/unit/user-management-components.test.ts`. Browser click-through at
+  desktop/tablet/mobile widths and light/dark is pending.

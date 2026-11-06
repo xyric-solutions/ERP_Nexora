@@ -461,7 +461,11 @@ export function HrInterviewsWorkspace() {
         if (!cancelled) {
           setApps(result);
           setApplicationId((current) =>
-            result.items.some((item) => item.id === current) ? current : (result.items[0]?.id ?? ""),
+            result.items.some((item) => item.id === current)
+              ? current
+              : (result.items.find((item) => ["shortlisted", "interview", "evaluation"].includes(item.stage))?.id ??
+                result.items[0]?.id ??
+                ""),
           );
           setLoading(false);
         }
@@ -551,7 +555,6 @@ export function HrInterviewsWorkspace() {
     selected = workspace?.interviews.find((item) => item.id === selectedId);
   const editable = !!workspace && ["shortlisted", "interview", "evaluation"].includes(workspace.application.stage),
     scheduleAllowed = editable && workspace?.application.stage !== "evaluation";
-  const ownEvaluation = selected?.evaluations.find((item) => item.user_id === session?.user.id);
   const actorName = (id: string) =>
     id === session?.user.id
       ? session.user.display_name
@@ -566,10 +569,143 @@ export function HrInterviewsWorkspace() {
         <AlertDescription>Sign in with HR employee read permission to review interviews.</AlertDescription>
       </Alert>
     );
+  // Applications grouped per candidate, so each person's interviews and evidence read together.
+  const candidateGroups = apps.items.reduce<
+    Array<{ id: string; name: string; email: string; applications: HrApplicationDirectory["items"] }>
+  >((groups, item) => {
+    const group = groups.find((entry) => entry.id === item.candidate_id);
+    if (group) group.applications.push(item);
+    else groups.push({ id: item.candidate_id, name: item.candidate_name, email: item.candidate_email, applications: [item] });
+    return groups;
+  }, []);
+  const chosen = apps.items.find((item) => item.id === applicationId);
+  const roundCard = (item: Interview) => {
+    const mine = item.evaluations.find((evaluation) => evaluation.user_id === session.user.id);
+    const submitted = item.panel.filter((person) =>
+      item.evaluations.some((evaluation) => evaluation.user_id === person.user_id),
+    ).length;
+    return (
+      <article
+        key={item.id}
+        className={`grid min-w-0 gap-4 rounded-xl border bg-card p-4 ${item.id === selectedId ? "border-primary/60" : "border-border"}`}
+        aria-label={`Round ${item.round} ${label(item.kind)} interview`}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h5 className="m-0 font-semibold">
+              Round {item.round} · {label(item.kind)}
+            </h5>
+            <p className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock3 className="size-4 shrink-0" />
+              {time(item.starts_at)} · {item.duration_minutes} minutes
+            </p>
+            <p className="mt-1 break-words text-sm text-muted-foreground">
+              {label(item.mode)} · {item.location}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <Badge variant={item.status === "completed" ? "secondary" : "outline"}>{label(item.status)}</Badge>
+            <Badge variant="outline">
+              Evaluations {submitted}/{item.panel.length}
+            </Badge>
+          </div>
+        </div>
+        <div className="grid gap-2 rounded-lg bg-muted/40 p-3">
+          <h6 className="m-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Panel</h6>
+          {item.panel.map((person) => {
+            const evaluation = item.evaluations.find((entry) => entry.user_id === person.user_id);
+            return (
+              <div key={person.user_id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span className="min-w-0 break-words">{person.name}</span>
+                <Badge variant="outline">
+                  {evaluation
+                    ? `${evaluation.weighted_score}% · ${label(evaluation.recommendation)}`
+                    : "Awaiting evaluation"}
+                </Badge>
+              </div>
+            );
+          })}
+        </div>
+        {canUpdate && editable ? (
+          <div className="flex flex-wrap gap-2">
+            {["scheduled", "no_show"].includes(item.status) ? (
+              <>
+                <HrRecordDrawer
+                  title="Record interview outcome"
+                  triggerLabel="Record outcome"
+                  completionKey={notice}
+                  busy={busy}
+                  error={error}
+                  notice={notice}
+                >
+                  <StatusForm key={`${item.id}-${item.version}`} scope={scope} interview={item} busy={busy} run={run} />
+                </HrRecordDrawer>
+                {scheduleAllowed ? (
+                  <Button
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => {
+                      setSelectedId(item.id);
+                      setEditor("reschedule");
+                    }}
+                  >
+                    Reschedule
+                  </Button>
+                ) : null}
+              </>
+            ) : null}
+            {item.status === "completed" &&
+            item.panel.some((person) => person.user_id === session.user.id) &&
+            !mine ? (
+              <HrRecordDrawer
+                title="Interview evaluation"
+                triggerLabel="Submit my evaluation"
+                completionKey={notice}
+                busy={busy}
+                error={error}
+                notice={notice}
+              >
+                <EvaluationForm key={item.id} scope={scope} interview={item} busy={busy} run={run} />
+              </HrRecordDrawer>
+            ) : null}
+          </div>
+        ) : null}
+        {item.evaluations.length ? (
+          <div className="grid gap-2 border-t border-border pt-3">
+            <h6 className="m-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Submitted scorecards
+            </h6>
+            {item.evaluations.map((evaluation) => (
+              <details key={evaluation.id} className="rounded-lg border border-border p-3">
+                <summary className="cursor-pointer text-sm font-medium">
+                  {item.panel.find((person) => person.user_id === evaluation.user_id)?.name ?? evaluation.user_id} ·{" "}
+                  {evaluation.weighted_score}% · {label(evaluation.recommendation)}
+                </summary>
+                <div className="mt-3 grid gap-2 text-sm">
+                  <p>
+                    <strong>Strengths:</strong> {evaluation.strengths}
+                  </p>
+                  <p>
+                    <strong>Concerns:</strong> {evaluation.concerns}
+                  </p>
+                  {item.template.map((criterion) => (
+                    <p key={criterion.id} className="text-muted-foreground">
+                      {criterion.label}: {evaluation.scores[criterion.id]} / 5 · {criterion.weight}% weight
+                    </p>
+                  ))}
+                  <span className="text-xs text-muted-foreground">Submitted {time(evaluation.submitted_at)}</span>
+                </div>
+              </details>
+            ))}
+          </div>
+        ) : null}
+      </article>
+    );
+  };
   return (
     <section
       aria-label="Live interviews and evaluations"
-      className="grid min-w-0 gap-5 font-sans text-foreground [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_h4]:mb-0 [&_ul]:m-0 [&_ul]:pl-5"
+      className="grid min-w-0 gap-5 font-sans text-foreground [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_h4]:mb-0 [&_h5]:mb-0 [&_h6]:mb-0 [&_ul]:m-0 [&_ul]:pl-5"
     >
       {error ? (
         <Alert variant="destructive">
@@ -583,7 +719,7 @@ export function HrInterviewsWorkspace() {
         </div>
       ) : null}
       <form
-        className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 md:grid-cols-3"
+        className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 md:grid-cols-[minmax(12rem,1fr)_minmax(14rem,1.4fr)_auto]"
         onSubmit={(e) => {
           e.preventDefault();
           setError("");
@@ -620,7 +756,7 @@ export function HrInterviewsWorkspace() {
           </select>
         </label>
         <label className="grid min-w-0 gap-1.5 text-sm font-medium">
-          Find application
+          Find candidate
           <Input
             type="search"
             value={search}
@@ -629,92 +765,158 @@ export function HrInterviewsWorkspace() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
-        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
-          Application
-          <select
-            className={selectClass}
-            disabled={busy}
-            value={applicationId}
-            onChange={(e) => {
-              setApplicationId(e.target.value);
-              setNotice("");
-              setError("");
-            }}
-          >
-            {!apps.items.length ? (
-              <option value="">No matching applications</option>
-            ) : (
-              apps.items.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.candidate_name} · {item.reference} · {label(item.stage)}
-                </option>
-              ))
-            )}
-          </select>
-        </label>
+        <Button type="submit" variant="outline" disabled={busy}>
+          Search
+        </Button>
       </form>
-      {loading && !workspace ? (
-        <Skeleton className="h-80 w-full" />
-      ) : !workspace ? (
-        <div className="grid justify-items-center gap-3 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
-          <CalendarDays className="size-9 text-primary" />
-          <h3 className="m-0 text-lg font-semibold">No application selected</h3>
-          <p className="max-w-lg text-sm text-muted-foreground">
-            Create an application in Recruitment Pipeline, progress it through screening, and shortlist the candidate to
-            begin interview scheduling.
-          </p>
-          <a className="text-sm font-medium text-primary underline underline-offset-4" href="#/hr/recruitment-pipeline">
-            Open Recruitment Pipeline
-          </a>
-        </div>
-      ) : (
-        <>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-border bg-card p-4">
-              <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                <CalendarDays className="size-4" />
-                Interview rounds
-              </span>
-              <strong className="mt-2 block text-2xl">{workspace.interviews.length}</strong>
-            </div>
-            <div className="rounded-xl border border-border bg-card p-4">
-              <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Users className="size-4" />
-                Distinct evaluators
-              </span>
-              <strong className="mt-2 block text-2xl">
-                {workspace.readiness.evaluators}
-                <span className="ml-1 text-sm font-normal text-muted-foreground">
-                  / {workspace.readiness.minimum_evaluators} minimum
-                </span>
-              </strong>
-            </div>
-            <div className="rounded-xl border border-border bg-card p-4">
-              <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                <ClipboardCheck className="size-4" />
-                Weighted panel average
-              </span>
-              <strong className="mt-2 block text-2xl">
-                {workspace.readiness.average_score === null ? "Pending" : `${workspace.readiness.average_score}%`}
-              </strong>
+      <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]">
+        <aside className="grid min-w-0 gap-3 rounded-xl border border-border bg-card p-3" aria-label="Candidates">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <h3 className="m-0 text-sm font-semibold">Candidates</h3>
+            <Badge variant="outline" className="tabular-nums">
+              {candidateGroups.length}
+            </Badge>
+          </div>
+          {candidateGroups.length ? (
+            <ul className="m-0! grid max-h-[70vh] list-none gap-2 overflow-y-auto p-0! pr-1">
+              {candidateGroups.map((group) => (
+                <li key={group.id} className="grid gap-1.5 rounded-lg border border-border p-2">
+                  <span className="min-w-0 px-1">
+                    <span className="block truncate text-sm font-semibold">{group.name}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{group.email}</span>
+                  </span>
+                  {group.applications.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      disabled={busy}
+                      aria-pressed={item.id === applicationId}
+                      onClick={() => {
+                        setApplicationId(item.id);
+                        setNotice("");
+                        setError("");
+                      }}
+                      className={`grid w-full min-w-0 gap-1 rounded-md border px-2.5 py-2 text-left text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 ${item.id === applicationId ? "border-primary bg-primary/10" : "border-transparent bg-muted/40 hover:border-primary/40"}`}
+                    >
+                      <span className="line-clamp-2 break-words font-medium text-foreground">{item.opening_title}</span>
+                      <span className="flex flex-wrap items-center justify-between gap-1 text-muted-foreground">
+                        <span className="truncate">{item.reference}</span>
+                        <Badge
+                          variant={item.stage === "rejected" ? "destructive" : "secondary"}
+                          className="px-1.5 py-0 text-[10px]"
+                        >
+                          {label(item.stage)}
+                        </Badge>
+                      </span>
+                    </button>
+                  ))}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="px-1 py-6 text-center text-sm text-muted-foreground">
+              No matching candidates. Applications created in Recruitment Pipeline appear here.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-1 pt-2">
+            <span className="text-xs text-muted-foreground">{apps.total} applications</span>
+            <div className="flex gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy || query.offset === 0}
+                onClick={() => setQuery((current) => ({ ...current, offset: Math.max(0, current.offset - 50) }))}
+              >
+                Previous
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy || query.offset + 50 >= apps.total}
+                onClick={() => setQuery((current) => ({ ...current, offset: current.offset + 50 }))}
+              >
+                Next
+              </Button>
             </div>
           </div>
-          <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(300px,1fr)]">
-            <div className="grid min-w-0 gap-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="m-0 text-lg font-semibold">{workspace.application.candidate_name}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {workspace.application.opening_title} · {label(workspace.application.stage)}
+        </aside>
+        {loading && !workspace ? (
+          <Skeleton className="h-96 w-full" />
+        ) : !workspace ? (
+          <div className="grid justify-items-center gap-3 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
+            <CalendarDays className="size-9 text-primary" />
+            <h3 className="m-0 text-lg font-semibold">No candidate selected</h3>
+            <p className="max-w-lg text-sm text-muted-foreground">
+              Create an application in Recruitment Pipeline, progress it through screening, and shortlist the
+              candidate to begin interview scheduling.
+            </p>
+            <a className="text-sm font-medium text-primary underline underline-offset-4" href="#/hr/recruitment-pipeline">
+              Open Recruitment Pipeline
+            </a>
+          </div>
+        ) : (
+          <div className="grid min-w-0 gap-4" aria-label={`${workspace.application.candidate_name} interview record`}>
+            <div className="grid gap-4 rounded-xl border border-border bg-card p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Candidate</p>
+                  <h3 className="mt-1 text-xl font-semibold">{workspace.application.candidate_name}</h3>
+                  <p className="mt-1 break-words text-sm text-muted-foreground">
+                    {workspace.application.opening_title}
+                    {chosen ? ` · ${chosen.reference} · ${chosen.candidate_email}` : ""}
                   </p>
                 </div>
-                {canUpdate && scheduleAllowed ? (
-                  <Button className="text-primary-foreground!" disabled={busy} onClick={() => setEditor("schedule")}>
-                    <Plus className="size-4" />
-                    Schedule interview
-                  </Button>
-                ) : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary">{label(workspace.application.stage)}</Badge>
+                  {canUpdate && scheduleAllowed ? (
+                    <Button className="text-primary-foreground!" disabled={busy} onClick={() => setEditor("schedule")}>
+                      <Plus className="size-4" />
+                      Schedule interview
+                    </Button>
+                  ) : null}
+                </div>
               </div>
+              <dl className="m-0 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <dt className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <CalendarDays className="size-4" />
+                    Interview rounds
+                  </dt>
+                  <dd className="mt-1 text-xl font-semibold">{workspace.interviews.length}</dd>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <dt className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Users className="size-4" />
+                    Evaluators
+                  </dt>
+                  <dd className="mt-1 text-xl font-semibold">
+                    {workspace.readiness.evaluators}
+                    <span className="ml-1 text-sm font-normal text-muted-foreground">
+                      / {workspace.readiness.minimum_evaluators} minimum
+                    </span>
+                  </dd>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <dt className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <ClipboardCheck className="size-4" />
+                    Weighted average
+                  </dt>
+                  <dd className="mt-1 text-xl font-semibold">
+                    {workspace.readiness.average_score === null ? "Pending" : `${workspace.readiness.average_score}%`}
+                  </dd>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <dt className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <ShieldCheck className="size-4" />
+                    Selection readiness
+                  </dt>
+                  <dd className="mt-1 text-xl font-semibold">
+                    {workspace.readiness.ready ? "Ready" : `${workspace.readiness.blockers.length} open`}
+                  </dd>
+                </div>
+              </dl>
               {!editable ? (
                 <Alert>
                   <AlertTitle>Application stage: {label(workspace.application.stage)}</AlertTitle>
@@ -724,187 +926,69 @@ export function HrInterviewsWorkspace() {
                   </AlertDescription>
                 </Alert>
               ) : null}
-              <HrRecordDrawer
-                title={editor === "reschedule" ? "Reschedule interview" : "Schedule interview"}
-                open={!!editor && canUpdate}
-                onClose={() => setEditor(null)}
-                busy={busy}
-                error={error}
-                notice={notice}
-              >
-                {editor && canUpdate ? (
-                  <>
-                    <form
-                      className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        setPanelQuery(panelSearch);
-                      }}
-                    >
-                      <label className="grid flex-1 gap-1 text-sm">
-                        Find panel account
-                        <Input
-                          value={panelSearch}
-                          maxLength={160}
-                          placeholder="Name or email"
-                          onChange={(e) => setPanelSearch(e.target.value)}
-                        />
-                      </label>
-                      <Button type="submit" variant="outline" disabled={busy}>
-                        Find panel
-                      </Button>
-                      <span className="w-full text-xs text-muted-foreground">
-                        Up to 100 company-authorized accounts. Refine the search if needed.
-                      </span>
-                    </form>
-                    <ScheduleForm
-                      key={`${applicationId}-${editor}-${selectedId}`}
-                      scope={scope}
-                      panel={panel}
-                      busy={busy}
-                      run={run}
-                      close={() => setEditor(null)}
-                      interview={editor === "reschedule" ? selected : undefined}
-                    />
-                  </>
-                ) : null}
-              </HrRecordDrawer>
-              {workspace.interviews.length ? (
-                <div
-                  className="relative min-w-0 flex flex-wrap gap-2 overflow-x-auto pb-1"
-                  aria-label="Interview rounds"
-                >
-                  {workspace.interviews.map((item) => (
-                    <Button
-                      key={item.id}
-                      variant="outline"
-                      className={item.id === selectedId ? "border-primary bg-primary/10 text-primary" : ""}
-                      disabled={busy}
-                      aria-pressed={item.id === selectedId}
-                      onClick={() => {
-                        setSelectedId(item.id);
-                        setEditor(null);
-                      }}
-                    >
-                      Round {item.round} · {label(item.kind)}
+            </div>
+            <HrRecordDrawer
+              title={editor === "reschedule" ? "Reschedule interview" : "Schedule interview"}
+              open={!!editor && canUpdate}
+              onClose={() => setEditor(null)}
+              busy={busy}
+              error={error}
+              notice={notice}
+            >
+              {editor && canUpdate ? (
+                <>
+                  <form
+                    className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      setPanelQuery(panelSearch);
+                    }}
+                  >
+                    <label className="grid flex-1 gap-1 text-sm">
+                      Find panel account
+                      <Input
+                        value={panelSearch}
+                        maxLength={160}
+                        placeholder="Name or email"
+                        onChange={(e) => setPanelSearch(e.target.value)}
+                      />
+                    </label>
+                    <Button type="submit" variant="outline" disabled={busy}>
+                      Find panel
                     </Button>
-                  ))}
-                </div>
+                    <span className="w-full text-xs text-muted-foreground">
+                      Up to 100 company-authorized accounts. Refine the search if needed.
+                    </span>
+                  </form>
+                  <ScheduleForm
+                    key={`${applicationId}-${editor}-${selectedId}`}
+                    scope={scope}
+                    panel={panel}
+                    busy={busy}
+                    run={run}
+                    close={() => setEditor(null)}
+                    interview={editor === "reschedule" ? selected : undefined}
+                  />
+                </>
+              ) : null}
+            </HrRecordDrawer>
+            <section className="grid min-w-0 gap-3" aria-label="Interview rounds">
+              <h4 className="m-0 font-semibold">Interviews & evaluations</h4>
+              {workspace.interviews.length ? (
+                workspace.interviews.map(roundCard)
               ) : (
                 <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center">
                   <CalendarDays className="mx-auto size-7 text-primary" />
-                  <h4 className="mb-0 mt-3 font-semibold">No interview rounds yet</h4>
+                  <h5 className="mb-0 mt-3 font-semibold">No interview rounds yet</h5>
                   <p className="mt-2 text-sm text-muted-foreground">
                     Schedule the first conversation once the candidate is shortlisted.
                   </p>
                 </div>
               )}
-              {selected ? (
-                <article className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h4 className="m-0 text-lg font-semibold">
-                        Round {selected.round} · {label(selected.kind)}
-                      </h4>
-                      <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                        <Clock3 className="size-4" />
-                        {time(selected.starts_at)} · {selected.duration_minutes} minutes
-                      </p>
-                      <p className="mt-1 break-words text-sm text-muted-foreground">
-                        {label(selected.mode)} · {selected.location}
-                      </p>
-                    </div>
-                    <Badge variant={selected.status === "completed" ? "secondary" : "outline"}>
-                      {label(selected.status)}
-                    </Badge>
-                  </div>
-                  <div className="rounded-lg bg-muted/40 p-3">
-                    <h5 className="m-0 text-sm font-semibold">Panel progress</h5>
-                    <div className="mt-2 grid gap-2">
-                      {selected.panel.map((person) => (
-                        <div key={person.user_id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                          <span>{person.name}</span>
-                          <Badge variant="outline">
-                            {selected.evaluations.some((item) => item.user_id === person.user_id)
-                              ? "Evaluation submitted"
-                              : "Awaiting evaluation"}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  {canUpdate && editable && ["scheduled", "no_show"].includes(selected.status) ? (
-                    <>
-                      <HrRecordDrawer
-                        title="Record interview outcome"
-                        triggerLabel="Record interview outcome"
-                        completionKey={notice}
-                        busy={busy}
-                        error={error}
-                        notice={notice}
-                      >
-                        <StatusForm
-                          key={`${selected.id}-${selected.version}`}
-                          scope={scope}
-                          interview={selected}
-                          busy={busy}
-                          run={run}
-                        />
-                      </HrRecordDrawer>
-                      {scheduleAllowed ? (
-                        <Button variant="outline" disabled={busy} onClick={() => setEditor("reschedule")}>
-                          Reschedule interview
-                        </Button>
-                      ) : null}
-                    </>
-                  ) : null}
-                  {canUpdate &&
-                  editable &&
-                  selected.status === "completed" &&
-                  selected.panel.some((person) => person.user_id === session.user.id) &&
-                  !ownEvaluation ? (
-                    <HrRecordDrawer
-                      title="Interview evaluation"
-                      triggerLabel="Interview evaluation"
-                      completionKey={notice}
-                      busy={busy}
-                      error={error}
-                      notice={notice}
-                    >
-                      <EvaluationForm key={selected.id} scope={scope} interview={selected} busy={busy} run={run} />
-                    </HrRecordDrawer>
-                  ) : null}
-                  {selected.evaluations.length ? (
-                    <div className="grid gap-3 border-t border-border pt-4">
-                      <h4 className="m-0 font-semibold">Submitted scorecards</h4>
-                      {selected.evaluations.map((item) => (
-                        <details key={item.id} className="rounded-lg border border-border p-3">
-                          <summary className="cursor-pointer text-sm font-medium">
-                            {selected.panel.find((person) => person.user_id === item.user_id)?.name ?? item.user_id} ·{" "}
-                            {item.weighted_score}% · {label(item.recommendation)}
-                          </summary>
-                          <div className="mt-3 grid gap-2 text-sm">
-                            <p>
-                              <strong>Strengths:</strong> {item.strengths}
-                            </p>
-                            <p>
-                              <strong>Concerns:</strong> {item.concerns}
-                            </p>
-                            {selected.template.map((criterion) => (
-                              <p key={criterion.id} className="text-muted-foreground">
-                                {criterion.label}: {item.scores[criterion.id]} / 5 · {criterion.weight}% weight
-                              </p>
-                            ))}
-                            <span className="text-xs text-muted-foreground">Submitted {time(item.submitted_at)}</span>
-                          </div>
-                        </details>
-                      ))}
-                    </div>
-                  ) : null}
-                </article>
-              ) : null}
-              <div className="grid gap-3 rounded-xl border border-border bg-card p-5">
-                <h3 className="m-0 text-lg font-semibold">Assessments & checks</h3>
+            </section>
+            <div className="grid min-w-0 items-start gap-4 xl:grid-cols-2">
+              <section className="grid gap-3 rounded-xl border border-border bg-card p-5" aria-label="Assessments">
+                <h4 className="m-0 font-semibold">Assessments & checks</h4>
                 <p className="text-sm text-muted-foreground">
                   Mandatory assessments must pass before selection. Final decisions and panel scorecards cannot be
                   edited.
@@ -932,6 +1016,9 @@ export function HrInterviewsWorkspace() {
                     ) : null}
                   </article>
                 ))}
+                {!workspace.assessments.length ? (
+                  <p className="text-sm text-muted-foreground">No assessments recorded for this application.</p>
+                ) : null}
                 {canUpdate && editable ? (
                   <HrRecordDrawer
                     title="Add assessment"
@@ -993,13 +1080,14 @@ export function HrInterviewsWorkspace() {
                     </form>
                   </HrRecordDrawer>
                 ) : null}
-              </div>
-            </div>
-            <aside className="grid min-w-0 gap-4">
-              <div className="grid min-w-0 gap-4 rounded-2xl border border-primary/20 bg-card p-5">
+              </section>
+              <section
+                className="grid min-w-0 gap-4 rounded-xl border border-primary/20 bg-card p-5"
+                aria-label="Selection readiness"
+              >
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="size-5 text-primary" />
-                  <h3 className="m-0 text-lg font-semibold">Selection readiness</h3>
+                  <h4 className="m-0 font-semibold">Selection readiness</h4>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {workspace.readiness.policy_version} · {workspace.readiness.threshold}% threshold · all required panel
@@ -1063,58 +1151,35 @@ export function HrInterviewsWorkspace() {
                 >
                   Open application pipeline
                 </a>
+              </section>
+            </div>
+            <section className="rounded-xl border border-border bg-card p-5" aria-label="Evidence activity">
+              <h4 className="m-0 font-semibold">Evidence activity</h4>
+              <div className="mt-4 grid min-w-0 gap-4">
+                {workspace.history.length ? (
+                  workspace.history
+                    .slice()
+                    .reverse()
+                    .map((item) => (
+                      <div key={item.id} className="border-l-2 border-primary/25 pl-3">
+                        <span className="text-sm font-medium">{actionLabels[item.action] ?? label(item.action)}</span>
+                        <p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">
+                          {item.reason}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          By {actorName(item.actor_id)} · {time(item.occurred_at)}
+                        </p>
+                      </div>
+                    ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Interview activity appears here as evidence is recorded.
+                  </p>
+                )}
               </div>
-              <div className="rounded-xl border border-border bg-card p-5">
-                <h3 className="m-0 font-semibold">Evidence activity</h3>
-                <div className="mt-4 grid min-w-0 gap-4">
-                  {workspace.history.length ? (
-                    workspace.history
-                      .slice()
-                      .reverse()
-                      .map((item) => (
-                        <div key={item.id} className="border-l-2 border-primary/25 pl-3">
-                          <span className="text-sm font-medium">{actionLabels[item.action] ?? label(item.action)}</span>
-                          <p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">
-                            {item.reason}
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            By {actorName(item.actor_id)} · {time(item.occurred_at)}
-                          </p>
-                        </div>
-                      ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Interview activity appears here as evidence is recorded.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </aside>
+            </section>
           </div>
-        </>
-      )}
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 py-2">
-        <span className="text-xs text-muted-foreground">{apps.total} matching applications · up to 50 per page</span>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={busy || query.offset === 0}
-            onClick={() => setQuery((current) => ({ ...current, offset: Math.max(0, current.offset - 50) }))}
-          >
-            Previous
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={busy || query.offset + 50 >= apps.total}
-            onClick={() => setQuery((current) => ({ ...current, offset: current.offset + 50 }))}
-          >
-            Next
-          </Button>
-        </div>
+        )}
       </div>
     </section>
   );
