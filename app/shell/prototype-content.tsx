@@ -223,7 +223,6 @@ const configuredHrMasters: Record<string, HrConfiguredMasterDefinition> = {
   },
   "employment-setup": {
     type: "employment_setup",
-    addFromDrawer: true,
     label: "Employment Setup",
     singular: "Employment Setup",
     nameLabel: "Name",

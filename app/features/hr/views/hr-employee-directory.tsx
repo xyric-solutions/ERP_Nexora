@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
+import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import { HrEmployeeRecordWorkspace } from "./hr-employee-record-workspace";
@@ -26,7 +27,7 @@ function employeeStatusVariant(status: HrEmployeeDirectory["items"][number]["sta
 
 /** Live employee directory; a row opens the employee overview in the side drawer. */
 export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
-  const { api, session } = useSession();
+  const { api, csrfToken, session } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
   const [companyId, setCompanyId] = useState("");
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
@@ -39,6 +40,20 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
   const [editingId, setEditingId] = useState("");
   const [recordVersion, setRecordVersion] = useState(0);
   const [notice, setNotice] = useState("");
+  const [directoryVersion, setDirectoryVersion] = useState(0);
+  /** Soft delete; the server refuses employees with payroll history and explains why. */
+  const removeEmployee = async (employee: HrEmployeeDirectory["items"][number]) => {
+    try {
+      await client.removeEmployee(employee.id, csrfToken(), crypto.randomUUID());
+      setNotice(`${employee.display_name} was deleted from the directory.`);
+      setSelectedId("");
+      setDirectoryVersion((current) => current + 1);
+      return true;
+    } catch (cause) {
+      setNotice(cause instanceof Error && cause.message ? cause.message : `${employee.display_name} could not be deleted.`);
+      return false;
+    }
+  };
   const selected = employees.find((employee) => employee.id === selectedId);
   const canEdit = [
     "hr.employee_contact.manage",
@@ -98,7 +113,7 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
     return () => {
       active = false;
     };
-  }, [appliedQuery, client, companyId, companyState]);
+  }, [appliedQuery, client, companyId, companyState, directoryVersion]);
 
   if (companyState === "unavailable") {
     return (
@@ -212,9 +227,6 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
                 <th className="px-3 py-2">Department</th>
                 <th className="px-3 py-2">Joined</th>
                 <th className="px-3 py-2">Status</th>
-                <th className="w-12 px-2 py-2">
-                  <span className="sr-only">Actions</span>
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -242,24 +254,12 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
                       {employee.status.replaceAll("_", " ")}
                     </Badge>
                   </td>
-                  <td className="px-2 py-1 text-right">
-                    {canEdit ? (
-                      <HrEditButton
-                        label={`Edit ${employee.display_name}`}
-                        variant="ghost"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setEditingId(employee.id);
-                        }}
-                        onKeyDown={(event) => event.stopPropagation()}
-                      />
-                    ) : null}
-                  </td>
+
                 </tr>
               ))}
               {employees.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-muted-foreground" colSpan={6}>
+                  <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
                     No employees match this company and search.
                   </td>
                 </tr>
@@ -281,9 +281,16 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
         description={selected ? `${selected.employee_number} · ${selected.designation} · ${selected.department}` : ""}
         footer={
           selected && canEdit ? (
-            <Button type="button" variant="outline" onClick={() => setEditingId(selected.id)}>
-              Edit employee
-            </Button>
+            <>
+              <HrConfirmDeleteButton
+                label={`Delete ${selected.display_name}`}
+                title={`Delete ${selected.display_name}?`}
+                description="The employee is removed from the directory and kept in the audit trail. Employees with payroll history cannot be deleted; use an exit case instead."
+                variant="outline"
+                onConfirm={() => removeEmployee(selected)}
+              />
+              <HrEditButton label={`Edit ${selected.display_name}`} onClick={() => setEditingId(selected.id)} />
+            </>
           ) : undefined
         }
       >
@@ -304,6 +311,7 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
             setNotice(message);
             setEditingId("");
             setRecordVersion((current) => current + 1);
+            setDirectoryVersion((current) => current + 1);
           }}
         />
       ) : null}

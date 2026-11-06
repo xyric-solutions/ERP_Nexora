@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Check, Eye, ExternalLink, FileUp, Plus, RefreshCw } from "lucide-react";
 import {
+  hrEmployeeDirectStatuses,
   hrEmployeeDocumentFileTypes,
   hrEmployeeDocumentMaxBytes,
   type CreateHrEmployeeContactRequest,
@@ -78,7 +79,7 @@ type History = {
   reasonForLeaving: string;
 };
 
-const steps = ["Basic information", "Contact information", "Emergency contacts", "Documents", "Employment history"] as const;
+const steps = ["Basic information", "Contact information", "Documents", "Employment history"] as const;
 const today = () => new Date().toISOString().slice(0, 10);
 const emptyBasic = (): Basic => ({ companyId: "", firstName: "", middleName: "", lastName: "", preferredName: "", joinedOn: today(), workEmail: "", phone: "" });
 const emptyContact = (): Contact => ({ channel: "phone", usage: "personal", value: "", label: "", primary: false });
@@ -165,7 +166,7 @@ function StepList<T>({ rows, empty, children }: { rows: Row<T>[]; empty: string;
   return rows.length ? (
     <ul className="m-0! list-none p-0!">{rows.map((row) => children(row))}</ul>
   ) : (
-    <p className="m-0! rounded-md border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">{empty}</p>
+    <p className="m-0! py-2 text-sm text-muted-foreground">{empty}</p>
   );
 }
 
@@ -216,7 +217,7 @@ export function HrEmployeeWizard({
   target: HrEmployeeWizardTarget;
   onClose: () => void;
   /** Called after a successful Create/Save with a summary message. */
-  onSaved: (message: string, employeeNumber?: string) => void;
+  onSaved: (message: string, employeeNumber?: string, employeeId?: string) => void;
 }) {
   const { api, csrfToken, session } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
@@ -236,6 +237,10 @@ export function HrEmployeeWizard({
   const [employeeNumber, setEmployeeNumber] = useState("");
   const [basic, setBasic] = useState<Basic>(emptyBasic);
   const [savedBasic, setSavedBasic] = useState<Basic | null>(null);
+  /** Approved employees: Active, Probation, Confirmed or Suspended change directly; exits stay governed. */
+  const [status, setStatus] = useState("");
+  const [savedStatus, setSavedStatus] = useState("");
+  const statusEditable = mode.kind === "employee" && (hrEmployeeDirectStatuses as readonly string[]).includes(savedStatus);
   const [contacts, setContacts] = useState<Row<Contact>[]>([]);
   const [emergency, setEmergency] = useState<Row<Emergency>[]>([]);
   const [documents, setDocuments] = useState<Row<DocumentValue>[]>([]);
@@ -288,6 +293,10 @@ export function HrEmployeeWizard({
           phone: profile.phone ?? "",
         };
         setEmployeeNumber(profile.employee_number);
+        if ("status" in profile) {
+          setStatus(profile.status);
+          setSavedStatus(profile.status);
+        }
         setBasic(loaded);
         setSavedBasic(loaded);
         setContacts(
@@ -376,22 +385,16 @@ export function HrEmployeeWizard({
     };
   }, [basic.companyId, client, mode.kind]);
 
+  /** Only what the server needs to save the employee; every other field is optional. */
   const basicErrors = () => {
     const problems: string[] = [];
     if (!basic.companyId) problems.push("company");
     if (!basic.firstName.trim()) problems.push("first name");
     if (!basic.lastName.trim()) problems.push("last name");
-    if (!basic.joinedOn) problems.push("joining date");
     if (basic.workEmail.trim() && !emailPattern.test(basic.workEmail.trim())) problems.push("a valid email");
     return problems;
   };
   const goTo = (next: number) => {
-    if (next > 0 && profileEditable && basicErrors().length) {
-      setError(`Complete ${basicErrors().join(", ")} before continuing.`);
-      setStep(0);
-      return;
-    }
-    setError("");
     setStep(Math.max(0, Math.min(steps.length - 1, next)));
   };
 
@@ -443,7 +446,7 @@ export function HrEmployeeWizard({
     if (busy) return;
     if (profileEditable && basicErrors().length) {
       setStep(0);
-      setError(`Complete ${basicErrors().join(", ")} before saving.`);
+      setError(`Add ${basicErrors().join(", ")} to save the employee.`);
       return;
     }
     setBusy(true);
@@ -460,7 +463,7 @@ export function HrEmployeeWizard({
             employee_number: "AUTO",
             first_name: basic.firstName.trim(),
             last_name: basic.lastName.trim(),
-            joined_on: basic.joinedOn,
+            joined_on: basic.joinedOn || today(),
             ...(basic.middleName.trim() ? { middle_name: basic.middleName.trim() } : {}),
             ...(basic.preferredName.trim() ? { preferred_name: basic.preferredName.trim() } : {}),
             ...(basic.workEmail.trim() ? { work_email: basic.workEmail.trim() } : {}),
@@ -489,6 +492,10 @@ export function HrEmployeeWizard({
           await client.updateEmployeeDraft(id, changes, csrfToken(), crypto.randomUUID());
           setSavedBasic(basic);
         }
+      }
+      if (statusEditable && status !== savedStatus) {
+        await client.changeEmployeeStatus(id, { status: status as (typeof hrEmployeeDirectStatuses)[number], reason: "" }, csrfToken(), crypto.randomUUID());
+        setSavedStatus(status);
       }
     } catch (cause) {
       setBusy(false);
@@ -604,17 +611,19 @@ export function HrEmployeeWizard({
       target.kind === "create"
         ? `Employee draft ${number} was created with all entered details. It stays inactive until it is submitted and approved.`
         : `${number} was saved.`;
-    onSaved(message, number);
+    onSaved(message, number, id);
   };
 
   const pending =
     pendingCount(contacts) + pendingCount(emergency) + pendingCount(documents) + pendingCount(history) +
-    (savedBasic && profileEditable && JSON.stringify(basic) !== JSON.stringify(savedBasic) ? 1 : 0);
+    (savedBasic && profileEditable && JSON.stringify(basic) !== JSON.stringify(savedBasic) ? 1 : 0) +
+    (statusEditable && status !== savedStatus ? 1 : 0);
+  const contactsReadOnly = mode.kind !== "create" && !can("hr.employee_contact.manage");
+  const emergencyReadOnly = mode.kind !== "create" && !can("hr.employee_emergency_contact.manage");
   const readOnlyRecords =
-    (mode.kind !== "create" && !can("hr.employee_contact.manage") && step === 1) ||
-    (mode.kind !== "create" && !can("hr.employee_emergency_contact.manage") && step === 2) ||
-    (!can("hr.employee_document.manage") && step === 3) ||
-    (!can("hr.employee.update") && mode.kind !== "create" && step === 4);
+    (contactsReadOnly && emergencyReadOnly && step === 1) ||
+    (!can("hr.employee_document.manage") && step === 2) ||
+    (!can("hr.employee.update") && mode.kind !== "create" && step === 3);
   const title = target.kind === "create" ? "Add Employee" : [basic.firstName, basic.lastName].filter(Boolean).join(" ") || "Employee";
 
   const footer = (
@@ -646,7 +655,7 @@ export function HrEmployeeWizard({
   );
 
   return (
-    <HrRecordDrawer title={title} open onClose={onClose} busy={busy} error={error} notice={notice} footer={footer} description="Employee record in five steps.">
+    <HrRecordDrawer title={title} open onClose={onClose} busy={busy} error={error} notice={notice} footer={footer} description="Employee record in four steps.">
       {loading ? (
         <div className="grid gap-3" aria-live="polite">
           <Skeleton className="h-10 w-full" />
@@ -655,7 +664,7 @@ export function HrEmployeeWizard({
       ) : (
         <div className="grid gap-4">
           <div className="grid gap-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-            <Field label="Employee number" hint={mode.kind === "create" ? "Generated automatically and confirmed when the employee is created." : undefined}>
+            <Field label="Employee number">
               <Input value={employeeNumber || "Generated on create"} readOnly disabled aria-readonly className="font-mono" />
             </Field>
             {mode.kind !== "create" ? (
@@ -664,7 +673,7 @@ export function HrEmployeeWizard({
               </Badge>
             ) : null}
           </div>
-          <ol className="m-0! grid list-none grid-cols-5 gap-1 p-0!" aria-label="Steps">
+          <ol className="m-0! grid list-none grid-cols-4 gap-1 border-b border-border p-0! pb-2" aria-label="Steps">
             {steps.map((label, index) => (
               <li key={label} className="min-w-0">
                 <button
@@ -682,9 +691,7 @@ export function HrEmployeeWizard({
               </li>
             ))}
           </ol>
-          <h3 className="m-0! text-sm font-semibold">
-            Step {step + 1} of {steps.length} · {steps[step]}
-          </h3>
+
           {readOnlyRecords ? (
             <Alert>
               <AlertDescription>Your role can view these records but not change them.</AlertDescription>
@@ -740,6 +747,7 @@ export function HrEmployeeWizard({
                     ["Phone number", basic.phone],
                     ["Joining date", basic.joinedOn],
                     ["Company", companies.find((company) => company.id === basic.companyId)?.name ?? ""],
+                    ...(statusEditable ? [] : [["Status", savedStatus.replaceAll("_", " ")]]),
                   ].map(([label, value]) => (
                     <div key={label} className="grid grid-cols-[minmax(7.5rem,36%)_minmax(0,1fr)] gap-3 border-b border-border/70 py-2 last:border-b-0">
                       <dt className="text-xs text-muted-foreground">{label}</dt>
@@ -747,10 +755,17 @@ export function HrEmployeeWizard({
                     </div>
                   ))}
                 </dl>
-                <p className="m-0! text-xs text-muted-foreground">
-                  Profile details of an approved employee change through Personal Data Corrections, which keeps
-                  maker-checker approval. Contacts, documents and history can be edited in the next steps.
-                </p>
+                {statusEditable ? (
+                  <Field label="Status">
+                    <select className={selectClass} disabled={busy || !can("hr.employee.update")} value={status} onChange={(event) => setStatus(event.target.value)}>
+                      {hrEmployeeDirectStatuses.map((value) => (
+                        <option key={value} value={value}>
+                          {value.charAt(0).toUpperCase() + value.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                ) : null}
               </div>
             )
           ) : null}
@@ -765,16 +780,16 @@ export function HrEmployeeWizard({
                     detail={`${row.value.channel === "email" ? "Email" : "Phone"} · ${row.value.usage}${row.value.label ? ` · ${row.value.label}` : ""}${row.value.primary ? " · Primary" : ""}`}
                     change={row.change}
                     error={row.error}
-                    disabled={busy || readOnlyRecords}
+                    disabled={busy || contactsReadOnly}
                     onEdit={() => setContactForm({ key: row.key, value: row.value })}
                     onRemove={() => setContacts(remove(contacts, row.key))}
                     onUndo={() => setContacts(undo(contacts, row.key))}
                   />
                 )}
               </StepList>
-              {!readOnlyRecords ? (
-                <fieldset className="m-0! grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2">
-                  <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {!contactsReadOnly ? (
+                <fieldset className="m-0! grid gap-3 rounded-lg bg-muted/30 p-3 sm:grid-cols-2">
+                  <legend className="float-left mb-1 w-full p-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {contactForm.key ? "Edit contact" : "Add contact"}
                   </legend>
                   <Field label="Type">
@@ -824,7 +839,9 @@ export function HrEmployeeWizard({
             </div>
           ) : null}
 
-          {step === 2 ? (
+          {step === 1 ? (
+            <section className="grid gap-3 border-t border-border pt-4" aria-label="Emergency contacts">
+              <h4 className="m-0! text-xs font-semibold uppercase tracking-wide text-muted-foreground">Emergency contacts</h4>
             <div className="grid gap-3">
               <StepList rows={emergency} empty="No emergency contacts yet.">
                 {(row) => (
@@ -834,16 +851,16 @@ export function HrEmployeeWizard({
                     detail={`${row.value.relationship} · ${row.value.phone}${row.value.email ? ` · ${row.value.email}` : ""}${row.value.primary ? " · Primary" : ""}`}
                     change={row.change}
                     error={row.error}
-                    disabled={busy || readOnlyRecords}
+                    disabled={busy || emergencyReadOnly}
                     onEdit={() => setEmergencyForm({ key: row.key, value: row.value })}
                     onRemove={() => setEmergency(remove(emergency, row.key))}
                     onUndo={() => setEmergency(undo(emergency, row.key))}
                   />
                 )}
               </StepList>
-              {!readOnlyRecords ? (
-                <fieldset className="m-0! grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2">
-                  <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {!emergencyReadOnly ? (
+                <fieldset className="m-0! grid gap-3 rounded-lg bg-muted/30 p-3 sm:grid-cols-2">
+                  <legend className="float-left mb-1 w-full p-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {emergencyForm.key ? "Edit emergency contact" : "Add emergency contact"}
                   </legend>
                   <Field label="Contact name">
@@ -895,9 +912,10 @@ export function HrEmployeeWizard({
                 </fieldset>
               ) : null}
             </div>
+            </section>
           ) : null}
 
-          {step === 3 ? (
+          {step === 2 ? (
             <div className="grid gap-3">
               <input
                 ref={replaceInput}
@@ -976,8 +994,8 @@ export function HrEmployeeWizard({
               </StepList>
               <DocumentPreview source={preview} onClose={() => setPreview(null)} />
               {!readOnlyRecords ? (
-                <fieldset className="m-0! grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2">
-                  <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <fieldset className="m-0! grid gap-3 rounded-lg bg-muted/30 p-3 sm:grid-cols-2">
+                  <legend className="float-left mb-1 w-full p-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {documentForm.key ? "Edit document" : "Upload document"}
                   </legend>
                   <Field label="File" wide hint="PDF, HTML, JPEG, PNG, JSON, CSV or text · up to 10 MB">
@@ -1060,7 +1078,7 @@ export function HrEmployeeWizard({
             </div>
           ) : null}
 
-          {step === 4 ? (
+          {step === 3 ? (
             <div className="grid gap-3">
               <StepList rows={history} empty="No previous employment yet.">
                 {(row) => (
@@ -1078,8 +1096,8 @@ export function HrEmployeeWizard({
                 )}
               </StepList>
               {!readOnlyRecords ? (
-                <fieldset className="m-0! grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2">
-                  <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <fieldset className="m-0! grid gap-3 rounded-lg bg-muted/30 p-3 sm:grid-cols-2">
+                  <legend className="float-left mb-1 w-full p-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {historyForm.key ? "Edit previous employment" : "Add previous employment"}
                   </legend>
                   <Field label="Previous company">

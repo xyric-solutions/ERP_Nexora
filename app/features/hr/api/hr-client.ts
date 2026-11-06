@@ -66,6 +66,11 @@ import type {
   HrEmployeeDocumentDirectory,
   UploadHrEmployeeDocumentFields,
   HrEmployeeRecordMutationResult,
+  HrRecruitmentMutationResult,
+  ChangeHrManpowerRequisitionStateRequest,
+  UpdateHrJobOpeningRequest,
+  UpdateHrCandidateRequest,
+  ChangeHrEmployeeStatusRequest,
   HrEmployeeEmploymentHistoryDirectory,
   HrEmployeeEmploymentHistoryRequest,
   HrEmployeeNumberPreview,
@@ -430,6 +435,35 @@ export class HrApiClient {
 
   employeeDocuments(employeeId: string): Promise<HrEmployeeDocumentDirectory> {
     return this.api.listHrEmployeeDocuments(employeeId);
+  }
+
+  // Recruitment record edits outside the approval decision.
+  updateManpowerRequisition(id: string, input: CreateHrManpowerRequisitionRequest, csrfToken: string, idempotencyKey: string): Promise<HrRecruitmentMutationResult> {
+    return this.api.updateHrManpowerRequisition(id, input, csrfToken, idempotencyKey);
+  }
+  changeManpowerRequisitionState(id: string, input: ChangeHrManpowerRequisitionStateRequest, csrfToken: string, idempotencyKey: string): Promise<HrRecruitmentMutationResult> {
+    return this.api.changeHrManpowerRequisitionState(id, input, csrfToken, idempotencyKey);
+  }
+  deleteManpowerRequisition(id: string, companyId: string, csrfToken: string, idempotencyKey: string): Promise<HrRecruitmentMutationResult> {
+    return this.api.deleteHrManpowerRequisition(id, { company_id: companyId }, csrfToken, idempotencyKey);
+  }
+  updateJobOpening(id: string, input: UpdateHrJobOpeningRequest, csrfToken: string, idempotencyKey: string): Promise<HrRecruitmentMutationResult> {
+    return this.api.updateHrJobOpening(id, input, csrfToken, idempotencyKey);
+  }
+  deleteJobOpening(id: string, companyId: string, csrfToken: string, idempotencyKey: string): Promise<HrRecruitmentMutationResult> {
+    return this.api.deleteHrJobOpening(id, { company_id: companyId }, csrfToken, idempotencyKey);
+  }
+  updateCandidate(id: string, input: UpdateHrCandidateRequest, csrfToken: string, idempotencyKey: string): Promise<HrRecruitmentMutationResult> {
+    return this.api.updateHrCandidate(id, input, csrfToken, idempotencyKey);
+  }
+  deleteCandidate(id: string, companyId: string, csrfToken: string, idempotencyKey: string): Promise<HrRecruitmentMutationResult> {
+    return this.api.deleteHrCandidate(id, { company_id: companyId }, csrfToken, idempotencyKey);
+  }
+  changeEmployeeStatus(employeeId: string, input: ChangeHrEmployeeStatusRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.changeHrEmployeeStatus(employeeId, input, csrfToken, idempotencyKey);
+  }
+  removeEmployee(employeeId: string, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.removeHrEmployee(employeeId, {}, csrfToken, idempotencyKey);
   }
 
   // Employee record satellites (HR139): drafts and active employees in company scope.

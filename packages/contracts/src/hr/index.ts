@@ -654,6 +654,8 @@ export const hrManpowerRequisitionSchema = z.strictObject({
   branch: z.string().min(1).max(200).nullable(), project_id: identifier.nullable(), project: z.string().min(1).max(200).nullable(),
   hiring_basis: hrHiringBasisSchema.nullable(), work_arrangement: hrWorkArrangementSchema.nullable(), department: z.string().min(1).max(200),
   work_location_id: identifier.nullable(), work_location: z.string().min(1).max(160).nullable(), work_location_city: z.string().min(1).max(160).nullable(),
+  /** Master ids behind the names, so a draft can be edited. */
+  designation_id: identifier.optional(), job_grade_id: identifier.optional(), department_id: identifier.optional(),
   positions_requested: z.number().int().min(1), position_type: z.enum(["new_position", "replacement"]),
   salary_minimum: hrMoneySchema, salary_maximum: hrMoneySchema, currency_code: z.string().regex(/^[A-Z]{3}$/),
   target_start_date: isoDate, reason: z.string().max(2000), required_skills: z.array(z.string().min(1).max(100)).max(30),
@@ -714,6 +716,53 @@ export type HrCandidateQuery = z.infer<typeof hrCandidateQuerySchema>;
 export type HrCandidateDirectory = z.infer<typeof hrCandidateDirectorySchema>;
 export type CreateHrCandidateRequest = z.infer<typeof createHrCandidateRequestSchema>;
 export type ChangeHrCandidateStatusRequest = z.infer<typeof changeHrCandidateStatusRequestSchema>;
+
+/** Edits of recruitment records (requisition, opening, candidate) and their audited deletes. */
+export const hrRecruitmentMutationResultSchema = z.strictObject({ id: identifier, company_id: identifier, audit_event_id: identifier, replayed: z.boolean() });
+export const deleteHrRecruitmentRecordRequestSchema = z.strictObject({ company_id: identifier });
+/** Requisition moves outside the approval decision: reopen, submit, withdraw, cancel. */
+export const hrRequisitionStateMoves = {
+  draft: ["submitted"],
+  submitted: ["draft"],
+  approved: ["cancelled"],
+  rejected: ["draft"],
+  cancelled: ["draft"],
+} as const;
+export const changeHrManpowerRequisitionStateRequestSchema = z.strictObject({
+  company_id: identifier,
+  state: z.enum(["draft", "submitted", "cancelled"]),
+  reason: z.string().trim().max(1000).default(""),
+});
+export const updateHrJobOpeningRequestSchema = z.strictObject({
+  company_id: identifier,
+  title: z.string().trim().min(1).max(160),
+  positions_requested: z.number().int().min(1).max(999),
+  channels: z.array(z.string().trim().min(1).max(80)).min(1).max(10),
+  closing_on: isoDate.nullable().default(null),
+  state: z.enum(["open", "on_hold", "closed", "cancelled"]),
+  reason: z.string().trim().max(1000).default(""),
+});
+export const updateHrCandidateRequestSchema = z.strictObject({
+  company_id: identifier,
+  first_name: z.string().trim().min(1).max(100),
+  last_name: z.string().trim().min(1).max(100),
+  email: z.string().trim().email().max(320),
+  phone: z.string().trim().max(40).default(""),
+  source: z.enum(["direct", "referral", "agency", "job_board", "other"]),
+  status: z.enum(["active", "archived"]),
+});
+/** Statuses an approved employee can move between directly; exits stay in the lifecycle workflow. */
+export const hrEmployeeDirectStatuses = ["active", "probation", "confirmed", "suspended"] as const;
+export const changeHrEmployeeStatusRequestSchema = z.strictObject({
+  status: z.enum(hrEmployeeDirectStatuses),
+  reason: z.string().trim().max(1000).default(""),
+});
+export type HrRecruitmentMutationResult = z.infer<typeof hrRecruitmentMutationResultSchema>;
+export type DeleteHrRecruitmentRecordRequest = z.infer<typeof deleteHrRecruitmentRecordRequestSchema>;
+export type ChangeHrManpowerRequisitionStateRequest = z.input<typeof changeHrManpowerRequisitionStateRequestSchema>;
+export type UpdateHrJobOpeningRequest = z.input<typeof updateHrJobOpeningRequestSchema>;
+export type UpdateHrCandidateRequest = z.input<typeof updateHrCandidateRequestSchema>;
+export type ChangeHrEmployeeStatusRequest = z.input<typeof changeHrEmployeeStatusRequestSchema>;
 export type HrCandidateResult = z.infer<typeof hrCandidateResultSchema>;
 
 export const hrApplicationStageSchema = z.enum(["application", "screening", "shortlisted", "interview", "evaluation", "selected", "hired", "rejected", "withdrawn"]);

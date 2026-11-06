@@ -53,15 +53,15 @@ const click = async (label: string) => {
   await act(async () => button(label).click());
   await flush();
 };
-/** The control inside the label whose own text is `text`. */
-const control = (text: string) => {
-  const label = [...document.body.querySelectorAll("label")].find((candidate) => candidate.firstChild?.textContent?.trim() === text);
+/** The control inside the (nth) label whose own text is `text`. */
+const control = (text: string, nth = 0) => {
+  const label = [...document.body.querySelectorAll("label")].filter((candidate) => candidate.firstChild?.textContent?.trim() === text)[nth];
   const element = label?.querySelector("input:not([type=file]), select, textarea");
   if (!element) throw new Error(`Field not found: ${text}`);
   return element as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 };
-const type = async (text: string, value: string) => {
-  const element = control(text);
+const type = async (text: string, value: string, nth = 0) => {
+  const element = control(text, nth);
   const prototype = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   await act(async () => {
     Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(element, value);
@@ -97,23 +97,22 @@ describe("HrEmployeeWizard", () => {
     expect((control("Employee number") as HTMLInputElement).readOnly).toBe(true);
     expect(document.body.textContent).not.toContain("company-scoped draft only");
 
-    // Step 1 is required before moving on.
+    // Steps are optional: Next always moves on, even before any field is filled.
     await click("Next");
-    expect(document.body.textContent).toContain("Complete first name, last name");
+    expect(button("Add contact")).toBeTruthy();
+    await click("Previous");
     await type("First name", "Ayesha");
     await type("Last name", "Khan");
     await type("Email", "ayesha@example.com");
     await click("Next");
-    expect(document.body.textContent).toContain("Step 2 of 5 · Contact information");
 
+    // Contact information holds both contacts and emergency contacts.
     await type("Phone number", "+92 300 1234567");
     await type("Label", "Mobile");
     await click("Add contact");
-    await click("Next");
-
     await type("Contact name", "Sara Khan");
     await type("Relationship", "Sister");
-    await type("Phone number", "+92 321 7654321");
+    await type("Phone number", "+92 321 7654321", 1);
     await click("Add emergency contact");
     await click("Next");
 
@@ -138,11 +137,11 @@ describe("HrEmployeeWizard", () => {
     // Going back keeps the entered data.
     await click("Previous");
     await click("Previous");
-    await click("Previous");
     expect(document.body.textContent).toContain("+92 300 1234567");
+    expect(document.body.textContent).toContain("Sara Khan");
     await click("Previous");
     expect((control("First name") as HTMLInputElement).value).toBe("Ayesha");
-    for (let index = 0; index < 4; index += 1) await click("Next");
+    for (let index = 0; index < 3; index += 1) await click("Next");
 
     await click("Create");
     await flush();
@@ -160,7 +159,7 @@ describe("HrEmployeeWizard", () => {
       "csrf-token",
       expect.any(String),
     );
-    expect(saved).toHaveBeenCalledWith(expect.stringContaining("EMP-007"), "EMP-007");
+    expect(saved).toHaveBeenCalledWith(expect.stringContaining("EMP-007"), "EMP-007", "employee-1");
   });
 
   it("keeps the draft and the failed rows when one item cannot be saved", async () => {
@@ -173,7 +172,7 @@ describe("HrEmployeeWizard", () => {
     await click("Next");
     await type("Phone number", "+92 300 0000000");
     await click("Add contact");
-    for (let index = 0; index < 3; index += 1) await click("Next");
+    for (let index = 0; index < 2; index += 1) await click("Next");
     await click("Create");
     await flush();
     expect(api.createHrEmployeeDraft).toHaveBeenCalledTimes(1);

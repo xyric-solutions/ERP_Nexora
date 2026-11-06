@@ -29,6 +29,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrMasterSheet } from "../components/hr-master-sheet";
+import { HrDetailTile } from "../components/hr-detail-tile";
 
 type Interview = HrInterviewWorkspace["interviews"][number];
 type Assessment = HrInterviewWorkspace["assessments"][number];
@@ -429,6 +431,7 @@ export function HrInterviewsWorkspace() {
     [mandatory, setMandatory] = useState(true),
     [assessmentReason, setAssessmentReason] = useState("");
   const [decisionReason, setDecisionReason] = useState("");
+  const [recordOpen, setRecordOpen] = useState(false);
   const sequence = useRef(0);
   useEffect(() => {
     if (sessionLoading || !canRead) return;
@@ -570,16 +573,13 @@ export function HrInterviewsWorkspace() {
         <AlertDescription>Sign in with HR employee read permission to review interviews.</AlertDescription>
       </Alert>
     );
-  // Applications grouped per candidate, so each person's interviews and evidence read together.
-  const candidateGroups = apps.items.reduce<
-    Array<{ id: string; name: string; email: string; applications: HrApplicationDirectory["items"] }>
-  >((groups, item) => {
-    const group = groups.find((entry) => entry.id === item.candidate_id);
-    if (group) group.applications.push(item);
-    else groups.push({ id: item.candidate_id, name: item.candidate_name, email: item.candidate_email, applications: [item] });
-    return groups;
-  }, []);
   const chosen = apps.items.find((item) => item.id === applicationId);
+  const openApplication = (id: string) => {
+    setApplicationId(id);
+    setNotice("");
+    setError("");
+    setRecordOpen(true);
+  };
   const roundCard = (item: Interview) => {
     const mine = item.evaluations.find((evaluation) => evaluation.user_id === session.user.id);
     const submitted = item.panel.filter((person) =>
@@ -770,116 +770,111 @@ export function HrInterviewsWorkspace() {
           Search
         </Button>
       </form>
-      <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]">
-        <aside className="grid min-w-0 gap-3 rounded-xl border border-border bg-card p-3" aria-label="Candidates">
-          <div className="flex items-center justify-between gap-2 px-1">
-            <h3 className="m-0 text-sm font-semibold">Candidates</h3>
-            <Badge variant="outline" className="tabular-nums">
-              {candidateGroups.length}
-            </Badge>
-          </div>
-          {candidateGroups.length ? (
-            <ul className="m-0! grid max-h-[70vh] list-none gap-2 overflow-y-auto p-0! pr-1">
-              {candidateGroups.map((group) => (
-                <li key={group.id} className="grid gap-1.5 rounded-lg border border-border p-2">
-                  <span className="min-w-0 px-1">
-                    <span className="block truncate text-sm font-semibold">{group.name}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{group.email}</span>
-                  </span>
-                  {group.applications.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      disabled={busy}
-                      aria-pressed={item.id === applicationId}
-                      onClick={() => {
-                        setApplicationId(item.id);
-                        setNotice("");
-                        setError("");
-                      }}
-                      className={`grid w-full min-w-0 gap-1 rounded-md border px-2.5 py-2 text-left text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 ${item.id === applicationId ? "border-primary bg-primary/10" : "border-transparent bg-muted/40 hover:border-primary/40"}`}
-                    >
-                      <span className="line-clamp-2 break-words font-medium text-foreground">{item.opening_title}</span>
-                      <span className="flex flex-wrap items-center justify-between gap-1 text-muted-foreground">
-                        <span className="truncate">{item.reference}</span>
-                        <Badge
-                          variant={item.stage === "rejected" ? "destructive" : "secondary"}
-                          className="px-1.5 py-0 text-[10px]"
-                        >
-                          {label(item.stage)}
-                        </Badge>
-                      </span>
-                    </button>
-                  ))}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="px-1 py-6 text-center text-sm text-muted-foreground">
-              No matching candidates. Applications created in Recruitment Pipeline appear here.
-            </p>
-          )}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-1 pt-2">
-            <span className="text-xs text-muted-foreground">{apps.total} applications</span>
-            <div className="flex gap-1.5">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={busy || query.offset === 0}
-                onClick={() => setQuery((current) => ({ ...current, offset: Math.max(0, current.offset - 50) }))}
+      <div className="relative min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
+        <table className="w-full min-w-160 text-left text-sm">
+          <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3">Candidate</th>
+              <th className="px-4 py-3">Opening</th>
+              <th className="px-4 py-3">Application</th>
+              <th className="px-4 py-3">Stage</th>
+              <th className="px-4 py-3">Last update</th>
+            </tr>
+          </thead>
+          <tbody>
+            {apps.items.map((item) => (
+              <tr
+                key={item.id}
+                tabIndex={0}
+                className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
+                onClick={() => openApplication(item.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openApplication(item.id);
+                  }
+                }}
               >
-                Previous
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={busy || query.offset + 50 >= apps.total}
-                onClick={() => setQuery((current) => ({ ...current, offset: current.offset + 50 }))}
-              >
-                Next
-              </Button>
-            </div>
+                <td className="px-4 py-2.5">
+                  <span className="block font-medium">{item.candidate_name}</span>
+                  <span className="block text-xs text-muted-foreground">{item.candidate_email}</span>
+                </td>
+                <td className="px-4 py-2.5">{item.opening_title}</td>
+                <td className="px-4 py-2.5 whitespace-nowrap">{item.reference}</td>
+                <td className="px-4 py-2.5">
+                  <Badge variant={item.stage === "rejected" ? "destructive" : "secondary"}>{label(item.stage)}</Badge>
+                </td>
+                <td className="px-4 py-2.5 whitespace-nowrap">{new Date(item.updated_at).toLocaleDateString()}</td>
+              </tr>
+            ))}
+            {!apps.items.length ? (
+              <tr>
+                <td className="px-4 py-10 text-center text-muted-foreground" colSpan={5}>
+                  No matching candidates.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2">
+          <span className="text-xs text-muted-foreground">{apps.total} applications</span>
+          <div className="flex gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={busy || query.offset === 0}
+              onClick={() => setQuery((current) => ({ ...current, offset: Math.max(0, current.offset - 50) }))}
+            >
+              Previous
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={busy || query.offset + 50 >= apps.total}
+              onClick={() => setQuery((current) => ({ ...current, offset: current.offset + 50 }))}
+            >
+              Next
+            </Button>
           </div>
-        </aside>
+        </div>
+      </div>
+      <HrMasterSheet
+        open={recordOpen && Boolean(applicationId)}
+        onOpenChange={(open) => {
+          if (!open && !busy) {
+            setRecordOpen(false);
+            setEditor(null);
+          }
+        }}
+        eyebrow="Interviews & Evaluations"
+        title={chosen?.candidate_name ?? workspace?.application.candidate_name ?? "Candidate"}
+        description={chosen ? `${chosen.reference} · ${chosen.opening_title}` : ""}
+      >
         {loading && !workspace ? (
           <Skeleton className="h-96 w-full" />
         ) : !workspace ? (
-          <div className="grid justify-items-center gap-3 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
-            <CalendarDays className="size-9 text-primary" />
-            <h3 className="m-0 text-lg font-semibold">No candidate selected</h3>
-            <p className="max-w-lg text-sm text-muted-foreground">
-              Create an application in Recruitment Pipeline, progress it through screening, and shortlist the
-              candidate to begin interview scheduling.
-            </p>
-            <a className="text-sm font-medium text-primary underline underline-offset-4" href="#/hr/recruitment-pipeline">
-              Open Recruitment Pipeline
-            </a>
-          </div>
+          <p className="m-0! text-sm text-muted-foreground">The interview record could not be loaded.</p>
         ) : (
           <div className="grid min-w-0 gap-4" aria-label={`${workspace.application.candidate_name} interview record`}>
-            <div className="grid gap-4 rounded-xl border border-border bg-card p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Candidate</p>
-                  <h3 className="mt-1 text-xl font-semibold">{workspace.application.candidate_name}</h3>
-                  <p className="mt-1 break-words text-sm text-muted-foreground">
-                    {workspace.application.opening_title}
-                    {chosen ? ` · ${chosen.reference} · ${chosen.candidate_email}` : ""}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="secondary">{label(workspace.application.stage)}</Badge>
-                  {canUpdate && scheduleAllowed ? (
-                    <Button className="text-primary-foreground!" disabled={busy} onClick={() => setEditor("schedule")}>
-                      <Plus className="size-4" />
-                      Schedule interview
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-              <dl className="m-0 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4">
+              <dl className="m-0! grid">
+                <HrDetailTile label="Candidate" value={workspace.application.candidate_name} />
+                {chosen ? <HrDetailTile label="Email" value={chosen.candidate_email} /> : null}
+                {chosen ? <HrDetailTile label="Application" value={chosen.reference} /> : null}
+                <HrDetailTile label="Opening" value={workspace.application.opening_title} />
+                <HrDetailTile label="Stage" value={label(workspace.application.stage)} />
+              </dl>
+              {canUpdate && scheduleAllowed ? (
+                <HrDrawerActions>
+                  <Button className="text-primary-foreground!" disabled={busy} onClick={() => setEditor("schedule")}>
+                    <Plus className="size-4" />
+                    Schedule interview
+                  </Button>
+                </HrDrawerActions>
+              ) : null}
+              <dl className="m-0 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-lg bg-muted/40 p-3">
                   <dt className="flex items-center gap-2 text-xs text-muted-foreground">
                     <CalendarDays className="size-4" />
@@ -1181,7 +1176,7 @@ export function HrInterviewsWorkspace() {
             </section>
           </div>
         )}
-      </div>
+      </HrMasterSheet>
     </section>
   );
 }

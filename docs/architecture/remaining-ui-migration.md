@@ -1,5 +1,19 @@
 # Remaining UI migration checklist
 
+## 2026-11-06 — Narrower HR record drawer
+
+- `HrMasterSheet` (shared by every HR & Payroll drawer, including `HrRecordDrawer`)
+  now caps at `sm:max-w-[34rem]` (544px) instead of `sm:max-w-2xl` (672px). Below
+  640px it remains full width.
+- Kept the interview summary and attendance evidence metrics at two columns
+  inside the drawer so they are not squeezed into four 112px columns.
+- Theme audit (`--write`/`--check`) passed with zero exceptions; `git diff --check`
+  and `npm.cmd run build:web` passed. No browser evidence captured for this batch.
+- Not changed: Finance journal editors and the Identity & Access sheet use their
+  own widths. No stylesheets retired.
+- Safe resume: if a drawer form looks cramped, cap its grid at two columns rather
+  than widening the shared sheet.
+
 ## 2026-11-02 — Sidebar search icon contrast
 
 - Set expanded and collapsed sidebar search SVGs to the semantic sidebar text
@@ -4338,3 +4352,39 @@ Company Chart adoption/review checkpoint (2026-10-20):
   repository delete checks against a throwaway clone (active leaf delete,
   parent refused and unchanged, in-use employment setup refused and unchanged),
   UI theme audit, `git diff --check`, production build. Browser check pending.
+
+## 2026-11-06 - Recruitment edits, candidate/pipeline/interview drawers, four-step employee form
+
+- API (`server/api/src/modules/hr/recruitment-records.ts`, shared
+  `shared/audited-write.ts`): requisition edit (draft only), state moves
+  (Draft↔Submitted, Approved→Cancelled when no active openings,
+  Rejected/Cancelled→Draft; Approve/Reject keep the independent approver) and
+  delete (draft/rejected/cancelled without openings); job opening edit with any
+  state, including reopening a cancelled opening (the opening trigger re-checks
+  approved headcount), and delete without applications; candidate edit
+  (including Active/Deactivated) and delete without applications. Employees:
+  direct status moves between Active/Probation/Confirmed/Suspended (status
+  history + audit; exits stay in the lifecycle workflow) and soft delete
+  (inactive, hidden from the directory) refused when payroll history exists.
+- Requisitions and Job Openings drawers: Edit and Delete icons in the footer;
+  Edit includes Status. Candidate Directory: All records / Active / Deactivated
+  filter, detail rows, Deactivate/Edit/Delete in the footer, no row icons.
+- Recruitment Pipeline: stage filter row and an aligned table instead of
+  grouped cards; the application drawer shows detail rows, stage changes via
+  Edit (notes optional). Add application setup alert is a one-line heading.
+- Interviews & Evaluations: full-width candidate rows; the interview record
+  (rounds, evaluations, assessments, readiness, activity) opens in the drawer.
+- Prepare Offer: the bordered card, header and helper notes are gone; context
+  is shown as detail rows.
+- Employee form: four optional steps (Basic, Contact incl. emergency contacts,
+  Documents, Employment history); only first/last name are needed to Create;
+  approved employees get a Status field. Employee Directory rows have no icons;
+  Edit and Delete sit in the drawer footer. Add Employee lists the company's
+  added employees with "+ Add Employee"; the new employee opens in its drawer.
+  Employment Setup no longer offers Add inside its drawer.
+- Verification: API/web `tsc`, ESLint (no new findings), unit tests (wizard
+  tests updated to four optional steps), 13 repository checks against a
+  throwaway clone (draft edit, state moves and refusals, delete rules, reopening
+  the cancelled DEMO opening, candidate deactivate/reactivate/delete, employee
+  status moves and soft delete), `api:check`, UI theme audit, `git diff
+  --check`, production build. Browser check pending.

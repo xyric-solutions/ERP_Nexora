@@ -338,6 +338,12 @@ import type {
   HrEmployeeDocumentDirectory,
   UploadHrEmployeeDocumentFields,
   HrEmployeeRecordMutationResult,
+  HrRecruitmentMutationResult,
+  DeleteHrRecruitmentRecordRequest,
+  ChangeHrManpowerRequisitionStateRequest,
+  UpdateHrJobOpeningRequest,
+  UpdateHrCandidateRequest,
+  ChangeHrEmployeeStatusRequest,
   RemoveHrEmployeeRecordRequest,
   HrEmployeeEmploymentHistoryDirectory,
   HrEmployeeEmploymentHistoryRequest,
@@ -3050,6 +3056,114 @@ export class NexoraApiClient {
   }
   listHrEmployeeDocuments(employeeId: string): Promise<HrEmployeeDocumentDirectory> {
     return this.request(`/api/v1/hr/employees/${encodeURIComponent(employeeId)}/documents`);
+  }
+  updateHrManpowerRequisition(
+    id: string,
+    payload: CreateHrManpowerRequisitionRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrRecruitmentMutationResult> {
+    return this.request(`/api/v1/hr/manpower_requisitions/${encodeURIComponent(id)}/update`, {
+      method: "POST",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+  }
+  changeHrManpowerRequisitionState(
+    id: string,
+    payload: ChangeHrManpowerRequisitionStateRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrRecruitmentMutationResult> {
+    return this.request(`/api/v1/hr/manpower_requisitions/${encodeURIComponent(id)}/state`, {
+      method: "POST",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+  }
+  deleteHrManpowerRequisition(
+    id: string,
+    payload: DeleteHrRecruitmentRecordRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrRecruitmentMutationResult> {
+    return this.request(`/api/v1/hr/manpower_requisitions/${encodeURIComponent(id)}/delete`, {
+      method: "POST",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+  }
+  updateHrJobOpening(
+    id: string,
+    payload: UpdateHrJobOpeningRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrRecruitmentMutationResult> {
+    return this.request(`/api/v1/hr/job_openings/${encodeURIComponent(id)}/update`, {
+      method: "POST",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+  }
+  deleteHrJobOpening(
+    id: string,
+    payload: DeleteHrRecruitmentRecordRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrRecruitmentMutationResult> {
+    return this.request(`/api/v1/hr/job_openings/${encodeURIComponent(id)}/delete`, {
+      method: "POST",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+  }
+  updateHrCandidate(
+    id: string,
+    payload: UpdateHrCandidateRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrRecruitmentMutationResult> {
+    return this.request(`/api/v1/hr/candidates/${encodeURIComponent(id)}/update`, {
+      method: "POST",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+  }
+  deleteHrCandidate(
+    id: string,
+    payload: DeleteHrRecruitmentRecordRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrRecruitmentMutationResult> {
+    return this.request(`/api/v1/hr/candidates/${encodeURIComponent(id)}/delete`, {
+      method: "POST",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+  }
+  changeHrEmployeeStatus(
+    id: string,
+    payload: ChangeHrEmployeeStatusRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmployeeRecordMutationResult> {
+    return this.request(`/api/v1/hr/employees/${encodeURIComponent(id)}/status`, {
+      method: "POST",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+  }
+  removeHrEmployee(
+    id: string,
+    payload: RemoveHrEmployeeRecordRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmployeeRecordMutationResult> {
+    return this.request(`/api/v1/hr/employees/${encodeURIComponent(id)}/remove`, {
+      method: "POST",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
   }
   getHrEmployeeNumberPreview(query: string): Promise<HrEmployeeNumberPreview> {
     return this.request(`/api/v1/hr/employee_number_preview${query}`);

@@ -42,7 +42,7 @@ export function HrMasterSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        className={`${elevated ? "z-[1401]!" : "z-[1301]!"} w-full! gap-0 overflow-hidden border-border p-0 sm:max-w-2xl!`}
+        className={`${elevated ? "z-[1401]!" : "z-[1301]!"} w-full! gap-0 overflow-hidden border-border p-0 sm:max-w-[34rem]!`}
         overlayClassName={elevated ? "z-[1400]!" : "z-[1300]!"}
         side="right"
       >

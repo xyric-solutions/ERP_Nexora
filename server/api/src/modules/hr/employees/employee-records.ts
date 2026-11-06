@@ -4,6 +4,7 @@ import { Readable } from "node:stream";
 import type { Pool, PoolClient } from "pg";
 
 import {
+  hrEmployeeDirectStatuses,
   hrEmployeeDocumentFileTypes,
   hrEmployeeDocumentMaxBytes,
   type CreateHrEmployeeContactRequest,
@@ -20,17 +21,22 @@ import type {
   removeHrEmployeeRecordRequestSchema,
   uploadHrEmployeeDocumentFieldsSchema,
   withdrawHrEmployeeDraftRequestSchema,
+  changeHrEmployeeStatusRequestSchema,
 } from "@nexora/contracts";
 
 import { HrApiError, type HrActorContext } from "../source-repository.js";
+import { auditedWrite } from "../shared/audited-write.js";
 
 type UploadFields = z.output<typeof uploadHrEmployeeDocumentFieldsSchema>;
 type HistoryInput = z.output<typeof hrEmployeeEmploymentHistoryRequestSchema>;
 type RemoveInput = z.output<typeof removeHrEmployeeRecordRequestSchema>;
 type WithdrawInput = z.output<typeof withdrawHrEmployeeDraftRequestSchema>;
+type StatusInput = z.output<typeof changeHrEmployeeStatusRequestSchema>;
 
 export type HrEmployeeRecordAuditAction =
   | "hr.employee.withdraw"
+  | "hr.employee.status"
+  | "hr.employee.remove"
   | "hr.employee_contact.update"
   | "hr.employee_contact.remove"
   | "hr.employee_emergency_contact.update"
@@ -60,12 +66,6 @@ export type HrEmployeeRecordsDependencies = {
 export type EmployeeDocumentFile = { fileName: string; body: Buffer };
 export type EmployeeDocumentContent = { fileName: string; contentType: string; sizeBytes: number; body: Readable };
 
-function stableHash(value: unknown): string {
-  return createHash("sha256").update(JSON.stringify(value ?? null), "utf8").digest("hex");
-}
-function validKey(value: string): boolean {
-  return /^[A-Za-z0-9][A-Za-z0-9._:-]{0,254}$/.test(value);
-}
 const dateOnly = (value: string | Date | null) =>
   value === null ? null : typeof value === "string" ? value.slice(0, 10) : value.toISOString().slice(0, 10);
 
@@ -175,43 +175,20 @@ export class HrEmployeeRecords {
     lock: string,
     operation: (client: PoolClient) => Promise<HrEmployeeRecordMutationResult>,
   ): Promise<HrEmployeeRecordMutationResult> {
-    if (!validKey(idempotencyKey)) throw new HrApiError(400, "INVALID_IDEMPOTENCY_KEY", "The idempotency key is invalid.");
-    if (!context.actor.permissions.includes(permission))
-      throw new HrApiError(403, "PERMISSION_DENIED", "You are not permitted to change this employee record.");
-    const client = await this.dependencies.pool.connect();
-    try {
-      await client.query("begin isolation level read committed");
-      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
-      await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [lock]);
-      const fingerprint = stableHash(input);
-      const replay = await client.query<{ request_fingerprint: string; response_body: HrEmployeeRecordMutationResult }>(
-        `select request_fingerprint,response_body from platform_admin_idempotency
-          where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update`,
-        [context.tenantId, context.actor.userId, path, idempotencyKey],
-      );
-      if (replay.rows[0]) {
-        if (replay.rows[0].request_fingerprint !== fingerprint)
-          throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request.");
-        await client.query("commit");
-        return { ...replay.rows[0].response_body, replayed: true };
-      }
-      const result = await operation(client);
-      await client.query(
-        `insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag)
-         values ($1,$2,'POST',$3,$4,$5,200,$6,$7)`,
-        [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stableHash(result)],
-      );
-      await client.query("commit");
-      return result;
-    } catch (error) {
-      await client.query("rollback").catch(() => undefined);
-      const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
-      if (code === "23514" || code === "23505")
-        throw new HrApiError(409, "HR_EMPLOYEE_RECORD_INVALID", "The change conflicts with the employee's current records.");
-      throw error;
-    } finally {
-      client.release();
-    }
+    return auditedWrite(
+      this.dependencies.pool,
+      context,
+      {
+        permission,
+        path,
+        input,
+        idempotencyKey,
+        lock,
+        conflictCode: "HR_EMPLOYEE_RECORD_INVALID",
+        conflictMessage: "The change conflicts with the employee's current records.",
+      },
+      operation,
+    );
   }
 
   // ---------------------------------------------------------------- numbers & drafts
@@ -263,6 +240,62 @@ export class HrEmployeeRecords {
         return { id: employeeId, employee_id: employeeId, audit_event_id: audit, replayed: false };
       },
     );
+  }
+
+  // ---------------------------------------------------------------- approved employees
+
+  private async directStatus(client: PoolClient, context: HrActorContext, employeeId: string) {
+    const scope = await requireEmployeeRecordScope(client, context, employeeId, "write");
+    const row = await client.query<{ status: string }>("select status from employee where tenant_id=$1 and id=$2 for update", [context.tenantId, employeeId]);
+    const status = row.rows[0]?.status ?? scope.status;
+    if (!(hrEmployeeDirectStatuses as readonly string[]).includes(status))
+      throw new HrApiError(
+        409,
+        "HR_EMPLOYEE_STATUS_GOVERNED",
+        status === "draft"
+          ? "Draft employees become active through submission and approval."
+          : "This employee's status is managed by the lifecycle workflow (for example an exit case).",
+      );
+    return status;
+  }
+
+  private async recordStatus(client: PoolClient, context: HrActorContext, employeeId: string, from: string, to: string, reason: string) {
+    await client.query("update employee set status=$3,updated_at=now() where tenant_id=$1 and id=$2", [context.tenantId, employeeId, to]);
+    await client.query(
+      `insert into employee_status_history (id,tenant_id,employee_id,from_status,to_status,effective_on,reason,actor_id)
+       values ($1,$2,$3,$4,$5,current_date,$6,$7)`,
+      [`employee-status-${randomUUID()}`, context.tenantId, employeeId, from, to, reason, context.actor.userId],
+    );
+  }
+
+  /** Active, probation, confirmed and suspended are direct, audited moves; exits stay governed. */
+  async changeStatus(context: HrActorContext, employeeId: string, input: StatusInput, key: string, correlationId: string) {
+    return this.write(context, "hr.employee.update", `/api/v1/hr/employees/${employeeId}/status`, { employeeId, input }, key, `nexora:hr:employee-status:${context.tenantId}:${employeeId}`, async (client) => {
+      const from = await this.directStatus(client, context, employeeId);
+      if (from === input.status) throw new HrApiError(409, "HR_EMPLOYEE_STATUS_UNCHANGED", "The employee already has this status.");
+      await this.recordStatus(client, context, employeeId, from, input.status, input.reason || `Status changed to ${input.status}.`);
+      const audit = await this.dependencies.audit(client, context, correlationId, "hr.employee.status", "employee", employeeId, { status: from }, { status: input.status, reason: input.reason });
+      return { id: employeeId, employee_id: employeeId, audit_event_id: audit, replayed: false };
+    });
+  }
+
+  /** Soft delete: the employee becomes inactive and leaves the directory; refused once payroll has used them. */
+  async removeEmployee(context: HrActorContext, employeeId: string, input: RemoveInput, key: string, correlationId: string) {
+    return this.write(context, "hr.employee.update", `/api/v1/hr/employees/${employeeId}/remove`, { employeeId, input }, key, `nexora:hr:employee-status:${context.tenantId}:${employeeId}`, async (client) => {
+      const from = await this.directStatus(client, context, employeeId);
+      const payroll = await client.query<{ used: boolean }>(
+        `select exists(select 1 from hr_payroll_result where tenant_id=$1 and employee_id=$2)
+             or exists(select 1 from hr_payroll_input where tenant_id=$1 and employee_id=$2)
+             or exists(select 1 from hr_payroll_payment where tenant_id=$1 and employee_id=$2)
+             or exists(select 1 from hr_payroll_adjustment where tenant_id=$1 and employee_id=$2) as used`,
+        [context.tenantId, employeeId],
+      );
+      if (payroll.rows[0]?.used)
+        throw new HrApiError(409, "HR_EMPLOYEE_HAS_PAYROLL", "This employee has payroll history and cannot be deleted. Use an exit case instead.");
+      await this.recordStatus(client, context, employeeId, from, "inactive", input.reason || "Removed from the employee directory.");
+      const audit = await this.dependencies.audit(client, context, correlationId, "hr.employee.remove", "employee", employeeId, { status: from }, { status: "inactive", reason: input.reason });
+      return { id: employeeId, employee_id: employeeId, audit_event_id: audit, replayed: false };
+    });
   }
 
   // ---------------------------------------------------------------- contacts

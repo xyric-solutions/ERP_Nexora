@@ -360,6 +360,12 @@ import {
   hrRequisitionProjectDirectorySchema,
   hrRequisitionWorkLocationDirectorySchema,
   hrEmployeeRecordMutationResultSchema,
+  hrRecruitmentMutationResultSchema,
+  deleteHrRecruitmentRecordRequestSchema,
+  changeHrManpowerRequisitionStateRequestSchema,
+  updateHrJobOpeningRequestSchema,
+  updateHrCandidateRequestSchema,
+  changeHrEmployeeStatusRequestSchema,
   removeHrEmployeeRecordRequestSchema,
   hrEmployeeEmploymentHistoryDirectorySchema,
   hrEmployeeEmploymentHistoryRequestSchema,
@@ -6010,6 +6016,132 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/hr/manpower_requisitions/{recordId}/update": {
+        post: {
+          operationId: "updateHrManpowerRequisition",
+          description: "Edits a draft manpower requisition. Requires hr.employee.create.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrManpowerRequisitionRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/manpower_requisitions/{recordId}/state": {
+        post: {
+          operationId: "changeHrManpowerRequisitionState",
+          description: "Moves a requisition outside the approval decision: Draft to Submitted, Submitted to Draft, Approved to Cancelled (no active openings), Rejected or Cancelled to Draft.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ChangeHrManpowerRequisitionStateRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/manpower_requisitions/{recordId}/delete": {
+        post: {
+          operationId: "deleteHrManpowerRequisition",
+          description: "Deletes a draft, rejected or cancelled requisition without job openings; audited.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/DeleteHrRecruitmentRecordRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/job_openings/{recordId}/update": {
+        post: {
+          operationId: "updateHrJobOpening",
+          description: "Edits a job opening, including its state (a cancelled opening can be reopened when headcount allows). Requires hr.employee.update.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateHrJobOpeningRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/job_openings/{recordId}/delete": {
+        post: {
+          operationId: "deleteHrJobOpening",
+          description: "Deletes a job opening without applications; audited.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/DeleteHrRecruitmentRecordRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/candidates/{recordId}/update": {
+        post: {
+          operationId: "updateHrCandidate",
+          description: "Edits a candidate, including Active/Deactivated status. Requires hr.employee.update.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateHrCandidateRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/candidates/{recordId}/delete": {
+        post: {
+          operationId: "deleteHrCandidate",
+          description: "Deletes a candidate without applications; audited.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/DeleteHrRecruitmentRecordRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/status": {
+        post: {
+          operationId: "changeHrEmployeeStatus",
+          description: "Moves an approved employee between Active, Probation, Confirmed and Suspended, writing status history. Exits stay in the lifecycle workflow.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ChangeHrEmployeeStatusRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/remove": {
+        post: {
+          operationId: "removeHrEmployee",
+          description: "Soft-deletes an approved employee without payroll history (status inactive, history and audit kept).",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
       "/hr/employee_number_preview": {
         get: {
           operationId: "getHrEmployeeNumberPreview",
@@ -7805,6 +7937,12 @@ export function buildOpenApiDocument() {
         HrEmployeeEmergencyContactResult: schema(hrEmployeeEmergencyContactResultSchema),
         HrEmployeeDocumentDirectory: schema(hrEmployeeDocumentDirectorySchema),
         HrEmployeeRecordMutationResult: schema(hrEmployeeRecordMutationResultSchema),
+        HrRecruitmentMutationResult: schema(hrRecruitmentMutationResultSchema),
+        DeleteHrRecruitmentRecordRequest: schema(deleteHrRecruitmentRecordRequestSchema),
+        ChangeHrManpowerRequisitionStateRequest: schema(changeHrManpowerRequisitionStateRequestSchema),
+        UpdateHrJobOpeningRequest: schema(updateHrJobOpeningRequestSchema),
+        UpdateHrCandidateRequest: schema(updateHrCandidateRequestSchema),
+        ChangeHrEmployeeStatusRequest: schema(changeHrEmployeeStatusRequestSchema),
         RemoveHrEmployeeRecordRequest: schema(removeHrEmployeeRecordRequestSchema),
         HrEmployeeEmploymentHistoryDirectory: schema(hrEmployeeEmploymentHistoryDirectorySchema),
         HrEmployeeEmploymentHistoryRequest: schema(hrEmployeeEmploymentHistoryRequestSchema),

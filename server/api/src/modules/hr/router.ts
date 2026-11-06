@@ -30,6 +30,11 @@ import {
   createHrProfileDraftAssignmentRequestSchema,
   createHrEmployeeContactRequestSchema,
   hrEmployeeDocumentMaxBytes,
+  changeHrManpowerRequisitionStateRequestSchema,
+  deleteHrRecruitmentRecordRequestSchema,
+  updateHrJobOpeningRequestSchema,
+  updateHrCandidateRequestSchema,
+  changeHrEmployeeStatusRequestSchema,
   hrEmployeeEmploymentHistoryRequestSchema,
   removeHrEmployeeRecordRequestSchema,
   uploadHrEmployeeDocumentFieldsSchema,
@@ -215,6 +220,15 @@ export interface HrRouterDependencies {
     | "listJobGradeCurrencies"
     | "listRequisitionProjects"
     | "employeeNumberPreview"
+    | "updateManpowerRequisition"
+    | "changeManpowerRequisitionState"
+    | "deleteManpowerRequisition"
+    | "updateJobOpening"
+    | "deleteJobOpening"
+    | "updateCandidate"
+    | "deleteCandidate"
+    | "changeEmployeeStatus"
+    | "removeEmployee"
     | "withdrawEmployeeDraft"
     | "updateEmployeeContact"
     | "removeEmployeeContact"
@@ -1121,6 +1135,51 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
   router.get("/employee_number_preview", async (req, res) => {
     const companyId = recordId(req.query.company_id);
     res.json(await handle(async () => dependencies.repository.employeeNumberPreview(await loadHrSessionContext(req, dependencies), companyId)));
+  });
+  router.post("/manpower_requisitions/:recordId/update", async (req, res) => {
+    const id = recordId(req.params.recordId);
+    const input = createHrManpowerRequisitionRequestSchema.parse(req.body);
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.updateManpowerRequisition(context, id, input, key, corr)));
+  });
+  router.post("/manpower_requisitions/:recordId/state", async (req, res) => {
+    const id = recordId(req.params.recordId);
+    const input = changeHrManpowerRequisitionStateRequestSchema.parse(req.body);
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.changeManpowerRequisitionState(context, id, input, key, corr)));
+  });
+  router.post("/manpower_requisitions/:recordId/delete", async (req, res) => {
+    const id = recordId(req.params.recordId);
+    const input = deleteHrRecruitmentRecordRequestSchema.parse(req.body);
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.deleteManpowerRequisition(context, id, input.company_id, key, corr)));
+  });
+  router.post("/job_openings/:recordId/update", async (req, res) => {
+    const id = recordId(req.params.recordId);
+    const input = updateHrJobOpeningRequestSchema.parse(req.body);
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.updateJobOpening(context, id, input, key, corr)));
+  });
+  router.post("/job_openings/:recordId/delete", async (req, res) => {
+    const id = recordId(req.params.recordId);
+    const input = deleteHrRecruitmentRecordRequestSchema.parse(req.body);
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.deleteJobOpening(context, id, input.company_id, key, corr)));
+  });
+  router.post("/candidates/:recordId/update", async (req, res) => {
+    const id = recordId(req.params.recordId);
+    const input = updateHrCandidateRequestSchema.parse(req.body);
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.updateCandidate(context, id, input, key, corr)));
+  });
+  router.post("/candidates/:recordId/delete", async (req, res) => {
+    const id = recordId(req.params.recordId);
+    const input = deleteHrRecruitmentRecordRequestSchema.parse(req.body);
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.deleteCandidate(context, id, input.company_id, key, corr)));
+  });
+  router.post("/employees/:employeeId/status", async (req, res) => {
+    const employeeId = recordId(req.params.employeeId);
+    const input = changeHrEmployeeStatusRequestSchema.parse(req.body);
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.changeEmployeeStatus(context, employeeId, input, key, corr)));
+  });
+  router.post("/employees/:employeeId/remove", async (req, res) => {
+    const employeeId = recordId(req.params.employeeId);
+    const input = removeHrEmployeeRecordRequestSchema.parse(req.body ?? {});
+    res.json(await recordWrite(req, (context, key, corr) => dependencies.repository.removeEmployee(context, employeeId, input, key, corr)));
   });
   router.post("/employee_drafts/:employeeId/withdraw", async (req, res) => {
     const employeeId = recordId(req.params.employeeId);

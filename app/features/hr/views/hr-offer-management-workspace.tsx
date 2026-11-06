@@ -9,7 +9,7 @@ import type {
   HrOfferDirectory,
   HrOfferActionRequest,
 } from "@nexora/contracts";
-import { CheckCircle2, Download, Plus, ShieldCheck, X } from "lucide-react";
+import { CheckCircle2, Download, Plus, ShieldCheck } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -91,51 +91,22 @@ function OfferEditor({
       decimalUnits(terms.proposed_gross)! > decimalUnits(context.salary_maximum)!);
   return (
     <form
-      className="grid min-w-0 gap-4 rounded-2xl border border-primary/30 bg-card p-5 shadow-sm"
+      className="grid min-w-0 gap-4"
       onSubmit={async (e) => {
         e.preventDefault();
         if (await save(terms)) close();
       }}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="m-0 text-lg font-semibold">{detail ? "Edit draft terms" : "Prepare offer"}</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {context.candidate_name} · {context.application_reference}
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Close offer editor"
-          disabled={busy}
-          onClick={close}
-        >
-          <X className="size-4" />
-        </Button>
-      </div>
-      <div className="grid gap-3 rounded-lg bg-muted/40 p-3 text-sm sm:grid-cols-2">
-        <div>
-          <span className="text-xs text-muted-foreground">Approved role</span>
-          <p className="mt-1 font-medium">
-            {context.designation} · {context.job_grade}
-          </p>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground">Approved monthly range</span>
-          <p className="mt-1 font-medium">
-            {money(context.salary_minimum, context.currency_code)} –{" "}
-            {money(context.salary_maximum, context.currency_code)}
-          </p>
-        </div>
-        <div>
-          {context.branch ?? "Branch not set"} · {context.department}
-        </div>
-        <div>
-          {context.employment_setup} · {context.requisition_reference}
-        </div>
-      </div>
+      <dl className="m-0! grid">
+        <HrDetailTile label="Candidate" value={`${context.candidate_name} · ${context.application_reference}`} />
+        <HrDetailTile label="Approved role" value={`${context.designation} · ${context.job_grade}`} />
+        <HrDetailTile
+          label="Approved monthly range"
+          value={`${money(context.salary_minimum, context.currency_code)} – ${money(context.salary_maximum, context.currency_code)}`}
+        />
+        <HrDetailTile label="Project / department" value={`${context.branch ?? "Not set"} · ${context.department}`} />
+        <HrDetailTile label="Employment setup" value={`${context.employment_setup} · ${context.requisition_reference}`} />
+      </dl>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="grid gap-1.5 text-sm">
           Proposed monthly gross ({context.currency_code})
@@ -251,10 +222,6 @@ function OfferEditor({
         Additional offer terms
         <Textarea maxLength={2000} value={terms.note} onChange={(e) => field("note", e.target.value)} />
       </label>
-      <p className="text-xs text-muted-foreground">
-        Terms become fixed on submission. Active master choices are limited to 100 per type; up to 100 employee matches
-        are shown.
-      </p>
       <HrDrawerActions>
         <Button type="submit" className="text-primary-foreground!" disabled={busy}>
           {busy ? "Saving…" : "Save offer draft"}
@@ -777,20 +744,7 @@ export function HrOfferManagementWorkspace() {
         notice={notice}
       >
         {editor === "new" ? (
-          <div className="grid gap-3 rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="m-0 font-semibold">Choose a selected application</h3>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                aria-label="Close offer preparation"
-                disabled={busy}
-                onClick={() => setEditor(null)}
-              >
-                <X className="size-4" />
-              </Button>
-            </div>
+          <div className="grid gap-3">
             <form
               className="flex flex-wrap items-end gap-2"
               onSubmit={(e) => {
@@ -825,20 +779,13 @@ export function HrOfferManagementWorkspace() {
                 )}
               </select>
             </label>
-            <p className="text-xs text-muted-foreground">
-              Up to 100 selected matches. Refine the search to find another application.
-            </p>
             {context?.blockers.length ? (
               <Alert>
                 <AlertTitle>Offer prerequisites</AlertTitle>
                 <AlertDescription>{context.blockers.join(" ")}</AlertDescription>
               </Alert>
             ) : null}
-            {!applications.length ? (
-              <p className="text-sm text-muted-foreground">
-                Complete the selection decision in Interviews & Evaluations before preparing an offer.
-              </p>
-            ) : null}
+            {!applications.length ? <p className="m-0! text-sm text-muted-foreground">No selected applications yet.</p> : null}
           </div>
         ) : null}
         {editorLoading ? (

@@ -21,7 +21,14 @@ import { HrEmployeeWizard } from "./hr-employee-wizard";
 
 type LoadState = "loading" | "ready" | "unavailable";
 
-export function HrEmployeeDraftsWorkspace({ onAction }: { onAction: (action: string, subject?: string) => void }) {
+export function HrEmployeeDraftsWorkspace({
+  onAction,
+  allowAdd = false,
+}: {
+  onAction: (action: string, subject?: string) => void;
+  /** Add Employee page: offer "+ Add Employee" and open the new employee's details after Create. */
+  allowAdd?: boolean;
+}) {
   const { api, csrfToken, session } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
@@ -42,6 +49,8 @@ export function HrEmployeeDraftsWorkspace({ onAction }: { onAction: (action: str
   const canSubmit = session?.user.permissions.includes("hr.employee.submit") ?? false;
   const canUpdate = session?.user.permissions.includes("hr.employee.update") ?? false;
   const [editingId, setEditingId] = useState("");
+  const [adding, setAdding] = useState(false);
+  const canCreate = session?.user.permissions.includes("hr.employee.create") ?? false;
 
   /** Deleting a draft withdraws it: it leaves this list and keeps its audit trail. */
   const deleteDraft = async (draft: { id: string; employee_number: string }) => {
@@ -196,9 +205,15 @@ export function HrEmployeeDraftsWorkspace({ onAction }: { onAction: (action: str
             Search
           </Button>
         </form>
-        <Button type="button" variant="outline" onClick={reload}>
-          Refresh
-        </Button>
+        {allowAdd && canCreate ? (
+          <Button type="button" onClick={() => setAdding(true)}>
+            + Add Employee
+          </Button>
+        ) : (
+          <Button type="button" variant="outline" onClick={reload}>
+            Refresh
+          </Button>
+        )}
       </div>
 
       {notice ? (
@@ -375,6 +390,23 @@ export function HrEmployeeDraftsWorkspace({ onAction }: { onAction: (action: str
             </aside>
           </HrRecordDrawer>
         </div>
+      ) : null}
+      {adding ? (
+        <HrEmployeeWizard
+          target={{ kind: "create" }}
+          onClose={() => {
+            setAdding(false);
+            setRefreshKey((current) => current + 1);
+          }}
+          onSaved={(message, employeeNumber, employeeId) => {
+            setNotice(message);
+            setAdding(false);
+            setRefreshKey((current) => current + 1);
+            onAction("Employee draft created", employeeNumber);
+            // The new employee opens in the standard detail drawer.
+            if (employeeId) openDraft(employeeId);
+          }}
+        />
       ) : null}
       {editingId ? (
         <HrEmployeeWizard

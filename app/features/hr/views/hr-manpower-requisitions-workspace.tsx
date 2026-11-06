@@ -3,6 +3,7 @@ import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { hrRequisitionStateMoves } from "@nexora/contracts";
 import type {
   CreateHrManpowerRequisitionRequest,
   HrHiringBasis,
@@ -16,12 +17,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
+import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
+import { HrEditButton } from "../components/hr-icon-buttons";
 import { employmentSetupOptionLabel } from "../model/employment-setup";
 import { hiringBasisLabel, hiringBasisOptions, isHiringBasis } from "../model/hiring-basis";
 import { isWorkArrangement, jobTypeOptions, workArrangementLabel } from "../model/work-arrangement";
 
 type Requisition = HrManpowerRequisitionDirectory["items"][number];
 type Editor = {
+  /** Set when editing an existing requisition. */
+  id?: string;
+  state?: Requisition["state"];
+  /** Status chosen in Edit; moves follow hrRequisitionStateMoves. */
+  nextState?: Requisition["state"];
   jobTitle: string;
   workArrangement: HrWorkArrangement | "";
   designationId: string;
@@ -177,8 +185,72 @@ export function HrManpowerRequisitionsWorkspace() {
       ? [{ code: editorGrade.currency_code, label: editorGrade.currency_code }]
       : []),
   ];
+  const editorFor = (record: Requisition): Editor => ({
+    id: record.id,
+    state: record.state,
+    nextState: record.state,
+    jobTitle: record.job_title,
+    workArrangement: record.work_arrangement ?? "",
+    designationId: record.designation_id ?? "",
+    gradeId: record.job_grade_id ?? "",
+    employmentSetupId: record.employment_setup_id,
+    projectId: record.project_id ?? "",
+    hiringBasis: record.hiring_basis ?? "",
+    departmentId: record.department_id ?? "",
+    workLocationId: record.work_location_id ?? "",
+    positions: String(record.positions_requested),
+    minimum: record.salary_minimum,
+    maximum: record.salary_maximum,
+    currency: record.currency_code,
+    targetStart: record.target_start_date,
+    reason: record.reason,
+    skills: record.required_skills.join(", "),
+  });
+  const editingFields = !editor?.id || editor.state === "draft";
+  const statusOptions = (state: Requisition["state"]) => [state, ...(hrRequisitionStateMoves[state] as readonly Requisition["state"][])];
+  const remove = async (record: Requisition) => {
+    setSaving(true);
+    try {
+      await client.deleteManpowerRequisition(record.id, companyId, csrfToken(), crypto.randomUUID());
+      setMessage(`${record.reference} was deleted.`);
+      setDetailsOpen(false);
+      setSelectedId("");
+      await load(companyId);
+      return true;
+    } catch (cause) {
+      setMessage(cause instanceof Error && cause.message ? cause.message : "The requisition could not be deleted.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+  /** Status-only save for requisitions past draft. */
+  const saveState = async () => {
+    if (!editor?.id || !editor.nextState || editor.nextState === editor.state) {
+      setEditor(null);
+      return;
+    }
+    setSaving(true);
+    try {
+      await client.changeManpowerRequisitionState(
+        editor.id,
+        { company_id: companyId, state: editor.nextState as "draft" | "submitted" | "cancelled", reason: "" },
+        csrfToken(),
+        crypto.randomUUID(),
+      );
+      setMessage(`The requisition is now ${stateLabel(editor.nextState)}.`);
+      setSelectedId(editor.id);
+      setEditor(null);
+      await load(companyId);
+    } catch (cause) {
+      setMessage(cause instanceof Error && cause.message ? cause.message : "The status could not be changed.");
+    } finally {
+      setSaving(false);
+    }
+  };
   const save = async () => {
     if (!editor || !companyId) return;
+    if (!editingFields) return saveState();
     const positions = Number(editor.positions);
     if (
       !editor.jobTitle.trim() ||
@@ -239,10 +311,23 @@ export function HrManpowerRequisitionsWorkspace() {
     };
     setSaving(true);
     try {
-      const result = await client.createManpowerRequisition(payload, csrfToken(), crypto.randomUUID());
+      if (editor.id) {
+        await client.updateManpowerRequisition(editor.id, payload, csrfToken(), crypto.randomUUID());
+        if (editor.nextState && editor.nextState !== editor.state)
+          await client.changeManpowerRequisitionState(
+            editor.id,
+            { company_id: companyId, state: editor.nextState as "draft" | "submitted" | "cancelled", reason: "" },
+            csrfToken(),
+            crypto.randomUUID(),
+          );
+        setSelectedId(editor.id);
+        setMessage("The requisition was saved.");
+      } else {
+        const result = await client.createManpowerRequisition(payload, csrfToken(), crypto.randomUUID());
+        setSelectedId(result.id);
+        setMessage(`${result.reference} was saved as a draft and recorded in the audit trail.`);
+      }
       setEditor(null);
-      setSelectedId(result.id);
-      setMessage(`${result.reference} was saved as a draft and recorded in the audit trail.`);
       await load(companyId);
     } catch {
       setMessage(
@@ -445,17 +530,30 @@ export function HrManpowerRequisitionsWorkspace() {
           </div>
           {editor ? (
             <HrRecordDrawer
-              title="Add requisition"
+              title={editor.id ? editor.jobTitle || "Edit requisition" : "Add requisition"}
               open={!!editor}
               onClose={() => setEditor(null)}
               busy={saving}
               notice={message}
             >
               <aside className="grid gap-3 rounded-lg border bg-card p-4 border-border">
-                <div>
-                  <span className="nx-eyebrow">New controlled request</span>
-                </div>
-                {missingSetup.length ? (
+                {editor.id && editor.state ? (
+                  <label className="grid gap-1 text-sm">
+                    Status
+                    <select
+                      className={selectClass}
+                      value={editor.nextState}
+                      onChange={(event) => setEditor({ ...editor, nextState: event.target.value as Requisition["state"] })}
+                    >
+                      {statusOptions(editor.state).map((state) => (
+                        <option key={state} value={state}>
+                          {stateLabel(state)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                {missingSetup.length && editingFields ? (
                   <p
                     role="status"
                     className="m-0! truncate rounded-md border border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] px-3 py-1.5 text-xs text-[var(--nx-warning)]"
@@ -464,6 +562,7 @@ export function HrManpowerRequisitionsWorkspace() {
                     Setup required: {missingSetup.join(" and ")}
                   </p>
                 ) : null}
+                <fieldset disabled={!editingFields} className="m-0! grid min-w-0 gap-3 border-0 p-0 disabled:opacity-60">
                 <FormSection title="Role">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="grid gap-1 text-sm sm:col-span-2">
@@ -693,12 +792,13 @@ export function HrManpowerRequisitionsWorkspace() {
                     />
                   </label>
                 </FormSection>
+                </fieldset>
                 <HrDrawerActions>
                   <Button
-                    disabled={saving || grades.length === 0 || projects.length === 0}
+                    disabled={saving || (editingFields && (grades.length === 0 || projects.length === 0))}
                     onClick={() => void save()}
                   >
-                    {saving ? "Saving..." : "Save draft"}
+                    {saving ? "Saving..." : editor.id ? "Save changes" : "Save draft"}
                   </Button>
                   <Button variant="outline" onClick={() => setEditor(null)}>
                     Cancel
@@ -748,6 +848,26 @@ export function HrManpowerRequisitionsWorkspace() {
                   <HrDetailTile label="Created" value={new Date(selected.created_at).toLocaleString()} />
                 </HrDetailList>
                 <HrDrawerActions>
+                  {canCreate ? (
+                    <HrConfirmDeleteButton
+                      label={`Delete ${selected.reference}`}
+                      title={`Delete ${selected.reference}?`}
+                      description="Draft, rejected and cancelled requisitions without job openings can be deleted. The deletion is kept in the audit trail."
+                      variant="outline"
+                      disabled={saving || !["draft", "rejected", "cancelled"].includes(selected.state)}
+                      onConfirm={() => remove(selected)}
+                    />
+                  ) : null}
+                  {canCreate || canSubmit || canApprove ? (
+                    <HrEditButton
+                      label={`Edit ${selected.reference}`}
+                      disabled={saving}
+                      onClick={() => {
+                        setDetailsOpen(false);
+                        setEditor(editorFor(selected));
+                      }}
+                    />
+                  ) : null}
                   {selected.state === "draft" && canSubmit ? (
                     <Button disabled={saving} onClick={() => void transition("submit")}>
                       Submit for approval

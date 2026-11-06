@@ -5,6 +5,7 @@ import {
   type EmployeeDocumentFile,
   type HrEmployeeRecordAuditAction,
 } from "./employees/employee-records.js";
+import { HrRecruitmentRecords, type HrRecruitmentAuditAction } from "./recruitment-records.js";
 import {LearningDevelopment} from "./learning.js";
 import type {HrLearningQuery,HrLearningAction} from "@nexora/contracts";
 import type {HrSelfLeaveContextQuery,CreateHrSelfLeaveRequest,HrSelfLeaveAction} from '@nexora/contracts';
@@ -510,6 +511,40 @@ export class SourceHrRepository {
         }),
     });
   }
+  private recruitmentRecords() {
+    return new HrRecruitmentRecords({
+      pool: this.pool,
+      audit: (client, c, corr, action, entityType, entityId, before, after) =>
+        this.appendPlatformAudit(client, c, corr, action, { entityId, entityType, before, after, sourceReference: `hr:recruitment:${entityId}` }),
+    });
+  }
+  async updateManpowerRequisition(c: HrActorContext, id: string, input: CreateHrManpowerRequisitionRequest, key: string, corr: string) {
+    return this.recruitmentRecords().updateRequisition(c, id, input, key, corr);
+  }
+  async changeManpowerRequisitionState(c: HrActorContext, id: string, input: Parameters<HrRecruitmentRecords["changeRequisitionState"]>[2], key: string, corr: string) {
+    return this.recruitmentRecords().changeRequisitionState(c, id, input, key, corr);
+  }
+  async deleteManpowerRequisition(c: HrActorContext, id: string, companyId: string, key: string, corr: string) {
+    return this.recruitmentRecords().deleteRequisition(c, id, companyId, key, corr);
+  }
+  async updateJobOpening(c: HrActorContext, id: string, input: Parameters<HrRecruitmentRecords["updateOpening"]>[2], key: string, corr: string) {
+    return this.recruitmentRecords().updateOpening(c, id, input, key, corr);
+  }
+  async deleteJobOpening(c: HrActorContext, id: string, companyId: string, key: string, corr: string) {
+    return this.recruitmentRecords().deleteOpening(c, id, companyId, key, corr);
+  }
+  async updateCandidate(c: HrActorContext, id: string, input: Parameters<HrRecruitmentRecords["updateCandidate"]>[2], key: string, corr: string) {
+    return this.recruitmentRecords().updateCandidate(c, id, input, key, corr);
+  }
+  async deleteCandidate(c: HrActorContext, id: string, companyId: string, key: string, corr: string) {
+    return this.recruitmentRecords().deleteCandidate(c, id, companyId, key, corr);
+  }
+  async changeEmployeeStatus(c: HrActorContext, employeeId: string, input: Parameters<HrEmployeeRecords["changeStatus"]>[2], key: string, corr: string) {
+    return this.employeeRecords().changeStatus(c, employeeId, input, key, corr);
+  }
+  async removeEmployee(c: HrActorContext, employeeId: string, input: Parameters<HrEmployeeRecords["removeEmployee"]>[2], key: string, corr: string) {
+    return this.employeeRecords().removeEmployee(c, employeeId, input, key, corr);
+  }
   async employeeNumberPreview(c: HrActorContext, companyId: string) {
     return this.employeeRecords().employeeNumberPreview(c, companyId);
   }
@@ -914,6 +949,8 @@ export class SourceHrRepository {
         "(assignment.effective_to is null or assignment.effective_to >= current_date)",
       ];
       if (query.status) filters.push(`employee.status = $${values.push(query.status)}`);
+      // Soft-deleted employees (HR139 removal) leave the directory unless asked for explicitly.
+      else filters.push("employee.status <> 'inactive'");
       if (query.search) {
         const parameter = values.push(`%${query.search.replace(/[\\%_]/g, "\\$&")}%`);
         filters.push(
@@ -1254,7 +1291,8 @@ export class SourceHrRepository {
         `select request.id,request.company_id,request.reference,request.job_title,designation.name as designation,grade.name as job_grade,
                 request.employment_setup_id,employment_setup.name as employment_setup,employment_setup.payment_route,employment_setup.pay_cycle,
                 branch.name as branch,request.project_id,project.name as project,request.hiring_basis,request.work_arrangement,department.name as department,
-                request.work_location_id,work_location.name as work_location,work_location_city.city as work_location_city,request.positions_requested,
+                request.work_location_id,work_location.name as work_location,work_location_city.city as work_location_city,
+                request.designation_id,request.job_grade_id,request.department_id,request.positions_requested,
                 request.position_type,request.salary_minimum::text,request.salary_maximum::text,request.currency_code,request.target_start_date::text,
                 request.reason,request.required_skills,request.state,request.created_by,request.submitted_by,request.submitted_at,request.decided_by,
                 request.decided_at,request.decision_reason,request.created_at
@@ -1336,7 +1374,8 @@ export class SourceHrRepository {
     try{await client.query("begin");await client.query("select set_config('nexora.tenant_id',$1,true)",[context.tenantId]);await this.requireCompanyAccess(client,context,input.company_id);const path="/api/v1/hr/job_openings",fingerprint=stateHash(input);const replay=await client.query<{request_fingerprint:string;response_body:HrJobOpeningResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update",[context.tenantId,context.actor.userId,path,idempotencyKey]);if(replay.rows[0]){if(replay.rows[0].request_fingerprint!==fingerprint)throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","The idempotency key was already used for another request.");await client.query("commit");return {...replay.rows[0].response_body,replayed:true};}const id=`job-opening-${randomUUID()}`,reference=`JOP-${new Date().getUTCFullYear()}-${randomUUID().replaceAll("-","").slice(0,6).toUpperCase()}`;await client.query("insert into hr_job_opening (id,tenant_id,company_id,reference,requisition_id,title,positions_requested,channels,closing_on,created_by) values ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10)",[id,context.tenantId,input.company_id,reference,input.requisition_id,input.title,input.positions_requested,JSON.stringify(input.channels),input.closing_on??null,context.actor.userId]);const audit=await this.appendPlatformAudit(client,context,correlationId,"hr.job_opening.create",{entityId:id,entityType:"hr_job_opening",before:null,after:{reference,...input,state:"open"}});const result:HrJobOpeningResult={id,reference,state:"open",company_id:input.company_id,audit_event_id:audit,replayed:false};await client.query("insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,201,$6,$7)",[context.tenantId,context.actor.userId,path,idempotencyKey,fingerprint,result,stateHash(result)]);await client.query("commit");return result;}catch(error){await client.query("rollback").catch(()=>undefined);throw error;}finally{client.release();}
   }
   async changeJobOpeningState(context:HrActorContext,id:string,input:ChangeHrJobOpeningStateRequest,idempotencyKey:string,correlationId:string):Promise<HrJobOpeningResult>{
-    if(!validIdempotencyKey(idempotencyKey))throw new HrApiError(400,"INVALID_IDEMPOTENCY_KEY","The idempotency key is invalid.");if(!context.actor.permissions.includes("hr.employee.update"))throw new HrApiError(403,"PERMISSION_DENIED","You are not permitted to change job opening state.");const client=await this.pool.connect();try{await client.query("begin");await client.query("select set_config('nexora.tenant_id',$1,true)",[context.tenantId]);await this.requireCompanyAccess(client,context,input.company_id);const path=`/api/v1/hr/job_openings/${id}/state`,fingerprint=stateHash(input);const replay=await client.query<{request_fingerprint:string;response_body:HrJobOpeningResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update",[context.tenantId,context.actor.userId,path,idempotencyKey]);if(replay.rows[0]){if(replay.rows[0].request_fingerprint!==fingerprint)throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","The idempotency key was already used for another request.");await client.query("commit");return {...replay.rows[0].response_body,replayed:true};}const record=await client.query<{reference:string;company_id:string;state:HrJobOpeningResult["state"]}>("select reference,company_id,state from hr_job_opening where tenant_id=$1 and id=$2 and company_id=$3 for update",[context.tenantId,id,input.company_id]);const before=record.rows[0];if(!before)throw new HrApiError(404,"HR_JOB_OPENING_NOT_FOUND","The job opening is unavailable in your company scope.");if(before.state==="cancelled")throw new HrApiError(409,"HR_JOB_OPENING_FINAL","A cancelled job opening cannot change state.");await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_at=now() where tenant_id=$1 and id=$2",[context.tenantId,id,input.state,input.reason]);const audit=await this.appendPlatformAudit(client,context,correlationId,"hr.job_opening.state",{entityId:id,entityType:"hr_job_opening",before:{state:before.state},after:{state:input.state,reason:input.reason}});const result:HrJobOpeningResult={id,reference:before.reference,state:input.state,company_id:before.company_id,audit_event_id:audit,replayed:false};await client.query("insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,200,$6,$7)",[context.tenantId,context.actor.userId,path,idempotencyKey,fingerprint,result,stateHash(result)]);await client.query("commit");return result;}catch(error){await client.query("rollback").catch(()=>undefined);throw error;}finally{client.release();}
+    if(!validIdempotencyKey(idempotencyKey))throw new HrApiError(400,"INVALID_IDEMPOTENCY_KEY","The idempotency key is invalid.");if(!context.actor.permissions.includes("hr.employee.update"))throw new HrApiError(403,"PERMISSION_DENIED","You are not permitted to change job opening state.");const client=await this.pool.connect();try{await client.query("begin");await client.query("select set_config('nexora.tenant_id',$1,true)",[context.tenantId]);await this.requireCompanyAccess(client,context,input.company_id);const path=`/api/v1/hr/job_openings/${id}/state`,fingerprint=stateHash(input);const replay=await client.query<{request_fingerprint:string;response_body:HrJobOpeningResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update",[context.tenantId,context.actor.userId,path,idempotencyKey]);if(replay.rows[0]){if(replay.rows[0].request_fingerprint!==fingerprint)throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","The idempotency key was already used for another request.");await client.query("commit");return {...replay.rows[0].response_body,replayed:true};}const record=await client.query<{reference:string;company_id:string;state:HrJobOpeningResult["state"]}>("select reference,company_id,state from hr_job_opening where tenant_id=$1 and id=$2 and company_id=$3 for update",[context.tenantId,id,input.company_id]);const before=record.rows[0];if(!before)throw new HrApiError(404,"HR_JOB_OPENING_NOT_FOUND","The job opening is unavailable in your company scope.");// A cancelled opening may be reopened; the opening trigger re-checks approved headcount.
+await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_at=now() where tenant_id=$1 and id=$2",[context.tenantId,id,input.state,input.reason]);const audit=await this.appendPlatformAudit(client,context,correlationId,"hr.job_opening.state",{entityId:id,entityType:"hr_job_opening",before:{state:before.state},after:{state:input.state,reason:input.reason}});const result:HrJobOpeningResult={id,reference:before.reference,state:input.state,company_id:before.company_id,audit_event_id:audit,replayed:false};await client.query("insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,200,$6,$7)",[context.tenantId,context.actor.userId,path,idempotencyKey,fingerprint,result,stateHash(result)]);await client.query("commit");return result;}catch(error){await client.query("rollback").catch(()=>undefined);if(typeof error==="object"&&error!==null&&"code" in error&&error.code==="23514")throw new HrApiError(409,"HR_JOB_OPENING_STATE_REFUSED",`The opening cannot move to this state: ${String((error as {message?:unknown}).message)}.`);throw error;}finally{client.release();}
   }
 
   async listCandidates(context: HrActorContext, query: HrCandidateQuery): Promise<HrCandidateDirectory> {
@@ -8558,6 +8597,7 @@ export class SourceHrRepository {
       | "hr.employee_assignment.organization_change.request"
       | "hr.employee_assignment.organization_change.decide"
       | HrEmployeeRecordAuditAction
+      | HrRecruitmentAuditAction
       | "hr.manpower_requisition.create"
       | "hr.manpower_requisition.submitted"
       | "hr.manpower_requisition.approved"
@@ -8584,7 +8624,7 @@ export class SourceHrRepository {
       | "hr.learning.workflow",
     mutation: {
       entityId: string;
-      entityType?: "employee_contact" | "employee_emergency_contact" | "employee_document" | "hr_employee_employment_history" | "hr_learning_record" | "hr_personal_data_correction" | "hr_report_export" | "hr_settlement_entitlement" | "hr_employment_policy_adoption" | "hr_lifecycle_case" | "hr_performance_record" | "hr_payroll_workspace" | "employee" | "employment_lifecycle_policy" | "hr_master_record" | "employment_relationship" | "organization_unit" | "hr_manpower_requisition" | "hr_job_opening" | "hr_candidate" | "hr_recruitment_application" | "hr_recruitment_offer" | "hr_shift" | "hr_shift_assignment" | "hr_attendance_correction";
+      entityType?: "hr_manpower_requisition" | "hr_job_opening" | "hr_candidate" | "employee_contact" | "employee_emergency_contact" | "employee_document" | "hr_employee_employment_history" | "hr_learning_record" | "hr_personal_data_correction" | "hr_report_export" | "hr_settlement_entitlement" | "hr_employment_policy_adoption" | "hr_lifecycle_case" | "hr_performance_record" | "hr_payroll_workspace" | "employee" | "employment_lifecycle_policy" | "hr_master_record" | "employment_relationship" | "organization_unit" | "hr_manpower_requisition" | "hr_job_opening" | "hr_candidate" | "hr_recruitment_application" | "hr_recruitment_offer" | "hr_shift" | "hr_shift_assignment" | "hr_attendance_correction";
       before: unknown;
       after: unknown;
       sourceReference?: string;

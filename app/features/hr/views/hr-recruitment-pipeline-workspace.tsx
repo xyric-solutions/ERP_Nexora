@@ -5,11 +5,7 @@ import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { hrApplicationTransitions, type HrApplicationDirectory, type HrApplicationStage } from "@nexora/contracts";
 import {
-  ArrowRight,
-  BriefcaseBusiness,
-  CircleDot,
   Plus,
-  Users,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -21,9 +17,9 @@ import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
-import { HrDetailGroup, HrDetailSection, HrDetailTile } from "../components/hr-detail-tile";
+import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
+import { HrEditButton } from "../components/hr-icon-buttons";
 
-type Application = HrApplicationDirectory["items"][number];
 const labels: Record<HrApplicationStage, string> = {
   application: "Applied",
   screening: "Screening",
@@ -36,19 +32,6 @@ const labels: Record<HrApplicationStage, string> = {
   withdrawn: "Withdrawn",
 };
 const stages = Object.keys(labels) as HrApplicationStage[];
-const activeStages = stages.slice(0, 5);
-/** Nine stages read as three groups so the board wraps instead of overlapping. */
-const stageGroups: Array<{ title: string; hint: string; stages: HrApplicationStage[] }> = [
-  { title: "In progress", hint: "Moving through screening and interviews", stages: activeStages },
-  { title: "Outcome", hint: "Selected or hired", stages: ["selected", "hired"] },
-  { title: "Closed", hint: "No longer progressing", stages: ["rejected", "withdrawn"] },
-];
-const initials = (name: string) =>
-  name
-    .split(" ")
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join("");
 const selectStyle =
   "h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50";
 const failure = (error: unknown, fallback: string) => (error instanceof ApiError ? error.message : fallback);
@@ -78,6 +61,7 @@ export function HrRecruitmentPipelineWorkspace() {
   const [selectedId, setSelectedId] = useState(""),
     [nextStage, setNextStage] = useState<HrApplicationStage | "">("");
   const [reason, setReason] = useState("");
+  const [stageEditing, setStageEditing] = useState(false);
   const [editor, setEditor] = useState(false);
   const [candidateId, setCandidateId] = useState(""),
     [openingId, setOpeningId] = useState("");
@@ -233,18 +217,19 @@ export function HrRecruitmentPipelineWorkspace() {
   }
   async function move(event: React.FormEvent) {
     event.preventDefault();
-    if (!selected || !nextStage || !reason.trim() || saving) return;
+    if (!selected || !nextStage || saving) return;
     setSaving(true);
     setError("");
     setNotice("");
     try {
       await client.changeApplicationStage(
         selected.id,
-        { company_id: companyId, expected_stage: selected.stage, stage: nextStage, reason: reason.trim() },
+        { company_id: companyId, expected_stage: selected.stage, stage: nextStage, reason: reason.trim() || `Moved to ${labels[nextStage]}.` },
         csrfToken(),
         crypto.randomUUID(),
       );
       setNotice(`${selected.reference} moved to ${labels[nextStage]}.`);
+      setStageEditing(false);
       await load();
     } catch (err) {
       setError(failure(err, "The stage could not be changed. Refresh and try again."));
@@ -252,36 +237,6 @@ export function HrRecruitmentPipelineWorkspace() {
       setSaving(false);
     }
   }
-  const card = (item: Application) => (
-    <button
-      type="button"
-      key={item.id}
-      aria-pressed={selectedId === item.id}
-      onClick={() => setSelectedId(item.id)}
-      className={`grid w-full min-w-0 gap-2 rounded-lg border bg-card p-3 text-left shadow-xs transition hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selectedId === item.id ? "border-primary ring-1 ring-primary/30" : "border-border"}`}
-    >
-      <span className="flex min-w-0 items-center gap-2.5">
-        <span
-          className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
-          aria-hidden="true"
-        >
-          {initials(item.candidate_name)}
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold text-foreground">{item.candidate_name}</span>
-          <span className="block truncate text-xs text-muted-foreground">{item.reference}</span>
-        </span>
-      </span>
-      <span className="flex min-w-0 items-start gap-1.5 text-xs text-muted-foreground">
-        <BriefcaseBusiness className="mt-0.5 size-3.5 shrink-0" />
-        <span className="line-clamp-2 break-words">{item.opening_title}</span>
-      </span>
-      <span className="flex items-center justify-between gap-2 border-t border-border pt-2 text-[11px] text-muted-foreground">
-        <span>Applied {date(item.created_at)}</span>
-        <ArrowRight className="size-3.5 text-primary" />
-      </span>
-    </button>
-  );
 
   if (sessionLoading) return <Skeleton className="h-96 w-full" />;
   if (!session || !canRead)
@@ -440,11 +395,7 @@ export function HrRecruitmentPipelineWorkspace() {
             </div>
             {!optionsLoading && (!candidates.length || !openings.length) ? (
               <Alert>
-                <AlertTitle>Recruitment setup required</AlertTitle>
-                <AlertDescription>
-                  No {candidates.length ? "open job openings" : "active candidates"} in this company. Create the missing
-                  record in Candidate Directory or Job Openings, then retry.
-                </AlertDescription>
+                <AlertTitle>{candidates.length ? "No open job openings" : "No active candidates"}</AlertTitle>
               </Alert>
             ) : null}
             <HrDrawerActions>
@@ -462,132 +413,90 @@ export function HrRecruitmentPipelineWorkspace() {
           </form>
         </HrRecordDrawer>
       ) : null}
-      <div className="grid gap-3 rounded-xl border border-border bg-card p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 className="font-semibold">Application board</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {data.total} matching applications · Showing {data.items.length ? filter.offset + 1 : 0}–
-              {filter.offset + data.items.length}. Stage counts cover this page.
-            </p>
-          </div>
-          <Badge variant="outline">
-            <Users className="size-3" />
-            {data.items.filter((item) => activeStages.includes(item.stage)).length} in progress on this page
-          </Badge>
-        </div>
-        <div className="grid gap-3 lg:grid-cols-[5fr_2fr_2fr]" aria-label="Applications by stage">
-          {stageGroups.map((group) => (
-            <div key={group.title} className="grid min-w-0 content-start gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {group.title}
-              </span>
-              <div className="flex min-w-0 flex-wrap gap-1.5">
-                {group.stages.map((stage) => {
-                  const active = filter.stage === stage;
-                  return (
-                    <button
-                      key={stage}
-                      type="button"
-                      aria-pressed={active}
-                      disabled={saving}
-                      title={active ? "Show all stages" : `Show only ${labels[stage]}`}
-                      onClick={() => {
-                        const next = active ? "" : stage;
-                        setStageFilter(next);
-                        setFilter({ search, stage: next, offset: 0 });
-                      }}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-foreground hover:border-primary/50"}`}
-                    >
-                      {labels[stage]}
-                      <span className="rounded-full bg-muted px-1.5 text-[11px] tabular-nums text-muted-foreground">
-                        {data.items.filter((item) => item.stage === stage).length}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by stage">
+        {(["", ...stages] as const).map((stage) => {
+          const active = filter.stage === stage;
+          const count = stage ? data.items.filter((item) => item.stage === stage).length : data.items.length;
+          return (
+            <Button
+              key={stage || "all"}
+              type="button"
+              size="sm"
+              variant={active ? "default" : "ghost"}
+              aria-pressed={active}
+              disabled={saving}
+              onClick={() => {
+                setStageFilter(stage);
+                setFilter({ search, stage, offset: 0 });
+              }}
+            >
+              {stage ? labels[stage] : "All stages"}
+              <span className="tabular-nums opacity-70">{count}</span>
+            </Button>
+          );
+        })}
       </div>
       {loading ? (
-        <div className="grid min-w-0 gap-4 sm:grid-cols-3">
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
-        </div>
-      ) : data.items.length === 0 ? (
-        <div className="grid justify-items-center gap-3 rounded-2xl border border-dashed border-border bg-card px-5 py-14 text-center">
-          <span className="rounded-2xl bg-primary/10 p-4 text-primary">
-            <BriefcaseBusiness className="size-7" />
-          </span>
-          <h3 className="text-lg font-semibold">No applications to display</h3>
-          <p className="max-w-md text-sm leading-6 text-muted-foreground">
-            Add an application to an open vacancy, or adjust your company and stage filters to find an existing record.
-          </p>
-          {canCreate ? (
-            <Button variant="outline" disabled={!companyId} onClick={openEditor}>
-              <Plus className="size-4" />
-              Add application
-            </Button>
-          ) : null}
-        </div>
+        <Skeleton className="h-64 w-full" />
       ) : (
-        <div className="grid min-w-0 gap-5">
-          {stageGroups
-            .map((group) => ({
-              ...group,
-              stages: filter.stage
-                ? group.stages.filter((stage) => stage === filter.stage)
-                : group.stages,
-            }))
-            .filter((group) => group.stages.length)
-            // Outcome groups appear only when they hold applications, unless that stage is filtered.
-            .filter((group) => group.title === "In progress" || filter.stage || group.stages.some((stage) => data.items.some((item) => item.stage === stage)))
-            .map((group) => (
-              <section key={group.title} className="grid min-w-0 gap-2" aria-label={`${group.title} applications`}>
-                <div className="flex flex-wrap items-baseline gap-x-2">
-                  <h4 className="text-sm font-semibold">{group.title}</h4>
-                  <span className="text-xs text-muted-foreground">{group.hint}</span>
-                </div>
-                <div
-                  className={`grid min-w-0 gap-3 ${
-                    group.stages.length > 2
-                      ? "sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
-                      : group.stages.length === 2
-                        ? "sm:grid-cols-2"
-                        : ""
-                  }`}
+        <div className="relative min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
+          <table className="w-full min-w-160 text-left text-sm">
+            <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3">Candidate</th>
+                <th className="px-4 py-3">Opening</th>
+                <th className="px-4 py-3">Stage</th>
+                <th className="px-4 py-3">Applied</th>
+                <th className="px-4 py-3">Last update</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.map((item) => (
+                <tr
+                  key={item.id}
+                  tabIndex={0}
+                  className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
+                  onClick={() => {
+                    setStageEditing(false);
+                    setSelectedId(item.id);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setStageEditing(false);
+                      setSelectedId(item.id);
+                    }
+                  }}
                 >
-                  {group.stages.map((stage) => {
-                    const stageItems = data.items.filter((item) => item.stage === stage);
-                    return (
-                      <div
-                        key={stage}
-                        className="grid min-w-0 content-start gap-2 rounded-xl border border-border bg-muted/35 p-3"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-                            <CircleDot className="size-3.5 shrink-0 text-primary" />
-                            <span className="truncate">{labels[stage]}</span>
-                          </span>
-                          <Badge variant="outline" className="bg-card tabular-nums">
-                            {stageItems.length}
-                          </Badge>
-                        </div>
-                        {stageItems.map(card)}
-                        {stageItems.length === 0 ? (
-                          <p className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-                            No applications at this stage
-                          </p>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
+                  <td className="px-4 py-2.5">
+                    <span className="block font-medium">{item.candidate_name}</span>
+                    <span className="block text-xs text-muted-foreground">{item.reference}</span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <span className="block">{item.opening_title}</span>
+                    <span className="block text-xs text-muted-foreground">{item.opening_reference}</span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <Badge variant={item.stage === "rejected" || item.stage === "withdrawn" ? "outline" : "secondary"}>
+                      {labels[item.stage]}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-2.5 whitespace-nowrap">{date(item.created_at)}</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap">{date(item.updated_at)}</td>
+                </tr>
+              ))}
+              {data.items.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-10 text-center text-muted-foreground" colSpan={5}>
+                    No applications match these filters.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+          <p className="m-0! border-t border-border px-4 py-2 text-xs text-muted-foreground">
+            {data.total} applications · showing {data.items.length ? filter.offset + 1 : 0}–{filter.offset + data.items.length}
+          </p>
         </div>
       )}
       <div className="flex items-center justify-end gap-2">
@@ -611,98 +520,77 @@ export function HrRecruitmentPipelineWorkspace() {
       <HrMasterSheet
         open={Boolean(selected)}
         onOpenChange={(open) => {
-          if (!open && !saving) setSelectedId("");
+          if (!open && !saving) {
+            setSelectedId("");
+            setStageEditing(false);
+          }
         }}
         eyebrow="Recruitment Pipeline"
         title={selected?.candidate_name ?? "Application"}
         description={selected ? `${selected.reference} · ${selected.opening_title}` : ""}
+        footer={
+          selected && canUpdate && allowed.length && !stageEditing ? (
+            <HrEditButton label={`Edit ${selected.reference}`} disabled={saving} onClick={() => setStageEditing(true)} />
+          ) : undefined
+        }
       >
         {selected ? (
-          <div className="grid min-w-0 gap-5" aria-label="Application details">
+          <div className="grid min-w-0 gap-4" aria-label="Application details">
             {error ? (
               <Alert variant="destructive" role="alert">
-                <AlertTitle>Action needs attention</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             ) : null}
             {notice ? (
-              <div role="status" className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-sm">
+              <p role="status" className="m-0! rounded-lg border border-border bg-muted p-3 text-sm">
                 {notice}
-              </div>
+              </p>
             ) : null}
-            <HrDetailGroup title="Application">
-              <HrDetailTile label="Reference" value={selected.reference} />
-              <HrDetailTile label="Stage" value={labels[selected.stage]} />
-              <HrDetailTile label="Candidate email" value={selected.candidate_email} />
-              <HrDetailTile label="Applied" value={date(selected.created_at)} />
-              <HrDetailTile label="Opening" value={selected.opening_title} />
-              <HrDetailTile label="Opening reference" value={selected.opening_reference} />
-            </HrDetailGroup>
-            {selected.stage === "evaluation" ? (
-              <Alert>
-                <AlertTitle>Interview evidence required</AlertTitle>
-                <AlertDescription>
-                  Open Interviews & Evaluations to review panel scorecards, assessment outcomes and the selection
-                  readiness check.
-                </AlertDescription>
-              </Alert>
-            ) : null}
-            {canUpdate && allowed.length ? (
-              <HrDetailSection title="Update application stage">
-                <form className="grid gap-3" onSubmit={move}>
-                  <label className="grid gap-1.5 text-sm">
-                    Next stage
-                    <select
-                      className={selectStyle}
-                      required
-                      disabled={saving}
-                      value={nextStage}
-                      onChange={(event) => setNextStage(event.target.value as HrApplicationStage)}
-                    >
-                      <option value="">Choose next stage</option>
-                      {allowed.map((stage) => (
-                        <option key={stage} value={stage}>
-                          {labels[stage]}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1.5 text-sm">
-                    Decision reason
-                    <Textarea
-                      required
-                      maxLength={1000}
-                      value={reason}
-                      disabled={saving}
-                      placeholder="Record the screening outcome or decision context"
-                      onChange={(event) => setReason(event.target.value)}
-                    />
-                  </label>
-                  <Button
-                    className="justify-self-start text-primary-foreground!"
-                    type="submit"
-                    disabled={saving || !nextStage || !reason.trim()}
+            {stageEditing ? (
+              <form className="grid gap-3" onSubmit={move}>
+                <label className="grid gap-1.5 text-sm font-medium">
+                  Stage
+                  <select
+                    className={selectStyle}
+                    required
+                    disabled={saving}
+                    value={nextStage}
+                    onChange={(event) => setNextStage(event.target.value as HrApplicationStage)}
                   >
-                    {saving ? "Saving decision…" : "Save stage decision"}
-                    <ArrowRight className="size-4" />
+                    <option value="">{labels[selected.stage]} (current)</option>
+                    {allowed.map((stage) => (
+                      <option key={stage} value={stage}>
+                        {labels[stage]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1.5 text-sm font-medium">
+                  Notes
+                  <Textarea maxLength={1000} value={reason} disabled={saving} onChange={(event) => setReason(event.target.value)} />
+                </label>
+                <HrDrawerActions>
+                  <Button type="button" variant="outline" disabled={saving} onClick={() => setStageEditing(false)}>
+                    Cancel
                   </Button>
-                </form>
-              </HrDetailSection>
-            ) : null}
-            <HrDetailSection title="Application history">
-              <ol className="grid min-w-0 gap-2">
-                {selected.history.map((event) => (
-                  <li key={event.id} className="rounded-lg border border-border bg-muted/35 p-3">
-                    <p className="text-sm font-medium">
-                      {event.from_stage ? `${labels[event.from_stage]} → ` : ""}
-                      {labels[event.to_stage]}
-                    </p>
-                    <p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">{event.reason}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{date(event.occurred_at)}</p>
-                  </li>
-                ))}
-              </ol>
-            </HrDetailSection>
+                  <Button type="submit" disabled={saving || !nextStage}>
+                    {saving ? "Saving…" : "Save changes"}
+                  </Button>
+                </HrDrawerActions>
+              </form>
+            ) : (
+              <HrDetailList>
+                <HrDetailTile label="Candidate" value={selected.candidate_name} />
+                <HrDetailTile label="Email" value={selected.candidate_email} />
+                <HrDetailTile label="Application" value={selected.reference} />
+                <HrDetailTile label="Stage" value={labels[selected.stage]} />
+                <HrDetailTile label="Opening" value={selected.opening_title} />
+                <HrDetailTile label="Opening reference" value={selected.opening_reference} />
+                <HrDetailTile label="Applied" value={date(selected.created_at)} />
+                <HrDetailTile label="Last update" value={date(selected.updated_at)} />
+                {selected.history.at(-1)?.reason ? <HrDetailTile label="Latest note" value={selected.history.at(-1)?.reason} /> : null}
+              </HrDetailList>
+            )}
           </div>
         ) : null}
       </HrMasterSheet>

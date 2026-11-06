@@ -10,6 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
+import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
+import { HrEditButton } from "../components/hr-icon-buttons";
 type Opening = HrJobOpeningDirectory["items"][number];
 export function HrJobOpeningsWorkspace() {
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -32,7 +34,10 @@ export function HrJobOpeningsWorkspace() {
     [requisitionId, setRequisitionId] = useState(""),
     [headcount, setHeadcount] = useState("1"),
     [channels, setChannels] = useState("Company website"),
-    [closingOn, setClosingOn] = useState("");
+    [closingOn, setClosingOn] = useState(""),
+    /** Set while editing an existing opening. */
+    [editingId, setEditingId] = useState(""),
+    [openingState, setOpeningState] = useState<Opening["state"]>("open");
   const load = useCallback(
     async (company: string) => {
       if (!company) return;
@@ -88,8 +93,65 @@ export function HrJobOpeningsWorkspace() {
     // Start from the requisition's job title; recruiters can still adjust the advertised wording.
     if (requisition && (!title.trim() || approved.some((item) => item.job_title === title))) setTitle(requisition.job_title);
   };
+  const startEdit = (opening: Opening) => {
+    setEditingId(opening.id);
+    setRequisitionId(opening.requisition_id);
+    setTitle(opening.title);
+    setHeadcount(String(opening.positions_requested));
+    setChannels(opening.channels.join(", "));
+    setClosingOn(opening.closing_on ?? "");
+    setOpeningState(opening.state);
+    setDetailsOpen(false);
+    setEditor(true);
+  };
+  const closeEditor = () => {
+    setEditor(false);
+    setEditingId("");
+  };
+  const remove = async (opening: Opening) => {
+    setSaving(true);
+    try {
+      await client.deleteJobOpening(opening.id, companyId, csrfToken(), crypto.randomUUID());
+      setMessage(`${opening.reference} was deleted.`);
+      setDetailsOpen(false);
+      setSelectedId("");
+      await load(companyId);
+      return true;
+    } catch (cause) {
+      setMessage(cause instanceof Error && cause.message ? cause.message : "The opening could not be deleted.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+  const saveEdit = async () => {
+    const count = Number(headcount);
+    const channelList = channels.split(",").map((value) => value.trim()).filter(Boolean);
+    if (!title.trim() || !Number.isInteger(count) || count < 1 || !channelList.length) {
+      setMessage("Provide a title, the number of positions to fill and at least one advertising channel.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await client.updateJobOpening(
+        editingId,
+        { company_id: companyId, title: title.trim(), positions_requested: count, channels: channelList, closing_on: closingOn || null, state: openingState, reason: "" },
+        csrfToken(),
+        crypto.randomUUID(),
+      );
+      setMessage("The job opening was saved.");
+      setSelectedId(editingId);
+      closeEditor();
+      await load(companyId);
+    } catch (cause) {
+      setMessage(cause instanceof Error && cause.message ? cause.message : "The opening could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  };
   const save = async () => {
     if (saving) return;
+    if (editingId) return saveEdit();
     const count = Number(headcount);
     if (!requisitionId || !title.trim() || !Number.isInteger(count) || count < 1) {
       setMessage("Select an approved requisition and provide a title and the number of positions to fill.");
@@ -217,6 +279,10 @@ export function HrJobOpeningsWorkspace() {
         {canCreate ? (
           <Button
             onClick={() => {
+              setEditingId("");
+              setTitle("");
+              setHeadcount("1");
+              setClosingOn("");
               setEditor(true);
               chooseRequisition(approved[0]?.id ?? "");
             }}
@@ -294,14 +360,30 @@ export function HrJobOpeningsWorkspace() {
           </div>
           {editor ? (
             <HrRecordDrawer
-              title="Create job opening"
+              title={editingId ? title || "Edit job opening" : "Create job opening"}
               open={editor}
-              onClose={() => setEditor(false)}
+              onClose={closeEditor}
               busy={saving}
               notice={message}
             >
               <aside className="grid gap-3 rounded-lg border bg-card p-4 border-border">
-                {approved.length === 0 ? (
+                {editingId ? (
+                  <label className="grid gap-1 text-sm">
+                    Status
+                    <select
+                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
+                      value={openingState}
+                      onChange={(event) => setOpeningState(event.target.value as Opening["state"])}
+                    >
+                      {(["open", "on_hold", "closed", "cancelled"] as const).map((state) => (
+                        <option key={state} value={state}>
+                          {state === "on_hold" ? "On hold" : state.charAt(0).toUpperCase() + state.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                {approved.length === 0 && !editingId ? (
                   <Alert>
                     <AlertTitle>Approved requisition required</AlertTitle>
                     <AlertDescription>
@@ -312,10 +394,16 @@ export function HrJobOpeningsWorkspace() {
                 <label className="grid gap-1 text-sm">
                   Approved requisition
                   <select
-                    className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
+                    className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2 disabled:opacity-60"
                     value={requisitionId}
+                    disabled={!!editingId}
                     onChange={(event) => chooseRequisition(event.target.value)}
                   >
+                    {editingId && !approved.some((item) => item.id === requisitionId) ? (
+                      <option value={requisitionId}>
+                        {items.find((item) => item.id === editingId)?.requisition_reference ?? "Current requisition"}
+                      </option>
+                    ) : null}
                     <option value="">Select</option>
                     {approved.map((item) => (
                       <option key={item.id} value={item.id}>
@@ -359,10 +447,10 @@ export function HrJobOpeningsWorkspace() {
                   <Input type="date" value={closingOn} onChange={(event) => setClosingOn(event.target.value)} />
                 </label>
                 <HrDrawerActions>
-                  <Button disabled={saving || !approved.length} onClick={() => void save()}>
-                    Create opening
+                  <Button disabled={saving || (!editingId && !approved.length)} onClick={() => void save()}>
+                    {editingId ? "Save changes" : "Create opening"}
                   </Button>
-                  <Button variant="outline" onClick={() => setEditor(false)}>
+                  <Button variant="outline" onClick={closeEditor}>
                     Cancel
                   </Button>
                 </HrDrawerActions>
@@ -392,6 +480,15 @@ export function HrJobOpeningsWorkspace() {
                 </HrDetailList>
                 {canUpdate ? (
                   <HrDrawerActions>
+                    <HrConfirmDeleteButton
+                      label={`Delete ${selected.reference}`}
+                      title={`Delete ${selected.reference}?`}
+                      description="Openings without applications can be deleted. The deletion is kept in the audit trail."
+                      variant="outline"
+                      disabled={saving}
+                      onConfirm={() => remove(selected)}
+                    />
+                    <HrEditButton label={`Edit ${selected.reference}`} disabled={saving} onClick={() => startEdit(selected)} />
                     {selected.state !== "on_hold" && selected.state !== "cancelled" ? (
                       <Button variant="outline" onClick={() => void change("on_hold")}>
                         Put on hold
