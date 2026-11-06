@@ -27,7 +27,15 @@ import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
-import { HrDetailGroup, HrDetailSection, HrDetailTile } from "../components/hr-detail-tile";
+import {
+  HrDetailAudit,
+  HrDetailGroup,
+  HrDetailNote,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
 type Scope = CreateHrShiftAllocationRequest["scope"];
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
 const selectClass =
@@ -278,7 +286,7 @@ function AllocationEditor({
   return (
     <form
       aria-label="Shift assignment editor"
-      className="grid min-w-0 gap-5 rounded-xl border border-primary/30 bg-card p-5"
+      className="grid min-w-0 gap-5 rounded-lg border border-border bg-card p-4"
       onSubmit={(e) => {
         e.preventDefault();
         submit();
@@ -310,7 +318,7 @@ function AllocationEditor({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <HrDetailSection title="Assigned to">
         <label className="grid gap-2 text-sm font-medium">
           Allocation scope
           <select
@@ -332,108 +340,116 @@ function AllocationEditor({
             ))}
           </select>
         </label>
-        <label className="grid gap-2 text-sm font-medium">
-          Effective from
-          <Input
-            required
-            type="date"
-            value={from}
-            disabled={busy}
-            onChange={(e) => {
-              setFrom(e.target.value);
-              setReplacement(null);
-            }}
-          />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          Effective to
-          <Input type="date" min={from} value={to} disabled={busy} onChange={(e) => setTo(e.target.value)} />
-        </label>
-      </div>
-      <TargetPicker
-        client={client}
-        companyId={companyId}
-        scope={scope}
-        onDate={from}
-        value={target}
-        disabled={busy}
-        revision={revision}
-        onChange={(id) => {
-          setTarget(id);
-          setReplacement(null);
-          setCurrent(null);
-        }}
-      />
-      <label className="grid gap-2 text-sm font-medium">
-        Configured shift
-        <select
-          required
-          className={selectClass}
-          value={shiftId}
-          disabled={busy || loading}
-          onChange={(e) => setShiftId(e.target.value)}
-        >
-          <option value="">Select an active shift</option>
-          {eligible.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.code} · {s.name} · {s.work_location ?? "Company-wide"}
-            </option>
-          ))}
-        </select>
-      </label>
-      {options.length < total && (
-        <Button
-          type="button"
-          variant="outline"
-          className="justify-self-start"
-          disabled={busy || loading}
-          onClick={() => setOffset(options.length)}
-        >
-          Load more shifts
-        </Button>
-      )}
-      {!eligible.length && !loading && (
-        <p className="text-sm text-muted-foreground">
-          No configured shift is available for this scope. Create one in Shifts &amp; Rules first.
-        </p>
-      )}
-      <p className="text-xs text-muted-foreground">
-        {scope === "employee"
-          ? "Approved employment must cover the entire interval. A site-specific shift must match the employee’s effective work location throughout it."
-          : "Branch and department defaults use company-wide shifts. Use an employee override for site-specific arrangements."}{" "}
-        New allocations start today or later; locked attendance periods stay protected.
-      </p>
-      {current && (
-        <div className="grid gap-3 rounded-lg border border-primary/25 bg-primary/5 p-4">
-          <div className="text-sm">
-            <strong>{current.reference}</strong> · {current.shift_code} currently covers this start date (
-            {current.effective_from} → {current.effective_to ?? "open-ended"}).
-          </div>
-          <label className="flex items-start gap-2 text-sm">
-            <Checkbox
-              checked={replacement?.id === current.id}
-              disabled={busy || currentLoading}
-              onCheckedChange={(checked) =>
-                setReplacement(checked ? { id: current.id, version: current.version } : null)
-              }
+        <TargetPicker
+          client={client}
+          companyId={companyId}
+          scope={scope}
+          onDate={from}
+          value={target}
+          disabled={busy}
+          revision={revision}
+          onChange={(id) => {
+            setTarget(id);
+            setReplacement(null);
+            setCurrent(null);
+          }}
+        />
+      </HrDetailSection>
+      <HrDetailSection title="Schedule">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-2 text-sm font-medium">
+            Effective from
+            <Input
+              required
+              type="date"
+              value={from}
+              disabled={busy}
+              onChange={(e) => {
+                setFrom(e.target.value);
+                setReplacement(null);
+              }}
             />
-            Replace this allocation from {from}. Preserve its previous interval and audit history.
+          </label>
+          <label className="grid gap-2 text-sm font-medium">
+            Effective to
+            <Input type="date" min={from} value={to} disabled={busy} onChange={(e) => setTo(e.target.value)} />
           </label>
         </div>
-      )}
-      <label className="grid gap-2 text-sm font-medium">
-        Allocation reason
-        <Textarea
-          required
-          minLength={8}
-          maxLength={1000}
-          rows={3}
-          value={reason}
-          disabled={busy}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Explain this employee arrangement or organisational default"
-        />
-      </label>
+      </HrDetailSection>
+      <HrDetailSection title="Shift">
+        <label className="grid gap-2 text-sm font-medium">
+          Configured shift
+          <select
+            required
+            className={selectClass}
+            value={shiftId}
+            disabled={busy || loading}
+            onChange={(e) => setShiftId(e.target.value)}
+          >
+            <option value="">Select an active shift</option>
+            {eligible.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.code} · {s.name} · {s.work_location ?? "Company-wide"}
+              </option>
+            ))}
+          </select>
+        </label>
+        {options.length < total && (
+          <Button
+            type="button"
+            variant="outline"
+            className="justify-self-start"
+            disabled={busy || loading}
+            onClick={() => setOffset(options.length)}
+          >
+            Load more shifts
+          </Button>
+        )}
+        {!eligible.length && !loading && (
+          <p className="text-sm text-muted-foreground">
+            No configured shift is available for this scope. Create one in Shifts &amp; Rules first.
+          </p>
+        )}
+        <p className="text-xs text-muted-foreground">
+          {scope === "employee"
+            ? "Approved employment must cover the entire interval. A site-specific shift must match the employee’s effective work location throughout it."
+            : "Branch and department defaults use company-wide shifts. Use an employee override for site-specific arrangements."}{" "}
+          New allocations start today or later; locked attendance periods stay protected.
+        </p>
+        {current && (
+          <div className="grid gap-3 rounded-lg border border-primary/25 bg-primary/5 p-4">
+            <div className="text-sm">
+              <strong>{current.reference}</strong> · {current.shift_code} currently covers this start date (
+              {current.effective_from} → {current.effective_to ?? "open-ended"}).
+            </div>
+            <label className="flex items-start gap-2 text-sm">
+              <Checkbox
+                checked={replacement?.id === current.id}
+                disabled={busy || currentLoading}
+                onCheckedChange={(checked) =>
+                  setReplacement(checked ? { id: current.id, version: current.version } : null)
+                }
+              />
+              Replace this allocation from {from}. Preserve its previous interval and audit history.
+            </label>
+          </div>
+        )}
+      </HrDetailSection>
+      <HrDetailSection title="Reason">
+        <label className="grid gap-2 text-sm font-medium">
+          Allocation reason
+          <Textarea
+            required
+            minLength={8}
+            maxLength={1000}
+            rows={3}
+            value={reason}
+            disabled={busy}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Explain this employee arrangement or organisational default"
+          />
+        </label>
+      </HrDetailSection>
       <HrDrawerActions>
         <Button
           type="submit"
@@ -1194,21 +1210,30 @@ export function HrShiftAssignmentsWorkspace({
             <Skeleton className="h-80 w-full" />
           ) : current ? (
             <>
+              <HrDetailSummary code={current.reference} status={current.state}>
+                {label(current.scope)} allocation · {hrDisplayDate(current.effective_from)} →{" "}
+                {current.effective_to ? hrDisplayDate(current.effective_to) : "open-ended"}
+              </HrDetailSummary>
               <HrDetailGroup title="Assignment">
-                <HrDetailTile label="Reference" value={current.reference} />
-                <HrDetailTile label="State" value={label(current.state)} />
-                <HrDetailTile label="Target" value={`${current.scope_code} · ${label(current.scope)}`} />
-                <HrDetailTile label="Shift" value={`${current.shift_code} · ${current.shift_name}`} />
                 <HrDetailTile
-                  label="Effective interval"
-                  value={`${current.effective_from} → ${current.effective_to ?? "open-ended"}`}
+                  label="Assigned to"
+                  value={current.scope_name}
+                  hint={`${current.scope_code} · ${label(current.scope)}`}
                 />
+                <HrDetailTile label="Shift" value={current.shift_name} hint={current.shift_code} />
                 <HrDetailTile label="Version" value={String(current.version)} />
+              </HrDetailGroup>
+              <HrDetailGroup title="Schedule">
+                <HrDetailTile label="Effective from" value={hrDisplayDate(current.effective_from)} />
+                <HrDetailTile
+                  label="Effective to"
+                  value={current.effective_to ? hrDisplayDate(current.effective_to) : "Open-ended"}
+                />
                 <HrDetailTile label="Shift timezone" value={current.time_zone ?? "Configuration required"} />
                 <HrDetailTile label="Shift work location" value={current.work_location ?? "Company-wide"} />
               </HrDetailGroup>
               <HrDetailSection title="Recorded reason">
-                <p className="break-words rounded-lg border border-border bg-muted/35 p-3 text-sm">{current.note}</p>
+                <HrDetailNote>{current.note}</HrDetailNote>
               </HrDetailSection>
               <div className="flex gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
                 <ShieldCheck className="size-5 shrink-0 text-primary" />
@@ -1234,7 +1259,7 @@ export function HrShiftAssignmentsWorkspace({
                         <span>
                           Version {h.version} · {label(h.action)} · {h.actor_name}
                         </span>
-                        <time dateTime={h.occurred_at}>{new Date(h.occurred_at).toLocaleString()}</time>
+                        <time dateTime={h.occurred_at}>{hrDisplayDate(h.occurred_at, true)}</time>
                       </div>
                       <p className="mt-2 break-words text-sm">{h.reason}</p>
                       {h.related_reference && (
@@ -1267,6 +1292,7 @@ export function HrShiftAssignmentsWorkspace({
                   </p>
                 )}
               </HrDetailSection>
+              <HrDetailAudit items={[{ label: "Created", value: hrDisplayDate(current.created_at, true) }]} />
             </>
           ) : null}
         </div>

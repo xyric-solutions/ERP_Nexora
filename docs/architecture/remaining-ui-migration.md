@@ -1,5 +1,27 @@
 # Remaining UI migration checklist
 
+## 2026-11-06 — HR drawer content layout and footer actions
+
+- `hr-detail-tile.tsx` now defines the drawer anatomy: `HrDetailSummary` (code,
+  status pill, context line), `HrDetailFigures` (key counts, optional progress),
+  `HrDetailGroup`/`HrDetailTile` (fixed 9.5rem label column, "Not recorded" empty
+  state, `mono`/`hint`), `HrDetailSection`, `HrDetailNote`, `HrDetailAudit`,
+  `HrStatusPill` and `hrDisplayDate`. Status tones use `--nx-success/warning/danger`.
+- `HrMasterSheet` footer: every action sits bottom-right and uses the primary
+  (yellow) treatment; the Add Employee wizard spacer was removed.
+- Converted drawers: job openings, manpower requisitions, recruitment pipeline,
+  candidates, interviews, offers, offer to employee, employee record, employee
+  drafts, shifts, shift assignments, job grades, configured masters, master
+  catalogues, organisation structure, organisation-masters demo. Forms inside
+  these drawers are grouped under section titles with short fields two per row.
+- Preserved: handlers, permissions, API calls, footers' contents, form state and
+  validation. Drawers show only fields their API returns.
+- Verified: `tsc --noEmit`, `git diff --check`, theme audit `--write`/`--check`
+  (zero exceptions) and `npm.cmd run build:web` passed. Browser check of the
+  drawers (light/dark, mobile) still to do.
+- Safe resume: new HR drawers should compose these helpers rather than custom
+  label/value markup.
+
 ## 2026-11-06 — Narrower HR record drawer
 
 - `HrMasterSheet` (shared by every HR & Payroll drawer, including `HrRecordDrawer`)

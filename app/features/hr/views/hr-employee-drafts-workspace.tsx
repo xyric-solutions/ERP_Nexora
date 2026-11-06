@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from "react";
 import type { HrEmployeeDraftDetail } from "@nexora/contracts";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,7 +14,14 @@ import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
 import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
-import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
+import {
+  HrDetailAudit,
+  HrDetailGroup,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrEmployeeWizard } from "./hr-employee-wizard";
 
@@ -272,7 +278,11 @@ export function HrEmployeeDraftsWorkspace({
                         </Button>
                         {canUpdate ? (
                           <>
-                            <HrEditButton label={`Edit ${draft.display_name}`} variant="ghost" onClick={() => setEditingId(draft.id)} />
+                            <HrEditButton
+                              label={`Edit ${draft.display_name}`}
+                              variant="ghost"
+                              onClick={() => setEditingId(draft.id)}
+                            />
                             <HrConfirmDeleteButton
                               label={`Delete ${draft.display_name}`}
                               title={`Delete draft ${draft.employee_number}?`}
@@ -355,28 +365,34 @@ export function HrEmployeeDraftsWorkspace({
               ) : null}
               {selected ? (
                 <div className="grid gap-4">
-                  <HrDetailList>
-                    <HrDetailTile label="Employee number" value={selected.employee_number} />
-                    <HrDetailTile label="Status" value={<Badge variant="secondary">Draft</Badge>} />
+                  <HrDetailSummary code={selected.employee_number} status="draft">
+                    {selected.joined_on ? `Joining ${hrDisplayDate(selected.joined_on)}` : null}
+                  </HrDetailSummary>
+                  <HrDetailGroup title="Name">
                     <HrDetailTile label="First name" value={selected.first_name} />
                     <HrDetailTile label="Middle name" value={selected.middle_name} />
                     <HrDetailTile label="Last name" value={selected.last_name} />
                     <HrDetailTile label="Preferred name" value={selected.preferred_name} />
+                  </HrDetailGroup>
+                  <HrDetailGroup title="Contact">
                     <HrDetailTile label="Email" value={selected.work_email} />
                     <HrDetailTile label="Phone number" value={selected.phone} />
-                    <HrDetailTile label="Joining date" value={selected.joined_on} />
-                    <HrDetailTile label="Created" value={new Date(selected.created_at).toLocaleString()} />
-                  </HrDetailList>
-                  <label className="grid gap-1.5 text-sm font-medium text-foreground">
-                    Submission reason
-                    <Textarea
-                      disabled={!canSubmit || submitting}
-                      value={submitReason}
-                      onChange={(event) => setSubmitReason(event.target.value)}
-                      maxLength={1000}
-                      placeholder="Explain why this profile is ready for approval."
-                    />
-                  </label>
+                  </HrDetailGroup>
+                  <HrDetailGroup title="Employment">
+                    <HrDetailTile label="Joining date" value={hrDisplayDate(selected.joined_on)} />
+                  </HrDetailGroup>
+                  <HrDetailSection title="Submit for approval">
+                    <label className="grid gap-1.5 text-sm font-medium text-foreground">
+                      Submission reason
+                      <Textarea
+                        disabled={!canSubmit || submitting}
+                        value={submitReason}
+                        onChange={(event) => setSubmitReason(event.target.value)}
+                        maxLength={1000}
+                        placeholder="Explain why this profile is ready for approval."
+                      />
+                    </label>
+                  </HrDetailSection>
                   {canSubmit ? null : (
                     <Alert>
                       <AlertTitle>Submission permission required</AlertTitle>
@@ -385,6 +401,7 @@ export function HrEmployeeDraftsWorkspace({
                       </AlertDescription>
                     </Alert>
                   )}
+                  <HrDetailAudit items={[{ label: "Created", value: hrDisplayDate(selected.created_at, true) }]} />
                 </div>
               ) : null}
             </aside>

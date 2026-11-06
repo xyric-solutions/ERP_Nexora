@@ -9,16 +9,7 @@ import type {
   HrInterviewPanelDirectory,
   HrInterviewWorkspace,
 } from "@nexora/contracts";
-import {
-  CalendarDays,
-  CheckCircle2,
-  ClipboardCheck,
-  Clock3,
-  Plus,
-  ShieldCheck,
-  Users,
-  X,
-} from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock3, Plus, X } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,7 +21,14 @@ import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
-import { HrDetailTile } from "../components/hr-detail-tile";
+import {
+  HrDetailFigures,
+  HrDetailGroup,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  HrStatusPill,
+} from "../components/hr-detail-tile";
 
 type Interview = HrInterviewWorkspace["interviews"][number];
 type Assessment = HrInterviewWorkspace["assessments"][number];
@@ -109,59 +107,60 @@ function ScheduleForm({
           <X className="size-4" />
         </Button>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {!interview ? (
+      <HrDetailSection title="Interview">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {!interview ? (
+            <label className="grid gap-1.5 text-sm">
+              Interview type
+              <select className={selectClass} value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+                {["screening", "technical", "panel", "hr", "final"].map((item) => (
+                  <option key={item} value={item}>
+                    {label(item)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <label className="grid gap-1.5 text-sm">
-            Interview type
-            <select className={selectClass} value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
-              {["screening", "technical", "panel", "hr", "final"].map((item) => (
+            Start date and time
+            <Input required type="datetime-local" value={starts} onChange={(e) => setStarts(e.target.value)} />
+          </label>
+          <label className="grid gap-1.5 text-sm">
+            Duration (minutes)
+            <Input
+              required
+              type="number"
+              min={15}
+              max={240}
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+            />
+          </label>
+          <label className="grid gap-1.5 text-sm">
+            Interview mode
+            <select className={selectClass} value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
+              {["video", "on_site", "telephone"].map((item) => (
                 <option key={item} value={item}>
                   {label(item)}
                 </option>
               ))}
             </select>
           </label>
-        ) : null}
-        <label className="grid gap-1.5 text-sm">
-          Start date and time
-          <Input required type="datetime-local" value={starts} onChange={(e) => setStarts(e.target.value)} />
-        </label>
-        <label className="grid gap-1.5 text-sm">
-          Duration (minutes)
-          <Input
-            required
-            type="number"
-            min={15}
-            max={240}
-            value={duration}
-            onChange={(e) => setDuration(Number(e.target.value))}
-          />
-        </label>
-        <label className="grid gap-1.5 text-sm">
-          Interview mode
-          <select className={selectClass} value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
-            {["video", "on_site", "telephone"].map((item) => (
-              <option key={item} value={item}>
-                {label(item)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1.5 text-sm sm:col-span-2">
-          Location or meeting reference
-          <Input
-            required
-            maxLength={300}
-            value={location}
-            placeholder="Meeting room, video meeting reference or phone contact"
-            onChange={(e) => setLocation(e.target.value)}
-          />
-        </label>
-      </div>
+          <label className="grid gap-1.5 text-sm sm:col-span-2">
+            Location or meeting reference
+            <Input
+              required
+              maxLength={300}
+              value={location}
+              placeholder="Meeting room, video meeting reference or phone contact"
+              onChange={(e) => setLocation(e.target.value)}
+            />
+          </label>
+        </div>
+      </HrDetailSection>
       {!interview ? (
-        <fieldset className="m-0 min-w-0 rounded-lg border border-border p-3">
-          <legend className="px-1 text-sm font-medium">Panel members · choose 2–8</legend>
-          <p className="mb-3 text-xs text-muted-foreground">
+        <HrDetailSection title="Panel members · choose 2–8">
+          <p className="m-0! text-xs text-muted-foreground">
             Each member signs in to submit their own evaluation. Accounts must have this company’s access and HR update
             permission.
           </p>
@@ -186,12 +185,14 @@ function ScheduleForm({
               No matching eligible panel accounts. Refine the panel search or check company access.
             </p>
           ) : null}
-        </fieldset>
+        </HrDetailSection>
       ) : (
-        <label className="grid gap-1.5 text-sm">
-          Reason for rescheduling
-          <Textarea required maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} />
-        </label>
+        <HrDetailSection title="Reason">
+          <label className="grid gap-1.5 text-sm">
+            Reason for rescheduling
+            <Textarea required maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} />
+          </label>
+        </HrDetailSection>
       )}
       <HrDrawerActions>
         <Button
@@ -237,61 +238,65 @@ function EvaluationForm({
     });
   };
   return (
-    <form onSubmit={submit} className="grid min-w-0 gap-4 border-t border-border pt-4">
-      <div>
-        <h4 className="m-0 font-semibold">Your panel scorecard</h4>
-        <p className="mt-1 text-sm text-muted-foreground">
+    <form onSubmit={submit} className="grid min-w-0 gap-5">
+      <HrDetailSummary status={interview.status} statusLabel={label(interview.status)}>
+        Round {interview.round} · {label(interview.kind)} · {time(interview.starts_at)}
+      </HrDetailSummary>
+      <HrDetailSection title="Your panel scorecard">
+        <p className="m-0! text-sm text-muted-foreground">
           Rate each criterion from 1 to 5. Submitted scorecards are final and retained as evidence.
         </p>
-      </div>
-      {interview.template.map((criterion) => (
-        <label
-          key={criterion.id}
-          className="grid grid-cols-[1fr_110px] items-center gap-3 rounded-lg bg-muted/40 p-3 text-sm"
-        >
-          <span>
-            {criterion.label}
-            <span className="ml-2 text-xs text-muted-foreground">{criterion.weight}%</span>
-          </span>
-          <select
-            required
-            aria-label={`${criterion.label} rating`}
-            className={selectClass}
-            disabled={busy}
-            value={scores[criterion.id] ?? ""}
-            onChange={(e) => setScores({ ...scores, [criterion.id]: Number(e.target.value) })}
+        {interview.template.map((criterion) => (
+          <label
+            key={criterion.id}
+            className="grid grid-cols-[1fr_110px] items-center gap-3 rounded-lg bg-muted/40 p-3 text-sm"
           >
-            <option value="">Rating</option>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <option key={n} value={n}>
-                {n} / 5
+            <span>
+              {criterion.label}
+              <span className="ml-2 text-xs text-muted-foreground">{criterion.weight}%</span>
+            </span>
+            <select
+              required
+              aria-label={`${criterion.label} rating`}
+              className={selectClass}
+              disabled={busy}
+              value={scores[criterion.id] ?? ""}
+              onChange={(e) => setScores({ ...scores, [criterion.id]: Number(e.target.value) })}
+            >
+              <option value="">Rating</option>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>
+                  {n} / 5
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+      </HrDetailSection>
+      <HrDetailSection title="Recommendation">
+        <label className="grid gap-1.5 text-sm">
+          Recommendation
+          <select
+            className={selectClass}
+            value={recommendation}
+            onChange={(e) => setRecommendation(e.target.value as typeof recommendation)}
+          >
+            {["strong_hire", "hire", "hold", "no_hire"].map((value) => (
+              <option key={value} value={value}>
+                {label(value)}
               </option>
             ))}
           </select>
         </label>
-      ))}
-      <label className="grid gap-1.5 text-sm">
-        Recommendation
-        <select
-          className={selectClass}
-          value={recommendation}
-          onChange={(e) => setRecommendation(e.target.value as typeof recommendation)}
-        >
-          {["strong_hire", "hire", "hold", "no_hire"].map((value) => (
-            <option key={value} value={value}>
-              {label(value)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="grid gap-1.5 text-sm">
-        Strengths
-        <Textarea required maxLength={2000} value={strengths} onChange={(e) => setStrengths(e.target.value)} />
-      </label>
-      <label className="grid gap-1.5 text-sm">
-        Concerns (enter “None” if appropriate)
-        <Textarea required maxLength={2000} value={concerns} onChange={(e) => setConcerns(e.target.value)} />
-      </label>
+        <label className="grid gap-1.5 text-sm">
+          Strengths
+          <Textarea required maxLength={2000} value={strengths} onChange={(e) => setStrengths(e.target.value)} />
+        </label>
+        <label className="grid gap-1.5 text-sm">
+          Concerns (enter “None” if appropriate)
+          <Textarea required maxLength={2000} value={concerns} onChange={(e) => setConcerns(e.target.value)} />
+        </label>
+      </HrDetailSection>
       <Button
         type="submit"
         className="text-primary-foreground!"
@@ -320,38 +325,43 @@ function StatusForm({
     [reason, setReason] = useState("");
   return (
     <form
-      className="grid gap-3 rounded-lg bg-muted/40 p-3"
+      className="grid gap-5"
       onSubmit={async (e) => {
         e.preventDefault();
         if (await run({ ...scope, action, interview_id: interview.id, expected_version: interview.version, reason }))
           setReason("");
       }}
     >
-      <label className="grid gap-1.5 text-sm">
-        Record interview outcome
-        <select
-          className={selectClass}
-          value={action}
-          disabled={busy}
-          onChange={(e) => setAction(e.target.value as typeof action)}
-        >
-          {(interview.status === "no_show" ? ["cancel"] : ["complete", "no_show", "cancel"]).map((value) => (
-            <option key={value} value={value}>
-              {label(value)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="grid gap-1.5 text-sm">
-        Outcome reason
-        <Textarea
-          required
-          maxLength={1000}
-          value={reason}
-          disabled={busy}
-          onChange={(e) => setReason(e.target.value)}
-        />
-      </label>
+      <HrDetailSummary status={interview.status} statusLabel={label(interview.status)}>
+        Round {interview.round} · {label(interview.kind)} · {time(interview.starts_at)}
+      </HrDetailSummary>
+      <HrDetailSection title="Outcome">
+        <label className="grid gap-1.5 text-sm">
+          Record interview outcome
+          <select
+            className={selectClass}
+            value={action}
+            disabled={busy}
+            onChange={(e) => setAction(e.target.value as typeof action)}
+          >
+            {(interview.status === "no_show" ? ["cancel"] : ["complete", "no_show", "cancel"]).map((value) => (
+              <option key={value} value={value}>
+                {label(value)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1.5 text-sm">
+          Outcome reason
+          <Textarea
+            required
+            maxLength={1000}
+            value={reason}
+            disabled={busy}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </label>
+      </HrDetailSection>
       <Button type="submit" variant="outline" disabled={busy || !reason.trim()}>
         Save outcome
       </Button>
@@ -374,29 +384,38 @@ function AssessmentDecision({
     [reason, setReason] = useState("");
   return (
     <form
-      className="mt-3 grid gap-2"
+      className="grid gap-5"
       onSubmit={async (e) => {
         e.preventDefault();
         await run({ ...scope, action: "assessment_decide", assessment_id: assessment.id, outcome, reason });
       }}
     >
-      <label className="grid gap-1 text-sm">
-        Assessment outcome
-        <select className={selectClass} value={outcome} onChange={(e) => setOutcome(e.target.value as typeof outcome)}>
-          <option value="passed">Passed</option>
-          <option value="failed">Failed</option>
-        </select>
-      </label>
-      <label className="grid gap-1 text-sm">
-        Decision evidence
-        <Textarea
-          required
-          maxLength={1000}
-          value={reason}
-          placeholder="Record findings and supporting reference"
-          onChange={(e) => setReason(e.target.value)}
-        />
-      </label>
+      <HrDetailSummary status={assessment.status}>
+        {assessment.title} · {assessment.mandatory ? "Required" : "Optional"}
+      </HrDetailSummary>
+      <HrDetailSection title="Decision">
+        <label className="grid gap-1 text-sm">
+          Assessment outcome
+          <select
+            className={selectClass}
+            value={outcome}
+            onChange={(e) => setOutcome(e.target.value as typeof outcome)}
+          >
+            <option value="passed">Passed</option>
+            <option value="failed">Failed</option>
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm">
+          Decision evidence
+          <Textarea
+            required
+            maxLength={1000}
+            value={reason}
+            placeholder="Record findings and supporting reference"
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </label>
+      </HrDetailSection>
       <Button type="submit" variant="outline" disabled={busy || !reason.trim()}>
         Record final decision
       </Button>
@@ -605,7 +624,7 @@ export function HrInterviewsWorkspace() {
             </p>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <Badge variant={item.status === "completed" ? "secondary" : "outline"}>{label(item.status)}</Badge>
+            <HrStatusPill status={item.status} label={label(item.status)} />
             <Badge variant="outline">
               Evaluations {submitted}/{item.panel.length}
             </Badge>
@@ -655,9 +674,7 @@ export function HrInterviewsWorkspace() {
                 ) : null}
               </>
             ) : null}
-            {item.status === "completed" &&
-            item.panel.some((person) => person.user_id === session.user.id) &&
-            !mine ? (
+            {item.status === "completed" && item.panel.some((person) => person.user_id === session.user.id) && !mine ? (
               <HrRecordDrawer
                 title="Interview evaluation"
                 triggerLabel="Submit my evaluation"
@@ -859,13 +876,43 @@ export function HrInterviewsWorkspace() {
         ) : (
           <div className="grid min-w-0 gap-4" aria-label={`${workspace.application.candidate_name} interview record`}>
             <div className="grid gap-4">
-              <dl className="m-0! grid">
-                <HrDetailTile label="Candidate" value={workspace.application.candidate_name} />
+              <HrDetailSummary
+                code={workspace.application.reference}
+                status={workspace.application.stage}
+                statusLabel={label(workspace.application.stage)}
+              >
+                {workspace.application.opening_title}
+              </HrDetailSummary>
+              <HrDetailFigures
+                items={[
+                  { label: "Interview rounds", value: workspace.interviews.length },
+                  {
+                    label: "Evaluators",
+                    value: (
+                      <>
+                        {workspace.readiness.evaluators}
+                        <span className="ml-1 text-sm font-normal text-muted-foreground">
+                          / {workspace.readiness.minimum_evaluators} minimum
+                        </span>
+                      </>
+                    ),
+                  },
+                  {
+                    label: "Weighted average",
+                    value:
+                      workspace.readiness.average_score === null ? "Pending" : `${workspace.readiness.average_score}%`,
+                  },
+                  {
+                    label: "Selection readiness",
+                    value: workspace.readiness.ready ? "Ready" : `${workspace.readiness.blockers.length} open`,
+                  },
+                ]}
+              />
+              <HrDetailGroup title="Candidate">
+                <HrDetailTile label="Name" value={workspace.application.candidate_name} />
                 {chosen ? <HrDetailTile label="Email" value={chosen.candidate_email} /> : null}
-                {chosen ? <HrDetailTile label="Application" value={chosen.reference} /> : null}
                 <HrDetailTile label="Opening" value={workspace.application.opening_title} />
-                <HrDetailTile label="Stage" value={label(workspace.application.stage)} />
-              </dl>
+              </HrDetailGroup>
               {canUpdate && scheduleAllowed ? (
                 <HrDrawerActions>
                   <Button className="text-primary-foreground!" disabled={busy} onClick={() => setEditor("schedule")}>
@@ -874,45 +921,6 @@ export function HrInterviewsWorkspace() {
                   </Button>
                 </HrDrawerActions>
               ) : null}
-              <dl className="m-0 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg bg-muted/40 p-3">
-                  <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <CalendarDays className="size-4" />
-                    Interview rounds
-                  </dt>
-                  <dd className="mt-1 text-xl font-semibold">{workspace.interviews.length}</dd>
-                </div>
-                <div className="rounded-lg bg-muted/40 p-3">
-                  <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Users className="size-4" />
-                    Evaluators
-                  </dt>
-                  <dd className="mt-1 text-xl font-semibold">
-                    {workspace.readiness.evaluators}
-                    <span className="ml-1 text-sm font-normal text-muted-foreground">
-                      / {workspace.readiness.minimum_evaluators} minimum
-                    </span>
-                  </dd>
-                </div>
-                <div className="rounded-lg bg-muted/40 p-3">
-                  <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <ClipboardCheck className="size-4" />
-                    Weighted average
-                  </dt>
-                  <dd className="mt-1 text-xl font-semibold">
-                    {workspace.readiness.average_score === null ? "Pending" : `${workspace.readiness.average_score}%`}
-                  </dd>
-                </div>
-                <div className="rounded-lg bg-muted/40 p-3">
-                  <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <ShieldCheck className="size-4" />
-                    Selection readiness
-                  </dt>
-                  <dd className="mt-1 text-xl font-semibold">
-                    {workspace.readiness.ready ? "Ready" : `${workspace.readiness.blockers.length} open`}
-                  </dd>
-                </div>
-              </dl>
               {!editable ? (
                 <Alert>
                   <AlertTitle>Application stage: {label(workspace.application.stage)}</AlertTitle>
@@ -968,8 +976,7 @@ export function HrInterviewsWorkspace() {
                 </>
               ) : null}
             </HrRecordDrawer>
-            <section className="grid min-w-0 gap-3" aria-label="Interview rounds">
-              <h4 className="m-0 font-semibold">Interviews & evaluations</h4>
+            <HrDetailSection title="Interviews & evaluations">
               {workspace.interviews.length ? (
                 workspace.interviews.map(roundCard)
               ) : (
@@ -981,67 +988,66 @@ export function HrInterviewsWorkspace() {
                   </p>
                 </div>
               )}
-            </section>
-            <div className="grid min-w-0 items-start gap-4 xl:grid-cols-2">
-              <section className="grid gap-3 rounded-xl border border-border bg-card p-5" aria-label="Assessments">
-                <h4 className="m-0 font-semibold">Assessments & checks</h4>
-                <p className="text-sm text-muted-foreground">
-                  Mandatory assessments must pass before selection. Final decisions and panel scorecards cannot be
-                  edited.
-                </p>
-                {workspace.assessments.map((item) => (
-                  <article key={item.id} className="rounded-lg border border-border p-3">
-                    <div className="flex flex-wrap justify-between gap-2">
-                      <span className="text-sm font-semibold">{item.title}</span>
-                      <Badge variant={item.status === "failed" ? "destructive" : "outline"}>
-                        {item.mandatory ? "Required" : "Optional"} · {label(item.status)}
-                      </Badge>
-                    </div>
-                    <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{item.reason}</p>
-                    {canUpdate && editable && item.status === "pending" ? (
-                      <HrRecordDrawer
-                        title="Record assessment outcome"
-                        triggerLabel="Record assessment outcome"
-                        completionKey={notice}
-                        busy={busy}
-                        error={error}
-                        notice={notice}
-                      >
-                        <AssessmentDecision scope={scope} assessment={item} busy={busy} run={run} />
-                      </HrRecordDrawer>
-                    ) : null}
-                  </article>
-                ))}
-                {!workspace.assessments.length ? (
-                  <p className="text-sm text-muted-foreground">No assessments recorded for this application.</p>
-                ) : null}
-                {canUpdate && editable ? (
-                  <HrRecordDrawer
-                    title="Add assessment"
-                    triggerLabel="Add assessment"
-                    completionKey={notice}
-                    busy={busy}
-                    error={error}
-                    notice={notice}
-                  >
-                    <form
-                      className="grid gap-3 rounded-lg bg-muted/40 p-3"
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        if (
-                          await run({
-                            ...scope,
-                            action: "assessment_add",
-                            title: assessmentTitle,
-                            mandatory,
-                            reason: assessmentReason,
-                          })
-                        ) {
-                          setAssessmentTitle("");
-                          setAssessmentReason("");
-                        }
-                      }}
+            </HrDetailSection>
+            <HrDetailSection title="Assessments & checks">
+              <p className="text-sm text-muted-foreground">
+                Mandatory assessments must pass before selection. Final decisions and panel scorecards cannot be edited.
+              </p>
+              {workspace.assessments.map((item) => (
+                <article key={item.id} className="rounded-lg border border-border p-3">
+                  <div className="flex flex-wrap justify-between gap-2">
+                    <span className="text-sm font-semibold">{item.title}</span>
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <Badge variant="outline">{item.mandatory ? "Required" : "Optional"}</Badge>
+                      <HrStatusPill status={item.status} label={label(item.status)} />
+                    </span>
+                  </div>
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{item.reason}</p>
+                  {canUpdate && editable && item.status === "pending" ? (
+                    <HrRecordDrawer
+                      title="Record assessment outcome"
+                      triggerLabel="Record assessment outcome"
+                      completionKey={notice}
+                      busy={busy}
+                      error={error}
+                      notice={notice}
                     >
+                      <AssessmentDecision scope={scope} assessment={item} busy={busy} run={run} />
+                    </HrRecordDrawer>
+                  ) : null}
+                </article>
+              ))}
+              {!workspace.assessments.length ? (
+                <p className="text-sm text-muted-foreground">No assessments recorded for this application.</p>
+              ) : null}
+              {canUpdate && editable ? (
+                <HrRecordDrawer
+                  title="Add assessment"
+                  triggerLabel="Add assessment"
+                  completionKey={notice}
+                  busy={busy}
+                  error={error}
+                  notice={notice}
+                >
+                  <form
+                    className="grid gap-5"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (
+                        await run({
+                          ...scope,
+                          action: "assessment_add",
+                          title: assessmentTitle,
+                          mandatory,
+                          reason: assessmentReason,
+                        })
+                      ) {
+                        setAssessmentTitle("");
+                        setAssessmentReason("");
+                      }
+                    }}
+                  >
+                    <HrDetailSection title="Assessment">
                       <label className="grid gap-1.5 text-sm">
                         Assessment title
                         <Input
@@ -1065,58 +1071,60 @@ export function HrInterviewsWorkspace() {
                           onChange={(e) => setAssessmentReason(e.target.value)}
                         />
                       </label>
-                      <Button
-                        type="submit"
-                        variant="outline"
-                        disabled={busy || !assessmentTitle.trim() || !assessmentReason.trim()}
-                      >
-                        <Plus className="size-4" />
-                        Add assessment
-                      </Button>
-                    </form>
-                  </HrRecordDrawer>
-                ) : null}
-              </section>
-              <section
-                className="grid min-w-0 gap-4 rounded-xl border border-primary/20 bg-card p-5"
-                aria-label="Selection readiness"
-              >
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="size-5 text-primary" />
-                  <h4 className="m-0 font-semibold">Selection readiness</h4>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {workspace.readiness.policy_version} · {workspace.readiness.threshold}% threshold · all required panel
-                  evaluations
-                </p>
-                {workspace.readiness.ready ? (
-                  <div className="flex flex-wrap gap-2 rounded-lg bg-primary/10 p-3 text-sm">
-                    <CheckCircle2 className="size-5 shrink-0 text-primary" />
-                    Interview evidence meets the selection requirements.
-                  </div>
-                ) : (
-                  <ul className="grid gap-2 text-sm text-muted-foreground">
-                    {workspace.readiness.blockers.map((blocker) => (
-                      <li key={blocker}>{blocker}</li>
-                    ))}
-                  </ul>
-                )}
-                {canSelect && workspace.application.stage === "evaluation" ? (
-                  <HrRecordDrawer
-                    title="Confirm candidate selection"
-                    triggerLabel="Confirm candidate selection"
-                    completionKey={notice}
-                    busy={busy}
-                    error={error}
-                    notice={notice}
-                  >
-                    <form
-                      className="grid gap-3 border-t border-border pt-3"
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        await run({ ...scope, action: "select", reason: decisionReason });
-                      }}
+                    </HrDetailSection>
+                    <Button
+                      type="submit"
+                      variant="outline"
+                      disabled={busy || !assessmentTitle.trim() || !assessmentReason.trim()}
                     >
+                      <Plus className="size-4" />
+                      Add assessment
+                    </Button>
+                  </form>
+                </HrRecordDrawer>
+              ) : null}
+            </HrDetailSection>
+            <HrDetailSection title="Selection readiness">
+              <p className="text-sm text-muted-foreground">
+                {workspace.readiness.policy_version} · {workspace.readiness.threshold}% threshold · all required panel
+                evaluations
+              </p>
+              {workspace.readiness.ready ? (
+                <div className="flex flex-wrap gap-2 rounded-lg bg-primary/10 p-3 text-sm">
+                  <CheckCircle2 className="size-5 shrink-0 text-primary" />
+                  Interview evidence meets the selection requirements.
+                </div>
+              ) : (
+                <ul className="grid gap-2 text-sm text-muted-foreground">
+                  {workspace.readiness.blockers.map((blocker) => (
+                    <li key={blocker}>{blocker}</li>
+                  ))}
+                </ul>
+              )}
+              {canSelect && workspace.application.stage === "evaluation" ? (
+                <HrRecordDrawer
+                  title="Confirm candidate selection"
+                  triggerLabel="Confirm candidate selection"
+                  completionKey={notice}
+                  busy={busy}
+                  error={error}
+                  notice={notice}
+                >
+                  <form
+                    className="grid gap-5"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      await run({ ...scope, action: "select", reason: decisionReason });
+                    }}
+                  >
+                    <HrDetailSummary
+                      code={workspace.application.reference}
+                      status={workspace.application.stage}
+                      statusLabel={label(workspace.application.stage)}
+                    >
+                      {workspace.application.candidate_name} · {workspace.application.opening_title}
+                    </HrDetailSummary>
+                    <HrDetailSection title="Decision">
                       <label className="grid gap-1.5 text-sm">
                         Selection reason
                         <Textarea
@@ -1126,32 +1134,31 @@ export function HrInterviewsWorkspace() {
                           onChange={(e) => setDecisionReason(e.target.value)}
                         />
                       </label>
-                      <Button
-                        type="submit"
-                        className="text-primary-foreground!"
-                        disabled={busy || !workspace.readiness.ready || !decisionReason.trim()}
-                      >
-                        Confirm selection
-                      </Button>
-                    </form>
-                  </HrRecordDrawer>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Selection requires the Evaluation stage and HR approval permission. Hiring follows the
-                    accepted-offer workflow.
-                  </p>
-                )}
-                <a
-                  href="#/hr/recruitment-pipeline"
-                  className="text-sm font-medium text-primary underline underline-offset-4"
-                >
-                  Open application pipeline
-                </a>
-              </section>
-            </div>
-            <section className="rounded-xl border border-border bg-card p-5" aria-label="Evidence activity">
-              <h4 className="m-0 font-semibold">Evidence activity</h4>
-              <div className="mt-4 grid min-w-0 gap-4">
+                    </HrDetailSection>
+                    <Button
+                      type="submit"
+                      className="text-primary-foreground!"
+                      disabled={busy || !workspace.readiness.ready || !decisionReason.trim()}
+                    >
+                      Confirm selection
+                    </Button>
+                  </form>
+                </HrRecordDrawer>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Selection requires the Evaluation stage and HR approval permission. Hiring follows the accepted-offer
+                  workflow.
+                </p>
+              )}
+              <a
+                href="#/hr/recruitment-pipeline"
+                className="text-sm font-medium text-primary underline underline-offset-4"
+              >
+                Open application pipeline
+              </a>
+            </HrDetailSection>
+            <HrDetailSection title="Evidence activity">
+              <div className="grid min-w-0 gap-4">
                 {workspace.history.length ? (
                   workspace.history
                     .slice()
@@ -1173,7 +1180,7 @@ export function HrInterviewsWorkspace() {
                   </p>
                 )}
               </div>
-            </section>
+            </HrDetailSection>
           </div>
         )}
       </HrMasterSheet>

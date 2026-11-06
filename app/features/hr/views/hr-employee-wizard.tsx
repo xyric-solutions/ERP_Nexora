@@ -631,7 +631,6 @@ export function HrEmployeeWizard({
       <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
         Cancel
       </Button>
-      <span className="flex-1" />
       <Button type="button" variant="outline" disabled={busy || step === 0} onClick={() => goTo(step - 1)}>
         Previous
       </Button>

@@ -4,9 +4,7 @@ import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { hrApplicationTransitions, type HrApplicationDirectory, type HrApplicationStage } from "@nexora/contracts";
-import {
-  Plus,
-} from "lucide-react";
+import { Plus } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +15,16 @@ import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
-import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
+import {
+  HrDetailAudit,
+  HrDetailCode,
+  HrDetailGroup,
+  HrDetailNote,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
 import { HrEditButton } from "../components/hr-icon-buttons";
 
 const labels: Record<HrApplicationStage, string> = {
@@ -190,6 +197,7 @@ export function HrRecruitmentPipelineWorkspace() {
 
   const selected = data.items.find((item) => item.id === selectedId);
   const allowed = selected ? hrApplicationTransitions[selected.stage] : [];
+  const latestNote = selected?.history.at(-1)?.reason ? selected.history.at(-1) : undefined;
   async function create(event: React.FormEvent) {
     event.preventDefault();
     if (saving || !candidateId || !openingId) return;
@@ -224,7 +232,12 @@ export function HrRecruitmentPipelineWorkspace() {
     try {
       await client.changeApplicationStage(
         selected.id,
-        { company_id: companyId, expected_stage: selected.stage, stage: nextStage, reason: reason.trim() || `Moved to ${labels[nextStage]}.` },
+        {
+          company_id: companyId,
+          expected_stage: selected.stage,
+          stage: nextStage,
+          reason: reason.trim() || `Moved to ${labels[nextStage]}.`,
+        },
         csrfToken(),
         crypto.randomUUID(),
       );
@@ -327,7 +340,12 @@ export function HrRecruitmentPipelineWorkspace() {
           </select>
         </label>
         {canCreate ? (
-          <Button type="button" className="text-primary-foreground!" disabled={!companyId || saving} onClick={openEditor}>
+          <Button
+            type="button"
+            className="text-primary-foreground!"
+            disabled={!companyId || saving}
+            onClick={openEditor}
+          >
             <Plus className="size-4" />
             Add application
           </Button>
@@ -347,7 +365,7 @@ export function HrRecruitmentPipelineWorkspace() {
             onSubmit={create}
             className="grid min-w-0 gap-4 rounded-2xl border border-primary/30 bg-card p-5 shadow-sm"
           >
-            <div className="grid min-w-0 gap-4">
+            <HrDetailSection title="Application">
               <label className="grid gap-1.5 text-sm font-medium">
                 Candidate
                 <select
@@ -358,7 +376,11 @@ export function HrRecruitmentPipelineWorkspace() {
                   onChange={(event) => setCandidateId(event.target.value)}
                 >
                   <option value="">
-                    {candidatesLoading ? "Loading candidates…" : candidates.length ? "Select a candidate" : "No active candidates"}
+                    {candidatesLoading
+                      ? "Loading candidates…"
+                      : candidates.length
+                        ? "Select a candidate"
+                        : "No active candidates"}
                   </option>
                   {candidates.map((item) => (
                     <option key={item.id} value={item.id}>
@@ -380,7 +402,11 @@ export function HrRecruitmentPipelineWorkspace() {
                   onChange={(event) => setOpeningId(event.target.value)}
                 >
                   <option value="">
-                    {openingsLoading ? "Loading openings…" : openings.length ? "Select an opening" : "No open job openings"}
+                    {openingsLoading
+                      ? "Loading openings…"
+                      : openings.length
+                        ? "Select an opening"
+                        : "No open job openings"}
                   </option>
                   {openings.map((item) => (
                     <option key={item.id} value={item.id}>
@@ -392,7 +418,7 @@ export function HrRecruitmentPipelineWorkspace() {
                   Open job openings with unfilled positions and no past closing date.
                 </span>
               </label>
-            </div>
+            </HrDetailSection>
             {!optionsLoading && (!candidates.length || !openings.length) ? (
               <Alert>
                 <AlertTitle>{candidates.length ? "No open job openings" : "No active candidates"}</AlertTitle>
@@ -495,7 +521,8 @@ export function HrRecruitmentPipelineWorkspace() {
             </tbody>
           </table>
           <p className="m-0! border-t border-border px-4 py-2 text-xs text-muted-foreground">
-            {data.total} applications · showing {data.items.length ? filter.offset + 1 : 0}–{filter.offset + data.items.length}
+            {data.total} applications · showing {data.items.length ? filter.offset + 1 : 0}–
+            {filter.offset + data.items.length}
           </p>
         </div>
       )}
@@ -530,7 +557,11 @@ export function HrRecruitmentPipelineWorkspace() {
         description={selected ? `${selected.reference} · ${selected.opening_title}` : ""}
         footer={
           selected && canUpdate && allowed.length && !stageEditing ? (
-            <HrEditButton label={`Edit ${selected.reference}`} disabled={saving} onClick={() => setStageEditing(true)} />
+            <HrEditButton
+              label={`Edit ${selected.reference}`}
+              disabled={saving}
+              onClick={() => setStageEditing(true)}
+            />
           ) : undefined
         }
       >
@@ -547,28 +578,38 @@ export function HrRecruitmentPipelineWorkspace() {
               </p>
             ) : null}
             {stageEditing ? (
-              <form className="grid gap-3" onSubmit={move}>
-                <label className="grid gap-1.5 text-sm font-medium">
-                  Stage
-                  <select
-                    className={selectStyle}
-                    required
-                    disabled={saving}
-                    value={nextStage}
-                    onChange={(event) => setNextStage(event.target.value as HrApplicationStage)}
-                  >
-                    <option value="">{labels[selected.stage]} (current)</option>
-                    {allowed.map((stage) => (
-                      <option key={stage} value={stage}>
-                        {labels[stage]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-1.5 text-sm font-medium">
-                  Notes
-                  <Textarea maxLength={1000} value={reason} disabled={saving} onChange={(event) => setReason(event.target.value)} />
-                </label>
+              <form className="grid gap-5" onSubmit={move}>
+                <HrDetailSummary code={selected.reference} status={selected.stage} statusLabel={labels[selected.stage]}>
+                  {selected.candidate_name} · {selected.opening_title}
+                </HrDetailSummary>
+                <HrDetailSection title="Stage change">
+                  <label className="grid gap-1.5 text-sm font-medium">
+                    Stage
+                    <select
+                      className={selectStyle}
+                      required
+                      disabled={saving}
+                      value={nextStage}
+                      onChange={(event) => setNextStage(event.target.value as HrApplicationStage)}
+                    >
+                      <option value="">{labels[selected.stage]} (current)</option>
+                      {allowed.map((stage) => (
+                        <option key={stage} value={stage}>
+                          {labels[stage]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-1.5 text-sm font-medium">
+                    Notes
+                    <Textarea
+                      maxLength={1000}
+                      value={reason}
+                      disabled={saving}
+                      onChange={(event) => setReason(event.target.value)}
+                    />
+                  </label>
+                </HrDetailSection>
                 <HrDrawerActions>
                   <Button type="button" variant="outline" disabled={saving} onClick={() => setStageEditing(false)}>
                     Cancel
@@ -579,17 +620,34 @@ export function HrRecruitmentPipelineWorkspace() {
                 </HrDrawerActions>
               </form>
             ) : (
-              <HrDetailList>
-                <HrDetailTile label="Candidate" value={selected.candidate_name} />
-                <HrDetailTile label="Email" value={selected.candidate_email} />
-                <HrDetailTile label="Application" value={selected.reference} />
-                <HrDetailTile label="Stage" value={labels[selected.stage]} />
-                <HrDetailTile label="Opening" value={selected.opening_title} />
-                <HrDetailTile label="Opening reference" value={selected.opening_reference} />
-                <HrDetailTile label="Applied" value={date(selected.created_at)} />
-                <HrDetailTile label="Last update" value={date(selected.updated_at)} />
-                {selected.history.at(-1)?.reason ? <HrDetailTile label="Latest note" value={selected.history.at(-1)?.reason} /> : null}
-              </HrDetailList>
+              <>
+                <HrDetailSummary code={selected.reference} status={selected.stage} statusLabel={labels[selected.stage]}>
+                  Applied {hrDisplayDate(selected.created_at, false)} · last update{" "}
+                  {hrDisplayDate(selected.updated_at, false)}
+                </HrDetailSummary>
+                <HrDetailGroup title="Candidate">
+                  <HrDetailTile label="Name" value={selected.candidate_name} />
+                  <HrDetailTile label="Email" value={selected.candidate_email} />
+                </HrDetailGroup>
+                <HrDetailGroup title="Position">
+                  <HrDetailTile
+                    label="Opening"
+                    value={selected.opening_title}
+                    hint={<HrDetailCode>{selected.opening_reference}</HrDetailCode>}
+                  />
+                </HrDetailGroup>
+                {latestNote ? (
+                  <HrDetailSection title="Latest note">
+                    <HrDetailNote meta={hrDisplayDate(latestNote.occurred_at, true)}>{latestNote.reason}</HrDetailNote>
+                  </HrDetailSection>
+                ) : null}
+                <HrDetailAudit
+                  items={[
+                    { label: "Applied", value: hrDisplayDate(selected.created_at, true) },
+                    { label: "Updated", value: hrDisplayDate(selected.updated_at, true) },
+                  ]}
+                />
+              </>
             )}
           </div>
         ) : null}

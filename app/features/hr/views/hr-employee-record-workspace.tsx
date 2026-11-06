@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
-import { HrDetailGroup, HrDetailTile } from "../components/hr-detail-tile";
+import { HrDetailGroup, HrDetailSummary, HrDetailTile, hrDisplayDate } from "../components/hr-detail-tile";
 import { payCycleLabel, paymentRouteLabel } from "../model/employment-setup";
 
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
@@ -134,26 +134,30 @@ export function HrEmployeeRecordWorkspace({
   if (presentation === "drawer")
     return (
       <section className="grid min-w-0 gap-5" aria-label={`Employee record for ${employee.display_name}`}>
+        <HrDetailSummary code={employee.employee_number} status={employee.status}>
+          {employee.designation} · {employee.department}
+          {employee.joined_on ? ` · joined ${hrDisplayDate(employee.joined_on)}` : ""}
+        </HrDetailSummary>
         <HrDetailGroup title="Employment">
-          <HrDetailTile label="Employee number" value={employee.employee_number} />
-          <HrDetailTile
-            label="Status"
-            value={<Badge variant={statusVariant(employee.status)}>{employee.status.replaceAll("_", " ")}</Badge>}
-          />
-          <HrDetailTile label="Designation" value={employee.designation} />
-          <HrDetailTile label="Job grade" value={employee.job_grade} />
+          <HrDetailTile label="Designation" value={employee.designation} hint={employee.job_grade} />
           <HrDetailTile label="Department" value={employee.department} />
           <HrDetailTile label="Project" value={employee.branch} />
           <HrDetailTile label="Work location" value={employee.work_location} />
-          <HrDetailTile label="Reporting manager" value={employee.reporting_manager?.display_name} />
-          <HrDetailTile label="Joined" value={employee.joined_on} />
+          <HrDetailTile label="Joined" value={hrDisplayDate(employee.joined_on)} />
+        </HrDetailGroup>
+        <HrDetailGroup title="Reporting">
+          <HrDetailTile
+            label="Reporting manager"
+            value={employee.reporting_manager?.display_name}
+            hint={employee.reporting_manager?.employee_number}
+          />
         </HrDetailGroup>
         <HrDetailGroup title="Pay setup">
           <HrDetailTile label="Employment setup" value={employee.employment_setup} />
           <HrDetailTile label="Payment route" value={paymentRouteLabel(employee.payment_route)} />
           <HrDetailTile label="Pay cycle" value={payCycleLabel(employee.pay_cycle)} />
         </HrDetailGroup>
-        <HrDetailGroup title="Work profile">
+        <HrDetailGroup title="Contact">
           <HrDetailTile label="Preferred name" value={employee.preferred_name} />
           <HrDetailTile label="Work email" value={employee.work_email} />
           <HrDetailTile label="Phone" value={employee.phone} />

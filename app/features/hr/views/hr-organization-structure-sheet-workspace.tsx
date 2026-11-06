@@ -8,7 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
-import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
+import {
+  HrDetailAudit,
+  HrDetailFigures,
+  HrDetailGroup,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import { nextGeneratedCode, organizationUnitPrefixes } from "../model/hr-master-code";
@@ -361,11 +369,11 @@ export function HrOrganizationStructureSheetWorkspace() {
               </Button>
               <HrEditButton label="Edit unit" onClick={openEdit} />
               <HrMasterDeleteButton
-                  name={selected.name}
-                  code={selected.code}
-                  saving={saving}
-                  onDelete={() => deleteUnit(selected)}
-                />
+                name={selected.name}
+                code={selected.code}
+                saving={saving}
+                onDelete={() => deleteUnit(selected)}
+              />
             </>
           ) : canWrite && selectedId === companyId && company ? (
             <Button onClick={() => openCreate(company.id, "company")}>Add child unit</Button>
@@ -374,115 +382,134 @@ export function HrOrganizationStructureSheetWorkspace() {
       >
         {editor ? (
           <div className="grid gap-5">
-            {editor.mode === "create" ? (
-              <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-unit-type">
-                Unit type
+            <HrDetailSection title="Unit">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {editor.mode === "create" ? (
+                  <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-unit-type">
+                    Unit type
+                    <select
+                      id="organization-unit-type"
+                      className="h-10 rounded-md border border-input bg-background px-3"
+                      value={editor.type}
+                      onChange={(event) => {
+                        const type = event.target.value as UnitType;
+                        const parentType =
+                          editor.parentId === companyId
+                            ? "company"
+                            : units.find((unit) => unit.id === editor.parentId)?.type;
+                        setEditor({
+                          ...editor,
+                          type,
+                          code: generatedCode(type),
+                          // Keep the chosen parent while it can still hold this type.
+                          parentId:
+                            parentType && canReportTo(type, parentType)
+                              ? editor.parentId
+                              : canReportTo(type, "company")
+                                ? companyId
+                                : "",
+                        });
+                      }}
+                    >
+                      {selectableOrganizationUnitTypes.map((value) => (
+                        <option key={value} value={value}>
+                          {typeLabels[value]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-code">
+                  Auto-generated code
+                  <Input id="organization-code" value={editor.code} disabled />
+                </label>
+              </div>
+              <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-name">
+                Name
+                <Input
+                  id="organization-name"
+                  maxLength={200}
+                  value={editor.name}
+                  onChange={(event) => setEditor({ ...editor, name: event.target.value })}
+                />
+              </label>
+            </HrDetailSection>
+            <HrDetailSection title="Hierarchy">
+              <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-parent">
+                Reports into
                 <select
-                  id="organization-unit-type"
+                  id="organization-parent"
                   className="h-10 rounded-md border border-input bg-background px-3"
-                  value={editor.type}
-                  onChange={(event) => {
-                    const type = event.target.value as UnitType;
-                    const parentType =
-                      editor.parentId === companyId
-                        ? "company"
-                        : units.find((unit) => unit.id === editor.parentId)?.type;
-                    setEditor({
-                      ...editor,
-                      type,
-                      code: generatedCode(type),
-                      // Keep the chosen parent while it can still hold this type.
-                      parentId:
-                        parentType && canReportTo(type, parentType)
-                          ? editor.parentId
-                          : canReportTo(type, "company")
-                            ? companyId
-                            : "",
-                    });
-                  }}
+                  value={editor.parentId}
+                  onChange={(event) => setEditor({ ...editor, parentId: event.target.value })}
                 >
-                  {selectableOrganizationUnitTypes.map((value) => (
-                    <option key={value} value={value}>
-                      {typeLabels[value]}
-                    </option>
-                  ))}
+                  {canReportTo(editor.type, "company") && company ? (
+                    <option value={company.id}>{company.name}</option>
+                  ) : null}
+                  {units
+                    .filter(
+                      (unit) =>
+                        unit.id !== selected?.id && unit.status === "active" && canReportTo(editor.type, unit.type),
+                    )
+                    .map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {typeLabels[unit.type]} · {unit.name}
+                      </option>
+                    ))}
                 </select>
               </label>
-            ) : null}
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-parent">
-              Reports into
-              <select
-                id="organization-parent"
-                className="h-10 rounded-md border border-input bg-background px-3"
-                value={editor.parentId}
-                onChange={(event) => setEditor({ ...editor, parentId: event.target.value })}
-              >
-                {canReportTo(editor.type, "company") && company ? (
-                  <option value={company.id}>{company.name}</option>
-                ) : null}
-                {units
-                  .filter(
-                    (unit) =>
-                      unit.id !== selected?.id && unit.status === "active" && canReportTo(editor.type, unit.type),
-                  )
-                  .map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {typeLabels[unit.type]} · {unit.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-code">
-              Auto-generated code
-              <Input id="organization-code" value={editor.code} disabled />
-            </label>
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-name">
-              Name
-              <Input
-                id="organization-name"
-                maxLength={200}
-                value={editor.name}
-                onChange={(event) => setEditor({ ...editor, name: event.target.value })}
-              />
-            </label>
+            </HrDetailSection>
           </div>
         ) : (
-          <HrDetailList>
-            <Detail label="Name" value={selected?.name ?? company?.name ?? "—"} />
-            <Detail label="Type" value={selected ? typeLabels[selected.type] : "Company"} />
-            <Detail label="Code" value={selected?.code ?? company?.code ?? "—"} />
-            <Detail label="Status" value={selected?.status ?? "active"} status />
-            <Detail
-              label="Reports into"
-              value={
-                selected
-                  ? (units.find((unit) => unit.id === selected.parent_id)?.name ?? company?.name ?? "—")
-                  : "Top of the tree"
-              }
+          <div className="grid min-w-0 gap-4">
+            <HrDetailSummary code={selected?.code ?? company?.code} status={selected?.status ?? "active"}>
+              {selected ? typeLabels[selected.type] : "Company"}
+            </HrDetailSummary>
+            <HrDetailFigures
+              items={[
+                { label: "Direct children", value: childrenOf(selectedId).length },
+                { label: "Employees here", value: selected?.employee_count ?? 0 },
+              ]}
             />
-            <Detail label="Head" value={selected?.head_name ?? "Not assigned"} />
-            <Detail label="Direct children" value={String(childrenOf(selectedId).length)} />
-            <Detail label="Employees here" value={String(selected?.employee_count ?? 0)} />
-            {selected ? <RecordStamps record={selected} /> : <Detail label="Created" value="Platform record" />}
-          </HrDetailList>
+            <HrDetailGroup title="Details">
+              <HrDetailTile label="Name" value={selected?.name ?? company?.name ?? "—"} />
+              <HrDetailTile label="Type" value={selected ? typeLabels[selected.type] : "Company"} />
+            </HrDetailGroup>
+            <HrDetailGroup title="Hierarchy">
+              <HrDetailTile
+                label="Reports into"
+                value={
+                  selected
+                    ? (units.find((unit) => unit.id === selected.parent_id)?.name ?? company?.name ?? "—")
+                    : "Top of the tree"
+                }
+              />
+              <HrDetailTile label="Head" value={selected?.head_name ?? "Not assigned"} />
+            </HrDetailGroup>
+            {selected ? (
+              <RecordStamps record={selected} />
+            ) : (
+              <HrDetailAudit items={[{ label: "Created", value: "Platform record" }]} />
+            )}
+          </div>
         )}
       </HrMasterSheet>
     </section>
   );
 }
-function Detail({ label, value, status = false }: { label: string; value: string; status?: boolean }) {
+/** "Created by", "Created" and "Last updated" line, shown when the API provides them. */
+function RecordStamps({
+  record,
+}: {
+  record: { created_by_name?: string | null; created_at?: string; updated_at?: string };
+}) {
   return (
-    <HrDetailTile label={label} value={status ? <HrMasterStatusBadge status={value} className="inline-flex" /> : value} />
-  );
-}
-/** "Created by", "Created" and "Last updated" rows, shown when the API provides them. */
-function RecordStamps({ record }: { record: { created_by_name?: string | null; created_at?: string; updated_at?: string } }) {
-  const when = (value?: string) => (value ? new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "");
-  return (
-    <>
-      {record.created_by_name ? <Detail label="Created by" value={record.created_by_name} /> : null}
-      {record.created_at ? <Detail label="Created" value={when(record.created_at)} /> : null}
-      {record.updated_at ? <Detail label="Last updated" value={when(record.updated_at)} /> : null}
-    </>
+    <HrDetailAudit
+      items={[
+        { label: "Created by", value: record.created_by_name },
+        { label: "Created", value: hrDisplayDate(record.created_at, true) },
+        { label: "Last updated", value: hrDisplayDate(record.updated_at, true) },
+      ]}
+    />
   );
 }

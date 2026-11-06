@@ -9,7 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
-import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
+import {
+  HrDetailAudit,
+  HrDetailGroup,
+  HrDetailNote,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import { nextMasterCode } from "../model/hr-master-code";
@@ -444,94 +452,110 @@ export function HrJobGradesSheetWorkspace() {
                 }}
               />
               <HrMasterDeleteButton
-                  name={selected.name}
-                  code={selected.code}
-                  saving={saving}
-                  onDelete={() => deleteRecord(selected)}
-                />
+                name={selected.name}
+                code={selected.code}
+                saving={saving}
+                onDelete={() => deleteRecord(selected)}
+              />
             </>
           ) : undefined
         }
       >
         {editor ? (
           <div className="grid gap-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="grid gap-1.5 text-sm font-medium" htmlFor="job-grade-code">
-                Auto-generated code
-                <Input id="job-grade-code" value={editor.code} disabled />
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium" htmlFor="job-grade-level">
-                Grade level
-                <Input
-                  id="job-grade-level"
-                  type="number"
-                  min={1}
-                  max={999}
-                  step={1}
-                  inputMode="numeric"
-                  value={editor.gradeLevel}
-                  onChange={(event) => setEditor({ ...editor, gradeLevel: event.target.value })}
-                />
-              </label>
-            </div>
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor="job-grade-name">
-              Name
-              <Input
-                id="job-grade-name"
-                maxLength={160}
-                value={editor.name}
-                onChange={(event) => setEditor({ ...editor, name: event.target.value })}
-              />
-            </label>
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor="job-grade-description">
-              Description
-              <Textarea
-                id="job-grade-description"
-                className="min-h-24 resize-y"
-                maxLength={1000}
-                value={editor.description}
-                onChange={(event) => setEditor({ ...editor, description: event.target.value })}
-              />
-            </label>
-            <CurrencySelect
-              currencies={currencies}
-              error={currencyError}
-              value={editor.currencyCode}
-              onChange={(currencyCode) => setEditor({ ...editor, currencyCode })}
-            />
-            <fieldset className="grid gap-4 rounded-lg border border-border p-4">
-              <legend className="px-1 text-sm font-semibold">Compensation band</legend>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <Money
-                  label="Minimum"
-                  value={editor.bandMinimum}
-                  set={(value) => setEditor({ ...editor, bandMinimum: value })}
-                />
-                <Money
-                  label="Midpoint"
-                  value={editor.bandMidpoint}
-                  set={(value) => setEditor({ ...editor, bandMidpoint: value })}
-                />
-                <Money
-                  label="Maximum"
-                  value={editor.bandMaximum}
-                  set={(value) => setEditor({ ...editor, bandMaximum: value })}
-                />
+            <HrDetailSection title="Grade">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1.5 text-sm font-medium" htmlFor="job-grade-code">
+                  Auto-generated code
+                  <Input id="job-grade-code" value={editor.code} disabled />
+                </label>
+                <label className="grid gap-1.5 text-sm font-medium" htmlFor="job-grade-level">
+                  Grade level
+                  <Input
+                    id="job-grade-level"
+                    type="number"
+                    min={1}
+                    max={999}
+                    step={1}
+                    inputMode="numeric"
+                    value={editor.gradeLevel}
+                    onChange={(event) => setEditor({ ...editor, gradeLevel: event.target.value })}
+                  />
+                </label>
               </div>
-            </fieldset>
+              <label className="grid gap-1.5 text-sm font-medium" htmlFor="job-grade-name">
+                Name
+                <Input
+                  id="job-grade-name"
+                  maxLength={160}
+                  value={editor.name}
+                  onChange={(event) => setEditor({ ...editor, name: event.target.value })}
+                />
+              </label>
+              <label className="grid gap-1.5 text-sm font-medium" htmlFor="job-grade-description">
+                Description
+                <Textarea
+                  id="job-grade-description"
+                  className="min-h-24 resize-y"
+                  maxLength={1000}
+                  value={editor.description}
+                  onChange={(event) => setEditor({ ...editor, description: event.target.value })}
+                />
+              </label>
+            </HrDetailSection>
+            <HrDetailSection title="Compensation band">
+              <CurrencySelect
+                currencies={currencies}
+                error={currencyError}
+                value={editor.currencyCode}
+                onChange={(currencyCode) => setEditor({ ...editor, currencyCode })}
+              />
+              <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0">
+                <legend className="sr-only">Compensation band</legend>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Money
+                    label="Minimum"
+                    value={editor.bandMinimum}
+                    set={(value) => setEditor({ ...editor, bandMinimum: value })}
+                  />
+                  <Money
+                    label="Midpoint"
+                    value={editor.bandMidpoint}
+                    set={(value) => setEditor({ ...editor, bandMidpoint: value })}
+                  />
+                  <Money
+                    label="Maximum"
+                    value={editor.bandMaximum}
+                    set={(value) => setEditor({ ...editor, bandMaximum: value })}
+                  />
+                </div>
+              </fieldset>
+            </HrDetailSection>
           </div>
         ) : selected ? (
-          <HrDetailList>
-            <Detail label="Name" value={selected.name} />
-            <Detail label="Code" value={selected.code} />
-            <Detail label="Status" value={selected.status} status />
-            <Detail label="Currency" value={selected.currency_code} />
-            <Detail label="Minimum" value={amount(selected.band_minimum, selected.currency_code)} />
-            <Detail label="Midpoint" value={amount(selected.band_midpoint, selected.currency_code)} />
-            <Detail label="Maximum" value={amount(selected.band_maximum, selected.currency_code)} />
-            <Detail label="Description" value={selected.description || "No description recorded."} />
+          <div className="grid min-w-0 gap-4">
+            <HrDetailSummary code={selected.code} status={selected.status}>
+              Level {selected.grade_level} · {selected.currency_code} compensation band
+            </HrDetailSummary>
+            <HrDetailGroup title="Details">
+              <HrDetailTile label="Name" value={selected.name} />
+              <HrDetailTile label="Grade level" value={String(selected.grade_level)} />
+            </HrDetailGroup>
+            <HrDetailGroup title="Compensation band">
+              <HrDetailTile label="Currency" value={selected.currency_code} />
+              <HrDetailTile label="Minimum" value={amount(selected.band_minimum, selected.currency_code)} />
+              <HrDetailTile label="Midpoint" value={amount(selected.band_midpoint, selected.currency_code)} />
+              <HrDetailTile label="Maximum" value={amount(selected.band_maximum, selected.currency_code)} />
+            </HrDetailGroup>
+            <HrDetailSection title="Description">
+              {selected.description ? (
+                <HrDetailNote>{selected.description}</HrDetailNote>
+              ) : (
+                <p className="m-0! text-sm text-muted-foreground">No description recorded.</p>
+              )}
+            </HrDetailSection>
             <RecordStamps record={selected} />
-          </HrDetailList>
+          </div>
         ) : null}
       </HrMasterSheet>
     </section>
@@ -606,19 +630,19 @@ function Money({ label, value, set }: { label: string; value: string; set: (valu
     </label>
   );
 }
-function Detail({ label, value, status = false }: { label: string; value: string; status?: boolean }) {
+/** "Created by", "Created" and "Last updated" line, shown when the API provides them. */
+function RecordStamps({
+  record,
+}: {
+  record: { created_by_name?: string | null; created_at?: string; updated_at?: string };
+}) {
   return (
-    <HrDetailTile label={label} value={status ? <HrMasterStatusBadge status={value} className="inline-flex" /> : value} />
-  );
-}
-/** "Created by", "Created" and "Last updated" rows, shown when the API provides them. */
-function RecordStamps({ record }: { record: { created_by_name?: string | null; created_at?: string; updated_at?: string } }) {
-  const when = (value?: string) => (value ? new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "");
-  return (
-    <>
-      {record.created_by_name ? <Detail label="Created by" value={record.created_by_name} /> : null}
-      {record.created_at ? <Detail label="Created" value={when(record.created_at)} /> : null}
-      {record.updated_at ? <Detail label="Last updated" value={when(record.updated_at)} /> : null}
-    </>
+    <HrDetailAudit
+      items={[
+        { label: "Created by", value: record.created_by_name },
+        { label: "Created", value: hrDisplayDate(record.created_at, true) },
+        { label: "Last updated", value: hrDisplayDate(record.updated_at, true) },
+      ]}
+    />
   );
 }

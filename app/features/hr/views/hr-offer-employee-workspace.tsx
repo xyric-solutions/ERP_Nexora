@@ -18,7 +18,17 @@ import { HrApiClient } from "../api/hr-client";
 import { payCycleLabel, paymentRouteLabel } from "../model/employment-setup";
 import { HrHireMakerPanel } from "../components/hr-hire-maker-panel";
 import { HrMasterSheet } from "../components/hr-master-sheet";
-import { HrDetailGroup, HrDetailSection, HrDetailTile } from "../components/hr-detail-tile";
+import {
+  HrDetailAudit,
+  HrDetailFigures,
+  HrDetailGroup,
+  HrDetailNote,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  HrStatusPill,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
 import { offerMoney, offerStates } from "../model/hr-offer-display";
 
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
@@ -473,9 +483,13 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{o.opening_title}</td>
                       <td className="px-4 py-3 text-muted-foreground">{o.joining_on}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{offerMoney(o.proposed_gross, o.currency_code)}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {offerMoney(o.proposed_gross, o.currency_code)}
+                      </td>
                       <td className="px-4 py-3">
-                        <Badge variant={o.is_overdue ? "destructive" : o.state === "accepted" ? "secondary" : "outline"}>
+                        <Badge
+                          variant={o.is_overdue ? "destructive" : o.state === "accepted" ? "secondary" : "outline"}
+                        >
                           {o.is_overdue ? "Overdue" : label(o.state)}
                         </Badge>
                       </td>
@@ -549,20 +563,28 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
             </Alert>
           )}
           {notice && (
-            <div role="status" className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+            <div
+              role="status"
+              className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm"
+            >
               <CheckCircle2 className="size-5 shrink-0 text-primary" />
               {notice}
             </div>
           )}
           {summary && summary.state !== "accepted" ? (
             <>
+              <HrDetailSummary
+                code={summary.reference}
+                status={summary.state}
+                statusLabel={summary.is_overdue ? "Overdue" : undefined}
+                statusTone={summary.is_overdue ? "danger" : undefined}
+              >
+                {summary.opening_title}
+              </HrDetailSummary>
               <HrDetailGroup title="Offer">
-                <HrDetailTile label="Offer status" value={summary.is_overdue ? "Overdue" : label(summary.state)} />
-                <HrDetailTile label="Opening" value={summary.opening_title} />
-                <HrDetailTile label="Joining date" value={summary.joining_on} />
-                <HrDetailTile label="Valid until" value={summary.valid_until} />
+                <HrDetailTile label="Joining date" value={hrDisplayDate(summary.joining_on)} />
+                <HrDetailTile label="Valid until" value={hrDisplayDate(summary.valid_until)} />
                 <HrDetailTile label="Monthly gross" value={offerMoney(summary.proposed_gross, summary.currency_code)} />
-                <HrDetailTile label="Reference" value={summary.reference} />
               </HrDetailGroup>
               <div role="status" className="grid gap-3 rounded-lg border border-border bg-muted/40 p-3 text-sm">
                 <p>
@@ -580,57 +602,69 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
                   <ArrowRight className="size-4" />
                 </Button>
               </div>
+              <HrDetailAudit items={[{ label: "Created", value: hrDisplayDate(summary.created_at, true) }]} />
             </>
           ) : detailLoading && !data ? (
             <Skeleton className="h-80 w-full" />
           ) : data ? (
             <>
+              <HrDetailSummary
+                code={data.offer.reference}
+                status={data.offer.state}
+                extra={
+                  handoff ? (
+                    <HrStatusPill status={handoff.employee_status} />
+                  ) : data.blockers.length ? (
+                    <HrStatusPill status="needs_review" label="Needs review" />
+                  ) : (
+                    <HrStatusPill status="ready" label="Ready for profile" />
+                  )
+                }
+              >
+                Joins {hrDisplayDate(data.offer.joining_on)}
+                {data.offer.responded_on ? ` · accepted ${hrDisplayDate(data.offer.responded_on)}` : ""}
+              </HrDetailSummary>
+              <HrDetailFigures
+                items={[
+                  {
+                    label: "Agreed monthly gross",
+                    value: offerMoney(data.offer.proposed_gross, data.offer.currency_code),
+                  },
+                  { label: "Probation (months)", value: data.offer.probation_months },
+                  { label: "Notice (days)", value: data.offer.notice_days },
+                ]}
+              />
+              <HrDetailGroup title="Candidate">
+                <HrDetailTile label="Personal email" value={data.candidate.email} />
+                <HrDetailTile label="Phone" value={data.candidate.phone} />
+              </HrDetailGroup>
               <HrDetailGroup title="Accepted terms">
                 <HrDetailTile
-                  label="Handoff status"
-                  value={
-                    handoff
-                      ? label(handoff.employee_status)
-                      : data.blockers.length
-                        ? "Needs review"
-                        : "Ready for profile"
-                  }
-                />
-                <HrDetailTile label="Joining date" value={data.offer.joining_on} />
-                <HrDetailTile label="Candidate personal email" value={data.candidate.email} />
-                <HrDetailTile label="Phone" value={data.candidate.phone} />
-                <HrDetailTile
-                  label="Designation / grade"
-                  value={`${data.offer.context.designation} / ${data.offer.context.job_grade}`}
+                  label="Designation"
+                  value={data.offer.context.designation}
+                  hint={data.offer.context.job_grade}
                 />
                 <HrDetailTile
-                  label="Branch / department"
-                  value={`${data.offer.context.branch ?? "Branch not set"} / ${data.offer.context.department}`}
+                  label="Department"
+                  value={data.offer.context.department}
+                  hint={data.offer.context.branch ?? "Branch not set"}
                 />
-                <HrDetailTile
-                  label="Cost centre / work location"
-                  value={`${data.offer.cost_center} / ${data.offer.work_location}`}
-                />
+                <HrDetailTile label="Cost centre" value={data.offer.cost_center} />
+                <HrDetailTile label="Work location" value={data.offer.work_location} />
                 <HrDetailTile
                   label="Employment setup"
-                  value={`${data.offer.employment_setup} · ${paymentRouteLabel(data.offer.payment_route)} / ${payCycleLabel(data.offer.pay_cycle)}`}
+                  value={data.offer.employment_setup}
+                  hint={`${paymentRouteLabel(data.offer.payment_route)} / ${payCycleLabel(data.offer.pay_cycle)}`}
                 />
                 <HrDetailTile label="Reporting manager" value={data.offer.reporting_manager ?? "No manager agreed"} />
-                <HrDetailTile
-                  label="Agreed monthly gross (offer evidence)"
-                  value={`${data.offer.currency_code} ${data.offer.proposed_gross}`}
-                />
-                <HrDetailTile
-                  label="Probation / notice"
-                  value={`${data.offer.probation_months} months / ${data.offer.notice_days} days`}
-                />
-                <HrDetailTile
-                  label="Application / requisition"
-                  value={`${data.offer.application_reference} / ${data.offer.context.requisition_reference}`}
-                />
+              </HrDetailGroup>
+              <HrDetailGroup title="Offer evidence">
+                <HrDetailTile label="Application" value={data.offer.application_reference} mono />
+                <HrDetailTile label="Requisition" value={data.offer.context.requisition_reference} mono />
                 <HrDetailTile
                   label="Acceptance evidence"
-                  value={`${data.offer.responded_on} · ${data.offer.response_reference}`}
+                  value={data.offer.response_reference}
+                  hint={data.offer.responded_on ? hrDisplayDate(data.offer.responded_on) : undefined}
                 />
               </HrDetailGroup>
               <HrDetailSection title="Employment handoff progress">
@@ -668,11 +702,16 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
                 </ol>
                 {handoff && (
                   <div className="grid gap-3">
-                    <p className="text-sm text-muted-foreground">
-                      Created {new Date(handoff.created_at).toLocaleDateString()} · {handoff.reason}
-                    </p>
+                    <HrDetailNote meta={`Created ${hrDisplayDate(handoff.created_at, false)}`}>
+                      {handoff.reason}
+                    </HrDetailNote>
                     <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => onNavigate("hr", "employee-drafts")}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onNavigate("hr", "employee-drafts")}
+                      >
                         Employee Drafts
                         <ArrowRight className="size-4" />
                       </Button>
@@ -738,6 +777,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
                     Employee creation permission is required to prepare this profile.
                   </p>
                 ))}
+              <HrDetailAudit items={[{ label: "Offer created", value: hrDisplayDate(data.offer.created_at, true) }]} />
             </>
           ) : null}
         </div>

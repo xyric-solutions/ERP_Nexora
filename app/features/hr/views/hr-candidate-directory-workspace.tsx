@@ -11,7 +11,14 @@ import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
 import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
-import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
+import {
+  HrDetailAudit,
+  HrDetailGroup,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterStatusBadge } from "../components/hr-master-status-badge";
@@ -63,7 +70,11 @@ export function HrCandidateDirectoryWorkspace() {
       if (!company) return;
       setLoading(true);
       try {
-        const result = await client.candidates({ companyId: company, search: nextSearch, status: filterToStatus(nextFilter) });
+        const result = await client.candidates({
+          companyId: company,
+          search: nextSearch,
+          status: filterToStatus(nextFilter),
+        });
         setRecords(result.items);
         setSelectedId((current) => (result.items.some((item) => item.id === current) ? current : ""));
       } catch {
@@ -99,9 +110,17 @@ export function HrCandidateDirectoryWorkspace() {
   const reload = () => load(companyId, search, filter);
   const editorFor = (record: Candidate): Editor => {
     const [first = "", ...rest] = record.display_name.split(" ");
-    return { firstName: first, lastName: rest.join(" "), email: record.email, phone: record.phone, source: record.source, status: record.status };
+    return {
+      firstName: first,
+      lastName: rest.join(" "),
+      email: record.email,
+      phone: record.phone,
+      source: record.source,
+      status: record.status,
+    };
   };
-  const failure = (cause: unknown, fallback: string) => (cause instanceof Error && cause.message ? cause.message : fallback);
+  const failure = (cause: unknown, fallback: string) =>
+    cause instanceof Error && cause.message ? cause.message : fallback;
 
   const save = async (candidate: Candidate, values: Editor) => {
     if (!values.firstName.trim() || !values.lastName.trim() || !values.email.trim()) {
@@ -125,7 +144,9 @@ export function HrCandidateDirectoryWorkspace() {
         crypto.randomUUID(),
       );
       setMessage(
-        values.status === candidate.status ? `${candidate.reference} was saved.` : `${candidate.reference} is now ${statusLabel(values.status).toLowerCase()}.`,
+        values.status === candidate.status
+          ? `${candidate.reference} was saved.`
+          : `${candidate.reference} is now ${statusLabel(values.status).toLowerCase()}.`,
       );
       setEditor(null);
       await reload();
@@ -207,7 +228,12 @@ export function HrCandidateDirectoryWorkspace() {
         </label>
         <label htmlFor="candidate-search" className="grid gap-1 text-sm font-medium">
           Search
-          <Input id="candidate-search" placeholder="Name, email or reference" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <Input
+            id="candidate-search"
+            placeholder="Name, email or reference"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
         </label>
         <Button type="submit" variant="outline">
           Search
@@ -291,45 +317,89 @@ export function HrCandidateDirectoryWorkspace() {
       >
         {selected && editor ? (
           <form
-            className="grid gap-3 sm:grid-cols-2"
+            className="grid gap-5"
             onSubmit={(event) => {
               event.preventDefault();
               void save(selected, editor);
             }}
           >
-            <label htmlFor="candidate-firstName" className="grid gap-1 text-sm font-medium">
-              First name
-              <Input id="candidate-firstName" required maxLength={100} value={editor.firstName} onChange={(event) => setEditor({ ...editor, firstName: event.target.value })} />
-            </label>
-            <label htmlFor="candidate-lastName" className="grid gap-1 text-sm font-medium">
-              Last name
-              <Input id="candidate-lastName" required maxLength={100} value={editor.lastName} onChange={(event) => setEditor({ ...editor, lastName: event.target.value })} />
-            </label>
-            <label htmlFor="candidate-email" className="grid gap-1 text-sm font-medium">
-              Email
-              <Input id="candidate-email" required type="email" maxLength={320} value={editor.email} onChange={(event) => setEditor({ ...editor, email: event.target.value })} />
-            </label>
-            <label htmlFor="candidate-phone" className="grid gap-1 text-sm font-medium">
-              Phone
-              <Input id="candidate-phone" maxLength={40} value={editor.phone} onChange={(event) => setEditor({ ...editor, phone: event.target.value })} />
-            </label>
-            <label className="grid gap-1 text-sm font-medium">
-              Source
-              <select className={selectClass} value={editor.source} onChange={(event) => setEditor({ ...editor, source: event.target.value as CandidateSource })}>
-                {(Object.keys(sourceLabel) as CandidateSource[]).map((source) => (
-                  <option key={source} value={source}>
-                    {sourceLabel[source]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm font-medium">
-              Status
-              <select className={selectClass} value={editor.status} onChange={(event) => setEditor({ ...editor, status: event.target.value as Candidate["status"] })}>
-                <option value="active">Active</option>
-                <option value="archived">Deactivated</option>
-              </select>
-            </label>
+            <HrDetailSection title="Name">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label htmlFor="candidate-firstName" className="grid gap-1 text-sm font-medium">
+                  First name
+                  <Input
+                    id="candidate-firstName"
+                    required
+                    maxLength={100}
+                    value={editor.firstName}
+                    onChange={(event) => setEditor({ ...editor, firstName: event.target.value })}
+                  />
+                </label>
+                <label htmlFor="candidate-lastName" className="grid gap-1 text-sm font-medium">
+                  Last name
+                  <Input
+                    id="candidate-lastName"
+                    required
+                    maxLength={100}
+                    value={editor.lastName}
+                    onChange={(event) => setEditor({ ...editor, lastName: event.target.value })}
+                  />
+                </label>
+              </div>
+            </HrDetailSection>
+            <HrDetailSection title="Contact">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label htmlFor="candidate-email" className="grid gap-1 text-sm font-medium">
+                  Email
+                  <Input
+                    id="candidate-email"
+                    required
+                    type="email"
+                    maxLength={320}
+                    value={editor.email}
+                    onChange={(event) => setEditor({ ...editor, email: event.target.value })}
+                  />
+                </label>
+                <label htmlFor="candidate-phone" className="grid gap-1 text-sm font-medium">
+                  Phone
+                  <Input
+                    id="candidate-phone"
+                    maxLength={40}
+                    value={editor.phone}
+                    onChange={(event) => setEditor({ ...editor, phone: event.target.value })}
+                  />
+                </label>
+              </div>
+            </HrDetailSection>
+            <HrDetailSection title="Sourcing">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1 text-sm font-medium">
+                  Source
+                  <select
+                    className={selectClass}
+                    value={editor.source}
+                    onChange={(event) => setEditor({ ...editor, source: event.target.value as CandidateSource })}
+                  >
+                    {(Object.keys(sourceLabel) as CandidateSource[]).map((source) => (
+                      <option key={source} value={source}>
+                        {sourceLabel[source]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1 text-sm font-medium">
+                  Status
+                  <select
+                    className={selectClass}
+                    value={editor.status}
+                    onChange={(event) => setEditor({ ...editor, status: event.target.value as Candidate["status"] })}
+                  >
+                    <option value="active">Active</option>
+                    <option value="archived">Deactivated</option>
+                  </select>
+                </label>
+              </div>
+            </HrDetailSection>
             <HrDrawerActions>
               <Button type="button" variant="outline" disabled={saving} onClick={() => setEditor(null)}>
                 Cancel
@@ -341,25 +411,39 @@ export function HrCandidateDirectoryWorkspace() {
           </form>
         ) : selected ? (
           <>
-            <HrDetailList>
+            <HrDetailSummary
+              code={selected.reference}
+              status={selected.status}
+              statusLabel={statusLabel(selected.status)}
+            >
+              {sourceLabel[selected.source]} candidate · added {hrDisplayDate(selected.created_at, false)}
+            </HrDetailSummary>
+            <HrDetailGroup title="Candidate">
               <HrDetailTile label="Name" value={selected.display_name} />
-              <HrDetailTile label="Reference" value={selected.reference} />
               <HrDetailTile label="Email" value={selected.email} />
               <HrDetailTile label="Phone" value={selected.phone} />
               <HrDetailTile label="Source" value={sourceLabel[selected.source]} />
-              <HrDetailTile label="Status" value={<HrMasterStatusBadge status={selected.status === "active" ? "active" : "inactive"} />} />
-              <HrDetailTile label="Added" value={new Date(selected.created_at).toLocaleString()} />
-            </HrDetailList>
+            </HrDetailGroup>
+            <HrDetailAudit items={[{ label: "Added", value: hrDisplayDate(selected.created_at, true) }]} />
             {canUpdate ? (
               <HrDrawerActions>
                 <Button
                   variant="outline"
                   disabled={saving}
-                  onClick={() => void save(selected, { ...editorFor(selected), status: selected.status === "active" ? "archived" : "active" })}
+                  onClick={() =>
+                    void save(selected, {
+                      ...editorFor(selected),
+                      status: selected.status === "active" ? "archived" : "active",
+                    })
+                  }
                 >
                   {selected.status === "active" ? "Deactivate" : "Activate"}
                 </Button>
-                <HrEditButton label={`Edit ${selected.display_name}`} disabled={saving} onClick={() => setEditor(editorFor(selected))} />
+                <HrEditButton
+                  label={`Edit ${selected.display_name}`}
+                  disabled={saving}
+                  onClick={() => setEditor(editorFor(selected))}
+                />
                 <HrConfirmDeleteButton
                   label={`Delete ${selected.display_name}`}
                   title={`Delete ${selected.display_name}?`}

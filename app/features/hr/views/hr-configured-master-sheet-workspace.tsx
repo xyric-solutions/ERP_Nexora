@@ -9,7 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
-import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
+import {
+  HrDetailAudit,
+  HrDetailGroup,
+  HrDetailNote,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import { nextMasterCode } from "../model/hr-master-code";
@@ -227,7 +235,10 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
   const save = async () => {
     const missing = definition.fields.some((field) => !field.optional && !(editor?.values[field.key] ?? "").trim());
     if (!editor || !companyId || !editor.name.trim() || missing) {
-      const required = ["Name", ...definition.fields.filter((field) => !field.optional).map((field) => field.label.toLowerCase())];
+      const required = [
+        "Name",
+        ...definition.fields.filter((field) => !field.optional).map((field) => field.label.toLowerCase()),
+      ];
       setMessage(
         required.length === 1
           ? "Name is required."
@@ -488,95 +499,116 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
                 onClick={() => setEditor(editorFor(selected, definition, records))}
               />
               <HrMasterDeleteButton
-                  name={selected.name}
-                  code={selected.code}
-                  saving={saving}
-                  onDelete={() => deleteRecord(selected)}
-                />
+                name={selected.name}
+                code={selected.code}
+                saving={saving}
+                onDelete={() => deleteRecord(selected)}
+              />
             </>
           ) : undefined
         }
       >
         {editor ? (
           <div className="grid gap-5">
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-code`}>
-              Auto-generated code
-              <Input id={`configured-${sectionKey}-code`} value={editor.code} disabled />
-            </label>
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-name`}>
-              Name
-              <Input
-                id={`configured-${sectionKey}-name`}
-                maxLength={160}
-                value={editor.name}
-                onChange={(event) => setEditor({ ...editor, name: event.target.value })}
-              />
-            </label>
-            {definition.fields.map((field) => {
-              const isConfiguration = field.key === "default_nominal" || field.key === "working_pattern";
-              const id = `configured-${sectionKey}-${isConfiguration ? "configuration" : field.key}`;
-              const value = editor.values[field.key] ?? "";
-              const setValue = (next: string) =>
-                setEditor({ ...editor, values: { ...editor.values, [field.key]: next } });
-              return (
-                <label key={field.key} className="grid gap-1.5 text-sm font-medium" htmlFor={id}>
-                  {field.label}
-                  {field.optionsSource ? (
-                    <LiveOptionSelect
-                      id={id}
-                      value={value}
-                      options={liveOptions(field)}
-                      loaded={nominalsLoaded}
-                      onChange={setValue}
-                    />
-                  ) : field.options ? (
-                    <select
-                      id={id}
-                      required
-                      className="h-10 rounded-md border border-input bg-background px-3"
-                      value={value}
-                      onChange={(event) => setValue(event.target.value)}
-                    >
-                      {field.options.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <Input
-                      id={id}
-                      maxLength={128}
-                      placeholder={field.placeholder}
-                      value={value}
-                      onChange={(event) => setValue(event.target.value.toUpperCase())}
-                    />
-                  )}
+            <HrDetailSection title="Details">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-code`}>
+                  Auto-generated code
+                  <Input id={`configured-${sectionKey}-code`} value={editor.code} disabled />
                 </label>
-              );
-            })}
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-description`}>
-              Description
-              <Textarea
-                id={`configured-${sectionKey}-description`}
-                className="min-h-32 resize-y"
-                maxLength={1000}
-                value={editor.description}
-                onChange={(event) => setEditor({ ...editor, description: event.target.value })}
-              />
-            </label>
+                <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-name`}>
+                  Name
+                  <Input
+                    id={`configured-${sectionKey}-name`}
+                    maxLength={160}
+                    value={editor.name}
+                    onChange={(event) => setEditor({ ...editor, name: event.target.value })}
+                  />
+                </label>
+              </div>
+            </HrDetailSection>
+            {definition.fields.length ? (
+              <HrDetailSection title="Configuration">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {definition.fields.map((field) => {
+                    const isConfiguration = field.key === "default_nominal" || field.key === "working_pattern";
+                    const id = `configured-${sectionKey}-${isConfiguration ? "configuration" : field.key}`;
+                    const value = editor.values[field.key] ?? "";
+                    const setValue = (next: string) =>
+                      setEditor({ ...editor, values: { ...editor.values, [field.key]: next } });
+                    return (
+                      <label key={field.key} className="grid gap-1.5 text-sm font-medium" htmlFor={id}>
+                        {field.label}
+                        {field.optionsSource ? (
+                          <LiveOptionSelect
+                            id={id}
+                            value={value}
+                            options={liveOptions(field)}
+                            loaded={nominalsLoaded}
+                            onChange={setValue}
+                          />
+                        ) : field.options ? (
+                          <select
+                            id={id}
+                            required
+                            className="h-10 rounded-md border border-input bg-background px-3"
+                            value={value}
+                            onChange={(event) => setValue(event.target.value)}
+                          >
+                            {field.options.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <Input
+                            id={id}
+                            maxLength={128}
+                            placeholder={field.placeholder}
+                            value={value}
+                            onChange={(event) => setValue(event.target.value.toUpperCase())}
+                          />
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              </HrDetailSection>
+            ) : null}
+            <HrDetailSection title="Description">
+              <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-description`}>
+                Description
+                <Textarea
+                  id={`configured-${sectionKey}-description`}
+                  className="min-h-32 resize-y"
+                  maxLength={1000}
+                  value={editor.description}
+                  onChange={(event) => setEditor({ ...editor, description: event.target.value })}
+                />
+              </label>
+            </HrDetailSection>
           </div>
         ) : selected ? (
-          <HrDetailList>
-            <Detail label="Name" value={selected.name} />
-            <Detail label="Code" value={selected.code} />
-            <Detail label="Status" value={selected.status} status />
-            {definition.fields.map((field) => (
-              <Detail key={field.key} label={field.label} value={label(selected, field)} />
-            ))}
-            <Detail label="Description" value={selected.description || "No description recorded."} />
+          <div className="grid min-w-0 gap-4">
+            <HrDetailSummary code={selected.code} status={selected.status}>
+              {sectionSingular} · Company master record
+            </HrDetailSummary>
+            <HrDetailGroup title="Details">
+              <HrDetailTile label="Name" value={selected.name} />
+              {definition.fields.map((field) => (
+                <HrDetailTile key={field.key} label={field.label} value={label(selected, field)} />
+              ))}
+            </HrDetailGroup>
+            <HrDetailSection title="Description">
+              {selected.description ? (
+                <HrDetailNote>{selected.description}</HrDetailNote>
+              ) : (
+                <p className="m-0! text-sm text-muted-foreground">No description recorded.</p>
+              )}
+            </HrDetailSection>
             <RecordStamps record={selected} />
-          </HrDetailList>
+          </div>
         ) : null}
       </HrMasterSheet>
     </section>
@@ -624,19 +656,19 @@ function Summary({ label, value }: { label: string; value: number; accent?: bool
     </span>
   );
 }
-function Detail({ label, value, status = false }: { label: string; value: string; status?: boolean }) {
+/** "Created by", "Created" and "Last updated" line, shown when the API provides them. */
+function RecordStamps({
+  record,
+}: {
+  record: { created_by_name?: string | null; created_at?: string; updated_at?: string };
+}) {
   return (
-    <HrDetailTile label={label} value={status ? <HrMasterStatusBadge status={value} className="inline-flex" /> : value} />
-  );
-}
-/** "Created by", "Created" and "Last updated" rows, shown when the API provides them. */
-function RecordStamps({ record }: { record: { created_by_name?: string | null; created_at?: string; updated_at?: string } }) {
-  const when = (value?: string) => (value ? new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "");
-  return (
-    <>
-      {record.created_by_name ? <Detail label="Created by" value={record.created_by_name} /> : null}
-      {record.created_at ? <Detail label="Created" value={when(record.created_at)} /> : null}
-      {record.updated_at ? <Detail label="Last updated" value={when(record.updated_at)} /> : null}
-    </>
+    <HrDetailAudit
+      items={[
+        { label: "Created by", value: record.created_by_name },
+        { label: "Created", value: hrDisplayDate(record.created_at, true) },
+        { label: "Last updated", value: hrDisplayDate(record.updated_at, true) },
+      ]}
+    />
   );
 }

@@ -9,7 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
-import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
+import {
+  HrDetailAudit,
+  HrDetailGroup,
+  HrDetailNote,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import { nextMasterCode } from "../model/hr-master-code";
@@ -394,99 +402,119 @@ export function HrMasterCatalogueSheetWorkspace({
               </Button>
               <HrEditButton label={`Edit ${singular}`} onClick={() => setEditor(editorFor(selected, type, records))} />
               <HrMasterDeleteButton
-                  name={selected.name}
-                  code={selected.code}
-                  saving={saving}
-                  onDelete={() => deleteRecord(selected)}
-                />
+                name={selected.name}
+                code={selected.code}
+                saving={saving}
+                onDelete={() => deleteRecord(selected)}
+              />
             </>
           ) : undefined
         }
       >
         {editor ? (
           <div className="grid gap-5">
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-code`}>
-              Auto-generated code
-              <Input id={`master-${type}-code`} value={editor.code} disabled />
-            </label>
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-name`}>
-              {nameLabel}
-              <Input
-                id={`master-${type}-name`}
-                maxLength={160}
-                placeholder={namePlaceholder}
-                value={editor.name}
-                onChange={(event) => setEditor({ ...editor, name: event.target.value })}
-              />
-            </label>
+            <HrDetailSection title="Details">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-code`}>
+                  Auto-generated code
+                  <Input id={`master-${type}-code`} value={editor.code} disabled />
+                </label>
+                <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-name`}>
+                  {nameLabel}
+                  <Input
+                    id={`master-${type}-name`}
+                    maxLength={160}
+                    placeholder={namePlaceholder}
+                    value={editor.name}
+                    onChange={(event) => setEditor({ ...editor, name: event.target.value })}
+                  />
+                </label>
+              </div>
+            </HrDetailSection>
             {withDepartment ? (
-              <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-department`}>
-                Department
-                <select
-                  id={`master-${type}-department`}
-                  className="h-10 rounded-md border border-input bg-background px-3"
-                  value={editor.departmentId}
-                  onChange={(event) => setEditor({ ...editor, departmentId: event.target.value })}
-                >
-                  <option value="">{departments.length ? "Select a department" : "No active departments"}</option>
-                  {/* A job's current department stays visible even if it was deactivated later. */}
-                  {editor.departmentId && !departments.some((unit) => unit.id === editor.departmentId) ? (
-                    <option value={editor.departmentId}>
-                      {departmentPath(units, editor.departmentId) ?? selected?.owning_org_unit ?? "Current department"}
-                    </option>
-                  ) : null}
-                  {departments.map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {departmentPath(units, unit.id)}
-                    </option>
-                  ))}
-                </select>
-                {departments.length ? null : (
-                  <span className="text-xs font-normal text-muted-foreground">
-                    Add a department in Organisation Structure first.
-                  </span>
-                )}
-              </label>
+              <HrDetailSection title="Assignment">
+                <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-department`}>
+                  Department
+                  <select
+                    id={`master-${type}-department`}
+                    className="h-10 rounded-md border border-input bg-background px-3"
+                    value={editor.departmentId}
+                    onChange={(event) => setEditor({ ...editor, departmentId: event.target.value })}
+                  >
+                    <option value="">{departments.length ? "Select a department" : "No active departments"}</option>
+                    {/* A job's current department stays visible even if it was deactivated later. */}
+                    {editor.departmentId && !departments.some((unit) => unit.id === editor.departmentId) ? (
+                      <option value={editor.departmentId}>
+                        {departmentPath(units, editor.departmentId) ??
+                          selected?.owning_org_unit ??
+                          "Current department"}
+                      </option>
+                    ) : null}
+                    {departments.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {departmentPath(units, unit.id)}
+                      </option>
+                    ))}
+                  </select>
+                  {departments.length ? null : (
+                    <span className="text-xs font-normal text-muted-foreground">
+                      Add a department in Organisation Structure first.
+                    </span>
+                  )}
+                </label>
+              </HrDetailSection>
             ) : null}
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-description`}>
-              Description
-              <Textarea
-                id={`master-${type}-description`}
-                className="min-h-32 resize-y"
-                maxLength={1000}
-                value={editor.description}
-                onChange={(event) => setEditor({ ...editor, description: event.target.value })}
-              />
-            </label>
+            <HrDetailSection title="Description">
+              <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-description`}>
+                Description
+                <Textarea
+                  id={`master-${type}-description`}
+                  className="min-h-32 resize-y"
+                  maxLength={1000}
+                  value={editor.description}
+                  onChange={(event) => setEditor({ ...editor, description: event.target.value })}
+                />
+              </label>
+            </HrDetailSection>
           </div>
         ) : selected ? (
-          <HrDetailList>
-            <Detail label={nameLabel === "Name" ? singular : nameLabel} value={selected.name} />
-            <Detail label="Code" value={selected.code} />
-            <Detail label="Status" value={selected.status} status />
-            {withDepartment ? <Detail label="Department" value={departmentLabel(selected)} /> : null}
-            <Detail label="Description" value={selected.description || "No description recorded."} />
+          <div className="grid min-w-0 gap-4">
+            <HrDetailSummary code={selected.code} status={selected.status}>
+              {singular}
+              {withDepartment ? ` · ${departmentLabel(selected)}` : " · Company master record"}
+            </HrDetailSummary>
+            <HrDetailGroup title="Details">
+              <HrDetailTile label={nameLabel === "Name" ? singular : nameLabel} value={selected.name} />
+              {withDepartment ? <HrDetailTile label="Department" value={departmentLabel(selected)} /> : null}
+            </HrDetailGroup>
+            <HrDetailSection title="Description">
+              {selected.description ? (
+                <HrDetailNote>{selected.description}</HrDetailNote>
+              ) : (
+                <p className="m-0! text-sm text-muted-foreground">No description recorded.</p>
+              )}
+            </HrDetailSection>
             <RecordStamps record={selected} />
-          </HrDetailList>
+          </div>
         ) : null}
       </HrMasterSheet>
     </section>
   );
 }
 
-function Detail({ label, value, status = false }: { label: string; value: string; status?: boolean }) {
+/** "Created by", "Created" and "Last updated" line, shown when the API provides them. */
+function RecordStamps({
+  record,
+}: {
+  record: { created_by_name?: string | null; created_at?: string; updated_at?: string };
+}) {
   return (
-    <HrDetailTile label={label} value={status ? <HrMasterStatusBadge status={value} className="inline-flex" /> : value} />
-  );
-}
-/** "Created by", "Created" and "Last updated" rows, shown when the API provides them. */
-function RecordStamps({ record }: { record: { created_by_name?: string | null; created_at?: string; updated_at?: string } }) {
-  const when = (value?: string) => (value ? new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "");
-  return (
-    <>
-      {record.created_by_name ? <Detail label="Created by" value={record.created_by_name} /> : null}
-      {record.created_at ? <Detail label="Created" value={when(record.created_at)} /> : null}
-      {record.updated_at ? <Detail label="Last updated" value={when(record.updated_at)} /> : null}
-    </>
+    <HrDetailAudit
+      items={[
+        { label: "Created by", value: record.created_by_name },
+        { label: "Created", value: hrDisplayDate(record.created_at, true) },
+        { label: "Last updated", value: hrDisplayDate(record.updated_at, true) },
+      ]}
+    />
   );
 }

@@ -9,7 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
-import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
+import {
+  HrDetailAudit,
+  HrDetailCode,
+  HrDetailFigures,
+  HrDetailGroup,
+  HrDetailNote,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
 import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
 import { HrEditButton } from "../components/hr-icon-buttons";
 type Opening = HrJobOpeningDirectory["items"][number];
@@ -91,7 +101,8 @@ export function HrJobOpeningsWorkspace() {
     const requisition = approved.find((item) => item.id === id);
     setRequisitionId(id);
     // Start from the requisition's job title; recruiters can still adjust the advertised wording.
-    if (requisition && (!title.trim() || approved.some((item) => item.job_title === title))) setTitle(requisition.job_title);
+    if (requisition && (!title.trim() || approved.some((item) => item.job_title === title)))
+      setTitle(requisition.job_title);
   };
   const startEdit = (opening: Opening) => {
     setEditingId(opening.id);
@@ -126,7 +137,10 @@ export function HrJobOpeningsWorkspace() {
   };
   const saveEdit = async () => {
     const count = Number(headcount);
-    const channelList = channels.split(",").map((value) => value.trim()).filter(Boolean);
+    const channelList = channels
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
     if (!title.trim() || !Number.isInteger(count) || count < 1 || !channelList.length) {
       setMessage("Provide a title, the number of positions to fill and at least one advertising channel.");
       return;
@@ -135,7 +149,15 @@ export function HrJobOpeningsWorkspace() {
     try {
       await client.updateJobOpening(
         editingId,
-        { company_id: companyId, title: title.trim(), positions_requested: count, channels: channelList, closing_on: closingOn || null, state: openingState, reason: "" },
+        {
+          company_id: companyId,
+          title: title.trim(),
+          positions_requested: count,
+          channels: channelList,
+          closing_on: closingOn || null,
+          state: openingState,
+          reason: "",
+        },
         csrfToken(),
         crypto.randomUUID(),
       );
@@ -338,9 +360,7 @@ export function HrJobOpeningsWorkspace() {
                     <td className="px-4 py-3">{item.requisition_reference}</td>
                     <td className="px-4 py-3">
                       {item.remaining_positions} of {item.positions_requested}
-                      <span className="block text-xs text-muted-foreground">
-                        {item.filled_positions} hired
-                      </span>
+                      <span className="block text-xs text-muted-foreground">{item.filled_positions} hired</span>
                     </td>
                     <td className="px-4 py-3">{item.closing_on ?? "Not set"}</td>
                     <td className="px-4 py-3">
@@ -366,86 +386,92 @@ export function HrJobOpeningsWorkspace() {
               busy={saving}
               notice={message}
             >
-              <aside className="grid gap-3 rounded-lg border bg-card p-4 border-border">
-                {editingId ? (
+              <aside className="grid gap-5 rounded-lg border bg-card p-4 border-border">
+                <HrDetailSection title="Source">
+                  {editingId ? (
+                    <label className="grid gap-1 text-sm">
+                      Status
+                      <select
+                        className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
+                        value={openingState}
+                        onChange={(event) => setOpeningState(event.target.value as Opening["state"])}
+                      >
+                        {(["open", "on_hold", "closed", "cancelled"] as const).map((state) => (
+                          <option key={state} value={state}>
+                            {state === "on_hold" ? "On hold" : state.charAt(0).toUpperCase() + state.slice(1)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                  {approved.length === 0 && !editingId ? (
+                    <Alert>
+                      <AlertTitle>Approved requisition required</AlertTitle>
+                      <AlertDescription>
+                        Submit and independently approve a manpower requisition before creating an opening.
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
                   <label className="grid gap-1 text-sm">
-                    Status
+                    Approved requisition
                     <select
-                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                      value={openingState}
-                      onChange={(event) => setOpeningState(event.target.value as Opening["state"])}
+                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2 disabled:opacity-60"
+                      value={requisitionId}
+                      disabled={!!editingId}
+                      onChange={(event) => chooseRequisition(event.target.value)}
                     >
-                      {(["open", "on_hold", "closed", "cancelled"] as const).map((state) => (
-                        <option key={state} value={state}>
-                          {state === "on_hold" ? "On hold" : state.charAt(0).toUpperCase() + state.slice(1)}
+                      {editingId && !approved.some((item) => item.id === requisitionId) ? (
+                        <option value={requisitionId}>
+                          {items.find((item) => item.id === editingId)?.requisition_reference ?? "Current requisition"}
+                        </option>
+                      ) : null}
+                      <option value="">Select</option>
+                      {approved.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.reference} · {item.job_title} ({item.positions_requested} approved)
                         </option>
                       ))}
                     </select>
                   </label>
-                ) : null}
-                {approved.length === 0 && !editingId ? (
-                  <Alert>
-                    <AlertTitle>Approved requisition required</AlertTitle>
-                    <AlertDescription>
-                      Submit and independently approve a manpower requisition before creating an opening.
-                    </AlertDescription>
-                  </Alert>
-                ) : null}
-                <label className="grid gap-1 text-sm">
-                  Approved requisition
-                  <select
-                    className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2 disabled:opacity-60"
-                    value={requisitionId}
-                    disabled={!!editingId}
-                    onChange={(event) => chooseRequisition(event.target.value)}
-                  >
-                    {editingId && !approved.some((item) => item.id === requisitionId) ? (
-                      <option value={requisitionId}>
-                        {items.find((item) => item.id === editingId)?.requisition_reference ?? "Current requisition"}
-                      </option>
-                    ) : null}
-                    <option value="">Select</option>
-                    {approved.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.reference} · {item.job_title} ({item.positions_requested} approved)
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-1 text-sm">
-                  Opening title
-                  <Input value={title} onChange={(event) => setTitle(event.target.value)} />
-                </label>
-                <label className="grid gap-1 text-sm">
-                  Positions to fill
-                  <Input
-                    inputMode="numeric"
-                    value={headcount}
-                    onChange={(event) => setHeadcount(event.target.value)}
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    How many people this opening will hire.
-                    {chosenRequisition && availableHeadcount !== null
-                      ? ` ${availableHeadcount} of ${chosenRequisition.positions_requested} approved position${chosenRequisition.positions_requested === 1 ? "" : "s"} on ${chosenRequisition.reference} ${availableHeadcount === 1 ? "is" : "are"} not yet in another opening.`
-                      : " It cannot exceed the positions still available on the approved requisition."}
-                  </span>
-                </label>
-                <label className="grid gap-1 text-sm">
-                  Advertising channels
-                  <Input
-                    value={channels}
-                    placeholder="Company website, LinkedIn, Employee referral"
-                    onChange={(event) => setChannels(event.target.value)}
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    Where the vacancy is published or sourced, separated by commas. Recorded on the opening for
-                    reporting; nothing is posted automatically.
-                  </span>
-                </label>
-                <label className="grid gap-1 text-sm">
-                  Closing date
-                  <Input type="date" value={closingOn} onChange={(event) => setClosingOn(event.target.value)} />
-                </label>
+                </HrDetailSection>
+                <HrDetailSection title="Opening">
+                  <label className="grid gap-1 text-sm">
+                    Opening title
+                    <Input value={title} onChange={(event) => setTitle(event.target.value)} />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Positions to fill
+                    <Input
+                      inputMode="numeric"
+                      value={headcount}
+                      onChange={(event) => setHeadcount(event.target.value)}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      How many people this opening will hire.
+                      {chosenRequisition && availableHeadcount !== null
+                        ? ` ${availableHeadcount} of ${chosenRequisition.positions_requested} approved position${chosenRequisition.positions_requested === 1 ? "" : "s"} on ${chosenRequisition.reference} ${availableHeadcount === 1 ? "is" : "are"} not yet in another opening.`
+                        : " It cannot exceed the positions still available on the approved requisition."}
+                    </span>
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Closing date
+                    <Input type="date" value={closingOn} onChange={(event) => setClosingOn(event.target.value)} />
+                  </label>
+                </HrDetailSection>
+                <HrDetailSection title="Advertising">
+                  <label className="grid gap-1 text-sm">
+                    Advertising channels
+                    <Input
+                      value={channels}
+                      placeholder="Company website, LinkedIn, Employee referral"
+                      onChange={(event) => setChannels(event.target.value)}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      Where the vacancy is published or sourced, separated by commas. Recorded on the opening for
+                      reporting; nothing is posted automatically.
+                    </span>
+                  </label>
+                </HrDetailSection>
                 <HrDrawerActions>
                   <Button disabled={saving || (!editingId && !approved.length)} onClick={() => void save()}>
                     {editingId ? "Save changes" : "Create opening"}
@@ -465,19 +491,53 @@ export function HrJobOpeningsWorkspace() {
               notice={message}
             >
               <aside className="grid min-w-0 gap-4 rounded-lg border bg-card p-5 border-border">
-                <HrDetailList>
-                  <HrDetailTile label="Reference" value={selected.reference} />
-                  <HrDetailTile label="State" value={selected.state.replaceAll("_", " ")} />
+                <HrDetailSummary code={selected.reference} status={selected.state}>
+                  From requisition <HrDetailCode>{selected.requisition_reference}</HrDetailCode>
+                  {selected.closing_on ? ` · closes ${hrDisplayDate(selected.closing_on)}` : ""}
+                </HrDetailSummary>
+                <HrDetailFigures
+                  items={[
+                    { label: "Positions", value: selected.positions_requested },
+                    { label: "Hired", value: selected.filled_positions },
+                    { label: "Unfilled", value: selected.remaining_positions },
+                  ]}
+                  progress={{
+                    value: selected.filled_positions,
+                    total: selected.positions_requested,
+                    label: `${selected.filled_positions} of ${selected.positions_requested} filled`,
+                  }}
+                />
+                <HrDetailGroup title="Opening">
                   <HrDetailTile label="Opening title" value={selected.title} />
-                  <HrDetailTile label="Requisition" value={selected.requisition_reference} />
-                  <HrDetailTile label="Positions to fill" value={String(selected.positions_requested)} />
-                  <HrDetailTile label="Unfilled" value={String(selected.remaining_positions)} />
-                  <HrDetailTile label="Hired so far" value={String(selected.filled_positions)} />
-                  <HrDetailTile label="Advertised on" value={selected.channels.join(", ")} />
-                  <HrDetailTile label="Closing date" value={selected.closing_on ?? "Not set"} />
-                  {selected.state_reason ? <HrDetailTile label="Last state change" value={selected.state_reason} /> : null}
-                  <HrDetailTile label="Created" value={new Date(selected.created_at).toLocaleString()} />
-                </HrDetailList>
+                  <HrDetailTile label="Requisition" value={selected.requisition_reference} mono />
+                  <HrDetailTile
+                    label="Advertised on"
+                    value={
+                      selected.channels.length ? (
+                        <span className="flex flex-wrap gap-1.5">
+                          {selected.channels.map((channel) => (
+                            <span
+                              key={channel}
+                              className="rounded-[5px] border border-border bg-muted px-2 text-xs font-normal"
+                            >
+                              {channel}
+                            </span>
+                          ))}
+                        </span>
+                      ) : undefined
+                    }
+                  />
+                  <HrDetailTile
+                    label="Closing date"
+                    value={selected.closing_on ? hrDisplayDate(selected.closing_on) : "Not set"}
+                  />
+                </HrDetailGroup>
+                {selected.state_reason ? (
+                  <HrDetailSection title="Latest change">
+                    <HrDetailNote>{selected.state_reason}</HrDetailNote>
+                  </HrDetailSection>
+                ) : null}
+                <HrDetailAudit items={[{ label: "Created", value: hrDisplayDate(selected.created_at, true) }]} />
                 {canUpdate ? (
                   <HrDrawerActions>
                     <HrConfirmDeleteButton
@@ -488,7 +548,11 @@ export function HrJobOpeningsWorkspace() {
                       disabled={saving}
                       onConfirm={() => remove(selected)}
                     />
-                    <HrEditButton label={`Edit ${selected.reference}`} disabled={saving} onClick={() => startEdit(selected)} />
+                    <HrEditButton
+                      label={`Edit ${selected.reference}`}
+                      disabled={saving}
+                      onClick={() => startEdit(selected)}
+                    />
                     {selected.state !== "on_hold" && selected.state !== "cancelled" ? (
                       <Button variant="outline" onClick={() => void change("on_hold")}>
                         Put on hold

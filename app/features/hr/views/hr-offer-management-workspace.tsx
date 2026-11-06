@@ -24,7 +24,18 @@ import { employmentSetupOptionLabel, payCycleLabel, paymentRouteLabel } from "..
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { offerMoney, offerStates } from "../model/hr-offer-display";
 import { HrMasterSheet } from "../components/hr-master-sheet";
-import { HrDetailGroup, HrDetailSection, HrDetailTile } from "../components/hr-detail-tile";
+import {
+  HrDetailAudit,
+  HrDetailCode,
+  HrDetailFigures,
+  HrDetailGroup,
+  HrDetailNote,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  HrStatusPill,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
 
 const selectClass =
   "h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50";
@@ -97,131 +108,139 @@ function OfferEditor({
         if (await save(terms)) close();
       }}
     >
-      <dl className="m-0! grid">
-        <HrDetailTile label="Candidate" value={`${context.candidate_name} · ${context.application_reference}`} />
-        <HrDetailTile label="Approved role" value={`${context.designation} · ${context.job_grade}`} />
+      <HrDetailGroup title="Approved basis">
+        <HrDetailTile label="Candidate" value={context.candidate_name} hint={context.application_reference} />
+        <HrDetailTile label="Approved role" value={context.designation} hint={context.job_grade} />
         <HrDetailTile
           label="Approved monthly range"
           value={`${money(context.salary_minimum, context.currency_code)} – ${money(context.salary_maximum, context.currency_code)}`}
         />
         <HrDetailTile label="Project / department" value={`${context.branch ?? "Not set"} · ${context.department}`} />
-        <HrDetailTile label="Employment setup" value={`${context.employment_setup} · ${context.requisition_reference}`} />
-      </dl>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1.5 text-sm">
-          Proposed monthly gross ({context.currency_code})
-          <Input
-            required
-            inputMode="decimal"
-            pattern="[0-9]+(\.[0-9]{1,4})?"
-            value={terms.proposed_gross}
-            onChange={(e) => field("proposed_gross", e.target.value)}
-          />
-        </label>
-        <label className="grid gap-1.5 text-sm">
-          Joining date
-          <Input
-            required
-            type="date"
-            min={context.today}
-            value={terms.joining_on}
-            onChange={(e) => field("joining_on", e.target.value)}
-          />
-        </label>
-        <label className="grid gap-1.5 text-sm">
-          Offer valid through
-          <Input
-            required
-            type="date"
-            min={context.today}
-            max={terms.joining_on || undefined}
-            value={terms.valid_until}
-            onChange={(e) => field("valid_until", e.target.value)}
-          />
-        </label>
-        <label className="grid gap-1.5 text-sm">
-          Probation (months)
-          <Input
-            required
-            type="number"
-            min={0}
-            max={24}
-            value={terms.probation_months}
-            onChange={(e) => field("probation_months", Number(e.target.value))}
-          />
-        </label>
-        <label className="grid gap-1.5 text-sm">
-          Notice (days)
-          <Input
-            required
-            type="number"
-            min={0}
-            max={365}
-            value={terms.notice_days}
-            onChange={(e) => field("notice_days", Number(e.target.value))}
-          />
-        </label>
-        {(
-          [
-            ["cost_center_id", "cost_center", "Cost centre"],
-            ["work_location_id", "work_location", "Work location"],
-            ["employment_setup_id", "employment_setup", "Employment setup"],
-          ] as const
-        ).map(([key, type, title]) => (
-          <label key={key} className="grid gap-1.5 text-sm">
-            {title}
-            <select required className={selectClass} value={terms[key]} onChange={(e) => field(key, e.target.value)}>
-              <option value="">Select {title.toLowerCase()}</option>
-              {masters
-                .filter((item) => item.type === type)
-                .map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.type === "employment_setup"
-                      ? employmentSetupOptionLabel(item)
-                      : `${item.name} (${item.code})`}
-                  </option>
-                ))}
+        <HrDetailTile label="Employment setup" value={context.employment_setup} hint={context.requisition_reference} />
+      </HrDetailGroup>
+      <HrDetailSection title="Terms">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1.5 text-sm">
+            Proposed monthly gross ({context.currency_code})
+            <Input
+              required
+              inputMode="decimal"
+              pattern="[0-9]+(\.[0-9]{1,4})?"
+              value={terms.proposed_gross}
+              onChange={(e) => field("proposed_gross", e.target.value)}
+            />
+          </label>
+          <label className="grid gap-1.5 text-sm">
+            Joining date
+            <Input
+              required
+              type="date"
+              min={context.today}
+              value={terms.joining_on}
+              onChange={(e) => field("joining_on", e.target.value)}
+            />
+          </label>
+          <label className="grid gap-1.5 text-sm">
+            Offer valid through
+            <Input
+              required
+              type="date"
+              min={context.today}
+              max={terms.joining_on || undefined}
+              value={terms.valid_until}
+              onChange={(e) => field("valid_until", e.target.value)}
+            />
+          </label>
+          <label className="grid gap-1.5 text-sm">
+            Probation (months)
+            <Input
+              required
+              type="number"
+              min={0}
+              max={24}
+              value={terms.probation_months}
+              onChange={(e) => field("probation_months", Number(e.target.value))}
+            />
+          </label>
+          <label className="grid gap-1.5 text-sm">
+            Notice (days)
+            <Input
+              required
+              type="number"
+              min={0}
+              max={365}
+              value={terms.notice_days}
+              onChange={(e) => field("notice_days", Number(e.target.value))}
+            />
+          </label>
+        </div>
+      </HrDetailSection>
+      <HrDetailSection title="Placement">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {(
+            [
+              ["cost_center_id", "cost_center", "Cost centre"],
+              ["work_location_id", "work_location", "Work location"],
+              ["employment_setup_id", "employment_setup", "Employment setup"],
+            ] as const
+          ).map(([key, type, title]) => (
+            <label key={key} className="grid gap-1.5 text-sm">
+              {title}
+              <select required className={selectClass} value={terms[key]} onChange={(e) => field(key, e.target.value)}>
+                <option value="">Select {title.toLowerCase()}</option>
+                {masters
+                  .filter((item) => item.type === type)
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.type === "employment_setup"
+                        ? employmentSetupOptionLabel(item)
+                        : `${item.name} (${item.code})`}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          ))}
+          <label className="grid gap-1.5 text-sm sm:col-span-2">
+            Reporting manager
+            <select
+              className={selectClass}
+              value={terms.reporting_manager_id ?? ""}
+              onChange={(e) => field("reporting_manager_id", e.target.value || null)}
+            >
+              <option value="">To be assigned</option>
+              {employees.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.display_name} · {item.employee_number}
+                </option>
+              ))}
             </select>
           </label>
-        ))}
-        <label className="grid gap-1.5 text-sm sm:col-span-2">
-          Reporting manager
-          <select
-            className={selectClass}
-            value={terms.reporting_manager_id ?? ""}
-            onChange={(e) => field("reporting_manager_id", e.target.value || null)}
-          >
-            <option value="">To be assigned</option>
-            {employees.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.display_name} · {item.employee_number}
-              </option>
-            ))}
-          </select>
+        </div>
+      </HrDetailSection>
+      <HrDetailSection title="Exceptions & notes">
+        {outside ? (
+          <Alert>
+            <AlertTitle>Compensation exception proposed</AlertTitle>
+            <AlertDescription>
+              This amount is outside the requisition range. The approver must explicitly authorize the exception with
+              salary approval permission.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        <label className="grid gap-1.5 text-sm">
+          Compensation exception reason {outside ? "(required)" : "(if applicable)"}
+          <Textarea
+            required={outside}
+            maxLength={1000}
+            value={terms.range_exception_reason}
+            onChange={(e) => field("range_exception_reason", e.target.value)}
+          />
         </label>
-      </div>
-      {outside ? (
-        <Alert>
-          <AlertTitle>Compensation exception proposed</AlertTitle>
-          <AlertDescription>
-            This amount is outside the requisition range. The approver must explicitly authorize the exception with
-            salary approval permission.
-          </AlertDescription>
-        </Alert>
-      ) : null}
-      <label className="grid gap-1.5 text-sm">
-        Compensation exception reason {outside ? "(required)" : "(if applicable)"}
-        <Textarea
-          required={outside}
-          maxLength={1000}
-          value={terms.range_exception_reason}
-          onChange={(e) => field("range_exception_reason", e.target.value)}
-        />
-      </label>
-      <label className="grid gap-1.5 text-sm">
-        Additional offer terms
-        <Textarea maxLength={2000} value={terms.note} onChange={(e) => field("note", e.target.value)} />
-      </label>
+        <label className="grid gap-1.5 text-sm">
+          Additional offer terms
+          <Textarea maxLength={2000} value={terms.note} onChange={(e) => field("note", e.target.value)} />
+        </label>
+      </HrDetailSection>
       <HrDrawerActions>
         <Button type="submit" className="text-primary-foreground!" disabled={busy}>
           {busy ? "Saving…" : "Save offer draft"}
@@ -272,7 +291,6 @@ function OfferDecision({
         });
       }}
     >
-      <h4 className="m-0 font-semibold">Next action</h4>
       <label className="grid gap-1.5 text-sm">
         Offer action
         <select
@@ -744,7 +762,7 @@ export function HrOfferManagementWorkspace() {
         notice={notice}
       >
         {editor === "new" ? (
-          <div className="grid gap-3">
+          <HrDetailSection title="Application">
             <form
               className="flex flex-wrap items-end gap-2"
               onSubmit={(e) => {
@@ -785,8 +803,10 @@ export function HrOfferManagementWorkspace() {
                 <AlertDescription>{context.blockers.join(" ")}</AlertDescription>
               </Alert>
             ) : null}
-            {!applications.length ? <p className="m-0! text-sm text-muted-foreground">No selected applications yet.</p> : null}
-          </div>
+            {!applications.length ? (
+              <p className="m-0! text-sm text-muted-foreground">No selected applications yet.</p>
+            ) : null}
+          </HrDetailSection>
         ) : null}
         {editorLoading ? (
           <Skeleton className="h-48 w-full" />
@@ -835,7 +855,9 @@ export function HrOfferManagementWorkspace() {
                       <p className="font-mono text-xs text-muted-foreground">{item.reference}</p>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{item.opening_title}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{money(item.proposed_gross, item.currency_code)}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {money(item.proposed_gross, item.currency_code)}
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">{item.valid_until}</td>
                     <td className="px-4 py-3">
                       <Badge variant={item.is_overdue ? "destructive" : "secondary"}>
@@ -847,8 +869,8 @@ export function HrOfferManagementWorkspace() {
                 {directory.items.length === 0 && (
                   <tr>
                     <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
-                      No offers match these filters. Prepare an offer for a selected application, or adjust the
-                      company, search and status filters.
+                      No offers match these filters. Prepare an offer for a selected application, or adjust the company,
+                      search and status filters.
                     </td>
                   </tr>
                 )}
@@ -922,22 +944,37 @@ export function HrOfferManagementWorkspace() {
                 {notice}
               </div>
             ) : null}
+            <HrDetailSummary
+              code={detail.reference}
+              status={detail.state}
+              statusLabel={detail.is_overdue ? "Overdue" : undefined}
+              statusTone={detail.is_overdue ? "danger" : undefined}
+            >
+              {detail.context.opening_title} · application <HrDetailCode>{detail.application_reference}</HrDetailCode>
+              {` · valid through ${hrDisplayDate(detail.valid_until)}`}
+            </HrDetailSummary>
+            <HrDetailFigures
+              items={[
+                { label: "Monthly gross", value: money(detail.proposed_gross, detail.currency_code) },
+                { label: "Probation (months)", value: detail.probation_months },
+                { label: "Notice (days)", value: detail.notice_days },
+              ]}
+            />
             <HrDetailGroup title="Offer terms">
-              <HrDetailTile label="Status" value={detail.is_overdue ? "Overdue" : label(detail.state)} />
-              <HrDetailTile label="Monthly gross" value={money(detail.proposed_gross, detail.currency_code)} />
-              <HrDetailTile label="Joining date" value={detail.joining_on} />
-              <HrDetailTile label="Valid through" value={detail.valid_until} />
-              <HrDetailTile label="Probation / notice" value={`${detail.probation_months} months / ${detail.notice_days} days`} />
+              <HrDetailTile label="Joining date" value={hrDisplayDate(detail.joining_on)} />
+              <HrDetailTile label="Valid through" value={hrDisplayDate(detail.valid_until)} />
               <HrDetailTile
                 label="Employment setup"
-                value={`${detail.employment_setup} · ${paymentRouteLabel(detail.payment_route)} / ${payCycleLabel(detail.pay_cycle)}`}
+                value={detail.employment_setup}
+                hint={`${paymentRouteLabel(detail.payment_route)} / ${payCycleLabel(detail.pay_cycle)}`}
               />
             </HrDetailGroup>
             <HrDetailGroup title="Placement">
               <HrDetailTile label="Company" value={detail.context.company_name} />
               <HrDetailTile
                 label="Department"
-                value={`${detail.context.department} · ${detail.context.branch ?? "Branch not set"}`}
+                value={detail.context.department}
+                hint={detail.context.branch ?? "Branch not set"}
               />
               <HrDetailTile label="Work location" value={detail.work_location} />
               <HrDetailTile label="Cost centre" value={detail.cost_center} />
@@ -947,9 +984,18 @@ export function HrOfferManagementWorkspace() {
                 value={`${detail.context.positions_reserved} reserved of ${detail.context.positions_authorized}`}
               />
             </HrDetailGroup>
+            {detail.delivery_reference || detail.response_reference || detail.responded_on ? (
+              <HrDetailGroup title="Delivery & response">
+                <HrDetailTile label="Delivery reference" value={detail.delivery_reference} />
+                <HrDetailTile label="Response reference" value={detail.response_reference} />
+                <HrDetailTile label="Responded on" value={hrDisplayDate(detail.responded_on)} />
+              </HrDetailGroup>
+            ) : null}
             {detail.note ? (
               <HrDetailSection title="Note">
-                <p className="whitespace-pre-wrap rounded-lg border border-border bg-muted/35 p-3 text-sm">{detail.note}</p>
+                <HrDetailNote>
+                  <span className="whitespace-pre-wrap">{detail.note}</span>
+                </HrDetailNote>
               </HrDetailSection>
             ) : null}
             {detail.outside_range ? (
@@ -1026,21 +1072,24 @@ export function HrOfferManagementWorkspace() {
                   .reverse()
                   .map((item) => (
                     <li key={item.id} className="rounded-lg border border-border bg-muted/35 p-3">
-                      <span className="text-sm font-semibold">
-                        {item.action in actions ? actions[item.action as keyof typeof actions] : label(item.action)} ·{" "}
-                        {label(item.to_state)}
+                      <span className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                        {item.action in actions ? actions[item.action as keyof typeof actions] : label(item.action)}
+                        <HrStatusPill status={item.to_state} />
                       </span>
-                      <p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">{item.reason}</p>
+                      <p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">
+                        {item.reason}
+                      </p>
                       {item.evidence_reference ? (
                         <p className="mt-1 break-words text-sm">Reference: {item.evidence_reference}</p>
                       ) : null}
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {item.actor_name} · {new Date(item.occurred_at).toLocaleString()}
+                        {item.actor_name} · {hrDisplayDate(item.occurred_at, true)}
                       </p>
                     </li>
                   ))}
               </ol>
             </HrDetailSection>
+            <HrDetailAudit items={[{ label: "Created", value: hrDisplayDate(detail.created_at, true) }]} />
           </div>
         ) : (
           <Skeleton className="h-80 w-full" />

@@ -63,8 +63,11 @@ export function HrMasterSheet({
             {children}
           </div>
         </HrDrawerFooterProvider>
-        {/* One bottom action area; it collapses when the record has no actions. */}
-        <div className="flex flex-wrap items-center justify-end gap-2 bg-muted/40 px-5 py-3 sm:px-6 [&:not(:has(button,a))]:hidden">
+        {/*
+          One bottom action area, aligned to the bottom-right corner; it collapses when
+          the record has no actions. Every action uses the primary (yellow) treatment.
+        */}
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border bg-muted/40 px-5 py-3 sm:px-6 [&:not(:has(button,a))]:hidden [&_:is(button,a[data-slot=button])]:border-primary! [&_:is(button,a[data-slot=button])]:bg-primary! [&_:is(button,a[data-slot=button])]:text-primary-foreground! [&_:is(button,a[data-slot=button])]:shadow-none! [&_:is(button,a[data-slot=button]):not(:disabled):hover]:bg-primary/85! [&_:is(button,a[data-slot=button])_svg]:text-primary-foreground!">
           {footer}
           <div ref={setFooterTarget} className="contents" />
         </div>
