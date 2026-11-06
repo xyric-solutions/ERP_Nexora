@@ -358,9 +358,6 @@ export function HrJobGradesSheetWorkspace() {
                   <th className="px-4 py-3 text-left">Job grade</th>
                   <th className="px-4 py-3 text-left">Compensation band</th>
                   <th className="px-4 py-3 text-left">Status</th>
-                  <th className="w-14 px-4 py-3">
-                    <span className="sr-only">Actions</span>
-                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -395,21 +392,11 @@ export function HrJobGradesSheetWorkspace() {
                     <td className="px-4 py-3">
                       <HrMasterStatusBadge status={record.status} />
                     </td>
-                    <td className="px-2 py-2 text-right">
-                      {canUpdate && record.status === "inactive" ? (
-                        <HrMasterDeleteButton
-                          name={record.name}
-                          code={record.code}
-                          saving={saving}
-                          onDelete={() => deleteRecord(record)}
-                        />
-                      ) : null}
-                    </td>
                   </tr>
                 ))}
                 {filtered.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-10 text-center text-muted-foreground" colSpan={6}>
+                    <td className="px-4 py-10 text-center text-muted-foreground" colSpan={5}>
                       No job grades match these filters.
                     </td>
                   </tr>
@@ -456,14 +443,12 @@ export function HrJobGradesSheetWorkspace() {
                   void loadCurrencies(companyId);
                 }}
               />
-              {selected.status === "inactive" ? (
-                <HrMasterDeleteButton
+              <HrMasterDeleteButton
                   name={selected.name}
                   code={selected.code}
                   saving={saving}
                   onDelete={() => deleteRecord(selected)}
                 />
-              ) : null}
             </>
           ) : undefined
         }
@@ -577,7 +562,7 @@ function CurrencySelect({
         className="h-10 min-w-0 rounded-md border border-input bg-background px-3 disabled:cursor-not-allowed disabled:opacity-60"
         value={value}
         disabled={loadingCurrencies || empty}
-        aria-describedby="job-grade-currency-help"
+        aria-describedby={error || empty || legacy ? "job-grade-currency-help" : undefined}
         aria-invalid={blocked || undefined}
         onChange={(event) => onChange(event.target.value)}
       >
@@ -597,17 +582,17 @@ function CurrencySelect({
           </option>
         ))}
       </select>
-      <span
-        id="job-grade-currency-help"
-        className={`text-xs font-normal ${error || blocked ? "text-destructive" : "text-muted-foreground"}`}
-      >
-        {error ||
-          (empty
-            ? `No currencies are configured for this company. ${currencySetupHint}`
-            : legacy
-              ? `${legacy} is no longer an active company currency. Keep it, or choose a configured currency.`
-              : "Synced from the company currencies configured under Finance → Company currencies.")}
-      </span>
+      {error || empty || legacy ? (
+        <span
+          id="job-grade-currency-help"
+          className={`text-xs font-normal ${error || blocked ? "text-destructive" : "text-muted-foreground"}`}
+        >
+          {error ||
+            (empty
+              ? `No currencies are configured for this company. ${currencySetupHint}`
+              : `${legacy} is no longer an active company currency. Keep it, or choose a configured currency.`)}
+        </span>
+      ) : null}
     </label>
   );
 }

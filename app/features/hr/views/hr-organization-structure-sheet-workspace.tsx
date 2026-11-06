@@ -223,11 +223,6 @@ export function HrOrganizationStructureSheetWorkspace() {
           </span>
           <HrMasterStatusBadge status={unit.status} />
         </button>
-        {canWrite && unit.status === "inactive" ? (
-          <div className="shrink-0 pr-2">
-            <HrMasterDeleteButton name={unit.name} code={unit.code} saving={saving} onDelete={() => deleteUnit(unit)} />
-          </div>
-        ) : null}
       </div>
       {visibleChildrenOf(unit.id).length ? (
         <ul className="m-0 list-none border-l border-dashed border-border p-0">
@@ -364,20 +359,13 @@ export function HrOrganizationStructureSheetWorkspace() {
               <Button variant="outline" disabled={saving} onClick={() => void changeStatus()}>
                 {selected.status === "active" ? "Deactivate" : "Activate"}
               </Button>
-              {selected.status === "active" && selectableOrganizationUnitTypes.some((type) => canReportTo(type, selected.type)) ? (
-                <Button variant="outline" onClick={() => openCreate(selected.id, selected.type)}>
-                  Add {typeLabels[defaultChildType(selected.type)].toLowerCase()}
-                </Button>
-              ) : null}
               <HrEditButton label="Edit unit" onClick={openEdit} />
-              {selected.status === "inactive" ? (
-                <HrMasterDeleteButton
+              <HrMasterDeleteButton
                   name={selected.name}
                   code={selected.code}
                   saving={saving}
                   onDelete={() => deleteUnit(selected)}
                 />
-              ) : null}
             </>
           ) : canWrite && selectedId === companyId && company ? (
             <Button onClick={() => openCreate(company.id, "company")}>Add child unit</Button>
@@ -419,9 +407,6 @@ export function HrOrganizationStructureSheetWorkspace() {
                     </option>
                   ))}
                 </select>
-                <span className="text-xs font-normal text-muted-foreground">
-                  Company → Project → Location → Department
-                </span>
               </label>
             ) : null}
             <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-parent">

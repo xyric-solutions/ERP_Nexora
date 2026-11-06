@@ -53,7 +53,6 @@ export function HrMasterCatalogueSheetWorkspace({
   singular,
   nameLabel = "Name",
   namePlaceholder,
-  nameHelp,
   withDepartment = false,
 }: {
   type: HrMasterType;
@@ -63,7 +62,6 @@ export function HrMasterCatalogueSheetWorkspace({
   /** Label of the name field and column, such as Position or Job title. */
   nameLabel?: string;
   namePlaceholder?: string;
-  nameHelp?: string;
   /** Jobs belong to a department, chosen when the job is created. */
   withDepartment?: boolean;
 }) {
@@ -316,9 +314,6 @@ export function HrMasterCatalogueSheetWorkspace({
                   {withDepartment ? <th className="px-4 py-3 text-left">Department</th> : null}
                   <th className="px-4 py-3 text-left">Description</th>
                   <th className="px-4 py-3 text-left">Status</th>
-                  <th className="w-14 px-4 py-3">
-                    <span className="sr-only">Actions</span>
-                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -353,21 +348,11 @@ export function HrMasterCatalogueSheetWorkspace({
                     <td className="px-4 py-3">
                       <HrMasterStatusBadge status={record.status} />
                     </td>
-                    <td className="px-2 py-2 text-right">
-                      {canUpdate && record.status === "inactive" ? (
-                        <HrMasterDeleteButton
-                          name={record.name}
-                          code={record.code}
-                          saving={saving}
-                          onDelete={() => deleteRecord(record)}
-                        />
-                      ) : null}
-                    </td>
                   </tr>
                 ))}
                 {filtered.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-10 text-center text-muted-foreground" colSpan={withDepartment ? 6 : 5}>
+                    <td className="px-4 py-10 text-center text-muted-foreground" colSpan={withDepartment ? 5 : 4}>
                       No {label.toLowerCase()} match these filters.
                     </td>
                   </tr>
@@ -408,14 +393,12 @@ export function HrMasterCatalogueSheetWorkspace({
                 {selected.status === "active" ? "Deactivate" : "Activate"}
               </Button>
               <HrEditButton label={`Edit ${singular}`} onClick={() => setEditor(editorFor(selected, type, records))} />
-              {selected.status === "inactive" ? (
-                <HrMasterDeleteButton
+              <HrMasterDeleteButton
                   name={selected.name}
                   code={selected.code}
                   saving={saving}
                   onDelete={() => deleteRecord(selected)}
                 />
-              ) : null}
             </>
           ) : undefined
         }
@@ -425,9 +408,6 @@ export function HrMasterCatalogueSheetWorkspace({
             <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-code`}>
               Auto-generated code
               <Input id={`master-${type}-code`} value={editor.code} disabled />
-              <span className="text-xs font-normal text-muted-foreground">
-                Assigned automatically to keep records consistent.
-              </span>
             </label>
             <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-name`}>
               {nameLabel}
@@ -438,7 +418,6 @@ export function HrMasterCatalogueSheetWorkspace({
                 value={editor.name}
                 onChange={(event) => setEditor({ ...editor, name: event.target.value })}
               />
-              {nameHelp ? <span className="text-xs font-normal text-muted-foreground">{nameHelp}</span> : null}
             </label>
             {withDepartment ? (
               <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-department`}>
@@ -462,11 +441,11 @@ export function HrMasterCatalogueSheetWorkspace({
                     </option>
                   ))}
                 </select>
-                <span className="text-xs font-normal text-muted-foreground">
-                  {departments.length
-                    ? "The department this job title belongs to, for example Marketing for a Community Handler."
-                    : "Add a department in Organisation Structure first."}
-                </span>
+                {departments.length ? null : (
+                  <span className="text-xs font-normal text-muted-foreground">
+                    Add a department in Organisation Structure first.
+                  </span>
+                )}
               </label>
             ) : null}
             <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-description`}>

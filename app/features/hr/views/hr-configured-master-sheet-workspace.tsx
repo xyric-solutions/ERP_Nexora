@@ -37,7 +37,8 @@ type Editor = {
 export type HrConfiguredMasterField = {
   key: FieldKey;
   label: string;
-  help: string;
+  /** Not shown; kept so older field definitions stay valid. */
+  help?: string;
   placeholder?: string;
   options?: readonly Option[];
   /** Options read from live records instead of a fixed list. */
@@ -54,6 +55,8 @@ export type HrConfiguredMasterSheetDefinition = {
   /** Header of the name column; defaults to the singular label. */
   nameLabel?: string;
   fields: readonly HrConfiguredMasterField[];
+  /** Offer "Add" in the record drawer's footer as well as in the toolbar. */
+  addFromDrawer?: boolean;
 };
 
 function recordValue(record: Record, key: FieldKey): string | null {
@@ -386,9 +389,6 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
                   ))}
                   <th className="px-4 py-3 text-left">Description</th>
                   <th className="px-4 py-3 text-left">Status</th>
-                  <th className="w-14 px-4 py-3">
-                    <span className="sr-only">Actions</span>
-                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -423,21 +423,11 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
                     <td className="px-4 py-3">
                       <HrMasterStatusBadge status={record.status} />
                     </td>
-                    <td className="px-2 py-2 text-right">
-                      {canUpdate && record.status === "inactive" ? (
-                        <HrMasterDeleteButton
-                          name={record.name}
-                          code={record.code}
-                          saving={saving}
-                          onDelete={() => deleteRecord(record)}
-                        />
-                      ) : null}
-                    </td>
                   </tr>
                 ))}
                 {filtered.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-10 text-center text-muted-foreground" colSpan={5 + definition.fields.length}>
+                    <td className="px-4 py-10 text-center text-muted-foreground" colSpan={4 + definition.fields.length}>
                       No {sectionLabel.toLowerCase()} records match these filters.
                     </td>
                   </tr>
@@ -481,18 +471,28 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
               <Button variant="outline" disabled={saving} onClick={() => void changeStatus()}>
                 {selected.status === "active" ? "Deactivate" : "Activate"}
               </Button>
+              {definition.addFromDrawer && canCreate ? (
+                <Button
+                  variant="outline"
+                  disabled={saving}
+                  onClick={() => {
+                    setSelectedId("");
+                    setEditor(editorFor(undefined, definition, records));
+                  }}
+                >
+                  + Add {sectionSingular}
+                </Button>
+              ) : null}
               <HrEditButton
                 label={`Edit ${sectionSingular}`}
                 onClick={() => setEditor(editorFor(selected, definition, records))}
               />
-              {selected.status === "inactive" ? (
-                <HrMasterDeleteButton
+              <HrMasterDeleteButton
                   name={selected.name}
                   code={selected.code}
                   saving={saving}
                   onDelete={() => deleteRecord(selected)}
                 />
-              ) : null}
             </>
           ) : undefined
         }
@@ -502,9 +502,6 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
             <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-code`}>
               Auto-generated code
               <Input id={`configured-${sectionKey}-code`} value={editor.code} disabled />
-              <span className="text-xs font-normal text-muted-foreground">
-                Assigned automatically to keep records consistent.
-              </span>
             </label>
             <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-name`}>
               Name
@@ -555,7 +552,6 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
                       onChange={(event) => setValue(event.target.value.toUpperCase())}
                     />
                   )}
-                  <span className="text-xs font-normal text-muted-foreground">{field.help}</span>
                 </label>
               );
             })}

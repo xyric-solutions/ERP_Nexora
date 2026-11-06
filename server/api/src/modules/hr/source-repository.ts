@@ -7939,7 +7939,7 @@ export class SourceHrRepository {
     const permission = organization ? "hr.organization.update" : "hr.master.update";
     if (!context.actor.permissions.includes(permission))
       throw new HrApiError(403, "PERMISSION_DENIED", organization ? "You are not permitted to maintain the organization structure." : "You are not permitted to maintain HR master data.");
-    const inUse = () => new HrApiError(409, "HR_MASTER_IN_USE", "This record is still used by employee assignments, requisitions or other records and cannot be deleted. It remains deactivated.");
+    const inUse = () => new HrApiError(409, "HR_MASTER_IN_USE", "This record is still used by employee assignments, requisitions or other records and cannot be deleted. Nothing was changed.");
     const collection = organization ? "organization_units" : resource === "job_grade" ? "job_grades" : "masters";
     const path = `/api/v1/hr/${collection}/${recordId}/delete`;
     const client = await this.pool.connect();
@@ -7988,13 +7988,22 @@ export class SourceHrRepository {
         before = { ...row.state, ...(row.grade ? { job_grade_detail: row.grade } : {}), code: row.code, status: row.status };
         kind = row.master_type;
       }
-      if (before.status !== "inactive")
-        throw new HrApiError(409, "HR_MASTER_DELETE_ACTIVE", "Deactivate this record before deleting it permanently.");
+      // An active record is deactivated and deleted in this one transaction; the database
+      // guards still only delete inactive rows, and any remaining reference rolls both back.
+      if (before.status !== "inactive") {
+        if (organization)
+          await client.query("update organization_unit set status='inactive',updated_at=now() where tenant_id=$1 and id=$2", [context.tenantId, recordId]);
+        else
+          await client.query(
+            "update hr_master_record set status='inactive',deactivated_by=$3,deactivated_at=now(),updated_at=now() where tenant_id=$1 and id=$2",
+            [context.tenantId, recordId, context.actor.userId],
+          );
+      }
       // References that are not protected by a foreign key.
       if (organization) {
         const children = await client.query("select 1 from organization_unit where tenant_id=$1 and parent_id=$2 limit 1", [context.tenantId, recordId]);
         if (children.rowCount)
-          throw new HrApiError(409, "HR_ORGANIZATION_UNIT_HAS_CHILDREN", "This unit still has child units. Move or delete them before deleting this unit. It remains deactivated.");
+          throw new HrApiError(409, "HR_ORGANIZATION_UNIT_HAS_CHILDREN", "This unit still has child units. Move or delete them before deleting this unit.");
         const used = await client.query<{ used: boolean }>(
           `select exists(select 1 from hr_shift_assignment where tenant_id=$1 and scope in ('branch','department') and scope_id=$2)
                or exists(select 1 from hr_recruitment_offer where tenant_id=$1 and (branch_id=$2 or department_id=$2)) as used`,
@@ -8057,8 +8066,8 @@ export class SourceHrRepository {
       if (code === "23503" || code === "23001") throw inUse();
       if (code === "23514" && message.startsWith("retired employment masters"))
         throw new HrApiError(409, "HR_MASTER_TYPE_RETIRED", "Employment types and employee categories are retired and read-only. Use an employment setup instead.");
-      if (code === "23514" && message.endsWith("can be permanently deleted"))
-        throw new HrApiError(409, "HR_MASTER_DELETE_ACTIVE", "Deactivate this record before deleting it permanently.");
+      // A guard on deactivating the record (for example active placements) also means it is still in use.
+      if (code === "23514" && !message.startsWith("retired employment masters")) throw inUse();
       throw error;
     } finally {
       client.release();

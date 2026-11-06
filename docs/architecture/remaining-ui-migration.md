@@ -4315,3 +4315,26 @@ Company Chart adoption/review checkpoint (2026-10-20):
   `git diff --check`, `api:check`, production build. Pre-existing failures:
   OpenAPI path-list test and `user-management-components.test.ts`. Browser
   click-through at desktop/tablet/mobile and light/dark is pending.
+
+## 2026-11-06 - Organisation & Masters actions live in the record drawer
+
+- Delete is offered only inside a record's detail drawer (Organisation
+  Structure, Work Locations, Cost Centres, Employment Setup, Designations, Jobs,
+  Job Grades); the listing rows no longer carry delete icons. Delete works for
+  active records too: the API deactivates and deletes in one transaction (the
+  HR135 database guards still delete only inactive rows), so any remaining
+  reference (child units, placements, offers, assignments, leave rules, payroll
+  evidence) rolls back and leaves the record unchanged.
+- Organisation Structure drawer: "Add location"/"Add department" removed; Edit
+  and Delete icons in the footer for every unit. New units are added from the
+  toolbar. Employment Setup also offers "+ Add Employment Setup" in its drawer
+  footer (`addFromDrawer`).
+- Removed helper lines: cost-centre default nominal ("Proposed payroll
+  allocation …"), designation and job title helpers, job department hint (kept
+  only when no department exists), job-grade currency "Synced from …" (kept for
+  errors, no currencies or a retired currency), auto-code hints, work-location
+  and employment-setup field helpers, org-structure hierarchy hint.
+- Verification: web/API `tsc`, ESLint (no new findings), unit tests, 6
+  repository delete checks against a throwaway clone (active leaf delete,
+  parent refused and unchanged, in-use employment setup refused and unchanged),
+  UI theme audit, `git diff --check`, production build. Browser check pending.

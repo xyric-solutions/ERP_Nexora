@@ -202,7 +202,6 @@ const configuredHrMasters: Record<string, HrConfiguredMasterDefinition> = {
       {
         key: "default_nominal",
         label: "Default nominal",
-        help: "Proposed payroll allocation, chosen from the active nominals Finance has created for this company. New nominals appear here once Finance activates them.",
         optionsSource: "cost_centre_nominals",
         optional: true,
       },
@@ -218,13 +217,13 @@ const configuredHrMasters: Record<string, HrConfiguredMasterDefinition> = {
       {
         key: "working_pattern",
         label: "Working pattern",
-        help: "Default physical-working arrangement for assignments at this location.",
         options: workArrangementOptions,
       },
     ],
   },
   "employment-setup": {
     type: "employment_setup",
+    addFromDrawer: true,
     label: "Employment Setup",
     singular: "Employment Setup",
     nameLabel: "Name",
@@ -234,13 +233,11 @@ const configuredHrMasters: Record<string, HrConfiguredMasterDefinition> = {
       {
         key: "payment_route",
         label: "Payment route",
-        help: "Downstream route expected for people on this employment setup.",
         options: paymentRouteOptions,
       },
       {
         key: "pay_cycle",
         label: "Pay cycle",
-        help: "Expected pay frequency for people on this employment setup.",
         options: payCycleOptions,
       },
     ],
@@ -3014,7 +3011,6 @@ function PrototypeContentBody(props: PrototypeContentProps) {
             singular="Designation"
             nameLabel="Position"
             namePlaceholder="For example Software Engineer"
-            nameHelp="The employee's position, independent of department. Link it to a department through a job."
             guidance="Designations are employee positions, such as Software Engineer or Community Handler. Deactivation prevents new assignments while preserving employment history."
           />
         ) : masterPageId === "jobs" ? (
@@ -3024,7 +3020,6 @@ function PrototypeContentBody(props: PrototypeContentProps) {
             singular="Job"
             nameLabel="Job title"
             namePlaceholder="For example Software Engineer – Development"
-            nameHelp="The specific title used for hiring and placement in its department."
             withDepartment
             guidance="Jobs are specific job titles that belong to a department, such as Software Engineer in Development or Community Handler in Marketing. Creating one does not hire, assign, or activate an employee."
           />

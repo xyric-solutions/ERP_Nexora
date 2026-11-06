@@ -13,8 +13,8 @@ import {
 import { HrDeleteButton } from "./hr-icon-buttons";
 
 /**
- * Permanent delete for a deactivated Organisation & Masters record. The server refuses active records and
- * records still referenced elsewhere; the caller shows that message and the record stays deactivated.
+ * Permanent delete for an Organisation & Masters record, shown in its detail drawer. The server refuses
+ * records still referenced elsewhere; the caller shows that message and nothing changes.
  */
 export function HrMasterDeleteButton({
   name,
@@ -56,8 +56,8 @@ export function HrMasterDeleteButton({
             <AlertDialogTitle>Permanently delete {name}?</AlertDialogTitle>
             <AlertDialogDescription>
               {code ? `${code} will be removed for good and its code will not be reused. ` : ""}
-              This cannot be undone. Records still used by employees or other records cannot be deleted and stay
-              deactivated. The deletion is kept in the audit trail.
+              This cannot be undone. Records still used by employees or other records cannot be deleted. The
+              deletion is kept in the audit trail.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="border-border">
