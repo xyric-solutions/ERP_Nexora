@@ -9,7 +9,7 @@ import type {
   HrOfferDirectory,
   HrOfferActionRequest,
 } from "@nexora/contracts";
-import { CheckCircle2, Download, Plus, ShieldCheck } from "lucide-react";
+import { Download, Plus, ShieldCheck, UserRoundPlus } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,8 @@ import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { employmentSetupOptionLabel, payCycleLabel, paymentRouteLabel } from "../model/employment-setup";
 import { HrEditButton } from "../components/hr-icon-buttons";
-import { offerMoney, offerStates } from "../model/hr-offer-display";
+import { offerFilterOptions, offerMoney, type OfferFilter } from "../model/hr-offer-display";
+import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import {
   HrDetailAudit,
@@ -48,18 +49,20 @@ const decimalUnits = (value: string): bigint | null => {
 };
 const fail = (err: unknown) =>
   err instanceof ApiError ? err.message : "The offer could not be loaded or saved. Please retry.";
+/** Action names; only submit, approve, reject and withdraw are offered. The rest label earlier history. */
 const actions: Record<HrOfferActionRequest["action"], string> = {
-  submit: "Submit for approval",
-  approve: "Approve offer",
-  reject_approval: "Reject approval",
+  submit: "Submit",
+  approve: "Approve",
+  reject_approval: "Reject",
   generate: "Generate offer letter",
   record_sent: "Record delivery",
   accept: "Record acceptance",
   decline: "Record decline",
-  withdraw: "Withdraw offer",
+  withdraw: "Withdraw",
   expire: "Close expired offer",
 };
-const states = offerStates;
+type OfferAction = "submit" | "approve" | "reject_approval" | "withdraw";
+type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
 type MasterOptions = Awaited<ReturnType<HrApiClient["masters"]>>["items"];
 type EmployeeOptions = Awaited<ReturnType<HrApiClient["employees"]>>["items"];
 type Terms = Omit<CreateHrOfferRequest, "company_id" | "application_id">;
@@ -250,66 +253,38 @@ function OfferEditor({
   );
 }
 
-function OfferDecision({
+/** Reason (and range-exception consent) for the action chosen in the drawer footer. */
+function OfferDecisionForm({
   offer,
-  allowed,
-  busy,
+  action,
   canException,
+  busy,
   run,
 }: {
   offer: HrOfferDetail;
-  allowed: HrOfferActionRequest["action"][];
-  busy: boolean;
+  action: OfferAction;
   canException: boolean;
+  busy: boolean;
   run: (input: HrOfferActionRequest) => Promise<boolean>;
 }) {
-  const [action, setAction] = useState<HrOfferActionRequest["action"] | "">(""),
-    [reason, setReason] = useState(""),
-    [evidence, setEvidence] = useState(""),
-    [respondedOn, setRespondedOn] = useState(""),
+  const [reason, setReason] = useState(""),
     [exception, setException] = useState(false);
-  const response = action === "accept" || action === "decline",
-    requiresEvidence = response || action === "record_sent";
-  if (!allowed.length) return null;
   return (
     <form
+      id="offer-decision"
       className="grid gap-3"
-      onSubmit={async (e) => {
+      onSubmit={(e) => {
         e.preventDefault();
-        if (!action) return;
-        await run({
+        void run({
           company_id: offer.company_id,
           expected_version: offer.version,
           action,
           reason,
-          evidence_reference: evidence,
+          evidence_reference: "",
           approve_range_exception: action === "approve" && exception,
-          ...(response ? { responded_on: respondedOn } : {}),
         });
       }}
     >
-      <label className="grid content-start gap-1.5 text-sm">
-        Offer action
-        <select
-          required
-          className={selectClass}
-          value={action}
-          disabled={busy}
-          onChange={(e) => {
-            setAction(e.target.value as typeof action);
-            setException(false);
-            setEvidence("");
-            setRespondedOn("");
-          }}
-        >
-          <option value="">Choose an action</option>
-          {allowed.map((value) => (
-            <option key={value} value={value}>
-              {actions[value]}
-            </option>
-          ))}
-        </select>
-      </label>
       {action === "approve" && offer.outside_range ? (
         <label className="flex items-start gap-2 rounded-lg bg-muted/50 p-3 text-sm">
           <Checkbox
@@ -325,50 +300,15 @@ function OfferDecision({
           </span>
         </label>
       ) : null}
-      {requiresEvidence ? (
-        <label className="grid content-start gap-1.5 text-sm">
-          {response ? "Candidate response reference" : "Delivery reference"}
-          <Input
-            required
-            maxLength={500}
-            value={evidence}
-            placeholder={
-              response
-                ? "Signed letter, response email or document reference"
-                : "Delivery receipt or sent-message reference"
-            }
-            onChange={(e) => setEvidence(e.target.value)}
-          />
-        </label>
-      ) : null}
-      {response ? (
-        <label className="grid content-start gap-1.5 text-sm">
-          Candidate response date
-          <Input
-            required
-            type="date"
-            max={offer.context.today}
-            value={respondedOn}
-            onChange={(e) => setRespondedOn(e.target.value)}
-          />
-        </label>
-      ) : null}
-      <label className="grid content-start gap-1.5 text-sm">
-        Decision reason
-        <Textarea required maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} />
+      <label className="grid content-start gap-1.5 text-sm" htmlFor="offer-decision-reason">
+        {action === "approve" ? "Approval note" : action === "submit" ? "Submission note" : "Reason"}
+        <Textarea id="offer-decision-reason" required maxLength={1000} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)} />
       </label>
-      <Button
-        type="submit"
-        className="text-primary-foreground!"
-        disabled={busy || !action || !reason.trim() || (action === "approve" && offer.outside_range && !exception)}
-      >
-        {busy ? "Saving…" : action ? actions[action] : "Choose an action"}
-      </Button>
     </form>
   );
 }
 
-export function HrOfferManagementWorkspace() {
+export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Navigate } = {}) {
   const { api, session, loading: sessionLoading, csrfToken } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]);
   const permissions = session?.user.permissions ?? [],
@@ -384,7 +324,8 @@ export function HrOfferManagementWorkspace() {
     [selectedId, setSelectedId] = useState(""),
     [detail, setDetail] = useState<HrOfferDetail | null>(null);
   const [search, setSearch] = useState(""),
-    [stateFilter, setStateFilter] = useState(""),
+    [stateFilter, setStateFilter] = useState<OfferFilter>("all"),
+    [decision, setDecision] = useState<OfferAction | "">(""),
     [filter, setFilter] = useState({ search: "", state: "", offset: 0 });
   const [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false),
@@ -395,8 +336,7 @@ export function HrOfferManagementWorkspace() {
     [editorLoading, setEditorLoading] = useState(false);
   const [applications, setApplications] = useState<Awaited<ReturnType<HrApiClient["applications"]>>["items"]>([]),
     [applicationId, setApplicationId] = useState(""),
-    [appSearch, setAppSearch] = useState(""),
-    [appQuery, setAppQuery] = useState("");
+    [appQuery] = useState("");
   const [masters, setMasters] = useState<MasterOptions>([]),
     [employees, setEmployees] = useState<EmployeeOptions>([]);
   const listSeq = useRef(0),
@@ -500,11 +440,11 @@ export function HrOfferManagementWorkspace() {
     if (editor !== "new" || !companyId) return;
     let cancelled = false;
     client
-      .applications({ companyId, stage: "selected", search: appQuery, limit: 100 })
+      .applications({ companyId, stage: "selected", search: appQuery || undefined, limit: 100 })
       .then((r) => {
         if (!cancelled) {
           setApplications(r.items);
-          setApplicationId((id) => (r.items.some((item) => item.id === id) ? id : (r.items[0]?.id ?? "")));
+          setApplicationId((id) => (r.items.some((item) => item.id === id) ? id : ""));
         }
       })
       .catch((e) => {
@@ -551,7 +491,7 @@ export function HrOfferManagementWorkspace() {
       setNotice(`${r.reference} saved as a draft.`);
       setSelectedId(r.id);
       setSearch("");
-      setStateFilter("");
+      setStateFilter("all");
       setFilter({ search: "", state: "", offset: 0 });
       if (editor === "edit") await loadDetail();
       return true;
@@ -568,8 +508,9 @@ export function HrOfferManagementWorkspace() {
     setError("");
     setNotice("");
     try {
-      await client.offerAction(detail.id, input, csrfToken(), crypto.randomUUID());
-      setNotice(`${actions[input.action]} recorded with its audit evidence.`);
+      const result = await client.offerAction(detail.id, input, csrfToken(), crypto.randomUUID());
+      setNotice(`${detail.reference} is now ${label(result.state).toLowerCase()}.`);
+      setDecision("");
       await Promise.all([loadList(), loadDetail()]);
       return true;
     } catch (e) {
@@ -579,21 +520,14 @@ export function HrOfferManagementWorkspace() {
       setBusy(false);
     }
   };
-  const allowed: HrOfferActionRequest["action"][] = [];
+  // Draft -> Submitted -> Approved / Rejected; Withdraw while Draft, Submitted or Approved. The server re-checks all of it.
+  const allowed: OfferAction[] = [];
   if (detail) {
     if (!detail.is_overdue) {
       if (detail.state === "draft" && canSubmit) allowed.push("submit");
       if (detail.state === "submitted" && canApprove) allowed.push("approve", "reject_approval");
-      if (canEdit) {
-        if (detail.state === "approved") allowed.push("generate");
-        if (detail.state === "generated") allowed.push("record_sent");
-        if (detail.state === "sent") allowed.push("accept", "decline");
-      }
     }
-    if (canEdit && ["draft", "submitted", "approved", "generated", "sent"].includes(detail.state)) {
-      allowed.push("withdraw");
-      if (detail.is_overdue) allowed.push("expire");
-    }
+    if (canEdit && ["draft", "submitted", "approved"].includes(detail.state)) allowed.push("withdraw");
   }
   const download = () => {
     if (!detail?.document_text) return;
@@ -619,6 +553,7 @@ export function HrOfferManagementWorkspace() {
   const openOffer = (id: string) => {
     if (busy) return;
     setSelectedId(id);
+    setDecision("");
     setEditor(null);
     setError("");
     setNotice("");
@@ -652,11 +587,11 @@ export function HrOfferManagementWorkspace() {
         </div>
       ) : null}
       <form
-        className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_180px_auto]"
+        className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_auto]"
         onSubmit={(e) => {
           e.preventDefault();
           setError("");
-          setFilter({ search, state: stateFilter, offset: 0 });
+          setFilter({ search, state: stateFilter === "all" ? "" : stateFilter, offset: 0 });
         }}
       >
         <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
@@ -679,7 +614,7 @@ export function HrOfferManagementWorkspace() {
               setNotice("");
               setFilter({ search: "", state: "", offset: 0 });
               setSearch("");
-              setStateFilter("");
+              setStateFilter("all");
             }}
           >
             {companies.length ? (
@@ -703,26 +638,6 @@ export function HrOfferManagementWorkspace() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
-        <label className="grid content-start gap-1.5 text-sm font-medium">
-          Offer status
-          <select
-            className={selectClass}
-            value={stateFilter}
-            disabled={busy || !companyId}
-            onChange={(e) => {
-              setStateFilter(e.target.value);
-              setError("");
-              setFilter({ search, state: e.target.value, offset: 0 });
-            }}
-          >
-            <option value="">All statuses</option>
-            {states.map((s) => (
-              <option key={s} value={s}>
-                {label(s)}
-              </option>
-            ))}
-          </select>
-        </label>
         {canCreate ? (
           <Button
             type="button"
@@ -730,6 +645,7 @@ export function HrOfferManagementWorkspace() {
             disabled={busy || !companyId}
             onClick={() => {
               setEditor("new");
+              setApplicationId("");
               setContext(null);
               setError("");
             }}
@@ -739,6 +655,16 @@ export function HrOfferManagementWorkspace() {
           </Button>
         ) : null}
       </form>
+      <HrMasterStatusFilter<OfferFilter>
+        label="Offer status"
+        value={stateFilter}
+        options={offerFilterOptions}
+        onChange={(value) => {
+          setStateFilter(value);
+          setError("");
+          setFilter({ search: filter.search, state: value === "all" ? "" : value, offset: 0 });
+        }}
+      />
       <HrRecordDrawer
         title={editor === "edit" ? "Edit offer" : "Prepare offer"}
         open={!!editor}
@@ -748,49 +674,35 @@ export function HrOfferManagementWorkspace() {
         notice={notice}
       >
         {editor === "new" ? (
-          <HrDetailSection title="Application">
-            <form
-              className="flex flex-wrap items-end gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                setAppQuery(appSearch);
-              }}
-            >
-              <label className="grid content-start flex-1 gap-1 text-sm">
-                Find selected application
-                <Input maxLength={160} value={appSearch} onChange={(e) => setAppSearch(e.target.value)} />
-              </label>
-              <Button type="submit" variant="outline">
-                Find application
-              </Button>
-            </form>
-            <label className="grid content-start gap-1.5 text-sm">
-              Selected application
+          <HrDetailSection title="Candidate">
+            <label className="grid content-start gap-1.5 text-sm" htmlFor="offer-application">
+              Candidate and application
               <select
+                id="offer-application"
+                required
                 className={selectClass}
                 value={applicationId}
                 disabled={busy}
-                onChange={(e) => setApplicationId(e.target.value)}
+                onChange={(e) => {
+                  setApplicationId(e.target.value);
+                  setContext(null);
+                }}
               >
-                {applications.length ? (
-                  applications.map((app) => (
-                    <option key={app.id} value={app.id}>
-                      {app.candidate_name} · {app.reference}
-                    </option>
-                  ))
-                ) : (
-                  <option value="">No selected applications</option>
-                )}
+                <option value="" disabled>
+                  {applications.length ? "Select a candidate" : "No candidates have reached Selected"}
+                </option>
+                {applications.map((app) => (
+                  <option key={app.id} value={app.id}>
+                    {app.candidate_name} · {app.opening_title} · {app.reference}
+                  </option>
+                ))}
               </select>
             </label>
             {context?.blockers.length ? (
               <Alert>
-                <AlertTitle>Offer prerequisites</AlertTitle>
+                <AlertTitle>This application is not ready for an offer</AlertTitle>
                 <AlertDescription>{context.blockers.join(" ")}</AlertDescription>
               </Alert>
-            ) : null}
-            {!applications.length ? (
-              <p className="m-0! text-sm text-muted-foreground">No selected applications yet.</p>
             ) : null}
           </HrDetailSection>
         ) : null}
@@ -847,7 +759,7 @@ export function HrOfferManagementWorkspace() {
                     <td className="px-4 py-3 text-muted-foreground">{item.valid_until}</td>
                     <td className="px-4 py-3">
                       <Badge variant={item.is_overdue ? "destructive" : "secondary"}>
-                        {item.is_overdue ? "Overdue" : label(item.state)}
+                        {item.is_overdue && ["draft", "submitted"].includes(item.state) ? "Overdue" : label(item.state)}
                       </Badge>
                     </td>
                   </tr>
@@ -855,8 +767,7 @@ export function HrOfferManagementWorkspace() {
                 {directory.items.length === 0 && (
                   <tr>
                     <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
-                      No offers match these filters. Prepare an offer for a selected application, or adjust the company,
-                      search and status filters.
+                      No offers match these filters.
                     </td>
                   </tr>
                 )}
@@ -869,7 +780,7 @@ export function HrOfferManagementWorkspace() {
             {directory.total} matching offers · {directory.items.length} on this page
             <Badge variant="outline">
               <ShieldCheck className="size-3" />
-              Approval before delivery
+              Approval before employee creation
             </Badge>
           </span>
           <div className="flex gap-2">
@@ -895,7 +806,10 @@ export function HrOfferManagementWorkspace() {
       <HrMasterSheet
         open={Boolean(selectedId)}
         onOpenChange={(open) => {
-          if (!open && !busy) setSelectedId("");
+          if (!open && !busy) {
+            setSelectedId("");
+            setDecision("");
+          }
         }}
         eyebrow="Offer Management"
         title={detail?.candidate_name ?? selectedSummary?.candidate_name ?? "Offer"}
@@ -905,16 +819,59 @@ export function HrOfferManagementWorkspace() {
             : (selectedSummary?.reference ?? "")
         }
         footer={
-          detail?.state === "draft" && canEdit ? (
-            <HrEditButton
-              label="Edit draft terms"
-              disabled={busy}
-              onClick={() => {
-                setContext(detail.context);
-                setEditor("edit");
-              }}
-            />
-          ) : undefined
+          !detail || detail.id !== selectedId ? undefined : decision ? (
+            <>
+              <Button variant="outline" disabled={busy} onClick={() => setDecision("")}>
+                Back
+              </Button>
+              <Button
+                type="submit"
+                form="offer-decision"
+                variant={decision === "approve" || decision === "submit" ? "default" : "outline"}
+                className={decision === "approve" || decision === "submit" ? "text-primary-foreground!" : ""}
+                disabled={busy}
+              >
+                {busy ? "Saving…" : `Confirm ${actions[decision].toLowerCase()}`}
+              </Button>
+            </>
+          ) : (
+            <>
+              {allowed
+                .filter((a) => a !== "submit" && a !== "approve")
+                .map((a) => (
+                  <Button key={a} variant="outline" disabled={busy} onClick={() => setDecision(a)}>
+                    {actions[a]}
+                  </Button>
+                ))}
+              {detail.state === "draft" && canEdit ? (
+                <HrEditButton
+                  label="Edit draft terms"
+                  disabled={busy}
+                  onClick={() => {
+                    setContext(detail.context);
+                    setEditor("edit");
+                  }}
+                />
+              ) : null}
+              {allowed
+                .filter((a) => a === "submit" || a === "approve")
+                .map((a) => (
+                  <Button key={a} className="text-primary-foreground!" disabled={busy} onClick={() => setDecision(a)}>
+                    {actions[a]}
+                  </Button>
+                ))}
+              {detail.state === "approved" && canCreate && onNavigate ? (
+                <Button
+                  className="text-primary-foreground!"
+                  disabled={busy}
+                  onClick={() => onNavigate("hr", "create-employee-from-offer", detail.id)}
+                >
+                  <UserRoundPlus className="size-4" />
+                  Create employee
+                </Button>
+              ) : null}
+            </>
+          )
         }
       >
         {detail && detail.id === selectedId ? (
@@ -930,11 +887,23 @@ export function HrOfferManagementWorkspace() {
                 {notice}
               </div>
             ) : null}
+            {decision ? (
+              <HrDetailSection title={actions[decision]}>
+                <OfferDecisionForm
+                  key={`${detail.id}-${detail.version}-${decision}`}
+                  offer={detail}
+                  action={decision}
+                  canException={canException}
+                  busy={busy}
+                  run={run}
+                />
+              </HrDetailSection>
+            ) : null}
             <HrDetailSummary
               code={detail.reference}
               status={detail.state}
-              statusLabel={detail.is_overdue ? "Overdue" : undefined}
-              statusTone={detail.is_overdue ? "danger" : undefined}
+              statusLabel={detail.is_overdue && ["draft", "submitted"].includes(detail.state) ? "Overdue" : undefined}
+              statusTone={detail.is_overdue && ["draft", "submitted"].includes(detail.state) ? "danger" : undefined}
             >
               {detail.context.opening_title} · application <HrDetailCode>{detail.application_reference}</HrDetailCode>
               {` · valid through ${hrDisplayDate(detail.valid_until)}`}
@@ -1002,41 +971,11 @@ export function HrOfferManagementWorkspace() {
                 </p>
               </div>
             ) : null}
-            {detail.is_overdue ? (
+            {detail.is_overdue && ["draft", "submitted", "approved"].includes(detail.state) ? (
               <Alert variant="destructive">
                 <AlertTitle>Offer validity has passed</AlertTitle>
-                <AlertDescription>
-                  Expire or withdraw this record before preparing a replacement. Acceptance and delivery actions are
-                  blocked.
-                </AlertDescription>
+                <AlertDescription>Withdraw this offer and prepare a new one with current dates.</AlertDescription>
               </Alert>
-            ) : null}
-            {detail.state === "accepted" ? (
-              <div className="flex flex-wrap gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
-                <CheckCircle2 className="size-5 shrink-0 text-primary" />
-                <span>
-                  Acceptance is recorded and the authorized position is reserved. This offer is ready for the governed
-                  employee-draft handoff.{" "}
-                  <a
-                    className="font-semibold text-primary underline underline-offset-4"
-                    href="#/hr/create-employee-from-offer"
-                  >
-                    Open employee handoff
-                  </a>
-                </span>
-              </div>
-            ) : null}
-            {allowed.length ? (
-              <HrDetailSection title="Update offer">
-                <OfferDecision
-                  key={`${detail.id}-${detail.version}`}
-                  offer={detail}
-                  allowed={allowed}
-                  busy={busy || !!editor}
-                  canException={canException}
-                  run={run}
-                />
-              </HrDetailSection>
             ) : null}
             {detail.document_text ? (
               <HrDetailSection title="Generated offer letter">

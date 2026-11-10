@@ -10,7 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
@@ -29,7 +29,7 @@ import {
   HrStatusPill,
   hrDisplayDate,
 } from "../components/hr-detail-tile";
-import { offerMoney, offerStates } from "../model/hr-offer-display";
+import { offerFilterOptions, offerMoney, type OfferFilter } from "../model/hr-offer-display";
 
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
 const selectClass =
@@ -37,74 +37,6 @@ const selectClass =
 const fail = (error: unknown) =>
   error instanceof ApiError ? error.message : "The handoff could not be loaded or saved. Please retry.";
 const label = (value: string) => value.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
-function HandoffForm({
-  busy,
-  onSave,
-}: {
-  busy: boolean;
-  onSave: (fields: Pick<CreateHrOfferEmployeeRequest, "employee_number" | "work_email" | "reason">) => Promise<void>;
-}) {
-  const number = "AUTO";
-  const [email, setEmail] = useState("");
-  const [reason, setReason] = useState("");
-  return (
-    <form
-      aria-label="Prepare the employee draft"
-      className="grid min-w-0 gap-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void onSave({ employee_number: number, work_email: email || undefined, reason });
-      }}
-    >
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <label className="grid content-start gap-2 text-sm font-medium">
-          Employee number (automatic)
-          <Input
-            required
-            maxLength={32}
-            placeholder="EMP-0001"
-            value="Assigned on save · EMP-001…"
-            readOnly
-            disabled={busy}
-          />
-        </label>
-        <label className="grid content-start gap-2 text-sm font-medium">
-          Company work email
-          <Input
-            type="email"
-            maxLength={320}
-            placeholder="employee@company.com"
-            value={email}
-            disabled={busy}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </label>
-      </div>
-      <label className="grid content-start gap-2 text-sm font-medium">
-        Handoff reason
-        <Textarea
-          required
-          minLength={8}
-          maxLength={1000}
-          rows={3}
-          placeholder="Confirm accepted terms and request employee profile preparation"
-          value={reason}
-          disabled={busy}
-          onChange={(e) => setReason(e.target.value)}
-        />
-      </label>
-      <Button
-        type="submit"
-        disabled={busy || !number || reason.trim().length < 8}
-        className="justify-self-start text-primary-foreground!"
-      >
-        <UserRoundPlus className="size-4" />
-        {busy ? "Creating draft…" : "Create employee draft"}
-      </Button>
-    </form>
-  );
-}
-
 function OfferHirePreparation({
   client,
   csrfToken,
@@ -160,7 +92,12 @@ function OfferHirePreparation({
   );
 }
 
-export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate }) {
+/**
+ * Converts an Approved offer into an employee: name, email, phone and joining date come from the
+ * candidate and offer; designation, department, job title and salary stay linked to the offer and
+ * show in Employee Directory as a Draft until the governed hire completes.
+ */
+export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNavigate: Navigate; initialOfferId?: string }) {
   const { api, session, csrfToken, loading: sessionLoading } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
   const permissions = session?.user.permissions ?? [];
@@ -175,10 +112,10 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
   const [company, setCompany] = useState("");
   const [search, setSearch] = useState("");
   const [applied, setApplied] = useState("");
-  const [stateFilter, setStateFilter] = useState("");
+  const [stateFilter, setStateFilter] = useState<OfferFilter>(initialOfferId ? "all" : "approved");
   const [offset, setOffset] = useState(0);
   const [offers, setOffers] = useState<HrOfferDirectory>({ items: [], total: 0 });
-  const [selected, setSelected] = useState("");
+  const [selected, setSelected] = useState(initialOfferId ?? "");
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -216,7 +153,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
     let current = true;
     setLoading(true);
     client
-      .offers({ companyId: company, state: stateFilter || undefined, search: applied || undefined, offset })
+      .offers({ companyId: company, state: stateFilter === "all" ? undefined : stateFilter, search: applied || undefined, offset })
       .then((result) => {
         if (current) {
           setOffers(result);
@@ -235,7 +172,9 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
       current = false;
     };
   }, [client, company, canRead, applied, stateFilter, offset, revision]);
-  const selectedAccepted = offers.items.find((o) => o.id === selected)?.state === "accepted";
+  // Approved offers convert; earlier accepted offers remain convertible.
+  const selectedState = offers.items.find((o) => o.id === selected)?.state;
+  const selectedAccepted = selectedState === "approved" || selectedState === "accepted";
   useEffect(() => {
     if (!selected || !company || !selectedAccepted) {
       setWorkspace(null);
@@ -263,8 +202,13 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
     };
   }, [client, company, selected, selectedAccepted, revision]);
   const reload = useCallback(() => setRevision((value) => value + 1), []);
-  const save = async (fields: Pick<CreateHrOfferEmployeeRequest, "employee_number" | "work_email" | "reason">) => {
+  const save = async () => {
     if (!workspace || !csrfToken || mutation.current) return;
+    // Nothing is typed again: the number is allocated on the server and the rest comes from the offer.
+    const fields: Pick<CreateHrOfferEmployeeRequest, "employee_number" | "reason"> = {
+      employee_number: "AUTO",
+      reason: `Employee created from approved offer ${workspace.offer.reference}.`,
+    };
     mutation.current = true;
     setBusy(true);
     setError("");
@@ -275,7 +219,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
     try {
       const result = await client.createOfferEmployee(selected, input, csrfToken(), retry.current.key);
       setNotice(
-        `Employee ${result.employee_number} created as a draft. Submit the profile for approval before preparing its assignment.`,
+        `Employee ${result.employee_number} created as a Draft and added to Employee Directory. Complete any remaining details with Edit Employee.`,
       );
       retry.current = null;
       reload();
@@ -311,7 +255,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
     try {
       await client.createProfileDraftAssignment(workspace.handoff.employee_id, input, csrfToken(), retry.current.key);
       setNotice(
-        "Initial assignment prepared from the accepted offer. Request and approve the hire in Employee Assignments when the governing policy and job are ready.",
+        "Initial assignment prepared from the approved offer. Request and approve the hire in Employee Assignments when the governing policy and job are ready.",
       );
       retry.current = null;
       reload();
@@ -329,7 +273,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
       <Alert>
         <AlertTitle>Recruitment handoff access required</AlertTitle>
         <AlertDescription>
-          Sign in with employee read and salary read permissions to review accepted offer terms.
+          Sign in with employee read and salary read permissions to review approved offer terms.
         </AlertDescription>
       </Alert>
     );
@@ -374,7 +318,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
       )}
       <form
         aria-label="Find offers"
-        className="grid min-w-0 items-end gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_12rem]"
+        className="grid min-w-0 items-end gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
         onSubmit={(e) => {
           e.preventDefault();
           setError("");
@@ -417,27 +361,17 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
             placeholder="Candidate, offer reference or opening, then Enter"
           />
         </label>
-        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
-          Offer status
-          <select
-            className={selectClass}
-            value={stateFilter}
-            disabled={busy || !company}
-            onChange={(e) => {
-              setStateFilter(e.target.value);
-              setOffset(0);
-              setError("");
-            }}
-          >
-            <option value="">All statuses</option>
-            {offerStates.map((s) => (
-              <option key={s} value={s}>
-                {label(s)}
-              </option>
-            ))}
-          </select>
-        </label>
       </form>
+      <HrMasterStatusFilter<OfferFilter>
+        label="Offer status"
+        value={stateFilter}
+        options={offerFilterOptions}
+        onChange={(value) => {
+          setStateFilter(value);
+          setOffset(0);
+          setError("");
+        }}
+      />
       {!company && !loading && (
         <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
           No authorized company is available. Ask your administrator to review company access.
@@ -482,9 +416,9 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
                       </td>
                       <td className="px-4 py-3">
                         <Badge
-                          variant={o.is_overdue ? "destructive" : o.state === "accepted" ? "secondary" : "outline"}
+                          variant={o.state === "approved" ? "secondary" : "outline"}
                         >
-                          {o.is_overdue ? "Overdue" : label(o.state)}
+                          {label(o.state)}
                         </Badge>
                       </td>
                     </tr>
@@ -508,7 +442,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2">
             <span className="text-xs text-muted-foreground">
               {offers.total ? `${offset + 1}–${Math.min(offset + 50, offers.total)}` : "0"} of {offers.total} offers ·
-              employee creation opens on accepted offers
+              employees are created from approved offers
             </span>
             <div className="flex gap-2">
               <Button
@@ -540,6 +474,19 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
           }
         }}
         eyebrow="Create Employee from Offer"
+        footer={
+          data && !handoff && !data.blockers.length && canCreate ? (
+            <Button className="text-primary-foreground!" disabled={busy || detailLoading} onClick={() => void save()}>
+              <UserRoundPlus className="size-4" />
+              {busy ? "Creating employee…" : "Create employee"}
+            </Button>
+          ) : handoff ? (
+            <Button variant="outline" onClick={() => onNavigate("hr", "employee-directory")}>
+              Open Employee Directory
+              <ArrowRight className="size-4" />
+            </Button>
+          ) : undefined
+        }
         title={data?.offer.candidate_name ?? summary?.candidate_name ?? "Offer"}
         description={
           data
@@ -565,13 +512,11 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
               {notice}
             </div>
           )}
-          {summary && summary.state !== "accepted" ? (
+          {summary && !selectedAccepted ? (
             <>
               <HrDetailSummary
                 code={summary.reference}
                 status={summary.state}
-                statusLabel={summary.is_overdue ? "Overdue" : undefined}
-                statusTone={summary.is_overdue ? "danger" : undefined}
               >
                 {summary.opening_title}
               </HrDetailSummary>
@@ -581,10 +526,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
                 <HrDetailTile label="Monthly gross" value={offerMoney(summary.proposed_gross, summary.currency_code)} />
               </HrDetailGroup>
               <div role="status" className="grid gap-3 rounded-lg border border-border bg-muted/40 p-3 text-sm">
-                <p>
-                  An employee can be created only after the offer is approved, delivered and its acceptance recorded.
-                  Continue this offer in Offer Management.
-                </p>
+                <p>Employees can be created only from Approved offers. Continue this offer in Offer Management.</p>
                 <Button
                   type="button"
                   variant="outline"
@@ -616,7 +558,6 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
                 }
               >
                 Joins {hrDisplayDate(data.offer.joining_on)}
-                {data.offer.responded_on ? ` · accepted ${hrDisplayDate(data.offer.responded_on)}` : ""}
               </HrDetailSummary>
               <HrDetailFigures
                 items={[
@@ -628,11 +569,18 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
                   { label: "Notice (days)", value: data.offer.notice_days },
                 ]}
               />
-              <HrDetailGroup title="Candidate">
-                <HrDetailTile label="Personal email" value={data.candidate.email} />
+              <HrDetailGroup title="Transferred to the employee">
+                <HrDetailTile label="Name" value={`${data.candidate.first_name} ${data.candidate.last_name}`} />
+                <HrDetailTile label="Email" value={data.candidate.email} />
                 <HrDetailTile label="Phone" value={data.candidate.phone} />
+                <HrDetailTile label="Job title" value={data.offer.context.opening_title} />
+                <HrDetailTile
+                  label="Salary"
+                  value={offerMoney(data.offer.proposed_gross, data.offer.currency_code)}
+                  hint="Monthly gross"
+                />
               </HrDetailGroup>
-              <HrDetailGroup title="Accepted terms">
+              <HrDetailGroup title="Approved terms">
                 <HrDetailTile
                   label="Designation"
                   value={data.offer.context.designation}
@@ -655,26 +603,21 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
               <HrDetailGroup title="Offer evidence">
                 <HrDetailTile label="Application" value={data.offer.application_reference} mono />
                 <HrDetailTile label="Requisition" value={data.offer.context.requisition_reference} mono />
-                <HrDetailTile
-                  label="Acceptance evidence"
-                  value={data.offer.response_reference}
-                  hint={data.offer.responded_on ? hrDisplayDate(data.offer.responded_on) : undefined}
-                />
               </HrDetailGroup>
               <HrDetailSection title="Employment handoff progress">
                 <ol className="m-0 grid list-none gap-2 p-0 sm:grid-cols-2">
                   {[
-                    ["1. Accepted offer", "Approved terms and acceptance retained", true],
+                    ["1. Approved offer", "Approved terms retained on the employee", true],
                     [
                       "2. Employee profile",
                       handoff
                         ? `${handoff.employee_number} · ${label(handoff.profile_approval)}`
-                        : "Create and submit the profile draft",
+                        : "Create the employee from this offer",
                       !!handoff,
                     ],
                     [
                       "3. Initial assignment",
-                      handoff?.assignment_id ? "Prepared from accepted offer terms" : "Prepare after profile approval",
+                      handoff?.assignment_id ? "Prepared from approved offer terms" : "Prepare after profile approval",
                       !!handoff?.assignment_id,
                     ],
                     [
@@ -762,11 +705,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
                       <p key={text}>{text}</p>
                     ))}
                   </div>
-                ) : canCreate ? (
-                  <HrDetailSection title="Create employee draft">
-                    <HandoffForm key={`${company}:${selected}`} busy={busy || detailLoading} onSave={save} />
-                  </HrDetailSection>
-                ) : (
+                ) : canCreate ? null : (
                   <p className="text-sm text-muted-foreground">
                     Employee creation permission is required to prepare this profile.
                   </p>

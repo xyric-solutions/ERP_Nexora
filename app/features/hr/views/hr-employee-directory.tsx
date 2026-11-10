@@ -15,6 +15,8 @@ import { HrApiClient } from "../api/hr-client";
 import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterSheet } from "../components/hr-master-sheet";
+import { HrDetailGroup, HrDetailSummary, HrDetailTile } from "../components/hr-detail-tile";
+import { offerMoney } from "../model/hr-offer-display";
 import { HrEmployeeRecordWorkspace } from "./hr-employee-record-workspace";
 import { HrEmployeeWizard } from "./hr-employee-wizard";
 
@@ -55,6 +57,8 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
     }
   };
   const selected = employees.find((employee) => employee.id === selectedId);
+  // Drafts created from an approved offer have no approved assignment yet, so their overview comes from the offer.
+  const offerDraft = selected?.source === "offer";
   const canEdit = [
     "hr.employee_contact.manage",
     "hr.employee_emergency_contact.manage",
@@ -277,7 +281,9 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
         title={selected?.display_name ?? "Employee"}
         description={selected ? `${selected.employee_number} · ${selected.designation} · ${selected.department}` : ""}
         footer={
-          selected && canEdit ? (
+          selected && canEdit && offerDraft ? (
+            <HrEditButton label={`Edit ${selected.display_name}`} onClick={() => setEditingId(selected.id)} />
+          ) : selected && canEdit ? (
             <>
               <HrConfirmDeleteButton
                 label={`Delete ${selected.display_name}`}
@@ -291,7 +297,33 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
           ) : undefined
         }
       >
-        {selected ? (
+        {selected && offerDraft ? (
+          <div className="grid min-w-0 gap-4">
+            <HrDetailSummary code={selected.employee_number} status={selected.status}>
+              Created from offer {selected.offer_reference}
+            </HrDetailSummary>
+            <HrDetailGroup title="Employee">
+              <HrDetailTile label="Name" value={selected.display_name} />
+              <HrDetailTile label="Email" value={selected.work_email} />
+              <HrDetailTile label="Phone" value={selected.phone} />
+              <HrDetailTile label="Joining date" value={selected.joined_on} />
+            </HrDetailGroup>
+            <HrDetailGroup title="Position">
+              <HrDetailTile label="Designation" value={selected.designation} />
+              <HrDetailTile label="Department" value={selected.department} hint={selected.branch} />
+              <HrDetailTile label="Job title" value={selected.job_title} />
+              <HrDetailTile
+                label="Salary"
+                value={
+                  selected.monthly_gross && selected.currency_code
+                    ? offerMoney(selected.monthly_gross, selected.currency_code)
+                    : undefined
+                }
+                hint={selected.monthly_gross ? "Monthly gross" : undefined}
+              />
+            </HrDetailGroup>
+          </div>
+        ) : selected ? (
           <HrEmployeeRecordWorkspace
             key={`${selected.id}-${recordVersion}`}
             employeeId={selected.id}
@@ -302,7 +334,11 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
       </HrMasterSheet>
       {editingId ? (
         <HrEmployeeWizard
-          target={{ kind: "employee", employeeId: editingId }}
+          target={
+            employees.find((employee) => employee.id === editingId)?.source === "offer"
+              ? { kind: "draft", employeeId: editingId }
+              : { kind: "employee", employeeId: editingId }
+          }
           onClose={() => setEditingId("")}
           onSaved={(message) => {
             setNotice(message);

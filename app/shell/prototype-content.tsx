@@ -2952,8 +2952,10 @@ function PrototypeContentBody(props: PrototypeContentProps) {
       candidates: <HrCandidateDirectoryWorkspace />,
       "recruitment-pipeline": <HrRecruitmentPipelineWorkspace />,
       interviews: <HrInterviewsWorkspace />,
-      offers: <HrOfferManagementWorkspace />,
-      "create-employee-from-offer": <HrOfferEmployeeWorkspace onNavigate={props.onNavigate} />,
+      offers: <HrOfferManagementWorkspace onNavigate={props.onNavigate} />,
+      "create-employee-from-offer": (
+        <HrOfferEmployeeWorkspace key={context.recordRef ?? ""} onNavigate={props.onNavigate} initialOfferId={context.recordRef} />
+      ),
     };
     return (
       <HrRecruitmentWorkspace key={context.pageId} pageId={context.pageId} onNavigate={props.onNavigate}>

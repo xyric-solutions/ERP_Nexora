@@ -4781,3 +4781,38 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Verification: app + API `tsc`, HR unit tests (93/93), OpenAPI snapshot
   match, `build:web`, theme audit `--check`. Not yet run: leave integration
   tests (need the 55433 test database) and a browser click-through.
+
+## 2026-11-10 - Leave Pending status; offer workflow Draft -> Approved -> Employee
+
+- Leave Approval: pills Pending / Approved / Rejected (default Pending);
+  `status=pending` covers both server stages (manager -> HR routing is
+  unchanged). Cancelled requests are excluded from both leave lists
+  (`exclude_cancelled`). Drawer footer: Approve / Reject / Keep pending.
+  Leave Requests keeps All / Draft / Submitted; requesters no longer cancel
+  submitted requests (Delete draft remains).
+- Offers: statuses Draft, Submitted, Approved, Rejected, Withdrawn. Server
+  transitions: submit (draft), approve / reject_approval (submitted),
+  withdraw (draft/submitted/approved, refused once an employee exists).
+  generate / record_sent / accept / decline / expire are refused; earlier
+  records keep their stored state and show under All. Approved offers (and
+  converted ones) reserve opening headcount.
+- Offer Management: filter pills; Prepare offer lists real applications at
+  Selected ("candidate · opening · reference") and shows server blockers;
+  drawer footer actions Edit / Submit / Approve / Reject / Withdraw /
+  Create employee (opens Create Employee from Offer on that offer).
+- Create Employee from Offer: Approved offers only (legacy Accepted still
+  convert); one "Create employee" action (automatic number, generated
+  reason, no re-entry); duplicate conversion refused by the existing
+  handoff uniqueness.
+- Employee Directory: employees created from an offer are listed as Draft
+  (`source: "offer"`) with the offer's designation, department, job title
+  and salary (salary only with `hr.payroll.salary.read`) until their hire
+  produces an active assignment; Edit opens the draft wizard.
+- Demo data (local only, `tmp/` is ignored): `tmp/demo/seed-recruitment-offers.sql`
+  creates five Selected demo applications with one offer per status.
+  `tmp/demo/offer-flow-smoke.ts` runs prepare -> submit -> approve ->
+  create employee -> directory/duplicate/withdraw checks against the
+  local database (passed; it used the super-admin approval override).
+- Verification: app + API `tsc`, HR unit tests 93/93, OpenAPI snapshot,
+  `build:web`, theme audit. Not run: integration tests (55433 test DB) and
+  a browser click-through.

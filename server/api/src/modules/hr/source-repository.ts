@@ -962,14 +962,36 @@ export class SourceHrRepository {
           `(employee.employee_number ilike $${parameter} escape '\\' or concat_ws(' ', employee.first_name, employee.middle_name, employee.last_name) ilike $${parameter} escape '\\')`,
         );
       }
+      // Employees created from an approved offer are listed as drafts (with the offer's placement)
+      // until their governed hire produces an active assignment.
+      const offerFilters = [
+        "employee.tenant_id = $1",
+        "handoff.company_id = $2",
+        "employee.status in ('draft','pending_approval')",
+        `not exists (select 1 from employee_assignment current_assignment
+                      where current_assignment.tenant_id = employee.tenant_id and current_assignment.employee_id = employee.id
+                        and current_assignment.company_id = handoff.company_id
+                        and current_assignment.assignment_status in ('active','legacy_compatibility')
+                        and current_assignment.effective_from <= current_date
+                        and (current_assignment.effective_to is null or current_assignment.effective_to >= current_date))`,
+      ];
+      if (query.status) offerFilters.push(`employee.status = $${values.indexOf(query.status) + 1}`);
+      if (query.search)
+        offerFilters.push(
+          `(employee.employee_number ilike $${values.length} escape '\\' or concat_ws(' ', employee.first_name, employee.middle_name, employee.last_name) ilike $${values.length} escape '\\')`,
+        );
+      const salaryParameter = values.push(context.actor.permissions.includes("hr.payroll.salary.read"));
       values.push(query.limit);
-      const result = await client.query<EmployeeSummaryRow>(
-        `select employee.id, employee.employee_number,
-                concat_ws(' ', employee.first_name, employee.middle_name, employee.last_name) as display_name,
+      const result = await client.query<EmployeeSummaryRow & { sort_last: string; sort_first: string }>(
+        `select * from (
+         select employee.id, employee.employee_number,
+                concat_ws(' ', employee.first_name, nullif(employee.middle_name, ''), employee.last_name) as display_name,
                 employee.work_email, employee.status, employee.joined_on,
                 assignment.company_id, assignment.branch_id, branch.name as branch,
                 assignment.department_id, department.name as department,
-                designation.name as designation
+                designation.name as designation, 'assignment' as source, employee.phone,
+                null::text as job_title, null::text as monthly_gross, null::text as currency_code, null::text as offer_reference,
+                employee.last_name as sort_last, employee.first_name as sort_first
            from employee
            join employee_assignment assignment
              on assignment.tenant_id = employee.tenant_id and assignment.employee_id = employee.id
@@ -980,11 +1002,35 @@ export class SourceHrRepository {
            join hr_master_record designation
              on designation.tenant_id = assignment.tenant_id and designation.id = assignment.designation_id
           where ${filters.join(" and ")}
-          order by employee.last_name, employee.first_name, employee.employee_number, employee.id
+         union all
+         select employee.id, employee.employee_number,
+                concat_ws(' ', employee.first_name, nullif(employee.middle_name, ''), employee.last_name) as display_name,
+                coalesce(nullif(employee.work_email, ''), employee.personal_email, '') as work_email,
+                employee.status, employee.joined_on,
+                handoff.company_id, offer.branch_id, branch.name as branch,
+                offer.department_id, department.name as department,
+                designation.name as designation, 'offer' as source, employee.phone,
+                opening.title as job_title,
+                case when $${salaryParameter}::boolean then offer.proposed_gross::text end as monthly_gross,
+                case when $${salaryParameter}::boolean then offer.currency_code end as currency_code,
+                offer.reference as offer_reference,
+                employee.last_name as sort_last, employee.first_name as sort_first
+           from hr_offer_employee_handoff handoff
+           join employee on employee.tenant_id = handoff.tenant_id and employee.id = handoff.employee_id
+           join hr_recruitment_offer offer on offer.tenant_id = handoff.tenant_id and offer.id = handoff.offer_id
+           join hr_job_opening opening on opening.tenant_id = offer.tenant_id and opening.id = offer.opening_id
+           join organization_unit branch on branch.tenant_id = offer.tenant_id and branch.id = offer.branch_id
+           join organization_unit department on department.tenant_id = offer.tenant_id and department.id = offer.department_id
+           join hr_master_record designation on designation.tenant_id = offer.tenant_id and designation.id = offer.designation_id
+          where ${offerFilters.join(" and ")}
+         ) directory
+          order by sort_last, sort_first, employee_number, id
           limit $${values.length}`,
         values,
       );
-      return { items: result.rows.map(employeeSummary) };
+      return {
+        items: result.rows.map(({ sort_last: _last, sort_first: _first, ...row }) => employeeSummary(row)),
+      };
     });
   }
 
@@ -1686,7 +1732,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
   }
   private async readOfferContext(client: PoolClient, context: HrActorContext, companyId:string, applicationId:string, excludeOfferId=""): Promise<HrOfferContext> {
     const result=await client.query<HrOfferContext & {application_stage:string;candidate_status:string;opening_state:string;requisition_state:string;active_offer:boolean}>(`select a.id as application_id,a.reference as application_reference,concat_ws(' ',c.first_name,c.last_name) as candidate_name,company.name as company_name,o.id as opening_id,o.title as opening_title,o.reference as opening_reference,r.id as requisition_id,r.reference as requisition_reference,r.designation_id,designation.name as designation,r.job_grade_id,grade.name as job_grade,r.employment_setup_id,es.name as employment_setup,es.payment_route,es.pay_cycle,branch.id as branch_id,branch.name as branch,project.name as project,r.hiring_basis,r.department_id,department.name as department,r.salary_minimum::text,r.salary_maximum::text,r.currency_code,o.positions_requested::int as positions_authorized,
-      (select count(*)::int from hr_recruitment_offer reserved where reserved.tenant_id=a.tenant_id and reserved.opening_id=o.id and (reserved.state='accepted' or (reserved.state in ('approved','generated','sent') and reserved.valid_until>=current_date))) as positions_reserved,
+      (select count(*)::int from hr_recruitment_offer reserved where reserved.tenant_id=a.tenant_id and reserved.opening_id=o.id and (reserved.state='accepted' or exists(select 1 from hr_offer_employee_handoff h where h.tenant_id=reserved.tenant_id and h.offer_id=reserved.id) or (reserved.state in ('approved','generated','sent') and reserved.valid_until>=current_date))) as positions_reserved,
       current_date::text as today,a.stage as application_stage,c.status as candidate_status,o.state as opening_state,r.state as requisition_state,
       exists(select 1 from hr_recruitment_offer existing where existing.tenant_id=a.tenant_id and existing.application_id=a.id and existing.id<>$4 and existing.state in ('draft','submitted','approved','generated','sent','accepted')) as active_offer
       from hr_recruitment_application a join hr_candidate c on c.tenant_id=a.tenant_id and c.id=a.candidate_id join organization_unit company on company.tenant_id=a.tenant_id and company.id=a.company_id join hr_job_opening o on o.tenant_id=a.tenant_id and o.id=a.opening_id join hr_manpower_requisition r on r.tenant_id=o.tenant_id and r.id=o.requisition_id join hr_master_record designation on designation.tenant_id=r.tenant_id and designation.id=r.designation_id join hr_master_record grade on grade.tenant_id=r.tenant_id and grade.id=r.job_grade_id join hr_master_record es on es.tenant_id=r.tenant_id and es.id=r.employment_setup_id join organization_unit department on department.tenant_id=r.tenant_id and department.id=r.department_id left join lateral (with recursive up(id,parent_id,type,depth) as (select u.id,u.parent_id,u.type,0 from organization_unit u where u.tenant_id=department.tenant_id and u.id=department.parent_id union all select p.id,p.parent_id,p.type,up.depth+1 from organization_unit p join up on p.id=up.parent_id where p.tenant_id=department.tenant_id and up.depth<16) select id from up where type='branch' order by depth limit 1) ancestor_branch on true left join organization_unit branch on branch.tenant_id=r.tenant_id and branch.type='branch' and branch.id=coalesce(r.branch_id,ancestor_branch.id) left join erp_project project on project.tenant_id=r.tenant_id and project.company_id=r.company_id and project.id=r.project_id where a.tenant_id=$1 and a.company_id=$2 and a.id=$3`,[context.tenantId,companyId,applicationId,excludeOfferId]);
@@ -1698,7 +1744,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
     if(opening_state!=="open")blockers.push("The job opening must be open.");
     if(requisition_state!=="approved")blockers.push("An approved manpower requisition is required.");
     if(!facts.branch_id)blockers.push("The requisition department must sit under a branch before an offer can be prepared.");
-    if(active_offer)blockers.push("An active or accepted offer already exists for this application.");
+    if(active_offer)blockers.push("An open or approved offer already exists for this application.");
     return {...facts,blockers};
   }
   private offerColumns(): string {return `o.id,o.reference,o.company_id,o.application_id,a.reference as application_reference,concat_ws(' ',c.first_name,c.last_name) as candidate_name,j.title as opening_title,o.state,o.version,o.proposed_gross::text,o.currency_code,o.joining_on::text,o.valid_until::text,(o.valid_until<current_date and o.state in ('draft','submitted','approved','generated','sent')) as is_overdue,(o.proposed_gross<o.salary_minimum or o.proposed_gross>o.salary_maximum) as outside_range,o.created_at`;}
@@ -1780,13 +1826,16 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         else{await client.query("update hr_recruitment_offer set proposed_gross=$3,joining_on=$4,valid_until=$5,probation_months=$6,notice_days=$7,cost_center_id=$8,work_location_id=$9,employment_setup_id=$10,reporting_manager_id=$11,note=$12,range_exception_reason=$13,version=version+1,updated_at=now() where tenant_id=$1 and id=$2",[context.tenantId,id,...terms]);version++;reason="Draft offer terms updated.";}
       }else{
         reason=input.reason;evidence=input.evidence_reference;
-        const transitions:Record<string,readonly string[]>={submit:["draft"],approve:["submitted"],reject_approval:["submitted"],generate:["approved"],record_sent:["generated"],accept:["sent"],decline:["sent"],withdraw:["draft","submitted","approved","generated","sent"],expire:["draft","submitted","approved","generated","sent"]};
+        // Offer workflow: Draft -> Submitted -> Approved or Rejected; Withdrawn from Draft, Submitted or Approved.
+        // Letter generation, delivery, acceptance, decline and expiry are retired (earlier records keep their state).
+        const transitions:Record<string,readonly string[]>={submit:["draft"],approve:["submitted"],reject_approval:["submitted"],withdraw:["draft","submitted","approved"]};
         if(!transitions[input.action]?.includes(state))throw new HrApiError(409,"HR_OFFER_TRANSITION_INVALID","This offer cannot perform the requested action in its current state.");
+        if(input.action==="withdraw"&&(await client.query("select 1 from hr_offer_employee_handoff where tenant_id=$1 and offer_id=$2",[context.tenantId,id])).rowCount)throw new HrApiError(409,"HR_OFFER_EMPLOYEE_EXISTS","An employee was already created from this offer, so it cannot be withdrawn.");
         if(input.action==="expire"&&!before!.is_overdue)throw new HrApiError(409,"HR_OFFER_NOT_EXPIRED","The offer validity date has not passed.");
         if(!closing&&(before!.valid_until<ctx.today||before!.joining_on<ctx.today))throw new HrApiError(409,"HR_OFFER_EXPIRED","This offer's validity or joining date has passed. Withdraw or expire it and prepare new terms.");
         if(["approve","generate","record_sent","accept"].includes(input.action)){
           await this.validateOfferTerms(client,context,ctx,{...before!,company_id:input.company_id,expected_version:before!.version});
-          const reservations=await client.query<{count:number}>("select count(*)::int as count from hr_recruitment_offer where tenant_id=$1 and opening_id=$2 and id<>$3 and (state='accepted' or (state in ('approved','generated','sent') and valid_until>=current_date))",[context.tenantId,ctx.opening_id,id]);
+          const reservations=await client.query<{count:number}>("select count(*)::int as count from hr_recruitment_offer o where tenant_id=$1 and opening_id=$2 and id<>$3 and (state='accepted' or exists(select 1 from hr_offer_employee_handoff h where h.tenant_id=o.tenant_id and h.offer_id=o.id) or (state in ('approved','generated','sent') and valid_until>=current_date))",[context.tenantId,ctx.opening_id,id]);
           if(reservations.rows[0]!.count>=ctx.positions_authorized)throw new HrApiError(409,"HR_OFFER_HEADCOUNT_EXCEEDED","All authorized positions are reserved by approved or accepted offers.");
         }
         let extra="",values:unknown[]=[context.tenantId,id];
@@ -1829,7 +1878,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         (select r.approval_state from hr_employment_lifecycle_request r join hr_employment_relationship er on er.tenant_id=r.tenant_id and er.id=r.relationship_id join hr_employment_lifecycle_transition t on t.tenant_id=r.tenant_id and t.id=r.transition_id where er.tenant_id=h.tenant_id and er.employee_id=h.employee_id and er.legal_employer_id=h.company_id and t.event_type='hire' order by r.requested_at desc,r.id desc limit 1) as hire_state,
         h.created_at,h.created_by,h.reason from hr_offer_employee_handoff h join employee e on e.tenant_id=h.tenant_id and e.id=h.employee_id left join hr_employee_draft_approval p on p.tenant_id=e.tenant_id and p.employee_id=e.id where h.tenant_id=$1 and h.company_id=$2 and h.offer_id=$3`,[context.tenantId,companyId,offerId]);
       const blockers:string[]=[];
-      if(offer.state!=="accepted")blockers.push("Record acceptance of the approved and delivered offer first.");
+      if(!["approved","accepted"].includes(offer.state))blockers.push("Only approved offers can become employees.");
+      else if(offer.state==="approved"&&offer.is_overdue&&!handoff.rowCount)blockers.push("The offer validity date has passed. Withdraw it and prepare a new offer.");
       if(stage!=="selected" && !handoff.rowCount)blockers.push("The application must remain selected until the governed hire is approved.");
       if(status!=="active" && !handoff.rowCount)blockers.push("The candidate must be active.");
       const duplicate=await client.query("select 1 from hr_offer_employee_handoff where tenant_id=$1 and company_id=$2 and candidate_id=$3 and offer_id<>$4",[context.tenantId,companyId,candidate.id,offerId]);
@@ -1855,9 +1905,10 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       const path=`/api/v1/hr/recruitment_offers/${offerId}/employee`, fingerprint=stateHash(input);
       const replay=await client.query<{request_fingerprint:string;response_body:HrOfferEmployeeResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4",[context.tenantId,context.actor.userId,path,key]);
       if(replay.rows[0]){if(replay.rows[0].request_fingerprint!==fingerprint)throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","This request key was already used for another employee handoff.");await client.query("commit");return {...replay.rows[0].response_body,replayed:true};}
-      const source=await client.query<{application_id:string;candidate_id:string;first_name:string;last_name:string;email:string;phone:string;joining_on:string;version:number;state:string;stage:string;candidate_status:string}>(`select o.application_id,a.candidate_id,c.first_name,c.last_name,c.email,c.phone,o.joining_on::text,o.version,o.state,a.stage,c.status as candidate_status from hr_recruitment_offer o join hr_recruitment_application a on a.tenant_id=o.tenant_id and a.id=o.application_id join hr_candidate c on c.tenant_id=a.tenant_id and c.id=a.candidate_id where o.tenant_id=$1 and o.company_id=$2 and o.id=$3 for update of a,c`,[context.tenantId,input.company_id,offerId]);
+      const source=await client.query<{application_id:string;candidate_id:string;first_name:string;last_name:string;email:string;phone:string;joining_on:string;version:number;state:string;stage:string;candidate_status:string;overdue:boolean}>(`select o.application_id,a.candidate_id,c.first_name,c.last_name,c.email,c.phone,o.joining_on::text,o.version,o.state,a.stage,c.status as candidate_status,(o.valid_until<current_date) as overdue from hr_recruitment_offer o join hr_recruitment_application a on a.tenant_id=o.tenant_id and a.id=o.application_id join hr_candidate c on c.tenant_id=a.tenant_id and c.id=a.candidate_id where o.tenant_id=$1 and o.company_id=$2 and o.id=$3 for update of a,c`,[context.tenantId,input.company_id,offerId]);
       const row=source.rows[0];if(!row)throw new HrApiError(404,"HR_OFFER_NOT_FOUND","The offer is unavailable in your company scope.");
-      if(row.state!=="accepted" || row.stage!=="selected" || row.candidate_status!=="active")throw new HrApiError(409,"HR_OFFER_HANDOFF_NOT_READY","An accepted offer, selected application and active candidate are required.");
+      // Employees are created only from approved offers (earlier accepted offers remain convertible).
+      if(!(row.state==="accepted"||(row.state==="approved"&&!row.overdue)) || row.stage!=="selected" || row.candidate_status!=="active")throw new HrApiError(409,"HR_OFFER_HANDOFF_NOT_READY","An approved offer within its validity, a selected application and an active candidate are required.");
       if(row.version!==input.expected_version)throw new HrApiError(409,"HR_OFFER_STALE","The offer changed. Refresh before creating the employee.");
       const existing=await client.query("select 1 from hr_offer_employee_handoff where tenant_id=$1 and (offer_id=$2 or employee_id in (select id from employee where tenant_id=$1 and employee_number=$3) or (company_id=$4 and candidate_id=$5))",[context.tenantId,offerId,input.employee_number,input.company_id,row.candidate_id]);
       if(existing.rowCount)throw new HrApiError(409,"HR_OFFER_EMPLOYEE_EXISTS","This offer or candidate already has an employee handoff. Open the existing record; another employee was not created.");
@@ -1874,7 +1925,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
 
   private async requireOfferAssignmentMatch(client:PoolClient, context:HrActorContext, employeeId:string, input:CreateHrProfileDraftAssignmentRequest):Promise<void> {
     const source=await client.query<{matches:boolean}>(`select (o.company_id=$3 and o.branch_id is not distinct from $4::text and o.department_id is not distinct from $5::text and o.designation_id=$6 and o.job_grade_id=$7 and o.cost_center_id=$8 and o.work_location_id=$9 and o.employment_setup_id=$10 and o.reporting_manager_id is not distinct from $11::text and o.joining_on=$12::date) as matches from hr_offer_employee_handoff h join hr_recruitment_offer o on o.tenant_id=h.tenant_id and o.id=h.offer_id where h.tenant_id=$1 and h.employee_id=$2`,[context.tenantId,employeeId,input.company_id,input.branch_id??null,input.department_id??null,input.designation_id,input.job_grade_id,input.cost_center_id,input.work_location_id,input.employment_setup_id,input.reporting_manager_id??null,input.effective_from]);
-    if(source.rows[0] && !source.rows[0].matches)throw new HrApiError(409,"HR_OFFER_ASSIGNMENT_MISMATCH","The initial assignment must match the accepted offer's company, role, grade, location, cost centre, employment setup, manager and joining date.");
+    if(source.rows[0] && !source.rows[0].matches)throw new HrApiError(409,"HR_OFFER_ASSIGNMENT_MISMATCH","The initial assignment must match the approved offer's company, role, grade, location, cost centre, employment setup, manager and joining date.");
   }
 
   private allocationSelect(): string {

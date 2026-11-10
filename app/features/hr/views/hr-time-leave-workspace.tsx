@@ -109,8 +109,10 @@ function useAppliedSearch(search: string, apply: (value: string) => void) {
 /** Leave request statuses as HR & Payroll names them. */
 const leaveStatusLabels: Record<string, string> = {
   draft: "Draft",
-  pending_manager: "Pending by Manager",
-  pending_hr: "Pending by HR",
+  // Manager and HR stages are one "Pending" status on screen; the server still routes manager -> HR.
+  pending: "Pending",
+  pending_manager: "Pending",
+  pending_hr: "Pending",
   approved: "Approved",
   rejected: "Rejected",
   cancelled: "Cancelled",
@@ -122,18 +124,16 @@ const requestFilterOptions = [
   { value: "draft", label: "Draft" },
   { value: "submitted", label: "Submitted" },
 ] as const;
-/** Leave Approval: every submitted request, by approval status. */
-const approvalFilterOptions = [
-  { value: "all", label: "All" },
-  ...(["pending_manager", "pending_hr", "approved", "rejected", "cancelled"] as const).map((value) => ({
-    value,
-    label: leaveStatusLabels[value]!,
-  })),
-] as const;
+/** Leave Approval: submitted requests by decision status (cancelled requests are not listed). */
+const approvalFilterOptions = (["pending", "approved", "rejected"] as const).map((value) => ({
+  value,
+  label: leaveStatusLabels[value]!,
+}));
 type LeaveListFilter = (typeof requestFilterOptions)[number]["value"] | (typeof approvalFilterOptions)[number]["value"];
+type LeaveStatusFilter = NonNullable<Parameters<HrApiClient["listLeaveRequests"]>[0]["status"]>;
 type LeaveAction = HrLeaveRequestActionRequest["action"];
 /** Actions offered on each page; the server still decides which ones the user may take. */
-const approvalActions: readonly LeaveAction[] = ["manager_approve", "manager_reject", "hr_approve", "hr_reject", "cancel_approved"];
+const approvalActions: readonly LeaveAction[] = ["manager_approve", "manager_reject", "hr_approve", "hr_reject"];
 const requesterActions: readonly LeaveAction[] = ["submit", "cancel"];
 const actionLabel = (action: LeaveAction) =>
   action.endsWith("_approve")
@@ -1319,7 +1319,7 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
     props;
   const [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
-    [filter, setFilter] = useState<LeaveListFilter>("all"),
+    [filter, setFilter] = useState<LeaveListFilter>(approval ? "pending" : "all"),
     [offset, setOffset] = useState(0),
     [selected, setSelected] = useState(initial?.request_id ?? ""),
     [action, setAction] = useState<HrLeaveRequestActionRequest["action"] | "">(""),
@@ -1328,10 +1328,7 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
     [version, setVersion] = useState(0),
     [hash, setHash] = useState<string | undefined>(),
     [error, setError] = useState("");
-  const status =
-    filter === "all" || filter === "submitted"
-      ? undefined
-      : (filter as NonNullable<Parameters<HrApiClient["listLeaveRequests"]>[0]["status"]>);
+  const status = filter === "all" || filter === "submitted" ? undefined : (filter as LeaveStatusFilter);
   const list = useAttendanceRead(JSON.stringify([company, date, revision, offset, applied, filter, approval]), () =>
     client.listLeaveRequests({
       company_id: company,
@@ -1340,6 +1337,7 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
       status,
       queue_only: "false",
       submitted_only: approval || filter === "submitted" ? "true" : "false",
+      exclude_cancelled: "true",
       limit: 25,
       offset,
     }),
@@ -1394,9 +1392,11 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
   };
   const request = detail.data && detail.data.id === selected ? detail.data : null;
   const isDraft = request?.status === "draft";
-  const pageActions = (request?.allowed_actions ?? []).filter((a) =>
-    (approval ? approvalActions : requesterActions).includes(a),
+  // Requesters submit or delete drafts; approvers approve or reject pending requests.
+  const pageActions = (request?.allowed_actions ?? []).filter(
+    (a) => (approval ? approvalActions : requesterActions).includes(a) && (a !== "cancel" || isDraft),
   );
+  const isPending = request?.status === "pending_manager" || request?.status === "pending_hr";
   return (
     <div className="grid min-w-0 gap-4">
       <LeaveToolbar
@@ -1513,6 +1513,11 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
                 ))}
               {isDraft && pageActions.includes("cancel") ? (
                 <HrDeleteButton label="Delete draft" disabled={busy} onClick={() => startAction("cancel")} />
+              ) : null}
+              {approval && isPending ? (
+                <Button variant="outline" disabled={busy} onClick={() => setSelected("")}>
+                  Keep pending
+                </Button>
               ) : null}
             </>
           ) : undefined

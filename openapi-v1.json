@@ -48075,11 +48075,23 @@
           },
           {
             "in": "query",
+            "name": "exclude_cancelled",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "in": "query",
             "name": "status",
             "schema": {
               "type": "string",
               "enum": [
                 "draft",
+                "pending",
                 "pending_manager",
                 "pending_hr",
                 "approved",
@@ -77598,6 +77610,46 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 160
+                },
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "assignment",
+                    "offer"
+                  ]
+                },
+                "phone": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "job_title": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "monthly_gross": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "currency_code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "offer_reference": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [
@@ -85060,6 +85112,7 @@
             "type": "string",
             "enum": [
               "draft",
+              "pending",
               "pending_manager",
               "pending_hr",
               "approved",
@@ -85082,6 +85135,14 @@
               "true",
               "false"
             ]
+          },
+          "exclude_cancelled": {
+            "default": "false",
+            "type": "string",
+            "enum": [
+              "true",
+              "false"
+            ]
           }
         },
         "required": [
@@ -85090,7 +85151,8 @@
           "limit",
           "offset",
           "queue_only",
-          "submitted_only"
+          "submitted_only",
+          "exclude_cancelled"
         ],
         "additionalProperties": false
       },
@@ -117400,13 +117462,49 @@
             "minLength": 1,
             "maxLength": 160
           },
-          "preferred_name": {
+          "source": {
             "type": "string",
-            "maxLength": 100
+            "enum": [
+              "assignment",
+              "offer"
+            ]
           },
           "phone": {
             "type": "string",
             "maxLength": 40
+          },
+          "job_title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "monthly_gross": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "offer_reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "preferred_name": {
+            "type": "string",
+            "maxLength": 100
           },
           "employment_setup": {
             "type": "string",
@@ -117499,8 +117597,8 @@
           "department_id",
           "department",
           "designation",
-          "preferred_name",
           "phone",
+          "preferred_name",
           "employment_setup",
           "payment_route",
           "pay_cycle",
