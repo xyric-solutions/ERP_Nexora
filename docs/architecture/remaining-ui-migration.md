@@ -4901,3 +4901,44 @@ Company Chart adoption/review checkpoint (2026-10-20):
   rolled-back repository check (`tmp/demo/payroll-optional-smoke.ts`: empty
   structure saved as SAL-001 with a standard audit reason). Not run: browser
   click-through, integration tests.
+
+## 2026-11-10 — Payroll area: compact pages, drawers, codes and policies
+
+- All Payroll pages open under the section tabs only: the second page title,
+  status chip and description (`PageIntro`) were removed for payroll pages.
+- Pay Components / Salary Structures / Salary Revisions / Payroll Inputs /
+  Loans: toolbar (Company, Payroll month, Search) and records only — no
+  heading, notices or summary cards; "Locked attendance inputs" removed from
+  Payroll Inputs (New Adjustment kept). Codes for new pay components (PAY-),
+  structures (SAL-) and loans (LN-) are shown immediately and read-only from
+  a new `code_previews` field on the payroll options API (final code still
+  reserved transactionally on save). Salary revision currency is read-only,
+  taken from the chosen structure.
+- Payroll Runs / Review & Approval: toolbar adds a search; no heading or metric
+  cards; Attendance close / Statutory setup / Salary authorities shortcuts
+  removed (the blocking list itself stays). "Payroll policy" is the primary
+  (yellow) action and opens a drawer; policies are listed in a compact table;
+  a policy opens in the drawer with Edit / Delete at the bottom. Employee
+  results are a compact table; the calculation evidence opens in the drawer.
+  All action buttons sit at the bottom of their drawers; reason optional.
+- Payroll policies: new run actions `policy_update` / `policy_delete`, allowed
+  only while no payroll period uses the policy (server check under the company
+  payroll lock; migration HR146 narrows `protect_governed_payroll_policy` to
+  used policies). Policies report `in_use`. Run action reasons are optional
+  with standard audit reasons.
+- Payroll Journal: shortcuts and four cards removed; one-row table (the API
+  returns one journal per company/month) with All / Pending / Approved /
+  Rejected pills (client-side: Pending = preview/prepared, Approved =
+  accepted/posted); drawer footer offers the server-allowed prepare / accept /
+  reject / post actions. No edit/delete exists for journals in the backend.
+- Payment Batch: cards, Open Payroll Journal, Employee Salary Payments section
+  and Audit History removed; Bank Payments kept; one-row table opening the
+  drawer with server-allowed prepare / approve / reject and per-employee bank
+  confirmation. No edit/delete exists for payment batches in the backend.
+- Payslips: Company / Payroll month / Search / Publication status in one row,
+  cards removed, compact table opening a drawer (download/print at bottom).
+- Verification: contracts build, app + API `tsc`, eslint on changed files,
+  `build:web`, theme audit, unit tests 1110/1112 (two pre-existing
+  user-management failures), HR146 trigger check in a rolled-back transaction.
+  Not run: browser click-through; full policy create/edit/delete through the
+  API (the local company has no liability account).

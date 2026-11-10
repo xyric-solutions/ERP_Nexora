@@ -1,13 +1,6 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
-import {
-  Calculator,
-  ShieldCheck,
-  ArrowRight,
-  LockKeyhole,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, LockKeyhole, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,24 +8,31 @@ import { useSession } from "@/lib/session/session-provider";
 import { hrPayrollRunActionSchema, type HrPayrollRunWorkspace, type HrPayrollRunAction } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
-import {
-  Field,
-  Metric,
-  State,
-  panel,
-  selectClass,
-  useAttendanceRead,
-  localDate,
-} from "../components/hr-workspace-controls";
+import { HrClickableRow } from "../components/hr-clickable-row";
+import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
+import { HrEditButton } from "../components/hr-icon-buttons";
+import { HrDetailGroup, HrDetailSummary, HrDetailTile } from "../components/hr-detail-tile";
+import { Field, State, panel, selectClass, useAttendanceRead, localDate } from "../components/hr-workspace-controls";
 import { HrPayrollRunComparison } from "../components/hr-payroll-run-comparison";
+
 const actionTitle = {
   policy: "Create payroll policy",
+  policy_update: "Edit payroll policy",
+  policy_delete: "Delete payroll policy",
   open: "Open payroll period",
   calculate: "Calculate salary results",
   submit: "Submit for review",
   return: "Return for corrections",
   approve: "Approve payroll",
 };
+const roundingLabels: Record<string, string> = {
+  half_up: "Half up",
+  half_even: "Half even",
+  down: "Toward zero",
+  up: "Away from zero",
+};
+type Policy = HrPayrollRunWorkspace["policies"][number];
+type Employee = HrPayrollRunWorkspace["employees"][number];
 type Draft = {
   action: HrPayrollRunAction["action"];
   snapshot: HrPayrollRunWorkspace;
@@ -43,9 +43,14 @@ type Draft = {
   account: string;
   policy: string;
 };
+const tableClass = "w-full border-collapse text-left text-sm";
+const headClass = "border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground";
+const th = "whitespace-nowrap px-3 py-2";
+const td = "px-3 py-1.5";
+const tableWrap = "relative overflow-x-auto rounded-lg border border-border bg-card shadow-sm";
+
 export function HrPayrollRunsWorkspace({
   review = false,
-  onNavigate,
 }: {
   review?: boolean;
   onNavigate: (module: string, page: string, reference?: string) => void;
@@ -56,9 +61,12 @@ export function HrPayrollRunsWorkspace({
     canRead = permissions.includes("hr.payroll.period.read");
   const [choice, setChoice] = useState(""),
     [month, setMonth] = useState(localDate().slice(0, 7)),
+    [search, setSearch] = useState(""),
     [offset, setOffset] = useState(0),
     [revision, setRevision] = useState(0),
     [draft, setDraft] = useState<Draft | null>(null),
+    [policyId, setPolicyId] = useState(""),
+    [employeeId, setEmployeeId] = useState(""),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false);
@@ -71,7 +79,23 @@ export function HrPayrollRunsWorkspace({
     data = state.data;
   const guard = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null);
-  function begin(action: HrPayrollRunAction["action"]) {
+  const canManagePolicy = !review && !!data?.allowed_actions.includes("policy");
+  const term = search.trim().toLowerCase();
+  const policies = (data?.policies ?? []).filter(
+    (p) =>
+      !term ||
+      [p.currency_code, roundingLabels[p.rounding_mode] ?? p.rounding_mode, accountLabel(data, p.net_payable_account_id)]
+        .join(" ")
+        .toLowerCase()
+        .includes(term),
+  );
+  const employees = (data?.employees ?? []).filter(
+    (e) => !term || (e.display_name + " " + e.employee_number).toLowerCase().includes(term),
+  );
+  const selectedPolicy = data?.policies.find((p) => p.id === policyId) ?? null;
+  const selectedEmployee = data?.employees.find((e) => e.id === employeeId) ?? null;
+
+  function begin(action: HrPayrollRunAction["action"], policy?: Policy) {
     if (!data) return;
     setError("");
     setNotice("");
@@ -80,48 +104,50 @@ export function HrPayrollRunsWorkspace({
       snapshot: data,
       reason: "",
       confirm_override: false,
-      currency_code: "",
-      rounding_mode: "half_up",
-      account: "",
-      policy: data.policies[0]?.id ?? "",
+      currency_code: policy?.currency_code ?? "",
+      rounding_mode: (policy?.rounding_mode as Draft["rounding_mode"]) ?? "half_up",
+      account: policy?.net_payable_account_id ?? "",
+      policy: policy?.id ?? data.policies[0]?.id ?? "",
     });
   }
-  async function save(event: React.FormEvent) {
-    event.preventDefault();
-    if (!draft || guard.current) return;
+  async function run(current: Draft): Promise<boolean> {
+    if (guard.current) return false;
     if (
-      ["approve", "return"].includes(draft.action) &&
-      draft.snapshot.review_access === "override_required" &&
-      !draft.confirm_override
+      ["approve", "return"].includes(current.action) &&
+      current.snapshot.review_access === "override_required" &&
+      !current.confirm_override
     ) {
       setError(
         "An explicit audited administrator override is required for this self-decision. Choose the override or ask an independent reviewer.",
       );
-      return;
+      return false;
     }
-    const current = draft.snapshot,
-      currency = current.currencies.find((c) => c.id === draft.currency_code),
+    const snap = current.snapshot,
+      currency = snap.currencies.find((c) => c.id === current.currency_code),
+      withTerms = current.action === "policy" || current.action === "policy_update",
       parsed = hrPayrollRunActionSchema.safeParse({
-        company_id: current.company_id,
-        month: current.month,
-        action: draft.action,
-        reason: draft.reason,
-        expected_version: current.period?.version ?? 0,
-        source_hash: current.source_hash,
-        confirm_override: draft.confirm_override,
-        ...(draft.action === "policy"
+        company_id: snap.company_id,
+        month: snap.month,
+        action: current.action,
+        reason: current.reason,
+        expected_version: snap.period?.version ?? 0,
+        source_hash: snap.source_hash,
+        confirm_override: current.confirm_override,
+        ...(withTerms
           ? {
-              currency_code: draft.currency_code,
+              currency_code: current.currency_code,
               money_scale: currency?.scale,
-              net_payable_account_id: draft.account,
-              rounding_mode: draft.rounding_mode,
+              net_payable_account_id: current.account,
+              rounding_mode: current.rounding_mode,
             }
           : {}),
-        ...(draft.action === "open" ? { policy_id: draft.policy } : {}),
+        ...(current.action === "open" || current.action === "policy_update" || current.action === "policy_delete"
+          ? { policy_id: current.policy }
+          : {}),
       });
     if (!parsed.success) {
       setError(parsed.error.issues.map((i) => i.message).join(" "));
-      return;
+      return false;
     }
     const fingerprint = JSON.stringify(parsed.data);
     if (retry.current?.fingerprint !== fingerprint) retry.current = { fingerprint, key: crypto.randomUUID() };
@@ -132,30 +158,40 @@ export function HrPayrollRunsWorkspace({
       const result = await client.actOnPayrollRun(parsed.data, csrfToken(), retry.current.key);
       retry.current = null;
       setDraft(null);
-      setNotice(actionTitle[draft.action] + " saved · " + result.status + " · version " + result.version);
+      if (current.action === "policy_delete") setPolicyId("");
+      setNotice(
+        actionTitle[current.action] + " saved" + (current.action === "policy_delete" ? "" : " · " + result.status),
+      );
       setRevision((v) => v + 1);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "The Payroll action could not be saved.");
+      return false;
     } finally {
       guard.current = false;
       setBusy(false);
     }
   }
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    if (draft) await run(draft);
+  }
   const set = (update: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...update } : d));
   if (loading) return <section className={panel}>Loading Payroll session…</section>;
   if (!canRead) return <section className={panel}>Payroll period read permission is required.</section>;
+  const locked = !!draft || busy;
   return (
     <div
-      aria-label="Payroll execution workspace"
-      className="grid min-w-0 gap-5 font-sans [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_input]:font-normal! [&_select]:font-normal! [&_textarea]:font-normal!"
+      aria-label={review ? "Payroll review workspace" : "Payroll execution workspace"}
+      className="grid min-w-0 gap-4 font-sans [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_input]:font-normal! [&_select]:font-normal! [&_textarea]:font-normal!"
     >
       <section className={panel}>
-        <div className="grid min-w-0 items-end gap-4 md:grid-cols-[1.5fr_1fr_auto]">
+        <div className="grid min-w-0 items-end gap-4 md:grid-cols-[1.5fr_1fr_1.5fr]">
           <Field title="Company">
             <select
               className={selectClass}
               value={company}
-              disabled={!!draft || busy}
+              disabled={locked}
               onChange={(e) => {
                 setChoice(e.target.value);
                 setOffset(0);
@@ -174,7 +210,7 @@ export function HrPayrollRunsWorkspace({
               className="box-border! w-full min-w-0! max-w-full!"
               type="month"
               value={month}
-              disabled={!!draft || busy}
+              disabled={locked}
               onChange={(e) => {
                 if (e.target.value) {
                   setMonth(e.target.value);
@@ -183,17 +219,22 @@ export function HrPayrollRunsWorkspace({
               }}
             />
           </Field>
+          <Field title="Search records">
+            <Input
+              value={search}
+              maxLength={120}
+              placeholder={review ? "Employee name or number" : "Policy, employee name or number"}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </Field>
         </div>
       </section>
-      {(error || state.error || companies.error) && (
-        <div
-          role="alert"
-          className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
-        >
+      {!draft && !policyId && !employeeId && (error || state.error || companies.error) && (
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
           {error || state.error || companies.error}
         </div>
       )}
-      {notice && (
+      {notice && !draft && (
         <div
           role="status"
           className="rounded-lg border border-[var(--nx-success-border)] bg-[var(--nx-success-soft)] p-3 text-sm text-[var(--nx-success-text)]"
@@ -201,129 +242,294 @@ export function HrPayrollRunsWorkspace({
           {notice}
         </div>
       )}
-      <section className={panel + " flex flex-wrap items-start justify-between gap-4"}>
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <Calculator className="h-5 w-5 text-primary" />
-              {review ? "Payroll review" : "Payroll run"}
-            </h2>
-            {data?.period && <State value={data.period.state} />}
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          {data?.period ? (
+            <>
+              <State value={data.period.state} />
+              <span>
+                Run {data.period.run_number || "—"}
+                {data.totals ? ` · Net ${data.totals.net} ${data.totals.currency_code}` : ""}
+                {data.totals ? ` · Employer contributions ${data.totals.employer_contributions}` : ""}
+              </span>
+            </>
+          ) : (
+            <span>No payroll period opened for this month</span>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {data?.allowed_actions.includes("policy") && !review && (
-            <Button variant="outline" disabled={!!draft || busy} onClick={() => begin("policy")}>
+          {canManagePolicy && (
+            <Button className="text-primary-foreground!" disabled={locked} onClick={() => begin("policy")}>
+              <Plus className="h-4 w-4" />
               Payroll policy
             </Button>
           )}
           {!review && data?.allowed_actions.includes("open") && (
-            <Button className="text-primary-foreground!" disabled={!!draft || busy} onClick={() => begin("open")}>
+            <Button variant="outline" disabled={locked} onClick={() => begin("open")}>
               Open period
             </Button>
           )}
           {!review && data?.allowed_actions.includes("calculate") && (
-            <Button className="text-primary-foreground!" disabled={!!draft || busy} onClick={() => begin("calculate")}>
+            <Button variant="outline" disabled={locked} onClick={() => begin("calculate")}>
               {data.period?.run_number ? "Recalculate" : "Calculate salary results"}
             </Button>
           )}
           {!review && data?.allowed_actions.includes("submit") && (
-            <Button className="text-primary-foreground!" disabled={!!draft || busy} onClick={() => begin("submit")}>
+            <Button variant="outline" disabled={locked} onClick={() => begin("submit")}>
               Submit for review
             </Button>
           )}
           {review && data?.allowed_actions.includes("return") && (
-            <Button variant="outline" disabled={!!draft || busy} onClick={() => begin("return")}>
+            <Button variant="outline" disabled={locked} onClick={() => begin("return")}>
               Return for corrections
             </Button>
           )}
           {review && data?.period?.state === "under_review" && (
             <Button
               className="text-primary-foreground!"
-              disabled={!!draft || busy || !data.allowed_actions.includes("approve")}
+              disabled={locked || !data.allowed_actions.includes("approve")}
               onClick={() => begin("approve")}
             >
               Approve payroll
             </Button>
           )}
         </div>
-      </section>
+      </div>
       {data?.period?.state === "open" && data.period.run_number > 0 && (
-        <section className={panel} role="status">
-          <h3 className="text-sm font-semibold">Returned for correction · recalculation required</h3>
-        </section>
+        <p role="status" className="rounded-lg border border-border bg-muted/40 p-3 text-sm font-semibold">
+          Returned for correction · recalculation required
+        </p>
       )}
       {review && data?.review_access === "forbidden" && (
-        <section className={panel} role="status">
-          <h3 className="text-sm font-semibold">Independent Payroll reviewer required</h3>
-        </section>
+        <p role="status" className="rounded-lg border border-border bg-muted/40 p-3 text-sm font-semibold">
+          Independent Payroll reviewer required
+        </p>
       )}
-      {data?.supplemental_totals && (
-        <section aria-label="Payroll including posted supplements" className={panel + " space-y-2"}>
-          <h3 className="font-semibold">Including posted settlement supplements</h3>
-          <p className="text-sm">
-            Net {data.supplemental_totals.net} · Gross {data.supplemental_totals.gross} · Deductions{" "}
-            {data.supplemental_totals.deductions}
-          </p>
-        </section>
-      )}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <Metric
-          title="Run"
-          value={data?.period?.run_number ?? "—"}
-          hint={data?.period ? "Version " + data.period.version : "No Payroll period opened"}
-        />
-        <Metric
-          title="Published attendance inputs"
-          value={data?.attendance?.input_count ?? 0}
-          hint={data?.attendance?.state === "locked" ? "Locked source evidence" : "Attendance close required"}
-        />
-        <Metric title="Employee results" value={data?.total ?? 0} hint="Current immutable run" />
-        <Metric
-          title="Original run net"
-          value={data?.totals?.net ?? "—"}
-          hint={
-            data?.totals
-              ? data.totals.currency_code +
-                (["approved", "posting_ready", "posted", "paid", "closed"].includes(data.period?.state ?? "")
-                  ? " · approved original calculation"
-                  : " · preliminary until final approval")
-              : "Calculation not available"
-          }
-        />
-        <Metric
-          title="Employer contributions"
-          value={data?.totals?.employer_contributions ?? "—"}
-          hint={data?.totals ? data.totals.currency_code + " · additional company cost" : "Calculated statutory costs"}
-        />
-      </div>
       {!!data?.blocked.length && (
-        <section className={panel + " border-[var(--nx-warning-border)]"} aria-label="Payroll approval gates">
+        <section
+          className="rounded-lg border border-[var(--nx-warning-border)] bg-card p-3"
+          aria-label="Payroll approval gates"
+        >
           <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--nx-warning)]">
             <LockKeyhole className="h-4 w-4" />
             Required before final approval
           </h3>
-          <ul className="mt-3 grid list-disc gap-2 pl-5 text-sm leading-relaxed text-muted-foreground">
+          <ul className="mt-2 grid list-disc gap-1 pl-5 text-sm text-muted-foreground">
             {data.blocked.map((text, i) => (
               <li key={i}>{text}</li>
             ))}
           </ul>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="outline" disabled={!!draft || busy} onClick={() => onNavigate("hr", "attendance-period")}>
-              Attendance close
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" disabled={!!draft || busy} onClick={() => onNavigate("hr", "payroll-setup")}>
-              Statutory setup
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" disabled={!!draft || busy} onClick={() => onNavigate("hr", "salary-revisions")}>
-              Salary authorities
-              <ArrowRight className="h-4 w-4" />
-            </Button>
+        </section>
+      )}
+      {!review && (
+        <section aria-label="Payroll policies" className="grid gap-2">
+          <h3 className="text-sm font-semibold">Payroll policies</h3>
+          <div className={tableWrap}>
+            <table className={tableClass}>
+              <thead className={headClass}>
+                <tr>
+                  <th className={th}>Payroll currency</th>
+                  <th className={th}>Precision</th>
+                  <th className={th}>Rounding</th>
+                  <th className={th}>Net payable liability account</th>
+                  <th className={th}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {policies.map((p) => (
+                  <HrClickableRow
+                    key={p.id}
+                    disabled={locked}
+                    onOpen={() => {
+                      setError("");
+                      setPolicyId(p.id);
+                    }}
+                  >
+                    <td className={td + " font-medium"}>{currencyLabel(data, p.currency_code)}</td>
+                    <td className={td + " text-muted-foreground"}>{p.money_scale} decimals</td>
+                    <td className={td + " text-muted-foreground"}>{roundingLabels[p.rounding_mode] ?? p.rounding_mode}</td>
+                    <td className={td + " text-muted-foreground"}>{accountLabel(data, p.net_payable_account_id)}</td>
+                    <td className={td}>
+                      <State value={p.in_use ? "in_use" : "active"} />
+                    </td>
+                  </HrClickableRow>
+                ))}
+                {!policies.length && (
+                  <tr>
+                    <td className="px-3 py-6 text-center text-muted-foreground" colSpan={5}>
+                      {state.loading ? "Loading payroll policies…" : "No payroll policies match this company and search."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
+      {data?.period && data.period.run_number > 0 && permissions.includes("hr.payroll.result.read") && (
+        <HrPayrollRunComparison key={company + month} client={client} data={data} revision={revision} disabled={locked} />
+      )}
+      <section aria-label="Employee results" className="grid gap-2">
+        <h3 className="text-sm font-semibold">Employee results</h3>
+        <div className={tableWrap}>
+          <table className={tableClass}>
+            <thead className={headClass}>
+              <tr>
+                <th className={th}>Employee</th>
+                <th className={th}>Employee no.</th>
+                <th className={th + " text-right"}>Gross</th>
+                <th className={th + " text-right"}>Deductions</th>
+                <th className={th + " text-right"}>Net</th>
+                <th className={th + " text-right"}>Employer contributions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {employees.map((employee) => (
+                <HrClickableRow key={employee.id} disabled={locked} onOpen={() => setEmployeeId(employee.id)}>
+                  <td className={td + " font-medium"}>{employee.display_name}</td>
+                  <td className={td + " font-mono text-xs text-muted-foreground"}>{employee.employee_number}</td>
+                  <td className={td + " text-right font-mono tabular-nums"}>{employee.gross}</td>
+                  <td className={td + " text-right font-mono tabular-nums"}>{employee.deductions}</td>
+                  <td className={td + " text-right font-mono tabular-nums"}>
+                    {employee.net} {employee.currency_code}
+                  </td>
+                  <td className={td + " text-right font-mono tabular-nums"}>{employee.employer_contributions}</td>
+                </HrClickableRow>
+              ))}
+              {!employees.length && (
+                <tr>
+                  <td className="px-3 py-6 text-center text-muted-foreground" colSpan={6}>
+                    {state.loading
+                      ? "Loading Payroll results…"
+                      : data?.total && !data.employees.length
+                        ? "Result read permission is required to inspect wage amounts."
+                        : term && data?.employees.length
+                          ? "No employee results match this search."
+                          : "Open the period and calculate the published salary inputs."}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {data && data.total > 25 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+          <span>
+            {offset + 1}–{Math.min(offset + 25, data.total)} of {data.total}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              disabled={offset === 0 || state.loading || locked}
+              onClick={() => setOffset((v) => Math.max(0, v - 25))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              disabled={offset + 25 >= data.total || state.loading || locked}
+              onClick={() => setOffset((v) => v + 25)}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+      {!!data?.history.length && (
+        <details className={panel}>
+          <summary className="cursor-pointer text-sm font-semibold">Run history ({data.history.length})</summary>
+          <ol className="mt-4 grid gap-3">
+            {data.history.map((item, i) => (
+              <li key={i} className="border-l-2 border-primary/30 pl-3 text-sm">
+                <div className="flex flex-wrap justify-between gap-2">
+                  <strong>{item.action.replaceAll("_", " ")}</strong>
+                  <span className="text-xs text-muted-foreground">{new Date(item.occurred_at).toLocaleString()}</span>
+                </div>
+                <p className="mt-1 break-words text-muted-foreground">{item.reason}</p>
+                <p className="mt-1 break-all text-xs text-muted-foreground">
+                  {item.actor_id}
+                  {item.override ? " · Audited administrator override" : ""}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
+
+      {/* Policy details: Edit and Delete sit at the bottom; a policy used by a period stays read-only. */}
+      {selectedPolicy && data && !draft ? (
+        <HrRecordDrawer
+          title={`${selectedPolicy.currency_code} payroll policy`}
+          description="Payroll policy details"
+          open
+          busy={busy}
+          error={error}
+          onClose={() => setPolicyId("")}
+          footer={
+            canManagePolicy && !selectedPolicy.in_use ? (
+              <>
+                <HrConfirmDeleteButton
+                  label={`Delete the ${selectedPolicy.currency_code} payroll policy`}
+                  title={`Delete the ${selectedPolicy.currency_code} payroll policy?`}
+                  description="The policy is removed. Payroll periods that are already open keep their own policy."
+                  variant="outline"
+                  disabled={busy}
+                  onConfirm={() =>
+                    run({
+                      action: "policy_delete",
+                      snapshot: data,
+                      reason: "",
+                      confirm_override: false,
+                      currency_code: "",
+                      rounding_mode: "half_up",
+                      account: "",
+                      policy: selectedPolicy.id,
+                    })
+                  }
+                />
+                <HrEditButton
+                  label={`Edit the ${selectedPolicy.currency_code} payroll policy`}
+                  disabled={busy}
+                  onClick={() => begin("policy_update", selectedPolicy)}
+                />
+              </>
+            ) : undefined
+          }
+        >
+          <div className="grid gap-4">
+            <HrDetailSummary code={selectedPolicy.currency_code} status={selectedPolicy.in_use ? "in_use" : "active"}>
+              {selectedPolicy.in_use ? "Used by a payroll period" : null}
+            </HrDetailSummary>
+            <HrDetailGroup title="Policy">
+              <HrDetailTile label="Payroll currency" value={currencyLabel(data, selectedPolicy.currency_code)} />
+              <HrDetailTile label="Precision" value={`${selectedPolicy.money_scale} decimals`} />
+              <HrDetailTile
+                label="Rounding method"
+                value={roundingLabels[selectedPolicy.rounding_mode] ?? selectedPolicy.rounding_mode}
+              />
+              <HrDetailTile
+                label="Net payable liability account"
+                value={accountLabel(data, selectedPolicy.net_payable_account_id)}
+              />
+            </HrDetailGroup>
+          </div>
+        </HrRecordDrawer>
+      ) : null}
+
+      {selectedEmployee && !draft ? (
+        <HrRecordDrawer
+          title={selectedEmployee.display_name}
+          description="Employee payroll result"
+          open
+          onClose={() => setEmployeeId("")}
+        >
+          <EmployeeResult employee={selectedEmployee} />
+        </HrRecordDrawer>
+      ) : null}
+
       {draft ? (
         <HrRecordDrawer
           title={actionTitle[draft.action]}
@@ -331,12 +537,22 @@ export function HrPayrollRunsWorkspace({
           open
           busy={busy}
           error={error}
-          notice={notice}
           onClose={() => setDraft(null)}
+          footer={
+            <Button type="submit" form="payroll-run-action" className="text-primary-foreground!" disabled={busy}>
+              {busy
+                ? "Saving…"
+                : draft.action === "policy"
+                  ? "Create payroll policy"
+                  : draft.action === "policy_update"
+                    ? "Save payroll policy"
+                    : "Confirm " + actionTitle[draft.action].toLowerCase()}
+            </Button>
+          }
         >
-          <form onSubmit={save} className="grid gap-4">
-            <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0! md:grid-cols-2">
-              {draft.action === "policy" && (
+          <form id="payroll-run-action" onSubmit={save} className="grid gap-4">
+            <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0!">
+              {(draft.action === "policy" || draft.action === "policy_update") && (
                 <>
                   <Field title="Payroll currency">
                     <select
@@ -374,10 +590,11 @@ export function HrPayrollRunsWorkspace({
                       value={draft.rounding_mode}
                       onChange={(e) => set({ rounding_mode: e.target.value as Draft["rounding_mode"] })}
                     >
-                      <option value="half_up">Half up</option>
-                      <option value="half_even">Half even</option>
-                      <option value="down">Toward zero</option>
-                      <option value="up">Away from zero</option>
+                      {Object.entries(roundingLabels).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
                     </select>
                   </Field>
                 </>
@@ -393,7 +610,7 @@ export function HrPayrollRunsWorkspace({
                     <option value="">Choose governed policy</option>
                     {draft.snapshot.policies.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.currency_code} · {p.money_scale} decimals · {p.rounding_mode.replaceAll("_", " ")}
+                        {p.currency_code} · {p.money_scale} decimals · {roundingLabels[p.rounding_mode] ?? p.rounding_mode}
                       </option>
                     ))}
                   </select>
@@ -414,292 +631,196 @@ export function HrPayrollRunsWorkspace({
                   </Field>
                 )}
             </fieldset>
-            <Field title="Payroll action reason">
+            <Field title="Reason">
               <Textarea
-                required
                 maxLength={500}
                 value={draft.reason}
                 disabled={busy}
                 onChange={(e) => set({ reason: e.target.value })}
               />
             </Field>
-            <details className="text-xs text-muted-foreground">
-              <summary className="cursor-pointer">Reviewed source fingerprint</summary>
-              <p className="mt-2 break-all font-mono">{draft.snapshot.source_hash}</p>
-            </details>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              {draft.action === "calculate"
-                ? "This saves salary, overtime and available published statutory calculations. Unresolved statutory context is retained as a warning and prevents final approval."
-                : draft.action === "policy"
-                  ? "The policy is immutable after creation. This action does not calculate or post money."
-                  : draft.action === "return"
-                    ? "Returning reopens this unapproved period for input corrections. Previous results remain immutable. A new calculation is required before resubmission."
-                    : "Refresh preserves this form and its reviewed fingerprint. If the source changes, close the action and review it again."}
-            </p>
-            <Button type="submit" className="justify-self-start text-primary-foreground!" disabled={busy}>
-              {busy ? "Saving…" : "Confirm " + actionTitle[draft.action].toLowerCase()}
-            </Button>
           </form>
         </HrRecordDrawer>
       ) : null}
-      {data?.period && data.period.run_number > 0 && permissions.includes("hr.payroll.result.read") && (
-        <HrPayrollRunComparison
-          key={company + month}
-          client={client}
-          data={data}
-          revision={revision}
-          disabled={busy || !!draft}
-        />
+    </div>
+  );
+}
+
+function currencyLabel(data: HrPayrollRunWorkspace | null | undefined, code: string) {
+  return data?.currencies.find((c) => c.id === code)?.label ?? code;
+}
+function accountLabel(data: HrPayrollRunWorkspace | null | undefined, id: string) {
+  return data?.accounts.find((a) => a.id === id)?.label ?? id;
+}
+
+/** Full calculation evidence for one employee, shown in the drawer. */
+function EmployeeResult({ employee }: { employee: Employee }) {
+  return (
+    <div className="grid gap-4">
+      <HrDetailSummary code={employee.employee_number} status={employee.statutory?.state ?? "calculated"}>
+        {employee.currency_code}
+      </HrDetailSummary>
+      <HrDetailGroup title="Amounts">
+        <HrDetailTile label="Gross" value={employee.gross} />
+        <HrDetailTile label="Deductions" value={employee.deductions} />
+        <HrDetailTile label="Net" value={employee.net} />
+        <HrDetailTile label="Employer contributions" value={employee.employer_contributions} />
+      </HrDetailGroup>
+      {employee.supplemental && (
+        <p className="rounded-md border border-border bg-muted p-3 text-sm">
+          After posted settlement supplements: net {employee.supplemental.net}, gross {employee.supplemental.gross},
+          deductions {employee.supplemental.deductions}. Original values are retained for audit.
+        </p>
       )}
-      {state.loading ? (
-        <section className={panel} role="status">
-          Loading Payroll results…
-        </section>
-      ) : !data?.employees.length ? (
-        <section className={panel + " py-9 text-center"}>
-          <ShieldCheck className="mx-auto mb-3 h-7 w-7 text-muted-foreground" />
-          <h3 className="font-semibold">No employee results to show</h3>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {data?.total
-              ? "Result read permission is required to inspect wage amounts."
-              : "Open the period and calculate the published salary inputs."}
+      <section className="min-w-0 rounded-lg border border-border bg-muted/30 p-3" aria-label="Statutory calculation evidence">
+        <h4 className="text-sm font-semibold">
+          {employee.statutory?.state === "sealed"
+            ? employee.statutory.environment === "test"
+              ? "Synthetic test evidence · isolated testing only"
+              : "Statutory evidence sealed"
+            : "Statutory calculation requires review"}
+        </h4>
+        {employee.statutory?.state === "sealed" && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {employee.statutory.rule_count} verified rule(s) · {employee.statutory.pack_count} published pack(s)
           </p>
-        </section>
-      ) : (
-        <div className="grid min-w-0 gap-3 lg:grid-cols-2">
-          {data.employees.map((employee) => (
-            <details className={panel} key={employee.id}>
-              <summary className="cursor-pointer text-sm">
-                <strong>{employee.display_name}</strong>
-                <span className="mt-1 block text-xs text-muted-foreground">
-                  {employee.employee_number} · {employee.currency_code}
-                </span>
-                <span className="mt-3 block font-mono tabular-nums">Net {employee.net}</span>
-              </summary>
-              {employee.supplemental && (
-                <p className="mt-3 rounded-md border border-border bg-muted p-3 text-sm">
-                  After posted settlement supplements: net {employee.supplemental.net}, gross{" "}
-                  {employee.supplemental.gross}, deductions {employee.supplemental.deductions}. Original values below
-                  are retained for audit.
-                </p>
-              )}
-              <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-                <div>
-                  <dt className="text-xs text-muted-foreground">Gross</dt>
-                  <dd className="mt-1 break-all font-mono tabular-nums">{employee.gross}</dd>
+        )}
+        {!!employee.statutory?.jurisdiction_overrides?.length && (
+          <div className="mt-3 grid min-w-0 gap-2 text-xs" aria-label="Applied employee jurisdiction overrides">
+            <h4 className="font-semibold">Applied employee jurisdiction overrides</h4>
+            {employee.statutory.jurisdiction_overrides.map((o) => (
+              <dl className="grid min-w-0 gap-1 rounded-md border border-border p-2 sm:grid-cols-2" key={o.id}>
+                <div className="min-w-0">
+                  <dt className="text-muted-foreground">Rule category</dt>
+                  <dd className="break-words">{o.rule_scope}</dd>
                 </div>
-                <div>
-                  <dt className="text-xs text-muted-foreground">Deductions</dt>
-                  <dd className="mt-1 break-all font-mono tabular-nums">{employee.deductions}</dd>
+                <div className="min-w-0">
+                  <dt className="text-muted-foreground">Jurisdiction</dt>
+                  <dd className="break-all">{o.jurisdiction_id}</dd>
                 </div>
-                <div>
-                  <dt className="text-xs text-muted-foreground">Employer contributions</dt>
-                  <dd className="mt-1 break-all font-mono tabular-nums">{employee.employer_contributions}</dd>
+                <div className="min-w-0">
+                  <dt className="text-muted-foreground">Effective range</dt>
+                  <dd>
+                    {o.effective_from} – {o.effective_to ?? "Open ended"}
+                  </dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-muted-foreground">Approval reference</dt>
+                  <dd className="break-all font-mono">{o.id}</dd>
                 </div>
               </dl>
-              <section
-                className="mt-4 min-w-0 rounded-lg border border-border bg-muted/30 p-3"
-                aria-label="Statutory calculation evidence"
-              >
-                <h4 className="text-sm font-semibold">
-                  {employee.statutory?.state === "sealed"
-                    ? employee.statutory.environment === "test"
-                      ? "Synthetic test evidence · isolated testing only"
-                      : "Statutory evidence sealed"
-                    : "Statutory calculation requires review"}
-                </h4>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  {employee.statutory?.state === "sealed"
-                    ? employee.statutory.rule_count +
-                      " verified rule(s) · " +
-                      employee.statutory.pack_count +
-                      " published pack(s). Employer contributions remain separate from employee net pay."
-                    : "These wages remain preliminary until the required published rules and company context can be verified. Review the warnings below."}
-                </p>
-                {!!employee.statutory?.jurisdiction_overrides?.length && (
-                  <div className="mt-3 grid min-w-0 gap-2 text-xs" aria-label="Applied employee jurisdiction overrides">
-                    <h4 className="font-semibold">Applied employee jurisdiction overrides</h4>
-                    {employee.statutory.jurisdiction_overrides.map((o) => (
-                      <dl className="grid min-w-0 gap-1 rounded-md border border-border p-2 sm:grid-cols-2" key={o.id}>
-                        <div className="min-w-0">
-                          <dt className="text-muted-foreground">Rule category</dt>
-                          <dd className="break-words">{o.rule_scope}</dd>
-                        </div>
-                        <div className="min-w-0">
-                          <dt className="text-muted-foreground">Jurisdiction</dt>
-                          <dd className="break-all">{o.jurisdiction_id}</dd>
-                        </div>
-                        <div className="min-w-0">
-                          <dt className="text-muted-foreground">Effective range</dt>
-                          <dd>
-                            {o.effective_from} – {o.effective_to ?? "Open ended"}
+            ))}
+          </div>
+        )}
+        {!!employee.statutory?.contexts?.length && (
+          <div className="mt-3 grid min-w-0 gap-2 text-xs" aria-label="Dated statutory contexts">
+            <h4 className="font-semibold">Reviewed statutory context periods</h4>
+            {employee.statutory.contexts.map((c) => (
+              <details key={c.effective_from} className="min-w-0 rounded-md border border-border p-2">
+                <summary className="cursor-pointer">
+                  {c.effective_from} – {c.effective_to} · {c.calendar_days} earned calendar day(s)
+                </summary>
+                <dl className="mt-2 grid min-w-0 gap-1 text-muted-foreground">
+                  <dt>Context input fingerprint</dt>
+                  <dd className="break-all font-mono">{c.input_hash}</dd>
+                  <dt>Resolved rule set</dt>
+                  <dd className="break-all font-mono">{c.resolved_set_hash}</dd>
+                </dl>
+              </details>
+            ))}
+          </div>
+        )}
+        {employee.statutory?.state === "sealed" && (
+          <details className="mt-3 min-w-0 text-xs">
+            <summary className="cursor-pointer">Retained statutory fingerprints</summary>
+            <dl className="mt-2 grid min-w-0 gap-2">
+              <div>
+                <dt className="text-muted-foreground">Snapshot</dt>
+                <dd className="break-all font-mono">{employee.statutory.snapshot_id}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Input / resolved rule set</dt>
+                <dd className="break-all font-mono">
+                  {employee.statutory.input_hash}
+                  <br />
+                  {employee.statutory.resolved_set_hash}
+                </dd>
+              </div>
+            </dl>
+          </details>
+        )}
+      </section>
+      <div className={tableWrap}>
+        <table className={tableClass}>
+          <thead className={headClass}>
+            <tr>
+              <th className={th}>Component</th>
+              <th className={th}>Type</th>
+              <th className={th + " text-right"}>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {employee.lines.map((line, i) => (
+              <tr key={i} className="border-b border-border/70 align-top last:border-0">
+                <td className={td}>
+                  {line.component_name}
+                  {line.overtime && (
+                    <details className="mt-1 text-xs" aria-label="Overtime calculation evidence">
+                      <summary className="cursor-pointer text-muted-foreground">
+                        Overtime · {line.overtime.work_date} · {line.overtime.approved_minutes} approved minutes
+                      </summary>
+                      <dl className="mt-2 grid min-w-0 gap-2 sm:grid-cols-2">
+                        <div>
+                          <dt className="text-muted-foreground">Contractual basis</dt>
+                          <dd className="break-all font-mono">
+                            {line.overtime.basis_amount} {employee.currency_code}
                           </dd>
                         </div>
-                        <div className="min-w-0">
-                          <dt className="text-muted-foreground">Approval reference</dt>
-                          <dd className="break-all font-mono">{o.id}</dd>
+                        <div>
+                          <dt className="text-muted-foreground">Conversion</dt>
+                          <dd>
+                            {line.overtime.conversion_method.replaceAll("_", " ")}
+                            {line.overtime.ordinary_hours ? " / " + line.overtime.ordinary_hours + " ordinary hours" : ""}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground">Hourly rate / multiplier</dt>
+                          <dd className="break-all font-mono">
+                            {line.overtime.hourly_rate} × {line.overtime.multiplier}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground">Rounding</dt>
+                          <dd>
+                            {line.overtime.rounding_stage.replaceAll("_", " ")} ·{" "}
+                            {line.overtime.rounding_mode.replaceAll("_", " ")}
+                          </dd>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <dt className="text-muted-foreground">Released policy / approved arrangement</dt>
+                          <dd className="break-all font-mono">
+                            {line.overtime.policy_version_id}
+                            <br />
+                            {line.overtime.arrangement_id}
+                          </dd>
                         </div>
                       </dl>
-                    ))}
-                  </div>
-                )}
-                {!!employee.statutory?.contexts?.length && (
-                  <div className="mt-3 grid min-w-0 gap-2 text-xs" aria-label="Dated statutory contexts">
-                    <h4 className="font-semibold">Reviewed statutory context periods</h4>
-                    {employee.statutory.contexts.map((c) => (
-                      <details key={c.effective_from} className="min-w-0 rounded-md border border-border p-2">
-                        <summary className="cursor-pointer">
-                          {c.effective_from} – {c.effective_to} · {c.calendar_days} earned calendar day(s)
-                        </summary>
-                        <dl className="mt-2 grid min-w-0 gap-1 text-muted-foreground">
-                          <dt>Context input fingerprint</dt>
-                          <dd className="break-all font-mono">{c.input_hash}</dd>
-                          <dt>Resolved rule set</dt>
-                          <dd className="break-all font-mono">{c.resolved_set_hash}</dd>
-                        </dl>
-                      </details>
-                    ))}
-                  </div>
-                )}
-                {employee.statutory?.state === "sealed" && (
-                  <details className="mt-3 min-w-0 text-xs">
-                    <summary className="cursor-pointer">Retained statutory fingerprints</summary>
-                    <dl className="mt-2 grid min-w-0 gap-2">
-                      <div>
-                        <dt className="text-muted-foreground">Snapshot</dt>
-                        <dd className="break-all font-mono">{employee.statutory.snapshot_id}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">Input / resolved rule set</dt>
-                        <dd className="break-all font-mono">
-                          {employee.statutory.input_hash}
-                          <br />
-                          {employee.statutory.resolved_set_hash}
-                        </dd>
-                      </div>
-                    </dl>
-                  </details>
-                )}
-              </section>
-              <div className="mt-4 grid gap-2">
-                {employee.lines.map((line, i) => (
-                  <div
-                    key={i}
-                    className="flex min-w-0 flex-wrap justify-between gap-2 rounded-lg border border-border p-3 text-sm"
-                  >
-                    <span className="min-w-0 break-words">
-                      {line.component_name}
-                      <small className="mt-1 block text-muted-foreground">{line.kind.replaceAll("_", " ")}</small>
-                    </span>
-                    <span className="font-mono tabular-nums">{line.amount}</span>
-                    {line.overtime && (
-                      <details
-                        className="w-full min-w-0 border-t border-border pt-3 text-xs"
-                        aria-label="Overtime calculation evidence"
-                      >
-                        <summary className="cursor-pointer font-medium">
-                          Overtime · {line.overtime.work_date} · {line.overtime.approved_minutes} approved minutes
-                        </summary>
-                        <dl className="mt-3 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-                          <div>
-                            <dt className="text-muted-foreground">Contractual basis</dt>
-                            <dd className="mt-1 break-all font-mono">
-                              {line.overtime.basis_amount} {employee.currency_code}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="text-muted-foreground">Conversion</dt>
-                            <dd className="mt-1">
-                              {line.overtime.conversion_method.replaceAll("_", " ")}
-                              {line.overtime.ordinary_hours
-                                ? " / " + line.overtime.ordinary_hours + " ordinary hours"
-                                : ""}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="text-muted-foreground">Hourly rate / multiplier</dt>
-                            <dd className="mt-1 break-all font-mono">
-                              {line.overtime.hourly_rate} × {line.overtime.multiplier}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="text-muted-foreground">Rounding</dt>
-                            <dd className="mt-1">
-                              {line.overtime.rounding_stage.replaceAll("_", " ")} ·{" "}
-                              {line.overtime.rounding_mode.replaceAll("_", " ")}
-                            </dd>
-                          </div>
-                          <div className="sm:col-span-2">
-                            <dt className="text-muted-foreground">Released policy / approved arrangement</dt>
-                            <dd className="mt-1 break-all font-mono">
-                              {line.overtime.policy_version_id}
-                              <br />
-                              {line.overtime.arrangement_id}
-                            </dd>
-                          </div>
-                        </dl>
-                      </details>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <p className="mt-4 break-all font-mono text-[11px] text-muted-foreground">
-                Calculation: {employee.calculation_hash}
-              </p>
-              {employee.warnings.map((warning, i) => (
-                <p key={i} className="mt-2 text-sm text-[var(--nx-warning)]">
-                  {warning}
-                </p>
-              ))}
-            </details>
-          ))}
-        </div>
-      )}
-      {data && data.total > 25 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <span>
-            {offset + 1}–{Math.min(offset + 25, data.total)} of {data.total}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={offset === 0 || state.loading || busy || !!draft}
-              onClick={() => setOffset((v) => Math.max(0, v - 25))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              disabled={offset + 25 >= data.total || state.loading || busy || !!draft}
-              onClick={() => setOffset((v) => v + 25)}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
-      {!!data?.history.length && (
-        <details className={panel}>
-          <summary className="cursor-pointer text-sm font-semibold">Run history ({data.history.length})</summary>
-          <ol className="mt-4 grid gap-3">
-            {data.history.map((item, i) => (
-              <li key={i} className="border-l-2 border-primary/30 pl-3 text-sm">
-                <div className="flex flex-wrap justify-between gap-2">
-                  <strong>{item.action.replaceAll("_", " ")}</strong>
-                  <span className="text-xs text-muted-foreground">{new Date(item.occurred_at).toLocaleString()}</span>
-                </div>
-                <p className="mt-1 break-words text-muted-foreground">{item.reason}</p>
-                <p className="mt-1 break-all text-xs text-muted-foreground">
-                  {item.actor_id}
-                  {item.override ? " · Audited administrator override" : ""}
-                </p>
-              </li>
+                    </details>
+                  )}
+                </td>
+                <td className={td + " text-muted-foreground"}>{line.kind.replaceAll("_", " ")}</td>
+                <td className={td + " text-right font-mono tabular-nums"}>{line.amount}</td>
+              </tr>
             ))}
-          </ol>
-        </details>
-      )}
+          </tbody>
+        </table>
+      </div>
+      {employee.warnings.map((warning, i) => (
+        <p key={i} className="text-sm text-[var(--nx-warning)]">
+          {warning}
+        </p>
+      ))}
+      <p className="break-all font-mono text-[11px] text-muted-foreground">Calculation: {employee.calculation_hash}</p>
     </div>
   );
 }

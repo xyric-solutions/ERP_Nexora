@@ -1,4 +1,4 @@
-﻿-- HR145: Payroll workspace events accept any non-blank reason (previously at
+-- HR145: Payroll workspace events accept any non-blank reason (previously at
 -- least five characters). The API now treats the reason as optional and records
 -- a standard reason ("Salary structure created.", "Approved." ...) when none is
 -- given, so every event still carries non-blank audit evidence. HR142 missed

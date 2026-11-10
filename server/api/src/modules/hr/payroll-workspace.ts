@@ -1,4 +1,4 @@
-import { allocateHrCode } from "./record-codes.js";
+import { allocateHrCode, previewHrCode } from "./record-codes.js";
 import { requireSettlementPayrollDecision } from "./settlement-payroll.js";
 import { confirmLoanDisbursement, loanDisbursementOptions, requireLoanDisbursementAuthority } from "./payroll-loans.js";
 import { randomUUID } from "node:crypto";
@@ -426,11 +426,22 @@ export class PayrollWorkspace {
               )
             ).rows
           : [];
+        // Codes the next new records will receive (shown read-only on the new forms).
+        const code_previews = {
+          ...(has("setup")
+            ? {
+                component: await previewHrCode(client, c.tenantId, q.company_id, "component"),
+                structure: await previewHrCode(client, c.tenantId, q.company_id, "structure"),
+              }
+            : {}),
+          ...(has("loan") ? { loan: await previewHrCode(client, c.tenantId, q.company_id, "loan") } : {}),
+        };
         return {
           employees: employees.slice(0, 100),
           accounts: accounts.slice(0, 500),
           components: components.slice(0, 500),
           structures: structures.slice(0, 500),
+          code_previews,
           truncated:
             employees.length > 100 || accounts.length > 500 || components.length > 500 || structures.length > 500,
         };

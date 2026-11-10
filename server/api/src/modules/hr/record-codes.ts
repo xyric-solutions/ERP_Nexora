@@ -71,6 +71,37 @@ export async function allocateHrCode(
   return `${prefix}-${result.rows[0]!.value.padStart(3, "0")}`;
 }
 
+/** The code allocateHrCode would issue next, for showing on a new form. Read-only:
+ * the final code is still reserved transactionally when the record is saved. */
+export async function previewHrCode(
+  client: PoolClient,
+  tenant: string,
+  company: string,
+  kind: HrCodeKind,
+): Promise<string> {
+  const [prefix, table, column, companyColumn] = sources[kind];
+  const scope = companyColumn ? company : tenant;
+  const params: string[] = [tenant, `^${prefix}-([0-9]+)$`];
+  let where = "tenant_id=$1";
+  if (companyColumn) {
+    params.push(company);
+    where += ` and ${companyColumn}=$${params.length}`;
+  }
+  if (table === "hr_master_record") {
+    params.push(kind);
+    where += ` and master_type=$${params.length}`;
+  }
+  params.push(scope, kind);
+  const next = await client.query<{ value: string }>(
+    `select greatest(
+        coalesce((select max((substring(${column} from $2))::bigint) from ${table} where ${where}),0)+1,
+        coalesce((select next_value from hr_record_code_counter where tenant_id=$1 and scope_id=$${params.length - 1} and record_kind=$${params.length}),0)
+      )::text value`,
+    params,
+  );
+  return `${prefix}-${next.rows[0]!.value.padStart(3, "0")}`;
+}
+
 /** Call inside the delete transaction before removing a coded record. Raises the
  * company/tenant counter past the deleted code so it is never reissued, even when
  * it was the highest code and no counter row existed yet (seeded/imported codes).

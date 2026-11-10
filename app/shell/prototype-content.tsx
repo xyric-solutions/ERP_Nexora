@@ -3144,70 +3144,45 @@ function PrototypeContentBody(props: PrototypeContentProps) {
         </>
       );
     }
+    // Payroll pages open under their section tabs only (no second title, status chip or description).
     if (["payroll-runs", "payroll-validation"].includes(context.pageId)) {
       return (
-        <>
-          <PageIntro context={context} statusLabel="Connected · payroll workflow" />
-          <HrPayrollRunsWorkspace
-            key={context.pageId}
-            review={context.pageId === "payroll-validation"}
-            onNavigate={props.onNavigate}
-          />
-        </>
+        <HrPayrollRunsWorkspace
+          key={context.pageId}
+          review={context.pageId === "payroll-validation"}
+          onNavigate={props.onNavigate}
+        />
       );
     }
     if (context.pageId === "payslips") {
-      return (
-        <>
-          <PageIntro context={context} statusLabel="Connected · controlled payslip publication" />
-          <HrPayslipsWorkspace onNavigate={props.onNavigate} />
-        </>
-      );
+      return <HrPayslipsWorkspace onNavigate={props.onNavigate} />;
     }
     if (context.pageId === "payroll-journal") {
       return (
-        <>
-          <PageIntro context={context} statusLabel="Connected · governed Finance accrual" />
-          <HrPayrollJournalWorkspace
-            key={context.recordRef}
-            initialReference={context.recordRef}
-            onNavigate={props.onNavigate}
-          />
-        </>
+        <HrPayrollJournalWorkspace
+          key={context.recordRef}
+          initialReference={context.recordRef}
+          onNavigate={props.onNavigate}
+        />
       );
     }
     if (context.pageId === "payment-batch") {
       return (
-        <>
-          <PageIntro context={context} statusLabel="Connected · governed Banking settlement" />
-          <HrPayrollPaymentWorkspace
-            key={context.recordRef}
-            initialReference={context.recordRef}
-            onNavigate={props.onNavigate}
-          />
-        </>
+        <HrPayrollPaymentWorkspace
+          key={context.recordRef}
+          initialReference={context.recordRef}
+          onNavigate={props.onNavigate}
+        />
       );
     }
     if (context.pageId in payrollPages) {
       return (
-        <>
-          <PageIntro
-            context={context}
-            statusLabel={
-              ["payroll-runs", "payroll-validation", "payroll-journal", "payment-batch", "payslips"].includes(
-                context.pageId,
-              )
-                ? "Connected · read only"
-                : undefined
-            }
-          />
-          <HrPayrollWorkspace
-            initialReference={context.recordRef}
-            key={context.pageId + context.recordRef}
-            page={context.pageId as keyof typeof payrollPages}
-            onNavigate={props.onNavigate}
-          />
-        </>
+        <HrPayrollWorkspace
+          initialReference={context.recordRef}
+          key={context.pageId + context.recordRef}
+          page={context.pageId as keyof typeof payrollPages}
+          onNavigate={props.onNavigate}
+        />
       );
     }
     if (isHrAttendancePage(context.pageId)) {

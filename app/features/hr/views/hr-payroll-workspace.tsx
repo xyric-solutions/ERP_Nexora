@@ -3,7 +3,7 @@ import { payrollNavigationContext } from "../components/payroll-navigation";
 import { HrPayrollLocalizationSetup } from "./hr-payroll-localization-setup";
 import { HrPayrollOvertimeSetup } from "./hr-payroll-overtime-setup";
 import { useMemo, useRef, useState } from "react";
-import { Wallet, Plus, ArrowRight, ChevronLeft, ChevronRight, ShieldCheck, Layers3 } from "lucide-react";
+import { Wallet, Plus, ArrowRight, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,7 +14,6 @@ import { HrRecordDrawer } from "../components/hr-record-drawer";
 import {
   Field,
   State,
-  Metric,
   panel,
   selectClass,
   useAttendanceRead,
@@ -184,15 +183,21 @@ function RecordEditor({
   );
   const options = available.data ?? (date === month && search === "" ? baseOptions : null);
   const change = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const automatic = (key: string) => key === "code" || key === "reference";
+  const preview =
+    options?.code_previews?.[section === "components" ? "component" : section === "structures" ? "structure" : "loan"];
+  // Currency on a salary revision comes from the chosen structure and cannot be typed.
+  const locked = (key: string) => automatic(key) || (section === "salaries" && key === "currency_code");
   const field = (key: string, title: string, type = "text", required = true) => (
-    <Field title={key === "code" || key === "reference" ? `${title} (automatic)` : title}>
+    <Field title={title}>
       <Input
-        className="box-border! w-full min-w-0! max-w-full! font-normal!"
+        className="box-border! w-full min-w-0! max-w-full! font-normal! read-only:bg-muted/40"
         type={type}
         inputMode={["amount", "principal"].includes(key) ? "decimal" : undefined}
-        value={key === "code" || key === "reference" ? "Assigned on save" : form[key]}
-        readOnly={key === "code" || key === "reference"}
-        required={required}
+        value={automatic(key) ? (preview ?? "") : form[key]}
+        readOnly={locked(key)}
+        aria-readonly={locked(key) || undefined}
+        required={required && !locked(key)}
         onChange={(e) => change(key, e.target.value)}
         maxLength={type === "text" ? 160 : undefined}
       />
@@ -804,9 +809,7 @@ export function HrPayrollWorkspace({
     client = useMemo(() => new HrApiClient(api), [api]),
     [section, , group] = payrollPages[page],
     permissions = session?.user.permissions ?? [],
-    canRead = permissions.includes("hr.payroll." + group + ".read"),
-    /** Pay Components, Salary Structures and Salary Revisions keep only the toolbar and the records. */
-    payDesign = page === "payroll-setup" || page === "salary-structures" || page === "salary-revisions";
+    canRead = permissions.includes("hr.payroll." + group + ".read");
   const [choice, setCompany] = useState(initial?.company_id ?? ""),
     [month, setMonth] = useState(initial?.month ?? localDate().slice(0, 7) + "-01"),
     [search, setSearch] = useState(""),
@@ -915,47 +918,8 @@ export function HrPayrollWorkspace({
           {notice}
         </div>
       )}
-      {!payDesign && records.data?.notices.map((text, i) => (
-        <p
-          key={i}
-          className="rounded-lg border border-border bg-muted/40 p-3 text-sm leading-relaxed text-muted-foreground"
-        >
-          {text}
-        </p>
-      ))}
-      {!payDesign && <div className="grid gap-3 sm:grid-cols-3">
-        <Metric title="Matching records" value={records.data?.total ?? "—"} hint="Authorized company records" />
-        <Metric
-          title="Current view"
-          value={payrollPages[page][1]}
-          hint={section in kinds ? "Connected configuration and workflow" : "Connected records · execution pending"}
-        />
-        <Metric
-          title="Payroll period"
-          value={month.slice(0, 7)}
-          hint="Attendance, salary and Finance share the same period"
-        />
-      </div>}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {payDesign ? (
-          <span />
-        ) : (
-          <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Layers3 className="h-5 w-5 text-primary" />
-            {payrollPages[page][1]}
-          </h2>
-        )}
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap gap-2">
-          {section === "adjustments" && (
-            <Button
-              variant="outline"
-              disabled={editing || busy}
-              onClick={() => onNavigate("hr", "attendance-payroll-inputs")}
-            >
-              Locked attendance inputs
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          )}
           {section in kinds && permissions.includes("hr.payroll." + group + ".manage") && (
             <Button
               className="text-primary-foreground!"

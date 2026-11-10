@@ -43,6 +43,16 @@ const denied = (message = "The required Payroll execution permission is missing.
 };
 const has = (c: HrActorContext, p: string) => c.actor.permissions.includes(p);
 const string = (r: Row, k: string) => (r[k] == null ? null : String(r[k]));
+const defaultRunReason = {
+  policy: "Payroll policy created.",
+  policy_update: "Payroll policy updated.",
+  policy_delete: "Payroll policy deleted.",
+  open: "Payroll period opened.",
+  calculate: "Salary results calculated.",
+  submit: "Submitted for review.",
+  return: "Returned for corrections.",
+  approve: "Payroll approved.",
+} as const;
 export class PayrollRuns {
   private readonly writes: PayrollWorkspace;
   constructor(private readonly d: Dependencies) {
@@ -95,7 +105,7 @@ export class PayrollRuns {
     ).rows[0] as HrPayrollRunWorkspace["attendance"];
     const policies = (
       await client.query(
-        `select id,currency_code,money_scale,rounding_mode,net_payable_account_id from hr_payroll_policy where tenant_id=$1 and company_id=$2 and status='active' and workflow_managed order by currency_code,id limit 100`,
+        `select id,currency_code,money_scale,rounding_mode,net_payable_account_id,exists(select 1 from hr_payroll_period used where used.tenant_id=hr_payroll_policy.tenant_id and used.company_id=hr_payroll_policy.company_id and used.policy_id=hr_payroll_policy.id) as in_use from hr_payroll_policy where tenant_id=$1 and company_id=$2 and status='active' and workflow_managed order by currency_code,id limit 100`,
         scope.slice(0, 2),
       )
     ).rows as HrPayrollRunWorkspace["policies"];
@@ -424,8 +434,10 @@ export class PayrollRuns {
     };
   }
   async action(c: HrActorContext, input: HrPayrollRunAction, key: string, corr: string) {
+    // Reason is optional; a standard reason keeps the audit trail non-blank.
+    input = { ...input, reason: input.reason || defaultRunReason[input.action] };
     const permission =
-      input.action === "policy"
+      input.action === "policy" || input.action === "policy_update" || input.action === "policy_delete"
         ? "hr.payroll.setup.manage"
         : input.action === "calculate"
           ? "hr.payroll.recalculate"
@@ -455,8 +467,8 @@ export class PayrollRuns {
           version = Number(p?.version ?? 0),
           kind = "run",
           override: string | null = null;
-        if (input.action === "policy") {
-          if (!has(c, "hr.payroll.setup.read")) denied();
+        // Terms shared by creating and editing a policy.
+        const checkPolicyTerms = async () => {
           if (
             !input.currency_code ||
             input.money_scale === undefined ||
@@ -477,6 +489,52 @@ export class PayrollRuns {
             [c.tenantId, input.company_id, input.net_payable_account_id],
           );
           if (!account.rowCount) conflict("Choose an active company liability account.");
+        };
+        if (input.action === "policy_update" || input.action === "policy_delete") {
+          // Only a policy that no payroll period has used may change; used policies stay immutable.
+          if (!has(c, "hr.payroll.setup.read")) denied();
+          const current = (
+            await client.query(
+              `select id from hr_payroll_policy where tenant_id=$1 and company_id=$2 and id=$3 and status='active' and workflow_managed for update`,
+              [c.tenantId, input.company_id, input.policy_id ?? ""],
+            )
+          ).rows[0];
+          if (!current) conflict("Choose an active governed Payroll policy.");
+          const used = await client.query(
+            `select 1 from hr_payroll_period where tenant_id=$1 and company_id=$2 and policy_id=$3 limit 1`,
+            [c.tenantId, input.company_id, input.policy_id],
+          );
+          if (used.rowCount)
+            conflict("This payroll policy is used by a payroll period, so it can no longer be changed or deleted.");
+          id = String(input.policy_id);
+          kind = "policy";
+          version = 1;
+          if (input.action === "policy_delete") {
+            status = "deleted";
+            await update(`delete from hr_payroll_policy where tenant_id=$1 and company_id=$2 and id=$3`, [
+              c.tenantId,
+              input.company_id,
+              id,
+            ]);
+          } else {
+            await checkPolicyTerms();
+            status = "active";
+            await update(
+              `update hr_payroll_policy set currency_code=$4,money_scale=$5,net_payable_account_id=$6,rounding_mode=$7,updated_at=now() where tenant_id=$1 and company_id=$2 and id=$3`,
+              [
+                c.tenantId,
+                input.company_id,
+                id,
+                input.currency_code,
+                input.money_scale,
+                input.net_payable_account_id,
+                input.rounding_mode,
+              ],
+            );
+          }
+        } else if (input.action === "policy") {
+          if (!has(c, "hr.payroll.setup.read")) denied();
+          await checkPolicyTerms();
           id = "payroll-policy-" + randomUUID();
           kind = "policy";
           status = "active";
