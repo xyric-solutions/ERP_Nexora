@@ -4410,3 +4410,337 @@ Company Chart adoption/review checkpoint (2026-10-20):
   the cancelled DEMO opening, candidate deactivate/reactivate/delete, employee
   status moves and soft delete), `api:check`, UI theme audit, `git diff
   --check`, production build. Browser check pending.
+
+## 2026-11-10 - HR detail rows borderless; form fields top-aligned
+
+- `HrDetailTile` (app/features/hr/components/hr-detail-tile.tsx) no longer
+  draws a dashed separator between label/value rows; no replacement border.
+- Every grid-based field label/wrapper in app/features/hr now carries
+  `content-start`, so a field without a hint/error no longer drifts down next
+  to one that has it (e.g. Headcount / Target start on manpower requisitions).
+  Applies to the shared `Field` in hr-workspace-controls.tsx and the inline
+  labels across 50 HR & Payroll views/components.
+- Verification: UI theme audit, `git diff --check`, production build.
+  Browser check pending.
+- Field helper text removed from HR forms (no replacement): Job Openings
+  (Positions to fill, Advertising channels), Manpower Requisitions (Headcount,
+  Work location), Recruitment Pipeline (Candidate, Job opening) and the
+  employee form (File, End date, Skills; `Field` lost its `hint` prop).
+  Kept: validation errors, conditional notices (e.g. no departments yet,
+  missing permission), drawer descriptions, delete confirmations, and data
+  hints on detail tiles/metrics. Headcount over-limit validation unchanged.
+
+## 2026-11-10 - Add Employee drawer layout
+
+- hr-employee-wizard.tsx: the add/edit sub-forms are no longer `<fieldset>`s with
+  a floated `<legend>` (the legend took a grid cell, leaving gaps beside Type and
+  under Add contact, and the tinted rounded box is gone). Each step is a titled
+  section with a count, saved rows (type icon, Primary / Not saved pills), then a
+  plain "Add …" heading and a two-column grid in which every row is filled.
+- Contacts: Type is a Phone / Email radio switch beside Usage; the Primary
+  checkbox and Add button share the last row. Same pattern for emergency
+  contacts, documents (single tinted file row) and previous employment
+  (currency + amount joined as one Previous salary field beside Skills; button
+  renamed "Add previous employment").
+- Basic information: Company and Joining date share the first row. Employee
+  number is a read-only chip instead of a disabled input. Stepper has a
+  connecting progress line. Native selects now match Input height (h-10).
+- No "Optional" markers or helper lines were added. Steps, fields, validation,
+  permissions, save/create flow and footer actions are unchanged.
+- Verification: wizard unit tests (4/4, updated for the chip, joined salary
+  field and button name), tsc, ESLint, UI theme audit, `git diff --check`,
+  production build. Browser check pending.
+
+## 2026-11-10 - Explanatory paragraphs removed across HR & Payroll
+
+- Removed ~140 always-visible explanatory/rule paragraphs from HR & Payroll
+  forms, drawers, panels and section intros (e.g. the Add shift assignment
+  priority note and interval rules), plus fixed dialog-only explanations
+  (offer send/approve, statutory override/revocation/EOBI/reviewer notes,
+  settlement line source notes, country-default note). No replacement text.
+- Kept on purpose: one-line page subtitles under page titles, prototype/demo
+  labels, permission and missing-setup notices, empty states, list-limit
+  notices ("showing first N"), legacy-record notices, blockers, the 1–5 rating
+  scale legend, the formula syntax example, the minor-currency-units entry
+  instruction, and live data lines. Timezone notes shortened to "Times in …".
+- Verification: tsc, ESLint (no new findings; one now-unused import removed),
+  unit tests 1103/1105 (2 failing in user-management-components, outside HR and
+  untouched), UI theme audit, `git diff --check`, production build. Browser
+  check pending.
+
+## 2026-11-10 - Employee Approvals: type dropdown, row-click drawers
+
+- Employee Approvals now opens directly (the shell imports
+  `HrEmployeeApprovalsWorkspace`); the "Personal data corrections" tab and the
+  `HrPeopleApprovalsWorkspace` wrapper were removed. `HrPersonalCorrections`
+  itself is unchanged and still used for employee self-service in Benefits;
+  its `mode="review"` (HR review queue) currently has no menu entry.
+- The seven approval queues moved from a three-column button grid into an
+  "Approval type" dropdown (shadcn `DropdownMenu` radio items, grouped as
+  Joining / Movements / Reporting & placement, with pending counts) beside the
+  Company select. The workspace and per-panel Refresh buttons were removed;
+  queues and counts still reload after each decision.
+- New `app/features/hr/components/hr-clickable-row.tsx`: a table row that
+  opens the review drawer on click or Enter/Space. Used by the draft queue and
+  all six panels; the Review button column was dropped. The organisation
+  placement panel's "Pending request" select became the same table.
+- Verification: tsc, ESLint (no new findings; the 3 existing findings in the
+  workspace are unchanged), UI theme audit, `git diff --check`, production
+  build. Browser check pending (needs a signed-in session).
+
+## 2026-11-10 - Add Employee stepper matches the approved mockup
+
+- Native `<button>`s are not reset by Tailwind here (no preflight), and an
+  unlayered legacy rule `button, input, select, textarea { font: inherit; }`
+  beats layered utilities. The step buttons therefore showed the browser's grey
+  outset button and ignored `text-xs`/`font-semibold`. Fixed with explicit
+  `appearance-none border-0 bg-transparent p-0` and `!` on font size/weight
+  (same for the Phone/Email switch).
+- Steps sit in a full-width band (rules above and below), 30px circles, filled
+  amber + tick when done, ring on current, 12px single-line labels, bold current.
+  Currency half of Previous salary widened so "Currency" is not clipped.
+- Verification: rendered the real component (jsdom dump) with the built CSS in
+  Edge at drawer width, dark theme, steps 2 and 4; wizard tests 4/4, tsc, ESLint,
+  UI theme audit, `git diff --check`, production build. Evidence PNGs in
+  tmp/stepper-check/ (gitignored).
+
+## 2026-11-10 - Workforce & Insights: HR, Finance/Payroll and Positions layouts
+
+- New `app/features/hr/components/hr-stat-tile.tsx`: `HrStatTile` (compact
+  KPI tile, optional icon/link), `HrInsightHeader` (eyebrow + text-xl title)
+  and `HrCompanySelect`. Replaces the three local `Metric` cards / large
+  headers.
+- HR Dashboard: title reduced from text-3xl, gradient header, subtitle, Live
+  badge and Refresh removed; six compact tiles in one row on desktop.
+  Workforce composition is now a stacked series-colour bar with a legend
+  (count and %), and both bottom cards share one height. The People /
+  Recruitment / Organisation & Masters shortcut buttons were removed (they
+  duplicate the sidebar). Action centre rows show a count pill.
+- Finance & Payroll Dashboard: "Authoritative read model" alert, subtitle,
+  Live badge and Refresh removed. Latest period is a full-width 4-column
+  summary; period history is a full-width table with status pills, Run
+  number, Deductions column and confirmed-payment counts. Closed periods use
+  a neutral pill.
+- Sample history: `app/features/hr/model/finance-payroll-sample.ts` (6 PKR
+  periods May-Oct 2026) is shown only when `NODE_ENV === "development"` and
+  the company has no real periods, with a "Sample data" pill. Never sent to
+  the API and inert in production builds. Remove once demo periods are seeded
+  through the governed payroll workflow.
+- Positions & Organisation: "Current effective workforce positions" alert,
+  Search/Clear/Refresh buttons removed; the search box filters as you type
+  (350 ms debounce, same API search). Compact tiles.
+- Verification: tsc, ESLint (no new findings; one existing label finding in
+  Positions fixed), UI theme audit, `git diff --check`, production build.
+  Browser check pending (needs a signed-in session).
+
+## 2026-11-10 - Shifts & Rules list and drawer actions
+
+- hr-shifts-workspace.tsx: "Shift code" is now the first list column (mono,
+  no-wrap); the Shift column shows the name only, so rows are one line and the
+  table minimum width dropped (min-w-200 -> min-w-180).
+- Drawer: "Copy to new shift" removed; the Availability section (status change
+  reason textarea + Deactivate/Reactivate) removed. A direct Deactivate
+  (Reactivate for deactivated shifts) button sits next to the Edit icon, as in
+  Employment Setup. The API still requires a reason (min 8), so the button
+  sends a fixed audit reason "Deactivated from Shifts & Rules." /
+  "Reactivated from Shifts & Rules."; actor and time are recorded server-side,
+  and server-side blocks (current/future assignments, rotations) still apply.
+- Status filter options: All / Active / Deactivated; list badge reads
+  "Deactivated" for inactive shifts. The copy editor path remains in code but
+  is no longer reachable from the UI.
+- Verification: rendered list and drawer (jsdom dump + built CSS in Edge, dark),
+  tsc, ESLint (no new findings), UI theme audit, `git diff --check`, production
+  build. No unit tests cover this workspace.
+
+## 2026-11-10 - Status categories and one-row toolbars (Shifts, Leave)
+
+- HrMasterStatusFilter (shared All records / Active / Deactivated buttons) now
+  accepts optional `options`/`label`; default behaviour unchanged for Masters.
+- Shifts & Rules: Status dropdown replaced by HrMasterStatusFilter beneath the
+  toolbar (default Active, like Masters); toolbar uses the Masters layout
+  (Company | Search | New shift).
+- Leave Types / Leave Balances / Leave Request / Leave Approval: the shared top
+  panel ("As of date" + Refresh) removed; each page has one toolbar row
+  (Company | Search, applied as you type | page action). Data is read as of
+  today (deep-link `as_of` still honoured). Search buttons and the separate
+  "Leave balance control" heading removed.
+- Leave Types: All records / Active / Deactivated beneath the toolbar (default
+  Active). The API has no status filter, so the list loads 50 per page and is
+  filtered on the page.
+- Leave Request / Approval: workflow status filter moved from a dropdown into
+  the same button row (All, Draft, Pending manager, Pending HR, Approved,
+  Rejected, Cancelled). Balances have no status, so no category row.
+- Verification: rendered pages (jsdom + built CSS in Edge, dark), tsc, ESLint
+  (no new findings), unit tests 1103/1105 (2 pre-existing user-management
+  failures), UI theme audit, `git diff --check`, production build.
+
+## 2026-11-10 - Workforce & Insights redesign (from the reviewed artifact)
+
+- API (compatible addition): `HrDashboardSummary.recent_joiner_list` (max 8,
+  newest first, current assignments joined in the last 90 days; employee,
+  number, designation, department, joined_on). Contract, repository query,
+  `openapi-v1.json` and router unit-test fixture updated together; tenant and
+  company scope unchanged (same `hr.employee.read` read).
+- HR Dashboard: status composition is one aligned bar per status
+  (`HrInlineBar`, brand ink, count + %) instead of a stacked multi-colour bar
+  (the series tokens fail CVD checks as a categorical set). Action-centre rows
+  carry a one-line note. New "Recent joiners" table.
+- Finance & Payroll: the eight KPI cards were replaced by
+  `hr-finance-payroll-panels.tsx` — latest-period panel (gross / deductions /
+  net, 4-step progress: Calculated, Approved, Journal posted, Paid), a
+  "Payroll health" list (salary coverage bar, review/journal/payment queues,
+  period count) and a single-series net payroll trend (bars from zero,
+  hover/focus tooltip; the history table is its table view).
+- Positions & Organisation: header with title, search and company; tiles with
+  icons; department distribution is an aligned table (bar, people, share,
+  jobs, managers) whose rows filter the register (removable chip); register
+  rows open an `HrMasterSheet` drawer with an "Open employee record" action.
+  Dev-only sample (`model/positions-organization-sample.ts`, 18 rows) shows
+  when a company has no current assignments and no search is applied.
+- `hr-approval-queue-row.tsx` renamed to `hr-clickable-row.tsx`
+  (`HrClickableRow`), now also used by Positions & Organisation.
+- Verification: tsc, ESLint (no new findings), HR router unit tests 39/39,
+  contract tests 16/17 (the failing openapi path-list assertion expects 203
+  paths vs 342 and predates this change; the snapshot file itself matches),
+  `api:check`, UI theme audit, `git diff --check`, production build. Browser
+  check pending (needs a signed-in session; restart the API to load the
+  rebuilt contracts).
+
+## 2026-11-10 - Refresh buttons removed across HR & Payroll
+
+- Removed every manual Refresh button in HR & Payroll views: attendance
+  completion, attendance corrections, daily attendance, employee directory,
+  employee drafts, employee record, employment policy upgrades, job openings,
+  lifecycle cases, payroll (records, runs, run comparison, journal, payment,
+  payslips, statutory/localization setup, overtime setup), performance,
+  settlement leave evidence and the HR reporting header.
+- Company scope, Benefits, Learning, Personal corrections and Report
+  governance kept their button only for the load-error case, labelled Retry,
+  so a failed load can still recover without reloading the page.
+- Data still reloads after every save/decision (the internal revision keys
+  are unchanged). `HrPayrollRunComparison` lost its unused `onRefresh` prop.
+- Not changed: the Add Employee "Replace file" icon button and the shared
+  non-HR prototype dashboard template in `app/shell/prototype-content.tsx`.
+- Verification: tsc, ESLint (no unused symbols), UI theme audit,
+  `git diff --check`, production build. Browser check pending.
+
+## 2026-11-10 - Shift Assignments and Leave pages: rows, drawers, filters
+
+- Shift Assignments: scope labels show Project (department) and Location
+  (branch); stored API values unchanged. Reference is the first column and rows
+  are one line. State dropdown replaced by All records / Active / Deactivated
+  (Active = active + scheduled, Deactivated = ended + cancelled, filtered on the
+  loaded page). Employee preview removed (component deleted).
+- Leave Types: one table row per type (code, name, pay, entitlement, approval,
+  status). Row opens a drawer with the policy; footer has Deactivate/Activate
+  (one click, fixed audit reason) and the Edit icon (new policy version
+  editor). "New policy version" button, inline header and "Close editor"
+  removed. Add form uses two columns (name full width).
+- Leave Balances: one table row per employee/leave type; "Open ledger" and the
+  inline ledger panel removed. Row opens a drawer with balance + ledger entries;
+  footer has Create leave request and Post balance entry (form opens in the
+  same drawer). Ledger postings stay immutable (no edit/delete).
+- Add Leave Request: "Back to requests" and "View leave policies" removed;
+  fields two per row.
+- Leave Request / Leave Approval: status is a dropdown in the toolbar row
+  (company and search narrowed); requests are table rows; review opens in a
+  drawer with workflow actions in the footer and the decision form in the same
+  drawer. A draft's cancel action is shown as a delete (trash) icon.
+- Not supported by the API (left out): delete for leave types, edit/delete of
+  balance postings, edit of saved leave drafts.
+- Verification: rendered all pages and drawers (jsdom + built CSS in Edge,
+  dark), tsc, ESLint (no new findings), unit tests 1103/1105 (2 pre-existing
+  user-management failures), UI theme audit, `git diff --check`, production
+  build.
+- Leave Balances drawer (follow-up): "Create leave request" shortcut removed;
+  "Post balance entry" is now the Edit (pencil) icon labelled "Adjust balance",
+  opening the same posting form. User chose no delete icon: ledger lines stay
+  immutable and corrections are adjustment postings.
+
+## 2026-11-10 - Daily Attendance, Attendance Corrections and Overtime cleanup
+
+- Daily Attendance: removed the "A clear view of every working day" banner,
+  the Search/Clear buttons (search filters as you type, 350 ms) and the four
+  count cards. The record drawer footer has an Edit icon ("Correct this day",
+  needs `hr.attendance.correction.create`) that opens Attendance Corrections
+  with a new correction pre-filled for that employee and date
+  (`{"new_correction": {...}}` page reference). No Delete icon: daily rows are
+  derived from shifts and raw punches, which are never deleted.
+- Attendance Corrections: removed the "Correct the day. Preserve the
+  evidence." banner, the Search/Clear buttons (live search) and the four
+  cards; "New correction" now sits at the end of the filter row. The editor's
+  "Close editor" and "Cancel editing" buttons and duplicate heading were
+  removed (the drawer's close icon remains).
+- Overtime: the "Operational rules" button and drawer were removed (rule
+  creation is no longer reachable from this screen). "New overtime request"
+  moved into the company / attendance month row. Requests open in a record
+  drawer on click; footer has an Edit icon (own draft only) and a Delete icon
+  (cancel, reason required, server `cancel` action) plus the workflow actions.
+  No Close buttons remain; decisions are confirmed inline in the drawer.
+- API (additive): `POST /api/v1/hr/attendance_overtime/{id}/replace`
+  (`ReplaceHrOvertimeRequest`) and `HrOvertimeDetail.can_edit`. Overtime terms
+  are immutable in the database (`guard_hr_overtime_workflow`), so editing
+  cancels the draft and creates the corrected draft in one transaction under
+  the same idempotency, period-lock, evidence-hash and `hr.attendance.overtime.create`
+  checks; both steps are written to the request history and audit log. Contract,
+  OpenAPI (`openapi-v1.json`), generated client, HR client and a router unit
+  test were updated together.
+- Verification: tsc (web and API), ESLint (no new findings vs HEAD), HR router
+  unit tests 40/40, `api:check`, UI theme audit, `git diff --check`,
+  production build. Not yet run: API integration test against PostgreSQL for
+  the replace flow, and a browser check (restart the API first).
+
+## 2026-11-10 - Month-end payroll: Monthly Attendance, Attendance Closure, Payroll Inputs
+
+- Monthly Attendance: removed the "Every day, one connected monthly view"
+  banner, Search/Clear buttons (search filters as you type) and the four
+  totals cards. The employee drawer footer has "Close attendance period"
+  (needs `hr.attendance.period.read`), which opens Attendance Closure for the
+  same company and month, where the period is processed and locked.
+- Attendance Closure / Payroll Inputs (`CloseAndInputs`): the large period
+  panel (description, four metric cards, action buttons) became
+  `AttendancePeriodBar` - one row with month, status pill, employees,
+  exceptions, version and processed/locked date, plus the next action. Clicking
+  it opens the period drawer (`AttendancePeriodDetails`) whose footer holds the
+  Open / Process review / Lock actions; the reason form is confirmed inline
+  (no separate action drawer, no Cancel button). "Process / refresh review"
+  is now "Process review".
+- The expandable month-end employee cards became `AttendanceEmployeeTable`
+  rows (covered, paid, unpaid, leave, overtime, corrections, status); a row
+  opens `AttendanceEmployeeDetails` in a drawer: totals strip, month tiles,
+  daily trace table with per-day link to Daily Attendance, linked records and
+  the evidence hash.
+- `History` (hr-workspace-controls) is now an always-visible vertical timeline
+  (action, date/time, actor, reason, override note). It is shared, so the
+  Overtime, leave and personal-leave drawers use the same design.
+- New file `app/features/hr/components/hr-attendance-month-end.tsx`; the old
+  `DailyTrace` / `EmployeeInputs` in the completion workspace were removed.
+- Verification: tsc, ESLint (no new findings vs HEAD), UI theme audit,
+  `git diff --check`, production build. Browser check pending.
+
+## 2026-11-10 - Drawer Cancel buttons, employee lists, month-end screens
+
+- Removed drawer "Cancel" buttons that only closed the drawer (X remains):
+  candidates, configured masters, employee wizard, interviews, job grades,
+  job openings editor, lifecycle policies, manpower requisitions, master
+  catalogue, offers, organisation structure, performance contribution and
+  decision, recruitment pipeline editor, shift assignments, shifts, leave
+  balance posting, finance journals drawer. Kept: confirmation dialogs,
+  cancel-record actions (e.g. job opening "Cancel"), in-drawer step resets
+  (pipeline stage edit, security user-detail modes), full-page banking forms.
+- Add Employee / Employee Drafts (shared list): single-line rows (number,
+  name, work email, joined, created); row click opens the drawer; Review/Edit/
+  Delete row icons removed (Edit/Delete stay in the drawer footer).
+- Employee Approvals: single-line rows; drawer uses HrDetailSummary +
+  HrDetailGroup/HrDetailTile (same as drafts); Super-admin override warning
+  removed from this drawer (display only; the independent-approver notice and
+  approval rules are unchanged).
+- Monthly Attendance: employee month opens in a centred Dialog with blurred
+  overlay and the top X; "Close attendance period" footer button removed.
+- Attendance Period Close: period bar button reset (appearance/border/bg,
+  text-foreground) so its text follows the theme; "Open period" removed from
+  the bar (still available in the period drawer). Payroll Inputs: "Go to
+  attendance closure" removed.
+- Verification: rendered drafts list, monthly modal, period bar (light/dark)
+  with built CSS in Edge; tsc, ESLint (no new unused findings), unit tests
+  1104/1106 (2 pre-existing user-management failures), production build.

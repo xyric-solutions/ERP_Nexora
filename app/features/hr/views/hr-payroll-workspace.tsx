@@ -3,7 +3,7 @@ import { payrollNavigationContext } from "../components/payroll-navigation";
 import { HrPayrollLocalizationSetup } from "./hr-payroll-localization-setup";
 import { HrPayrollOvertimeSetup } from "./hr-payroll-overtime-setup";
 import { useMemo, useRef, useState } from "react";
-import { Wallet, Plus, RefreshCw, ArrowRight, ChevronLeft, ChevronRight, ShieldCheck, Layers3 } from "lucide-react";
+import { Wallet, Plus, ArrowRight, ChevronLeft, ChevronRight, ShieldCheck, Layers3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -273,9 +273,6 @@ function RecordEditor({
         <div>
           <div className="text-xs font-semibold uppercase tracking-wide text-primary">New record</div>
           <h2 className="mt-1 text-lg font-semibold">{name(kinds[section])}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Terms are preserved after saving. Use a successor record for revised terms.
-          </p>
         </div>
         <Button variant="outline" onClick={onClose} disabled={busy}>
           Close editor
@@ -716,12 +713,6 @@ function RecordDetail({
           </div>
           {chosen === "confirm_disbursement" && (
             <div className="grid min-w-0 grid-cols-1 gap-4 rounded-lg border border-border bg-muted/30 p-4 md:grid-cols-2">
-              <p className="min-w-0 text-sm text-muted-foreground md:col-span-2">
-                Verify the actual transfer independently. The posted Bank Payment line must debit the employee-loan
-                receivable asset account, use this loan reference as its external reference and the employee ID as its
-                document reference. Amount and currency must match the principal. This action links evidence and enables
-                recovery.
-              </p>
               {(record.disbursement_options?.length ?? 0) > 0 && (
                 <Pick
                   title="Matching posted Bank Payment"
@@ -809,9 +800,6 @@ function RecordDetail({
                 ? "Record disbursement confirmation"
                 : "Confirm " + name(chosen)}
           </Button>
-          <p className="text-xs text-muted-foreground">
-            This decision uses the version and evidence shown above. Refreshing the list does not replace this review.
-          </p>
         </form>
       )}
     </section>
@@ -929,10 +917,6 @@ export function HrPayrollWorkspace({
               maxLength={120}
             />
           </Field>
-          <Button variant="outline" disabled={busy || records.loading} onClick={() => setRevision((v) => v + 1)}>
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </Button>
         </div>
       </section>
       {section === "components" && company && (

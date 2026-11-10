@@ -149,10 +149,6 @@ export function HrSettlementEntitlements({
     <section className={panel + " min-w-0 space-y-4"} aria-label="Leave encashment" data-settlement-encashment>
       <div>
         <h3 className="text-xl font-semibold">Leave encashment</h3>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Calculate from an independently approved company rule and the employee’s leave ledger. Pending requests are
-          reserved. Statement approval deducts the encashed days; Payroll posting and Banking payment are separate.
-        </p>
       </div>
       {(error || read.error) && (
         <p
@@ -269,10 +265,6 @@ export function HrSettlementEntitlements({
                         });
                       }}
                     >
-                      <p className="text-sm text-muted-foreground">
-                        This adds a source-protected draft line. It does not deduct leave, approve Payroll or make
-                        payment.
-                      </p>
                       <Field title="Calculation review reason">
                         <Textarea
                           value={reason}
@@ -301,11 +293,6 @@ export function HrSettlementEntitlements({
         </TabsContent>
         <TabsContent value="rules" className="min-w-0 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              Rates and eligibility come from the company’s reviewed policy. Rules apply within explicit dates and
-              cannot overlap for the same leave type and country/regional scope. Submitted terms are retained; rejected
-              rules can be replaced with a new draft.
-            </p>
             {w?.can_create_rule && (
               <Button
                 variant="outline"
@@ -674,9 +661,6 @@ export function HrSettlementEntitlements({
               }}
             >
               Next rules
-            </Button>
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => setRevision((v) => v + 1)}>
-              Refresh leave evidence
             </Button>
           </div>
         </div>

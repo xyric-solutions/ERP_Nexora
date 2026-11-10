@@ -142,10 +142,6 @@ export function HrWorkLocationChangeMakerPanel({
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
 
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Select a different company work location. The API will require approved jurisdiction evidence effective
-              today; organization placement, role, manager, and compensation remain unchanged.
-            </p>
           </div>
           <Badge variant="outline">Same-day effective</Badge>
         </div>
@@ -176,7 +172,7 @@ export function HrWorkLocationChangeMakerPanel({
             <div className="grid gap-3 md:grid-cols-2">
               <label
                 htmlFor="work-location-change-proposed-location"
-                className="grid gap-1.5 text-sm font-medium text-foreground"
+                className="grid content-start gap-1.5 text-sm font-medium text-foreground"
               >
                 Proposed work location
                 <select
@@ -199,7 +195,7 @@ export function HrWorkLocationChangeMakerPanel({
               </label>
               <label
                 htmlFor="work-location-change-effective-on"
-                className="grid gap-1.5 text-sm font-medium text-foreground"
+                className="grid content-start gap-1.5 text-sm font-medium text-foreground"
               >
                 Effective date
                 <Input id="work-location-change-effective-on" type="date" value={effectiveOn} disabled readOnly />
@@ -207,7 +203,7 @@ export function HrWorkLocationChangeMakerPanel({
             </div>
             <label
               htmlFor="work-location-change-request-reason"
-              className="grid gap-1.5 text-sm font-medium text-foreground"
+              className="grid content-start gap-1.5 text-sm font-medium text-foreground"
             >
               Business reason
               <Textarea
@@ -229,9 +225,6 @@ export function HrWorkLocationChangeMakerPanel({
             </div>
           </>
         )}
-        <p className="text-xs text-muted-foreground">
-          Submission and approval never create, update, or supersede salary-assignment records.
-        </p>
       </section>
     </HrRecordDrawer>
   );

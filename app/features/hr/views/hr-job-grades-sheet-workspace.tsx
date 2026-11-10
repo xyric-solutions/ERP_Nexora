@@ -309,7 +309,7 @@ export function HrJobGradesSheetWorkspace() {
         </Alert>
       ) : null}
       <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,.8fr)_minmax(14rem,1fr)_auto] md:items-end">
-        <label className="grid gap-1 text-sm font-medium" htmlFor="job-grade-company">
+        <label className="grid content-start gap-1 text-sm font-medium" htmlFor="job-grade-company">
           Company
           <select
             id="job-grade-company"
@@ -330,7 +330,7 @@ export function HrJobGradesSheetWorkspace() {
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-sm font-medium" htmlFor="job-grade-search">
+        <label className="grid content-start gap-1 text-sm font-medium" htmlFor="job-grade-search">
           Search
           <Input
             id="job-grade-search"
@@ -432,9 +432,6 @@ export function HrJobGradesSheetWorkspace() {
         footer={
           editor ? (
             <>
-              <Button variant="outline" disabled={saving} onClick={closeSheet}>
-                Cancel
-              </Button>
               <Button disabled={saving} onClick={() => void save()}>
                 {saving ? "Saving…" : "Save changes"}
               </Button>
@@ -465,11 +462,11 @@ export function HrJobGradesSheetWorkspace() {
           <div className="grid gap-5">
             <HrDetailSection title="Grade">
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="grid gap-1.5 text-sm font-medium" htmlFor="job-grade-code">
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="job-grade-code">
                   Auto-generated code
                   <Input id="job-grade-code" value={editor.code} disabled />
                 </label>
-                <label className="grid gap-1.5 text-sm font-medium" htmlFor="job-grade-level">
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="job-grade-level">
                   Grade level
                   <Input
                     id="job-grade-level"
@@ -483,7 +480,7 @@ export function HrJobGradesSheetWorkspace() {
                   />
                 </label>
               </div>
-              <label className="grid gap-1.5 text-sm font-medium" htmlFor="job-grade-name">
+              <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="job-grade-name">
                 Name
                 <Input
                   id="job-grade-name"
@@ -492,7 +489,7 @@ export function HrJobGradesSheetWorkspace() {
                   onChange={(event) => setEditor({ ...editor, name: event.target.value })}
                 />
               </label>
-              <label className="grid gap-1.5 text-sm font-medium" htmlFor="job-grade-description">
+              <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="job-grade-description">
                 Description
                 <Textarea
                   id="job-grade-description"
@@ -579,7 +576,7 @@ function CurrencySelect({
   const legacy = value && !currencies?.some((item) => item.currency_code === value) ? value : "";
   const blocked = empty && !legacy;
   return (
-    <label className="grid gap-1.5 text-sm font-medium" htmlFor="job-grade-currency">
+    <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="job-grade-currency">
       Currency
       <select
         id="job-grade-currency"
@@ -624,7 +621,7 @@ function CurrencySelect({
 function Money({ label, value, set }: { label: string; value: string; set: (value: string) => void }) {
   const id = `job-grade-band-${label.toLowerCase()}`;
   return (
-    <label className="grid gap-1.5 text-sm font-medium" htmlFor={id}>
+    <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={id}>
       {label}
       <Input id={id} inputMode="decimal" value={value} onChange={(event) => set(event.target.value)} />
     </label>

@@ -153,10 +153,6 @@ export function HrTransferMakerPanel({
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
 
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Propose a project or department change for an independent checker. Job, grade, manager, and employment
-              context remain unchanged in this Transfer slice.
-            </p>
           </div>
           <Badge variant="outline">Same-day effective</Badge>
         </div>
@@ -205,12 +201,12 @@ export function HrTransferMakerPanel({
                   retry.current = null;
                 }}
               />
-              <label htmlFor="transfer-effective-on" className="grid gap-1.5 text-sm font-medium text-foreground">
+              <label htmlFor="transfer-effective-on" className="grid content-start gap-1.5 text-sm font-medium text-foreground">
                 Effective date
                 <Input id="transfer-effective-on" type="date" value={effectiveOn} disabled readOnly />
               </label>
             </div>
-            <label htmlFor="transfer-request-reason" className="grid gap-1.5 text-sm font-medium text-foreground">
+            <label htmlFor="transfer-request-reason" className="grid content-start gap-1.5 text-sm font-medium text-foreground">
               Business reason
               <Textarea
                 id="transfer-request-reason"
@@ -229,10 +225,6 @@ export function HrTransferMakerPanel({
                 {submitting ? "Submitting Transfer..." : "Submit Transfer request"}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Submission does not change the current assignment. Approval closes it and creates one new immutable
-              effective assignment in a single database transaction.
-            </p>
           </div>
         )}
       </section>
@@ -255,7 +247,7 @@ function PlacementSelect({
 }) {
   const id = `transfer-${label.toLowerCase().replaceAll(" ", "-")}`;
   return (
-    <label htmlFor={id} className="grid gap-1.5 text-sm font-medium text-foreground">
+    <label htmlFor={id} className="grid content-start gap-1.5 text-sm font-medium text-foreground">
       {label}
       <select
         id={id}

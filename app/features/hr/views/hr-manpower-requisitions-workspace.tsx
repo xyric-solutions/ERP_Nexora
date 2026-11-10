@@ -401,7 +401,7 @@ export function HrManpowerRequisitionsWorkspace() {
         </Alert>
       ) : null}
       <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4 border-border">
-        <label className="grid min-w-0 basis-full sm:basis-48 flex-1 gap-1 text-sm font-medium">
+        <label className="grid content-start min-w-0 basis-full sm:basis-48 flex-1 gap-1 text-sm font-medium">
           Company
           <select
             className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
@@ -418,7 +418,7 @@ export function HrManpowerRequisitionsWorkspace() {
             ))}
           </select>
         </label>
-        <label className="grid min-w-0 basis-full sm:basis-48 flex-1 gap-1 text-sm font-medium">
+        <label className="grid content-start min-w-0 basis-full sm:basis-48 flex-1 gap-1 text-sm font-medium">
           State
           <select
             className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
@@ -433,7 +433,7 @@ export function HrManpowerRequisitionsWorkspace() {
             ))}
           </select>
         </label>
-        <label className="grid min-w-0 basis-full sm:basis-48 flex-[1.3] gap-1 text-sm font-medium">
+        <label className="grid content-start min-w-0 basis-full sm:basis-48 flex-[1.3] gap-1 text-sm font-medium">
           Search
           <Input
             value={query}
@@ -541,7 +541,7 @@ export function HrManpowerRequisitionsWorkspace() {
               <aside className="grid gap-5 rounded-lg border bg-card p-4 border-border">
                 {editor.id && editor.state ? (
                   <HrDetailSection title="Status">
-                    <label className="grid gap-1 text-sm">
+                    <label className="grid content-start gap-1 text-sm">
                       Status
                       <select
                         className={selectClass}
@@ -574,7 +574,7 @@ export function HrManpowerRequisitionsWorkspace() {
                 >
                   <HrDetailSection title="Role">
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="grid gap-1 text-sm sm:col-span-2">
+                      <label className="grid content-start gap-1 text-sm sm:col-span-2">
                         Job title
                         <Input
                           value={editor.jobTitle}
@@ -582,7 +582,7 @@ export function HrManpowerRequisitionsWorkspace() {
                           onChange={(event) => setEditor({ ...editor, jobTitle: event.target.value })}
                         />
                       </label>
-                      <label className="grid gap-1 text-sm">
+                      <label className="grid content-start gap-1 text-sm">
                         Designation
                         <select
                           className={selectClass}
@@ -597,7 +597,7 @@ export function HrManpowerRequisitionsWorkspace() {
                           ))}
                         </select>
                       </label>
-                      <label className="grid gap-1 text-sm">
+                      <label className="grid content-start gap-1 text-sm">
                         Job grade
                         <select
                           className={selectClass}
@@ -621,7 +621,7 @@ export function HrManpowerRequisitionsWorkspace() {
                           ))}
                         </select>
                       </label>
-                      <label className="grid gap-1 text-sm">
+                      <label className="grid content-start gap-1 text-sm">
                         Employment setup
                         <select
                           className={selectClass}
@@ -636,7 +636,7 @@ export function HrManpowerRequisitionsWorkspace() {
                           ))}
                         </select>
                       </label>
-                      <label className="grid gap-1 text-sm">
+                      <label className="grid content-start gap-1 text-sm">
                         Hiring basis
                         <select
                           className={selectClass}
@@ -656,18 +656,15 @@ export function HrManpowerRequisitionsWorkspace() {
                           ))}
                         </select>
                       </label>
-                      <label className="grid gap-1 text-sm">
+                      <label className="grid content-start gap-1 text-sm">
                         Headcount
                         <Input
                           inputMode="numeric"
                           value={editor.positions}
                           onChange={(event) => setEditor({ ...editor, positions: event.target.value })}
                         />
-                        <span className="text-xs text-muted-foreground">
-                          People to hire. Job openings can advertise up to this number.
-                        </span>
                       </label>
-                      <label className="grid gap-1 text-sm">
+                      <label className="grid content-start gap-1 text-sm">
                         Target start
                         <Input
                           type="date"
@@ -679,7 +676,7 @@ export function HrManpowerRequisitionsWorkspace() {
                   </HrDetailSection>
                   <HrDetailSection title="Where the role works">
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="grid gap-1 text-sm">
+                      <label className="grid content-start gap-1 text-sm">
                         Department
                         <select
                           className={selectClass}
@@ -694,7 +691,7 @@ export function HrManpowerRequisitionsWorkspace() {
                           ))}
                         </select>
                       </label>
-                      <label className="grid gap-1 text-sm">
+                      <label className="grid content-start gap-1 text-sm">
                         Project
                         <select
                           className={selectClass}
@@ -709,7 +706,7 @@ export function HrManpowerRequisitionsWorkspace() {
                           ))}
                         </select>
                       </label>
-                      <label className="grid gap-1 text-sm">
+                      <label className="grid content-start gap-1 text-sm">
                         Location
                         <select
                           className={selectClass}
@@ -723,11 +720,8 @@ export function HrManpowerRequisitionsWorkspace() {
                             </option>
                           ))}
                         </select>
-                        <span className="text-xs text-muted-foreground">
-                          City and office from Work Locations, for example Lahore or Dubai.
-                        </span>
                       </label>
-                      <label className="grid gap-1 text-sm">
+                      <label className="grid content-start gap-1 text-sm">
                         Job type
                         <select
                           className={selectClass}
@@ -750,7 +744,7 @@ export function HrManpowerRequisitionsWorkspace() {
                     </div>
                   </HrDetailSection>
                   <HrDetailSection title="Salary range">
-                    <label className="grid gap-1 text-sm">
+                    <label className="grid content-start gap-1 text-sm">
                       Currency
                       <select
                         className={selectClass}
@@ -766,7 +760,7 @@ export function HrManpowerRequisitionsWorkspace() {
                       </select>
                     </label>
                     <div className="grid grid-cols-2 gap-3">
-                      <label className="grid min-w-0 gap-1 text-sm">
+                      <label className="grid content-start min-w-0 gap-1 text-sm">
                         Minimum salary
                         <Input
                           inputMode="decimal"
@@ -774,7 +768,7 @@ export function HrManpowerRequisitionsWorkspace() {
                           onChange={(event) => setEditor({ ...editor, minimum: event.target.value })}
                         />
                       </label>
-                      <label className="grid min-w-0 gap-1 text-sm">
+                      <label className="grid content-start min-w-0 gap-1 text-sm">
                         Maximum salary
                         <Input
                           inputMode="decimal"
@@ -785,14 +779,14 @@ export function HrManpowerRequisitionsWorkspace() {
                     </div>
                   </HrDetailSection>
                   <HrDetailSection title="Requirements">
-                    <label className="grid gap-1 text-sm">
+                    <label className="grid content-start gap-1 text-sm">
                       Required skills (comma separated)
                       <Input
                         value={editor.skills}
                         onChange={(event) => setEditor({ ...editor, skills: event.target.value })}
                       />
                     </label>
-                    <label className="grid gap-1 text-sm">
+                    <label className="grid content-start gap-1 text-sm">
                       Business reason
                       <textarea
                         className="min-h-24 rounded-md border border-input bg-background p-2"
@@ -808,9 +802,6 @@ export function HrManpowerRequisitionsWorkspace() {
                     onClick={() => void save()}
                   >
                     {saving ? "Saving..." : editor.id ? "Save changes" : "Save draft"}
-                  </Button>
-                  <Button variant="outline" onClick={() => setEditor(null)}>
-                    Cancel
                   </Button>
                 </HrDrawerActions>
               </aside>

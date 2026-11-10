@@ -237,11 +237,6 @@ export function HrLifecyclePoliciesWorkspace() {
       className="grid min-w-0 grid-cols-1 gap-4 [&_.overflow-x-auto]:relative [&_button.bg-primary]:text-primary-foreground!"
       aria-label="Employment lifecycle policies"
     >
-      <p className="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">
-        New policy drafts include Hire, employment confirmation, resignation and termination transitions. Existing
-        approved policies retain their original definitions; unsupported transitions remain blocked until a governed
-        policy upgrade.
-      </p>
       <Alert>
         <AlertTitle>Employment lifecycle policies</AlertTitle>
         <AlertDescription>
@@ -262,7 +257,7 @@ export function HrLifecyclePoliciesWorkspace() {
         </Alert>
       )}
       <div className="flex min-w-0 flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
-        <label className="grid min-w-0 basis-full gap-1.5 text-sm font-medium sm:basis-64 sm:flex-1">
+        <label className="grid content-start min-w-0 basis-full gap-1.5 text-sm font-medium sm:basis-64 sm:flex-1">
           Company
           <select
             className="h-9 w-full min-w-0 rounded-md border border-input bg-background px-2.5 text-sm"
@@ -463,7 +458,7 @@ export function HrLifecyclePoliciesWorkspace() {
             actionPolicy.status !== "draft" ? (
               <SuperAdminOverrideWarning />
             ) : null}
-            <label htmlFor="lifecycle-policy-action-reason" className="grid min-w-0 gap-1.5 text-sm font-medium">
+            <label htmlFor="lifecycle-policy-action-reason" className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
               {actionPolicy.status === "draft"
                 ? "Submission reason"
                 : actionPolicy.status === "pending_approval"
@@ -525,7 +520,7 @@ export function HrLifecyclePoliciesWorkspace() {
         onClose={() => setCreateOpen(false)}
       >
         <div className="grid gap-4">
-          <label htmlFor="lifecycle-policy-code" className="grid min-w-0 gap-1.5 text-sm font-medium">
+          <label htmlFor="lifecycle-policy-code" className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
             Policy code (automatic)
             <Input
               id="lifecycle-policy-code"
@@ -535,7 +530,7 @@ export function HrLifecyclePoliciesWorkspace() {
               placeholder="HR-LIFECYCLE"
             />
           </label>
-          <label htmlFor="lifecycle-policy-name" className="grid min-w-0 gap-1.5 text-sm font-medium">
+          <label htmlFor="lifecycle-policy-name" className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
             Policy name
             <Input
               id="lifecycle-policy-name"
@@ -545,7 +540,7 @@ export function HrLifecyclePoliciesWorkspace() {
               placeholder="Standard employment lifecycle"
             />
           </label>
-          <label htmlFor="lifecycle-policy-effectiveFrom" className="grid min-w-0 gap-1.5 text-sm font-medium">
+          <label htmlFor="lifecycle-policy-effectiveFrom" className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
             Effective from
             <Input
               id="lifecycle-policy-effectiveFrom"
@@ -554,16 +549,9 @@ export function HrLifecyclePoliciesWorkspace() {
               onChange={(event) => setEffectiveFrom(event.target.value)}
             />
           </label>
-          <p className="text-sm text-muted-foreground">
-            The standard pre-employment, employed, confirmed and ended states are created in draft. Independent approval
-            is still required before activation.
-          </p>
           <HrDrawerActions>
             <Button type="button" onClick={() => void createPolicy()} disabled={saving}>
               {saving ? "Creating…" : "Create draft policy"}
-            </Button>
-            <Button type="button" variant="outline" disabled={saving} onClick={() => setCreateOpen(false)}>
-              Cancel
             </Button>
           </HrDrawerActions>
         </div>

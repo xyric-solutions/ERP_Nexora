@@ -38,11 +38,6 @@ export function SettlementCorrectionExecution({
       className="min-w-0 space-y-4 rounded-lg border border-border bg-card p-4"
     >
       <h4 className="font-semibold">Supplemental Payroll and Finance</h4>
-      <p className="text-sm text-muted-foreground">
-        Retained earned-month tax rules recalculate the corrected inputs and any later finalized employee months. The
-        supplement posts only the account differences. Original results, journals and payslips remain available for
-        audit.
-      </p>
       <p className="rounded-md border border-border bg-muted p-3 text-sm">
         Complete the original settlement inputs and post its Payroll accrual first. Posting a supplement updates Payroll
         tax carry-forwards and Finance; it does not confirm payment or change a Banking batch. Payment reconciliation

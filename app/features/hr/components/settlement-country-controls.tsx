@@ -49,10 +49,6 @@ export function SettlementCountryFields({
   return (
     <fieldset className="min-w-0 space-y-3 rounded-lg border border-border p-3">
       <legend className="px-1 text-sm font-semibold">Country applicability</legend>
-      <p className="text-sm text-muted-foreground">
-        Country and regional rules use the approved employer or work-location profile at the exit date. A matching
-        regional rule takes priority over the national rule, followed by the company default.
-      </p>
       {country && loading && (
         <p role="status" className="text-xs text-muted-foreground">
           Loading country jurisdictions…
@@ -130,10 +126,6 @@ export function SettlementCountryFields({
           />
         </Field>
       )}
-      <p className="text-xs text-muted-foreground">
-        Rates, service limits, dates and evidence require independent policy approval. Maintain approved legal and
-        work-location profiles in Payroll localization setup.
-      </p>
     </fieldset>
   );
 }
@@ -149,11 +141,7 @@ export function SettlementCountryRule({ scope, options }: { scope?: HrSettlement
       </p>
       <p className="whitespace-pre-wrap break-words">{scope.authority_reference}</p>
     </div>
-  ) : (
-    <p className="mt-2 text-xs text-muted-foreground">
-      Company default; matching country and regional policies take priority.
-    </p>
-  );
+  ) : null;
 }
 export function SettlementCountryEvidence({
   evidence,

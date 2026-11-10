@@ -198,9 +198,6 @@ export function HrHireMakerPanel({
               Employment control
             </p>
 
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Prepare non-operational assignment context, then submit it for an independent checker decision.
-            </p>
           </div>
           <Badge variant={profileAssignment ? "secondary" : "outline"}>
             {profileAssignment ? "Profile context ready" : "Profile context required"}
@@ -234,7 +231,6 @@ export function HrHireMakerPanel({
           <div className="grid gap-3">
             <div>
               <h3 className="font-medium text-foreground">1. Profile-draft assignment</h3>
-              <p className="text-sm text-muted-foreground">All placement fields are required for later activation.</p>
             </div>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               <SelectField
@@ -290,7 +286,7 @@ export function HrHireMakerPanel({
                 optionLabel={employmentSetupOptionLabel}
                 disabled={savingAssignment}
               />
-              <label htmlFor="hire-profile-effective-on" className="grid gap-1.5 text-sm font-medium text-foreground">
+              <label htmlFor="hire-profile-effective-on" className="grid content-start gap-1.5 text-sm font-medium text-foreground">
                 Effective date
                 <Input
                   id="hire-profile-effective-on"
@@ -313,9 +309,6 @@ export function HrHireMakerPanel({
           <div className="grid gap-3">
             <div>
               <h3 className="font-medium text-foreground">2. Request independent Hire approval</h3>
-              <p className="text-sm text-muted-foreground">
-                Submission creates a pending request only. It does not activate the employee or assignment.
-              </p>
             </div>
             {!canRequestHire ? (
               <Alert>
@@ -339,7 +332,7 @@ export function HrHireMakerPanel({
                   />
                   <label
                     htmlFor="hire-request-effective-on"
-                    className="grid gap-1.5 text-sm font-medium text-foreground"
+                    className="grid content-start gap-1.5 text-sm font-medium text-foreground"
                   >
                     Effective date
                     <Input
@@ -354,7 +347,7 @@ export function HrHireMakerPanel({
                     />
                   </label>
                 </div>
-                <label htmlFor="hire-request-reason" className="grid gap-1.5 text-sm font-medium text-foreground">
+                <label htmlFor="hire-request-reason" className="grid content-start gap-1.5 text-sm font-medium text-foreground">
                   Business reason
                   <Textarea
                     id="hire-request-reason"
@@ -402,7 +395,7 @@ function SelectField({
 }) {
   const id = `hire-placement-${label.toLowerCase().replaceAll(" ", "-")}`;
   return (
-    <label htmlFor={id} className="grid gap-1.5 text-sm font-medium text-foreground">
+    <label htmlFor={id} className="grid content-start gap-1.5 text-sm font-medium text-foreground">
       {label}
       <select
         id={id}
@@ -439,7 +432,7 @@ function MasterSelect({
 }) {
   const id = `hire-master-${label.toLowerCase().replaceAll(" ", "-")}`;
   return (
-    <label htmlFor={id} className="grid gap-1.5 text-sm font-medium text-foreground">
+    <label htmlFor={id} className="grid content-start gap-1.5 text-sm font-medium text-foreground">
       {label}
       <select
         id={id}

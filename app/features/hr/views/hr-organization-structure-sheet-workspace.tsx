@@ -269,7 +269,7 @@ export function HrOrganizationStructureSheetWorkspace() {
         </Alert>
       ) : null}
       <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,1fr)_auto] md:items-end">
-        <label className="grid gap-1 text-sm font-medium" htmlFor="organization-company">
+        <label className="grid content-start gap-1 text-sm font-medium" htmlFor="organization-company">
           Company
           <select
             id="organization-company"
@@ -355,9 +355,6 @@ export function HrOrganizationStructureSheetWorkspace() {
         footer={
           editor ? (
             <>
-              <Button variant="outline" disabled={saving} onClick={closeSheet}>
-                Cancel
-              </Button>
               <Button disabled={saving} onClick={() => void save()}>
                 {saving ? "Saving…" : "Save changes"}
               </Button>
@@ -385,7 +382,7 @@ export function HrOrganizationStructureSheetWorkspace() {
             <HrDetailSection title="Unit">
               <div className="grid gap-3 sm:grid-cols-2">
                 {editor.mode === "create" ? (
-                  <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-unit-type">
+                  <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-unit-type">
                     Unit type
                     <select
                       id="organization-unit-type"
@@ -419,12 +416,12 @@ export function HrOrganizationStructureSheetWorkspace() {
                     </select>
                   </label>
                 ) : null}
-                <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-code">
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-code">
                   Auto-generated code
                   <Input id="organization-code" value={editor.code} disabled />
                 </label>
               </div>
-              <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-name">
+              <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-name">
                 Name
                 <Input
                   id="organization-name"
@@ -435,7 +432,7 @@ export function HrOrganizationStructureSheetWorkspace() {
               </label>
             </HrDetailSection>
             <HrDetailSection title="Hierarchy">
-              <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-parent">
+              <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-parent">
                 Reports into
                 <select
                   id="organization-parent"

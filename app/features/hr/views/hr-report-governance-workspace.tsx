@@ -211,10 +211,12 @@ function ReportGovernanceBody({
               ? "Set permitted reports, row limits and authorization expiry. A different authorized officer must approve the policy."
               : "Create a reviewed export receipt, then download after current permission, expiry and source checks. Only your own receipts can be downloaded."}
         </p>
-        <Button type="button" variant="outline" disabled={busy} onClick={() => setRevision((v) => v + 1)}>
-          <RefreshCw className="size-4" />
-          {read.error ? "Retry reporting" : "Refresh reporting"}
-        </Button>
+        {read.error ? (
+          <Button type="button" variant="outline" disabled={busy} onClick={() => setRevision((v) => v + 1)}>
+            <RefreshCw className="size-4" />
+            Retry reporting
+          </Button>
+        ) : null}
       </div>
       {(error || read.error) && (
         <Alert variant="destructive">
@@ -252,10 +254,6 @@ function ReportGovernanceBody({
             <div className="flex flex-wrap justify-between gap-3">
               <div>
                 <h2 className="font-semibold">Export disclosure controls</h2>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Approved rules govern CSV disclosure. Statutory tax and contribution rules stay in the existing
-                  Payroll configuration.
-                </p>
               </div>
               <Button type="button" variant="outline" onClick={() => onNavigate("hr", "statutory-deductions")}>
                 Open Statutory Deductions
@@ -362,10 +360,6 @@ function ReportGovernanceBody({
         <>
           <div className={panel + " space-y-3"}>
             <h2 className="font-semibold">Reviewed CSV exports</h2>
-            <p className="text-sm text-muted-foreground">
-              No CSV files or report rows are stored on the server. A receipt retains its source hash and authorization
-              window. Source changes require a fresh receipt. Formula-like cells are exported as text.
-            </p>
             {w.active_policy && (
               <p className="text-xs text-muted-foreground">
                 Current policy: at most {w.active_policy.terms.max_rows} rows ·{" "}

@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
-import { Plus, RefreshCw, ShieldCheck } from "lucide-react";
+import { Plus, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -283,10 +283,6 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
           <ShieldCheck className="h-5 w-5" />
           Statutory setup &amp; review
         </h3>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Review the legal employer, location and employee facts used by Payroll. Approval applies the record to the
-          shared ERP data. Published rules supply the rates.
-        </p>
       </div>
       <nav aria-label="Statutory setup sections" className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {(Object.keys(titles) as Kind[]).map((k) => (
@@ -340,14 +336,6 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
             </Field>
           )}
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              disabled={!!form || busy || state.loading}
-              onClick={() => setRevision((r) => r + 1)}
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh statutory setup
-            </Button>
             {data?.can_create && (
               <Button disabled={!!form || busy} onClick={() => open(null)}>
                 <Plus className="h-4 w-4" />
@@ -522,11 +510,6 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
               </>
             ) : form.kind === "pack_release" ? (
               <>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  Import a reviewed rule bundle with source document fingerprints and positive, boundary and
-                  non-applicable test cases. Production rules require independent approval and an authorized publisher.
-                  No rates are supplied automatically.
-                </p>
                 <aside className="rounded-lg border border-border bg-muted/30 p-3 text-sm leading-relaxed text-muted-foreground">
                   <p className="font-medium text-foreground">Rules that change during a Payroll month</p>
                   <p className="mt-2">
@@ -630,29 +613,8 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
                     </Field>
                   );
                 })}
-                {form.kind === "jurisdiction_override" && (
-                  <p className="text-sm leading-relaxed text-muted-foreground sm:col-span-2">
-                    This overrides only the selected published rule category. It selects that jurisdiction and its
-                    ancestors; it does not set rates or replace unrelated categories. Matching rules must already be
-                    published and activated. Mid-month changes require the published allocation policy. A different
-                    reviewer must approve the request.
-                  </p>
-                )}
-                {form.kind === "jurisdiction_override_revocation" && (
-                  <p className="text-sm leading-relaxed text-muted-foreground sm:col-span-2">
-                    The effective range is copied from the approved override. A separate reviewer must approve
-                    revocation. Calculated Payroll must be recalculated; submitted or finalized periods block this
-                    change. Original approval and calculation evidence remain retained.
-                  </p>
-                )}
                 {form.kind === "payroll_configuration" && (
                   <p className="text-sm text-muted-foreground">Supported payroll frequency: monthly.</p>
-                )}
-                {form.kind === "parameter" && (
-                  <p className="text-sm text-muted-foreground">
-                    EOBI contribution base · use the approved company assessment; this form does not select a statutory
-                    rate.
-                  </p>
                 )}
                 <div className="sm:col-span-2">
                   <Field title="Statutory source reference">
@@ -666,18 +628,6 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
                   </Field>
                 </div>
               </fieldset>
-            )}
-            {[
-              "declaration",
-              "parameter",
-              "pack_release",
-              "jurisdiction_override",
-              "jurisdiction_override_revocation",
-            ].includes(form.kind) && (
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Employee declarations, jurisdiction changes, contribution bases and rule publication require a different
-                reviewer. Administrator self-approval is unavailable.
-              </p>
             )}
             {form.kind === "activation" && !form.options.packs.length && (
               <p role="status" className="text-sm text-[var(--nx-warning)]">

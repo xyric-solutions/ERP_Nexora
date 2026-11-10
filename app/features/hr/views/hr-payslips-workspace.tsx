@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { Download, Printer, RefreshCw, FileText, ArrowRight } from "lucide-react";
+import { Download, Printer, FileText, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -149,10 +149,6 @@ export function HrPayslipsWorkspace({
               <FileText className="size-5" />
               Payslip publication
             </h2>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Review posted salary calculations, release selected employees and open the frozen published payslip.
-              Publication does not confirm payment.
-            </p>
           </div>
           <Button variant="outline" onClick={() => onNavigate("hr", "payroll-journal")}>
             Payroll Journal
@@ -223,19 +219,6 @@ export function HrPayslipsWorkspace({
           </Field>
           <Button className="self-end" type="submit" variant="outline" disabled={!!review || busy}>
             Search
-          </Button>
-          <Button
-            className="self-end"
-            type="button"
-            variant="outline"
-            disabled={!!review || busy}
-            onClick={() => {
-              setRevision((v) => v + 1);
-              reset();
-            }}
-          >
-            <RefreshCw className="size-4" />
-            Refresh
           </Button>
         </form>
       </section>
@@ -412,10 +395,6 @@ export function HrPayslipsWorkspace({
                   disabled={busy}
                 />
               </Field>
-              <p className="text-sm text-muted-foreground">
-                Published documents are immutable. This action does not send email, transfer money or change Payroll
-                payment status.
-              </p>
               <div className="flex flex-wrap gap-2">
                 <Button type="submit" disabled={busy} className="text-primary-foreground!">
                   {busy ? "Publishing…" : "Confirm release"}

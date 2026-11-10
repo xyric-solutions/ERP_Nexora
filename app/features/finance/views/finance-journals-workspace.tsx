@@ -2113,9 +2113,6 @@ function RecurringJournals({
                   </Alert>
                 ) : null}
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={closeDrawer}>
-                    Cancel
-                  </Button>
                   <Button disabled={busy} onClick={() => void save()}>
                     {busy ? "Saving…" : "Save template"}
                   </Button>

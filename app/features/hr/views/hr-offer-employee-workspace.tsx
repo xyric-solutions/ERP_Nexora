@@ -56,14 +56,8 @@ function HandoffForm({
         void onSave({ employee_number: number, work_email: email || undefined, reason });
       }}
     >
-      <div>
-        <p className="text-sm text-muted-foreground">
-          The candidate name, personal email, phone and agreed joining date carry forward automatically. Keep the
-          employee number is allocated automatically across the company group.
-        </p>
-      </div>
       <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <label className="grid gap-2 text-sm font-medium">
+        <label className="grid content-start gap-2 text-sm font-medium">
           Employee number (automatic)
           <Input
             required
@@ -74,7 +68,7 @@ function HandoffForm({
             disabled={busy}
           />
         </label>
-        <label className="grid gap-2 text-sm font-medium">
+        <label className="grid content-start gap-2 text-sm font-medium">
           Company work email
           <Input
             type="email"
@@ -86,7 +80,7 @@ function HandoffForm({
           />
         </label>
       </div>
-      <label className="grid gap-2 text-sm font-medium">
+      <label className="grid content-start gap-2 text-sm font-medium">
         Handoff reason
         <Textarea
           required
@@ -388,7 +382,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
           setOffset(0);
         }}
       >
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Legal company
           <select
             className={selectClass}
@@ -412,7 +406,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
             ))}
           </select>
         </label>
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Find an offer
           <Input
             type="search"
@@ -423,7 +417,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
             placeholder="Candidate, offer reference or opening, then Enter"
           />
         </label>
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Offer status
           <select
             className={selectClass}

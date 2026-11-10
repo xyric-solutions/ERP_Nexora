@@ -187,9 +187,6 @@ export function HrEmployeeRecordWorkspace({
           <Button type="button" variant="outline" onClick={() => onNavigate("hr", "employees")}>
             Back to directory
           </Button>
-          <Button type="button" variant="outline" onClick={() => void load()}>
-            Refresh
-          </Button>
         </div>
       </div>
 

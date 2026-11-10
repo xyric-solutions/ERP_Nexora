@@ -341,7 +341,7 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
         <Summary label="Deactivated" value={records.length - activeCount} />
       </div>
       <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,.8fr)_minmax(14rem,1fr)_auto] md:items-end">
-        <label className="grid gap-1 text-sm font-medium" htmlFor={`configured-${sectionKey}-company`}>
+        <label className="grid content-start gap-1 text-sm font-medium" htmlFor={`configured-${sectionKey}-company`}>
           Company
           <select
             id={`configured-${sectionKey}-company`}
@@ -361,7 +361,7 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-sm font-medium" htmlFor={`configured-${sectionKey}-search`}>
+        <label className="grid content-start gap-1 text-sm font-medium" htmlFor={`configured-${sectionKey}-search`}>
           Search
           <Input
             id={`configured-${sectionKey}-search`}
@@ -470,9 +470,6 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
         footer={
           editor ? (
             <>
-              <Button variant="outline" disabled={saving} onClick={closeSheet}>
-                Cancel
-              </Button>
               <Button disabled={saving} onClick={() => void save()}>
                 {saving ? "Saving…" : "Save changes"}
               </Button>
@@ -512,11 +509,11 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
           <div className="grid gap-5">
             <HrDetailSection title="Details">
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-code`}>
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-code`}>
                   Auto-generated code
                   <Input id={`configured-${sectionKey}-code`} value={editor.code} disabled />
                 </label>
-                <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-name`}>
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-name`}>
                   Name
                   <Input
                     id={`configured-${sectionKey}-name`}
@@ -537,7 +534,7 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
                     const setValue = (next: string) =>
                       setEditor({ ...editor, values: { ...editor.values, [field.key]: next } });
                     return (
-                      <label key={field.key} className="grid gap-1.5 text-sm font-medium" htmlFor={id}>
+                      <label key={field.key} className="grid content-start gap-1.5 text-sm font-medium" htmlFor={id}>
                         {field.label}
                         {field.optionsSource ? (
                           <LiveOptionSelect
@@ -577,7 +574,7 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
               </HrDetailSection>
             ) : null}
             <HrDetailSection title="Description">
-              <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-description`}>
+              <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-description`}>
                 Description
                 <Textarea
                   id={`configured-${sectionKey}-description`}

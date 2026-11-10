@@ -1,6 +1,7 @@
 "use client";
 import { HrDrawerActions } from "./hr-drawer-context";
 import { HrRecordDrawer } from "./hr-record-drawer";
+import { HrClickableRow } from "./hr-clickable-row";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -142,7 +143,7 @@ export function HrHireApprovalsPanel({
       setDetail(null);
       setRefreshKey((current) => current + 1);
     } catch (cause) {
-      setError(message(cause, "The Hire decision could not be saved. Refresh the queue before trying again."));
+      setError(message(cause, "The Hire decision could not be saved. Reload the page and try again."));
       setDecision(null);
     } finally {
       setSaving(false);
@@ -156,14 +157,6 @@ export function HrHireApprovalsPanel({
         <AlertDescription>No Hire approvals are available in the current company scope.</AlertDescription>
       </Alert>
     );
-
-  const refresh = () => {
-    setState("loading");
-    setSelected(null);
-    setDetail(null);
-    setError("");
-    setRefreshKey((current) => current + 1);
-  };
 
   const review = (employeeId: string, requestId: string) => {
     setSelected({ employeeId, requestId });
@@ -185,13 +178,7 @@ export function HrHireApprovalsPanel({
             Maker / checker control
           </p>
           <h2 className="mt-1 text-lg font-semibold text-foreground">Hire approvals</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Review pending employment context separately from employee-profile approval.
-          </p>
         </div>
-        <Button type="button" variant="outline" disabled={saving} onClick={refresh}>
-          Refresh Hire queue
-        </Button>
       </div>
 
       {notice && (
@@ -221,14 +208,11 @@ export function HrHireApprovalsPanel({
                   <th className="px-4 py-3">Employee</th>
                   <th className="px-4 py-3">Proposed job</th>
                   <th className="px-4 py-3">Effective</th>
-                  <th className="px-4 py-3">
-                    <span className="sr-only">Action</span>
-                  </th>
                 </tr>
               </thead>
               <tbody>
                 {queue.map((item) => (
-                  <tr className="border-b border-border/70 last:border-0" key={item.id}>
+                  <HrClickableRow key={item.id} disabled={saving} onOpen={() => review(item.employee_id, item.id)}>
                     <td className="px-4 py-3">
                       <p className="font-medium text-foreground">{item.employee_name}</p>
                       <p className="text-xs text-muted-foreground">{item.employee_number}</p>
@@ -238,16 +222,11 @@ export function HrHireApprovalsPanel({
                       <p className="text-xs text-muted-foreground">{item.job_code}</p>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{item.effective_on}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Button type="button" size="sm" variant="ghost" onClick={() => review(item.employee_id, item.id)}>
-                        Review
-                      </Button>
-                    </td>
-                  </tr>
+                    </HrClickableRow>
                 ))}
                 {queue.length === 0 && (
                   <tr>
-                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={4}>
+                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={3}>
                       No pending Hire approvals in this company.
                     </td>
                   </tr>
@@ -265,7 +244,7 @@ export function HrHireApprovalsPanel({
             <aside className="rounded-md border border-border p-4">
               {detailState === "loading" && selected && <Skeleton className="h-36 w-full" />}
               {detailState === "error" && selected && (
-                <p className="text-sm text-muted-foreground">Select another pending request or refresh the queue.</p>
+                <p className="text-sm text-muted-foreground">Select another pending request.</p>
               )}
               {!selected && (
                 <p className="text-sm text-muted-foreground">
@@ -304,7 +283,7 @@ export function HrHireApprovalsPanel({
                     <>
                       <label
                         htmlFor="hire-decision-reason"
-                        className="grid gap-1.5 text-sm font-medium text-foreground"
+                        className="grid content-start gap-1.5 text-sm font-medium text-foreground"
                       >
                         Decision reason
                         <Textarea

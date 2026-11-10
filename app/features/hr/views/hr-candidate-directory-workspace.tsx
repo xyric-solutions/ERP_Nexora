@@ -208,7 +208,7 @@ export function HrCandidateDirectoryWorkspace() {
           void reload();
         }}
       >
-        <label className="grid gap-1 text-sm font-medium">
+        <label className="grid content-start gap-1 text-sm font-medium">
           Company
           <select
             className={selectClass}
@@ -226,7 +226,7 @@ export function HrCandidateDirectoryWorkspace() {
             ))}
           </select>
         </label>
-        <label htmlFor="candidate-search" className="grid gap-1 text-sm font-medium">
+        <label htmlFor="candidate-search" className="grid content-start gap-1 text-sm font-medium">
           Search
           <Input
             id="candidate-search"
@@ -325,7 +325,7 @@ export function HrCandidateDirectoryWorkspace() {
           >
             <HrDetailSection title="Name">
               <div className="grid gap-3 sm:grid-cols-2">
-                <label htmlFor="candidate-firstName" className="grid gap-1 text-sm font-medium">
+                <label htmlFor="candidate-firstName" className="grid content-start gap-1 text-sm font-medium">
                   First name
                   <Input
                     id="candidate-firstName"
@@ -335,7 +335,7 @@ export function HrCandidateDirectoryWorkspace() {
                     onChange={(event) => setEditor({ ...editor, firstName: event.target.value })}
                   />
                 </label>
-                <label htmlFor="candidate-lastName" className="grid gap-1 text-sm font-medium">
+                <label htmlFor="candidate-lastName" className="grid content-start gap-1 text-sm font-medium">
                   Last name
                   <Input
                     id="candidate-lastName"
@@ -349,7 +349,7 @@ export function HrCandidateDirectoryWorkspace() {
             </HrDetailSection>
             <HrDetailSection title="Contact">
               <div className="grid gap-3 sm:grid-cols-2">
-                <label htmlFor="candidate-email" className="grid gap-1 text-sm font-medium">
+                <label htmlFor="candidate-email" className="grid content-start gap-1 text-sm font-medium">
                   Email
                   <Input
                     id="candidate-email"
@@ -360,7 +360,7 @@ export function HrCandidateDirectoryWorkspace() {
                     onChange={(event) => setEditor({ ...editor, email: event.target.value })}
                   />
                 </label>
-                <label htmlFor="candidate-phone" className="grid gap-1 text-sm font-medium">
+                <label htmlFor="candidate-phone" className="grid content-start gap-1 text-sm font-medium">
                   Phone
                   <Input
                     id="candidate-phone"
@@ -373,7 +373,7 @@ export function HrCandidateDirectoryWorkspace() {
             </HrDetailSection>
             <HrDetailSection title="Sourcing">
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="grid gap-1 text-sm font-medium">
+                <label className="grid content-start gap-1 text-sm font-medium">
                   Source
                   <select
                     className={selectClass}
@@ -387,7 +387,7 @@ export function HrCandidateDirectoryWorkspace() {
                     ))}
                   </select>
                 </label>
-                <label className="grid gap-1 text-sm font-medium">
+                <label className="grid content-start gap-1 text-sm font-medium">
                   Status
                   <select
                     className={selectClass}
@@ -401,9 +401,6 @@ export function HrCandidateDirectoryWorkspace() {
               </div>
             </HrDetailSection>
             <HrDrawerActions>
-              <Button type="button" variant="outline" disabled={saving} onClick={() => setEditor(null)}>
-                Cancel
-              </Button>
               <Button type="submit" disabled={saving}>
                 {saving ? "Saving…" : "Save changes"}
               </Button>

@@ -134,10 +134,6 @@ export function HrPersonalLeaveApplications({ company, items, opened, onOpen, on
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">My leave applications</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Drafts do not reserve leave. Submission reserves the selected days until the independent approval workflow
-            decides them.
-          </p>
         </div>
         <Button
           type="button"
@@ -177,9 +173,6 @@ export function HrPersonalLeaveApplications({ company, items, opened, onOpen, on
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="font-semibold">Review and save a leave draft</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Your employee record is selected securely from your sign-in. Review the calendar before saving.
-              </p>
             </div>
             <Button type="button" variant="ghost" disabled={busy} onClick={() => setCreate(false)}>
               Close application
@@ -466,10 +459,6 @@ export function HrPersonalLeaveApplications({ company, items, opened, onOpen, on
               cancellation.
             </p>
           )}
-          <p className="text-xs text-muted-foreground">
-            Draft terms remain unchanged after saving. To revise dates or portions, cancel the draft and create a
-            replacement. Manager and HR decisions use the same Time & Leave workflow.
-          </p>
           <History items={d.history} />
         </section>
       )}

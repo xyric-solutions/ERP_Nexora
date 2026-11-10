@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
-import { Plus, RefreshCw, ShieldCheck } from "lucide-react";
+import { Plus, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -209,10 +209,6 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
             <ShieldCheck className="h-5 w-5 text-primary" />
             Monetary overtime
           </h3>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Released company policy → approved employee arrangement → frozen attendance → Payroll calculation. Fixed
-            monthly salary authority is required. Rates and hours must come from your approved source.
-          </p>
         </div>
         {data?.can_create && (
           <Button onClick={() => open(null)} className="text-primary-foreground!">
@@ -257,10 +253,6 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
             }}
           />
         </Field>
-        <Button variant="outline" disabled={state.loading} onClick={() => setRevision((n) => n + 1)}>
-          <RefreshCw className="h-4 w-4" />
-          Refresh overtime
-        </Button>
       </div>
       {!form && (error || state.error) && (
         <p role="alert" className="rounded-lg border border-destructive/30 p-3 text-sm text-destructive">
@@ -537,10 +529,6 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
                     )}
                     {form.options.policies.find((p) => p.id === form.values.policy_version_id)?.terms?.basis_source ===
                       "direct_contractual_rate" && field("direct_rate", "Direct contractual hourly rate")}
-                    <p className="text-sm text-muted-foreground sm:col-span-2">
-                      The policy supplies the approved basis components, currency, multiplier and rounding. Employees
-                      are bounded by the current search and company placement on the Payroll month.
-                    </p>
                   </>
                 )}
               </fieldset>
@@ -568,10 +556,6 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
                     onChange={(e) => change("reason", e.target.value)}
                   />
                 </Field>
-                <p className="text-xs text-muted-foreground">
-                  Submitted terms are locked for review. Released policies and approved arrangements preserve historical
-                  authority. Overlapping released ranges and calculated Payroll periods prevent retroactive changes.
-                </p>
                 <Button type="submit" disabled={busy} className="justify-self-start text-primary-foreground!">
                   {busy ? "Saving…" : form.row ? "Confirm monetary decision" : "Save monetary draft"}
                 </Button>

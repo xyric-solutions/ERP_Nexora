@@ -56,7 +56,13 @@ const click = async (label: string) => {
 /** The control inside the (nth) label whose own text is `text`. */
 const control = (text: string, nth = 0) => {
   const label = [...document.body.querySelectorAll("label")].filter((candidate) => candidate.firstChild?.textContent?.trim() === text)[nth];
-  const element = label?.querySelector("input:not([type=file]), select, textarea");
+  const fromLabel = label?.querySelector("input:not([type=file]), select, textarea");
+  // Joined controls (currency + amount) are named by aria-label / aria-labelledby instead of a wrapping label.
+  const named = [...document.body.querySelectorAll<HTMLElement>("input, select, textarea")].filter((candidate) => {
+    const by = candidate.getAttribute("aria-labelledby");
+    return candidate.getAttribute("aria-label") === text || (by ? document.getElementById(by)?.textContent?.trim() === text : false);
+  })[nth];
+  const element = fromLabel ?? named;
   if (!element) throw new Error(`Field not found: ${text}`);
   return element as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 };
@@ -93,8 +99,9 @@ describe("HrEmployeeWizard", () => {
     await act(async () => root.render(<HrEmployeeWizard target={{ kind: "create" }} onClose={vi.fn()} onSaved={saved} />));
     await flush();
 
-    expect((control("Employee number") as HTMLInputElement).value).toBe("EMP-007");
-    expect((control("Employee number") as HTMLInputElement).readOnly).toBe(true);
+    // The employee number is shown read-only beside its label, never as an editable field.
+    expect(document.body.textContent).toContain("Employee numberEMP-007");
+    expect(() => control("Employee number")).toThrow();
     expect(document.body.textContent).not.toContain("company-scoped draft only");
 
     // Steps are optional: Next always moves on, even before any field is filled.
@@ -132,7 +139,7 @@ describe("HrEmployeeWizard", () => {
     await type("Skills", "TypeScript, SQL");
     await type("Previous salary", "250000");
     await type("Salary currency", "PKR");
-    await click("Add entry");
+    await click("Add previous employment");
 
     // Going back keeps the entered data.
     await click("Previous");

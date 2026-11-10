@@ -46,7 +46,7 @@ import {TimeLeave} from './time-leave.js';
 import type {AttendanceCompletionDependencies} from './attendance-completion.js';
 import type {HrLeaveQuery,HrLeavePolicyInput,CreateHrLeaveTypeRequest,UpdateHrLeavePolicyRequest,HrLeaveTypeStatusRequest,HrLeavePolicy,HrLeaveType,HrLeaveTypeDirectory,HrLeaveAllocation,HrLeaveContextQuery,HrLeaveBalance,HrLeaveBalanceQuery,HrLeaveBalanceDirectory,HrLeaveLedgerQuery,HrLeaveLedger,HrLeaveBalancePostingRequest,HrLeaveContext,CreateHrLeaveRequest,HrLeaveRequestActionRequest,HrLeaveRequestQuery,HrLeaveRequestSummary,HrLeaveRequestDirectory,HrLeaveRequestDetail} from '@nexora/contracts';
 import {AttendanceCompletion} from './attendance-completion.js';
-import type {HrOvertimeQuery,HrOvertimeContextQuery,HrOvertimeRuleRequest,HrOvertimeRule,HrOvertimeEvidence,HrOvertimeContext,CreateHrOvertimeRequest,HrOvertimeActionRequest,HrAttendanceCompletionResult,HrOvertimeSummary,HrOvertimeDetail,HrOvertimeDirectory,HrAttendancePeriodQuery,HrAttendancePeriodActionRequest,HrAttendanceCloseDay,HrAttendanceCloseEmployee,HrAttendancePeriod,HrAttendancePeriodWorkspace,HrAttendancePayrollInputs} from '@nexora/contracts';
+import type {HrOvertimeQuery,HrOvertimeContextQuery,HrOvertimeRuleRequest,HrOvertimeRule,HrOvertimeEvidence,HrOvertimeContext,CreateHrOvertimeRequest,ReplaceHrOvertimeRequest,HrOvertimeActionRequest,HrAttendanceCompletionResult,HrOvertimeSummary,HrOvertimeDetail,HrOvertimeDirectory,HrAttendancePeriodQuery,HrAttendancePeriodActionRequest,HrAttendanceCloseDay,HrAttendanceCloseEmployee,HrAttendancePeriod,HrAttendancePeriodWorkspace,HrAttendancePayrollInputs} from '@nexora/contracts';
 import { resolveHrShiftOnDate } from "./shift-resolution.js";
 import { evaluateDailyAttendance, type AttendanceSource } from "./daily-attendance.js";
 import { summarizeAttendanceMonth } from "./monthly-attendance.js";
@@ -666,6 +666,7 @@ export class SourceHrRepository {
   async createOvertimeRule(context:HrActorContext,input:HrOvertimeRuleRequest,key:string,corr:string):Promise<HrAttendanceCompletionResult>{return this.completion().createOvertimeRule(context,input,key,corr);}
   async createOvertime(context:HrActorContext,input:CreateHrOvertimeRequest,key:string,corr:string):Promise<HrAttendanceCompletionResult>{return this.completion().createOvertime(context,input,key,corr);}
   async actOnOvertime(context:HrActorContext,id:string,input:HrOvertimeActionRequest,key:string,corr:string):Promise<HrAttendanceCompletionResult>{return this.completion().actOnOvertime(context,id,input,key,corr);}
+  async replaceOvertime(context:HrActorContext,id:string,input:ReplaceHrOvertimeRequest,key:string,corr:string):Promise<HrAttendanceCompletionResult>{return this.completion().replaceOvertime(context,id,input,key,corr);}
   async periodWorkspace(context:HrActorContext,q:HrAttendancePeriodQuery):Promise<HrAttendancePeriodWorkspace>{return this.completion().periodWorkspace(context,q);}
   async payrollInputs(context:HrActorContext,q:HrAttendancePeriodQuery):Promise<HrAttendancePayrollInputs>{return this.completion().payrollInputs(context,q);}
   async actOnPeriod(context:HrActorContext,input:HrAttendancePeriodActionRequest,key:string,corr:string):Promise<HrAttendanceCompletionResult>{return this.completion().actOnPeriod(context,input,key,corr);}
@@ -1035,11 +1036,39 @@ export class SourceHrRepository {
           group by employee.status order by employee.status`,
         [context.tenantId, companyId],
       );
+      const joiners = await client.query<{
+        employee_id: string;
+        employee_number: string;
+        employee_name: string;
+        designation: string | null;
+        department: string | null;
+        joined_on: string | Date;
+      }>(
+        `select distinct on (employee.joined_on,employee.id)
+                employee.id as employee_id,employee.employee_number,
+                concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as employee_name,
+                designation.name as designation,department.name as department,employee.joined_on
+           from employee
+           join employee_assignment assignment on assignment.tenant_id=employee.tenant_id and assignment.employee_id=employee.id
+           left join hr_master_record designation on designation.tenant_id=assignment.tenant_id and designation.id=assignment.designation_id
+           left join organization_unit department on department.tenant_id=assignment.tenant_id and department.id=assignment.department_id
+          where employee.tenant_id=$1 and assignment.company_id=$2
+            and assignment.assignment_status in ('active','legacy_compatibility')
+            and assignment.effective_from<=current_date and (assignment.effective_to is null or assignment.effective_to>=current_date)
+            and employee.joined_on is not null and employee.joined_on>=current_date-interval '90 days'
+          order by employee.joined_on desc,employee.id,assignment.effective_from desc
+          limit 8`,
+        [context.tenantId, companyId],
+      );
       return {
         company_id: companyId,
         generated_at: new Date().toISOString(),
         metrics,
         status_distribution: distribution.rows,
+        recent_joiner_list: joiners.rows.map((row) => ({
+          ...row,
+          joined_on: dateOnly(row.joined_on),
+        })),
         action_items: [
           { key: "drafts", label: "Draft employee profiles", count: metrics.draft_profiles, page_id: "employee-drafts", tone: metrics.draft_profiles ? "attention" : "neutral" },
           { key: "approvals", label: "Employee approvals", count: metrics.pending_employee_approvals, page_id: "employee-approvals", tone: metrics.pending_employee_approvals ? "attention" : "neutral" },

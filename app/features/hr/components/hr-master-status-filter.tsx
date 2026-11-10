@@ -9,16 +9,26 @@ const statusOptions: readonly { value: HrMasterStatus; label: string }[] = [
   { value: "inactive", label: "Deactivated" },
 ];
 
-export function HrMasterStatusFilter({
+/**
+ * Status category buttons shown beneath a list toolbar. Defaults to All records /
+ * Active / Deactivated; a list with its own states (e.g. leave requests) can pass
+ * `options` to keep the same look.
+ */
+export function HrMasterStatusFilter<T extends string = HrMasterStatus>({
   value,
   onChange,
+  options,
+  label = "Record status",
 }: {
-  value: HrMasterStatus;
-  onChange: (status: HrMasterStatus) => void;
+  value: T;
+  onChange: (status: T) => void;
+  options?: readonly { value: T; label: string }[];
+  label?: string;
 }) {
+  const choices = options ?? (statusOptions as unknown as readonly { value: T; label: string }[]);
   return (
-    <div role="group" aria-label="Record status" className="flex flex-wrap gap-1">
-      {statusOptions.map((option) => (
+    <div role="group" aria-label={label} className="flex flex-wrap gap-1">
+      {choices.map((option) => (
         <Button
           key={option.value}
           variant={value === option.value ? "default" : "ghost"}

@@ -176,6 +176,7 @@ export interface AppDependencies {
     | "createOvertimeRule"
     | "createOvertime"
     | "actOnOvertime"
+    | "replaceOvertime"
     | "periodWorkspace"
     | "payrollInputs"
     | "actOnPeriod"

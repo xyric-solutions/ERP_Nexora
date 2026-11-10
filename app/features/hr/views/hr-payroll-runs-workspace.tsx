@@ -2,7 +2,6 @@
 import { useMemo, useRef, useState } from "react";
 import {
   Calculator,
-  RefreshCw,
   ShieldCheck,
   ArrowRight,
   LockKeyhole,
@@ -184,10 +183,6 @@ export function HrPayrollRunsWorkspace({
               }}
             />
           </Field>
-          <Button variant="outline" disabled={state.loading || busy} onClick={() => setRevision((v) => v + 1)}>
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </Button>
         </div>
       </section>
       {(error || state.error || companies.error) && (
@@ -215,10 +210,6 @@ export function HrPayrollRunsWorkspace({
             </h2>
             {data?.period && <State value={data.period.state} />}
           </div>
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            Salary calculations use frozen attendance and approved compensation snapshots. Recalculation saves a new
-            immutable run. Final approval requires all pay and statutory evidence to reconcile.
-          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {data?.allowed_actions.includes("policy") && !review && (
@@ -260,21 +251,11 @@ export function HrPayrollRunsWorkspace({
       {data?.period?.state === "open" && data.period.run_number > 0 && (
         <section className={panel} role="status">
           <h3 className="text-sm font-semibold">Returned for correction · recalculation required</h3>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            The earlier result is retained for comparison. Update and independently approve the required salary or
-            one-off inputs, then calculate a new run before submitting it for review. Frozen attendance and finalized
-            Payroll remain protected.
-          </p>
         </section>
       )}
       {review && data?.review_access === "forbidden" && (
         <section className={panel} role="status">
           <h3 className="text-sm font-semibold">Independent Payroll reviewer required</h3>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            The maker, calculator, submitter and employees included in this run cannot decide their own Payroll without
-            an authorized audited override. An independent reviewer with company approval authority must approve or
-            return this run.
-          </p>
         </section>
       )}
       {data?.supplemental_totals && (
@@ -283,10 +264,6 @@ export function HrPayrollRunsWorkspace({
           <p className="text-sm">
             Net {data.supplemental_totals.net} · Gross {data.supplemental_totals.gross} · Deductions{" "}
             {data.supplemental_totals.deductions}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            The original run, result fingerprints and published payslips remain intact. Approved correction entries and
-            tax carry-forwards are recorded separately in Final Settlements; payment reconciliation remains separate.
           </p>
         </section>
       )}
@@ -320,11 +297,6 @@ export function HrPayrollRunsWorkspace({
           hint={data?.totals ? data.totals.currency_code + " · additional company cost" : "Calculated statutory costs"}
         />
       </div>
-      <p className="text-sm text-muted-foreground">
-        Overtime uses its released monetary policy and approved employee arrangement. Approved one-off earnings and
-        deductions use this period’s salary currency and rounding policy. Their original amounts and approvals stay
-        attached to each saved calculation. Inputs are consumed only with final approval.
-      </p>
       {!!data?.blocked.length && (
         <section className={panel + " border-[var(--nx-warning-border)]"} aria-label="Payroll approval gates">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--nx-warning)]">
@@ -408,10 +380,6 @@ export function HrPayrollRunsWorkspace({
                       <option value="up">Away from zero</option>
                     </select>
                   </Field>
-                  <p className="self-end text-sm leading-relaxed text-muted-foreground">
-                    The policy uses Finance currency precision. Salary amounts are rounded per component within each
-                    effective salary segment.
-                  </p>
                 </>
               )}
               {draft.action === "open" && (
@@ -482,7 +450,6 @@ export function HrPayrollRunsWorkspace({
           data={data}
           revision={revision}
           disabled={busy || !!draft}
-          onRefresh={() => setRevision((v) => v + 1)}
         />
       )}
       {state.loading ? (
@@ -553,10 +520,6 @@ export function HrPayrollRunsWorkspace({
                 {!!employee.statutory?.jurisdiction_overrides?.length && (
                   <div className="mt-3 grid min-w-0 gap-2 text-xs" aria-label="Applied employee jurisdiction overrides">
                     <h4 className="font-semibold">Applied employee jurisdiction overrides</h4>
-                    <p className="leading-relaxed text-muted-foreground">
-                      Frozen approvals select rules only for their stated category. Other categories retain their own
-                      jurisdiction authority.
-                    </p>
                     {employee.statutory.jurisdiction_overrides.map((o) => (
                       <dl className="grid min-w-0 gap-1 rounded-md border border-border p-2 sm:grid-cols-2" key={o.id}>
                         <div className="min-w-0">
@@ -584,10 +547,6 @@ export function HrPayrollRunsWorkspace({
                 {!!employee.statutory?.contexts?.length && (
                   <div className="mt-3 grid min-w-0 gap-2 text-xs" aria-label="Dated statutory contexts">
                     <h4 className="font-semibold">Reviewed statutory context periods</h4>
-                    <p className="leading-relaxed text-muted-foreground">
-                      Unchanged monthly rules are applied once. Changed rules or inputs use their published context
-                      policy; each period retains its source evidence.
-                    </p>
                     {employee.statutory.contexts.map((c) => (
                       <details key={c.effective_from} className="min-w-0 rounded-md border border-border p-2">
                         <summary className="cursor-pointer">

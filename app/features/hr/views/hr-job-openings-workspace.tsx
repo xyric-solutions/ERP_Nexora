@@ -278,7 +278,7 @@ export function HrJobOpeningsWorkspace() {
         </Alert>
       ) : null}
       <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4 border-border">
-        <label className="grid min-w-0 basis-full sm:basis-48 flex-1 gap-1 text-sm font-medium">
+        <label className="grid content-start min-w-0 basis-full sm:basis-48 flex-1 gap-1 text-sm font-medium">
           Company
           <select
             className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
@@ -295,9 +295,6 @@ export function HrJobOpeningsWorkspace() {
             ))}
           </select>
         </label>
-        <Button variant="outline" onClick={() => void load(companyId)}>
-          Refresh
-        </Button>
         {canCreate ? (
           <Button
             onClick={() => {
@@ -389,7 +386,7 @@ export function HrJobOpeningsWorkspace() {
               <aside className="grid gap-5 rounded-lg border bg-card p-4 border-border">
                 <HrDetailSection title="Source">
                   {editingId ? (
-                    <label className="grid gap-1 text-sm">
+                    <label className="grid content-start gap-1 text-sm">
                       Status
                       <select
                         className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
@@ -412,7 +409,7 @@ export function HrJobOpeningsWorkspace() {
                       </AlertDescription>
                     </Alert>
                   ) : null}
-                  <label className="grid gap-1 text-sm">
+                  <label className="grid content-start gap-1 text-sm">
                     Approved requisition
                     <select
                       className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2 disabled:opacity-60"
@@ -435,49 +432,36 @@ export function HrJobOpeningsWorkspace() {
                   </label>
                 </HrDetailSection>
                 <HrDetailSection title="Opening">
-                  <label className="grid gap-1 text-sm">
+                  <label className="grid content-start gap-1 text-sm">
                     Opening title
                     <Input value={title} onChange={(event) => setTitle(event.target.value)} />
                   </label>
-                  <label className="grid gap-1 text-sm">
+                  <label className="grid content-start gap-1 text-sm">
                     Positions to fill
                     <Input
                       inputMode="numeric"
                       value={headcount}
                       onChange={(event) => setHeadcount(event.target.value)}
                     />
-                    <span className="text-xs text-muted-foreground">
-                      How many people this opening will hire.
-                      {chosenRequisition && availableHeadcount !== null
-                        ? ` ${availableHeadcount} of ${chosenRequisition.positions_requested} approved position${chosenRequisition.positions_requested === 1 ? "" : "s"} on ${chosenRequisition.reference} ${availableHeadcount === 1 ? "is" : "are"} not yet in another opening.`
-                        : " It cannot exceed the positions still available on the approved requisition."}
-                    </span>
                   </label>
-                  <label className="grid gap-1 text-sm">
+                  <label className="grid content-start gap-1 text-sm">
                     Closing date
                     <Input type="date" value={closingOn} onChange={(event) => setClosingOn(event.target.value)} />
                   </label>
                 </HrDetailSection>
                 <HrDetailSection title="Advertising">
-                  <label className="grid gap-1 text-sm">
+                  <label className="grid content-start gap-1 text-sm">
                     Advertising channels
                     <Input
                       value={channels}
                       placeholder="Company website, LinkedIn, Employee referral"
                       onChange={(event) => setChannels(event.target.value)}
                     />
-                    <span className="text-xs text-muted-foreground">
-                      Where the vacancy is published or sourced, separated by commas. Recorded on the opening for
-                      reporting; nothing is posted automatically.
-                    </span>
                   </label>
                 </HrDetailSection>
                 <HrDrawerActions>
                   <Button disabled={saving || (!editingId && !approved.length)} onClick={() => void save()}>
                     {editingId ? "Save changes" : "Create opening"}
-                  </Button>
-                  <Button variant="outline" onClick={closeEditor}>
-                    Cancel
                   </Button>
                 </HrDrawerActions>
               </aside>

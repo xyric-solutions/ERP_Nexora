@@ -1,7 +1,7 @@
 "use client";
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { useMemo, useRef, useState } from "react";
-import { ArrowRight, RefreshCw, ShieldCheck, Landmark } from "lucide-react";
+import { ArrowRight, ShieldCheck, Landmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -132,10 +132,6 @@ export function HrPayrollPaymentWorkspace({
               <Landmark className="size-5 shrink-0" />
               Salary payment control
             </h2>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Posted Payroll → independent batch approval → posted Banking payment → bank confirmation. Each settlement
-              clears the employee’s exact net payable.
-            </p>
           </div>
           <Button variant="outline" disabled={busy} onClick={() => onNavigate("banking", "bank-payments")}>
             Bank Payments
@@ -171,15 +167,6 @@ export function HrPayrollPaymentWorkspace({
               }}
             />
           </Field>
-          <Button
-            className="self-end"
-            variant="outline"
-            disabled={busy || !!review}
-            onClick={() => setRevision((v) => v + 1)}
-          >
-            <RefreshCw className="size-4" />
-            Refresh
-          </Button>
         </div>
       </section>
       {(error || companies.error || data.error) && (
@@ -255,10 +242,6 @@ export function HrPayrollPaymentWorkspace({
                 </Button>
               </div>
             )}
-            <p className="text-sm text-muted-foreground">
-              “Released” means the batch is approved for processing. Confirm only after checking the bank’s successful
-              transfer record. This screen does not transmit bank transfers or generate bank files.
-            </p>
             {w.totals.zero_net_count > 0 && (
               <p className="text-sm text-muted-foreground">
                 {w.totals.zero_net_count} zero-net result(s) require no transfer and are retained in the accrual
@@ -372,10 +355,6 @@ export function HrPayrollPaymentWorkspace({
             >
               <form onSubmit={act} className="space-y-4" aria-label="Salary payment review">
                 <h3 className="text-lg font-semibold">{titles[review.action]}</h3>
-                <p className="text-sm text-muted-foreground">
-                  Company and month are frozen for this review. The server rechecks current permissions, the posted
-                  accrual and the batch version.
-                </p>
                 {review.action === "confirm" && (
                   <>
                     <div className="rounded-lg border p-3 text-sm">

@@ -3,12 +3,7 @@ import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-op
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import type { HrMonthlyAttendanceDirectory, HrMonthlyAttendanceRow } from "@nexora/contracts";
 import {
-  CalendarRange,
-  Search,
   Users,
-  CheckCircle2,
-  TriangleAlert,
-  Clock3,
   ChevronLeft,
   ChevronRight,
   ArrowUpRight,
@@ -20,7 +15,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
-import { HrMasterSheet } from "../components/hr-master-sheet";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
   AttendanceStatusBadge,
   attendanceLabel,
@@ -65,9 +60,6 @@ function EmployeeMonth({
   );
   return (
     <section aria-label="Employee monthly detail" className="grid min-w-0 gap-5">
-      <p className="text-sm text-muted-foreground">
-        Choose a day to review its result. Dates without an operational placement are excluded from the totals.
-      </p>
       <div className="grid grid-cols-7 gap-1 sm:gap-2" aria-label="Attendance calendar">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
           <span
@@ -183,9 +175,6 @@ function EmployeeMonth({
           </p>
         ) : item.finalized_input ? (
           <>
-            <p className="text-xs text-muted-foreground">
-              Stored separately from the operational calendar above. This summary does not indicate a payroll payment.
-            </p>
             <dl className="m-0 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
               {[
                 ["Calendar days", item.finalized_input.calendar_days],
@@ -240,6 +229,14 @@ export function HrMonthlyAttendanceWorkspace({
     [companyLoading, setCompanyLoading] = useState(false),
     [error, setError] = useState("");
   useHrOperationsScope(company, month + "-01", month + "-01");
+  // Search as the user types, once typing pauses.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setApplied(search.trim());
+      setOffset(0);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [search]);
   useEffect(() => {
     if (!canRead) return;
     let active = true;
@@ -285,14 +282,6 @@ export function HrMonthlyAttendanceWorkspace({
       active = false;
     };
   }, [client, company, month, applied, offset, revision, canRead]);
-  const totals = useMemo(
-    () => ({
-      present: data?.items.reduce((n, r) => n + r.counts.present, 0) ?? 0,
-      review: data?.items.reduce((n, r) => n + r.counts.needs_review, 0) ?? 0,
-      worked: data?.items.reduce((n, r) => n + r.worked_minutes, 0) ?? 0,
-    }),
-    [data],
-  );
   const detail = data?.items.find((r) => r.employee_id === selected);
   if (sessionLoading) return <Skeleton className="h-64 w-full" />;
   if (!canRead)
@@ -319,19 +308,6 @@ export function HrMonthlyAttendanceWorkspace({
       aria-label="Monthly attendance workspace"
       className="grid min-w-0 gap-5 font-sans text-foreground [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_td]:font-sans!"
     >
-      <div className="flex flex-wrap items-start justify-between gap-4 rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-5 sm:p-6">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className="rounded-xl bg-primary/15 p-3 text-primary">
-            <CalendarRange className="size-6" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-xl font-semibold tracking-tight">Every day, one connected monthly view</h2>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Review employee coverage, attendance and exceptions before the next approval stage.
-            </p>
-          </div>
-        </div>
-      </div>
       {error && (
         <Alert variant="destructive">
           <AlertTitle>Monthly attendance unavailable</AlertTitle>
@@ -339,14 +315,14 @@ export function HrMonthlyAttendanceWorkspace({
         </Alert>
       )}
       <form
-        className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1.2fr_0.7fr_1fr_auto] sm:p-5"
+        className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1.2fr_0.7fr_1fr] sm:p-5"
         onSubmit={(e) => {
           e.preventDefault();
           setOffset(0);
           setApplied(search.trim());
         }}
       >
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Company
           <select
             aria-label="Company"
@@ -369,7 +345,7 @@ export function HrMonthlyAttendanceWorkspace({
             ))}
           </select>
         </label>
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Attendance month
           <Input
             required
@@ -384,7 +360,7 @@ export function HrMonthlyAttendanceWorkspace({
             }}
           />
         </label>
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Search employee
           <Input
             maxLength={160}
@@ -393,42 +369,9 @@ export function HrMonthlyAttendanceWorkspace({
             placeholder="Name or employee number"
           />
         </label>
-        <div className="flex items-end gap-2">
-          <Button type="submit" className="text-primary-foreground!" disabled={loading || !company || !month}>
-            <Search className="size-4" />
-            Search
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setSearch("");
-              setApplied("");
-              setOffset(0);
-            }}
-          >
-            Clear
-          </Button>
-        </div>
       </form>
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {[
-          { name: "Employees in this page", value: data?.items.length ?? 0, icon: Users },
-          { name: "Present days", value: totals.present, icon: CheckCircle2 },
-          { name: "Days needing review", value: totals.review, icon: TriangleAlert },
-          { name: "Recorded work", value: attendanceMinutes(totals.worked), icon: Clock3 },
-        ].map(({ name, value, icon: Icon }) => (
-          <div key={name} className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card p-4">
-            <Icon className="size-5 shrink-0 text-primary" />
-            <div className="min-w-0">
-              <p className="text-xs text-muted-foreground">{name}</p>
-              <div className="mt-1 break-words text-xl font-semibold tabular-nums">{loading ? "—" : value}</div>
-            </div>
-          </div>
-        ))}
-      </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span>Totals describe the current page. {data?.total ?? 0} employees match this month and search.</span>
+        <span>{data?.total ?? 0} employees match this month and search.</span>
         <span>
           {data
             ? `Period: ${data.period_state ? attendanceLabel(data.period_state) : "Not opened"} · Updated ${new Date(data.generated_at).toLocaleTimeString()}`
@@ -551,34 +494,39 @@ export function HrMonthlyAttendanceWorkspace({
           </Button>
         </div>
       </div>
-      <HrMasterSheet
+      <Dialog
         open={Boolean(detail && data)}
         onOpenChange={(open) => {
           if (!open) setSelected("");
         }}
-        size="wide"
-        eyebrow="Monthly Attendance"
-        title={detail?.display_name ?? "Employee month"}
-        description={
-          detail
-            ? `${detail.employee_number} · ${detail.covered_days} covered dates · ${detail.departments.join(" / ") || "No department"}`
-            : ""
-        }
       >
-        {detail && data ? (
-          <EmployeeMonth
-            key={`${data.company_id}:${data.month}:${detail.employee_id}`}
-            item={detail}
-            data={data}
-            onNavigate={onNavigate}
-          />
-        ) : null}
-      </HrMasterSheet>
-      <p className="rounded-lg border border-border bg-muted/30 p-4 text-xs leading-relaxed text-muted-foreground">
-        These are operational monthly results from the daily attendance rules. Present, half day, leave, official duty,
-        off days and unfinished shifts remain separate. This view does not calculate paid days or approve payroll.
-        Authorized users can compare a separately stored finalized input when the attendance period is locked.
-      </p>
+        <DialogContent
+          className="z-[1301]! flex max-h-[90vh] w-[min(72rem,calc(100vw-2rem))]! max-w-none! flex-col gap-0 overflow-hidden p-0"
+          overlayClassName="z-[1300]! backdrop-blur-sm!"
+        >
+          <div className="border-b border-border px-5 py-3 pr-14 sm:px-6">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Monthly Attendance</span>
+            <DialogTitle className="m-0! mt-0.5 truncate text-lg font-semibold leading-snug">
+              {detail?.display_name ?? "Employee month"}
+            </DialogTitle>
+            <DialogDescription className="m-0! mt-0.5 text-xs text-muted-foreground">
+              {detail
+                ? `${detail.employee_number} · ${detail.covered_days} covered dates · ${detail.departments.join(" / ") || "No department"}`
+                : ""}
+            </DialogDescription>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+            {detail && data ? (
+              <EmployeeMonth
+                key={`${data.company_id}:${data.month}:${detail.employee_id}`}
+                item={detail}
+                data={data}
+                onNavigate={onNavigate}
+              />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

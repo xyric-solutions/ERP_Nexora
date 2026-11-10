@@ -5,34 +5,24 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { HrFinancePayrollDashboard } from "@nexora/contracts";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
+import { HrStatusPill } from "../components/hr-detail-tile";
+import {
+  PayrollHealth,
+  PayrollLatestPeriod,
+  PayrollNetTrend,
+  PayrollStatePill,
+  payrollMoney,
+  payrollMonth,
+} from "../components/hr-finance-payroll-panels";
+import { HrCompanySelect, HrInsightHeader } from "../components/hr-stat-tile";
+import { financePayrollSamplePeriods, showFinancePayrollSample } from "../model/finance-payroll-sample";
 
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
-
-function money(value: string, currency = "PKR") {
-  return new Intl.NumberFormat("en-PK", { style: "currency", currency, maximumFractionDigits: 2 }).format(
-    Number(value),
-  );
-}
-
-function label(value: string | null) {
-  return value ? value.replaceAll("_", " ") : "Not started";
-}
-
-function Metric({ title, value, note }: { title: string; value: string | number; note: string }) {
-  return (
-    <article className="rounded-lg border border-border bg-card p-4 shadow-sm">
-      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</span>
-      <strong className="mt-2 block text-3xl text-foreground">{value}</strong>
-      <small className="mt-1 block text-muted-foreground">{note}</small>
-    </article>
-  );
-}
 
 export function HrFinancePayrollDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
   const { api, session, loading: sessionLoading, refresh: refreshSession } = useSession();
@@ -108,57 +98,25 @@ export function HrFinancePayrollDashboardWorkspace({ onNavigate }: { onNavigate:
 
   const latest = summary?.latest_period;
   const metrics = summary?.metrics;
+  const sample = Boolean(summary && summary.recent_periods.length === 0 && showFinancePayrollSample);
+  const periods = sample ? financePayrollSamplePeriods : (summary?.recent_periods ?? []);
+  const shownLatest = sample ? (financePayrollSamplePeriods[0] ?? null) : (latest ?? null);
 
   return (
-    <section className="grid min-w-0 gap-5" aria-label="Finance and Payroll Dashboard">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Finance / payroll control
-            </span>
-            <Badge variant="secondary">Live</Badge>
-          </div>
-          <h1 className="mt-1 font-sans text-3xl font-semibold">Finance &amp; Payroll Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Company-scoped payroll coverage, immutable results, journal and payment controls.
-          </p>
-        </div>
-        <div className="flex min-w-0 w-full flex-wrap items-end gap-2 sm:w-auto">
-          <label className="grid min-w-0 w-full gap-1 text-sm font-medium sm:w-64">
-            Company
-            <select
-              className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-              value={companyId}
-              onChange={(event) => {
-                setCompanyId(event.target.value);
-                void load(event.target.value);
-              }}
-            >
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name} ({company.code})
-                </option>
-              ))}
-            </select>
-          </label>
-          <Button variant="outline" disabled={loading || !companyId} onClick={() => void load(companyId)}>
-            {loading ? "Refreshing..." : "Refresh"}
-          </Button>
-        </div>
-      </header>
-      <p className="rounded-lg border border-border bg-muted p-3 text-sm text-muted-foreground">
-        Payroll totals include posted settlement supplements. Original runs and payslips remain unchanged; payment
-        confirmations are tracked separately.
-      </p>
+    <section className="grid min-w-0 gap-4" aria-label="Finance and Payroll Dashboard">
+      <HrInsightHeader eyebrow="Finance / payroll control" title="Finance & Payroll Dashboard">
+        <HrCompanySelect
+          id="finance-payroll-company"
+          value={companyId}
+          companies={companies}
+          disabled={loading}
+          onChange={(next) => {
+            setCompanyId(next);
+            void load(next);
+          }}
+        />
+      </HrInsightHeader>
 
-      <Alert>
-        <AlertTitle>Authoritative read model</AlertTitle>
-        <AlertDescription>
-          Values come from effective salary assignments, payroll periods, immutable payroll results, journal proposals
-          and governed payment batches. This dashboard does not calculate, approve, post or pay payroll.
-        </AlertDescription>
-      </Alert>
       {error ? (
         <Alert>
           <AlertTitle>Dashboard unavailable</AlertTitle>
@@ -169,138 +127,93 @@ export function HrFinancePayrollDashboardWorkspace({ onNavigate }: { onNavigate:
 
       {summary ? (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Metric
-              title="Current employees"
-              value={metrics?.current_employees ?? 0}
-              note="Effective company assignments"
-            />
-            <Metric
-              title="Salary coverage"
-              value={`${metrics?.salary_covered_employees ?? 0}/${metrics?.current_employees ?? 0}`}
-              note={`${metrics?.salary_gaps ?? 0} employee(s) need an effective salary assignment`}
-            />
-            <Metric
-              title="Latest gross payroll"
-              value={latest ? money(latest.gross, latest.currency_code) : "—"}
-              note={latest ? `Period ${latest.month.slice(0, 7)}` : "No payroll period recorded"}
-            />
-            <Metric
-              title="Latest net payroll"
-              value={latest ? money(latest.net, latest.currency_code) : "—"}
-              note={latest ? `${latest.employee_count} calculated employee(s)` : "No immutable results recorded"}
-            />
-            <Metric title="Payroll periods" value={metrics?.total_periods ?? 0} note="All company periods" />
-            <Metric title="Review queue" value={metrics?.review_queue ?? 0} note="Calculated or under review" />
-            <Metric
-              title="Journal queue"
-              value={metrics?.journal_queue ?? 0}
-              note="Approved and awaiting a posted journal"
-            />
-            <Metric
-              title="Payment exceptions"
-              value={metrics?.payment_exceptions ?? 0}
-              note="Failed or rejected controls"
-            />
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]">
+            <PayrollLatestPeriod latest={shownLatest} sample={sample} />
+            {metrics ? (
+              <PayrollHealth
+                metrics={metrics}
+                periodCount={metrics.total_periods}
+                onOpenEmployees={() => onNavigate("hr", "employees")}
+              />
+            ) : null}
           </div>
+          <PayrollNetTrend periods={periods} sample={sample} />
 
-          {metrics?.salary_gaps ? (
-            <Alert>
-              <AlertTitle>Salary coverage needs attention</AlertTitle>
-              <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-                {metrics.salary_gaps} current employee(s) do not have an effective approved salary assignment.
-                <Button variant="outline" onClick={() => onNavigate("hr", "employees")}>
-                  Open employee directory
-                </Button>
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
-          <div className="grid items-start gap-4 xl:grid-cols-[1fr_1.5fr]">
-            <article className="min-w-0 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Latest period</span>
-              <h2 className="mt-1 text-xl font-semibold">Payroll-to-payment control</h2>
-              {latest ? (
-                <dl className="mt-4 grid gap-3">
-                  {[
-                    ["Period", latest.month.slice(0, 7)],
-                    ["Calculation", label(latest.state)],
-                    ["Journal", label(latest.journal_state)],
-                    [
-                      "Journal balanced",
-                      latest.journal_balanced === null ? "Not prepared" : latest.journal_balanced ? "Yes" : "No",
-                    ],
-                    ["Payment batch", label(latest.payment_state)],
-                    ["Payments", `${latest.confirmed_payment_count}/${latest.payment_count} confirmed`],
-                    ["Payment total", money(latest.payment_total, latest.currency_code)],
-                    ["Calculation warnings", String(latest.warning_count)],
-                  ].map(([term, value]) => (
-                    <div
-                      className="flex flex-wrap items-center justify-between gap-4 border-b border-border/70 pb-2 last:border-0"
-                      key={term}
-                    >
-                      <dt className="text-sm text-muted-foreground">{term}</dt>
-                      <dd className="text-right text-sm font-semibold capitalize">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : (
-                <p className="mt-4 text-sm text-muted-foreground">
-                  No payroll period exists for this company. The dashboard will populate when an authorized payroll
-                  workflow creates its first period.
-                </p>
-              )}
-            </article>
-
-            <article className="min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-              <header className="border-b border-border p-5">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <article className="min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+            <header className="flex flex-wrap items-start justify-between gap-2 border-b border-border px-4 py-3 sm:px-5">
+              <div>
+                <p className="m-0! text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                   Period history
-                </span>
-                <h2 className="mt-1 text-xl font-semibold">Recent payroll periods</h2>
-              </header>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-180 text-left text-sm">
-                  <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-3">Period</th>
-                      <th className="px-4 py-3">State</th>
-                      <th className="px-4 py-3 text-right">Employees</th>
-                      <th className="px-4 py-3 text-right">Gross</th>
-                      <th className="px-4 py-3 text-right">Net</th>
-                      <th className="px-4 py-3">Journal</th>
-                      <th className="px-4 py-3">Payment</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {summary.recent_periods.map((period) => (
-                      <tr className="border-t border-border/70" key={period.id}>
-                        <td className="px-4 py-3 font-medium">{period.month.slice(0, 7)}</td>
-                        <td className="px-4 py-3">
-                          <Badge variant="outline" className="capitalize">
-                            {label(period.state)}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-right">{period.employee_count}</td>
-                        <td className="px-4 py-3 text-right">{money(period.gross, period.currency_code)}</td>
-                        <td className="px-4 py-3 text-right">{money(period.net, period.currency_code)}</td>
-                        <td className="px-4 py-3 capitalize">{label(period.journal_state)}</td>
-                        <td className="px-4 py-3 capitalize">{label(period.payment_state)}</td>
-                      </tr>
-                    ))}
-                    {summary.recent_periods.length === 0 ? (
-                      <tr>
-                        <td className="px-4 py-8 text-center text-muted-foreground" colSpan={7}>
-                          No payroll periods have been recorded for this company.
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
+                </p>
+                <h2 className="m-0! mt-0.5! text-base font-semibold">Recent payroll periods</h2>
               </div>
-            </article>
-          </div>
-          <p className="text-right text-xs text-muted-foreground">
+              {sample ? <HrStatusPill status="sample" tone="info" label="Sample data" /> : null}
+            </header>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-200 text-left text-sm">
+                <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-2.5 sm:pl-5">Period</th>
+                    <th className="px-4 py-2.5">Status</th>
+                    <th className="px-4 py-2.5 text-right">Employees</th>
+                    <th className="px-4 py-2.5 text-right">Gross</th>
+                    <th className="px-4 py-2.5 text-right">Deductions</th>
+                    <th className="px-4 py-2.5 text-right">Net</th>
+                    <th className="px-4 py-2.5">Journal</th>
+                    <th className="px-4 py-2.5 sm:pr-5">Payment</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {periods.map((period) => (
+                    <tr className="border-b border-border/70 last:border-0" key={period.id}>
+                      <td className="px-4 py-3 sm:pl-5">
+                        <span className="block font-medium">{payrollMonth(period.month)}</span>
+                        <span className="text-xs text-muted-foreground">Run {period.run_number}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <PayrollStatePill state={period.state} />
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">{period.employee_count}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{payrollMoney(period.gross, period.currency_code)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
+                        {payrollMoney(period.deductions, period.currency_code)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                        {payrollMoney(period.net, period.currency_code)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {period.journal_state ? (
+                          <HrStatusPill status={period.journal_state} />
+                        ) : (
+                          <span className="text-muted-foreground">Not started</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 sm:pr-5">
+                        {period.payment_state ? (
+                          <span className="grid justify-items-start gap-0.5">
+                            <HrStatusPill status={period.payment_state} />
+                            <span className="text-xs text-muted-foreground tabular-nums">
+                              {period.confirmed_payment_count}/{period.payment_count} confirmed
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">Not started</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {periods.length === 0 ? (
+                    <tr>
+                      <td className="px-4 py-8 text-center text-muted-foreground" colSpan={8}>
+                        No payroll periods have been recorded for this company.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </article>
+          <p className="m-0! text-right text-xs text-muted-foreground">
             Updated {new Date(summary.generated_at).toLocaleString()}
           </p>
         </>

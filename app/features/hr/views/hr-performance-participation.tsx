@@ -17,12 +17,10 @@ type Item = HrPerformanceParticipation["items"][number];
 function ContributionForm({
   item,
   busy,
-  onCancel,
   onSubmit,
 }: {
   item: Item;
   busy: boolean;
-  onCancel: () => void;
   onSubmit: (summary: string, ratings: { goal_id: string; rating: number; evidence: string }[], reason: string) => void;
 }) {
   const [summary, setSummary] = useState(""),
@@ -48,10 +46,6 @@ function ContributionForm({
       <h3 className="text-lg font-semibold">
         {item.kind === "self" ? "Self appraisal" : "Peer feedback"} · {item.employee_name}
       </h3>
-      <p className="text-sm text-muted-foreground">
-        Your submitted evidence becomes immutable. It supports the manager assessment and does not replace the manager’s
-        rating.
-      </p>
       <Field title="Assessment summary">
         <Textarea
           value={summary}
@@ -113,9 +107,6 @@ function ContributionForm({
       <HrDrawerActions>
         <Button type="submit" disabled={busy} className="text-primary-foreground!">
           Submit assessment
-        </Button>
-        <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>
-          Cancel
         </Button>
       </HrDrawerActions>
     </form>
@@ -186,9 +177,6 @@ export function PerformanceParticipation({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold">Employee appraisals & peer feedback</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Invite contributors before submitting the manager review. Employees submit using their own linked account.
-          </p>
         </div>
         <div className={personalOnly ? "hidden" : "flex flex-wrap gap-2"}>
           {data?.can_invite && (
@@ -389,7 +377,6 @@ export function PerformanceParticipation({
             key={editing.id}
             item={editing}
             busy={busy}
-            onCancel={() => setEditing(null)}
             onSubmit={(summary, ratings, why) =>
               act({
                 ...common,
@@ -491,9 +478,6 @@ export function PerformanceParticipation({
           <HrDrawerActions>
             <Button type="submit" className="text-primary-foreground!" disabled={busy}>
               Confirm {decision.action}
-            </Button>
-            <Button type="button" variant="outline" disabled={busy} onClick={() => setDecision(null)}>
-              Cancel
             </Button>
           </HrDrawerActions>
         </form>

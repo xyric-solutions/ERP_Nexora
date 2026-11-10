@@ -77,7 +77,7 @@ import type {
   BankPaymentMutationResult,
   BankPaymentPostingResult,
   BankPaymentReversalResult,
-HrOvertimeRuleRequest,HrOvertimeContext,CreateHrOvertimeRequest,HrOvertimeActionRequest,HrAttendanceCompletionResult,HrOvertimeDetail,HrOvertimeDirectory,HrAttendancePeriodActionRequest,HrAttendancePeriodWorkspace,HrAttendancePayrollInputs,
+HrOvertimeRuleRequest,HrOvertimeContext,CreateHrOvertimeRequest,ReplaceHrOvertimeRequest,HrOvertimeActionRequest,HrAttendanceCompletionResult,HrOvertimeDetail,HrOvertimeDirectory,HrAttendancePeriodActionRequest,HrAttendancePeriodWorkspace,HrAttendancePayrollInputs,
 CreateHrLeaveTypeRequest,UpdateHrLeavePolicyRequest,HrLeaveTypeStatusRequest,HrLeaveTypeDirectory,HrLeaveBalanceDirectory,HrLeaveLedger,HrLeaveBalancePostingRequest,HrLeaveContext,CreateHrLeaveRequest,HrLeaveRequestActionRequest,HrLeaveRequestDirectory,HrLeaveRequestDetail,
 HrPayrollWorkspace,HrPayrollOptions,CreateHrPayrollRecord,HrPayrollRecordAction,HrPayrollMutationResult,
 CreateHrLocalization,HrLocalizationDecision,HrLocalizationWorkspace,CreateHrOvertimeMoney,HrOvertimeMoneyDecision,HrOvertimeMoneyWorkspace,HrPayrollPaymentAction,HrPayrollPaymentWorkspace,HrPayslipRelease,HrPayslipWorkspace,HrPayslipDetail,HrPerformanceCommand,HrPerformanceWorkspace,HrPayrollJournalAction,HrPayrollJournalWorkspace,HrPayrollRunComparison,HrPayrollRunAction,HrPayrollRunWorkspace,
@@ -813,6 +813,7 @@ export class NexoraApiClient {
   attendanceGetOvertime(id:string,query:string):Promise<HrOvertimeDetail>{return this.request("/api/v1/hr/attendance_overtime/"+encodeURIComponent(id)+""+query);}
   attendanceCreateOvertime(input:CreateHrOvertimeRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.request("/api/v1/hr/attendance_overtime",{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key},body:JSON.stringify(input)});}
   attendanceCreateOvertimeRule(input:HrOvertimeRuleRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.request("/api/v1/hr/attendance_overtime_rules",{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key},body:JSON.stringify(input)});}
+  attendanceReplaceOvertime(id:string,input:ReplaceHrOvertimeRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.request("/api/v1/hr/attendance_overtime/"+encodeURIComponent(id)+"/replace",{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key},body:JSON.stringify(input)});}
   attendanceActOnOvertime(id:string,input:HrOvertimeActionRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.request("/api/v1/hr/attendance_overtime/"+encodeURIComponent(id)+"/actions",{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key},body:JSON.stringify(input)});}
   attendancePeriodWorkspace(query:string):Promise<HrAttendancePeriodWorkspace>{return this.request("/api/v1/hr/attendance_periods"+query);}
   attendancePayrollInputs(query:string):Promise<HrAttendancePayrollInputs>{return this.request("/api/v1/hr/attendance_payroll_inputs"+query);}

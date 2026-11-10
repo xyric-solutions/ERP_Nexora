@@ -110,7 +110,7 @@ function ScheduleForm({
       <HrDetailSection title="Interview">
         <div className="grid gap-3 sm:grid-cols-2">
           {!interview ? (
-            <label className="grid gap-1.5 text-sm">
+            <label className="grid content-start gap-1.5 text-sm">
               Interview type
               <select className={selectClass} value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
                 {["screening", "technical", "panel", "hr", "final"].map((item) => (
@@ -121,11 +121,11 @@ function ScheduleForm({
               </select>
             </label>
           ) : null}
-          <label className="grid gap-1.5 text-sm">
+          <label className="grid content-start gap-1.5 text-sm">
             Start date and time
             <Input required type="datetime-local" value={starts} onChange={(e) => setStarts(e.target.value)} />
           </label>
-          <label className="grid gap-1.5 text-sm">
+          <label className="grid content-start gap-1.5 text-sm">
             Duration (minutes)
             <Input
               required
@@ -136,7 +136,7 @@ function ScheduleForm({
               onChange={(e) => setDuration(Number(e.target.value))}
             />
           </label>
-          <label className="grid gap-1.5 text-sm">
+          <label className="grid content-start gap-1.5 text-sm">
             Interview mode
             <select className={selectClass} value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
               {["video", "on_site", "telephone"].map((item) => (
@@ -146,7 +146,7 @@ function ScheduleForm({
               ))}
             </select>
           </label>
-          <label className="grid gap-1.5 text-sm sm:col-span-2">
+          <label className="grid content-start gap-1.5 text-sm sm:col-span-2">
             Location or meeting reference
             <Input
               required
@@ -160,10 +160,6 @@ function ScheduleForm({
       </HrDetailSection>
       {!interview ? (
         <HrDetailSection title="Panel members · choose 2–8">
-          <p className="m-0! text-xs text-muted-foreground">
-            Each member signs in to submit their own evaluation. Accounts must have this company’s access and HR update
-            permission.
-          </p>
           <div className="grid max-h-48 gap-2 overflow-y-auto sm:grid-cols-2">
             {panel.map((person) => (
               <label key={person.id} className="flex items-center gap-2 rounded-md bg-muted/40 p-2 text-sm">
@@ -188,7 +184,7 @@ function ScheduleForm({
         </HrDetailSection>
       ) : (
         <HrDetailSection title="Reason">
-          <label className="grid gap-1.5 text-sm">
+          <label className="grid content-start gap-1.5 text-sm">
             Reason for rescheduling
             <Textarea required maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
@@ -201,9 +197,6 @@ function ScheduleForm({
           disabled={busy || (!interview && members.length < 2)}
         >
           {busy ? "Saving…" : interview ? "Save new schedule" : "Schedule interview"}
-        </Button>
-        <Button type="button" variant="outline" disabled={busy} onClick={close}>
-          Cancel
         </Button>
       </HrDrawerActions>
     </form>
@@ -243,13 +236,10 @@ function EvaluationForm({
         Round {interview.round} · {label(interview.kind)} · {time(interview.starts_at)}
       </HrDetailSummary>
       <HrDetailSection title="Your panel scorecard">
-        <p className="m-0! text-sm text-muted-foreground">
-          Rate each criterion from 1 to 5. Submitted scorecards are final and retained as evidence.
-        </p>
         {interview.template.map((criterion) => (
           <label
             key={criterion.id}
-            className="grid grid-cols-[1fr_110px] items-center gap-3 rounded-lg bg-muted/40 p-3 text-sm"
+            className="grid content-start grid-cols-[1fr_110px] items-center gap-3 rounded-lg bg-muted/40 p-3 text-sm"
           >
             <span>
               {criterion.label}
@@ -274,7 +264,7 @@ function EvaluationForm({
         ))}
       </HrDetailSection>
       <HrDetailSection title="Recommendation">
-        <label className="grid gap-1.5 text-sm">
+        <label className="grid content-start gap-1.5 text-sm">
           Recommendation
           <select
             className={selectClass}
@@ -288,11 +278,11 @@ function EvaluationForm({
             ))}
           </select>
         </label>
-        <label className="grid gap-1.5 text-sm">
+        <label className="grid content-start gap-1.5 text-sm">
           Strengths
           <Textarea required maxLength={2000} value={strengths} onChange={(e) => setStrengths(e.target.value)} />
         </label>
-        <label className="grid gap-1.5 text-sm">
+        <label className="grid content-start gap-1.5 text-sm">
           Concerns (enter “None” if appropriate)
           <Textarea required maxLength={2000} value={concerns} onChange={(e) => setConcerns(e.target.value)} />
         </label>
@@ -336,7 +326,7 @@ function StatusForm({
         Round {interview.round} · {label(interview.kind)} · {time(interview.starts_at)}
       </HrDetailSummary>
       <HrDetailSection title="Outcome">
-        <label className="grid gap-1.5 text-sm">
+        <label className="grid content-start gap-1.5 text-sm">
           Record interview outcome
           <select
             className={selectClass}
@@ -351,7 +341,7 @@ function StatusForm({
             ))}
           </select>
         </label>
-        <label className="grid gap-1.5 text-sm">
+        <label className="grid content-start gap-1.5 text-sm">
           Outcome reason
           <Textarea
             required
@@ -394,7 +384,7 @@ function AssessmentDecision({
         {assessment.title} · {assessment.mandatory ? "Required" : "Optional"}
       </HrDetailSummary>
       <HrDetailSection title="Decision">
-        <label className="grid gap-1 text-sm">
+        <label className="grid content-start gap-1 text-sm">
           Assessment outcome
           <select
             className={selectClass}
@@ -405,7 +395,7 @@ function AssessmentDecision({
             <option value="failed">Failed</option>
           </select>
         </label>
-        <label className="grid gap-1 text-sm">
+        <label className="grid content-start gap-1 text-sm">
           Decision evidence
           <Textarea
             required
@@ -744,7 +734,7 @@ export function HrInterviewsWorkspace() {
           setQuery({ search, offset: 0 });
         }}
       >
-        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
           Company
           <select
             className={selectClass}
@@ -773,7 +763,7 @@ export function HrInterviewsWorkspace() {
             )}
           </select>
         </label>
-        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
           Find candidate
           <Input
             type="search"
@@ -948,7 +938,7 @@ export function HrInterviewsWorkspace() {
                       setPanelQuery(panelSearch);
                     }}
                   >
-                    <label className="grid flex-1 gap-1 text-sm">
+                    <label className="grid content-start flex-1 gap-1 text-sm">
                       Find panel account
                       <Input
                         value={panelSearch}
@@ -960,9 +950,6 @@ export function HrInterviewsWorkspace() {
                     <Button type="submit" variant="outline" disabled={busy}>
                       Find panel
                     </Button>
-                    <span className="w-full text-xs text-muted-foreground">
-                      Up to 100 company-authorized accounts. Refine the search if needed.
-                    </span>
                   </form>
                   <ScheduleForm
                     key={`${applicationId}-${editor}-${selectedId}`}
@@ -990,9 +977,6 @@ export function HrInterviewsWorkspace() {
               )}
             </HrDetailSection>
             <HrDetailSection title="Assessments & checks">
-              <p className="text-sm text-muted-foreground">
-                Mandatory assessments must pass before selection. Final decisions and panel scorecards cannot be edited.
-              </p>
               {workspace.assessments.map((item) => (
                 <article key={item.id} className="rounded-lg border border-border p-3">
                   <div className="flex flex-wrap justify-between gap-2">
@@ -1048,7 +1032,7 @@ export function HrInterviewsWorkspace() {
                     }}
                   >
                     <HrDetailSection title="Assessment">
-                      <label className="grid gap-1.5 text-sm">
+                      <label className="grid content-start gap-1.5 text-sm">
                         Assessment title
                         <Input
                           required
@@ -1062,7 +1046,7 @@ export function HrInterviewsWorkspace() {
                         <Checkbox checked={mandatory} onCheckedChange={(value) => setMandatory(!!value)} />
                         Required before selection
                       </label>
-                      <label className="grid gap-1.5 text-sm">
+                      <label className="grid content-start gap-1.5 text-sm">
                         Assessment instructions
                         <Textarea
                           required
@@ -1125,7 +1109,7 @@ export function HrInterviewsWorkspace() {
                       {workspace.application.candidate_name} · {workspace.application.opening_title}
                     </HrDetailSummary>
                     <HrDetailSection title="Decision">
-                      <label className="grid gap-1.5 text-sm">
+                      <label className="grid content-start gap-1.5 text-sm">
                         Selection reason
                         <Textarea
                           required

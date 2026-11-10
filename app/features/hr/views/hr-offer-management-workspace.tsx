@@ -120,7 +120,7 @@ function OfferEditor({
       </HrDetailGroup>
       <HrDetailSection title="Terms">
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="grid gap-1.5 text-sm">
+          <label className="grid content-start gap-1.5 text-sm">
             Proposed monthly gross ({context.currency_code})
             <Input
               required
@@ -130,7 +130,7 @@ function OfferEditor({
               onChange={(e) => field("proposed_gross", e.target.value)}
             />
           </label>
-          <label className="grid gap-1.5 text-sm">
+          <label className="grid content-start gap-1.5 text-sm">
             Joining date
             <Input
               required
@@ -140,7 +140,7 @@ function OfferEditor({
               onChange={(e) => field("joining_on", e.target.value)}
             />
           </label>
-          <label className="grid gap-1.5 text-sm">
+          <label className="grid content-start gap-1.5 text-sm">
             Offer valid through
             <Input
               required
@@ -151,7 +151,7 @@ function OfferEditor({
               onChange={(e) => field("valid_until", e.target.value)}
             />
           </label>
-          <label className="grid gap-1.5 text-sm">
+          <label className="grid content-start gap-1.5 text-sm">
             Probation (months)
             <Input
               required
@@ -162,7 +162,7 @@ function OfferEditor({
               onChange={(e) => field("probation_months", Number(e.target.value))}
             />
           </label>
-          <label className="grid gap-1.5 text-sm">
+          <label className="grid content-start gap-1.5 text-sm">
             Notice (days)
             <Input
               required
@@ -184,7 +184,7 @@ function OfferEditor({
               ["employment_setup_id", "employment_setup", "Employment setup"],
             ] as const
           ).map(([key, type, title]) => (
-            <label key={key} className="grid gap-1.5 text-sm">
+            <label key={key} className="grid content-start gap-1.5 text-sm">
               {title}
               <select required className={selectClass} value={terms[key]} onChange={(e) => field(key, e.target.value)}>
                 <option value="">Select {title.toLowerCase()}</option>
@@ -200,7 +200,7 @@ function OfferEditor({
               </select>
             </label>
           ))}
-          <label className="grid gap-1.5 text-sm sm:col-span-2">
+          <label className="grid content-start gap-1.5 text-sm sm:col-span-2">
             Reporting manager
             <select
               className={selectClass}
@@ -227,7 +227,7 @@ function OfferEditor({
             </AlertDescription>
           </Alert>
         ) : null}
-        <label className="grid gap-1.5 text-sm">
+        <label className="grid content-start gap-1.5 text-sm">
           Compensation exception reason {outside ? "(required)" : "(if applicable)"}
           <Textarea
             required={outside}
@@ -236,7 +236,7 @@ function OfferEditor({
             onChange={(e) => field("range_exception_reason", e.target.value)}
           />
         </label>
-        <label className="grid gap-1.5 text-sm">
+        <label className="grid content-start gap-1.5 text-sm">
           Additional offer terms
           <Textarea maxLength={2000} value={terms.note} onChange={(e) => field("note", e.target.value)} />
         </label>
@@ -244,9 +244,6 @@ function OfferEditor({
       <HrDrawerActions>
         <Button type="submit" className="text-primary-foreground!" disabled={busy}>
           {busy ? "Saving…" : "Save offer draft"}
-        </Button>
-        <Button type="button" variant="outline" disabled={busy} onClick={close}>
-          Cancel
         </Button>
       </HrDrawerActions>
     </form>
@@ -291,7 +288,7 @@ function OfferDecision({
         });
       }}
     >
-      <label className="grid gap-1.5 text-sm">
+      <label className="grid content-start gap-1.5 text-sm">
         Offer action
         <select
           required
@@ -313,17 +310,6 @@ function OfferDecision({
           ))}
         </select>
       </label>
-      {action === "record_sent" ? (
-        <p className="text-sm text-muted-foreground">
-          Record a delivery already made outside the ERP. This action does not send an email or message.
-        </p>
-      ) : null}
-      {action === "approve" ? (
-        <p className="text-sm text-muted-foreground">
-          A different approver must review the submitted terms. Authorized super-admin self-approval overrides are
-          recorded explicitly.
-        </p>
-      ) : null}
       {action === "approve" && offer.outside_range ? (
         <label className="flex items-start gap-2 rounded-lg bg-muted/50 p-3 text-sm">
           <Checkbox
@@ -340,7 +326,7 @@ function OfferDecision({
         </label>
       ) : null}
       {requiresEvidence ? (
-        <label className="grid gap-1.5 text-sm">
+        <label className="grid content-start gap-1.5 text-sm">
           {response ? "Candidate response reference" : "Delivery reference"}
           <Input
             required
@@ -356,7 +342,7 @@ function OfferDecision({
         </label>
       ) : null}
       {response ? (
-        <label className="grid gap-1.5 text-sm">
+        <label className="grid content-start gap-1.5 text-sm">
           Candidate response date
           <Input
             required
@@ -367,7 +353,7 @@ function OfferDecision({
           />
         </label>
       ) : null}
-      <label className="grid gap-1.5 text-sm">
+      <label className="grid content-start gap-1.5 text-sm">
         Decision reason
         <Textarea required maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} />
       </label>
@@ -673,7 +659,7 @@ export function HrOfferManagementWorkspace() {
           setFilter({ search, state: stateFilter, offset: 0 });
         }}
       >
-        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
           Company
           <select
             className={selectClass}
@@ -707,7 +693,7 @@ export function HrOfferManagementWorkspace() {
             )}
           </select>
         </label>
-        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
           Search offers
           <Input
             type="search"
@@ -717,7 +703,7 @@ export function HrOfferManagementWorkspace() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
-        <label className="grid gap-1.5 text-sm font-medium">
+        <label className="grid content-start gap-1.5 text-sm font-medium">
           Offer status
           <select
             className={selectClass}
@@ -770,7 +756,7 @@ export function HrOfferManagementWorkspace() {
                 setAppQuery(appSearch);
               }}
             >
-              <label className="grid flex-1 gap-1 text-sm">
+              <label className="grid content-start flex-1 gap-1 text-sm">
                 Find selected application
                 <Input maxLength={160} value={appSearch} onChange={(e) => setAppSearch(e.target.value)} />
               </label>
@@ -778,7 +764,7 @@ export function HrOfferManagementWorkspace() {
                 Find application
               </Button>
             </form>
-            <label className="grid gap-1.5 text-sm">
+            <label className="grid content-start gap-1.5 text-sm">
               Selected application
               <select
                 className={selectClass}

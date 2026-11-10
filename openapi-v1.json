@@ -46473,6 +46473,121 @@
         }
       }
     },
+    "/hr/attendance_overtime/{recordId}/replace": {
+      "post": {
+        "operationId": "attendanceReplaceOvertime",
+        "summary": "Edit a draft overtime request (cancels the draft and creates the corrected draft atomically)",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recordId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "HrAttendanceCompletionResult",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrAttendanceCompletionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceHrOvertimeRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/hr/attendance_overtime/{recordId}/actions": {
       "post": {
         "operationId": "attendanceActOnOvertime",
@@ -77623,6 +77738,67 @@
               "additionalProperties": false
             }
           },
+          "recent_joiner_list": {
+            "default": [],
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "employee_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "employee_number": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32
+                },
+                "employee_name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 320
+                },
+                "designation": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 160
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "department": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 160
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "joined_on": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                }
+              },
+              "required": [
+                "employee_id",
+                "employee_number",
+                "employee_name",
+                "designation",
+                "department",
+                "joined_on"
+              ],
+              "additionalProperties": false
+            }
+          },
           "action_items": {
             "type": "array",
             "items": {
@@ -77672,6 +77848,7 @@
           "generated_at",
           "metrics",
           "status_distribution",
+          "recent_joiner_list",
           "action_items"
         ],
         "additionalProperties": false
@@ -80878,6 +81055,50 @@
         ],
         "additionalProperties": false
       },
+      "ReplaceHrOvertimeRequest": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "expected_version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "work_date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "requested_minutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1440
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 1000
+          },
+          "expected_evidence_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "company_id",
+          "expected_version",
+          "work_date",
+          "requested_minutes",
+          "reason",
+          "expected_evidence_hash"
+        ],
+        "additionalProperties": false
+      },
       "HrAttendancePeriodQuery": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
@@ -82225,6 +82446,10 @@
               ]
             }
           },
+          "can_edit": {
+            "default": false,
+            "type": "boolean"
+          },
           "self_decision_requires_override": {
             "type": "boolean"
           },
@@ -82295,6 +82520,7 @@
           "evidence",
           "evidence_unavailable",
           "allowed_actions",
+          "can_edit",
           "self_decision_requires_override",
           "history"
         ],

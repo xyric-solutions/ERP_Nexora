@@ -42,10 +42,12 @@ export function HrCompanyScope({
               </select>
             </Field>
           </div>
-          <Button type="button" variant="outline" disabled={disabled} onClick={() => setRevision((v) => v + 1)}>
-            <RefreshCw className="size-4" />
-            {read.error ? "Retry companies" : "Refresh companies"}
-          </Button>
+          {read.error ? (
+            <Button type="button" variant="outline" disabled={disabled} onClick={() => setRevision((v) => v + 1)}>
+              <RefreshCw className="size-4" />
+              Retry companies
+            </Button>
+          ) : null}
         </div>
       </div>
       {read.error && (

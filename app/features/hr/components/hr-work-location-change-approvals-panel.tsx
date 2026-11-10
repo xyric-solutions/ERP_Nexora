@@ -1,6 +1,7 @@
 "use client";
 import { HrDrawerActions } from "./hr-drawer-context";
 import { HrRecordDrawer } from "./hr-record-drawer";
+import { HrClickableRow } from "./hr-clickable-row";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -160,7 +161,7 @@ export function HrWorkLocationChangeApprovalsPanel({
       refresh();
     } catch (cause) {
       setError(
-        message(cause, "The work-location-change decision could not be saved. Refresh the queue before retrying."),
+        message(cause, "The work-location-change decision could not be saved. Reload the page and try again."),
       );
       setDecision(null);
     } finally {
@@ -179,13 +180,7 @@ export function HrWorkLocationChangeApprovalsPanel({
             Maker / checker control
           </p>
           <h2 className="mt-1 text-lg font-semibold text-foreground">Work-location-change approvals</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Compare locations and verify effective statutory jurisdiction authority before deciding the request.
-          </p>
         </div>
-        <Button type="button" variant="outline" disabled={saving} onClick={refresh}>
-          Refresh location-change queue
-        </Button>
       </div>
       {notice && (
         <Alert>
@@ -215,14 +210,11 @@ export function HrWorkLocationChangeApprovalsPanel({
                   <th className="px-4 py-3">Proposed location</th>
                   <th className="px-4 py-3">Jurisdiction</th>
                   <th className="px-4 py-3">Effective</th>
-                  <th className="px-4 py-3">
-                    <span className="sr-only">Action</span>
-                  </th>
                 </tr>
               </thead>
               <tbody>
                 {queue.map((item) => (
-                  <tr className="border-b border-border/70 last:border-0" key={item.id}>
+                  <HrClickableRow key={item.id} disabled={saving} onOpen={() => review(item.employee_id, item.id)}>
                     <td className="px-4 py-3">
                       <p className="font-medium text-foreground">{item.employee_name}</p>
                       <p className="text-xs text-muted-foreground">{item.employee_number}</p>
@@ -234,16 +226,11 @@ export function HrWorkLocationChangeApprovalsPanel({
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{item.effective_on}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Button type="button" size="sm" variant="ghost" onClick={() => review(item.employee_id, item.id)}>
-                        Review
-                      </Button>
-                    </td>
-                  </tr>
+                    </HrClickableRow>
                 ))}
                 {queue.length === 0 && (
                   <tr>
-                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
+                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={4}>
                       No pending work-location-change approvals in this company.
                     </td>
                   </tr>
@@ -261,7 +248,7 @@ export function HrWorkLocationChangeApprovalsPanel({
             <aside className="rounded-md border border-border p-4">
               {detailState === "loading" && selected && <Skeleton className="h-36 w-full" />}
               {detailState === "error" && selected && (
-                <p className="text-sm text-muted-foreground">Select another request or refresh the queue.</p>
+                <p className="text-sm text-muted-foreground">Select another request.</p>
               )}
               {!selected && (
                 <p className="text-sm text-muted-foreground">
@@ -316,7 +303,7 @@ export function HrWorkLocationChangeApprovalsPanel({
                     <>
                       <label
                         htmlFor="work-location-change-decision-reason"
-                        className="grid gap-1.5 text-sm font-medium text-foreground"
+                        className="grid content-start gap-1.5 text-sm font-medium text-foreground"
                       >
                         Decision reason
                         <Textarea

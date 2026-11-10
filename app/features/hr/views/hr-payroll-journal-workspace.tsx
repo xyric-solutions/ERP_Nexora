@@ -1,7 +1,7 @@
 "use client";
 import { payrollNavigationContext } from "../components/payroll-navigation";
 import { useMemo, useRef, useState } from "react";
-import { RefreshCw, ArrowRight, ShieldCheck, FileCheck2 } from "lucide-react";
+import { ArrowRight, ShieldCheck, FileCheck2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -121,10 +121,6 @@ export function HrPayrollJournalWorkspace({
       className="grid min-w-0 grid-cols-1 gap-5 font-sans [&_p]:mb-0 [&_h2]:mb-0 [&_dd]:font-sans! [&_select]:font-normal! [&_textarea]:font-normal!"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-          Accrue approved Payroll into Finance with a balanced journal, independent acceptance and a separate poster.
-          Salary payment and payslip release follow separately.
-        </p>
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
@@ -183,10 +179,6 @@ export function HrPayrollJournalWorkspace({
             onChange={(e) => setPostingDate(e.target.value)}
           />
         </Field>
-        <Button variant="outline" disabled={busy || !!review || data.loading} onClick={() => setRevision((v) => v + 1)}>
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </Button>
       </div>
       {(companies.error || data.error || error) && (
         <div
@@ -366,19 +358,10 @@ export function HrPayrollJournalWorkspace({
                   <ShieldCheck className="h-4 w-4 text-primary" />
                   {titles[review.action]}
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  This action uses the exact version and evidence shown above. Finance acceptance and posting require
-                  separate authorized officers. Self-review and self-posting cannot be overridden.
-                </p>
                 {review.action === "prepare" &&
                   review.snapshot.dimension_requirements.some((a) => a.required_dimensions.includes("cost_center")) && (
                     <fieldset className="grid min-w-0 gap-4 rounded-lg border border-border p-4" disabled={busy}>
                       <legend className="px-1 text-sm font-semibold">Whole-account cost-centre allocation</legend>
-                      <p className="text-sm text-muted-foreground">
-                        Choose one company cost centre for each required account. This assigns the entire account
-                        balance, including both sides if present. It does not split employee costs. An independent
-                        Finance officer must review these mappings before posting.
-                      </p>
                       <Field title="Find a company cost centre">
                         <Input
                           value={centreSearch}

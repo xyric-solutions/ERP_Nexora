@@ -97,6 +97,7 @@ import type {
   HrOvertimeRuleRequest,
   HrOvertimeContext,
   CreateHrOvertimeRequest,
+  ReplaceHrOvertimeRequest,
   HrOvertimeActionRequest,
   HrAttendanceCompletionResult,
   HrOvertimeDetail,
@@ -2312,6 +2313,18 @@ export class NexoraApiClient {
     key: string,
   ): Promise<HrAttendanceCompletionResult> {
     return this.request("/api/v1/hr/attendance_overtime_rules", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key },
+      body: JSON.stringify(input),
+    });
+  }
+  attendanceReplaceOvertime(
+    id: string,
+    input: ReplaceHrOvertimeRequest,
+    csrf: string,
+    key: string,
+  ): Promise<HrAttendanceCompletionResult> {
+    return this.request("/api/v1/hr/attendance_overtime/" + encodeURIComponent(id) + "/replace", {
       method: "POST",
       headers: { "x-csrf-token": csrf, "idempotency-key": key },
       body: JSON.stringify(input),

@@ -138,7 +138,7 @@ export function HrLandingToolbar({
 }) {
   return (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-      <label className="grid w-full gap-1 text-xs text-muted-foreground sm:w-64" htmlFor={`${idPrefix}-company`}>
+      <label className="grid content-start w-full gap-1 text-xs text-muted-foreground sm:w-64" htmlFor={`${idPrefix}-company`}>
         Company
         <select
           id={`${idPrefix}-company`}

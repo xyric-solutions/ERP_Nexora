@@ -282,7 +282,7 @@ export function HrRecruitmentPipelineWorkspace() {
           setFilter({ search, stage: stageFilter, offset: 0 });
         }}
       >
-        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
           Company
           <select
             value={companyId}
@@ -310,7 +310,7 @@ export function HrRecruitmentPipelineWorkspace() {
             )}
           </select>
         </label>
-        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
           Search applications
           <Input
             type="search"
@@ -320,7 +320,7 @@ export function HrRecruitmentPipelineWorkspace() {
             onChange={(event) => setSearch(event.target.value)}
           />
         </label>
-        <label className="grid gap-1.5 text-sm font-medium">
+        <label className="grid content-start gap-1.5 text-sm font-medium">
           Stage
           <select
             className={selectStyle}
@@ -366,7 +366,7 @@ export function HrRecruitmentPipelineWorkspace() {
             className="grid min-w-0 gap-4 rounded-2xl border border-primary/30 bg-card p-5 shadow-sm"
           >
             <HrDetailSection title="Application">
-              <label className="grid gap-1.5 text-sm font-medium">
+              <label className="grid content-start gap-1.5 text-sm font-medium">
                 Candidate
                 <select
                   required
@@ -388,11 +388,8 @@ export function HrRecruitmentPipelineWorkspace() {
                     </option>
                   ))}
                 </select>
-                <span className="text-xs font-normal text-muted-foreground">
-                  Active candidates from Candidate Directory.
-                </span>
               </label>
-              <label className="grid gap-1.5 text-sm font-medium">
+              <label className="grid content-start gap-1.5 text-sm font-medium">
                 Opening title
                 <select
                   required
@@ -414,9 +411,6 @@ export function HrRecruitmentPipelineWorkspace() {
                     </option>
                   ))}
                 </select>
-                <span className="text-xs font-normal text-muted-foreground">
-                  Open job openings with unfilled positions and no past closing date.
-                </span>
               </label>
             </HrDetailSection>
             {!optionsLoading && (!candidates.length || !openings.length) ? (
@@ -431,9 +425,6 @@ export function HrRecruitmentPipelineWorkspace() {
                 disabled={saving || optionsLoading || !candidateId || !openingId}
               >
                 {saving ? "Saving…" : "Create application"}
-              </Button>
-              <Button type="button" variant="outline" disabled={saving} onClick={() => setEditor(false)}>
-                Cancel
               </Button>
             </HrDrawerActions>
           </form>
@@ -583,7 +574,7 @@ export function HrRecruitmentPipelineWorkspace() {
                   {selected.candidate_name} · {selected.opening_title}
                 </HrDetailSummary>
                 <HrDetailSection title="Stage change">
-                  <label className="grid gap-1.5 text-sm font-medium">
+                  <label className="grid content-start gap-1.5 text-sm font-medium">
                     Stage
                     <select
                       className={selectStyle}
@@ -600,7 +591,7 @@ export function HrRecruitmentPipelineWorkspace() {
                       ))}
                     </select>
                   </label>
-                  <label className="grid gap-1.5 text-sm font-medium">
+                  <label className="grid content-start gap-1.5 text-sm font-medium">
                     Notes
                     <Textarea
                       maxLength={1000}

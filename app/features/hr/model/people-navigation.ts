@@ -60,7 +60,7 @@ export const peopleGroups = [
       {
         id: "employee-approvals",
         label: "Employee Approvals",
-        description: "Review employee submissions and personal data corrections.",
+        description: "Review employee drafts, hires, movements and placement changes.",
         icon: ClipboardCheck,
       },
     ],

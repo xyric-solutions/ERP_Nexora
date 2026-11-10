@@ -1,6 +1,7 @@
 "use client";
 import { HrDrawerActions } from "./hr-drawer-context";
 import { HrRecordDrawer } from "./hr-record-drawer";
+import { HrClickableRow } from "./hr-clickable-row";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -177,9 +178,6 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Independent checker</p>
           <h2 className="mt-1 text-lg font-semibold">Organization placement approvals</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Review the complete hierarchy before creating a new assignment segment.
-          </p>
         </div>
         <Badge variant="outline">Live API only</Badge>
       </div>
@@ -197,25 +195,37 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
         </Alert>
       )}
       {!loading && !loadError && queue.length > 0 && (
-        <label className="grid gap-1.5 text-sm font-medium">
-          Pending request
-          <select
-            className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
-            value={selectedId}
-            onChange={(event) => {
-              setSelectedId(event.target.value);
-              setError("");
-              setNotice("");
-            }}
-          >
-            <option value="">Select a request</option>
-            {queue.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.employee_number} — {item.employee_name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="relative min-w-0 overflow-x-auto rounded-md border border-border">
+          <table className="w-full min-w-160 text-left text-sm">
+            <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3">Employee</th>
+                <th className="px-4 py-3">Reason</th>
+                <th className="px-4 py-3">Effective</th>
+              </tr>
+            </thead>
+            <tbody>
+              {queue.map((item) => (
+                <HrClickableRow
+                  key={item.id}
+                  disabled={saving}
+                  onOpen={() => {
+                    setSelectedId(item.id);
+                    setError("");
+                    setNotice("");
+                  }}
+                >
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-foreground">{item.employee_name}</p>
+                    <p className="text-xs text-muted-foreground">{item.employee_number}</p>
+                  </td>
+                  <td className="max-w-80 truncate px-4 py-3 text-muted-foreground">{item.reason}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{item.effective_on}</td>
+                </HrClickableRow>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       {detailLoading && <Skeleton className="h-32 w-full" />}
       {error && (
@@ -272,7 +282,7 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
                 <AlertDescription>You requested this change and cannot decide it.</AlertDescription>
               </Alert>
             )}
-            <label htmlFor="organization-placement-decision-reason" className="grid gap-1.5 text-sm font-medium">
+            <label htmlFor="organization-placement-decision-reason" className="grid content-start gap-1.5 text-sm font-medium">
               Decision reason
               <Textarea
                 id="organization-placement-decision-reason"

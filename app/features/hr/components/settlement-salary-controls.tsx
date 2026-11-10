@@ -27,10 +27,6 @@ export function SettlementSalaryComponents({
   return (
     <fieldset className="min-w-0 space-y-2 rounded-lg border border-border p-3">
       <legend className="px-1 text-sm font-medium">Included salary earning components</legend>
-      <p className="text-sm text-muted-foreground">
-        Select fixed earnings from the independently approved monthly salary. Enter the signed policy multiplier and
-        divisor explicitly. Formula, hourly, daily and annual rates are not converted automatically.
-      </p>
       {!components.length && (
         <p className="text-sm">No active fixed earning components are available. Review Payroll setup first.</p>
       )}

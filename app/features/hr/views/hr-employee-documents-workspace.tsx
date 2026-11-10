@@ -113,7 +113,7 @@ export function HrEmployeeDocumentsWorkspace({ initialEmployeeId }: { initialEmp
         </AlertDescription>
       </Alert>
       <div className="grid gap-3 rounded-lg border border-border bg-card p-3 shadow-sm md:grid-cols-2">
-        <label className="grid gap-1.5 text-sm font-medium">
+        <label className="grid content-start gap-1.5 text-sm font-medium">
           Company
           <select
             className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
@@ -128,7 +128,7 @@ export function HrEmployeeDocumentsWorkspace({ initialEmployeeId }: { initialEmp
             ))}
           </select>
         </label>
-        <label className="grid gap-1.5 text-sm font-medium">
+        <label className="grid content-start gap-1.5 text-sm font-medium">
           Employee
           <select
             className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"

@@ -13,6 +13,7 @@ import type {
   HrOvertimeEvidence,
   HrOvertimeContext,
   CreateHrOvertimeRequest,
+  ReplaceHrOvertimeRequest,
   HrOvertimeActionRequest,
   HrAttendanceCompletionResult,
   HrOvertimeSummary,
@@ -517,7 +518,17 @@ export class AttendanceCompletion {
             actions.push(action);
         }
     }
-    return { allowed_actions: actions, self_decision_requires_override: makers.includes(context.actor.userId) };
+    const can_edit =
+      row.workflow_managed &&
+      !evidence?.attendance.period_locked &&
+      row.status === "draft" &&
+      row.requested_by === context.actor.userId &&
+      context.actor.permissions.includes("hr.attendance.overtime.create");
+    return {
+      allowed_actions: actions,
+      can_edit,
+      self_decision_requires_override: makers.includes(context.actor.userId),
+    };
   }
   async getOvertime(context: HrActorContext, company: string, id: string): Promise<HrOvertimeDetail> {
     return this.d.read(context, "hr.attendance.overtime.read", async (client) => {
@@ -645,6 +656,96 @@ export class AttendanceCompletion {
           version: 1,
           status: "draft",
           before: null,
+          after,
+          type: "overtime",
+          hash: evidence.hash,
+          override: null,
+          reason: input.reason,
+          action: "create",
+        };
+      },
+    );
+  }
+  /**
+   * Edit a draft. Overtime terms are immutable in the database, so the draft is
+   * cancelled and a corrected draft is created in the same transaction. Both
+   * steps are recorded in the request history and the audit log.
+   */
+  async replaceOvertime(
+    context: HrActorContext,
+    id: string,
+    input: ReplaceHrOvertimeRequest,
+    key: string,
+    corr: string,
+  ) {
+    this.require(context, "hr.attendance.overtime.read");
+    return this.runWrite(
+      context,
+      input.company_id,
+      "hr.attendance.overtime.create",
+      key,
+      corr,
+      `/api/v1/hr/attendance_overtime/${id}/replace`,
+      input,
+      async (client) => {
+        await client.query(
+          "select id from hr_overtime_request where tenant_id=$1 and company_id=$2 and id=$3 for update",
+          [context.tenantId, input.company_id, id],
+        );
+        const before = await this.overtimeRow(client, context, input.company_id, id);
+        if (before.version !== input.expected_version) conflict("This overtime request changed. Refresh its version.");
+        let original: HrOvertimeEvidence | null = null;
+        try {
+          original = await this.evidence(client, context, input.company_id, before.employee_id, before.work_date);
+        } catch (error) {
+          if (!(error instanceof HrApiError && error.status === 409)) throw error;
+        }
+        if (!this.actions(context, before, original).can_edit)
+          denied("Only your own draft overtime request in an open period can be edited.");
+        const evidence = await this.evidence(client, context, input.company_id, before.employee_id, input.work_date);
+        this.validateEvidence(evidence, input.expected_evidence_hash, input.requested_minutes);
+        const cancelled = { ...before, status: "cancelled", version: before.version + 1 };
+        await client.query(
+          "update hr_overtime_request set status='cancelled',version=version+1,decision_comment=$3 where tenant_id=$1 and id=$2",
+          [context.tenantId, id, `Edited: ${input.reason}`],
+        );
+        const replacementId = `overtime-${randomUUID()}`;
+        await client.query(
+          `insert into hr_overtime_request(tenant_id,id,company_id,employee_id,work_date,category,requested_minutes,reason,requested_by,operational_rule_id,operational_rule_evidence_hash,workflow_managed,review_source_hash) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,$12)`,
+          [
+            context.tenantId,
+            replacementId,
+            input.company_id,
+            before.employee_id,
+            input.work_date,
+            evidence.category,
+            input.requested_minutes,
+            input.reason,
+            context.actor.userId,
+            evidence.rule!.id,
+            evidence.rule!.evidence_hash,
+            evidence.hash,
+          ],
+        );
+        const after = await this.overtimeRow(client, context, input.company_id, replacementId);
+        await this.event(
+          client,
+          context,
+          "overtime",
+          id,
+          cancelled.version,
+          "replace",
+          `Replaced by ${after.reference}: ${input.reason}`,
+          before,
+          cancelled,
+          original?.hash ?? null,
+          null,
+        );
+        return {
+          id: replacementId,
+          version: 1,
+          status: "draft",
+          before,
           after,
           type: "overtime",
           hash: evidence.hash,

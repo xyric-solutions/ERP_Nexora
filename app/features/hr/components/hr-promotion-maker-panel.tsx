@@ -142,10 +142,6 @@ export function HrPromotionMakerPanel({
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
 
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Propose a job, designation, or grade change for an independent checker. Promotion changes assignment role
-              details only; compensation requires a separately approved salary revision.
-            </p>
           </div>
           <Badge variant="outline">Same-day effective</Badge>
         </div>
@@ -191,12 +187,12 @@ export function HrPromotionMakerPanel({
                 disabled={submitting}
                 onChange={setJobGradeId}
               />
-              <label htmlFor="promotion-effective-on" className="grid gap-1.5 text-sm font-medium text-foreground">
+              <label htmlFor="promotion-effective-on" className="grid content-start gap-1.5 text-sm font-medium text-foreground">
                 Effective date
                 <Input id="promotion-effective-on" type="date" value={effectiveOn} disabled readOnly />
               </label>
             </div>
-            <label htmlFor="promotion-request-reason" className="grid gap-1.5 text-sm font-medium text-foreground">
+            <label htmlFor="promotion-request-reason" className="grid content-start gap-1.5 text-sm font-medium text-foreground">
               Business reason
               <Textarea
                 id="promotion-request-reason"
@@ -215,9 +211,6 @@ export function HrPromotionMakerPanel({
                 {submitting ? "Submitting Promotion..." : "Submit Promotion request"}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Submission and approval never create, update, or supersede salary-assignment records.
-            </p>
           </div>
         )}
       </section>
@@ -240,7 +233,7 @@ function MasterSelect({
 }) {
   const id = `promotion-${label.toLowerCase().replaceAll(" ", "-")}`;
   return (
-    <label htmlFor={id} className="grid gap-1.5 text-sm font-medium text-foreground">
+    <label htmlFor={id} className="grid content-start gap-1.5 text-sm font-medium text-foreground">
       {label}
       <select
         id={id}

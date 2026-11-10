@@ -182,10 +182,6 @@ export function HrOrganizationPlacementChangeMakerPanel({
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
 
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Submit one complete company hierarchy. Job, manager, work location, employment context and salary remain
-              unchanged.
-            </p>
           </div>
           <Badge variant="outline">Same-day effective</Badge>
         </div>
@@ -221,7 +217,7 @@ export function HrOrganizationPlacementChangeMakerPanel({
                   (unit) => unit.type === level.type && (!ancestorId || isWithinUnit(units, unit.id, ancestorId)),
                 );
                 return (
-                  <label key={level.type} className="grid gap-1.5 text-sm font-medium">
+                  <label key={level.type} className="grid content-start gap-1.5 text-sm font-medium">
                     {level.label}
                     <select
                       className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
@@ -240,11 +236,11 @@ export function HrOrganizationPlacementChangeMakerPanel({
                 );
               })}
             </div>
-            <label htmlFor="organization-placement-effective-on" className="grid gap-1.5 text-sm font-medium">
+            <label htmlFor="organization-placement-effective-on" className="grid content-start gap-1.5 text-sm font-medium">
               Effective date
               <Input id="organization-placement-effective-on" type="date" value={effectiveOn} disabled readOnly />
             </label>
-            <label htmlFor="organization-placement-reason" className="grid gap-1.5 text-sm font-medium">
+            <label htmlFor="organization-placement-reason" className="grid content-start gap-1.5 text-sm font-medium">
               Business reason
               <Textarea
                 id="organization-placement-reason"

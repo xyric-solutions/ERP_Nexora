@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeftRight, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { ArrowLeftRight, ChevronLeft, ChevronRight } from "lucide-react";
 import type { HrPayrollRunComparisonQuery, HrPayrollRunWorkspace } from "@nexora/contracts";
 import { Button } from "@/components/ui/button";
 import type { HrApiClient } from "../api/hr-client";
@@ -27,13 +27,11 @@ export function HrPayrollRunComparison({
   data,
   revision,
   disabled,
-  onRefresh,
 }: {
   client: HrApiClient;
   data: HrPayrollRunWorkspace;
   revision: number;
   disabled: boolean;
-  onRefresh: () => void;
 }) {
   const [baseline, setBaseline] = useState(""),
     [filter, setFilter] = useState<HrPayrollRunComparisonQuery["filter"]>("changed"),
@@ -59,20 +57,7 @@ export function HrPayrollRunComparison({
             <ArrowLeftRight className="h-5 w-5 shrink-0 text-primary" />
             Review recalculation changes
           </h3>
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            Compare the current calculation with an earlier saved run for this company and month. Amounts come from
-            immutable Payroll results. Employee names and numbers are current directory labels.
-          </p>
         </div>
-        <Button
-          variant="outline"
-          disabled={disabled || state.loading}
-          onClick={onRefresh}
-          aria-label="Refresh run comparison"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </Button>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field title="Compare with earlier run">
@@ -308,11 +293,6 @@ export function HrPayrollRunComparison({
                 </Button>
               </div>
             </div>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              This comparison shows original calculations, before later settlement supplements. It does not change a
-              run, consume Payroll inputs, approve salaries or establish payment. Review the current run’s approval
-              gates separately.
-            </p>
           </>
         )
       )}

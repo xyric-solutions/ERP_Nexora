@@ -111,10 +111,6 @@ function PayComponents() {
 function SalaryStructures() {
   return (
     <div className="nx-recon">
-      <p className="m-0 max-w-275 rounded border border-border border-l-3 border-l-primary bg-muted px-3.5 py-2.5 text-sm leading-relaxed text-muted-foreground" role="note">
-        A structure is effective-dated and an employee may override individual amounts within it. The gross shown is
-        the contracted monthly figure before attendance, overtime or adjustments — payroll derives the rest.
-      </p>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(16.875rem,1fr))] items-start gap-3">
         {salaryStructures.map((structure) => {
           const fixed = structure.items.filter((item) => item.amount !== null);
@@ -174,11 +170,6 @@ function SalaryStructures() {
 function SalaryRevisions({ onAction }: { onAction: (action: string, subject?: string) => void }) {
   return (
     <div className="nx-recon">
-      <p className="m-0 max-w-275 rounded border border-border border-l-3 border-l-primary bg-muted px-3.5 py-2.5 text-sm leading-relaxed text-muted-foreground" role="note">
-        A revision is its own transaction with its own approval. Approving it does not overwrite the current
-        assignment — it closes it the day before the new one starts, so what the employee was paid last year is still
-        readable next year.
-      </p>
       <div className="nx-table-wrap">
         <table className="nx-data-table">
           <thead><tr><th>Reference</th><th>Employee</th><th>Effective</th><th className="amount">Old gross</th><th className="amount">New gross</th><th className="amount">Change</th><th>Reason</th><th>Requested by</th><th>Approved by</th><th>Status</th><th /></tr></thead>
@@ -396,10 +387,6 @@ function Loans({ onAction }: { onAction: (action: string, subject?: string) => v
         <article><span>Due this period</span><strong>{formatMoney(employeeLoans.flatMap((row) => row.instalments).filter((row) => row.period === PAYROLL_PERIOD && row.status === "Due").reduce((total, row) => total + row.amount, 0))}</strong><small>{period.name}</small></article>
       </div>
 
-      <p className="m-0 max-w-275 rounded border border-border border-l-3 border-l-primary bg-muted px-3.5 py-2.5 text-sm leading-relaxed text-muted-foreground" role="note">
-        Request → approval → disbursement → monthly deduction → settlement. A deduction traces to an instalment row,
-        so payroll never recomputes what is owed: an unapproved loan deducts nothing at all.
-      </p>
 
       {employeeLoans.map((loan) => (
         <section className="grid min-w-0 gap-3 rounded border border-border bg-card p-4 shadow-xs" key={loan.id}>
@@ -482,11 +469,6 @@ function PayrollJournalScreen({ onAction }: { onAction: (action: string, subject
         <article><span>Value date</span><strong>{journal.date}</strong><small>Salary date</small></article>
       </div>
 
-      <p className="m-0 max-w-275 rounded border border-border border-l-3 border-l-primary bg-muted px-3.5 py-2.5 text-sm leading-relaxed text-muted-foreground" role="note">
-        Payroll never touches a balance. It proposes this journal and the Finance module posts it, so the ledger keeps
-        one posting path. The proposal is refused unless debits equal credits to the cent — rather than letting the
-        ledger reject it after the fact.
-      </p>
 
       <div className="nx-table-wrap">
         <table className="nx-data-table">
@@ -536,10 +518,6 @@ function PaymentBatchScreen({ onAction }: { onAction: (action: string, subject?:
         <article className={payable ? undefined : "warning"}><span>Ready to mark paid</span><strong>{payable ? "Yes" : "No"}</strong><small>{payable ? "All references confirmed" : "Awaiting bank references"}</small></article>
       </div>
 
-      <p className="m-0 max-w-275 rounded border border-border border-l-3 border-l-primary bg-muted px-3.5 py-2.5 text-sm leading-relaxed text-muted-foreground" role="note">
-        A period cannot be marked paid until every line carries a bank payment reference. Marking payroll paid with no
-        payment record is the easiest way for a system to claim money moved when it did not.
-      </p>
 
       <div className="nx-table-wrap">
         <table className="nx-data-table">

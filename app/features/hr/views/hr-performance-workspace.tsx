@@ -353,10 +353,6 @@ function PerformanceForm({
       )}
       {kind === "review" && (
         <>
-          <p className="text-sm text-muted-foreground">
-            Only employees with 100% approved goal weight are offered. Record observed achievement and evidence for
-            every goal. Submission is allowed after the cycle ends.
-          </p>
           {goalSet?.goals.map((g) => (
             <fieldset key={g.id} className="min-w-0 space-y-3 rounded-lg border border-border p-3">
               <legend className="max-w-full px-1 text-sm font-semibold">
@@ -497,10 +493,6 @@ function PerformanceForm({
               <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} required disabled={busy} />
             </Field>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Approval records a recommendation and follow-up plan. Salary changes, promotions and course enrolments
-            require their own governed workflows.
-          </p>
         </>
       )}
       <Field title="Change reason">
@@ -701,17 +693,6 @@ export function HrPerformanceWorkspace({
           </div>
           <Button type="submit" variant="outline" disabled={busy || !!editor || !!decision}>
             Search
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy || !!editor || !!decision}
-            onClick={() => {
-              setRevision((v) => v + 1);
-              reset();
-            }}
-          >
-            Refresh
           </Button>
         </form>
         {section !== "cycles" && (

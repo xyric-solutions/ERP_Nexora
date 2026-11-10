@@ -268,11 +268,6 @@ export function HrOrgStructure({
         <article><span>Inactive units</span><strong>{orgUnits.filter((unit) => unit.status === "Inactive").length}</strong><small>Closed, history retained</small></article>
       </div>
 
-      <p className="m-0 max-w-275 rounded border border-border border-l-3 border-l-primary bg-muted px-3.5 py-2.5 text-sm leading-relaxed text-muted-foreground" role="note">
-        Company, branch and department are one tree, not three lists. Finance and Operations read the same structure,
-        so a cost by department means the same thing in HR as it does in the ledger. Cost centres are deliberately
-        separate: a cost centre can span branches, so it is a finance dimension rather than a place in this chart.
-      </p>
 
       <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(17.5rem,.85fr)_minmax(0,1.6fr)]">
         <nav className="rounded-lg border border-border bg-card py-2.5 shadow-sm" aria-label="Organisation structure">

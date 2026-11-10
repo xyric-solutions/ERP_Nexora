@@ -535,6 +535,20 @@ export const hrDashboardSummarySchema = z.strictObject({
     master_configuration_gaps: z.number().int().min(0),
   }),
   status_distribution: z.array(z.strictObject({ status: z.string().min(1).max(40), count: z.number().int().min(0) })),
+  /** Most recent current employees who joined in the last 90 days (newest first, at most 8). */
+  recent_joiner_list: z
+    .array(
+      z.strictObject({
+        employee_id: identifier,
+        employee_number: z.string().min(1).max(32),
+        employee_name: z.string().min(1).max(320),
+        designation: z.string().max(160).nullable(),
+        department: z.string().max(160).nullable(),
+        joined_on: isoDate,
+      }),
+    )
+    .max(8)
+    .default([]),
   action_items: z.array(z.strictObject({
     key: z.string().min(1).max(80),
     label: z.string().min(1).max(160),
@@ -2147,11 +2161,13 @@ export const hrOvertimeRuleSchema=z.strictObject({id:identifier,category:z.enum(
 export const hrOvertimeEvidenceSchema=z.strictObject({hash:z.string(),attendance:hrCorrectionEvidenceSchema,category:z.enum(['regular','weekend','holiday']),eligible_minutes:z.number().int(),rule:hrOvertimeRuleSchema.nullable(),blockers:z.array(z.string())});
 export const hrOvertimeContextSchema=z.strictObject({employees:z.array(z.strictObject({id:identifier,code:z.string(),name:z.string()})),employees_capped:z.boolean(),rules:z.array(hrOvertimeRuleSchema),evidence:hrOvertimeEvidenceSchema.nullable(),can_manage_rules:z.boolean()});
 export const createHrOvertimeRequestSchema=z.strictObject({company_id:identifier,employee_id:identifier,work_date:isoDate,requested_minutes:z.number().int().min(1).max(1440),reason:z.string().trim().min(8).max(1000),expected_evidence_hash:z.string().regex(/^[0-9a-f]{64}$/)});
+/** Edit a draft overtime request: the draft is cancelled and a corrected draft replaces it in one transaction (overtime terms are immutable). */
+export const replaceHrOvertimeRequestSchema=z.strictObject({company_id:identifier,expected_version:z.number().int().positive(),work_date:isoDate,requested_minutes:z.number().int().min(1).max(1440),reason:z.string().trim().min(8).max(1000),expected_evidence_hash:z.string().regex(/^[0-9a-f]{64}$/)});
 export const hrOvertimeActionRequestSchema=z.strictObject({company_id:identifier,action:z.enum(['submit','cancel','manager_approve','manager_reject','hr_approve','hr_reject']),expected_version:z.number().int().positive(),expected_evidence_hash:z.string().regex(/^[0-9a-f]{64}$/).optional(),approved_minutes:z.number().int().min(1).max(1440).optional(),reason:z.string().trim().min(8).max(1000),override_self_approval:z.boolean().default(false)});
 export const hrAttendanceCompletionResultSchema=z.strictObject({id:identifier,company_id:identifier,version:z.number().int(),status:z.string(),audit_event_id:identifier,replayed:z.boolean()});
 export const hrOvertimeSummarySchema=z.strictObject({id:identifier,reference:z.string(),company_id:identifier,employee_id:identifier,employee_number:z.string(),display_name:z.string(),work_date:isoDate,category:z.enum(['regular','weekend','holiday']),requested_minutes:z.number().int(),approved_minutes:z.number().int().nullable(),reason:z.string(),status:z.string(),version:z.number().int(),workflow_managed:z.boolean(),requested_by:identifier,submitted_by:identifier.nullable(),manager_user_id:identifier.nullable(),manager_decided_by:identifier.nullable(),hr_decided_by:identifier.nullable(),subject_user_ids:z.array(z.string()),review_source_hash:z.string().nullable()});
 export const hrAttendanceCompletionHistorySchema=z.strictObject({action:z.string(),reason:z.string(),actor_name:z.string(),occurred_at:z.string(),source_hash:z.string().nullable(),override_event_id:z.string().nullable()});
-export const hrOvertimeDetailSchema=hrOvertimeSummarySchema.extend({evidence:hrOvertimeEvidenceSchema.nullable(),evidence_unavailable:z.string().nullable(),allowed_actions:z.array(hrOvertimeActionRequestSchema.shape.action),self_decision_requires_override:z.boolean(),history:z.array(hrAttendanceCompletionHistorySchema)});
+export const hrOvertimeDetailSchema=hrOvertimeSummarySchema.extend({evidence:hrOvertimeEvidenceSchema.nullable(),evidence_unavailable:z.string().nullable(),allowed_actions:z.array(hrOvertimeActionRequestSchema.shape.action),can_edit:z.boolean().default(false),self_decision_requires_override:z.boolean(),history:z.array(hrAttendanceCompletionHistorySchema)});
 export const hrOvertimeDirectorySchema=z.strictObject({items:z.array(hrOvertimeSummarySchema),total:z.number().int()});
 export const hrAttendancePeriodQuerySchema=hrOvertimeQuerySchema.omit({search:true});
 export const hrAttendancePeriodActionRequestSchema=z.strictObject({company_id:identifier,month:isoDate.refine(v=>v.endsWith('-01'),'Use the first day of the month'),action:z.enum(['open','process','lock']),expected_version:z.number().int().min(0),expected_source_hash:z.string().regex(/^[0-9a-f]{64}$/).optional(),reason:z.string().trim().min(8).max(1000),override_self_approval:z.boolean().default(false)});
@@ -2167,6 +2183,7 @@ export type HrOvertimeRule=z.infer<typeof hrOvertimeRuleSchema>;
 export type HrOvertimeEvidence=z.infer<typeof hrOvertimeEvidenceSchema>;
 export type HrOvertimeContext=z.infer<typeof hrOvertimeContextSchema>;
 export type CreateHrOvertimeRequest=z.infer<typeof createHrOvertimeRequestSchema>;
+export type ReplaceHrOvertimeRequest=z.infer<typeof replaceHrOvertimeRequestSchema>;
 export type HrOvertimeActionRequest=z.infer<typeof hrOvertimeActionRequestSchema>;
 export type HrAttendanceCompletionResult=z.infer<typeof hrAttendanceCompletionResultSchema>;
 export type HrOvertimeSummary=z.infer<typeof hrOvertimeSummarySchema>;

@@ -177,7 +177,7 @@ export function HrEmployeeDraftsWorkspace({
   return (
     <section className="grid min-w-0 grid-cols-1 gap-4" aria-label="Employee drafts">
       <div className="flex min-w-0 flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
-        <label className="grid min-w-0 basis-full gap-1.5 text-sm font-medium text-foreground sm:basis-55 sm:flex-1">
+        <label className="grid content-start min-w-0 basis-full gap-1.5 text-sm font-medium text-foreground sm:basis-55 sm:flex-1">
           Company
           <select
             className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2.5 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -199,7 +199,7 @@ export function HrEmployeeDraftsWorkspace({
             setAppliedSearch(search.trim());
           }}
         >
-          <label className="grid min-w-0 flex-1 gap-1.5 text-sm font-medium text-foreground">
+          <label className="grid content-start min-w-0 flex-1 gap-1.5 text-sm font-medium text-foreground">
             Search draft
             <Input
               value={search}
@@ -215,11 +215,7 @@ export function HrEmployeeDraftsWorkspace({
           <Button type="button" onClick={() => setAdding(true)}>
             + Add Employee
           </Button>
-        ) : (
-          <Button type="button" variant="outline" onClick={reload}>
-            Refresh
-          </Button>
-        )}
+        ) : null}
       </div>
 
       {notice ? (
@@ -249,55 +245,41 @@ export function HrEmployeeDraftsWorkspace({
             <table className="w-full min-w-180 text-left text-sm">
               <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
+                  <th className="w-px whitespace-nowrap px-4 py-3">Employee no.</th>
                   <th className="px-4 py-3">Employee</th>
+                  <th className="px-4 py-3">Work email</th>
                   <th className="px-4 py-3">Joined</th>
                   <th className="px-4 py-3">Created</th>
-                  <th className="px-4 py-3">
-                    <span className="sr-only">Action</span>
-                  </th>
                 </tr>
               </thead>
               <tbody>
                 {drafts.map((draft) => (
-                  <tr className="border-b border-border/70 last:border-0" key={draft.id}>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-foreground">{draft.display_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {draft.employee_number}
-                        {draft.work_email ? ` · ${draft.work_email}` : ""}
-                      </p>
-                    </td>
+                  <tr
+                    key={draft.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Open ${draft.display_name} (${draft.employee_number})`}
+                    className="cursor-pointer border-b border-border/70 transition-colors last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                    onClick={() => openDraft(draft.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openDraft(draft.id);
+                      }
+                    }}
+                  >
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold">{draft.employee_number}</td>
+                    <td className="px-4 py-3 font-medium text-foreground">{draft.display_name}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{draft.work_email || "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{draft.joined_on}</td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {new Date(draft.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-2 py-2">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button type="button" variant="ghost" size="sm" onClick={() => openDraft(draft.id)}>
-                          Review
-                        </Button>
-                        {canUpdate ? (
-                          <>
-                            <HrEditButton
-                              label={`Edit ${draft.display_name}`}
-                              variant="ghost"
-                              onClick={() => setEditingId(draft.id)}
-                            />
-                            <HrConfirmDeleteButton
-                              label={`Delete ${draft.display_name}`}
-                              title={`Delete draft ${draft.employee_number}?`}
-                              description="The draft is removed from Employee Drafts. Its contacts, documents and history stay in the audit trail."
-                              onConfirm={() => deleteDraft(draft)}
-                            />
-                          </>
-                        ) : null}
-                      </div>
                     </td>
                   </tr>
                 ))}
                 {drafts.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={4}>
+                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
                       No employee drafts match this company and search.
                     </td>
                   </tr>
@@ -382,7 +364,7 @@ export function HrEmployeeDraftsWorkspace({
                     <HrDetailTile label="Joining date" value={hrDisplayDate(selected.joined_on)} />
                   </HrDetailGroup>
                   <HrDetailSection title="Submit for approval">
-                    <label className="grid gap-1.5 text-sm font-medium text-foreground">
+                    <label className="grid content-start gap-1.5 text-sm font-medium text-foreground">
                       Submission reason
                       <Textarea
                         disabled={!canSubmit || submitting}

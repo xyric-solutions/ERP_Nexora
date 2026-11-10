@@ -13,9 +13,8 @@ import {
   type HrShiftAllocationDirectory,
   type HrShiftAllocationContext,
   type HrShiftSummary,
-  type HrShiftResolution,
 } from "@nexora/contracts";
-import { Plus, CheckCircle2, ShieldCheck, ArrowRight, X } from "lucide-react";
+import { Plus, CheckCircle2, ArrowRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,6 +26,7 @@ import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
+import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
 import {
   HrDetailAudit,
   HrDetailGroup,
@@ -44,18 +44,10 @@ const label = (s: string) => s.replace(/^./, (c) => c.toUpperCase());
 const todayValue = () => new Date().toISOString().slice(0, 10);
 const shiftDay = (d: string, n: number) =>
   new Date(Date.parse(d + "T00:00:00Z") + n * 86400000).toISOString().slice(0, 10);
-const time = (m: number) =>
-  `${String(Math.floor((m % 1440) / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const fail = (e: unknown) =>
   e instanceof ApiError ? e.message : "The shift assignment could not be loaded or saved. Please retry.";
-function Fact({ name, value }: { name: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-lg border border-border/70 bg-background/60 p-3">
-      <dt className="text-xs text-muted-foreground">{name}</dt>
-      <dd className="m-0 mt-1 break-words text-sm font-semibold">{value}</dd>
-    </div>
-  );
-}
+/** Department and branch scopes are presented as Project and Location (stored values are unchanged). */
+const scopeLabel = (scope: string) => (scope === "department" ? "Project" : scope === "branch" ? "Location" : label(scope));
 
 function TargetPicker({
   client,
@@ -108,8 +100,8 @@ function TargetPicker({
   }, [client, companyId, scope, onDate, query, revision]);
   return (
     <div className="grid min-w-0 gap-3">
-      <label className="grid min-w-0 gap-2 text-sm font-medium">
-        {label(scope)}
+      <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
+        {scopeLabel(scope)}
         <select
           required
           className={selectClass}
@@ -137,7 +129,7 @@ function TargetPicker({
         </select>
       </label>
       <div className="flex flex-wrap items-end gap-2">
-        <label className="grid min-w-0 flex-1 gap-2 text-xs text-muted-foreground">
+        <label className="grid content-start min-w-0 flex-1 gap-2 text-xs text-muted-foreground">
           Find {scope}
           <Input
             value={search}
@@ -296,10 +288,6 @@ function AllocationEditor({
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider text-primary">New allocation</div>
           <h2 className="mt-1 text-lg font-semibold">Set an effective working arrangement</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Employee overrides take priority over department defaults, then branch defaults. Existing intervals are
-            retained when replaced.
-          </p>
         </div>
         <Button
           type="button"
@@ -319,7 +307,7 @@ function AllocationEditor({
         </Alert>
       )}
       <HrDetailSection title="Assigned to">
-        <label className="grid gap-2 text-sm font-medium">
+        <label className="grid content-start gap-2 text-sm font-medium">
           Allocation scope
           <select
             className={selectClass}
@@ -335,7 +323,7 @@ function AllocationEditor({
           >
             {["employee", "department", "branch"].map((s) => (
               <option value={s} key={s}>
-                {label(s)}
+                {scopeLabel(s)}
               </option>
             ))}
           </select>
@@ -357,7 +345,7 @@ function AllocationEditor({
       </HrDetailSection>
       <HrDetailSection title="Schedule">
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="grid gap-2 text-sm font-medium">
+          <label className="grid content-start gap-2 text-sm font-medium">
             Effective from
             <Input
               required
@@ -370,14 +358,14 @@ function AllocationEditor({
               }}
             />
           </label>
-          <label className="grid gap-2 text-sm font-medium">
+          <label className="grid content-start gap-2 text-sm font-medium">
             Effective to
             <Input type="date" min={from} value={to} disabled={busy} onChange={(e) => setTo(e.target.value)} />
           </label>
         </div>
       </HrDetailSection>
       <HrDetailSection title="Shift">
-        <label className="grid gap-2 text-sm font-medium">
+        <label className="grid content-start gap-2 text-sm font-medium">
           Configured shift
           <select
             required
@@ -410,12 +398,6 @@ function AllocationEditor({
             No configured shift is available for this scope. Create one in Shifts &amp; Rules first.
           </p>
         )}
-        <p className="text-xs text-muted-foreground">
-          {scope === "employee"
-            ? "Approved employment must cover the entire interval. A site-specific shift must match the employee’s effective work location throughout it."
-            : "Branch and department defaults use company-wide shifts. Use an employee override for site-specific arrangements."}{" "}
-          New allocations start today or later; locked attendance periods stay protected.
-        </p>
         {current && (
           <div className="grid gap-3 rounded-lg border border-primary/25 bg-primary/5 p-4">
             <div className="text-sm">
@@ -436,7 +418,7 @@ function AllocationEditor({
         )}
       </HrDetailSection>
       <HrDetailSection title="Reason">
-        <label className="grid gap-2 text-sm font-medium">
+        <label className="grid content-start gap-2 text-sm font-medium">
           Allocation reason
           <Textarea
             required
@@ -457,9 +439,6 @@ function AllocationEditor({
           disabled={busy || loading || currentLoading || !target || !shiftId}
         >
           {busy ? "Saving…" : replacement ? "Replace assignment" : "Create assignment"}
-        </Button>
-        <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
-          Cancel
         </Button>
       </HrDrawerActions>
     </form>
@@ -503,17 +482,13 @@ function EndAllocation({
         void onSave(detail.id, result.data);
       }}
     >
-      <p className="text-sm text-muted-foreground">
-        Closing shortens the interval without replacing history. Cancellation is available only for an allocation that
-        has not started before today. Lower-priority defaults may then apply; check the employee preview.
-      </p>
       {error && (
         <p role="status" className="text-sm text-destructive">
           {error}
         </p>
       )}
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="grid gap-2 text-sm font-medium">
+        <label className="grid content-start gap-2 text-sm font-medium">
           End action
           <select
             className={selectClass}
@@ -526,7 +501,7 @@ function EndAllocation({
           </select>
         </label>
         {action === "close" && (
-          <label className="grid gap-2 text-sm font-medium">
+          <label className="grid content-start gap-2 text-sm font-medium">
             Last allocated day
             <Input
               required
@@ -539,7 +514,7 @@ function EndAllocation({
           </label>
         )}
       </div>
-      <label className="grid gap-2 text-sm font-medium">
+      <label className="grid content-start gap-2 text-sm font-medium">
         End reason
         <Textarea
           required
@@ -560,171 +535,6 @@ function EndAllocation({
         {busy ? "Saving…" : action === "cancel" ? "Cancel allocation" : "Close allocation"}
       </Button>
     </form>
-  );
-}
-
-function EmployeePreview({
-  client,
-  companyId,
-  revision,
-}: {
-  client: HrApiClient;
-  companyId: string;
-  revision: number;
-}) {
-  const [date, setDate] = useState(todayValue),
-    [employee, setEmployee] = useState(""),
-    [result, setResult] = useState<HrShiftResolution | null>(null),
-    [loading, setLoading] = useState(false),
-    [error, setError] = useState("");
-  useEffect(() => {
-    if (!employee || !date) {
-      setResult(null);
-      return;
-    }
-    let current = true;
-    setLoading(true);
-    setError("");
-    client
-      .resolveShift({ companyId, employeeId: employee, onDate: date })
-      .then((data) => {
-        if (current) {
-          setResult(data);
-          setLoading(false);
-        }
-      })
-      .catch((e) => {
-        if (current) {
-          setResult(null);
-          setError(fail(e));
-          setLoading(false);
-        }
-      });
-    return () => {
-      current = false;
-    };
-  }, [client, companyId, date, employee, revision]);
-  const shift = result?.resolved_shift;
-  const weeklyOff = shift?.weekly_off_days.includes(new Date(date + "T00:00:00Z").getUTCDay());
-  return (
-    <section
-      aria-label="Employee shift preview"
-      className="grid min-w-0 gap-5 rounded-xl border border-border bg-card p-5"
-    >
-      <div>
-        <h2 className="text-lg font-semibold">Which shift applies?</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Resolve the approved employee placement and effective roster for a working date. This preview does not record
-          attendance or approve payroll.
-        </p>
-      </div>
-      <label className="grid gap-2 text-sm font-medium">
-        Working date
-        <Input required type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-      </label>
-      <TargetPicker
-        client={client}
-        companyId={companyId}
-        scope="employee"
-        onDate={date}
-        value={employee}
-        disabled={loading}
-        revision={revision}
-        onChange={setEmployee}
-      />
-      {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Preview unavailable</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      {loading ? (
-        <Skeleton className="h-40 w-full" />
-      ) : result ? (
-        <>
-          <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-primary">
-                {result.employee.employee_number} · {result.on_date}
-              </div>
-              <h3 className="mt-1 text-lg font-semibold">{result.employee.display_name}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {shift ? `${shift.code} · ${shift.name}` : "Review the allocation blockers below"}
-              </p>
-            </div>
-            <Badge variant="secondary">
-              {shift ? (weeklyOff ? "Weekly off day" : "Working shift") : "Needs attention"}
-            </Badge>
-          </div>
-          {result.blockers.length > 0 && (
-            <div role="status" className="grid gap-2 rounded-lg border border-border bg-muted/40 p-4 text-sm">
-              {result.blockers.map((b) => (
-                <p key={b}>{b}</p>
-              ))}
-            </div>
-          )}
-          <div>
-            <h3 className="text-sm font-semibold">Assignment priority</h3>
-            <ol className="m-0 mt-3 grid list-none gap-3 p-0">
-              {result.contenders.map((a, i) => (
-                <li
-                  key={a.id}
-                  className={`rounded-lg border p-4 ${i === 0 ? "border-primary/30 bg-primary/5" : "border-border bg-background"}`}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-sm font-semibold">
-                      {i + 1}. {label(a.scope)} · {a.scope_name}
-                    </span>
-                    <Badge variant={i === 0 ? "secondary" : "outline"}>
-                      {i === 0 ? "Highest priority" : "Fallback"}
-                    </Badge>
-                  </div>
-                  <p className="mt-2 text-sm">
-                    {a.shift_code} · {a.shift_name}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {a.reference} · {a.effective_from} → {a.effective_to ?? "open-ended"}
-                  </p>
-                </li>
-              ))}
-            </ol>
-          </div>
-          {shift && (
-            <dl className="m-0 grid gap-3 sm:grid-cols-2">
-              <Fact
-                name="Resolved working window"
-                value={`${time(shift.start_minute)}–${time(shift.end_minute)}${shift.end_minute >= 1440 ? " (following day)" : ""}`}
-              />
-              <Fact
-                name="Timezone / work location"
-                value={`${shift.time_zone} / ${shift.work_location ?? "Company-wide"}`}
-              />
-              <Fact name="Required work" value={`${shift.required_work_minutes} minutes`} />
-              <Fact
-                name="Absent / half-day thresholds"
-                value={`${shift.minimum_present_minutes} / ${shift.half_day_minutes} minutes`}
-              />
-              <Fact
-                name="Arrival / departure grace"
-                value={
-                  shift.kind === "flexible"
-                    ? "Flexible duration"
-                    : `${shift.grace_in_minutes} / ${shift.grace_out_minutes} minutes`
-                }
-              />
-              <Fact
-                name="Overtime eligibility buffer"
-                value={`${shift.overtime_after_minutes} minutes; separate approval required`}
-              />
-            </dl>
-          )}
-        </>
-      ) : (
-        <p className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">
-          Select an employee and working date to view the effective shift and its source.
-        </p>
-      )}
-    </section>
   );
 }
 
@@ -749,13 +559,12 @@ export function HrShiftAssignmentsWorkspace({
   const [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
     [scope, setScope] = useState(""),
-    [state, setState] = useState(""),
+    [state, setState] = useState<HrMasterStatus>("active"),
     [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false),
     [detailLoading, setDetailLoading] = useState(false),
     [busy, setBusy] = useState(false),
     [editor, setEditor] = useState(false),
-    [view, setView] = useState<"register" | "preview">("register"),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [revision, setRevision] = useState(0);
@@ -794,7 +603,6 @@ export function HrShiftAssignmentsWorkspace({
         companyId: company,
         search: applied || undefined,
         scope: (scope as Scope) || undefined,
-        state: state || undefined,
         offset,
       })
       .then((data) => {
@@ -821,7 +629,7 @@ export function HrShiftAssignmentsWorkspace({
     return () => {
       current = false;
     };
-  }, [client, company, canRead, applied, scope, state, offset, revision]);
+  }, [client, company, canRead, applied, scope, offset, revision]);
   useEffect(() => {
     if (!selected || !company) {
       setDetail(null);
@@ -866,10 +674,10 @@ export function HrShiftAssignmentsWorkspace({
       setSearch(result.reference);
       setApplied(result.reference);
       setScope("");
-      setState("");
+      setState("all");
       setOffset(0);
       setNotice(
-        `${result.reference} saved. Its recorded interval and change history are retained; use Employee preview to check the effective working arrangement.`,
+        `${result.reference} saved.`,
       );
       retry.current = null;
       reload();
@@ -893,6 +701,10 @@ export function HrShiftAssignmentsWorkspace({
     );
   const current = detail?.id === selected && detail.company_id === company ? detail : null;
   const summary = items.items.find((a) => a.id === selected);
+  // Active = in force or scheduled; Deactivated = ended or cancelled (filtered on the loaded page).
+  const visible = items.items.filter((a) =>
+    state === "all" ? true : state === "active" ? ["active", "scheduled"].includes(a.state) : ["ended", "cancelled"].includes(a.state),
+  );
   const openAllocation = (id: string) => {
     if (busy || editor) return;
     setSelected(id);
@@ -917,7 +729,6 @@ export function HrShiftAssignmentsWorkspace({
       }
     },
   });
-  const register = view === "register";
   return (
     <section
       aria-label="Live shift assignments"
@@ -937,7 +748,7 @@ export function HrShiftAssignmentsWorkspace({
       )}
       <form
         aria-label="Find shift assignments"
-        className={`grid items-end gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-2 ${register ? "xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_9rem_9rem_auto]" : "xl:grid-cols-[minmax(0,1fr)_auto]"}`}
+        className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(12rem,.8fr)_minmax(12rem,1fr)_10rem_auto] md:items-end"
         onSubmit={(e) => {
           e.preventDefault();
           setApplied(search.trim());
@@ -945,7 +756,7 @@ export function HrShiftAssignmentsWorkspace({
           setError("");
         }}
       >
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Company
           <select
             className={selectClass}
@@ -969,9 +780,7 @@ export function HrShiftAssignmentsWorkspace({
             ))}
           </select>
         </label>
-        {register && (
-          <>
-            <label className="grid min-w-0 gap-2 text-sm font-medium">
+            <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
               Search assignments
               <Input
                 type="search"
@@ -982,7 +791,7 @@ export function HrShiftAssignmentsWorkspace({
                 onChange={(e) => setSearch(e.target.value)}
               />
             </label>
-            <label className="grid gap-2 text-sm font-medium">
+            <label className="grid content-start gap-2 text-sm font-medium">
               Scope
               <select
                 className={selectClass}
@@ -996,32 +805,11 @@ export function HrShiftAssignmentsWorkspace({
                 <option value="">All scopes</option>
                 {["employee", "department", "branch"].map((s) => (
                   <option key={s} value={s}>
-                    {label(s)}
+                    {scopeLabel(s)}
                   </option>
                 ))}
               </select>
             </label>
-            <label className="grid gap-2 text-sm font-medium">
-              State
-              <select
-                className={selectClass}
-                value={state}
-                disabled={busy || editor}
-                onChange={(e) => {
-                  setState(e.target.value);
-                  setOffset(0);
-                }}
-              >
-                <option value="">All states</option>
-                {["active", "scheduled", "ended", "cancelled"].map((s) => (
-                  <option key={s} value={s}>
-                    {label(s)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </>
-        )}
         {canManage && (
           <Button
             type="button"
@@ -1029,7 +817,6 @@ export function HrShiftAssignmentsWorkspace({
             disabled={busy || editor || !company}
             onClick={() => {
               setEditor(true);
-              setView("register");
               setError("");
               setNotice("");
             }}
@@ -1061,34 +848,13 @@ export function HrShiftAssignmentsWorkspace({
       )}
       {company ? (
         <>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant={register ? "default" : "outline"}
-              className={register ? "text-primary-foreground!" : ""}
-              aria-pressed={register}
-              disabled={busy || editor}
-              onClick={() => setView("register")}
-            >
-              Assignment register
-            </Button>
-            <Button
-              type="button"
-              variant={!register ? "default" : "outline"}
-              className={!register ? "text-primary-foreground!" : ""}
-              aria-pressed={!register}
-              disabled={busy || editor}
-              onClick={() => {
-                setView("preview");
-                setSelected("");
-              }}
-            >
-              Employee preview
-            </Button>
-          </div>
-          {!register ? (
-            <EmployeePreview key={company} client={client} companyId={company} revision={revision} />
-          ) : (
+          <HrMasterStatusFilter
+            value={state}
+            onChange={(next) => {
+              setState(next);
+              setOffset(0);
+            }}
+          />
             <div className="relative overflow-hidden rounded-lg border border-border bg-card shadow-sm">
               {loading && !items.items.length ? (
                 <div className="grid gap-2 p-4" aria-live="polite">
@@ -1098,9 +864,10 @@ export function HrShiftAssignmentsWorkspace({
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-200 border-collapse text-left text-sm">
+                  <table className="w-full min-w-180 border-collapse text-left text-sm">
                     <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       <tr>
+                        <th className="w-px whitespace-nowrap px-4 py-3">Reference</th>
                         <th className="px-4 py-3">Assigned to</th>
                         <th className="px-4 py-3">Scope</th>
                         <th className="px-4 py-3">Shift</th>
@@ -1109,20 +876,18 @@ export function HrShiftAssignmentsWorkspace({
                       </tr>
                     </thead>
                     <tbody>
-                      {items.items.map((a) => (
+                      {visible.map((a) => (
                         <tr
                           key={a.id}
                           aria-disabled={busy || editor}
                           className={`cursor-pointer border-b border-border/70 transition-colors last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selected === a.id ? "bg-primary/5" : ""}`}
                           {...openRow(a)}
                         >
-                          <td className="px-4 py-3">
-                            <p className="font-medium text-foreground">{a.scope_name}</p>
-                            <p className="font-mono text-xs text-muted-foreground">{a.reference}</p>
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground">{label(a.scope)}</td>
-                          <td className="px-4 py-3 text-muted-foreground">{a.shift_code}</td>
-                          <td className="px-4 py-3 text-muted-foreground">
+                          <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold text-foreground">{a.reference}</td>
+                          <td className="px-4 py-3 font-medium text-foreground">{a.scope_name}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{scopeLabel(a.scope)}</td>
+                          <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-muted-foreground">{a.shift_code}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
                             {a.effective_from} → {a.effective_to ?? "open-ended"}
                           </td>
                           <td className="px-4 py-3">
@@ -1130,11 +895,10 @@ export function HrShiftAssignmentsWorkspace({
                           </td>
                         </tr>
                       ))}
-                      {items.items.length === 0 && (
+                      {visible.length === 0 && (
                         <tr>
-                          <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
-                            No assignments match these filters. Approved employee placement and configured shifts are
-                            required.
+                          <td className="px-4 py-8 text-center text-muted-foreground" colSpan={6}>
+                            No assignments match these filters.
                           </td>
                         </tr>
                       )}
@@ -1169,7 +933,6 @@ export function HrShiftAssignmentsWorkspace({
                 </div>
               </div>
             </div>
-          )}
         </>
       ) : (
         !loading && (
@@ -1187,9 +950,9 @@ export function HrShiftAssignmentsWorkspace({
         title={current?.scope_name ?? summary?.scope_name ?? "Shift assignment"}
         description={
           current
-            ? `${current.reference} · version ${current.version} · ${label(current.scope)} allocation · ${current.shift_code} / ${current.shift_name}`
+            ? `${current.reference} · version ${current.version} · ${scopeLabel(current.scope)} allocation · ${current.shift_code} / ${current.shift_name}`
             : summary
-              ? `${summary.reference} · ${label(summary.scope)} allocation`
+              ? `${summary.reference} · ${scopeLabel(summary.scope)} allocation`
               : ""
         }
       >
@@ -1211,14 +974,14 @@ export function HrShiftAssignmentsWorkspace({
           ) : current ? (
             <>
               <HrDetailSummary code={current.reference} status={current.state}>
-                {label(current.scope)} allocation · {hrDisplayDate(current.effective_from)} →{" "}
+                {scopeLabel(current.scope)} allocation · {hrDisplayDate(current.effective_from)} →{" "}
                 {current.effective_to ? hrDisplayDate(current.effective_to) : "open-ended"}
               </HrDetailSummary>
               <HrDetailGroup title="Assignment">
                 <HrDetailTile
                   label="Assigned to"
                   value={current.scope_name}
-                  hint={`${current.scope_code} · ${label(current.scope)}`}
+                  hint={`${current.scope_code} · ${scopeLabel(current.scope)}`}
                 />
                 <HrDetailTile label="Shift" value={current.shift_name} hint={current.shift_code} />
                 <HrDetailTile label="Version" value={String(current.version)} />
@@ -1235,11 +998,6 @@ export function HrShiftAssignmentsWorkspace({
               <HrDetailSection title="Recorded reason">
                 <HrDetailNote>{current.note}</HrDetailNote>
               </HrDetailSection>
-              <div className="flex gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
-                <ShieldCheck className="size-5 shrink-0 text-primary" />
-                Shift and target identity stay fixed. Use a dated replacement or close the allocation to retain its
-                history.
-              </div>
               {canManage && !["ended", "cancelled"].includes(current.state) && (
                 <HrDetailSection title="End or cancel">
                   <EndAllocation
@@ -1273,7 +1031,7 @@ export function HrShiftAssignmentsWorkspace({
                             setSearch(h.related_reference!);
                             setApplied(h.related_reference!);
                             setScope("");
-                            setState("");
+                            setState("all");
                             setOffset(0);
                             setSelected("");
                             setDetail(null);

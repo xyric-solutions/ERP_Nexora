@@ -151,16 +151,18 @@ function EmployeeSelfService({ onNavigate }: { onNavigate: Navigate }) {
               }}
             />
           </Field>
-          <Button
-            type="button"
-            disabled={profileBusy}
-            className="self-end"
-            variant="outline"
-            onClick={() => setRevision((v) => v + 1)}
-          >
-            <RefreshCw className="size-4" />
-            {read.error ? "Retry" : "Refresh"}
-          </Button>
+          {read.error ? (
+            <Button
+              type="button"
+              disabled={profileBusy}
+              className="self-end"
+              variant="outline"
+              onClick={() => setRevision((v) => v + 1)}
+            >
+              <RefreshCw className="size-4" />
+              Retry
+            </Button>
+          ) : null}
         </div>
       </div>
       {read.loading && <p role="status">Loading your personal records…</p>}
@@ -418,10 +420,6 @@ function EmployeeSelfService({ onNavigate }: { onNavigate: Navigate }) {
               </li>
             ))}
           </ul>
-          <p className="mt-4 text-xs text-muted-foreground">
-            Published payslips remain unchanged. Any independently posted settlement correction is recorded separately
-            by Payroll. This document does not confirm a bank transfer.
-          </p>
         </section>
       )}
       <Button type="button" variant="outline" onClick={() => onNavigate("hr", "performance-reviews")}>
@@ -515,9 +513,6 @@ function ReportCentre({ onNavigate }: { onNavigate: Navigate }) {
               </Button>
             ))}
         </div>
-        <p className="mt-4 text-xs text-muted-foreground">
-          Each report rechecks current company and record permissions on the API.
-        </p>
       </section>
     </div>
   );

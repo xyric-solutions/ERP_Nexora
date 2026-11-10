@@ -14,7 +14,7 @@ import {hrOvertimeMoneyQuerySchema,createHrOvertimeMoneySchema,hrOvertimeMoneyDe
 import {hrPayrollRunComparisonQuerySchema,hrPayrollRunComparisonSchema,hrPayrollRunQuerySchema,hrPayrollRunActionSchema} from '@nexora/contracts';
 import {hrPayrollWorkspaceQuerySchema,hrPayrollOptionsQuerySchema,createHrPayrollRecordSchema,hrPayrollRecordActionSchema,hrPayrollMutationResultSchema} from '@nexora/contracts';
 import {hrLeaveQuerySchema,createHrLeaveTypeRequestSchema,updateHrLeavePolicyRequestSchema,hrLeaveTypeStatusRequestSchema,hrLeaveBalanceQuerySchema,hrLeaveLedgerQuerySchema,hrLeaveBalancePostingRequestSchema,hrLeaveContextQuerySchema,hrLeaveContextSchema,hrLeaveRequestQuerySchema,hrLeaveRequestDetailSchema,createHrLeaveRequestSchema,hrLeaveRequestActionRequestSchema} from '@nexora/contracts';
-import {hrOvertimeQuerySchema,hrOvertimeContextQuerySchema,createHrOvertimeRequestSchema,hrOvertimeRuleRequestSchema,hrOvertimeActionRequestSchema,hrAttendancePeriodQuerySchema,hrAttendancePeriodActionRequestSchema} from '@nexora/contracts';
+import {hrOvertimeQuerySchema,hrOvertimeContextQuerySchema,createHrOvertimeRequestSchema,hrOvertimeRuleRequestSchema,hrOvertimeActionRequestSchema,replaceHrOvertimeRequestSchema,hrAttendancePeriodQuerySchema,hrAttendancePeriodActionRequestSchema} from '@nexora/contracts';
 import {hrPersonalCorrectionQuerySchema,createHrPersonalCorrectionSchema,hrPersonalCorrectionActionSchema,hrPersonalCorrectionWorkspaceSchema,hrReportGovernanceQuerySchema,hrReportGovernanceActionSchema,hrReportGovernanceWorkspaceSchema,hrReportGovernanceResultSchema} from '@nexora/contracts';
 import {hrSelfLeaveContextQuerySchema,createHrSelfLeaveRequestSchema,hrSelfLeaveActionSchema} from '@nexora/contracts';
 import {hrSelfServiceQuerySchema,hrSelfServicePayslipQuerySchema,hrSelfServiceWorkspaceSchema,hrPayslipDetailSchema} from '@nexora/contracts';
@@ -171,6 +171,7 @@ export interface HrRouterDependencies {
     | "createOvertimeRule"
     | "createOvertime"
     | "actOnOvertime"
+    | "replaceOvertime"
     | "periodWorkspace"
     | "payrollInputs"
     | "actOnPeriod"
@@ -347,6 +348,7 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
   router.get('/attendance_overtime/:recordId',async(req,res)=>{const company=z.string().trim().min(1).max(128).parse(req.query.company_id);const id=z.string().trim().min(1).max(128).parse(req.params.recordId);res.json(await handle(async()=>{const context=await loadHrSessionContext(req,dependencies);return dependencies.repository.getOvertime(context,company,id);}));});
   router.post('/attendance_overtime',async(req,res)=>{trustedOrigin(req,dependencies.allowedOrigins);const input=createHrOvertimeRequestSchema.parse(req.body);res.json(await handle(async()=>{const context=await loadHrSessionContext(req,dependencies,true);const key=idempotencyKey(req),corr=currentRequestContext().correlationId;return dependencies.repository.createOvertime(context,input,key,corr);}));});
   router.post('/attendance_overtime_rules',async(req,res)=>{trustedOrigin(req,dependencies.allowedOrigins);const input=hrOvertimeRuleRequestSchema.parse(req.body);res.json(await handle(async()=>{const context=await loadHrSessionContext(req,dependencies,true);const key=idempotencyKey(req),corr=currentRequestContext().correlationId;return dependencies.repository.createOvertimeRule(context,input,key,corr);}));});
+  router.post('/attendance_overtime/:recordId/replace',async(req,res)=>{trustedOrigin(req,dependencies.allowedOrigins);const input=replaceHrOvertimeRequestSchema.parse(req.body);const id=z.string().trim().min(1).max(128).parse(req.params.recordId);res.json(await handle(async()=>{const context=await loadHrSessionContext(req,dependencies,true);const key=idempotencyKey(req),corr=currentRequestContext().correlationId;return dependencies.repository.replaceOvertime(context,id,input,key,corr);}));});
   router.post('/attendance_overtime/:recordId/actions',async(req,res)=>{trustedOrigin(req,dependencies.allowedOrigins);const input=hrOvertimeActionRequestSchema.parse(req.body);const id=z.string().trim().min(1).max(128).parse(req.params.recordId);res.json(await handle(async()=>{const context=await loadHrSessionContext(req,dependencies,true);const key=idempotencyKey(req),corr=currentRequestContext().correlationId;return dependencies.repository.actOnOvertime(context,id,input,key,corr);}));});
   router.get('/attendance_periods',async(req,res)=>{const input=hrAttendancePeriodQuerySchema.parse(req.query);res.json(await handle(async()=>{const context=await loadHrSessionContext(req,dependencies);return dependencies.repository.periodWorkspace(context,input);}));});
   router.get('/attendance_payroll_inputs',async(req,res)=>{const input=hrAttendancePeriodQuerySchema.parse(req.query);res.json(await handle(async()=>{const context=await loadHrSessionContext(req,dependencies);return dependencies.repository.payrollInputs(context,input);}));});

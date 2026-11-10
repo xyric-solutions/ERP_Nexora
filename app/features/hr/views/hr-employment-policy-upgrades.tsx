@@ -89,10 +89,6 @@ export function HrEmploymentPolicyUpgrades({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold">Upgrade existing employees’ policies</h2>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Apply a newer approved policy to an employee’s subsequent confirmation and exit actions. Independent
-            approval retains the employee’s state, original Hire policy and earlier employment history.
-          </p>
         </div>
         {w?.can_request && (
           <Button
@@ -130,14 +126,6 @@ export function HrEmploymentPolicyUpgrades({
         </div>
         <Button type="submit" variant="outline" disabled={busy || requesting || !!decision}>
           Search upgrades
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={busy || requesting || !!decision}
-          onClick={() => setRevision((v) => v + 1)}
-        >
-          Refresh upgrades
         </Button>
       </form>
       {(error || result.error) && (
@@ -226,11 +214,6 @@ export function HrEmploymentPolicyUpgrades({
                   ))}
               </select>
             </Field>
-            <p className="text-sm text-muted-foreground">
-              Create and independently approve the replacement policy above. It can remain Approved; the upgrade
-              authorizes it for this employment relationship. Matching employment state codes and governed exit
-              transitions are required.
-            </p>
             <Field title="Upgrade effective date">
               <Input
                 type="date"
@@ -377,10 +360,6 @@ export function HrEmploymentPolicyUpgrades({
           <p className="break-words text-sm">
             {decision.record.employee_name}: {decision.record.source_policy} → {decision.record.target_policy},
             effective {decision.record.effective_on}.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Review the original request, retained state and affected cases below. The server rechecks the current
-            employment and policy evidence before approval.
           </p>
           <Field title="Upgrade decision reason">
             <Textarea

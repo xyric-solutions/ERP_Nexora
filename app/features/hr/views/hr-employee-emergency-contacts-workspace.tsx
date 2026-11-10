@@ -170,7 +170,7 @@ export function HrEmployeeEmergencyContactsWorkspace({
   return (
     <section className="grid min-w-0 gap-4" aria-label="Employee emergency contacts">
       <div className="grid gap-3 rounded-lg border border-border bg-card p-3 shadow-sm md:grid-cols-2">
-        <label className="grid gap-1.5 text-sm font-medium">
+        <label className="grid content-start gap-1.5 text-sm font-medium">
           Company
           <select
             className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
@@ -185,7 +185,7 @@ export function HrEmployeeEmergencyContactsWorkspace({
             ))}
           </select>
         </label>
-        <label className="grid gap-1.5 text-sm font-medium">
+        <label className="grid content-start gap-1.5 text-sm font-medium">
           Employee
           <select
             className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
@@ -280,23 +280,23 @@ export function HrEmployeeEmergencyContactsWorkspace({
             <aside className="rounded-lg border border-border bg-card p-4 shadow-sm">
               {canManage ? (
                 <div className="grid gap-3">
-                  <label className="grid gap-1.5 text-sm font-medium">
+                  <label className="grid content-start gap-1.5 text-sm font-medium">
                     Name
                     <Input value={name} onChange={(event) => setName(event.target.value)} />
                   </label>
-                  <label className="grid gap-1.5 text-sm font-medium">
+                  <label className="grid content-start gap-1.5 text-sm font-medium">
                     Relationship
                     <Input value={relationship} onChange={(event) => setRelationship(event.target.value)} />
                   </label>
-                  <label className="grid gap-1.5 text-sm font-medium">
+                  <label className="grid content-start gap-1.5 text-sm font-medium">
                     Phone
                     <Input value={phone} type="tel" onChange={(event) => setPhone(event.target.value)} />
                   </label>
-                  <label className="grid gap-1.5 text-sm font-medium">
+                  <label className="grid content-start gap-1.5 text-sm font-medium">
                     Email
                     <Input value={email} type="email" onChange={(event) => setEmail(event.target.value)} />
                   </label>
-                  <label className="grid gap-1.5 text-sm font-medium">
+                  <label className="grid content-start gap-1.5 text-sm font-medium">
                     Priority
                     <Input
                       value={priority}
@@ -312,9 +312,6 @@ export function HrEmployeeEmergencyContactsWorkspace({
                   <Button type="button" disabled={saving} onClick={save}>
                     {saving ? "Saving..." : "Add emergency contact"}
                   </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Records are append-only. Replacement and closure remain a separate governed workflow.
-                  </p>
                 </div>
               ) : (
                 <Alert>

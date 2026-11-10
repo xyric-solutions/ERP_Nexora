@@ -267,7 +267,7 @@ export function HrMasterCatalogueSheetWorkspace({
         </Alert>
       ) : null}
       <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,.8fr)_minmax(14rem,1fr)_auto] md:items-end">
-        <label className="grid gap-1 text-sm font-medium" htmlFor={`master-${type}-company`}>
+        <label className="grid content-start gap-1 text-sm font-medium" htmlFor={`master-${type}-company`}>
           Company
           <select
             id={`master-${type}-company`}
@@ -287,7 +287,7 @@ export function HrMasterCatalogueSheetWorkspace({
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-sm font-medium" htmlFor={`master-${type}-search`}>
+        <label className="grid content-start gap-1 text-sm font-medium" htmlFor={`master-${type}-search`}>
           Search
           <Input
             id={`master-${type}-search`}
@@ -388,9 +388,6 @@ export function HrMasterCatalogueSheetWorkspace({
         footer={
           editor ? (
             <>
-              <Button variant="outline" disabled={saving} onClick={closeSheet}>
-                Cancel
-              </Button>
               <Button disabled={saving} onClick={() => void save()}>
                 {saving ? "Saving…" : "Save changes"}
               </Button>
@@ -415,11 +412,11 @@ export function HrMasterCatalogueSheetWorkspace({
           <div className="grid gap-5">
             <HrDetailSection title="Details">
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-code`}>
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`master-${type}-code`}>
                   Auto-generated code
                   <Input id={`master-${type}-code`} value={editor.code} disabled />
                 </label>
-                <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-name`}>
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`master-${type}-name`}>
                   {nameLabel}
                   <Input
                     id={`master-${type}-name`}
@@ -433,7 +430,7 @@ export function HrMasterCatalogueSheetWorkspace({
             </HrDetailSection>
             {withDepartment ? (
               <HrDetailSection title="Assignment">
-                <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-department`}>
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`master-${type}-department`}>
                   Department
                   <select
                     id={`master-${type}-department`}
@@ -465,7 +462,7 @@ export function HrMasterCatalogueSheetWorkspace({
               </HrDetailSection>
             ) : null}
             <HrDetailSection title="Description">
-              <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-description`}>
+              <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`master-${type}-description`}>
                 Description
                 <Textarea
                   id={`master-${type}-description`}

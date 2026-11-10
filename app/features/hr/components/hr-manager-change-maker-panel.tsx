@@ -124,10 +124,6 @@ export function HrManagerChangeMakerPanel({
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
 
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Propose another eligible reporting manager or explicitly clear the reporting line. All other assignment
-              details and compensation remain unchanged until and after independent approval.
-            </p>
           </div>
           <Badge variant="outline">Same-day effective</Badge>
         </div>
@@ -154,7 +150,7 @@ export function HrManagerChangeMakerPanel({
           />
         </dl>
         <div className="grid gap-3 md:grid-cols-2">
-          <label htmlFor="manager-change-proposed-manager" className="grid gap-1.5 text-sm font-medium text-foreground">
+          <label htmlFor="manager-change-proposed-manager" className="grid content-start gap-1.5 text-sm font-medium text-foreground">
             Proposed reporting manager
             <select
               id="manager-change-proposed-manager"
@@ -175,12 +171,12 @@ export function HrManagerChangeMakerPanel({
               ))}
             </select>
           </label>
-          <label htmlFor="manager-change-effective-on" className="grid gap-1.5 text-sm font-medium text-foreground">
+          <label htmlFor="manager-change-effective-on" className="grid content-start gap-1.5 text-sm font-medium text-foreground">
             Effective date
             <Input id="manager-change-effective-on" type="date" value={effectiveOn} disabled readOnly />
           </label>
         </div>
-        <label htmlFor="manager-change-request-reason" className="grid gap-1.5 text-sm font-medium text-foreground">
+        <label htmlFor="manager-change-request-reason" className="grid content-start gap-1.5 text-sm font-medium text-foreground">
           Business reason
           <Textarea
             id="manager-change-request-reason"
@@ -199,9 +195,6 @@ export function HrManagerChangeMakerPanel({
             {submitting ? "Submitting manager change..." : "Submit manager-change request"}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Submission and approval never create, update, or supersede salary-assignment records.
-        </p>
       </section>
     </HrRecordDrawer>
   );

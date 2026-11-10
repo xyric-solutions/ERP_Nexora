@@ -1370,17 +1370,43 @@ describe("HR API foundation", () => {
     const summary = {
       company_id: "company-a",
       generated_at: "2026-10-19T10:00:00.000Z",
-      metrics: { active_headcount: 12, draft_profiles: 2, pending_employee_approvals: 1, pending_movements: 3, active_departments: 4, recent_joiners: 2, master_configuration_gaps: 1 },
+      metrics: {
+        active_headcount: 12,
+        draft_profiles: 2,
+        pending_employee_approvals: 1,
+        pending_movements: 3,
+        active_departments: 4,
+        recent_joiners: 2,
+        master_configuration_gaps: 1,
+      },
       status_distribution: [{ status: "active", count: 12 }],
-      action_items: [{ key: "approvals", label: "Employee approvals", count: 1, page_id: "employee-approvals", tone: "attention" }],
+      recent_joiner_list: [
+        {
+          employee_id: "employee-9",
+          employee_number: "EMP-0009",
+          employee_name: "Hamza Iqbal",
+          designation: "Software Engineer",
+          department: "Engineering",
+          joined_on: "2026-10-01",
+        },
+      ],
+      action_items: [
+        { key: "approvals", label: "Employee approvals", count: 1, page_id: "employee-approvals", tone: "attention" },
+      ],
     } as const;
-    const repository = { getDashboard: vi.fn(async () => summary) } as unknown as Pick<SourceHrRepository, "getDashboard">;
+    const repository = { getDashboard: vi.fn(async () => summary) } as unknown as Pick<
+      SourceHrRepository,
+      "getDashboard"
+    >;
     const response = await request(appForHr(repository))
       .get("/api/v1/hr/dashboard?company_id=company-a")
       .set("cookie", "nexora_session=token-hr");
     expect(response.status).toBe(200);
     expect(response.body).toEqual(summary);
-    expect(repository.getDashboard).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), "company-a");
+    expect(repository.getDashboard).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "company-a",
+    );
   });
 
   it("rejects an invalid master-data query before it reaches the repository", async () => {
@@ -1496,6 +1522,60 @@ describe("HR API foundation", () => {
       "employee-1",
       payload,
       "profile-assignment-1",
+      expect.any(String),
+    );
+  });
+
+  it("edits a draft overtime request through the replace route with mutation safeguards", async () => {
+    const repository = {
+      listEmployees: vi.fn(),
+      getEmployee: vi.fn(),
+      listMasters: vi.fn(),
+      replaceOvertime: vi.fn(async () => ({
+        id: "overtime-2",
+        company_id: "company-a",
+        version: 1,
+        status: "draft",
+        audit_event_id: "audit-2",
+        replayed: false,
+      })),
+    } as unknown as Pick<SourceHrRepository, "listEmployees" | "getEmployee" | "listMasters">;
+    const payload = {
+      company_id: "company-a",
+      expected_version: 1,
+      work_date: "2026-11-05",
+      requested_minutes: 90,
+      reason: "Stock count ran past the shift end",
+      expected_evidence_hash: "a".repeat(64),
+    };
+    const invalid = await request(appForHr(repository))
+      .post("/api/v1/hr/attendance_overtime/overtime-1/replace")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "overtime-edit-1")
+      .send({ ...payload, requested_minutes: 0 });
+    expect(invalid.status).toBe(400);
+    expect(
+      (repository as unknown as { replaceOvertime: ReturnType<typeof vi.fn> }).replaceOvertime,
+    ).not.toHaveBeenCalled();
+
+    const accepted = await request(appForHr(repository))
+      .post("/api/v1/hr/attendance_overtime/overtime-1/replace")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "overtime-edit-1")
+      .send(payload);
+    expect(accepted.status).toBe(200);
+    expect(accepted.body.id).toBe("overtime-2");
+    expect(
+      (repository as unknown as { replaceOvertime: ReturnType<typeof vi.fn> }).replaceOvertime,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "overtime-1",
+      payload,
+      "overtime-edit-1",
       expect.any(String),
     );
   });

@@ -262,10 +262,6 @@ function LifecycleCaseForm({
               />
             </Field>
           )}
-          <p className="text-sm text-muted-foreground sm:col-span-2">
-            Confirmation requires an authorized transition in the approved employment policy. For a termination
-            recommendation, raise a separate Termination Case.
-          </p>
         </div>
       )}
       {(kind === "resignation" || kind === "termination") && (
@@ -344,18 +340,6 @@ function LifecycleCaseForm({
           {lines.map((line, index) => (
             <fieldset key={index} className="min-w-0 space-y-3 rounded-lg border border-border p-3">
               <legend className="px-1 text-sm font-medium">Settlement line {index + 1}</legend>
-              {line.benefit_source_id && (
-                <p className="text-sm text-muted-foreground">
-                  Calculated from an approved company benefit rule and retained service evidence. Refresh it in Company
-                  settlement benefits below; its financial terms cannot be edited manually.
-                </p>
-              )}
-              {line.encashment_source_id && (
-                <p className="text-sm text-muted-foreground">
-                  Calculated from approved leave policy and balance evidence. Refresh it in Leave encashment below; its
-                  financial terms cannot be edited manually.
-                </p>
-              )}
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field title={"Line " + (index + 1) + " direction"}>
                   <select
@@ -668,14 +652,6 @@ export function HrLifecycleCasesWorkspace({
           <Button type="submit" variant="outline" disabled={busy || !!editor || !!decision}>
             Search
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy || !!editor || !!decision}
-            onClick={() => setRevision((v) => v + 1)}
-          >
-            Refresh
-          </Button>
         </form>
       </section>
       {(error || result.error || companies.error) && (
@@ -958,10 +934,6 @@ export function HrLifecycleCasesWorkspace({
                     {r.state === "cancelled" ? "Original statement, retained for audit · " : ""}
                     {r.terms.currency} net statement: {minor(r.evidence.net_minor, r.evidence.money_scale)}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    Approval of this statement is separate from financial posting and payment. Banking integration is
-                    deferred.
-                  </p>
                   <SettlementCorrectionReview key={r.id} record={r} company={company} busy={busy} onCommand={command} />
                   <SettlementCorrectionExecution
                     key={r.id}
@@ -1121,11 +1093,6 @@ export function HrLifecycleMovementsWorkspace({ onAction }: { onAction: (action:
     >
       <section className={panel + " space-y-3"}>
         <h2 className="text-xl font-semibold">Transfers, Promotions & Movements</h2>
-        <p className="text-sm text-muted-foreground">
-          Prepare effective-dated transfers, promotions, manager, work location and organizational changes against the
-          employee’s existing assignment. Independent decisions create the authoritative assignment segment. Salary
-          revisions remain a separate Payroll approval.
-        </p>
         <div className="flex flex-wrap gap-2">
           <Button
             className={tab === "prepare" ? "text-primary-foreground!" : ""}

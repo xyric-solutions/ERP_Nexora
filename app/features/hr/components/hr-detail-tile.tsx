@@ -164,7 +164,7 @@ export function HrDetailTile({
 }) {
   const empty = value === undefined || value === null || value === "";
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-0.5 border-t border-dashed border-border py-[7px] first:border-t-0 sm:grid-cols-[9.5rem_minmax(0,1fr)] sm:items-baseline sm:gap-4">
+    <div className="grid min-w-0 grid-cols-1 gap-0.5 py-[7px] sm:grid-cols-[9.5rem_minmax(0,1fr)] sm:items-baseline sm:gap-4">
       <dt className="m-0! text-[13px] text-muted-foreground">{label}</dt>
       <dd
         className={`m-0! min-w-0 wrap-anywhere text-[13.5px] tabular-nums ${empty ? "italic text-muted-foreground" : "font-medium text-foreground"}`}

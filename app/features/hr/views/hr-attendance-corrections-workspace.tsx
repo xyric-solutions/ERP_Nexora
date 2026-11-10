@@ -16,17 +16,7 @@ import {
   type HrCorrectionEvidence,
   type HrCorrectionResult,
 } from "@nexora/contracts";
-import {
-  ClipboardCheck,
-  Plus,
-  RefreshCw,
-  Search,
-  ShieldCheck,
-  Clock3,
-  ChevronLeft,
-  ChevronRight,
-  ArrowUpRight,
-} from "lucide-react";
+import { ClipboardCheck, Plus, ChevronLeft, ChevronRight, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -169,8 +159,8 @@ function TimestampField({
   onOffset: (v: string) => void;
 }) {
   return (
-    <div className="grid min-w-0 gap-2">
-      <label className="grid min-w-0 gap-2 text-sm font-medium">
+    <div className="grid min-w-0 content-start gap-2">
+      <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
         {name}
         <Input
           required
@@ -198,6 +188,22 @@ function TimestampField({
     </div>
   );
 }
+type CorrectionPrefill = { employee_id: string; employee_number: string; work_date: string };
+
+/** Reads {"new_correction": {...}} from the page reference passed by Daily Attendance. */
+function readCorrectionPrefill(reference?: string): CorrectionPrefill | null {
+  try {
+    const value = JSON.parse(reference ?? "null")?.new_correction;
+    return value &&
+      typeof value.employee_id === "string" &&
+      typeof value.employee_number === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(value.work_date)
+      ? { employee_id: value.employee_id, employee_number: value.employee_number, work_date: value.work_date }
+      : null;
+  } catch {
+    return null;
+  }
+}
 function Editor({
   client,
   companyId,
@@ -205,7 +211,7 @@ function Editor({
   revision,
   busy,
   onSave,
-  onClose,
+  prefill,
 }: {
   client: HrApiClient;
   companyId: string;
@@ -213,10 +219,11 @@ function Editor({
   revision: number;
   busy: boolean;
   onSave: (id: string | null, input: CreateHrCorrectionRequest | UpdateHrCorrectionRequest) => Promise<void>;
-  onClose: () => void;
+  /** New correction opened from Daily Attendance for one employee and day. */
+  prefill?: CorrectionPrefill;
 }) {
-  const [date, setDate] = useState(initial?.work_date ?? today()),
-    [employee, setEmployee] = useState(initial?.employee_id ?? ""),
+  const [date, setDate] = useState(initial?.work_date ?? prefill?.work_date ?? today()),
+    [employee, setEmployee] = useState(initial?.employee_id ?? prefill?.employee_id ?? ""),
     [kind, setKind] = useState<CreateHrCorrectionRequest["kind"]>(initial?.kind ?? "missing_out"),
     [reason, setReason] = useState(initial?.reason ?? ""),
     [version] = useState(initial?.version),
@@ -224,8 +231,8 @@ function Editor({
     [end, setEnd] = useState(""),
     [inOffset, setInOffset] = useState("+00:00"),
     [outOffset, setOutOffset] = useState("+00:00"),
-    [search, setSearch] = useState(""),
-    [applied, setApplied] = useState("");
+    [search, setSearch] = useState(prefill?.employee_number ?? ""),
+    [applied, setApplied] = useState(prefill?.employee_number ?? "");
   const [context, setContext] = useState<HrCorrectionContext | null>(null),
     [loading, setLoading] = useState(false),
     [error, setError] = useState(""),
@@ -298,12 +305,6 @@ function Editor({
         }
       }}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">{initial ? `Edit ${initial.reference}` : "New attendance correction"}</h2>
-        <Button type="button" variant="ghost" disabled={busy} onClick={onClose}>
-          Close editor
-        </Button>
-      </div>
       {error && (
         <Alert variant="destructive">
           <AlertTitle>Review correction details</AlertTitle>
@@ -311,7 +312,7 @@ function Editor({
         </Alert>
       )}
       <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Working date
           <Input
             required
@@ -324,7 +325,7 @@ function Editor({
             }}
           />
         </label>
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Correction type
           <select
             className={selectClass}
@@ -342,7 +343,7 @@ function Editor({
       </div>
       {!initial && (
         <div className="flex flex-wrap items-end gap-2">
-          <label className="grid min-w-0 flex-1 gap-2 text-sm font-medium">
+          <label className="grid content-start min-w-0 flex-1 gap-2 text-sm font-medium">
             Find employee
             <Input
               maxLength={160}
@@ -356,7 +357,7 @@ function Editor({
           </Button>
         </div>
       )}
-      <label className="grid min-w-0 gap-2 text-sm font-medium">
+      <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
         Employee
         <select
           required
@@ -416,11 +417,9 @@ function Editor({
         </div>
       )}
       <p className="text-xs text-muted-foreground">
-        Enter local times in {evidence?.day.time_zone ?? "the employee's effective shift timezone"} with the matching
-        UTC offset. Overnight out punches use the following date. An official-duty request supplies no device
-        timestamps.
+        Times in {evidence?.day.time_zone ?? "the employee's shift timezone"}
       </p>
-      <label className="grid gap-2 text-sm font-medium">
+      <label className="grid content-start gap-2 text-sm font-medium">
         Correction reason
         <Textarea
           required
@@ -436,9 +435,6 @@ function Editor({
       <HrDrawerActions>
         <Button type="submit" className="text-primary-foreground!" disabled={busy || blocked}>
           {busy ? "Saving…" : initial ? "Save draft changes" : "Save correction draft"}
-        </Button>
-        <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
-          Cancel editing
         </Button>
       </HrDrawerActions>
     </form>
@@ -492,7 +488,7 @@ function Decisions({
           {error}
         </p>
       )}
-      <label className="grid gap-2 text-sm font-medium">
+      <label className="grid content-start gap-2 text-sm font-medium">
         Action
         <select
           className={selectClass}
@@ -510,7 +506,7 @@ function Decisions({
           ))}
         </select>
       </label>
-      <label className="grid gap-2 text-sm font-medium">
+      <label className="grid content-start gap-2 text-sm font-medium">
         Action reason
         <Textarea
           required
@@ -553,6 +549,7 @@ export function HrAttendanceCorrectionsWorkspace({
   onNavigate: Navigate;
 }) {
   const initialScope = useMemo(() => readHrOperationsScope(initialReference), [initialReference]);
+  const [prefill] = useState(() => readCorrectionPrefill(initialReference));
   const { api, session, csrfToken, loading: sessionLoading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]),
     canRead = session?.user.permissions.includes("hr.attendance.correction.read") ?? false,
@@ -567,7 +564,9 @@ export function HrAttendanceCorrectionsWorkspace({
     [selected, setSelected] = useState("");
   const [data, setData] = useState<HrCorrectionDirectory>({ items: [], total: 0 }),
     [detail, setDetail] = useState<HrCorrectionDetail | null>(null),
-    [editor, setEditor] = useState<{ initial: HrCorrectionDetail | null; key: number } | null>(null),
+    [editor, setEditor] = useState<{ initial: HrCorrectionDetail | null; key: number; prefill?: CorrectionPrefill } | null>(
+      () => (prefill && canCreate ? { initial: null, key: 1, prefill } : null),
+    ),
     [loading, setLoading] = useState(false),
     [detailLoading, setDetailLoading] = useState(false),
     [companyLoading, setCompanyLoading] = useState(false),
@@ -577,6 +576,14 @@ export function HrAttendanceCorrectionsWorkspace({
   const mutation = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null);
   useHrOperationsScope(company);
+  // Search as the user types, once typing pauses.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setApplied(search.trim());
+      setOffset(0);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [search]);
   useEffect(() => {
     if (!canRead) return;
     let active = true;
@@ -702,46 +709,6 @@ export function HrAttendanceCorrectionsWorkspace({
       aria-label="Attendance corrections workspace"
       className="grid min-w-0 gap-5 font-sans text-foreground [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_td]:font-sans!"
     >
-      <div className="flex flex-wrap items-start justify-between gap-4 rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-5 sm:p-6">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className="rounded-xl bg-primary/15 p-3 text-primary">
-            <ClipboardCheck className="size-6" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-xl font-semibold tracking-tight">Correct the day. Preserve the evidence.</h2>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              A traceable request moves from the owner to their reporting manager and then HR.
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            disabled={loading || companyLoading || busy}
-            onClick={() => {
-              setError("");
-              setRevision((v) => v + 1);
-            }}
-          >
-            <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          {canCreate && (
-            <Button
-              className="text-primary-foreground!"
-              disabled={!company || busy || !!editor}
-              onClick={() => {
-                setError("");
-                setNotice("");
-                setEditor({ initial: null, key: Date.now() });
-              }}
-            >
-              <Plus className="size-4" />
-              New correction
-            </Button>
-          )}
-        </div>
-      </div>
       {error && (
         <Alert variant="destructive">
           <AlertTitle>Correction action unavailable</AlertTitle>
@@ -762,7 +729,7 @@ export function HrAttendanceCorrectionsWorkspace({
           setOffset(0);
         }}
       >
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Company
           <select
             aria-label="Company"
@@ -789,7 +756,7 @@ export function HrAttendanceCorrectionsWorkspace({
             ))}
           </select>
         </label>
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Request status
           <select
             className={selectClass}
@@ -807,7 +774,7 @@ export function HrAttendanceCorrectionsWorkspace({
             ))}
           </select>
         </label>
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Search corrections
           <Input
             maxLength={160}
@@ -816,52 +783,24 @@ export function HrAttendanceCorrectionsWorkspace({
             placeholder="Reference, employee number or name"
           />
         </label>
-        <div className="flex items-end gap-2">
-          <Button type="submit" className="text-primary-foreground!" disabled={loading || !company}>
-            <Search className="size-4" />
-            Search
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setSearch("");
-              setApplied("");
-              setStatus("");
-              setOffset(0);
-            }}
-          >
-            Clear
-          </Button>
-        </div>
-      </form>
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {[
-          { name: "Requests in this page", value: data.items.length, icon: ClipboardCheck },
-          {
-            name: "Awaiting decisions",
-            value: data.items.filter((r) => r.status.startsWith("pending")).length,
-            icon: Clock3,
-          },
-          {
-            name: "Approved corrections",
-            value: data.items.filter((r) => r.status === "approved").length,
-            icon: ShieldCheck,
-          },
-          { name: "Raw punch edits", value: 0, icon: ShieldCheck },
-        ].map(({ name, value, icon: Icon }) => (
-          <div key={name} className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card p-4">
-            <Icon className="size-5 shrink-0 text-primary" />
-            <div>
-              <p className="text-xs text-muted-foreground">{name}</p>
-              <div className="mt-1 text-xl font-semibold tabular-nums">{loading ? "—" : value}</div>
-            </div>
+        {canCreate ? (
+          <div className="flex items-end">
+            <Button
+              type="button"
+              className="w-full text-primary-foreground! xl:w-auto"
+              disabled={!company || busy || !!editor}
+              onClick={() => {
+                setError("");
+                setNotice("");
+                setEditor({ initial: null, key: Date.now() });
+              }}
+            >
+              <Plus className="size-4" />
+              New correction
+            </Button>
           </div>
-        ))}
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Counts describe the current page. {data.total} requests match the company and filters.
-      </p>
+        ) : null}
+      </form>
       {editor && (
         <HrRecordDrawer
           title={editor?.initial ? "Edit attendance correction" : "Add attendance correction"}
@@ -876,9 +815,9 @@ export function HrAttendanceCorrectionsWorkspace({
             client={client}
             companyId={company}
             initial={editor.initial}
+            prefill={editor.initial ? undefined : editor.prefill}
             revision={revision}
             busy={busy}
-            onClose={() => setEditor(null)}
             onSave={(id, input) =>
               mutate(JSON.stringify({ id, input }), (key) =>
                 id
@@ -1099,10 +1038,6 @@ export function HrAttendanceCorrectionsWorkspace({
             </section>
           )
         ))}
-      <p className="rounded-lg border border-border bg-muted/30 p-4 text-xs leading-relaxed text-muted-foreground">
-        Draft → reporting manager → HR. Only the final approved correction contributes to attendance. Raw punches remain
-        immutable; this workflow does not approve overtime or post payroll. Locked attendance periods cannot be changed.
-      </p>
     </section>
   );
 }

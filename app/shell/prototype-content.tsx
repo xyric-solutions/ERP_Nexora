@@ -125,7 +125,7 @@ import { HrCandidateDirectoryWorkspace } from "@prototype/features/hr/views/hr-c
 import { HrAddEmployeeWorkspace } from "@prototype/features/hr/views/hr-add-employee-workspace";
 import { HrDrawerSectionProvider } from "@prototype/features/hr/components/hr-drawer-context";
 import { HrEmployeeDraftsWorkspace } from "@prototype/features/hr/views/hr-employee-drafts-workspace";
-import { HrPeopleApprovalsWorkspace as HrEmployeeApprovalsWorkspace } from "@prototype/features/hr/views/hr-personal-corrections";
+import { HrEmployeeApprovalsWorkspace } from "@prototype/features/hr/views/hr-employee-approvals-workspace";
 import { HrEmployeeContactsWorkspace } from "@prototype/features/hr/views/hr-employee-contacts-workspace";
 import { HrEmployeeEmergencyContactsWorkspace } from "@prototype/features/hr/views/hr-employee-emergency-contacts-workspace";
 import { HrEmployeeDocumentsWorkspace } from "@prototype/features/hr/views/hr-employee-documents-workspace";

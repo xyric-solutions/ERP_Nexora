@@ -322,10 +322,12 @@ export function HrLearningBody({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" disabled={busy} onClick={() => setRevision((v) => v + 1)}>
-            <RefreshCw className="size-4" />
-            {read.error ? "Retry Learning" : "Refresh Learning"}
-          </Button>
+          {read.error ? (
+            <Button type="button" variant="outline" disabled={busy} onClick={() => setRevision((v) => v + 1)}>
+              <RefreshCw className="size-4" />
+              Retry Learning
+            </Button>
+          ) : null}
           {!editor &&
             w &&
             (section === "requests" ? w.can_create_request : section !== "completions" && w.can_manage) && (
@@ -599,10 +601,6 @@ export function HrLearningBody({
                       ))}
                   </select>
                 </Field>
-                <p className="text-xs text-muted-foreground">
-                  Costs are estimates for HR review. Publishing or approving training creates no Accounting, Payroll or
-                  Banking posting. Published terms are retained; create a successor programme when rules change.
-                </p>
               </>
             )}
             {(editor.terms.kind === "request" || editor.terms.kind === "session") && (
@@ -687,10 +685,6 @@ export function HrLearningBody({
                     ))}
                   </div>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  The backend resolves the current reporting-manager account when you submit. HR approval is separate
-                  from the author and manager; approval alone does not reserve a training seat.
-                </p>
               </>
             )}
             {editor.terms.kind === "session" && (
@@ -722,8 +716,7 @@ export function HrLearningBody({
                 <fieldset className="space-y-3">
                   <legend className="mb-2 font-medium">Lesson schedule</legend>
                   <p className="text-xs text-muted-foreground">
-                    Enter local times ({Intl.DateTimeFormat().resolvedOptions().timeZone}). Lessons are stored as
-                    absolute instants and cannot overlap.
+                    Times in {Intl.DateTimeFormat().resolvedOptions().timeZone}
                   </p>
                   {editor.terms.slots.map((slot, index) => (
                     <div key={index} className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2">
@@ -1061,10 +1054,6 @@ export function HrLearningBody({
           {current.kind === "session" && (
             <div className="space-y-3">
               <h4 className="font-semibold">Participant register</h4>
-              <p className="text-xs text-muted-foreground">
-                Attendance becomes available after a lesson finishes. Completion submission requires every lesson,
-                assessment where required and a verified evidence reference.
-              </p>
               {!w?.participants.length && <p className="text-sm text-muted-foreground">No participants enrolled.</p>}
               {w?.participants.map((p) => (
                 <div className="space-y-3 rounded-lg border border-border p-4" key={p.id}>
@@ -1131,10 +1120,6 @@ export function HrLearningBody({
             }}
           >
             <h3 className="font-semibold">Attendance & assessment — {attendance.record.employee_name}</h3>
-            <p className="text-sm text-muted-foreground">
-              Record actual minutes for every finished lesson, including zero for absence. Completion and pass/fail
-              results are calculated from the published programme rules.
-            </p>
             {attendance.entries.map((a, index) => (
               <div className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2" key={a.starts_at}>
                 <Field title={"Attendance minutes for lesson " + (index + 1)}>
@@ -1233,10 +1218,6 @@ export function HrLearningBody({
             <Award className="size-4" />
             Mandatory learning gaps ({w.gap_total})
           </h3>
-          <p className="text-sm text-muted-foreground">
-            Active employees missing a currently valid, issued certificate for a mandatory active programme. Expired and
-            revoked certificates do not satisfy the requirement.
-          </p>
           {w.gaps.map((g) => (
             <div
               className="grid gap-1 rounded-lg border border-border p-3 sm:grid-cols-2"

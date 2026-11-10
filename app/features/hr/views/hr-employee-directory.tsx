@@ -157,7 +157,7 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
           }}
         >
           <label
-            className="grid min-w-0 basis-full gap-1.5 text-sm font-medium text-foreground sm:flex-1 sm:basis-0"
+            className="grid content-start min-w-0 basis-full gap-1.5 text-sm font-medium text-foreground sm:flex-1 sm:basis-0"
             htmlFor="hr-directory-search"
           >
             Search employee
@@ -182,9 +182,6 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
             Clear
           </Button>
         </form>
-        <Button type="button" onClick={reloadCompanies} variant="outline">
-          Refresh
-        </Button>
       </div>
 
       {notice ? (

@@ -45,10 +45,6 @@ export function SettlementPayrollHandoff({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold">Settlement → Payroll → Finance</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Send reviewed, unprocessed entitlements as draft Payroll adjustments. Payroll approval, statutory
-            calculation and the Finance journal remain separate controls. Banking payment is pending integration.
-          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -156,11 +152,6 @@ export function SettlementPayrollHandoff({
           }}
         >
           <h4 className="font-semibold">Prepare or replace rejected Payroll inputs</h4>
-          <p className="text-sm text-muted-foreground">
-            Use the approved exit month while Payroll is open. Exclude salary already included in a run, paid amounts,
-            loan schedule references and asset recoveries requiring their own process. An existing draft, submitted,
-            approved or consumed input is retained. Rejected inputs can be replaced with a new audited revision.
-          </p>
           <Field title="Settlement Payroll month">
             <Input
               type="month"

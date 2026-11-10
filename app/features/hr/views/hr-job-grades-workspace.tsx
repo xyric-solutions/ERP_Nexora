@@ -173,7 +173,7 @@ export function HrJobGradesWorkspace() {
       </Alert>
       {message ? <Alert><AlertDescription>{message}</AlertDescription></Alert> : null}
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <label className="grid min-w-72 gap-1 text-sm font-medium">Company
+        <label className="grid content-start min-w-72 gap-1 text-sm font-medium">Company
           <select className="h-9 rounded-md border border-input bg-background px-2" value={companyId} onChange={(event) => { setCompanyId(event.target.value); setEditor(null); void loadRecords(event.target.value); }}>
             {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
           </select>
@@ -195,11 +195,11 @@ export function HrJobGradesWorkspace() {
           {editor ? (
             <aside className="grid gap-3 rounded-lg border bg-card p-4">
               <h2 className="font-semibold">{editor.mode === "create" ? "Add Job Grade" : "Edit Job Grade"}</h2>
-              <div className="grid grid-cols-2 gap-3"><label className="grid gap-1 text-sm">Code<Input maxLength={32} value={editor.code} onChange={(event) => setEditor({ ...editor, code: event.target.value })} /></label><label className="grid gap-1 text-sm">Grade level<Input inputMode="numeric" value={editor.gradeLevel} onChange={(event) => setEditor({ ...editor, gradeLevel: event.target.value })} /></label></div>
-              <label className="grid gap-1 text-sm">Name<Input maxLength={160} value={editor.name} onChange={(event) => setEditor({ ...editor, name: event.target.value })} /></label>
-              <label className="grid gap-1 text-sm">Description<textarea className="min-h-20 rounded-md border border-input bg-background p-2" maxLength={1000} value={editor.description} onChange={(event) => setEditor({ ...editor, description: event.target.value })} /></label>
-              <label className="grid gap-1 text-sm">Currency<Input maxLength={3} value={editor.currencyCode} onChange={(event) => setEditor({ ...editor, currencyCode: event.target.value.toUpperCase() })} /></label>
-              <fieldset className="grid gap-2 rounded-md border p-3"><legend className="px-1 text-sm font-medium">Optional compensation band</legend><label className="grid gap-1 text-sm">Minimum<Input inputMode="decimal" value={editor.bandMinimum} onChange={(event) => setEditor({ ...editor, bandMinimum: event.target.value })} /></label><label className="grid gap-1 text-sm">Midpoint<Input inputMode="decimal" value={editor.bandMidpoint} onChange={(event) => setEditor({ ...editor, bandMidpoint: event.target.value })} /></label><label className="grid gap-1 text-sm">Maximum<Input inputMode="decimal" value={editor.bandMaximum} onChange={(event) => setEditor({ ...editor, bandMaximum: event.target.value })} /></label></fieldset>
+              <div className="grid grid-cols-2 gap-3"><label className="grid content-start gap-1 text-sm">Code<Input maxLength={32} value={editor.code} onChange={(event) => setEditor({ ...editor, code: event.target.value })} /></label><label className="grid content-start gap-1 text-sm">Grade level<Input inputMode="numeric" value={editor.gradeLevel} onChange={(event) => setEditor({ ...editor, gradeLevel: event.target.value })} /></label></div>
+              <label className="grid content-start gap-1 text-sm">Name<Input maxLength={160} value={editor.name} onChange={(event) => setEditor({ ...editor, name: event.target.value })} /></label>
+              <label className="grid content-start gap-1 text-sm">Description<textarea className="min-h-20 rounded-md border border-input bg-background p-2" maxLength={1000} value={editor.description} onChange={(event) => setEditor({ ...editor, description: event.target.value })} /></label>
+              <label className="grid content-start gap-1 text-sm">Currency<Input maxLength={3} value={editor.currencyCode} onChange={(event) => setEditor({ ...editor, currencyCode: event.target.value.toUpperCase() })} /></label>
+              <fieldset className="grid gap-2 rounded-md border p-3"><legend className="px-1 text-sm font-medium">Optional compensation band</legend><label className="grid content-start gap-1 text-sm">Minimum<Input inputMode="decimal" value={editor.bandMinimum} onChange={(event) => setEditor({ ...editor, bandMinimum: event.target.value })} /></label><label className="grid content-start gap-1 text-sm">Midpoint<Input inputMode="decimal" value={editor.bandMidpoint} onChange={(event) => setEditor({ ...editor, bandMidpoint: event.target.value })} /></label><label className="grid content-start gap-1 text-sm">Maximum<Input inputMode="decimal" value={editor.bandMaximum} onChange={(event) => setEditor({ ...editor, bandMaximum: event.target.value })} /></label></fieldset>
               <div className="flex gap-2"><Button disabled={saving} onClick={() => void save()}>{saving ? "Saving..." : "Save"}</Button><Button variant="outline" onClick={() => setEditor(null)}>Cancel</Button></div>
             </aside>
           ) : selected ? (

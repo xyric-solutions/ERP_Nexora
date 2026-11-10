@@ -52,10 +52,6 @@ export function SettlementCorrectionReview({
           </Button>
         )}
       </div>
-      <p className="text-sm text-muted-foreground">
-        Propose corrected amounts against the original statement, with supporting authority. An independent officer
-        reviews the difference. The original Payroll, tax, Finance, leave and employment records remain intact.
-      </p>
       <p className="rounded-md border border-border bg-background p-3 text-sm">
         An approved review can proceed to the supplemental Payroll workflow below. Review approval alone does not post a
         journal, change leave balances or confirm payment. Banking remains deferred.

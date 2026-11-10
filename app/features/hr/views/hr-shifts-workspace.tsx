@@ -13,7 +13,7 @@ import {
   type HrShiftContext,
   type HrShiftSummary,
 } from "@nexora/contracts";
-import { Copy, Plus, ShieldCheck, Trash2, CheckCircle2, X } from "lucide-react";
+import { Plus, ShieldCheck, Trash2, CheckCircle2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +26,7 @@ import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterSheet } from "../components/hr-master-sheet";
+import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
 import {
   HrDetailGroup,
   HrDetailSection,
@@ -151,7 +152,7 @@ function ShiftEditor({
     (s) => s.configured && s.time_zone === zone && s.work_location_id === (location || null),
   );
   const numeric = (label: string, value: number, set: (n: number) => void, max = 720) => (
-    <label className="grid gap-2 text-sm font-medium">
+    <label className="grid content-start gap-2 text-sm font-medium">
       {label}
       <Input
         type="number"
@@ -238,7 +239,7 @@ function ShiftEditor({
       )}
       <HrDetailSection title="Shift">
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="grid gap-2 text-sm font-medium">
+          <label className="grid content-start gap-2 text-sm font-medium">
             Shift code (automatic)
             <Input
               required
@@ -249,7 +250,7 @@ function ShiftEditor({
               placeholder="GENERAL"
             />
           </label>
-          <label className="grid gap-2 text-sm font-medium">
+          <label className="grid content-start gap-2 text-sm font-medium">
             Shift name
             <Input
               required
@@ -260,7 +261,7 @@ function ShiftEditor({
               placeholder="General office shift"
             />
           </label>
-          <label className="grid gap-2 text-sm font-medium">
+          <label className="grid content-start gap-2 text-sm font-medium">
             Shift type
             <select
               className={selectClass}
@@ -290,7 +291,7 @@ function ShiftEditor({
               ))}
             </select>
           </label>
-          <label className="grid gap-2 text-sm font-medium">
+          <label className="grid content-start gap-2 text-sm font-medium">
             Time zone
             <select
               className={selectClass}
@@ -311,7 +312,7 @@ function ShiftEditor({
         </div>
       </HrDetailSection>
       <HrDetailSection title="Work location">
-        <label className="grid gap-2 text-sm font-medium">
+        <label className="grid content-start gap-2 text-sm font-medium">
           Work location
           <select
             className={selectClass}
@@ -334,7 +335,7 @@ function ShiftEditor({
           </select>
         </label>
         <div className="flex flex-wrap items-end gap-2">
-          <label className="grid min-w-0 flex-1 gap-2 text-xs text-muted-foreground">
+          <label className="grid content-start min-w-0 flex-1 gap-2 text-xs text-muted-foreground">
             Find work location
             <Input
               value={locationSearch}
@@ -364,17 +365,13 @@ function ShiftEditor({
       </HrDetailSection>
       {kind === "rotating" ? (
         <HrDetailSection title="Weekly rotation">
-          <p className="text-sm text-muted-foreground">
-            Each week uses its member shift’s hours, breaks, thresholds and weekly off days. Members must share this
-            timezone and work location.
-          </p>
-          <label className="grid gap-2 text-sm font-medium">
+          <label className="grid content-start gap-2 text-sm font-medium">
             Rotation starts on Monday
             <Input required type="date" value={anchor} disabled={busy} onChange={(e) => setAnchor(e.target.value)} />
           </label>
           {rotation.map((id, index) => (
             <div key={index} className="flex min-w-0 items-end gap-2">
-              <label className="grid min-w-0 flex-1 gap-2 text-sm font-medium">
+              <label className="grid content-start min-w-0 flex-1 gap-2 text-sm font-medium">
                 Week {index + 1}
                 <select
                   required
@@ -438,11 +435,11 @@ function ShiftEditor({
         <>
           <HrDetailSection title="Working hours">
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="grid gap-2 text-sm font-medium">
+              <label className="grid content-start gap-2 text-sm font-medium">
                 Start time
                 <Input required type="time" value={start} disabled={busy} onChange={(e) => setStart(e.target.value)} />
               </label>
-              <label className="grid gap-2 text-sm font-medium">
+              <label className="grid content-start gap-2 text-sm font-medium">
                 End time
                 <Input required type="time" value={end} disabled={busy} onChange={(e) => setEnd(e.target.value)} />
               </label>
@@ -470,7 +467,7 @@ function ShiftEditor({
                 key={index}
                 className="grid min-w-0 items-end gap-3 rounded-lg bg-muted/40 p-3 sm:grid-cols-[minmax(0,1fr)_6rem_auto_auto]"
               >
-                <label className="grid gap-2 text-xs font-medium">
+                <label className="grid content-start gap-2 text-xs font-medium">
                   Break {index + 1} name
                   <Input
                     required
@@ -482,7 +479,7 @@ function ShiftEditor({
                     }
                   />
                 </label>
-                <label className="grid gap-2 text-xs font-medium">
+                <label className="grid content-start gap-2 text-xs font-medium">
                   Minutes
                   <Input
                     required
@@ -520,14 +517,10 @@ function ShiftEditor({
                 </Button>
               </div>
             ))}
-            <p className="text-xs text-muted-foreground">
-              Unpaid breaks reduce required work time. Paid breaks remain inside the shift’s paid time; actual
-              attendance and approved overtime are processed separately.
-            </p>
           </HrDetailSection>
           <HrDetailSection title="Attendance rules">
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="grid gap-2 text-sm font-medium">
+              <label className="grid content-start gap-2 text-sm font-medium">
                 Required work (minutes)
                 <Input
                   type="number"
@@ -582,7 +575,7 @@ function ShiftEditor({
         </>
       )}
       <HrDetailSection title="Change reason">
-        <label className="grid gap-2 text-sm font-medium">
+        <label className="grid content-start gap-2 text-sm font-medium">
           Change reason
           <Textarea
             required
@@ -599,9 +592,6 @@ function ShiftEditor({
       <HrDrawerActions>
         <Button type="submit" className="text-primary-foreground!" disabled={busy || !context || contextBusy}>
           {busy ? "Saving…" : initial && !editor.copy ? "Save shift rules" : "Create shift"}
-        </Button>
-        <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
-          Cancel
         </Button>
       </HrDrawerActions>
     </form>
@@ -627,7 +617,7 @@ export function HrShiftsWorkspace({
   const [detail, setDetail] = useState<HrShiftDetail | null>(null);
   const [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
-    [status, setStatus] = useState(""),
+    [status, setStatus] = useState<HrMasterStatus>("active"),
     [offset, setOffset] = useState(0),
     [onDate, setOnDate] = useState("");
   const [loading, setLoading] = useState(false),
@@ -636,8 +626,7 @@ export function HrShiftsWorkspace({
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [editor, setEditor] = useState<Editor | null>(null),
-    [revision, setRevision] = useState(0),
-    [statusReason, setStatusReason] = useState("");
+    [revision, setRevision] = useState(0);
   const mutation = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null);
   useHrOperationsScope(company);
@@ -669,7 +658,7 @@ export function HrShiftsWorkspace({
     let current = true;
     setLoading(true);
     client
-      .shifts({ companyId: company, search: applied || undefined, status: status || undefined, offset })
+      .shifts({ companyId: company, search: applied || undefined, status: status === "all" ? undefined : status, offset })
       .then((result) => {
         if (current) {
           setDirectory(result);
@@ -731,7 +720,7 @@ export function HrShiftsWorkspace({
       setSearch(result.code);
       setApplied(result.code);
       setOffset(0);
-      setStatus("");
+      setStatus("all");
       setNotice(`Shift ${result.code} saved. Employee allocation and attendance processing remain separate steps.`);
       retry.current = null;
       reload();
@@ -743,24 +732,25 @@ export function HrShiftsWorkspace({
       mutation.current = false;
     }
   };
+  /** One-click deactivate/reactivate from the drawer footer; the API still records actor, time and this reason. */
   const changeStatus = async () => {
     if (!detail || mutation.current) return;
     mutation.current = true;
     setBusy(true);
     setError("");
     setNotice("");
+    const deactivating = detail.status === "active";
     const input = {
       company_id: company,
       expected_version: detail.version,
-      status: detail.status === "active" ? ("inactive" as const) : ("active" as const),
-      reason: statusReason,
+      status: deactivating ? ("inactive" as const) : ("active" as const),
+      reason: deactivating ? "Deactivated from Shifts & Rules." : "Reactivated from Shifts & Rules.",
     };
     const fingerprint = JSON.stringify([detail.id, input]);
     if (retry.current?.fingerprint !== fingerprint) retry.current = { fingerprint, key: crypto.randomUUID() };
     try {
       await client.shiftStatus(detail.id, input, csrfToken(), retry.current.key);
-      setStatusReason("");
-      setNotice(`Shift ${detail.code} is now ${input.status}. Rule history is preserved.`);
+      setNotice(`Shift ${detail.code} ${deactivating ? "deactivated" : "reactivated"}.`);
       retry.current = null;
       reload();
     } catch (e) {
@@ -790,14 +780,12 @@ export function HrShiftsWorkspace({
     setOnDate("");
     setError("");
     setNotice("");
-    setStatusReason("");
   };
   const closeShift = () => {
     if (busy) return;
     setSelected("");
     setDetail(null);
     setOnDate("");
-    setStatusReason("");
   };
   const openRow = (s: HrShiftSummary) => ({
     role: "button" as const,
@@ -830,7 +818,7 @@ export function HrShiftsWorkspace({
       )}
       <form
         aria-label="Find shifts"
-        className="grid items-end gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem_auto]"
+        className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,.8fr)_minmax(14rem,1fr)_auto] md:items-end"
         onSubmit={(e) => {
           e.preventDefault();
           setError("");
@@ -838,7 +826,7 @@ export function HrShiftsWorkspace({
           setOffset(0);
         }}
       >
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Company
           <select
             className={selectClass}
@@ -852,7 +840,6 @@ export function HrShiftsWorkspace({
               setOffset(0);
               setError("");
               setNotice("");
-              setStatusReason("");
             }}
           >
             <option value="">Select an authorized company</option>
@@ -863,7 +850,7 @@ export function HrShiftsWorkspace({
             ))}
           </select>
         </label>
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Search shifts
           <Input
             type="search"
@@ -873,22 +860,6 @@ export function HrShiftsWorkspace({
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Code or name, then press Enter"
           />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          Status
-          <select
-            className={selectClass}
-            disabled={busy || !!editor}
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
-              setOffset(0);
-            }}
-          >
-            <option value="">All statuses</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
         </label>
         {canManage && (
           <Button
@@ -906,6 +877,13 @@ export function HrShiftsWorkspace({
           </Button>
         )}
       </form>
+      <HrMasterStatusFilter
+        value={status}
+        onChange={(next) => {
+          setStatus(next);
+          setOffset(0);
+        }}
+      />
       {editor && (
         <HrRecordDrawer
           title={editor?.copy ? "Copy shift" : editor?.detail ? "Edit shift rules" : "Add shift"}
@@ -941,9 +919,10 @@ export function HrShiftsWorkspace({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-200 border-collapse text-left text-sm">
+              <table className="w-full min-w-180 border-collapse text-left text-sm">
                 <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <tr>
+                    <th className="w-px whitespace-nowrap px-4 py-3">Shift code</th>
                     <th className="px-4 py-3">Shift</th>
                     <th className="px-4 py-3">Type</th>
                     <th className="px-4 py-3">Working hours</th>
@@ -959,16 +938,16 @@ export function HrShiftsWorkspace({
                       className={`cursor-pointer border-b border-border/70 transition-colors last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selected === s.id ? "bg-primary/5" : ""}`}
                       {...openRow(s)}
                     >
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-foreground">{s.name}</p>
-                        <p className="font-mono text-xs text-muted-foreground">{s.code}</p>
-                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold text-foreground">{s.code}</td>
+                      <td className="px-4 py-3 font-medium text-foreground">{s.name}</td>
                       <td className="px-4 py-3 text-muted-foreground">{title(s.kind)}</td>
                       <td className="px-4 py-3 text-muted-foreground">{shiftWindow(s)}</td>
                       <td className="px-4 py-3 text-muted-foreground">{s.time_zone ?? "Not configured"}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant={s.status === "active" ? "secondary" : "outline"}>{title(s.status)}</Badge>
+                          <Badge variant={s.status === "active" ? "secondary" : "outline"}>
+                            {s.status === "active" ? "Active" : "Deactivated"}
+                          </Badge>
                           {!s.configured && (
                             <span className="text-xs font-medium text-destructive">Configuration required</span>
                           )}
@@ -978,7 +957,7 @@ export function HrShiftsWorkspace({
                   ))}
                   {directory.items.length === 0 && (
                     <tr>
-                      <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
+                      <td className="px-4 py-8 text-center text-muted-foreground" colSpan={6}>
                         No shifts match this company, search and status. No sample shifts are substituted.
                       </td>
                     </tr>
@@ -1034,13 +1013,9 @@ export function HrShiftsWorkspace({
                 type="button"
                 variant="outline"
                 disabled={busy || !!editor || detailLoading}
-                onClick={() => {
-                  setEditor({ detail: current, copy: true });
-                  setError("");
-                }}
+                onClick={() => void changeStatus()}
               >
-                <Copy className="size-4" />
-                Copy to new shift
+                {busy ? "Saving…" : current.status === "active" ? "Deactivate" : "Reactivate"}
               </Button>
               <HrEditButton
                 label="Edit rules"
@@ -1084,8 +1059,7 @@ export function HrShiftsWorkspace({
               {current.rules_locked && (
                 <div className="flex gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
                   <ShieldCheck className="size-5 shrink-0 text-primary" />
-                  Assignments or rotation references protect these rules. Copy to a new code when the working
-                  arrangement changes.
+                  Assignments or rotation references lock these rules.
                 </div>
               )}
               <HrDetailGroup title="Details">
@@ -1177,7 +1151,7 @@ export function HrShiftsWorkspace({
                       </li>
                     ))}
                   </ol>
-                  <label className="grid gap-2 text-sm font-medium">
+                  <label className="grid content-start gap-2 text-sm font-medium">
                     Preview working date
                     <Input
                       type="date"
@@ -1191,42 +1165,6 @@ export function HrShiftsWorkspace({
                       ? `${hrDisplayDate(current.preview_date)}: ${current.resolved.code} · ${time(current.resolved.start_minute)}–${time(current.resolved.end_minute)}${current.resolved.end_minute >= 1440 ? " (following day)" : ""}`
                       : "Complete the cycle configuration before resolving a working date."}
                   </div>
-                </HrDetailSection>
-              )}
-              {canManage && (
-                <HrDetailSection title="Availability">
-                  <form
-                    className="grid gap-3"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void changeStatus();
-                    }}
-                  >
-                    <p className="text-sm text-muted-foreground">
-                      {title(current.status)}. Current/future assignments and active rotations must be moved before
-                      deactivation. Existing history is retained.
-                    </p>
-                    <label className="grid gap-2 text-sm font-medium">
-                      Status change reason
-                      <Textarea
-                        required
-                        minLength={8}
-                        maxLength={1000}
-                        rows={2}
-                        value={statusReason}
-                        disabled={busy || !!editor}
-                        onChange={(e) => setStatusReason(e.target.value)}
-                      />
-                    </label>
-                    <Button
-                      type="submit"
-                      variant="outline"
-                      className="justify-self-start"
-                      disabled={busy || !!editor || detailLoading || statusReason.trim().length < 8}
-                    >
-                      {current.status === "active" ? "Deactivate shift" : "Reactivate shift"}
-                    </Button>
-                  </form>
                 </HrDetailSection>
               )}
               <HrDetailSection title="Rule history">

@@ -145,11 +145,6 @@ export function HrSettlementBenefits({
     <section className={panel + " min-w-0 space-y-4"} aria-label="Company settlement benefits" data-settlement-benefits>
       <div>
         <h3 className="text-lg font-semibold">Company settlement benefits</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Calculate company gratuity, severance, notice and other contractual benefits by a single award, completed
-          service years or actual service days with approved policy factors. Rules require independent approval and a
-          signed policy reference. These settings do not determine statutory entitlement or make payment.
-        </p>
       </div>
       {(error || read.error) && (
         <p role="alert" className="rounded-lg border border-destructive p-3 text-sm text-destructive">
@@ -280,11 +275,6 @@ export function HrSettlementBenefits({
                           onChange={(e) => setReason(e.target.value)}
                         />
                       </Field>
-                      <p className="text-sm text-muted-foreground">
-                        Adding or refreshing replaces this benefit category in the draft. Review other manual lines to
-                        avoid counting the same obligation twice. Submission and independent approval recheck the
-                        retained source.
-                      </p>
                       <Button type="submit" disabled={busy || p.blockers.length > 0}>
                         Add or refresh benefit line
                       </Button>
@@ -295,13 +285,6 @@ export function HrSettlementBenefits({
             )}
           </TabsContent>
           <TabsContent value="rules" className="space-y-4 pt-3">
-            <p className="text-sm text-muted-foreground">
-              Maintain company defaults and country/regional policies for each benefit category. Approved dates cannot
-              overlap within the same scope. Country rules for a category use one consistent profile basis. Completed
-              years use calendar anniversaries; service-day rules calculate partial years from actual elapsed or
-              inclusive days and an explicit company divisor. Salary-derived rules use fixed monthly earning components.
-              Policy factors and effective dates require independent approval; no legal rate is assumed.
-            </p>
             {w.can_create_rule && !create && (
               <Button
                 variant="outline"
@@ -672,9 +655,6 @@ export function HrSettlementBenefits({
                 }}
               >
                 <h4 className="font-semibold">{titles[decision.action]}</h4>
-                <p className="text-sm text-muted-foreground">
-                  Review the rate, scope, dates and policy reference above. An author cannot approve their rule.
-                </p>
                 <Field title="Benefit rule decision reason">
                   <Textarea
                     required

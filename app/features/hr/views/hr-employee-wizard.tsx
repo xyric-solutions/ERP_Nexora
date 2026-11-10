@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Check, Eye, ExternalLink, FileUp, Plus, RefreshCw } from "lucide-react";
+import { BriefcaseBusiness, Check, Eye, ExternalLink, FileText, FileUp, Mail, Phone, Plus, RefreshCw, UserRound, type LucideIcon } from "lucide-react";
 import {
   hrEmployeeDirectStatuses,
   hrEmployeeDocumentFileTypes,
@@ -89,7 +89,10 @@ const emptyHistory = (): History => ({ company: "", position: "", startOn: "", e
 const documentTypeSuggestions = ["National ID", "Passport", "Resume / CV", "Educational certificate", "Experience letter", "Employment contract", "Medical certificate", "Other"];
 const acceptedFiles = hrEmployeeDocumentFileTypes.map((type) => `.${type.extension}`).join(",");
 const selectClass =
-  "h-9 w-full min-w-0 rounded-md border border-input bg-background px-2.5 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50";
+  "h-10 w-full min-w-0 rounded-[var(--nx-radius-md)] border border-input bg-card px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50";
+/** Currency half of the joined salary field: same as selectClass, squared on the right. */
+const currencySelectClass =
+  "h-10 w-full min-w-0 rounded-l-[var(--nx-radius-md)] border border-r-0 border-input bg-muted px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50";
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const rowKey = () => crypto.randomUUID();
 const failure = (error: unknown, fallback: string) => (error instanceof ApiError && error.message ? error.message : fallback);
@@ -98,20 +101,63 @@ const fileSize = (bytes?: number | null) =>
 const live = <T,>(rows: Row<T>[]) => rows.filter((row) => row.change !== "removed");
 const pendingCount = (rows: Row<unknown>[]) => rows.filter((row) => row.change !== "none").length;
 
-function Field({ label, children, hint, wide = false }: { label: string; children: ReactNode; hint?: string; wide?: boolean }) {
+function Field({ label, children, wide = false }: { label: string; children: ReactNode; wide?: boolean }) {
   return (
-    <label className={`grid min-w-0 gap-1.5 text-sm font-medium text-foreground ${wide ? "sm:col-span-2" : ""}`}>
+    <label className={`grid content-start min-w-0 gap-1.5 text-sm font-medium text-foreground ${wide ? "sm:col-span-2" : ""}`}>
       {label}
       {children}
-      {hint ? <span className="text-xs font-normal text-muted-foreground">{hint}</span> : null}
     </label>
+  );
+}
+
+/** Small state pill on a saved row; same tokens as HrStatusPill. */
+function RowPill({ tone, children }: { tone: "success" | "brand"; children: ReactNode }) {
+  const toneClass =
+    tone === "success"
+      ? "border-[var(--nx-success-border)] bg-[var(--nx-success-soft)] text-[var(--nx-success-text)]"
+      : "border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] text-[var(--nx-warning)]";
+  return <span className={`shrink-0 rounded-full border px-2 text-[11px] font-semibold leading-[18px] ${toneClass}`}>{children}</span>;
+}
+
+/** Two equal columns where every row is filled; one column on narrow screens. */
+const formGrid = "grid items-start gap-3.5 sm:grid-cols-2";
+
+/** A step section: uppercase title with a rule, an optional count, then its content. */
+function StepSection({ title, count, label, children }: { title: string; count?: number; label?: string; children: ReactNode }) {
+  return (
+    <section className="grid min-w-0 gap-3.5" aria-label={label ?? title}>
+      <h4 className="m-0! flex items-center gap-2.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground after:h-px after:flex-1 after:bg-border">
+        {title}
+        {count !== undefined ? (
+          <span className="rounded-full border border-border bg-muted px-1.5 text-[11px] font-semibold tracking-normal text-foreground tabular-nums">{count}</span>
+        ) : null}
+      </h4>
+      {children}
+    </section>
+  );
+}
+
+/** Heading of an inline add/edit form; spans both columns. */
+function FormHeading({ children }: { children: ReactNode }) {
+  return <p className="m-0! text-sm font-semibold text-foreground sm:col-span-2">{children}</p>;
+}
+
+/** Last row of an add form: an option on the left (if any), actions on the right. */
+function FormEnd({ start, children }: { start?: ReactNode; children: ReactNode }) {
+  return (
+    <div className={`flex flex-wrap items-center gap-x-4 gap-y-2.5 sm:col-span-2 ${start ? "justify-between" : "justify-end"}`}>
+      {start}
+      <div className="flex flex-wrap items-center gap-2">{children}</div>
+    </div>
   );
 }
 
 /** A saved or pending row with its edit/delete icons at the end. */
 function ItemRow({
+  icon: Icon,
   title,
   detail,
+  primary = false,
   change,
   error,
   onEdit,
@@ -120,8 +166,10 @@ function ItemRow({
   extra,
   disabled,
 }: {
+  icon: LucideIcon;
   title: string;
   detail: string;
+  primary?: boolean;
   change: Row<unknown>["change"];
   error?: string;
   onEdit?: () => void;
@@ -131,14 +179,20 @@ function ItemRow({
   disabled: boolean;
 }) {
   return (
-    <li className={`grid gap-1 border-b border-border/70 py-2 last:border-b-0 ${change === "removed" ? "opacity-60" : ""}`}>
-      <div className="flex min-w-0 items-center gap-2">
+    <li className={`grid gap-1 border-b border-border py-2.5 last:border-b-0 ${change === "removed" ? "opacity-60" : ""}`}>
+      <div className="flex min-w-0 items-center gap-3">
+        <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-muted text-muted-foreground">
+          <Icon className="size-4" />
+        </span>
         <div className="min-w-0 flex-1">
-          <p className={`m-0! truncate text-sm font-medium ${change === "removed" ? "line-through" : ""}`}>{title}</p>
-          <p className="m-0! truncate text-xs text-muted-foreground">{detail}</p>
+          <p className={`m-0! truncate text-sm font-semibold ${change === "removed" ? "line-through" : ""}`}>{title}</p>
+          <p className="m-0! flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+            <span className="min-w-0 truncate">{detail}</span>
+            {primary ? <RowPill tone="success">Primary</RowPill> : null}
+            {change === "new" ? <RowPill tone="brand">Not saved</RowPill> : null}
+            {change === "edited" ? <RowPill tone="brand">Edited</RowPill> : null}
+          </p>
         </div>
-        {change === "new" ? <Badge variant="secondary">Not saved</Badge> : null}
-        {change === "edited" ? <Badge variant="secondary">Edited</Badge> : null}
         {extra}
         {change === "removed" ? (
           <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={onUndo}>
@@ -628,9 +682,6 @@ export function HrEmployeeWizard({
 
   const footer = (
     <>
-      <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
-        Cancel
-      </Button>
       <Button type="button" variant="outline" disabled={busy || step === 0} onClick={() => goTo(step - 1)}>
         Previous
       </Button>
@@ -662,30 +713,38 @@ export function HrEmployeeWizard({
         </div>
       ) : (
         <div className="grid gap-4">
-          <div className="grid gap-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-            <Field label="Employee number">
-              <Input value={employeeNumber || "Generated on create"} readOnly disabled aria-readonly className="font-mono" />
-            </Field>
-            {mode.kind !== "create" ? (
-              <Badge variant="outline" className="justify-self-start sm:mb-2">
-                {mode.kind === "draft" ? "Draft" : "Approved employee"}
-              </Badge>
-            ) : null}
+          <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
+            <span>Employee number</span>
+            <span aria-readonly className="rounded-md border border-border bg-muted px-2 py-0.5 font-mono text-[12.5px] font-semibold text-foreground">
+              {employeeNumber || "Generated on create"}
+            </span>
+            {mode.kind !== "create" ? <Badge variant="outline">{mode.kind === "draft" ? "Draft" : "Approved employee"}</Badge> : null}
           </div>
-          <ol className="m-0! grid list-none grid-cols-4 gap-1 border-b border-border p-0! pb-2" aria-label="Steps">
+          <ol className="-mx-6! my-0! grid list-none grid-cols-4 border-y border-border px-6! py-3.5!" aria-label="Steps">
             {steps.map((label, index) => (
-              <li key={label} className="min-w-0">
+              <li
+                key={label}
+                className={`relative min-w-0 ${index ? `before:absolute before:top-[15px] before:right-[calc(50%+18px)] before:left-[calc(-50%+18px)] before:h-0.5 before:rounded-full ${index <= step ? "before:bg-primary" : "before:bg-border"}` : ""}`}
+              >
                 <button
                   type="button"
                   disabled={busy}
                   aria-current={index === step ? "step" : undefined}
                   onClick={() => goTo(index)}
-                  className={`grid w-full min-w-0 justify-items-center gap-1 rounded-md px-1 py-1.5 text-center text-[11px] leading-tight transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${index === step ? "bg-primary/10 font-semibold text-primary" : "text-muted-foreground hover:bg-muted"}`}
+                  className={`group grid w-full min-w-0 cursor-pointer appearance-none justify-items-center gap-1.5 rounded-md border-0 bg-transparent p-0 text-center font-sans text-[12px]! leading-tight! focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-60 ${index === step ? "font-semibold! text-foreground" : "font-normal! text-muted-foreground"}`}
                 >
-                  <span className={`grid size-6 place-items-center rounded-full border text-xs ${index < step ? "border-primary bg-primary text-primary-foreground" : index === step ? "border-primary" : "border-border"}`}>
+                  <span
+                    className={`relative z-10 grid size-[30px] place-items-center rounded-full border-[1.5px] border-solid text-[12.5px] font-semibold transition group-hover:border-primary ${
+                      index < step
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : index === step
+                          ? "border-primary bg-card text-foreground ring-4 ring-[var(--nx-brand-soft)]"
+                          : "border-[var(--nx-border-strong)] bg-card text-muted-foreground"
+                    }`}
+                  >
                     {index < step ? <Check className="size-3.5" /> : index + 1}
                   </span>
-                  <span className="hidden sm:block">{label}</span>
+                  <span className="hidden whitespace-nowrap sm:block">{label}</span>
                 </button>
               </li>
             ))}
@@ -699,8 +758,8 @@ export function HrEmployeeWizard({
 
           {step === 0 ? (
             profileEditable ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Company" wide>
+              <div className={formGrid}>
+                <Field label="Company">
                   <select
                     className={selectClass}
                     disabled={busy || mode.kind !== "create"}
@@ -713,6 +772,9 @@ export function HrEmployeeWizard({
                       </option>
                     ))}
                   </select>
+                </Field>
+                <Field label="Joining date">
+                  <Input required type="date" disabled={busy} value={basic.joinedOn} onChange={(event) => setBasic({ ...basic, joinedOn: event.target.value })} />
                 </Field>
                 <Field label="First name">
                   <Input required maxLength={100} disabled={busy} value={basic.firstName} onChange={(event) => setBasic({ ...basic, firstName: event.target.value })} />
@@ -732,9 +794,6 @@ export function HrEmployeeWizard({
                 <Field label="Phone number">
                   <Input maxLength={40} disabled={busy} value={basic.phone} onChange={(event) => setBasic({ ...basic, phone: event.target.value })} />
                 </Field>
-                <Field label="Joining date">
-                  <Input required type="date" disabled={busy} value={basic.joinedOn} onChange={(event) => setBasic({ ...basic, joinedOn: event.target.value })} />
-                </Field>
               </div>
             ) : (
               <div className="grid gap-3">
@@ -748,7 +807,7 @@ export function HrEmployeeWizard({
                     ["Company", companies.find((company) => company.id === basic.companyId)?.name ?? ""],
                     ...(statusEditable ? [] : [["Status", savedStatus.replaceAll("_", " ")]]),
                   ].map(([label, value]) => (
-                    <div key={label} className="grid grid-cols-[minmax(7.5rem,36%)_minmax(0,1fr)] gap-3 border-b border-border/70 py-2 last:border-b-0">
+                    <div key={label} className="grid grid-cols-[minmax(7.5rem,36%)_minmax(0,1fr)] gap-3 py-2">
                       <dt className="text-xs text-muted-foreground">{label}</dt>
                       <dd className="m-0! text-sm font-medium">{value || "Not recorded"}</dd>
                     </div>
@@ -770,13 +829,15 @@ export function HrEmployeeWizard({
           ) : null}
 
           {step === 1 ? (
-            <div className="grid gap-3">
+            <StepSection title="Contacts" count={contacts.length}>
               <StepList rows={contacts} empty="No additional contacts yet.">
                 {(row) => (
                   <ItemRow
                     key={row.key}
+                    icon={row.value.channel === "email" ? Mail : Phone}
                     title={row.value.value}
-                    detail={`${row.value.channel === "email" ? "Email" : "Phone"} · ${row.value.usage}${row.value.label ? ` · ${row.value.label}` : ""}${row.value.primary ? " · Primary" : ""}`}
+                    detail={`${row.value.channel === "email" ? "Email" : "Phone"} · ${row.value.usage.charAt(0).toUpperCase()}${row.value.usage.slice(1)}${row.value.label ? ` · ${row.value.label}` : ""}`}
+                    primary={row.value.primary}
                     change={row.change}
                     error={row.error}
                     disabled={busy || contactsReadOnly}
@@ -787,16 +848,35 @@ export function HrEmployeeWizard({
                 )}
               </StepList>
               {!contactsReadOnly ? (
-                <fieldset className="m-0! grid gap-3 rounded-lg bg-muted/30 p-3 sm:grid-cols-2">
-                  <legend className="float-left mb-1 w-full p-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {contactForm.key ? "Edit contact" : "Add contact"}
-                  </legend>
-                  <Field label="Type">
-                    <select className={selectClass} value={contactForm.value.channel} onChange={(event) => setContactForm({ ...contactForm, value: { ...contactForm.value, channel: event.target.value as Contact["channel"] } })}>
-                      <option value="phone">Phone</option>
-                      <option value="email">Email</option>
-                    </select>
-                  </Field>
+                <div className={formGrid} role="group" aria-label={contactForm.key ? "Edit contact" : "Add contact"}>
+                  <FormHeading>{contactForm.key ? "Edit contact" : "Add contact"}</FormHeading>
+                  <div className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground">
+                    <span id="hr-wizard-contact-type">Type</span>
+                    <div role="radiogroup" aria-labelledby="hr-wizard-contact-type" className="grid h-10 grid-cols-2 rounded-[10px] border border-input bg-muted p-[3px]">
+                      {(
+                        [
+                          ["phone", "Phone", Phone],
+                          ["email", "Email", Mail],
+                        ] as const
+                      ).map(([value, text, Icon]) => {
+                        const on = contactForm.value.channel === value;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            role="radio"
+                            aria-checked={on}
+                            disabled={busy}
+                            onClick={() => setContactForm({ ...contactForm, value: { ...contactForm.value, channel: value } })}
+                            className={`inline-flex cursor-pointer appearance-none items-center justify-center gap-1.5 rounded-[7px] border-0 p-0 font-sans text-sm! transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${on ? "bg-card font-semibold! text-foreground shadow-sm" : "bg-transparent font-medium! text-muted-foreground hover:text-foreground"}`}
+                          >
+                            <Icon className="size-3.5" />
+                            {text}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <Field label="Usage">
                     <select className={selectClass} value={contactForm.value.usage} onChange={(event) => setContactForm({ ...contactForm, value: { ...contactForm.value, usage: event.target.value as Contact["usage"] } })}>
                       <option value="personal">Personal</option>
@@ -810,11 +890,19 @@ export function HrEmployeeWizard({
                   <Field label="Label">
                     <Input maxLength={100} placeholder="Mobile, home, LinkedIn…" value={contactForm.value.label} onChange={(event) => setContactForm({ ...contactForm, value: { ...contactForm.value, label: event.target.value } })} />
                   </Field>
-                  <label htmlFor="hr-wizard-contact-primary" className="flex items-center gap-2 text-sm sm:col-span-2">
-                    <Checkbox id="hr-wizard-contact-primary" checked={contactForm.value.primary} onCheckedChange={(checked) => setContactForm({ ...contactForm, value: { ...contactForm.value, primary: Boolean(checked) } })} />
-                    Primary contact of this type
-                  </label>
-                  <div className="flex flex-wrap gap-2 sm:col-span-2">
+                  <FormEnd
+                    start={
+                      <label htmlFor="hr-wizard-contact-primary" className="flex items-center gap-2 text-sm">
+                        <Checkbox id="hr-wizard-contact-primary" checked={contactForm.value.primary} onCheckedChange={(checked) => setContactForm({ ...contactForm, value: { ...contactForm.value, primary: Boolean(checked) } })} />
+                        Primary contact of this type
+                      </label>
+                    }
+                  >
+                    {contactForm.key ? (
+                      <Button type="button" variant="ghost" onClick={() => setContactForm({ value: emptyContact() })}>
+                        Cancel edit
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="outline"
@@ -827,27 +915,22 @@ export function HrEmployeeWizard({
                       <Plus className="size-4" />
                       {contactForm.key ? "Update contact" : "Add contact"}
                     </Button>
-                    {contactForm.key ? (
-                      <Button type="button" variant="ghost" onClick={() => setContactForm({ value: emptyContact() })}>
-                        Cancel edit
-                      </Button>
-                    ) : null}
-                  </div>
-                </fieldset>
+                  </FormEnd>
+                </div>
               ) : null}
-            </div>
+            </StepSection>
           ) : null}
 
           {step === 1 ? (
-            <section className="grid gap-3 border-t border-border pt-4" aria-label="Emergency contacts">
-              <h4 className="m-0! text-xs font-semibold uppercase tracking-wide text-muted-foreground">Emergency contacts</h4>
-            <div className="grid gap-3">
+            <StepSection title="Emergency contacts" count={emergency.length}>
               <StepList rows={emergency} empty="No emergency contacts yet.">
                 {(row) => (
                   <ItemRow
                     key={row.key}
+                    icon={UserRound}
                     title={row.value.name}
-                    detail={`${row.value.relationship} · ${row.value.phone}${row.value.email ? ` · ${row.value.email}` : ""}${row.value.primary ? " · Primary" : ""}`}
+                    detail={`${row.value.relationship} · ${row.value.phone}${row.value.email ? ` · ${row.value.email}` : ""}`}
+                    primary={row.value.primary}
                     change={row.change}
                     error={row.error}
                     disabled={busy || emergencyReadOnly}
@@ -858,10 +941,8 @@ export function HrEmployeeWizard({
                 )}
               </StepList>
               {!emergencyReadOnly ? (
-                <fieldset className="m-0! grid gap-3 rounded-lg bg-muted/30 p-3 sm:grid-cols-2">
-                  <legend className="float-left mb-1 w-full p-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {emergencyForm.key ? "Edit emergency contact" : "Add emergency contact"}
-                  </legend>
+                <div className={formGrid} role="group" aria-label={emergencyForm.key ? "Edit emergency contact" : "Add emergency contact"}>
+                  <FormHeading>{emergencyForm.key ? "Edit emergency contact" : "Add emergency contact"}</FormHeading>
                   <Field label="Contact name">
                     <Input maxLength={160} value={emergencyForm.value.name} onChange={(event) => setEmergencyForm({ ...emergencyForm, value: { ...emergencyForm.value, name: event.target.value } })} />
                   </Field>
@@ -879,11 +960,19 @@ export function HrEmployeeWizard({
                   <Field label="Email">
                     <Input maxLength={320} type="email" value={emergencyForm.value.email} onChange={(event) => setEmergencyForm({ ...emergencyForm, value: { ...emergencyForm.value, email: event.target.value } })} />
                   </Field>
-                  <label htmlFor="hr-wizard-emergency-primary" className="flex items-center gap-2 text-sm sm:col-span-2">
-                    <Checkbox id="hr-wizard-emergency-primary" checked={emergencyForm.value.primary} onCheckedChange={(checked) => setEmergencyForm({ ...emergencyForm, value: { ...emergencyForm.value, primary: Boolean(checked) } })} />
-                    Primary emergency contact
-                  </label>
-                  <div className="flex flex-wrap gap-2 sm:col-span-2">
+                  <FormEnd
+                    start={
+                      <label htmlFor="hr-wizard-emergency-primary" className="flex items-center gap-2 text-sm">
+                        <Checkbox id="hr-wizard-emergency-primary" checked={emergencyForm.value.primary} onCheckedChange={(checked) => setEmergencyForm({ ...emergencyForm, value: { ...emergencyForm.value, primary: Boolean(checked) } })} />
+                        Primary emergency contact
+                      </label>
+                    }
+                  >
+                    {emergencyForm.key ? (
+                      <Button type="button" variant="ghost" onClick={() => setEmergencyForm({ value: emptyEmergency() })}>
+                        Cancel edit
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="outline"
@@ -902,20 +991,14 @@ export function HrEmployeeWizard({
                       <Plus className="size-4" />
                       {emergencyForm.key ? "Update emergency contact" : "Add emergency contact"}
                     </Button>
-                    {emergencyForm.key ? (
-                      <Button type="button" variant="ghost" onClick={() => setEmergencyForm({ value: emptyEmergency() })}>
-                        Cancel edit
-                      </Button>
-                    ) : null}
-                  </div>
-                </fieldset>
+                  </FormEnd>
+                </div>
               ) : null}
-            </div>
-            </section>
+            </StepSection>
           ) : null}
 
           {step === 2 ? (
-            <div className="grid gap-3">
+            <StepSection title="Documents" count={documents.length}>
               <input
                 ref={replaceInput}
                 type="file"
@@ -944,6 +1027,7 @@ export function HrEmployeeWizard({
                 {(row) => (
                   <ItemRow
                     key={row.key}
+                    icon={FileText}
                     title={row.value.title}
                     detail={`${row.value.type}${row.value.fileName ? ` · ${row.value.fileName}` : ""}${row.value.sizeBytes ? ` · ${fileSize(row.value.sizeBytes)}` : ""}${row.value.expiresOn ? ` · expires ${row.value.expiresOn}` : ""}`}
                     change={row.change}
@@ -993,12 +1077,12 @@ export function HrEmployeeWizard({
               </StepList>
               <DocumentPreview source={preview} onClose={() => setPreview(null)} />
               {!readOnlyRecords ? (
-                <fieldset className="m-0! grid gap-3 rounded-lg bg-muted/30 p-3 sm:grid-cols-2">
-                  <legend className="float-left mb-1 w-full p-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {documentForm.key ? "Edit document" : "Upload document"}
-                  </legend>
-                  <Field label="File" wide hint="PDF, HTML, JPEG, PNG, JSON, CSV or text · up to 10 MB">
-                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <div className={formGrid} role="group" aria-label={documentForm.key ? "Edit document" : "Upload document"}>
+                  <FormHeading>{documentForm.key ? "Edit document" : "Upload document"}</FormHeading>
+                  <div className="flex min-w-0 items-center gap-3 rounded-[10px] bg-muted p-3 sm:col-span-2">
+                      <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-background text-muted-foreground">
+                        <FileUp className="size-4" />
+                      </span>
                       <input
                         ref={fileInput}
                         type="file"
@@ -1027,15 +1111,13 @@ export function HrEmployeeWizard({
                           });
                         }}
                       />
-                      <Button type="button" variant="outline" disabled={busy} onClick={() => fileInput.current?.click()}>
-                        <FileUp className="size-4" />
-                        {documentForm.value.fileName ? "Choose another file" : "Choose file"}
-                      </Button>
-                      <span className="min-w-0 truncate text-xs text-muted-foreground">
+                      <span className={`min-w-0 flex-1 truncate text-sm ${documentForm.value.fileName ? "font-medium text-foreground" : "text-muted-foreground"}`}>
                         {documentForm.value.fileName ? `${documentForm.value.fileName} · ${fileSize(documentForm.value.sizeBytes)}` : "No file chosen"}
                       </span>
-                    </div>
-                  </Field>
+                      <Button type="button" variant="outline" disabled={busy} onClick={() => fileInput.current?.click()}>
+                        {documentForm.value.fileName ? "Choose another file" : "Choose file"}
+                      </Button>
+                  </div>
                   <Field label="Document type">
                     <Input maxLength={80} list="hr-document-types" value={documentForm.value.type} onChange={(event) => setDocumentForm({ ...documentForm, value: { ...documentForm.value, type: event.target.value } })} />
                     <datalist id="hr-document-types">
@@ -1053,7 +1135,12 @@ export function HrEmployeeWizard({
                   <Field label="Expiry date">
                     <Input type="date" value={documentForm.value.expiresOn} onChange={(event) => setDocumentForm({ ...documentForm, value: { ...documentForm.value, expiresOn: event.target.value } })} />
                   </Field>
-                  <div className="flex flex-wrap gap-2 sm:col-span-2">
+                  <FormEnd>
+                    {documentForm.key ? (
+                      <Button type="button" variant="ghost" onClick={() => setDocumentForm({ value: emptyDocument() })}>
+                        Cancel edit
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="outline"
@@ -1066,23 +1153,19 @@ export function HrEmployeeWizard({
                       <Plus className="size-4" />
                       {documentForm.key ? "Update document" : "Add document"}
                     </Button>
-                    {documentForm.key ? (
-                      <Button type="button" variant="ghost" onClick={() => setDocumentForm({ value: emptyDocument() })}>
-                        Cancel edit
-                      </Button>
-                    ) : null}
-                  </div>
-                </fieldset>
+                  </FormEnd>
+                </div>
               ) : null}
-            </div>
+            </StepSection>
           ) : null}
 
           {step === 3 ? (
-            <div className="grid gap-3">
+            <StepSection title="Previous employment" count={history.length}>
               <StepList rows={history} empty="No previous employment yet.">
                 {(row) => (
                   <ItemRow
                     key={row.key}
+                    icon={BriefcaseBusiness}
                     title={`${row.value.position} · ${row.value.company}`}
                     detail={`${row.value.startOn} – ${row.value.endOn || "present"}${row.value.salary ? ` · ${row.value.currency} ${row.value.salary}` : ""}${row.value.skills ? ` · ${row.value.skills}` : ""}`}
                     change={row.change}
@@ -1095,10 +1178,8 @@ export function HrEmployeeWizard({
                 )}
               </StepList>
               {!readOnlyRecords ? (
-                <fieldset className="m-0! grid gap-3 rounded-lg bg-muted/30 p-3 sm:grid-cols-2">
-                  <legend className="float-left mb-1 w-full p-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {historyForm.key ? "Edit previous employment" : "Add previous employment"}
-                  </legend>
+                <div className={formGrid} role="group" aria-label={historyForm.key ? "Edit previous employment" : "Add previous employment"}>
+                  <FormHeading>{historyForm.key ? "Edit previous employment" : "Add previous employment"}</FormHeading>
                   <Field label="Previous company">
                     <Input maxLength={200} value={historyForm.value.company} onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, company: event.target.value } })} />
                   </Field>
@@ -1108,24 +1189,36 @@ export function HrEmployeeWizard({
                   <Field label="Start date">
                     <Input type="date" value={historyForm.value.startOn} onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, startOn: event.target.value } })} />
                   </Field>
-                  <Field label="End date" hint="Leave empty if the role is current.">
+                  <Field label="End date">
                     <Input type="date" min={historyForm.value.startOn || undefined} value={historyForm.value.endOn} onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, endOn: event.target.value } })} />
                   </Field>
-                  <Field label="Skills" wide hint="Separate skills with commas.">
+                  <div className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground">
+                    <span id="hr-wizard-history-salary">Previous salary</span>
+                    <div className="grid min-w-0 grid-cols-[7.5rem_minmax(0,1fr)]">
+                      <select
+                        aria-label="Salary currency"
+                        className={currencySelectClass}
+                        value={historyForm.value.currency}
+                        onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, currency: event.target.value } })}
+                      >
+                        <option value="">{currencies.length ? "Currency" : "None"}</option>
+                        {[...new Set([...currencies, ...(historyForm.value.currency ? [historyForm.value.currency] : [])])].map((code) => (
+                          <option key={code} value={code}>
+                            {code}
+                          </option>
+                        ))}
+                      </select>
+                      <Input
+                        aria-labelledby="hr-wizard-history-salary"
+                        inputMode="decimal"
+                        className="rounded-l-none"
+                        value={historyForm.value.salary}
+                        onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, salary: event.target.value } })}
+                      />
+                    </div>
+                  </div>
+                  <Field label="Skills">
                     <Input value={historyForm.value.skills} onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, skills: event.target.value } })} />
-                  </Field>
-                  <Field label="Previous salary">
-                    <Input inputMode="decimal" value={historyForm.value.salary} onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, salary: event.target.value } })} />
-                  </Field>
-                  <Field label="Salary currency">
-                    <select className={selectClass} value={historyForm.value.currency} onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, currency: event.target.value } })}>
-                      <option value="">{currencies.length ? "Select" : "No company currencies"}</option>
-                      {[...new Set([...currencies, ...(historyForm.value.currency ? [historyForm.value.currency] : [])])].map((code) => (
-                        <option key={code} value={code}>
-                          {code}
-                        </option>
-                      ))}
-                    </select>
                   </Field>
                   <Field label="Responsibilities and experience" wide>
                     <Textarea maxLength={2000} value={historyForm.value.responsibilities} onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, responsibilities: event.target.value } })} />
@@ -1133,7 +1226,12 @@ export function HrEmployeeWizard({
                   <Field label="Reason for leaving" wide>
                     <Input maxLength={500} value={historyForm.value.reasonForLeaving} onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, reasonForLeaving: event.target.value } })} />
                   </Field>
-                  <div className="flex flex-wrap gap-2 sm:col-span-2">
+                  <FormEnd>
+                    {historyForm.key ? (
+                      <Button type="button" variant="ghost" onClick={() => setHistoryForm({ value: emptyHistory() })}>
+                        Cancel edit
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="outline"
@@ -1151,17 +1249,12 @@ export function HrEmployeeWizard({
                       }}
                     >
                       <Plus className="size-4" />
-                      {historyForm.key ? "Update entry" : "Add entry"}
+                      {historyForm.key ? "Update previous employment" : "Add previous employment"}
                     </Button>
-                    {historyForm.key ? (
-                      <Button type="button" variant="ghost" onClick={() => setHistoryForm({ value: emptyHistory() })}>
-                        Cancel edit
-                      </Button>
-                    ) : null}
-                  </div>
-                </fieldset>
+                  </FormEnd>
+                </div>
               ) : null}
-            </div>
+            </StepSection>
           ) : null}
         </div>
       )}

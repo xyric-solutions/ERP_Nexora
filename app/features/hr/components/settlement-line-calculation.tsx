@@ -74,9 +74,7 @@ export function SettlementLineCalculation({
             {calc.rate_multiplier || calc.rate_divisor
               ? " × " + (calc.rate_multiplier ?? 1) + " ÷ " + (calc.rate_divisor ?? 1)
               : ""}
-            , rounded half up once to the smallest currency unit. Record the approved policy, eligible days or service
-            period and rate source below. This calculator does not determine legal entitlement or consume a leave
-            balance.
+            , rounded half up once to the smallest currency unit.
           </p>
         </>
       )}

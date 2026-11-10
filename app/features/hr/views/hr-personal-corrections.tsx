@@ -2,13 +2,12 @@
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useRef, useState } from "react";
-import { ClipboardCheck, RefreshCw, UserRound } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useSession } from "@/lib/session/session-provider";
 import {
   createHrPersonalCorrectionSchema,
@@ -20,8 +19,6 @@ import {
 } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
 import { Field, State, panel, useAttendanceRead } from "../components/hr-workspace-controls";
-import { HrCompanyScope } from "../components/hr-company-scope";
-import { HrEmployeeApprovalsWorkspace } from "./hr-employee-approvals-workspace";
 const fields: [keyof HrPersonalProfile, string][] = [
   ["first_name", "First name"],
   ["middle_name", "Middle name"],
@@ -143,10 +140,12 @@ export function HrPersonalCorrections({
               : "Compare the submitted profile and proposal, verify supporting information and record an independent decision."}
           </p>
         </div>
-        <Button type="button" variant="outline" disabled={busy} onClick={() => setRevision((v) => v + 1)}>
-          <RefreshCw className="size-4" />
-          {read.error ? "Retry corrections" : "Refresh corrections"}
-        </Button>
+        {read.error ? (
+          <Button type="button" variant="outline" disabled={busy} onClick={() => setRevision((v) => v + 1)}>
+            <RefreshCw className="size-4" />
+            Retry corrections
+          </Button>
+        ) : null}
       </div>
       {(error || read.error) && (
         <Alert variant="destructive">
@@ -183,10 +182,6 @@ export function HrPersonalCorrections({
           >
             Request a personal data correction
           </Button>
-          <p className="mt-3 text-xs text-muted-foreground">
-            One request can be pending for an employee at a time. Work email, login, employee number, assignments, bank
-            and tax information use their separate governed workflows.
-          </p>
         </div>
       )}
       {edit && (
@@ -414,53 +409,5 @@ export function HrPersonalCorrections({
         </form>
       </HrRecordDrawer>
     </section>
-  );
-}
-const approvalAreas = [
-  {
-    value: "employee",
-    label: "Employee approvals",
-    hint: "Drafts, hires, movements and placement changes",
-    icon: ClipboardCheck,
-  },
-  {
-    value: "corrections",
-    label: "Personal data corrections",
-    hint: "Employee-requested changes to personal details",
-    icon: UserRound,
-  },
-] as const;
-
-export function HrPeopleApprovalsWorkspace({ onAction }: { onAction: (action: string, subject?: string) => void }) {
-  const [busy, setBusy] = useState(false);
-  return (
-    <Tabs defaultValue="employee">
-      <TabsList className="grid h-auto! w-full grid-cols-1 gap-2 bg-transparent! p-0! sm:grid-cols-2">
-        {approvalAreas.map((area) => (
-          <TabsTrigger
-            key={area.value}
-            value={area.value}
-            disabled={busy}
-            className="h-auto! justify-start gap-3 rounded-xl! border-border! bg-card! px-4 py-3 text-left whitespace-normal text-foreground! shadow-sm hover:border-primary/50! data-active:border-primary! data-active:bg-primary/10! data-active:text-primary! after:hidden"
-          >
-            <area.icon className="size-5! shrink-0 text-primary" aria-hidden="true" />
-            <span className="grid min-w-0 gap-0.5">
-              <span className="text-sm font-semibold">{area.label}</span>
-              <span className="text-xs font-normal text-muted-foreground">{area.hint}</span>
-            </span>
-          </TabsTrigger>
-        ))}
-      </TabsList>
-      <TabsContent value="employee">
-        <HrEmployeeApprovalsWorkspace onAction={onAction} />
-      </TabsContent>
-      <TabsContent value="corrections">
-        <div className="mt-4">
-          <HrCompanyScope disabled={busy}>
-            {(company) => <HrPersonalCorrections company={company} mode="review" onBusy={setBusy} />}
-          </HrCompanyScope>
-        </div>
-      </TabsContent>
-    </Tabs>
   );
 }

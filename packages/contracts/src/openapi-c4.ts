@@ -122,6 +122,7 @@ import {
   createHrOvertimeRequestSchema,
   hrOvertimeRuleRequestSchema,
   hrOvertimeActionRequestSchema,
+  replaceHrOvertimeRequestSchema,
   hrAttendancePeriodQuerySchema,
   hrAttendancePeriodActionRequestSchema,
   hrOvertimeDirectorySchema,
@@ -3649,6 +3650,31 @@ export function buildOpenApiDocument() {
           requestBody: {
             required: true,
             content: { "application/json": { schema: { $ref: "#/components/schemas/HrOvertimeRuleRequest" } } },
+          },
+        },
+      },
+      "/hr/attendance_overtime/{recordId}/replace": {
+        post: {
+          operationId: "attendanceReplaceOvertime",
+          summary: "Edit a draft overtime request (cancels the draft and creates the corrected draft atomically)",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          responses: {
+            ...securityErrors,
+            "200": {
+              description: "HrAttendanceCompletionResult",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrAttendanceCompletionResult" } },
+              },
+            },
+          },
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ReplaceHrOvertimeRequest" } } },
           },
         },
       },
@@ -7762,6 +7788,7 @@ export function buildOpenApiDocument() {
         CreateHrOvertimeRequest: schema(createHrOvertimeRequestSchema),
         HrOvertimeRuleRequest: schema(hrOvertimeRuleRequestSchema),
         HrOvertimeActionRequest: schema(hrOvertimeActionRequestSchema),
+        ReplaceHrOvertimeRequest: schema(replaceHrOvertimeRequestSchema),
         HrAttendancePeriodQuery: schema(hrAttendancePeriodQuerySchema),
         HrAttendancePeriodActionRequest: schema(hrAttendancePeriodActionRequestSchema),
         HrOvertimeDirectory: schema(hrOvertimeDirectorySchema),

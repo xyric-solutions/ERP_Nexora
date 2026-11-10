@@ -1,15 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Building2, ClipboardCheck, FileClock, RefreshCw, UserPlus, Users, Workflow } from "lucide-react";
+import { Building2, ChevronRight, ClipboardCheck, FileClock, UserPlus, Users, Workflow } from "lucide-react";
 import type { HrDashboardSummary } from "@nexora/contracts";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrStatusPill, hrDisplayDate } from "../components/hr-detail-tile";
+import { HrCompanySelect, HrInlineBar, HrInsightHeader, HrStatTile } from "../components/hr-stat-tile";
 
 type Navigate = (moduleId: string, pageId: string) => void;
 
@@ -36,7 +37,7 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
         if (currentRequest === requestId.current) setSummary(result);
       } catch {
         if (currentRequest === requestId.current)
-          setError("The HR summary could not be loaded. Try refreshing this company.");
+          setError("The HR summary could not be loaded. Reload the page to try again.");
       } finally {
         if (currentRequest === requestId.current) setLoading(false);
       }
@@ -86,60 +87,32 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
 
   const metrics = summary?.metrics;
   const cards = [
-    ["Active headcount", metrics?.active_headcount ?? 0, "Current effective assignments", "employees"],
-    ["Draft profiles", metrics?.draft_profiles ?? 0, "Profiles still being prepared", "employee-drafts"],
-    [
-      "Pending approvals",
-      metrics?.pending_employee_approvals ?? 0,
-      "Employee records awaiting review",
-      "employee-approvals",
-    ],
-    ["Pending movements", metrics?.pending_movements ?? 0, "Hire and assignment changes", "employee-approvals"],
-    ["Active departments", metrics?.active_departments ?? 0, "Within the selected company", "org-structure"],
-    ["Recent joiners", metrics?.recent_joiners ?? 0, "Joined in the last 90 days", "employees"],
+    ["Active headcount", metrics?.active_headcount ?? 0, "Current effective assignments", "employees", Users],
+    ["Draft profiles", metrics?.draft_profiles ?? 0, "Still being prepared", "employee-drafts", FileClock],
+    ["Pending approvals", metrics?.pending_employee_approvals ?? 0, "Awaiting review", "employee-approvals", ClipboardCheck],
+    ["Pending movements", metrics?.pending_movements ?? 0, "Hire and assignment changes", "employee-approvals", Workflow],
+    ["Active departments", metrics?.active_departments ?? 0, "In this company", "org-structure", Building2],
+    ["Recent joiners", metrics?.recent_joiners ?? 0, "Last 90 days", "employees", UserPlus],
   ] as const;
-  const distributionTotal = summary?.status_distribution.reduce((total, item) => total + item.count, 0) ?? 0;
-  const icons = [Users, FileClock, ClipboardCheck, Workflow, Building2, UserPlus];
+  const distribution = summary?.status_distribution ?? [];
+  const distributionTotal = distribution.reduce((total, item) => total + item.count, 0);
+  const distributionMax = Math.max(0, ...distribution.map((item) => item.count));
+  const share = (count: number) => (distributionTotal ? (count / distributionTotal) * 100 : 0);
 
   return (
-    <section className="grid min-w-0 gap-5 [&_h1]:mb-0! [&_h2]:mb-0! [&_p]:mb-0!" aria-label="HR Dashboard">
-      <header className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-4 sm:p-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              People & workforce
-            </span>
-            <Badge variant="outline">Live</Badge>
-          </div>
-          <h1 className="mt-1 text-3xl font-semibold">HR Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Your workforce at a glance. Review priorities and keep people moving.
-          </p>
-        </div>
-        <div className="flex min-w-0 w-full flex-wrap items-end gap-2 sm:w-auto">
-          <label className="grid min-w-0 w-full gap-1 text-sm font-medium sm:w-64">
-            Company
-            <select
-              className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-              value={companyId}
-              onChange={(event) => {
-                setCompanyId(event.target.value);
-                void load(event.target.value);
-              }}
-            >
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Button variant="outline" disabled={loading || !companyId} onClick={() => void load(companyId)}>
-            <RefreshCw className={loading ? "animate-spin" : ""} />
-            {loading ? "Refreshing..." : "Refresh"}
-          </Button>
-        </div>
-      </header>
+    <section className="grid min-w-0 gap-4" aria-label="HR Dashboard">
+      <HrInsightHeader eyebrow="People & workforce" title="HR Dashboard">
+        <HrCompanySelect
+          id="hr-dashboard-company"
+          value={companyId}
+          companies={companies}
+          disabled={loading}
+          onChange={(next) => {
+            setCompanyId(next);
+            void load(next);
+          }}
+        />
+      </HrInsightHeader>
       {error ? (
         <Alert>
           <AlertTitle>Dashboard unavailable</AlertTitle>
@@ -147,135 +120,146 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
         </Alert>
       ) : null}
       {loading ? (
-        <div aria-label="Loading workforce summary" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {cards.map(([label]) => (
-            <Skeleton key={label} className="h-36 w-full" />
-          ))}
+        <div aria-label="Loading workforce summary" className="grid gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+            {cards.map(([label]) => (
+              <Skeleton key={label} className="h-22 w-full" />
+            ))}
+          </div>
+          <Skeleton className="h-56 w-full" />
         </div>
       ) : summary ? (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {cards.map(([label, value, note, pageId], index) => {
-              const Icon = icons[index];
-              return (
-                <button
-                  className="group rounded-xl border border-border bg-card p-4 text-left text-foreground shadow-sm transition-colors hover:border-primary/50 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  key={label}
-                  type="button"
-                  onClick={() => onNavigate("hr", pageId)}
-                >
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-muted-foreground">{label}</span>
-                    <Icon className="size-5 text-primary" />
-                  </span>
-                  <strong className="mt-3 block text-3xl tabular-nums">{value.toLocaleString()}</strong>
-                  <small className="mt-1 block text-muted-foreground">{note}</small>
-                </button>
-              );
-            })}
-          </div>
-          <div className="grid items-start gap-4 lg:grid-cols-2">
-            <article className="min-w-0 rounded-lg border border-border bg-card p-4 sm:p-5">
-              <div className="mb-5 flex items-start justify-between gap-3">
-                <div>
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Workforce composition
-                  </span>
-                  <h2 className="mt-1 text-xl font-semibold">Current employee status</h2>
-                </div>
-                <Badge variant="secondary">{distributionTotal} total</Badge>
-              </div>
-              <div className="grid gap-4">
-                {summary?.status_distribution.length ? (
-                  summary.status_distribution.map((item) => (
-                    <div key={item.status}>
-                      <div className="mb-1 flex justify-between text-sm">
-                        <span className="capitalize">{item.status.replaceAll("_", " ")}</span>
-                        <strong>{item.count}</strong>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-primary"
-                          style={{
-                            width: `${distributionTotal ? (item.count / distributionTotal) * 100 : 0}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No current effective employees are recorded for this company.
-                  </p>
-                )}
-              </div>
-            </article>
-            <article className="min-w-0 rounded-lg border border-border bg-card p-4 sm:p-5">
-              <div className="mb-4">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Action centre
-                </span>
-                <h2 className="mt-1 text-xl font-semibold">Needs review</h2>
-              </div>
-              <div className="grid gap-2">
-                {summary?.action_items.map((item) => (
-                  <button
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-3 text-left text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    key={item.key}
-                    type="button"
-                    onClick={() => onNavigate("hr", item.page_id)}
-                  >
-                    <span>
-                      <strong className="block text-sm">{item.label}</strong>
-                      <small className="text-muted-foreground">
-                        Review details <ArrowRight className="inline size-3" />
-                      </small>
-                    </span>
-                    <Badge variant="outline" className="shrink-0">
-                      {item.count}
-                    </Badge>
-                  </button>
-                ))}
-                {!summary.action_items.length ? (
-                  <p className="text-sm text-muted-foreground">No pending actions for this company.</p>
-                ) : null}
-              </div>
-              {metrics?.master_configuration_gaps ? (
-                <Alert className="mt-4">
-                  <AlertTitle>Master configuration incomplete</AlertTitle>
-                  <AlertDescription>
-                    {metrics.master_configuration_gaps} active master record(s) need their type-specific configuration
-                    completed.
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-            </article>
-          </div>
-          <nav aria-label="HR shortcuts" className="grid gap-2 sm:grid-cols-3">
-            {[
-              ["People", "Employee records and approvals", "people-workspace"],
-              ["Recruitment", "Plan roles and manage hiring", "recruitment-workspace"],
-              ["Organisation & Masters", "Maintain your company structure", "organisation-masters"],
-            ].map(([label, note, pageId]) => (
-              <Button
-                key={pageId}
-                variant="outline"
-                className="h-auto justify-between gap-3 whitespace-normal p-4 text-left"
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+            {cards.map(([label, value, note, pageId, Icon]) => (
+              <HrStatTile
+                key={label}
+                label={label}
+                value={value.toLocaleString()}
+                note={note}
+                icon={Icon}
                 onClick={() => onNavigate("hr", pageId)}
-              >
-                <span>
-                  <strong className="block">{label}</strong>
-                  <span className="mt-1 block text-xs font-normal text-muted-foreground">{note}</span>
-                </span>
-                <ArrowRight className="shrink-0" />
-              </Button>
+              />
             ))}
-          </nav>
-          {summary ? (
-            <p className="text-right text-xs text-muted-foreground">
-              Updated {new Date(summary.generated_at).toLocaleString()}
-            </p>
-          ) : null}
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <article className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="m-0! text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Workforce composition
+                  </p>
+                  <h2 className="m-0! mt-0.5! text-base font-semibold">Current employee status</h2>
+                </div>
+                <span className="text-right">
+                  <strong className="block text-2xl font-semibold leading-tight tabular-nums">
+                    {distributionTotal.toLocaleString()}
+                  </strong>
+                  <span className="text-xs text-muted-foreground">employees</span>
+                </span>
+              </div>
+              {distribution.length ? (
+                <ul className="m-0! grid list-none gap-0 p-0!">
+                  {distribution.map((item) => (
+                    <li
+                      key={item.status}
+                      className="grid grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)_2.75rem_2.5rem] items-center gap-2 border-b border-border/70 py-2 text-sm last:border-0 sm:grid-cols-[minmax(0,9rem)_minmax(0,1fr)_3.5rem_3rem] sm:gap-3"
+                    >
+                      <span className="truncate">{statusLabel(item.status)}</span>
+                      <HrInlineBar value={item.count} max={distributionMax} label={`${item.count} ${statusLabel(item.status)}`} />
+                      <strong className="text-right tabular-nums">{item.count.toLocaleString()}</strong>
+                      <span className="text-right text-xs text-muted-foreground tabular-nums">
+                        {share(item.count).toFixed(0)}%
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="m-0! text-sm text-muted-foreground">No current employees in this company.</p>
+              )}
+            </article>
+            <article className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+              <div>
+                <p className="m-0! text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Action centre
+                </p>
+                <h2 className="m-0! mt-0.5! text-base font-semibold">Needs review</h2>
+              </div>
+              {summary.action_items.length ? (
+                <ul className="m-0! mt-1! grid list-none gap-0 p-0!">
+                  {summary.action_items.map((item) => (
+                    <li key={item.key} className="m-0! border-b border-border last:border-0">
+                      <button
+                        className="flex w-full items-center gap-3 rounded-md border-0 bg-transparent px-2 py-2.5 text-left text-foreground transition-colors hover:bg-[var(--nx-surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        type="button"
+                        onClick={() => onNavigate("hr", item.page_id)}
+                      >
+                        <span className="grid min-w-0 flex-1 gap-0.5">
+                          <span className="truncate text-sm font-semibold">{item.label}</span>
+                          {actionNotes[item.key] ? (
+                            <span className="truncate text-[13px] text-muted-foreground">{actionNotes[item.key]}</span>
+                          ) : null}
+                        </span>
+                        <HrStatusPill
+                          status={item.count ? "pending" : "none"}
+                          tone={item.count ? "warning" : "neutral"}
+                          label={item.count.toLocaleString()}
+                        />
+                        <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="m-0! text-sm text-muted-foreground">No pending actions for this company.</p>
+              )}
+            </article>
+          </div>
+          <article className="min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+            <header className="border-b border-border px-4 py-3 sm:px-5">
+              <p className="m-0! text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Last 90 days
+              </p>
+              <h2 className="m-0! mt-0.5! text-base font-semibold">Recent joiners</h2>
+            </header>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-130 text-left text-sm">
+                <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-2.5 sm:pl-5">Employee</th>
+                    <th className="px-4 py-2.5">Position</th>
+                    <th className="px-4 py-2.5 text-right sm:pr-5">Joined</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.recent_joiner_list.map((joiner) => (
+                    <tr key={joiner.employee_id} className="border-b border-border/70 last:border-0">
+                      <td className="px-4 py-2.5 sm:pl-5">
+                        <span className="block font-medium">{joiner.employee_name}</span>
+                        <span className="text-xs text-muted-foreground">{joiner.employee_number}</span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {[joiner.designation, joiner.department].filter(Boolean).join(" · ") || (
+                          <span className="text-muted-foreground">Not recorded</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums sm:pr-5">{hrDisplayDate(joiner.joined_on)}</td>
+                    </tr>
+                  ))}
+                  {summary.recent_joiner_list.length === 0 ? (
+                    <tr>
+                      <td className="px-4 py-8 text-center text-muted-foreground" colSpan={3}>
+                        No one has joined in the last 90 days.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </article>
+          <p className="m-0! text-right text-xs text-muted-foreground">
+            Updated {new Date(summary.generated_at).toLocaleString()}
+          </p>
         </>
       ) : !error ? (
         <p className="rounded-lg border border-border bg-card p-5 text-muted-foreground">
@@ -285,3 +269,16 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
     </section>
   );
 }
+
+function statusLabel(status: string) {
+  const text = status.replaceAll("_", " ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** One-line explanations for the server's action-centre keys. */
+const actionNotes: Record<string, string> = {
+  drafts: "Complete and submit for approval",
+  approvals: "Drafts and hires waiting for a decision",
+  movements: "Transfers, promotions and placement changes",
+  configuration: "Masters missing their setup",
+};

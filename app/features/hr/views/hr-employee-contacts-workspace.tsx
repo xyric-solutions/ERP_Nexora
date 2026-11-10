@@ -158,7 +158,7 @@ export function HrEmployeeContactsWorkspace({
   return (
     <section className="grid min-w-0 gap-4" aria-label="Employee contacts">
       <div className="grid gap-3 rounded-lg border border-border bg-card p-3 shadow-sm md:grid-cols-2">
-        <label className="grid gap-1.5 text-sm font-medium">
+        <label className="grid content-start gap-1.5 text-sm font-medium">
           Company
           <select
             className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
@@ -173,7 +173,7 @@ export function HrEmployeeContactsWorkspace({
             ))}
           </select>
         </label>
-        <label className="grid gap-1.5 text-sm font-medium">
+        <label className="grid content-start gap-1.5 text-sm font-medium">
           Employee
           <select
             className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
@@ -269,7 +269,7 @@ export function HrEmployeeContactsWorkspace({
             <aside className="rounded-lg border border-border bg-card p-4 shadow-sm">
               {canManageContacts ? (
                 <div className="grid gap-3">
-                  <label className="grid gap-1.5 text-sm font-medium">
+                  <label className="grid content-start gap-1.5 text-sm font-medium">
                     Channel
                     <select
                       className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
@@ -280,7 +280,7 @@ export function HrEmployeeContactsWorkspace({
                       {<option value="phone">Phone</option>}
                     </select>
                   </label>
-                  <label className="grid gap-1.5 text-sm font-medium">
+                  <label className="grid content-start gap-1.5 text-sm font-medium">
                     Usage
                     <select
                       className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
@@ -292,7 +292,7 @@ export function HrEmployeeContactsWorkspace({
                       <option value="other">Other</option>
                     </select>
                   </label>
-                  <label className="grid gap-1.5 text-sm font-medium">
+                  <label className="grid content-start gap-1.5 text-sm font-medium">
                     Value
                     <Input
                       value={value}
@@ -300,7 +300,7 @@ export function HrEmployeeContactsWorkspace({
                       type={channel === "email" ? "email" : "tel"}
                     />
                   </label>
-                  <label className="grid gap-1.5 text-sm font-medium">
+                  <label className="grid content-start gap-1.5 text-sm font-medium">
                     Label
                     <Input value={label} onChange={(event) => setLabel(event.target.value)} />
                   </label>
@@ -311,10 +311,6 @@ export function HrEmployeeContactsWorkspace({
                   <Button type="button" disabled={saving} onClick={save}>
                     {saving ? "Saving..." : "Add contact"}
                   </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Contact values are append-only. Replacing a primary contact requires the future governed
-                    contact-change workflow.
-                  </p>
                 </div>
               ) : (
                 <Alert>
