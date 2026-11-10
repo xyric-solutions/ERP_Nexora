@@ -6,7 +6,17 @@ import type pg from "pg";
 
 const sourceMigrationsRoot = fileURLToPath(new URL("../source-migrations/", import.meta.url));
 const filePattern = /^(?<version>\d{4})_(?<name>[a-z0-9_]+?)(?:\.forward)?\.sql$/;
-const sourceModuleOrder = ["platform", "security", "workflow", "master_data", "finance", "hr", "runtime"] as const;
+const sourceModuleOrder = [
+  "platform",
+  "security",
+  "workflow",
+  "master_data",
+  "finance",
+  "procurement",
+  "inventory",
+  "hr",
+  "runtime",
+] as const;
 
 interface SourceMigration {
   version: number;

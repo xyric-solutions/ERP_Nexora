@@ -18,7 +18,12 @@ export const referenceMasterQuerySchema = z.strictObject({
   limit: z.number().int().min(1).max(100).default(50),
   cursor: z.string().max(512).optional(),
 });
-export const createReferenceMasterRequestSchema = z.strictObject({ company_id: id, ...fields });
+export const createReferenceMasterRequestSchema = z.strictObject({
+  company_id: id,
+  // Omit for a server-allocated code; explicit codes remain supported for existing clients.
+  code: fields.code.optional(),
+  name: fields.name,
+});
 export const updateReferenceMasterRequestSchema = z.strictObject({
   company_id: id,
   expected_version: z.number().int().positive(),

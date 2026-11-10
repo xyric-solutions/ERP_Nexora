@@ -45,12 +45,12 @@ async function settle(ms = 250) {
   });
 }
 function click(text: string) {
-  const button = [...container.querySelectorAll("button")].find((item) => item.textContent?.trim() === text);
+  const button = [...document.querySelectorAll("button")].find((item) => item.textContent?.trim() === text);
   if (!button) throw new Error(`Missing ${text}`);
   act(() => button.click());
 }
 function input(id: string, value: string) {
-  const node = container.querySelector(`#${id}`);
+  const node = document.querySelector(`#${id}`);
   if (!(node instanceof HTMLInputElement)) throw new Error(`Missing input ${id}`);
   act(() => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(node, value);
@@ -94,18 +94,25 @@ describe("Reference management workspace", () => {
   it("loads real companies/directory and creates through the generated API", async () => {
     await mount();
     expect(container.textContent).toContain("Synthetic project");
-    click("Add Project");
-    input("reference-code", "PRJ-NEW");
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    click("Add new");
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain("New Project");
+    expect((document.querySelector("#reference-code") as HTMLInputElement).readOnly).toBe(true);
+    expect((document.querySelector("#reference-code") as HTMLInputElement).value).toBe("Generated on save");
+    expect(
+      [...document.querySelectorAll("button")].find((item) => item.textContent === "Create Project")?.disabled,
+    ).toBe(true);
     input("reference-name", "New project");
-    click("Save reference");
+    click("Create Project");
     await settle(0);
     expect(harness.api.createReferenceMaster).toHaveBeenCalledWith(
       "projects",
-      { company_id: "company-one", code: "PRJ-NEW", name: "New project" },
+      { company_id: "company-one", name: "New project" },
       "synthetic",
       expect.any(String),
     );
     expect(harness.notify).toHaveBeenCalledWith("Project created successfully.");
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
   it("views persisted details, preserves code and edits with the expected version", async () => {
     await mount();
@@ -143,25 +150,24 @@ describe("Reference management workspace", () => {
   });
   it("reuses the request key after failure and does not report false success", async () => {
     await mount();
-    click("Add Project");
-    input("reference-code", "DUP");
+    click("Add new");
     input("reference-name", "Synthetic duplicate");
     harness.api.createReferenceMaster.mockRejectedValueOnce(
       new ApiError(409, "Code already exists", "MASTER_CODE_CONFLICT"),
     );
-    click("Save reference");
+    click("Create Project");
     await settle(0);
-    expect(container.textContent).toContain("Code already exists");
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Code already exists");
     expect(harness.notify).not.toHaveBeenCalled();
     const first = harness.api.createReferenceMaster.mock.calls[0]![3];
-    click("Save reference");
+    click("Create Project");
     await settle(0);
     expect(harness.api.createReferenceMaster.mock.calls[1]![3]).toBe(first);
   });
   it("permits read-only viewing without management controls", async () => {
     harness.permissions.splice(1);
     await mount();
-    expect([...container.querySelectorAll("button")].find((item) => item.textContent === "Add Project")?.disabled).toBe(
+    expect([...container.querySelectorAll("button")].find((item) => item.textContent === "Add new")?.disabled).toBe(
       true,
     );
     click("View PRJ-1");
@@ -174,6 +180,38 @@ describe("Reference management workspace", () => {
     await mount();
     expect(container.textContent).toContain("do not have permission");
     expect(harness.api.listReferenceMasterCompanies).not.toHaveBeenCalled();
+  });
+  it("cancels a new entry without creating or retaining its name", async () => {
+    await mount();
+    click("Add new");
+    input("reference-name", "Discard this name");
+    click("Cancel");
+    expect(harness.api.createReferenceMaster).not.toHaveBeenCalled();
+    click("Add new");
+    expect((document.querySelector("#reference-name") as HTMLInputElement).value).toBe("");
+  });
+  it("creates a location with only its name and the selected company", async () => {
+    harness.permissions.splice(
+      0,
+      harness.permissions.length,
+      "master_data.location.read",
+      "master_data.location.manage",
+    );
+    act(() => root.render(<ReferenceMasterWorkspace kind="locations" />));
+    await settle(0);
+    await settle();
+    click("Add new");
+    input("reference-name", "  Lahore  ");
+    const form = document.querySelector('[role="dialog"] form');
+    act(() => form!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    await settle(0);
+    expect(harness.api.createReferenceMaster).toHaveBeenCalledWith(
+      "locations",
+      { company_id: "company-one", name: "Lahore" },
+      "synthetic",
+      expect.any(String),
+    );
+    expect(harness.notify).toHaveBeenCalledWith("Location created successfully.");
   });
   it("uses the same implementation for locations and resets tenant state", async () => {
     harness.permissions.splice(

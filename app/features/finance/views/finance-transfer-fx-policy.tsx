@@ -113,8 +113,8 @@ export function FinanceTransferFxPolicy({
       const value = await currencies.policy(companyId);
       setPolicy(value);
       setForm((current) => ({ ...current, reason: "" }));
-    } catch {
-      setError("The Bank Transfer FX policy could not be saved safely.");
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "The Bank Transfer FX policy could not be saved safely.");
     } finally {
       setBusy(false);
     }

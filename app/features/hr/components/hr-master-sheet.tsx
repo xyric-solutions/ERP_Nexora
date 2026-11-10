@@ -32,12 +32,12 @@ export function HrMasterSheet({
         overlayClassName={elevated ? "z-[1400]!" : "z-[1300]!"}
         side="right"
       >
-        <SheetHeader className="border-b border-border bg-muted/35 px-5 py-5 pr-14 sm:px-6">
+        <SheetHeader className="border-b border-border bg-muted/35 px-4 py-4 pr-12 sm:px-5">
           <span className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">{eyebrow}</span>
           <SheetTitle className="m-0! mt-1! text-xl font-semibold sm:text-2xl">{title}</SheetTitle>
           <SheetDescription className="mt-1 leading-relaxed">{description}</SheetDescription>
         </SheetHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
           {message ? (
             <p role="status" className="mb-4 rounded-lg border border-border bg-muted p-3 text-sm">
               {message}
@@ -46,7 +46,7 @@ export function HrMasterSheet({
           {children}
         </div>
         {footer ? (
-          <SheetFooter className="border-t border-border bg-background px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-6">
+          <SheetFooter className="border-t border-border bg-background px-4 py-3 sm:flex-row sm:items-center sm:justify-end sm:px-5">
             {footer}
           </SheetFooter>
         ) : null}

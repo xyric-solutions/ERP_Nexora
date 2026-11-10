@@ -231,9 +231,6 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
           }
         >
           <div>
-            <p className="mb-1 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-              Administration / Security
-            </p>
             <h1 className="font-serif text-3xl font-semibold tracking-tight text-foreground">Identity &amp; Access</h1>
           </div>
           {!embedded ? (
@@ -327,9 +324,6 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
           ) : null}
           <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-5 py-5">
             <div>
-              <p className="mb-1 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-                {labels[tab]}
-              </p>
               <h2 className="text-xl font-semibold text-foreground">
                 {tab === "roles"
                   ? "Governed role policies"

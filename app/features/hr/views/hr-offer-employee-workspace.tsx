@@ -46,7 +46,7 @@ function HandoffForm({
   const [reason, setReason] = useState("");
   return (
     <form
-      className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-5"
+      className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4"
       onSubmit={(e) => {
         e.preventDefault();
         void onSave({ employee_number: number, work_email: email || undefined, reason });
@@ -338,8 +338,8 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
   const data = workspace?.offer.id === selected ? workspace : null;
   const handoff = data?.handoff;
   return (
-    <div className="grid min-w-0 gap-5 font-sans text-foreground [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0">
-      <section className="flex flex-wrap items-start justify-between gap-4 rounded-xl border border-primary/20 bg-primary/5 p-5">
+    <div className="grid min-w-0 gap-4 font-sans text-foreground [&_label]:gap-1.5 [&_label]:leading-tight [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0">
+      <section className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
         <div className="flex min-w-0 gap-3">
           <ShieldCheck className="mt-1 size-6 shrink-0 text-primary" />
           <div>

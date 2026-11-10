@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
+import { LabeledField } from "@/shared/ui/labeled-field";
 import { HrApiClient } from "../api/hr-client";
 
 type Navigate = (moduleId: string, pageId: string) => void;
@@ -102,23 +103,13 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
   const icons = [Users, FileClock, ClipboardCheck, Workflow, Building2, UserPlus];
 
   return (
-    <section className="grid min-w-0 gap-5 [&_h1]:mb-0! [&_h2]:mb-0! [&_p]:mb-0!" aria-label="HR Dashboard">
-      <header className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-4 sm:p-5">
+    <section className="grid min-w-0 gap-4 [&_h1]:mb-0! [&_h2]:mb-0! [&_p]:mb-0!" aria-label="HR Dashboard">
+      <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              People & workforce
-            </span>
-            <Badge variant="outline">Live</Badge>
-          </div>
-          <h1 className="mt-1 text-3xl font-semibold">HR Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Your workforce at a glance. Review priorities and keep people moving.
-          </p>
+          <h1 className="text-3xl font-semibold">HR Dashboard</h1>
         </div>
         <div className="flex min-w-0 w-full flex-wrap items-end gap-2 sm:w-auto">
-          <label className="grid min-w-0 w-full gap-1 text-sm font-medium sm:w-64">
-            Company
+          <LabeledField className="w-full sm:w-64" label="Company">
             <select
               className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
               value={companyId}
@@ -133,8 +124,13 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
                 </option>
               ))}
             </select>
-          </label>
-          <Button variant="outline" disabled={loading || !companyId} onClick={() => void load(companyId)}>
+          </LabeledField>
+          <Button
+            className="h-9"
+            variant="outline"
+            disabled={loading || !companyId}
+            onClick={() => void load(companyId)}
+          >
             <RefreshCw className={loading ? "animate-spin" : ""} />
             {loading ? "Refreshing..." : "Refresh"}
           </Button>
@@ -175,7 +171,7 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
             })}
           </div>
           <div className="grid items-start gap-4 lg:grid-cols-2">
-            <article className="min-w-0 rounded-lg border border-border bg-card p-4 sm:p-5">
+            <article className="min-w-0 rounded-lg border border-border bg-card p-4">
               <div className="mb-5 flex items-start justify-between gap-3">
                 <div>
                   <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -210,7 +206,7 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
                 )}
               </div>
             </article>
-            <article className="min-w-0 rounded-lg border border-border bg-card p-4 sm:p-5">
+            <article className="min-w-0 rounded-lg border border-border bg-card p-4">
               <div className="mb-4">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Action centre
@@ -278,7 +274,7 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
           ) : null}
         </>
       ) : !error ? (
-        <p className="rounded-lg border border-border bg-card p-5 text-muted-foreground">
+        <p className="rounded-lg border border-border bg-card p-4 text-muted-foreground">
           No authorised company is available for this dashboard.
         </p>
       ) : null}

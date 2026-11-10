@@ -189,6 +189,23 @@ describe("Shared reference API boundary", () => {
     }
     expect(repo.create).toHaveBeenCalledTimes(1);
   });
+  it("accepts a name without a code for server allocation", async () => {
+    const nameOnly = { company_id: record.company_id, name: "New project" };
+    const response = await request(application())
+      .post(base)
+      .set("Cookie", "nexora_session=synthetic")
+      .set("idempotency-key", "automatic-code")
+      .set("x-csrf-token", session.csrfToken)
+      .send(nameOnly);
+    expect(response.status).toBe(201);
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.any(Object),
+      "projects",
+      nameOnly,
+      "automatic-code",
+      expect.any(String),
+    );
+  });
   it("requires matching If-Match for edits and status changes", async () => {
     const app = application();
     const edit = { company_id: "company-one", expected_version: 1, name: "Edited reference" };
@@ -238,6 +255,10 @@ describe("Shared reference API boundary", () => {
 describe("Shared reference contracts", () => {
   it("normalizes inputs and rejects financial or arbitrary fields", () => {
     expect(createReferenceMasterRequestSchema.parse({ ...input, name: "  Name  " }).name).toBe("Name");
+    expect(createReferenceMasterRequestSchema.parse({ company_id: "one", name: " Name " })).toEqual({
+      company_id: "one",
+      name: "Name",
+    });
     for (const value of [
       { ...input, currency: "USD" },
       { ...input, code: "../../path" },
@@ -263,5 +284,6 @@ describe("Shared reference contracts", () => {
       );
     }
     expect(document.components.schemas.ReferenceMaster).toBeDefined();
+    expect(document.components.schemas.CreateReferenceMasterRequest.required).toEqual(["company_id", "name"]);
   });
 });

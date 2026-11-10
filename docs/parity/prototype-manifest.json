@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "source": "app/prototype-data.ts",
   "counts": {
-    "modules": 35,
-    "groups": 147,
-    "pages": 816
+    "modules": 34,
+    "groups": 140,
+    "pages": 780
   },
   "modules": [
     {
@@ -208,6 +208,7 @@
         {
           "id": "bank-entry",
           "label": "Transaction Entry",
+          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "add-bank-payment",
@@ -268,6 +269,7 @@
         {
           "id": "bank-accounts",
           "label": "Bank Accounts",
+          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "bank-accounts",
@@ -304,6 +306,7 @@
         {
           "id": "instruments",
           "label": "Treasury & Instruments",
+          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "overview",
@@ -794,7 +797,7 @@
     {
       "id": "purchases",
       "code": "PR",
-      "label": "Purchases & Procurement",
+      "label": "Purchases",
       "category": "Finance & trade",
       "modes": [
         "service",
@@ -803,309 +806,119 @@
       ],
       "groups": [
         {
-          "id": "requisitions",
-          "label": "Purchase Requisitions",
+          "id": "purchase-workflow",
+          "label": "Purchases",
           "pages": [
             {
               "id": "purchase-requisitions",
-              "label": "All Requisitions",
+              "label": "Purchase Request",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
-            {
-              "id": "add-requisition",
-              "label": "Add Requisition",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "requisition-detail",
-              "label": "Requisition Detail",
-              "archetype": "detail",
-              "status": "prototype"
-            },
-            {
-              "id": "requisition-approval",
-              "label": "Requisition Approval",
-              "archetype": "approval",
-              "status": "prototype"
-            },
-            {
-              "id": "budget-check",
-              "label": "Budget & Commitment Check",
-              "archetype": "workflow",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "sourcing",
-          "label": "Sourcing",
-          "pages": [
             {
               "id": "rfqs",
-              "label": "Requests for Quotation",
+              "label": "Request for Quotation",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
-            {
-              "id": "add-rfq",
-              "label": "Add RFQ",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "supplier-quotations",
-              "label": "Supplier Quotations",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "bid-comparison",
-              "label": "Bid Comparison",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "supplier-evaluation",
-              "label": "Supplier Evaluation",
-              "archetype": "approval",
-              "status": "prototype"
-            },
-            {
-              "id": "award-recommendation",
-              "label": "Award Recommendation",
-              "archetype": "approval",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "orders-receipts",
-          "label": "Orders & Receipts",
-          "pages": [
             {
               "id": "purchase-orders",
-              "label": "Purchase Orders",
+              "label": "Purchase Order",
               "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "add-purchase-order",
-              "label": "Add Purchase Order",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "purchase-order-detail",
-              "label": "Purchase Order Detail",
-              "archetype": "detail",
-              "status": "prototype"
-            },
-            {
-              "id": "purchase-order-approval",
-              "label": "PO Approval",
-              "archetype": "approval",
-              "status": "prototype"
-            },
-            {
-              "id": "gate-inward-pass",
-              "label": "Gate Inward Pass",
-              "archetype": "form",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "goods-receipts",
-              "label": "Goods Receipts",
+              "label": "Receive Products",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
-              "id": "add-goods-receipt",
-              "label": "Add Goods Receipt",
-              "archetype": "form",
-              "status": "prototype"
+              "id": "purchase-bills",
+              "label": "Bills",
+              "archetype": "list",
+              "status": "live"
             },
             {
-              "id": "quality-handoff",
-              "label": "Quality Inspection Handoff",
-              "archetype": "workflow",
-              "status": "prototype"
+              "id": "payments",
+              "label": "Payment",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "multi-vendor-payments",
+              "label": "Multi-vendor Payment",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "suppliers",
+              "label": "Suppliers",
+              "archetype": "list",
+              "status": "live"
             }
           ]
         },
         {
-          "id": "bills-match",
-          "label": "Bills & Match",
+          "id": "purchase-records",
+          "label": "Purchase Records",
+          "hiddenFromNavigation": true,
           "pages": [
             {
-              "id": "service-entry",
-              "label": "Service Entry",
+              "id": "add-requisition",
+              "label": "Purchase Request",
               "archetype": "form",
-              "status": "prototype"
+              "status": "live",
+              "hiddenFromNavigation": true
             },
             {
-              "id": "purchase-bills",
-              "label": "Purchase Bills",
-              "archetype": "list",
-              "status": "prototype"
+              "id": "add-rfq",
+              "label": "Request for Quotation",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "add-purchase-order",
+              "label": "Purchase Order",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "add-goods-receipt",
+              "label": "Receive Products",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
             },
             {
               "id": "add-purchase-bill",
-              "label": "Add Purchase Bill",
+              "label": "Bill",
               "archetype": "form",
-              "status": "prototype"
+              "status": "live",
+              "hiddenFromNavigation": true
             },
             {
-              "id": "three-way-match",
-              "label": "2 / 3-way Match",
-              "archetype": "workflow",
-              "status": "prototype"
-            },
-            {
-              "id": "match-exceptions",
-              "label": "Match Exceptions",
-              "archetype": "approval",
-              "status": "prototype"
-            },
-            {
-              "id": "supplier-returns",
-              "label": "Supplier Returns",
+              "id": "add-payment",
+              "label": "Payment",
               "archetype": "form",
-              "status": "prototype"
+              "status": "live",
+              "hiddenFromNavigation": true
             },
             {
-              "id": "procurement-reports",
-              "label": "Procurement Reports",
-              "archetype": "report",
-              "status": "prototype"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "suppliers",
-      "code": "AP",
-      "label": "Suppliers / Accounts Payable",
-      "category": "Finance & trade",
-      "modes": [
-        "service",
-        "trading",
-        "manufacturing"
-      ],
-      "groups": [
-        {
-          "id": "supplier-master",
-          "label": "Suppliers",
-          "pages": [
-            {
-              "id": "suppliers",
-              "label": "Supplier Directory",
-              "archetype": "list",
-              "status": "prototype"
+              "id": "add-multi-vendor-payment",
+              "label": "Multi-vendor Payment",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
             },
             {
               "id": "add-supplier",
               "label": "Add Supplier",
               "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "supplier-profile",
-              "label": "Supplier Financial Profile",
-              "archetype": "detail",
-              "status": "prototype"
-            },
-            {
-              "id": "supplier-onboarding",
-              "label": "Onboarding & KYC",
-              "archetype": "workflow",
-              "status": "prototype"
-            },
-            {
-              "id": "bank-verification",
-              "label": "Bank Detail Verification",
-              "archetype": "approval",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "payables",
-          "label": "Payables",
-          "pages": [
-            {
-              "id": "payable-bills",
-              "label": "Payable Bills",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "ap-open-items",
-              "label": "AP Open-item Ledger",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "duplicate-bill-review",
-              "label": "Duplicate Bill Review",
-              "archetype": "approval",
-              "status": "prototype"
-            },
-            {
-              "id": "supplier-advances",
-              "label": "Advances & Credits",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "holds-disputes",
-              "label": "Holds & Disputes",
-              "archetype": "list",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "payments",
-          "label": "Payments",
-          "pages": [
-            {
-              "id": "payment-proposals",
-              "label": "Payment Proposals",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "payment-request",
-              "label": "Payment Request",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "payment-approval",
-              "label": "Payment Approval",
-              "archetype": "approval",
-              "status": "prototype"
-            },
-            {
-              "id": "supplier-statements",
-              "label": "Supplier Statements",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "ap-ageing",
-              "label": "AP Ageing",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "ap-reconciliation",
-              "label": "AP to GL Reconciliation",
-              "archetype": "workflow",
-              "status": "prototype"
+              "status": "live",
+              "hiddenFromNavigation": true
             }
           ]
         }
@@ -1114,7 +927,7 @@
     {
       "id": "inventory",
       "code": "IN",
-      "label": "Inventory & Warehousing",
+      "label": "Inventory",
       "category": "Operations & people",
       "modes": [
         "trading",
@@ -1122,151 +935,56 @@
       ],
       "groups": [
         {
-          "id": "masters",
-          "label": "Inventory Masters",
+          "id": "products",
+          "label": "Products",
           "pages": [
             {
-              "id": "items",
-              "label": "Item Master",
+              "id": "products",
+              "label": "Products",
               "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "add-item",
-              "label": "Add Item",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "item-detail",
-              "label": "Item Detail",
-              "archetype": "detail",
-              "status": "prototype"
-            },
-            {
-              "id": "warehouses",
-              "label": "Warehouses, Locations & Bins",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "warehouse-editor",
-              "label": "Warehouse Editor",
-              "archetype": "form",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "stock-control",
-          "label": "Stock Control",
-          "pages": [
-            {
-              "id": "stock-position",
-              "label": "Stock Position",
-              "archetype": "dashboard",
-              "status": "prototype"
-            },
-            {
-              "id": "stock-ledger",
-              "label": "Stock Ledger",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "reservations",
-              "label": "Reservations",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "pick-tasks",
-              "label": "Pick Tasks",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "pack-dispatch",
-              "label": "Pack & Dispatch",
-              "archetype": "workflow",
-              "status": "prototype"
-            },
-            {
-              "id": "stock-issues",
-              "label": "Stock Issues",
-              "archetype": "form",
               "status": "prototype"
             },
             {
               "id": "stock-transfers",
-              "label": "Stock Transfers",
-              "archetype": "form",
+              "label": "Stock Transfer",
+              "archetype": "list",
               "status": "prototype"
             },
             {
-              "id": "replenishment",
-              "label": "Replenishment",
+              "id": "warehouses",
+              "label": "Warehouse",
               "archetype": "list",
               "status": "prototype"
             }
           ]
         },
         {
-          "id": "counts-traceability",
-          "label": "Counts & Traceability",
+          "id": "product-forms",
+          "label": "Product",
+          "hiddenFromNavigation": true,
           "pages": [
             {
-              "id": "cycle-counts",
-              "label": "Cycle Counts",
-              "archetype": "list",
+              "id": "add-product",
+              "label": "Add Product",
+              "archetype": "form",
               "status": "prototype"
             },
             {
-              "id": "inventory-adjustments",
-              "label": "Inventory Adjustments",
-              "archetype": "approval",
-              "status": "prototype"
-            },
-            {
-              "id": "batch-serial",
-              "label": "Batch, Serial & Expiry",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "genealogy",
-              "label": "Movement Genealogy",
+              "id": "product-detail",
+              "label": "Product Details",
               "archetype": "detail",
               "status": "prototype"
             },
             {
-              "id": "quarantine-recall",
-              "label": "Quarantine & Recall",
-              "archetype": "workflow",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "valuation",
-          "label": "Valuation",
-          "pages": [
-            {
-              "id": "inventory-valuation",
-              "label": "Inventory Valuation",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "inventory-revaluation",
-              "label": "Inventory Revaluation",
+              "id": "add-warehouse",
+              "label": "Add Warehouse",
               "archetype": "form",
               "status": "prototype"
             },
             {
-              "id": "inventory-reports",
-              "label": "Inventory Reports",
-              "archetype": "report",
+              "id": "add-stock-transfer",
+              "label": "Add Stock Transfer",
+              "archetype": "form",
               "status": "prototype"
             }
           ]
@@ -1385,8 +1103,14 @@
           "label": "Chart of Accounts",
           "pages": [
             {
-              "id": "chart-of-accounts",
-              "label": "Chart of Accounts Overview",
+              "id": "coa-categories",
+              "label": "Categories",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "coa-sections",
+              "label": "Sections",
               "archetype": "list",
               "status": "prototype"
             },
@@ -1397,28 +1121,53 @@
               "status": "prototype"
             },
             {
+              "id": "chart-of-accounts",
+              "label": "Chart of Accounts Overview",
+              "archetype": "list",
+              "status": "prototype",
+              "hiddenFromNavigation": true
+            },
+            {
               "id": "central-chart-template",
               "label": "Central Master Data",
               "archetype": "list",
-              "status": "prototype"
+              "status": "prototype",
+              "hiddenFromNavigation": true
             },
             {
               "id": "section-management",
               "label": "Section Management",
               "archetype": "list",
-              "status": "prototype"
+              "status": "prototype",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "add-coa-category",
+              "label": "Category Form",
+              "archetype": "form",
+              "status": "prototype",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "add-coa-section",
+              "label": "Section Form",
+              "archetype": "form",
+              "status": "prototype",
+              "hiddenFromNavigation": true
             },
             {
               "id": "nominal-detail",
               "label": "Nominal Account Detail",
               "archetype": "detail",
-              "status": "prototype"
+              "status": "prototype",
+              "hiddenFromNavigation": true
             },
             {
               "id": "add-nominal",
               "label": "Add Nominal",
               "archetype": "form",
-              "status": "prototype"
+              "status": "prototype",
+              "hiddenFromNavigation": true
             }
           ]
         },
@@ -1452,7 +1201,7 @@
           "pages": [
             {
               "id": "journal-register",
-              "label": "Journal Register",
+              "label": "Journals",
               "archetype": "list",
               "status": "prototype"
             },
@@ -1460,31 +1209,36 @@
               "id": "manual-journal",
               "label": "Manual Journal",
               "archetype": "form",
-              "status": "prototype"
+              "status": "prototype",
+              "hiddenFromNavigation": true
             },
             {
               "id": "journal-detail",
               "label": "Journal Detail",
               "archetype": "detail",
-              "status": "prototype"
+              "status": "prototype",
+              "hiddenFromNavigation": true
             },
             {
               "id": "journal-approval",
               "label": "Journal Approval & Posting",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "prototype",
+              "hiddenFromNavigation": true
             },
             {
               "id": "journal-reversal",
               "label": "Journal Reversal",
               "archetype": "form",
-              "status": "prototype"
+              "status": "prototype",
+              "hiddenFromNavigation": true
             },
             {
               "id": "recurring-journals",
               "label": "Recurring Journals",
               "archetype": "list",
-              "status": "prototype"
+              "status": "prototype",
+              "hiddenFromNavigation": true
             }
           ]
         },

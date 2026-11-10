@@ -54,6 +54,8 @@ test.describe("Bank nominal master-data integration", () => {
     await checkerPage.getByRole("button", { name: "Approve", exact: true }).click();
     await expect(checkerPage.getByLabel(/reason/i)).toHaveCount(0);
     await checkerPage.getByRole("button", { name: "Approve & Close", exact: true }).click();
+    await expect(checkerPage).toHaveURL(/finance\/nominals$/);
+    await checkerPage.goto(detailUrl);
     await expect(checkerPage.getByText("Available", { exact: true })).toBeVisible();
     await makerContext.close();
     const freshContext = await browser.newContext({ viewport: { width: 390, height: 844 } });

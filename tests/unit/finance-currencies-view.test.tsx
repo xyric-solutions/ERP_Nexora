@@ -21,6 +21,7 @@ const harness = vi.hoisted(() => ({
     activateCompanyCurrency: vi.fn(),
     configureCompanyCurrencyProfile: vi.fn(),
     correctCompanyCurrencyRate: vi.fn(),
+    createCompanyCurrencyRate: vi.fn(),
   },
   session: {
     tenant_id: "tenant-1",
@@ -222,6 +223,7 @@ describe("FinanceCurrencies", { timeout: 15_000 }, () => {
       next_cursor: null,
     });
     harness.api.correctCompanyCurrencyRate.mockResolvedValue({});
+    harness.api.createCompanyCurrencyRate.mockResolvedValue({});
     harness.api.activateCompanyCurrency.mockResolvedValue({});
     harness.api.configureCompanyCurrencyProfile.mockResolvedValue({});
     container = document.createElement("div");
@@ -237,6 +239,8 @@ describe("FinanceCurrencies", { timeout: 15_000 }, () => {
     expect(harness.api.listCompanyCurrencyRates).toHaveBeenCalledWith(expect.stringContaining("company_id=company-1"));
     expect(container.textContent).toContain("Company currencies");
     expect(container.textContent).toContain("PKR");
+    expect(container.textContent).toContain("305.10");
+    expect(container.textContent).not.toContain("305.10000000");
   });
 
   afterEach(async () => {
@@ -253,10 +257,12 @@ describe("FinanceCurrencies", { timeout: 15_000 }, () => {
     const view = [...container.querySelectorAll("button")].find((button) => button.textContent?.trim() === "View");
     await act(async () => view?.click());
     await settle();
+    expect(container.textContent).toContain("1 EUR = 305.10 PKR");
     const correct = [...container.querySelectorAll("button")].find(
       (button) => button.textContent?.trim() === "Correct",
     );
     await act(async () => correct?.click());
+    expect(document.querySelector<HTMLInputElement>("#corrected-currency-rate")?.value).toBe("305.10000000");
     change("corrected-currency-rate", "1.12500000");
     change("currency-rate-correction-reason", "Corrected from approved treasury quote");
     const save = [...container.querySelectorAll("button")].find(
@@ -275,6 +281,87 @@ describe("FinanceCurrencies", { timeout: 15_000 }, () => {
       expect.stringMatching(/^web-company-currency-correct-rate-rate-1-/),
     );
     expect(harness.notify).toHaveBeenCalledWith("Rate correction created as a new revision.");
+  });
+
+  it("saves an additional rate for an existing currency without requiring a country", async () => {
+    await act(async () => root.render(<FinanceCurrencies />));
+    await settle();
+    const add = [...container.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Add rate");
+    await act(async () => add?.click());
+    await settle();
+    expect(document.querySelector('[aria-label="Country"]')).toBeNull();
+    change("company-currency-rate", "305.2");
+    change("company-currency-effective-date", "2026-11-05");
+    const save = [...document.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "Save and Close",
+    )!;
+    expect(save.disabled).toBe(false);
+    await act(async () => save.click());
+    await settle();
+    expect(harness.api.createCompanyCurrencyRate).toHaveBeenCalledWith(
+      {
+        company_id: "company-1",
+        source_currency: "EUR",
+        rate: "305.2",
+        effective_date: "2026-11-05",
+      },
+      "csrf-token",
+      expect.stringMatching(/^web-company-currency-create-rate-/),
+    );
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(harness.api.listCountryCurrencies).not.toHaveBeenCalled();
+  });
+
+  it("saves a browser-restored rate even when no input event updated React state", async () => {
+    await act(async () => root.render(<FinanceCurrencies />));
+    await settle();
+    const add = [...container.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Add rate");
+    await act(async () => add?.click());
+    await settle();
+    const input = document.querySelector("#company-currency-rate");
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, "305.2");
+    const save = [...document.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "Save and Close",
+    )!;
+    expect(save.disabled).toBe(false);
+    await act(async () => save.click());
+    await settle();
+    expect(harness.api.createCompanyCurrencyRate).toHaveBeenCalledWith(
+      expect.objectContaining({ rate: "305.2" }),
+      "csrf-token",
+      expect.any(String),
+    );
+  });
+
+  it("rejects invalid rate input and keeps save errors and entered values inside the dialog", async () => {
+    harness.api.createCompanyCurrencyRate.mockRejectedValueOnce(
+      new ApiError(409, "A rate already exists for this date.", "RATE_ALREADY_EXISTS"),
+    );
+    await act(async () => root.render(<FinanceCurrencies />));
+    await settle();
+    const add = [...container.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Add rate");
+    await act(async () => add?.click());
+    await settle();
+    const save = [...document.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "Save and Close",
+    )!;
+    for (const value of ["0", "-1", "1e3", "0.1234567890123456789"]) {
+      change("company-currency-rate", value);
+      await act(async () => save.click());
+      expect(harness.api.createCompanyCurrencyRate).not.toHaveBeenCalled();
+      expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Enter a positive exchange rate");
+    }
+    change("company-currency-rate", "305.2");
+    change("company-currency-effective-date", "");
+    await act(async () => save.click());
+    expect(document.querySelector<HTMLFormElement>('[role="dialog"] form')?.checkValidity()).toBe(false);
+    expect(harness.api.createCompanyCurrencyRate).not.toHaveBeenCalled();
+    change("company-currency-effective-date", "2026-11-05");
+    await act(async () => save.click());
+    await settle();
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain("A rate already exists for this date.");
+    expect(document.querySelector<HTMLInputElement>("#company-currency-rate")?.value).toBe("305.2");
+    expect(document.querySelector<HTMLInputElement>("#company-currency-effective-date")?.value).toBe("2026-11-05");
   });
 
   it("searches countries, auto-fills the primary currency, and activates it with an explicit base rate", async () => {
@@ -452,6 +539,9 @@ describe("FinanceCurrencies", { timeout: 15_000 }, () => {
       );
       expect(
         [...container.querySelectorAll("button")].some((button) => button.textContent?.includes("Deactivate")),
+      ).toBe(false);
+      expect(
+        [...container.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Add rate"),
       ).toBe(false);
     } finally {
       harness.session.user.permissions = original;

@@ -22,7 +22,7 @@ export function HrCompanyScope({
   return (
     <div className="min-w-0 space-y-4">
       <div className={panel}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="min-w-0 flex-1">
             <Field title="Company">
               <select

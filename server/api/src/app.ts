@@ -1,3 +1,4 @@
+import { createInventoryRouter, type InventoryRepository } from "./modules/inventory/router.js";
 import { createHash, timingSafeEqual } from "node:crypto";
 
 import cors from "cors";
@@ -44,6 +45,7 @@ import { createCompanyCurrencyRouter } from "./modules/finance/currencies/compan
 import { createChartTemplateRouter } from "./modules/finance/templates/router.js";
 import type { ChartTemplateRepository } from "./modules/finance/templates/service.js";
 import { createReferenceMasterRouter } from "./modules/master-data/router.js";
+import { createProcurementRouter, type ProcurementRepository } from "./modules/procurement/router.js";
 import {
   createFiscalCalendarRouter,
   type FiscalCalendarApiRepository,
@@ -84,6 +86,8 @@ export interface AppDependencies {
   financeHierarchyRepository?: import("./modules/finance/coa-hierarchy-repository.js").SourceCoaHierarchyRepository;
   chartTemplateRepository?: ChartTemplateRepository;
   referenceMasterRepository?: ReferenceMasterRepository;
+  procurementRepository?: ProcurementRepository;
+  inventoryRepository?: InventoryRepository;
   fiscalCalendarRepository?: FiscalCalendarApiRepository;
   financePeriodRepository?: FinancePeriodApiRepository;
   bankSelfApprovalRepository?: BankSelfApprovalRepository;
@@ -377,6 +381,30 @@ export function createApp(dependencies: AppDependencies): Express {
       "/api/v1/finance/chart_templates",
       createChartTemplateRouter({
         repository: dependencies.chartTemplateRepository,
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
+  }
+  if (dependencies.procurementRepository && dependencies.authService && dependencies.sessionService) {
+    app.use(
+      "/api/v1/procurement",
+      createProcurementRouter({
+        repository: dependencies.procurementRepository,
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
+  }
+  if (dependencies.inventoryRepository && dependencies.authService && dependencies.sessionService) {
+    app.use(
+      "/api/v1/inventory",
+      createInventoryRouter({
+        repository: dependencies.inventoryRepository,
         authentication: dependencies.authService,
         sessions: dependencies.sessionService,
         secureCookies: dependencies.config.nodeEnv === "production",

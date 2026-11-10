@@ -18,9 +18,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
+import { LabeledField } from "@/shared/ui/labeled-field";
 import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warning";
 import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { BankingApiClient } from "../api/banking-client";
+import { BankAccountCapsule } from "../components/bank-account-capsule";
 
 function failure(error: unknown): string {
   if (error instanceof ApiError)
@@ -529,7 +531,7 @@ export function BankAccountApprovals() {
                     <tr key={row.id} className="border-b border-border/70">
                       <td className="p-3">{row.reference}</td>
                       <td className="p-3">
-                        <strong>{row.account_name}</strong>
+                        <BankAccountCapsule>{row.account_name}</BankAccountCapsule>
                         <small className="block text-muted-foreground">{row.account_number_masked}</small>
                       </td>
                       <td className="p-3">{row.bank_name}</td>
@@ -704,7 +706,7 @@ export function BankAccountDetailWorkspace({ accountId, onBack }: { accountId: s
           Back to balances
         </Button>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="space-y-4">
         {error ? (
           <Alert variant="destructive">
             <AlertTitle>Request failed</AlertTitle>
@@ -713,7 +715,7 @@ export function BankAccountDetailWorkspace({ accountId, onBack }: { accountId: s
         ) : null}
         {account ? (
           <>
-            <dl className="grid gap-4 rounded-lg border border-border bg-muted/20 p-5 sm:grid-cols-2 xl:grid-cols-4">
+            <dl className="grid gap-3 rounded-lg border border-border bg-muted/20 p-4 sm:grid-cols-2 xl:grid-cols-4">
               {[
                 ["Bank", `${account.bank_name}${account.branch ? ` · ${account.branch}` : ""}`],
                 ["Account number", account.account_number_masked],
@@ -769,12 +771,7 @@ export function BankAccountDetailWorkspace({ accountId, onBack }: { accountId: s
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <Label className="block space-y-1.5">
-      <span className="block">{label}</span>
-      {children}
-    </Label>
-  );
+  return <LabeledField label={label}>{children}</LabeledField>;
 }
 
 function GovernanceState({ title, detail }: { title: string; detail: string }) {

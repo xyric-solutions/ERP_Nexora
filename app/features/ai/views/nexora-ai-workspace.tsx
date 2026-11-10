@@ -94,12 +94,12 @@ function TrustStrip({ role }: { role: string }) {
   );
 }
 
-function AiPageHeader({ context, eyebrow, title, description, children }: { context: PrototypePageContext; eyebrow: string; title: string; description: string; children?: React.ReactNode }) {
+function AiPageHeader({ context, title, children }: { context: PrototypePageContext; eyebrow: string; title: string; description: string; children?: React.ReactNode }) {
   return (
     <>
       <header className="nx-aiw-header">
-        <div><span>{eyebrow}</span><h1>{title}</h1><p>{description}</p></div>
-        <div className="nx-aiw-header__actions">{children}<span className="nx-aiw-live"><i /> Intelligence online</span></div>
+        <div><h1>{title}</h1></div>
+        {children ? <div className="nx-aiw-header__actions">{children}</div> : null}
       </header>
       <TrustStrip role={context.role} />
     </>

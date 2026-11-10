@@ -1,6 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  activateCompanyCurrencyRequestSchema,
+  configureCompanyCurrencyProfileRequestSchema,
+  createCompanyCurrencyRateRequestSchema,
+} from "@nexora/contracts";
 import type {
   CompanyCurrency,
   CompanyCurrencyProfile,
@@ -27,6 +32,7 @@ import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { SearchableSelect } from "@/shared/ui/searchable-select";
 import { BankingApiClient } from "@/features/banking/api/banking-client";
 import { FinanceCurrenciesClient } from "../api/finance-currencies-client";
+import { formatDecimalDisplay as formatCurrencyRate } from "@/shared/lib/decimal-display";
 import { FinanceTransferFxPolicy } from "./finance-transfer-fx-policy";
 
 function today() {
@@ -143,7 +149,7 @@ export function FinanceCurrencies() {
   }, [canRead, companyId, loadCompany]);
 
   useEffect(() => {
-    if (!formMode || (!canManageProfile && !canManageCurrency && !canManageRate)) return;
+    if (!formMode || formMode === "rate" || (!canManageProfile && !canManageCurrency && !canManageRate)) return;
     let active = true;
     const timer = window.setTimeout(() => {
       setCountriesLoading(true);
@@ -176,6 +182,7 @@ export function FinanceCurrencies() {
   }, [countries, countryCode, selectedCountryMappings]);
 
   function resetForm(mode: FormMode, sourceCurrency = "") {
+    setError("");
     setFormMode(mode);
     setCountrySearch("");
     setSelectedCountryMappings([]);
@@ -214,46 +221,76 @@ export function FinanceCurrencies() {
     }
   }
 
-  async function saveForm() {
-    if (!companyId || !countryCode || !currencyCode || !formMode) return;
+  const canSaveForm =
+    !busy &&
+    Boolean(companyId && currencyCode) &&
+    (formMode === "base"
+      ? canManageProfile && Boolean(countryCode)
+      : formMode === "activate"
+        ? canManageCurrency && Boolean(countryCode)
+        : formMode === "rate" && canManageRate);
+
+  async function saveForm(form: HTMLFormElement) {
+    if (!canSaveForm) return;
     if (formMode === "base") {
+      const request = configureCompanyCurrencyProfileRequestSchema.safeParse({
+        company_id: companyId,
+        base_country_code: countryCode,
+        base_currency: currencyCode,
+      });
+      if (!request.success) {
+        setError("Select a valid company, country and base currency.");
+        return;
+      }
       await mutate(
         "configure-profile",
-        () =>
-          client.configureProfile(
-            companyId,
-            { company_id: companyId, base_country_code: countryCode, base_currency: currencyCode },
-            csrfToken(),
-            idempotency("configure-profile"),
-          ),
+        () => client.configureProfile(companyId, request.data, csrfToken(), idempotency("configure-profile")),
         `${currencyCode} configured as the company base currency.`,
       );
-    } else if (formMode === "activate" && rate) {
+      return;
+    }
+
+    // Browser restoration/autofill can update an input without updating React state.
+    const values = new FormData(form);
+    const submittedRate = values.get("rate");
+    const submittedDate = values.get("effective_date");
+    if (typeof submittedRate === "string") setRate(submittedRate);
+    if (typeof submittedDate === "string") setEffectiveDate(submittedDate);
+    const rateRequest = createCompanyCurrencyRateRequestSchema.safeParse({
+      company_id: companyId,
+      source_currency: currencyCode,
+      rate: submittedRate,
+      effective_date: submittedDate,
+    });
+    if (!rateRequest.success) {
+      setError(
+        rateRequest.error.issues.some((issue) => issue.path[0] === "rate")
+          ? "Enter a positive exchange rate using decimal notation, with up to 20 whole digits and 18 decimal places."
+          : "Select a valid effective date.",
+      );
+      return;
+    }
+    if (formMode === "activate") {
+      const request = activateCompanyCurrencyRequestSchema.safeParse({
+        company_id: companyId,
+        country_code: countryCode,
+        currency_code: currencyCode,
+        rate: rateRequest.data.rate,
+        effective_date: rateRequest.data.effective_date,
+      });
+      if (!request.success) {
+        setError("Select a valid company, country and currency.");
+        return;
+      }
       await mutate(
         "activate-currency",
-        () =>
-          client.activateCompanyCurrency(
-            {
-              company_id: companyId,
-              country_code: countryCode,
-              currency_code: currencyCode,
-              rate,
-              effective_date: effectiveDate,
-            },
-            csrfToken(),
-            idempotency("activate-currency"),
-          ),
+        () => client.activateCompanyCurrency(request.data, csrfToken(), idempotency("activate-currency")),
         `${currencyCode} activated for this company.`,
       );
-    } else if (formMode === "rate" && rate) {
+    } else if (formMode === "rate") {
       await mutate(
         "create-rate",
-        () =>
-          client.createCompanyRate(
-            { company_id: companyId, source_currency: currencyCode, rate, effective_date: effectiveDate },
-            csrfToken(),
-            idempotency("create-rate"),
-          ),
+        () => client.createCompanyRate(rateRequest.data, csrfToken(), idempotency("create-rate")),
         `${currencyCode} rate added.`,
       );
     }
@@ -286,7 +323,9 @@ export function FinanceCurrencies() {
         </div>
       </header>
 
-      {error ? <Notice title="Currency request could not be completed" detail={error} destructive /> : null}
+      {error && !formMode ? (
+        <Notice title="Currency request could not be completed" detail={error} destructive />
+      ) : null}
 
       <section className="rounded-lg border border-border bg-card p-4">
         <div className="grid gap-4 lg:grid-cols-[minmax(14rem,22rem)_1fr] lg:items-end">
@@ -391,8 +430,12 @@ export function FinanceCurrencies() {
                   <td className="px-4 py-3">{profile?.base_country_name ?? "—"}</td>
                   <td className="px-4 py-3 font-semibold">{item.currency_code}</td>
                   <td className="px-4 py-3">{item.selected_country_name}</td>
-                  <td className="px-4 py-3 tabular-nums">
-                    {item.is_base ? "1" : (item.latest_rate ?? "Rate required")}
+                  <td className="px-4 py-3 tabular-nums" title={item.is_base ? "1" : (item.latest_rate ?? undefined)}>
+                    {item.is_base
+                      ? "1.00"
+                      : item.latest_rate != null
+                        ? formatCurrencyRate(item.latest_rate)
+                        : "Rate required"}
                   </td>
                   <td className="px-4 py-3">{item.latest_rate_effective_date ?? "—"}</td>
                   <td className="px-4 py-3">
@@ -499,8 +542,8 @@ export function FinanceCurrencies() {
               <tbody>
                 {detailRates.map((item) => (
                   <tr key={item.id} className="border-t border-border">
-                    <td className="px-4 py-3 tabular-nums">
-                      1 {item.source_currency} = {item.rate} {item.target_currency}
+                    <td className="px-4 py-3 tabular-nums" title={item.rate}>
+                      1 {item.source_currency} = {formatCurrencyRate(item.rate)} {item.target_currency}
                     </td>
                     <td className="px-4 py-3">{item.effective_date}</td>
                     <td className="px-4 py-3">
@@ -622,97 +665,107 @@ export function FinanceCurrencies() {
 
       <Dialog open={formMode !== null} onOpenChange={(open) => !open && setFormMode(null)}>
         <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {formMode === "base"
-                ? "Configure company base currency"
-                : formMode === "rate"
-                  ? `Add ${currencyCode} rate`
-                  : "Add New Currency"}
-            </DialogTitle>
-            <DialogDescription>
-              {formMode === "base"
-                ? "This currency is used for all company financial reports and becomes locked after posting."
-                : `Rates use the direction 1 FX = X ${profile?.base_currency ?? "BASE"}.`}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-2 md:grid-cols-2">
-            {formMode !== "rate" ? (
-              <div className="grid gap-2">
-                <Label>Country *</Label>
-                <SearchableSelect
-                  label="Country"
-                  value={countryCode}
-                  options={countryOptions}
-                  placeholder="Select country"
-                  search={countrySearch}
-                  onSearchChange={setCountrySearch}
-                  onValueChange={chooseCountry}
-                  loading={countriesLoading}
-                  required
-                />
-              </div>
-            ) : null}
-            <div className="grid gap-2">
-              <Label htmlFor="company-currency-code">Currency *</Label>
-              <select
-                id="company-currency-code"
-                className="h-10 rounded-md border border-input bg-background px-3"
-                value={currencyCode}
-                disabled={formMode === "rate" || !countryCode}
-                onChange={(event) => setCurrencyCode(event.target.value)}
-              >
-                {!currencyCode ? <option value="">Select country first</option> : null}
-                {mappedCurrencies.map((item) => (
-                  <option key={`${item.country_code}:${item.currency_code}`} value={item.currency_code}>
-                    {item.currency_name} ({item.currency_code}){item.is_primary ? " · Primary" : ""}
-                  </option>
-                ))}
-                {formMode === "rate" && currencyCode ? <option value={currencyCode}>{currencyCode}</option> : null}
-              </select>
-              {mappedCurrencies.length > 1 ? (
-                <p className="text-xs text-muted-foreground">
-                  This country has multiple valid currency mappings; confirm the required one.
-                </p>
-              ) : null}
-            </div>
-            {formMode !== "base" ? (
-              <>
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveForm(event.currentTarget);
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>
+                {formMode === "base"
+                  ? "Configure company base currency"
+                  : formMode === "rate"
+                    ? `Add ${currencyCode} rate`
+                    : "Add New Currency"}
+              </DialogTitle>
+              <DialogDescription>
+                {formMode === "base"
+                  ? "This currency is used for all company financial reports and becomes locked after posting."
+                  : `Rates use the direction 1 FX = X ${profile?.base_currency ?? "BASE"}.`}
+              </DialogDescription>
+            </DialogHeader>
+            {error ? <Notice title="Currency could not be saved" detail={error} destructive /> : null}
+            <div className="grid gap-4 py-2 md:grid-cols-2">
+              {formMode !== "rate" ? (
                 <div className="grid gap-2">
-                  <Label htmlFor="company-currency-rate">Exchange rate *</Label>
-                  <div className="flex h-10 items-center rounded-md border border-input bg-background px-3">
-                    <span className="whitespace-nowrap text-sm">1 {currencyCode || "FX"} =</span>
-                    <input
-                      id="company-currency-rate"
-                      className="min-w-0 flex-1 bg-transparent px-2 text-right outline-none"
-                      inputMode="decimal"
-                      value={rate}
-                      onChange={(event) => setRate(event.target.value)}
-                    />
-                    <span className="text-sm">{profile?.base_currency}</span>
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="company-currency-effective-date">Effective date *</Label>
-                  <Input
-                    id="company-currency-effective-date"
-                    type="date"
-                    value={effectiveDate}
-                    onChange={(event) => setEffectiveDate(event.target.value)}
+                  <Label>Country *</Label>
+                  <SearchableSelect
+                    label="Country"
+                    value={countryCode}
+                    options={countryOptions}
+                    placeholder="Select country"
+                    search={countrySearch}
+                    onSearchChange={setCountrySearch}
+                    onValueChange={chooseCountry}
+                    loading={countriesLoading}
+                    required
                   />
                 </div>
-              </>
-            ) : null}
-          </div>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-            <Button
-              disabled={Boolean(busy) || !companyId || !countryCode || !currencyCode || (formMode !== "base" && !rate)}
-              onClick={() => void saveForm()}
-            >
-              {busy ? "Saving…" : "Save and Close"}
-            </Button>
-          </DialogFooter>
+              ) : null}
+              <div className="grid gap-2">
+                <Label htmlFor="company-currency-code">Currency *</Label>
+                <select
+                  id="company-currency-code"
+                  className="h-10 rounded-md border border-input bg-background px-3"
+                  value={currencyCode}
+                  disabled={formMode === "rate" || !countryCode}
+                  onChange={(event) => setCurrencyCode(event.target.value)}
+                >
+                  {!currencyCode ? <option value="">Select country first</option> : null}
+                  {mappedCurrencies.map((item) => (
+                    <option key={`${item.country_code}:${item.currency_code}`} value={item.currency_code}>
+                      {item.currency_name} ({item.currency_code}){item.is_primary ? " · Primary" : ""}
+                    </option>
+                  ))}
+                  {formMode === "rate" && currencyCode ? <option value={currencyCode}>{currencyCode}</option> : null}
+                </select>
+                {mappedCurrencies.length > 1 ? (
+                  <p className="text-xs text-muted-foreground">
+                    This country has multiple valid currency mappings; confirm the required one.
+                  </p>
+                ) : null}
+              </div>
+              {formMode !== "base" ? (
+                <>
+                  <div className="grid gap-2">
+                    <Label htmlFor="company-currency-rate">Exchange rate *</Label>
+                    <div className="flex h-10 items-center rounded-md border border-input bg-background px-3">
+                      <span className="whitespace-nowrap text-sm">1 {currencyCode || "FX"} =</span>
+                      <input
+                        id="company-currency-rate"
+                        name="rate"
+                        required
+                        className="min-w-0 flex-1 bg-transparent px-2 text-right outline-none"
+                        inputMode="decimal"
+                        value={rate}
+                        onChange={(event) => setRate(event.target.value)}
+                      />
+                      <span className="text-sm">{profile?.base_currency}</span>
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="company-currency-effective-date">Effective date *</Label>
+                    <Input
+                      id="company-currency-effective-date"
+                      name="effective_date"
+                      required
+                      type="date"
+                      value={effectiveDate}
+                      onChange={(event) => setEffectiveDate(event.target.value)}
+                    />
+                  </div>
+                </>
+              ) : null}
+            </div>
+            <DialogFooter>
+              <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+              <Button type="submit" disabled={!canSaveForm}>
+                {busy ? "Saving…" : "Save and Close"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

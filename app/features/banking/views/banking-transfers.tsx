@@ -6,14 +6,28 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ChevronDownIcon } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { BankingApiClient } from "../api/banking-client";
 import { bankTransferStateLabel } from "../model/bank-transfer-status";
+import type { BankTransferEntryKind } from "../model/bank-transfer-routing";
 
 const states: readonly BankTransferState[] = ["draft", "submitted", "approved", "rejected", "posted", "reversed"];
 
-export function BankingTransfers({ onCreate, onOpen }: { onCreate: () => void; onOpen: (id: string) => void }) {
+export function BankingTransfers({
+  onCreate,
+  onOpen,
+}: {
+  onCreate: (kind: BankTransferEntryKind) => void;
+  onOpen: (id: string) => void;
+}) {
   const { api, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new BankingApiClient(api), [api]);
   const canRead = session?.user.permissions.includes("banking.transfer.read") ?? false;
@@ -118,9 +132,15 @@ export function BankingTransfers({ onCreate, onOpen }: { onCreate: () => void; o
           </p>
         </div>
         {canCreate ? (
-          <Button type="button" onClick={onCreate}>
-            Add transfer
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button type="button" />}>
+              Add New <ChevronDownIcon aria-hidden="true" data-icon="inline-end" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-48">
+              <DropdownMenuItem onClick={() => onCreate("transfer")}>Transfer</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onCreate("fx")}>FX Transfer</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
       </header>
       <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">

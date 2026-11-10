@@ -80,10 +80,8 @@ async function render(onOpenReceipt = vi.fn(), onCreateReceipt: (() => void) | u
 }
 
 function control<T extends HTMLInputElement | HTMLSelectElement>(label: string): T {
-  const field = [...container.querySelectorAll("label")].find((item) =>
-    item.querySelector("span")?.textContent?.includes(label),
-  );
-  const result = field?.querySelector("input, select");
+  const field = [...container.querySelectorAll("label")].find((item) => item.textContent?.trim() === label);
+  const result = field?.control ?? field?.querySelector("input, select");
   if (!result) throw new Error(`Missing control: ${label}`);
   return result as T;
 }
@@ -145,7 +143,8 @@ describe("BankingReceipts", () => {
     expect(container.textContent).toContain("Atlas Customer");
     expect(container.textContent).toContain("Service Revenue");
     expect(container.querySelector("caption")?.textContent).toContain("Persisted bank receipts");
-    expect(container.textContent).toContain("Export is disabled because no governed receipt export endpoint");
+    expect(container.textContent).not.toContain("Export unavailable");
+    expect(container.textContent).not.toContain("Review persisted incoming funds");
     await click("BR-2026-00000001");
     expect(onOpenReceipt).toHaveBeenCalledWith(receipt.id);
     await click("Add bank receipt");

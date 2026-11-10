@@ -23,6 +23,7 @@ import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warning";
 import { BankEntryActions } from "../components/bank-entry-actions";
 import { bankPeriodFailure } from "../components/bank-period-failure";
+import { BankEntryHeader } from "../components/bank-entry-header";
 import { BankNominalAvailability } from "../components/bank-nominal-availability";
 import { BankingApiClient } from "../api/banking-client";
 
@@ -802,19 +803,15 @@ export function BankingPaymentEntry({
         <span className="text-foreground">Add Bank Payment</span>
       </nav>
 
-      <header className="flex items-start justify-between gap-4 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3.5 shadow-[inset_4px_0_0_var(--color-primary)] max-sm:flex-col">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-primary">Money out · Batch entry</p>
-          <h1 className="mt-1 text-xl font-semibold">Add Bank Payment</h1>
-          <p className="mt-1 max-w-prose text-xs leading-relaxed text-muted-foreground">
-            Enter one or more debit lines against a single Bank Account, review the accounting preview, then submit the
-            persisted draft for independent approval.
-          </p>
-        </div>
-        <Badge variant="outline" className="capitalize">
-          {state.replaceAll("_", " ")}
-        </Badge>
-      </header>
+      <BankEntryHeader
+        title="Add Bank Payment"
+        description="Allocate debits against one Bank Account, then save or submit for approval."
+        status={
+          <Badge variant="outline" className="capitalize">
+            {state.replaceAll("_", " ")}
+          </Badge>
+        }
+      />
 
       {success ? (
         <Alert role="status">
@@ -882,25 +879,7 @@ export function BankingPaymentEntry({
           <AlertDescription>This company has no active governed Bank Account available for payments.</AlertDescription>
         </Alert>
       ) : null}
-      {!directoryFailure &&
-      companyId &&
-      directoriesCompanyId === companyId &&
-      !directoriesLoading &&
-      !nominalSearching ? (
-        <BankNominalAvailability
-          availability={nominalAvailability}
-          search={nominalSearch}
-          empty={nominalAccounts.length === 0}
-          canReview={permissions.includes("finance.nominal.read")}
-          onReview={onReviewNominals ? () => leave(onReviewNominals) : undefined}
-          onRefresh={() => {
-            setNominalAccounts((current) =>
-              current.filter((item) => lines.some((line) => line.nominalAccountId === item.id)),
-            );
-            setDirectoriesCompanyId("");
-          }}
-        />
-      ) : null}
+
       {showValidation && validation.issues.length > 0 ? (
         <Alert variant="destructive">
           <AlertTitle>{validation.issues.length} validation issue(s)</AlertTitle>
@@ -922,144 +901,151 @@ export function BankingPaymentEntry({
         </Alert>
       ) : null}
 
-      <section
-        className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-card p-4 shadow-xs max-sm:grid-cols-1"
-        aria-label="Payment controls"
-      >
-        <Field label="Company" helper="Authenticated company scope">
-          {companies.length === 1 ? (
-            <p
-              className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
-              aria-label="Authenticated company"
-            >
-              {companies[0].code} · {companies[0].name}
-            </p>
-          ) : (
-            <select
-              aria-label="Company"
-              className={selectClass}
-              value={companyId}
-              disabled={busy || Boolean(persistedId)}
-              onChange={(event) =>
-                edit(() => {
-                  setCompanyId(event.target.value);
-                  setWorkflow(emptyBankWorkflowSelection);
-                  setNominalSearch("");
-                  lastNominalSearch.current = "";
-                  setNominalSearching(false);
-                  setDirectoriesCompanyId("");
-                  setBankAccountId("");
-                  setBankAccounts([]);
-                  setNominalAccounts([]);
-                  setNominalAvailability(null);
-                  setLines((current) => current.map((line) => ({ ...line, nominalAccountId: "", dimensions: {} })));
-                })
+      <div className="min-w-0 rounded-lg border border-border bg-card">
+        <section className="grid items-start gap-3 p-3 sm:grid-cols-2 xl:grid-cols-6" aria-label="Payment controls">
+          <Field label="Company" helper="Authenticated company scope" className="xl:col-span-2">
+            {companies.length === 1 ? (
+              <p
+                className="m-0 min-h-10 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
+                aria-label="Authenticated company"
+              >
+                {companies[0].code} · {companies[0].name}
+              </p>
+            ) : (
+              <select
+                aria-label="Company"
+                className={selectClass}
+                value={companyId}
+                disabled={busy || Boolean(persistedId)}
+                onChange={(event) =>
+                  edit(() => {
+                    setCompanyId(event.target.value);
+                    setWorkflow(emptyBankWorkflowSelection);
+                    setNominalSearch("");
+                    lastNominalSearch.current = "";
+                    setNominalSearching(false);
+                    setDirectoriesCompanyId("");
+                    setBankAccountId("");
+                    setBankAccounts([]);
+                    setNominalAccounts([]);
+                    setNominalAvailability(null);
+                    setLines((current) => current.map((line) => ({ ...line, nominalAccountId: "", dimensions: {} })));
+                  })
+                }
+              >
+                <option value="">Select company</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.code} · {company.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+          <div className="min-w-0 xl:col-span-2">
+            <Field
+              label="Bank"
+              helper={
+                selectedBank
+                  ? `${selectedBank.currency} · ${selectedBank.ledger_account_code} ${selectedBank.ledger_account_name}`
+                  : "Only active governed Bank Accounts are eligible"
               }
             >
-              <option value="">Select company</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.code} · {company.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </Field>
-        <Field label="Posting date" helper="Controls the financial period">
-          <Input
-            aria-label="Posting date"
-            type="date"
-            value={postingDate}
-            disabled={!editable || busy}
-            aria-invalid={showValidation && !postingDate}
-            onChange={(event) => edit(() => setPostingDate(event.target.value))}
-          />
-        </Field>
-        <Field label="Value date" helper="Optional bank value date">
-          <Input
-            aria-label="Value date"
-            type="date"
-            value={valueDate}
-            disabled={!editable || busy}
-            onChange={(event) => edit(() => setValueDate(event.target.value))}
-          />
-        </Field>
-        <div className="col-span-full max-w-xl">
-          <Field
-            label="Bank"
-            helper={
-              selectedBank
-                ? `${selectedBank.currency} · ${selectedBank.ledger_account_code} ${selectedBank.ledger_account_name}`
-                : "Only active governed Bank Accounts are eligible"
-            }
-          >
-            <select
-              aria-label="Pay through"
-              className={selectClass}
-              value={bankAccountId}
-              disabled={!editable || busy || directoriesLoading}
-              aria-invalid={showValidation && !bankAccountId}
-              onChange={(event) => edit(() => setBankAccountId(event.target.value))}
-            >
-              <option value="">{directoriesLoading ? "Loading eligible accounts…" : "Select Bank Account"}</option>
-              {bankAccounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {[account.account_name, account.bank_name, account.account_number_masked, account.currency]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </option>
-              ))}
-            </select>
+              <select
+                aria-label="Pay through"
+                className={selectClass}
+                value={bankAccountId}
+                disabled={!editable || busy || directoriesLoading}
+                aria-invalid={showValidation && !bankAccountId}
+                onChange={(event) => edit(() => setBankAccountId(event.target.value))}
+              >
+                <option value="">{directoriesLoading ? "Loading eligible accounts…" : "Select Bank Account"}</option>
+                {bankAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {[account.account_name, account.bank_name, account.account_number_masked, account.currency]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <Field label="Posting date" helper="Controls the financial period">
+            <Input
+              aria-label="Posting date"
+              type="date"
+              value={postingDate}
+              disabled={!editable || busy}
+              aria-invalid={showValidation && !postingDate}
+              onChange={(event) => edit(() => setPostingDate(event.target.value))}
+            />
           </Field>
-        </div>
-      </section>
+          <Field label="Value date" helper="Optional bank value date">
+            <Input
+              aria-label="Value date"
+              type="date"
+              value={valueDate}
+              disabled={!editable || busy}
+              onChange={(event) => edit(() => setValueDate(event.target.value))}
+            />
+          </Field>
+        </section>
 
-      <BankWorkflowControls
-        onSelfApprovalChange={setSelectedSelfApproval}
-        transaction="payments"
-        company={companyId}
-        value={workflow}
-        disabled={!editable || busy}
-        onChange={(next) =>
-          edit(() => {
-            setWorkflow(next);
-            if (next.project_id !== workflow.project_id || next.location_id !== workflow.location_id)
-              setLines((current) =>
-                current.map((line) => ({
-                  ...line,
-                  dimensions: Object.fromEntries(
-                    Object.entries(line.dimensions).filter(([key]) => key !== "project" && key !== "location"),
-                  ),
-                })),
-              );
-          })
-        }
-      />
-      <details className="rounded-lg border border-border bg-card px-4 py-3">
-        <summary className="cursor-pointer text-sm font-medium focus-visible:outline-ring">Payment reference</summary>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <Field label="Payment reference" helper="Generated by the server after first save">
-            <Input readOnly value={reference || "Generated when saved"} aria-label="Payment reference" />
-          </Field>
-        </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Secure document upload, scanning and retention are not implemented yet.
-        </p>
-      </details>
+        <BankWorkflowControls
+          className="rounded-none border-0 border-t border-border bg-transparent p-3"
+          onSelfApprovalChange={setSelectedSelfApproval}
+          transaction="payments"
+          company={companyId}
+          value={workflow}
+          disabled={!editable || busy}
+          onChange={(next) =>
+            edit(() => {
+              setWorkflow(next);
+              if (next.project_id !== workflow.project_id || next.location_id !== workflow.location_id)
+                setLines((current) =>
+                  current.map((line) => ({
+                    ...line,
+                    dimensions: Object.fromEntries(
+                      Object.entries(line.dimensions).filter(([key]) => key !== "project" && key !== "location"),
+                    ),
+                  })),
+                );
+            })
+          }
+        />
+      </div>
 
       <section
         className="min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-xs"
         aria-labelledby="payment-lines-heading"
       >
         <header className="border-b border-border bg-muted/30 px-4 py-3">
-          <p className="text-xs font-bold uppercase tracking-wider text-primary">Payment lines</p>
-          <h2 id="payment-lines-heading" className="mt-1 text-sm font-bold">
+          <h2 id="payment-lines-heading" className="m-0 text-sm font-semibold">
             Debit allocation
           </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mb-0 mt-1 text-xs text-muted-foreground">
             Each positive line debits its selected nominal account. Required dimensions come from that account.
           </p>
         </header>
+        {!directoryFailure &&
+        companyId &&
+        directoriesCompanyId === companyId &&
+        !directoriesLoading &&
+        !nominalSearching ? (
+          <BankNominalAvailability
+            availability={nominalAvailability}
+            search={nominalSearch}
+            empty={nominalAccounts.length === 0}
+            canReview={permissions.includes("finance.nominal.read")}
+            onReview={onReviewNominals ? () => leave(onReviewNominals) : undefined}
+            onRefresh={() => {
+              setNominalAccounts((current) =>
+                current.filter((item) => lines.some((line) => line.nominalAccountId === item.id)),
+              );
+              setDirectoriesCompanyId("");
+            }}
+          />
+        ) : null}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1080px] table-fixed border-collapse text-xs">
             <colgroup>
@@ -1071,10 +1057,10 @@ export function BankingPaymentEntry({
               <col className="w-[11%]" />
               <col className="w-[4%]" />
             </colgroup>
-            <thead className="bg-primary text-primary-foreground">
+            <thead className="bg-muted text-foreground">
               <tr>
                 {["Date *", "Ref. No. *", "Mode *", "Nominal Account *", "Details *", "Amount *", ""].map((heading) => (
-                  <th key={heading} scope="col" className="px-2 py-2 text-left font-semibold last:w-10">
+                  <th key={heading} scope="col" className="relative px-2 py-2 text-left font-semibold last:w-10">
                     {heading || <span className="sr-only">Remove</span>}
                   </th>
                 ))}
@@ -1255,6 +1241,18 @@ export function BankingPaymentEntry({
         </span>
       </div>
 
+      <details className="rounded-lg border border-border bg-card px-4 py-3">
+        <summary className="cursor-pointer text-sm font-medium focus-visible:outline-ring">Payment reference</summary>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <Field label="Payment reference" helper="Generated by the server after first save">
+            <Input readOnly value={reference || "Generated when saved"} aria-label="Payment reference" />
+          </Field>
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Secure document upload, scanning and retention are not implemented yet.
+        </p>
+      </details>
+
       <details className="rounded-lg border border-border bg-card">
         <summary className="cursor-pointer px-4 py-3 text-sm font-medium focus-visible:outline-ring">
           Accounting preview — no posting
@@ -1263,18 +1261,17 @@ export function BankingPaymentEntry({
           className="min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-xs"
           aria-labelledby="journal-preview-heading"
         >
-          <header className="border-b border-primary/30 bg-primary/10 px-4 py-3 shadow-[inset_4px_0_0_var(--color-primary)]">
-            <p className="text-xs font-bold uppercase tracking-wider text-primary">Accounting effect · Preview only</p>
+          <header className="border-b border-border px-4 py-3">
             <h2 id="journal-preview-heading" className="mt-1 text-sm font-bold">
               Journal this payment would post after approval
             </h2>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mb-0 mt-1 text-xs text-muted-foreground">
               Nominal accounts are debited; the server-projected Bank Account ledger is credited. Saving or submitting
               does not post this journal.
             </p>
           </header>
           <table className="w-full border-collapse text-xs">
-            <thead className="bg-primary text-primary-foreground">
+            <thead className="bg-muted text-foreground">
               <tr>
                 <th className="px-3 py-2 text-left">Account</th>
                 <th className="px-3 py-2 text-right">Debit</th>
@@ -1379,9 +1376,19 @@ export function BankingPaymentEntry({
 const selectClass =
   "min-h-10 w-full rounded-lg border border-input bg-card px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20";
 
-function Field({ label, helper, children }: { label: string; helper: string; children: React.ReactNode }) {
+function Field({
+  label,
+  helper,
+  children,
+  className = "",
+}: {
+  label: string;
+  helper: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <label className="grid min-w-0 gap-1.5">
+    <label className={`grid min-w-0 content-start gap-1.5 ${className}`}>
       <span className="text-xs font-bold">{label}</span>
       {children}
       <small className="text-xs leading-snug text-muted-foreground">{helper}</small>

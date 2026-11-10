@@ -1,3 +1,4 @@
+import { companyAuthoritySql as authoritySql } from "../security/company-authority.js";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { AuthenticatedAccount } from "@nexora/auth";
@@ -36,8 +37,8 @@ export class ReferenceMasterError extends Error {
   }
 }
 const configurations = {
-  projects: { table: "erp_project", permission: "master_data.project", foreignKey: "project_id" },
-  locations: { table: "erp_location", permission: "master_data.location", foreignKey: "location_id" },
+  projects: { table: "erp_project", permission: "master_data.project", foreignKey: "project_id", prefix: "PRJ" },
+  locations: { table: "erp_location", permission: "master_data.location", foreignKey: "location_id", prefix: "LOC" },
 } as const;
 function configuration(kind: ReferenceMasterKind) {
   return configurations[referenceMasterKindSchema.parse(kind)];
@@ -58,21 +59,7 @@ function hash(value: unknown): string {
     .digest("hex");
 }
 // Both current company access and the latest effective policy assignment are required.
-const authoritySql = `select distinct company.id,company.code,company.name
- from security_user_account u
- join security_user_company_access c on c.tenant_id=u.tenant_id and c.user_id=u.id and c.revoked_at is null
- join organization_unit company on company.tenant_id=c.tenant_id and company.id=c.company_id and company.type='company' and company.status='active'
- join security_user_role_assignment_version a on a.tenant_id=u.tenant_id and a.user_id=u.id
- join security_role_policy p on p.tenant_id=a.tenant_id and p.id=a.role_policy_id and p.status='active' and p.lifecycle_state='active'
- join security_tenant_role r on r.tenant_id=p.tenant_id and r.role_id=p.role_id and r.lifecycle_state='active'
- join security_role_permission_grant g on g.tenant_id=p.tenant_id and g.role_policy_id=p.id and g.permission_key=$4
- join security_permission_definition d on d.permission_key=g.permission_key and d.status='active'
- join security_role_scope_grant s on s.tenant_id=g.tenant_id and s.role_policy_id=g.role_policy_id and s.permission_key=g.permission_key
- where u.tenant_id=$1 and u.id=$2 and u.status='active' and u.archived_at is null
- and ($3::text is null or company.id=$3)
- and a.lifecycle_state='active' and a.valid_from<=now() and (a.valid_until is null or a.valid_until>now())
- and a.version=(select max(v.version) from security_user_role_assignment_version v where v.tenant_id=a.tenant_id and v.assignment_id=a.assignment_id)
- and ((s.scope_kind='tenant' and s.scope_value=$1) or (s.scope_kind='company' and s.scope_value=company.id))`;
+
 const projection = `id,company_id,code,name,status,row_version::integer as version,created_by,updated_by,
  to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
  to_char(updated_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at`;
@@ -333,12 +320,26 @@ export class SourceReferenceMasterRepository {
               [context.tenantId, input.company_id, id, input.status, context.actor.userId],
             );
         } else {
-          if (!("code" in input))
+          if (!("name" in input))
             throw new ReferenceMasterError(400, "INVALID_MASTER", "Creation fields are required.");
+          // Serialize all creates, including legacy explicit codes, within this company/kind.
+          await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+            `master-data:code:${context.tenantId}:${input.company_id}:${kind}`,
+          ]);
+          let code = "code" in input ? input.code : undefined;
+          if (!code) {
+            // Include inactive records; immutable identities must never be reused.
+            const next = await client.query<{ next: string }>(
+              `select (coalesce(max(substring(code from '[0-9]+$')::numeric),0)+1)::text as next
+               from ${config.table} where tenant_id=$1 and company_id=$2 and lower(code) ~ $3`,
+              [context.tenantId, input.company_id, `^${config.prefix.toLowerCase()}-[0-9]+$`],
+            );
+            code = `${config.prefix}-${next.rows[0]!.next.padStart(3, "0")}`;
+          }
           id = `reference-${randomUUID()}`;
           await client.query(
             `insert into ${config.table}(tenant_id,company_id,id,code,name,created_by,updated_by) values($1,$2,$3,$4,$5,$6,$6)`,
-            [context.tenantId, input.company_id, id, input.code, input.name, context.actor.userId],
+            [context.tenantId, input.company_id, id, code, input.name, context.actor.userId],
           );
         }
         const record = await this.load(client, context.tenantId, kind, input.company_id, id);

@@ -64,8 +64,8 @@ const draft: UserWizardDraft = {
 let container: HTMLDivElement;
 let root: Root;
 
-function button(label: string): HTMLButtonElement {
-  const found = Array.from(container.querySelectorAll("button")).find((item) => item.textContent?.trim() === label);
+function button(label: string, scope: ParentNode = container): HTMLButtonElement {
+  const found = Array.from(scope.querySelectorAll("button")).find((item) => item.textContent?.trim() === label);
   if (!found) throw new Error(`Button not found: ${label}`);
   return found;
 }
@@ -112,7 +112,7 @@ describe("user account forms and details", () => {
     if (!openUser) throw new Error("Open user action missing");
     await click(openUser);
     expect(api.getSecurityUser).toHaveBeenCalledWith("user-ui");
-    expect(container.querySelector("dl")?.textContent).toContain("Sam Example");
+    expect(document.querySelector('[role="dialog"] dl')?.textContent).toContain("Sam Example");
   });
 
   it("requires an Employee Master record when Employee is chosen and submits that link", async () => {
@@ -184,8 +184,8 @@ describe("user account forms and details", () => {
       action.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(api.createSecurityUserRequest).not.toHaveBeenCalled();
-    expect(button("Confirm action").disabled).toBe(true);
-    const reason = container.querySelector<HTMLInputElement>('[aria-label="Confirm user action"] input');
+    expect(button("Confirm action", document).disabled).toBe(true);
+    const reason = document.querySelector<HTMLInputElement>('[aria-label="Confirm user action"] input');
     if (!reason) throw new Error("Confirmation reason missing");
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(
@@ -194,7 +194,7 @@ describe("user account forms and details", () => {
       );
       reason.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    await click(button("Confirm action"));
+    await click(button("Confirm action", document));
     expect(api.createSecurityUserRequest).toHaveBeenCalledTimes(2);
     expect(api.createSecurityUserRequest.mock.calls[0]?.[0]).toMatchObject({
       requested_action: "archive",

@@ -4,7 +4,7 @@ import { HrCompanyScope as CompanyScope } from "../components/hr-company-scope";
 import { HrPersonalCorrections } from "./hr-personal-corrections";
 import { HrPersonalLeaveApplications } from "./hr-personal-leave-applications";
 import { useState, type ReactNode } from "react";
-import { ArrowRight, Download, RefreshCw, ShieldCheck, Wallet, FileText, UserRound, Landmark } from "lucide-react";
+import { ArrowRight, Download, RefreshCw, ShieldCheck, FileText, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -529,30 +529,12 @@ export function HrBenefitsWorkspace({ page, onNavigate }: { page: Page; onNaviga
     "employee-self-service": "Employee Self-service",
     "hr-report-centre": "HR & Payroll Report Centre",
   };
-  const Icon =
-    page === "employee-self-service"
-      ? UserRound
-      : page === "statutory-deductions"
-        ? Landmark
-        : page === "hr-report-centre"
-          ? FileText
-          : Wallet;
   return (
     <div className="min-w-0 space-y-6 text-foreground" data-benefits-workspace={page}>
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="mb-2 flex items-center gap-2 text-sm text-primary">
-            <Icon className="size-4" />
-            HR & Payroll
-          </div>
           <h1 className="break-words text-2xl font-semibold tracking-tight sm:text-3xl">{titles[page]}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {page === "employee-self-service"
-              ? "Your employee records, published pay and leave information."
-              : "Connected company workflows with shared records and independent approvals."}
-          </p>
         </div>
-        <Badge variant="outline">{page === "employee-self-service" ? "Personal workspace" : "API connected"}</Badge>
       </header>
       {page === "loans-benefits" && (
         <Tabs value={tab} onValueChange={setTab}>

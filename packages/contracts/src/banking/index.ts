@@ -762,6 +762,8 @@ const editableBankTransferLineFields = {
   details: bankTransferDetails.nullable().optional(),
   source_amount: positiveBoundedDecimal,
   bank_charge_amount: boundedDecimal.default("0"),
+  // Units of destination currency received for one unit of source currency.
+  conversion_rate: positiveBoundedRate.nullable().optional(),
 } as const;
 
 export const bankTransferLineInputSchema = z
@@ -967,6 +969,7 @@ export const bankTransferDetailSchema = bankTransferSummarySchema.extend({
 export const bankTransferOptionsQuerySchema = z.strictObject({ company_id: identifier });
 export const bankTransferOptionsSchema = z.strictObject({
   bank_accounts: bankPaymentOptionsSchema.shape.bank_accounts,
+  fx_policy_configured: z.boolean().optional(),
   transfer_modes: z.array(z.strictObject({ value: bankTransferModeSchema, label: z.string().trim().min(1).max(80) })),
 });
 

@@ -236,15 +236,20 @@ export function BankingTransferDetail({
                     {line.source_currency} {line.source_amount}
                     <br />
                     <span className="text-xs text-muted-foreground">
-                      Rate {line.source_rate} · {line.source_rate_effective_date ?? "base"}
+                      Valuation rate {line.source_rate} · {line.source_rate_effective_date ?? "base"}
                     </span>
                   </td>
                   <td className="px-3 py-3">
                     {line.destination_currency} {line.destination_amount}
                     <br />
                     <span className="text-xs text-muted-foreground">
-                      Rate {line.destination_rate} · {line.destination_rate_effective_date ?? "base"}
+                      Valuation rate {line.destination_rate} · {line.destination_rate_effective_date ?? "base"}
                     </span>
+                    {line.conversion_rate ? (
+                      <p className="mb-0 mt-1 text-xs">
+                        Entered: 1 {line.source_currency} = {line.conversion_rate} {line.destination_currency}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3">
                     {transfer.base_currency} {line.fx_difference}
@@ -330,11 +335,7 @@ export function BankingTransferDetail({
               <Button type="button" variant="destructive" disabled={Boolean(busy)} onClick={() => void act("reject")}>
                 Reject
               </Button>
-              <Button
-                type="button"
-                disabled={Boolean(busy)}
-                onClick={() => void act("approve", canApproveAndClose)}
-              >
+              <Button type="button" disabled={Boolean(busy)} onClick={() => void act("approve", canApproveAndClose)}>
                 {canApproveAndClose ? "Approve & Close" : "Approve"}
               </Button>
             </>

@@ -196,7 +196,7 @@ function ShiftEditor({
   return (
     <form
       aria-label="Shift rules editor"
-      className="grid min-w-0 gap-5 rounded-xl border border-primary/30 bg-card p-5"
+      className="grid min-w-0 gap-4 rounded-xl border border-primary/30 bg-card p-4"
       onSubmit={(e) => {
         e.preventDefault();
         submit();
@@ -771,9 +771,9 @@ export function HrShiftsWorkspace({
   return (
     <section
       aria-label="Live shifts and rules"
-      className="grid min-w-0 gap-5 font-sans text-foreground [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0"
+      className="grid min-w-0 gap-4 font-sans text-foreground [&_label]:gap-1.5 [&_label]:leading-tight [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0"
     >
-      <div className="flex flex-wrap items-start justify-between gap-4 rounded-xl border border-primary/20 bg-primary/5 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
         <div className="flex min-w-0 gap-3">
           <Clock3 className="mt-1 size-6 shrink-0 text-primary" />
           <div>

@@ -45,7 +45,10 @@ import { BankingTransferEntry } from "@prototype/features/banking/views/banking-
 import { BankingTransferDetail } from "@prototype/features/banking/views/banking-transfer-detail";
 import { isPersistedBankPaymentId } from "@prototype/features/banking/model/bank-payment-routing";
 import { isPersistedBankReceiptId } from "@prototype/features/banking/model/bank-receipt-routing";
-import { isPersistedBankTransferId } from "@prototype/features/banking/model/bank-transfer-routing";
+import {
+  bankTransferEntryKind,
+  isPersistedBankTransferId,
+} from "@prototype/features/banking/model/bank-transfer-routing";
 import {
   resolveBankReconciliationRoute,
   resolveBankStatementImportRoute,
@@ -62,7 +65,12 @@ import {
   BankNominalDetailBridge,
 } from "@/features/finance/views/finance-nominals";
 import { FinanceChartTemplates } from "@/features/finance/views/finance-chart-templates";
-import { FinanceHierarchy } from "@/features/finance/views/finance-hierarchy";
+import {
+  encodeHierarchyRouteReference,
+  FinanceCategories,
+  FinanceHierarchyForm,
+  FinanceSections,
+} from "@/features/finance/views/finance-hierarchy-workspaces";
 import { FinanceFiscalPeriods } from "@/features/finance/views/finance-fiscal-periods";
 import { FinanceCurrencies } from "@/features/finance/views/company-currencies-workspace";
 import {
@@ -123,6 +131,9 @@ import { HrLifecycleScreen, isHrLifecyclePage } from "@prototype/features/hr/vie
 import { HrLifecyclePoliciesWorkspace } from "@prototype/features/hr/views/hr-lifecycle-policies-workspace";
 import { HrBenefitsWorkspace, benefitsPages } from "@prototype/features/hr/views/hr-benefits-workspace";
 import { HrReportingWorkspace, isHrReportingPage } from "@prototype/features/hr/views/hr-reporting-workspace";
+import { InventoryOperationsWorkspace } from "@prototype/features/inventory/views/inventory-operations-workspace";
+import { ProductsWorkspace } from "@prototype/features/inventory/views/products-workspace";
+import { PurchaseWorkspace } from "@prototype/features/purchasing/views/purchase-workspace";
 import { CommercialWorkspace, isCommercialMaturityPage } from "@prototype/features/commerce/views/commercial-workspace";
 import { MasterDataForm, isMatureMasterDataForm } from "@prototype/features/master-data/views/master-data-form";
 import { RecordPreviewDrawer } from "@prototype/features/commerce/components/record-preview-drawer";
@@ -276,17 +287,15 @@ function PageIntro({
   children?: React.ReactNode;
   statusLabel?: string;
 }) {
+  const status = statusLabel ?? (context.status === "prototype" ? "Prototype only" : titleCase(context.status));
+  const statusNotice = /read[- ]only/i.test(status) ? "Read only" : /connected|^live$/i.test(status) ? null : status;
   return (
     <div className="nx-page-intro">
       <div>
-        <span className="nx-eyebrow">{context.moduleLabel}</span>
         <div className="nx-title-row">
           <h1>{context.pageLabel}</h1>
-          <StatusChip
-            status={statusLabel ?? (context.status === "prototype" ? "Prototype only" : titleCase(context.status))}
-          />
+          {statusNotice && <StatusChip status={statusNotice} />}
         </div>
-        <p>{context.moduleDescription}</p>
       </div>
       {children ? <div className="nx-page-actions">{children}</div> : null}
     </div>
@@ -624,7 +633,7 @@ function ListView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
         </ActionButton>
       </PageIntro>
       <section className="nx-card nx-list-card">
-<FilterBar>
+        <FilterBar>
           <div className="nx-search-field">
             <span>⌕</span>
             <Input
@@ -2754,9 +2763,13 @@ export function PrototypeContent(props: PrototypeContentProps) {
     (context.moduleId === "finance" &&
       [
         "chart-of-accounts",
+        "coa-categories",
+        "coa-sections",
         "nominals",
         "nominal-detail",
         "add-nominal",
+        "add-coa-category",
+        "add-coa-section",
         "central-chart-template",
         "section-management",
         "reporting-projects",
@@ -2805,7 +2818,62 @@ export function PrototypeContent(props: PrototypeContentProps) {
   if (["coming-soon", "not-implemented"].includes(context.status))
     return <ComingSoonView context={context} onAction={onAction} />;
 
-  if (context.moduleId === "finance" && context.pageId === "section-management") return <FinanceHierarchy />;
+  if (context.moduleId === "finance" && ["coa-categories", "chart-of-accounts"].includes(context.pageId))
+    return (
+      <FinanceCategories
+        onCreate={(companyId) =>
+          props.onNavigate("finance", "add-coa-category", encodeHierarchyRouteReference({ companyId }))
+        }
+        onEdit={(companyId, headerId, kind) =>
+          props.onNavigate(
+            "finance",
+            kind === "category" ? "add-coa-category" : "add-coa-section",
+            encodeHierarchyRouteReference({ companyId, headerId }),
+          )
+        }
+        onOpenNominal={(nominalId) => props.onNavigate("finance", "nominal-detail", nominalId)}
+        onEditNominal={(nominalId) => props.onNavigate("finance", "add-nominal", nominalId)}
+        onStandardChart={() => props.onNavigate("finance", "central-chart-template")}
+      />
+    );
+  if (context.moduleId === "finance" && ["coa-sections", "section-management"].includes(context.pageId))
+    return (
+      <FinanceSections
+        onCreate={(companyId) =>
+          props.onNavigate("finance", "add-coa-section", encodeHierarchyRouteReference({ companyId }))
+        }
+        onEdit={(companyId, headerId, kind) =>
+          props.onNavigate(
+            "finance",
+            kind === "category" ? "add-coa-category" : "add-coa-section",
+            encodeHierarchyRouteReference({ companyId, headerId }),
+          )
+        }
+        onOpenNominal={(nominalId) => props.onNavigate("finance", "nominal-detail", nominalId)}
+        onEditNominal={(nominalId) => props.onNavigate("finance", "add-nominal", nominalId)}
+        onStandardChart={() => props.onNavigate("finance", "central-chart-template")}
+      />
+    );
+  if (context.moduleId === "finance" && ["add-coa-category", "add-coa-section"].includes(context.pageId))
+    return (
+      <FinanceHierarchyForm
+        key={`${context.pageId}:${context.recordRef ?? "new"}`}
+        kind={context.pageId === "add-coa-category" ? "category" : "section"}
+        recordRef={context.recordRef}
+        onDirtyChange={props.onPaymentEntryDirtyChange}
+        onSaved={() =>
+          props.onNavigate(
+            "finance",
+            context.pageId === "add-coa-category" ? "coa-categories" : "coa-sections",
+            undefined,
+            { bypassUnsavedGuard: true },
+          )
+        }
+        onCancel={() =>
+          props.onNavigate("finance", context.pageId === "add-coa-category" ? "coa-categories" : "coa-sections")
+        }
+      />
+    );
   if (context.moduleId === "finance" && context.pageId === "currencies-fx") return <FinanceCurrencies />;
   if (context.moduleId === "configuration" && context.pageId === "company-fiscal-currency")
     return <FinanceCurrencies />;
@@ -2826,7 +2894,7 @@ export function PrototypeContent(props: PrototypeContentProps) {
       <FinanceChartTemplates
         key={context.pageId}
         initialKind="category"
-        onCompanyAccounts={() => props.onNavigate("finance", "chart-of-accounts")}
+        onCompanyAccounts={() => props.onNavigate("finance", "coa-categories")}
       />
     );
   }
@@ -2838,10 +2906,7 @@ export function PrototypeContent(props: PrototypeContentProps) {
       />
     );
   }
-  if (
-    context.moduleId === "finance" &&
-    ["chart-of-accounts", "nominals", "nominal-detail", "add-nominal"].includes(context.pageId)
-  ) {
+  if (context.moduleId === "finance" && ["nominals", "nominal-detail", "add-nominal"].includes(context.pageId)) {
     if (context.pageId === "add-nominal")
       return (
         <FinanceNominalForm
@@ -2859,14 +2924,16 @@ export function PrototypeContent(props: PrototypeContentProps) {
           nominalId={context.recordRef}
           onBack={() => props.onNavigate("finance", "nominals")}
           onEdit={(id) => props.onNavigate("finance", "add-nominal", id)}
+          onDirtyChange={props.onPaymentEntryDirtyChange}
         />
       );
     return (
       <FinanceNominals
-        title={context.pageId === "chart-of-accounts" ? "Chart of Accounts" : "Nominal accounts"}
+        title="Nominal accounts"
         onCreate={() => props.onNavigate("finance", "add-nominal")}
         onCentralTemplate={() => props.onNavigate("finance", "central-chart-template")}
         onOpen={(id) => props.onNavigate("finance", "nominal-detail", id)}
+        onEdit={(id) => props.onNavigate("finance", "add-nominal", id)}
       />
     );
   }
@@ -3053,6 +3120,36 @@ export function PrototypeContent(props: PrototypeContentProps) {
     return <ReportsWorkspace context={context} onAction={onAction} onNavigate={props.onNavigate} />;
   }
 
+  if (context.moduleId === "inventory") {
+    if (["warehouses", "add-warehouse", "stock-transfers", "add-stock-transfer"].includes(context.pageId))
+      return (
+        <InventoryOperationsWorkspace
+          page={context.pageId}
+          recordRef={context.recordRef}
+          onNavigate={props.onNavigate}
+          onDirtyChange={props.onPaymentEntryDirtyChange}
+        />
+      );
+    return (
+      <ProductsWorkspace
+        page={context.pageId}
+        recordRef={context.recordRef}
+        onNavigate={props.onNavigate}
+        onDirtyChange={props.onPaymentEntryDirtyChange}
+      />
+    );
+  }
+  if (context.moduleId === "purchases") {
+    return (
+      <PurchaseWorkspace
+        page={context.pageId}
+        recordRef={context.recordRef}
+        onNavigate={props.onNavigate}
+        onDirtyChange={props.onPaymentEntryDirtyChange}
+      />
+    );
+  }
+
   if (isMatureMasterDataForm(context.pageId)) {
     return <MasterDataForm context={context} onAction={onAction} onNavigate={props.onNavigate} />;
   }
@@ -3235,7 +3332,7 @@ export function PrototypeContent(props: PrototypeContentProps) {
     if (context.pageId === "transfers") {
       return (
         <BankingTransfers
-          onCreate={() => props.onNavigate("banking", "add-transfer")}
+          onCreate={(kind) => props.onNavigate("banking", "add-transfer", kind)}
           onOpen={(transferId) => props.onNavigate("banking", "transaction-detail", transferId)}
         />
       );
@@ -3245,7 +3342,9 @@ export function PrototypeContent(props: PrototypeContentProps) {
       return (
         <BankingTransferEntry
           key={context.recordRef ?? "new"}
-          transferId={context.recordRef}
+          transferId={isPersistedBankTransferId(context.recordRef) ? context.recordRef : undefined}
+          entryKind={bankTransferEntryKind(context.recordRef)}
+          onConfigurePolicy={() => props.onNavigate("finance", "currencies-fx")}
           onBack={() => props.onNavigate("banking", "transfers", undefined, { bypassUnsavedGuard: true })}
           onDirtyChange={props.onPaymentEntryDirtyChange}
           onOpen={(transferId) =>
@@ -3315,9 +3414,6 @@ export function PrototypeContent(props: PrototypeContentProps) {
       return (
         <>
           <PageIntro context={{ ...context, status: "backend connected" }}>
-            <Button variant="outline" type="button" disabled title="A governed export API is not available yet">
-              Export unavailable
-            </Button>
             <ActionButton tone="primary" onClick={() => props.onNavigate("banking", "add-bank-account")}>
               + Add New
             </ActionButton>
@@ -3371,6 +3467,7 @@ export function PrototypeContent(props: PrototypeContentProps) {
             accountId={context.recordRef ?? selectedBankAccountId}
             onEdit={(id) => props.onNavigate("banking", "add-bank-account", id)}
             onBack={() => props.onNavigate("banking", "account-balances")}
+            onDirtyChange={props.onPaymentEntryDirtyChange}
           />
         </>
       );

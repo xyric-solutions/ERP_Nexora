@@ -78,8 +78,8 @@ function Status({ value }: { value: string }) {
     ? "good" : /draft|review|submitted|production|near/i.test(value) ? "warn" : "risk";
   return <span className="nx-mfg-status" data-tone={tone}>{value}</span>;
 }
-function Header({ eyebrow, title, description, children }: { eyebrow: string; title: string; description: string; children?: React.ReactNode }) {
-  return <header className="nx-mfg-page-head"><div><span>{eyebrow}</span><h1>{title}</h1><p>{description}</p></div><div>{children}</div></header>;
+function Header({ title, children }: { eyebrow: string; title: string; description: string; children?: React.ReactNode }) {
+  return <header className="nx-mfg-page-head"><div><h1>{title}</h1></div><div>{children}</div></header>;
 }
 
 function ActivityRail({ subject, onAction }: { subject: string; onAction: ManufacturingWorkspaceProps["onAction"] }) {

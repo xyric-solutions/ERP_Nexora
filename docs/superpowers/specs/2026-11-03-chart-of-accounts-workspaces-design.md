@@ -1,5 +1,35 @@
 # Chart of Accounts Workspaces
 
+## Approved lifecycle amendment — 2026-11-05
+
+This amendment supersedes immediate activation for new interactive Categories
+and Sections. The user confirmed draft → pending approval → active. Existing
+active/inactive records and approved catalogue adoption keep their established
+behavior; no historical record is reclassified or renumbered.
+
+- Save Draft reserves a stable code and persists an inactive header. Submit for
+  approval advances a saved draft; pending fields cannot be changed. The full
+  record form provides Approve & Close, Reject & Close with a required reason,
+  and Close without a decision. Approval activates the record and returns to its
+  directory; failed requests preserve the review and retry key.
+- Reuse company-scoped Finance read/create/update/submit/approve/status
+  permissions, existing global Super Admin authority and impersonation guards.
+  Revalidate live permissions, expected versions and parent status on the API.
+  Self decisions use the existing governed approval override writer.
+- Finance migration 35 adds append-only hierarchy workflow evidence, tenant
+  isolation and a deferred account guard limited to enrolled headers. Existing
+  guard functions remain unchanged. Nominals keep their existing mutation path.
+  Section nominal-code policies are created atomically on approval, preserving
+  the database requirement that policy headers are active.
+- Existing `/api/v1/finance/hierarchy` contracts gain optional workflow state
+  and self-decision metadata. PATCH accepts submit/approve/reject in addition to
+  the existing maintenance actions. Approval and audit evidence commit in one
+  transaction with idempotent replay; these actions create no journal posting.
+- Validate additive migration/legacy preservation in a disposable database,
+  lifecycle/authority/audit/replay/rollback behavior through API integration
+  tests, review forms through component and responsive browser tests, generated
+  contracts, lint, type checking, theme audit and a production build.
+
 ## Goal
 
 Replace the mixed Chart of Accounts navigation with three company-scoped workspaces:

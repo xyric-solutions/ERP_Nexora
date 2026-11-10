@@ -1,3 +1,24 @@
+import { inventoryPaths } from "./inventory/openapi.js";
+import {
+  warehouseInputSchema,
+  updateWarehouseInputSchema,
+  warehouseSchema,
+  warehouseDirectorySchema,
+  warehouseMutationSchema,
+  stockTransferInputSchema,
+  updateStockTransferInputSchema,
+  stockTransferSchema,
+  stockTransferDirectorySchema,
+  stockTransferMutationSchema,
+  productInputSchema,
+  updateProductInputSchema,
+  productSchema,
+  productDirectorySchema,
+  inventoryCompaniesSchema,
+  inventoryOptionsSchema,
+  productMutationSchema,
+  productLookupDirectorySchema,
+} from "./inventory/index.js";
 import {
   hrLearningQuerySchema,
   hrLearningActionSchema,
@@ -154,6 +175,25 @@ import {
   changeBankSelfApprovalRequestSchema,
 } from "./security/bank-self-approval.js";
 import { referenceMasterPaths } from "./master-data/openapi.js";
+import { procurementPaths } from "./procurement/openapi.js";
+import {
+  updatePurchaseRequestSchema,
+  updateSupplierInputSchema,
+  procurementCompaniesSchema,
+  procurementOptionsSchema,
+  purchaseProductDirectorySchema,
+  purchaseApproverDirectorySchema,
+  purchaseFlowSchema,
+  purchaseDocumentSchema,
+  purchaseDirectorySchema,
+  savePurchaseRequestSchema,
+  purchaseActionRequestSchema,
+  purchaseMutationSchema,
+  supplierInputSchema,
+  supplierSchema,
+  supplierDirectorySchema,
+  supplierMutationSchema,
+} from "./procurement/index.js";
 import {
   referenceMasterSchema,
   referenceMasterDirectorySchema,
@@ -981,7 +1021,8 @@ export function buildOpenApiDocument() {
         },
         post: {
           operationId: "createFinanceHierarchy",
-          description: "Super Admin direct category/section creation; no approval or posting.",
+          description:
+            "Create a draft Category or Section. Submission and approval are required before activation; no financial posting.",
           security: [{ cookieAuth: [] }],
           parameters: [csrfParameter, idempotencyParameter],
           requestBody: {
@@ -990,7 +1031,7 @@ export function buildOpenApiDocument() {
           },
           responses: {
             "201": {
-              description: "Persisted active hierarchy master",
+              description: "Persisted draft hierarchy master with a stable allocated code",
               content: { "application/json": { schema: schema(financeHierarchyItemSchema) } },
             },
             ...securityErrors,
@@ -1001,7 +1042,7 @@ export function buildOpenApiDocument() {
         patch: {
           operationId: "changeFinanceHierarchy",
           description:
-            "Super Admin audited rename/activation/deactivation; codes, accounting type and parents are immutable; dependencies protected.",
+            "Super Admin audited hierarchy maintenance and draft submission/approval/rejection. Pending records are read-only; approval activates the record. Self decisions require governed override evidence. Existing active/inactive records retain their lifecycle; codes, type, parents and dependencies are protected.",
           security: [{ cookieAuth: [] }],
           parameters: [
             { in: "path", name: "headerId", required: true, schema: { type: "string", maxLength: 128 } },
@@ -1055,6 +1096,8 @@ export function buildOpenApiDocument() {
         ]),
       ),
       ...referenceMasterPaths(),
+      ...procurementPaths(),
+      ...inventoryPaths(),
       "/auth/login": {
         post: {
           operationId: "loginWithPassword",
@@ -4078,7 +4121,8 @@ export function buildOpenApiDocument() {
       },
       "/hr/payroll_records": {
         post: {
-          description: "Create a governed Payroll record. Send AUTO for component/structure code or loan reference to allocate a stable company-scoped code transactionally. Existing explicit import codes remain supported. Generated component codes use bracketed formula references, for example [PAY-001] * 0.1.",
+          description:
+            "Create a governed Payroll record. Send AUTO for component/structure code or loan reference to allocate a stable company-scoped code transactionally. Existing explicit import codes remain supported. Generated component codes use bracketed formula references, for example [PAY-001] * 0.1.",
           operationId: "createPayrollRecord",
           security: [{ cookieAuth: [] }],
           parameters: [csrfParameter, idempotencyParameter],
@@ -4268,7 +4312,8 @@ export function buildOpenApiDocument() {
       "/hr/payroll_payments": {
         get: {
           operationId: "getPayrollPaymentWorkspace",
-          description: "Company-scoped salary obligations, current batch actions and eligible posted Banking evidence. Requires Payroll payment/result and Banking read authority. Responses are private and no-store.",
+          description:
+            "Company-scoped salary obligations, current batch actions and eligible posted Banking evidence. Requires Payroll payment/result and Banking read authority. Responses are private and no-store.",
           security: [{ cookieAuth: [] }],
           parameters: [
             { in: "query", name: "company_id", required: true, schema: { type: "string", maxLength: 128 } },
@@ -4286,7 +4331,8 @@ export function buildOpenApiDocument() {
       "/hr/payroll_payments/actions": {
         post: {
           operationId: "actOnPayrollPayment",
-          description: "Prepare exact obligations, independently approve/reject a batch, or confirm a matching reserved posted Bank Payment. Confirmation requires successful-transfer evidence, current authority, reviewed source hash, record version and idempotency. FX allocation, bank-file transmission and confirmed-settlement reversal are not enabled.",
+          description:
+            "Prepare exact obligations, independently approve/reject a batch, or confirm a matching reserved posted Bank Payment. Confirmation requires successful-transfer evidence, current authority, reviewed source hash, record version and idempotency. FX allocation, bank-file transmission and confirmed-settlement reversal are not enabled.",
           security: [{ cookieAuth: [] }],
           parameters: [csrfParameter, idempotencyParameter],
           requestBody: {
@@ -7155,6 +7201,40 @@ export function buildOpenApiDocument() {
         BankSelfApprovalMutation: schema(bankSelfApprovalMutationSchema),
         ChangeBankSelfApprovalRequest: schema(changeBankSelfApprovalRequestSchema),
         ReferenceMaster: schema(referenceMasterSchema),
+        ProductInput: schema(productInputSchema),
+        UpdateProductInput: schema(updateProductInputSchema),
+        Product: schema(productSchema),
+        ProductDirectory: schema(productDirectorySchema),
+        WarehouseInput: schema(warehouseInputSchema),
+        UpdateWarehouseInput: schema(updateWarehouseInputSchema),
+        Warehouse: schema(warehouseSchema),
+        WarehouseDirectory: schema(warehouseDirectorySchema),
+        WarehouseMutation: schema(warehouseMutationSchema),
+        StockTransferInput: schema(stockTransferInputSchema),
+        UpdateStockTransferInput: schema(updateStockTransferInputSchema),
+        StockTransfer: schema(stockTransferSchema),
+        StockTransferDirectory: schema(stockTransferDirectorySchema),
+        StockTransferMutation: schema(stockTransferMutationSchema),
+        InventoryCompanies: schema(inventoryCompaniesSchema),
+        InventoryOptions: schema(inventoryOptionsSchema),
+        ProductMutation: schema(productMutationSchema),
+        ProductLookupDirectory: schema(productLookupDirectorySchema),
+        ProcurementCompanies: schema(procurementCompaniesSchema),
+        ProcurementOptions: schema(procurementOptionsSchema),
+        PurchaseProductDirectory: schema(purchaseProductDirectorySchema),
+        PurchaseApproverDirectory: schema(purchaseApproverDirectorySchema),
+        PurchaseFlow: schema(purchaseFlowSchema),
+        UpdatePurchaseRequest: schema(updatePurchaseRequestSchema),
+        UpdateSupplierInput: schema(updateSupplierInputSchema),
+        PurchaseDocument: schema(purchaseDocumentSchema),
+        PurchaseDirectory: schema(purchaseDirectorySchema),
+        SavePurchaseRequest: schema(savePurchaseRequestSchema),
+        PurchaseActionRequest: schema(purchaseActionRequestSchema),
+        PurchaseMutation: schema(purchaseMutationSchema),
+        SupplierInput: schema(supplierInputSchema),
+        Supplier: schema(supplierSchema),
+        SupplierDirectory: schema(supplierDirectorySchema),
+        SupplierMutation: schema(supplierMutationSchema),
         ReferenceMasterDirectory: schema(referenceMasterDirectorySchema),
         ReferenceMasterMutation: schema(referenceMasterMutationSchema),
         CreateReferenceMasterRequest: schema(createReferenceMasterRequestSchema),

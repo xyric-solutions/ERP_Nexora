@@ -86,10 +86,8 @@ async function render(onOpenPayment = vi.fn(), onCreatePayment: (() => void) | u
 }
 
 function control<T extends HTMLInputElement | HTMLSelectElement>(label: string): T {
-  const field = [...container.querySelectorAll("label")].find((item) =>
-    item.querySelector("span")?.textContent?.includes(label),
-  );
-  const result = field?.querySelector("input, select");
+  const field = [...container.querySelectorAll("label")].find((item) => item.textContent?.trim() === label);
+  const result = field?.control ?? field?.querySelector("input, select");
   if (!result) throw new Error(`Missing control: ${label}`);
   return result as T;
 }
@@ -157,8 +155,8 @@ describe("BankingPayments", () => {
     expect(container.textContent).toContain("USD");
     expect(container.textContent).toContain("Approved");
     expect(container.querySelector("caption")?.textContent).toContain("Persisted bank payments");
-    expect(container.textContent).toContain("Export is disabled because no governed payment export endpoint");
-    expect(container.querySelector<HTMLButtonElement>("button[disabled]")?.textContent).toContain("Export unavailable");
+    expect(container.textContent).not.toContain("Export unavailable");
+    expect(container.textContent).not.toContain("Review persisted payment instructions");
 
     await click("BP-2026-0001");
     expect(onOpenPayment).toHaveBeenCalledWith("payment-id-1");

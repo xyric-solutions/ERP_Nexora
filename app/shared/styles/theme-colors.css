@@ -51,6 +51,10 @@
   --nx-brand-soft: #fff6df;
   --nx-brand-line: #e5ca8d;
 
+  /* Compact record rows stay pale yellow in both themes. */
+  --nx-record-row-background: #fff6df;
+  --nx-record-row-hover: #ffefc5;
+
   --nx-sidebar: #20211f;
   --nx-sidebar-deep: #191b18;
   --nx-sidebar-surface: #34362c;

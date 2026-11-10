@@ -1,20 +1,12 @@
 "use client";
-import {
-  useEffect,
-  useEffectEvent,
-  useState,
-  useId,
-  isValidElement,
-  cloneElement,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import { useEffect, useEffectEvent, useState, type ReactNode } from "react";
 import type { HrOvertimeDetail } from "@nexora/contracts";
 import { Badge } from "@/components/ui/badge";
+import { LabeledField } from "@/shared/ui/labeled-field";
 import { attendanceLabel as label } from "./attendance-status";
 export const selectClass =
   "h-10 min-w-0 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring";
-export const panel = "min-w-0 rounded-xl border border-border bg-card p-4 sm:p-5";
+export const panel = "min-w-0 rounded-xl border border-border bg-card p-4";
 export const dayValue = (value: string) =>
   new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 }).format(Number(value));
 export const localDate = () => {
@@ -49,13 +41,7 @@ export function useAttendanceRead<T>(key: string | null, load: () => Promise<T>)
     : { data: null, error: "", loading: !!key };
 }
 export function Field({ title, children }: { title: string; children: ReactNode }) {
-  const id = useId();
-  return (
-    <div className="grid min-w-0 gap-2 text-sm font-medium">
-      <label htmlFor={id}>{title}</label>
-      {isValidElement(children) ? cloneElement(children as ReactElement<{ id?: string }>, { id }) : children}
-    </div>
-  );
+  return <LabeledField label={title}>{children}</LabeledField>;
 }
 export function State({ value }: { value: string }) {
   return (
@@ -75,9 +61,9 @@ export function State({ value }: { value: string }) {
 }
 export function Metric({ title, value, hint }: { title: string; value: string | number; hint: string }) {
   return (
-    <div className="min-w-0 rounded-lg border border-border bg-background p-4">
+    <div className="min-w-0 rounded-lg border border-border bg-background p-3.5">
       <div className="text-xs font-medium text-muted-foreground">{title}</div>
-      <div className="mt-2 break-words text-xl font-semibold tabular-nums [overflow-wrap:anywhere]">{value}</div>
+      <div className="mt-1.5 break-words text-xl font-semibold tabular-nums [overflow-wrap:anywhere]">{value}</div>
       <div className="mt-1 text-xs text-muted-foreground">{hint}</div>
     </div>
   );

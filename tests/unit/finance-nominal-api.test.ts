@@ -79,6 +79,30 @@ function setup() {
   return { app, repository };
 }
 describe("Bank nominal HTTP boundary", () => {
+  it("accepts a versioned Section edit and rejects a browser-supplied derived category", async () => {
+    const { app, repository } = setup();
+    const send = (body: object, etag = '"1"') =>
+      request(app)
+        .patch("/api/v1/finance/nominals/nominal-one")
+        .set("cookie", "nexora_session=token")
+        .set("x-csrf-token", session.csrfToken)
+        .set("idempotency-key", "edit-section")
+        .set("if-match", etag)
+        .send(body);
+    expect(
+      (await send({ expected_version: 1, section_id: "section-two", name: "Revised nominal" }, '"2"')).status,
+    ).toBe(412);
+    expect((await send({ expected_version: 1, section_id: "section-two", category_id: "forged" })).status).toBe(400);
+    expect(repository.update).not.toHaveBeenCalled();
+    expect((await send({ expected_version: 1, section_id: "section-two", name: "Revised nominal" })).status).toBe(200);
+    expect(repository.update).toHaveBeenCalledWith(
+      expect.anything(),
+      "nominal-one",
+      { expected_version: 1, section_id: "section-two", name: "Revised nominal" },
+      "edit-section",
+      expect.any(String),
+    );
+  });
   it("requires a session and prevents tenant-header spoofing", async () => {
     const { app, repository } = setup();
     expect((await request(app).get("/api/v1/finance/nominals/options")).status).toBe(401);

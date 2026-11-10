@@ -66,9 +66,8 @@ export function FinancePostingReview({ detail, onUpdated }: { detail: FinanceNom
       <Alert role="note">
         <AlertTitle>Posting review: {detail.posting_classification.replaceAll("_", " ")}</AlertTitle>
         <AlertDescription>
-          Excel supplies account names and codes, not posting ownership. Only a Super Admin may classify and directly
-          activate an ordinary nominal. No separate approver is required. Debtor, creditor, stock, tax and other
-          module-controlled accounts must not be enabled as ordinary offsets without ownership review.
+          Confirm account ownership before activation. Stock, tax, debtor and creditor control accounts require their
+          module workflow.
         </AlertDescription>
       </Alert>
       {error && (
@@ -99,12 +98,9 @@ export function FinancePostingReview({ detail, onUpdated }: { detail: FinanceNom
               checked={confirmed}
               onCheckedChange={(checked) => setConfirmed(checked === true)}
             />
-            <Label htmlFor="confirm-posting-classification">
-              I have reviewed this account&apos;s posting ownership. Save the classification, then use Activate now. No
-              separate approval is required.
-            </Label>
+            <Label htmlFor="confirm-posting-classification">I have checked which module owns this account.</Label>
           </div>
-          <Button disabled={busy || !confirmed || !classification} onClick={() => void save()}>
+          <Button className="self-start" disabled={busy || !confirmed || !classification} onClick={() => void save()}>
             Save posting review
           </Button>
         </fieldset>

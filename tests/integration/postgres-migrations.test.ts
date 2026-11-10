@@ -41,8 +41,10 @@ describe("production PostgreSQL source migrations", () => {
       security: 20,
       workflow: 1,
       master_data: 2,
-      finance: 33,
-      hr: 130,
+      finance: 36,
+      procurement: 4,
+      inventory: 2,
+      hr: 133,
       runtime: 1,
     });
   });
@@ -59,7 +61,7 @@ describe("production PostgreSQL source migrations", () => {
       await expect(inspectSourceMigrationState(fresh)).resolves.toMatchObject({
         platform: 11,
         security: 20,
-        finance: 33,
+        finance: 36,
       });
       const columns = await fresh.query<{ column_name: string }>(
         `select column_name from information_schema.columns
@@ -156,7 +158,7 @@ describe("production PostgreSQL source migrations", () => {
 
       await migrateSourceModule(upgrade, "finance");
 
-      await expect(inspectSourceMigrationState(upgrade)).resolves.toMatchObject({ finance: 33 });
+      await expect(inspectSourceMigrationState(upgrade)).resolves.toMatchObject({ finance: 36 });
       const after = await upgrade.query(
         `select id,company_id,account_id,bank_name,currency,status,row_version
            from bank_account where tenant_id=$1 and id=$2`,
@@ -307,10 +309,12 @@ describe("production PostgreSQL source migrations", () => {
        order by module_name`,
     );
     expect(result.rows).toEqual([
-      { module_name: "finance", migration_count: "33", latest: 33 },
-      { module_name: "hr", migration_count: "130", latest: 130 },
+      { module_name: "finance", migration_count: "36", latest: 36 },
+      { module_name: "hr", migration_count: "133", latest: 133 },
+      { module_name: "inventory", migration_count: "2", latest: 2 },
       { module_name: "master_data", migration_count: "2", latest: 2 },
       { module_name: "platform", migration_count: "11", latest: 11 },
+      { module_name: "procurement", migration_count: "4", latest: 4 },
       { module_name: "runtime", migration_count: "1", latest: 1 },
       { module_name: "security", migration_count: "20", latest: 20 },
       { module_name: "workflow", migration_count: "1", latest: 1 },
@@ -319,7 +323,7 @@ describe("production PostgreSQL source migrations", () => {
       `select module_name,version,name from nexora_schema_migration
         where (module_name='platform' and version in (8,10,11))
            or (module_name='security' and version in (15,17,18,19,20))
-           or (module_name='finance' and version in (5,6,7,8,9,10,11,12,13,14,15,16,17,18,26,27,28,29,30,31,32,33))
+           or (module_name='finance' and version in (5,6,7,8,9,10,11,12,13,14,15,16,17,18,26,27,28,29,30,31,32,33,34,35,36))
         order by module_name,version`,
     );
     expect(bankingMigrations.rows).toEqual([
@@ -345,6 +349,9 @@ describe("production PostgreSQL source migrations", () => {
       { module_name: "finance", version: 31, name: "manual_journals" },
       { module_name: "finance", version: 32, name: "manual_journal_staging_hardening" },
       { module_name: "finance", version: 33, name: "manual_journal_bank_nominals" },
+      { module_name: "finance", version: 34, name: "audited_nominal_section_edits" },
+      { module_name: "finance", version: 35, name: "hierarchy_approval_workflow" },
+      { module_name: "finance", version: 36, name: "transfer_conversion_rate" },
       { module_name: "platform", version: 8, name: "idempotency_patch_method" },
       { module_name: "platform", version: 10, name: "currency_master_governance" },
       { module_name: "platform", version: 11, name: "company_currency_profiles" },
@@ -512,7 +519,15 @@ describe("production PostgreSQL source migrations", () => {
     const result = await pool.query<{ permission_count: string }>(
       "select count(*)::text as permission_count from security_permission_definition",
     );
-    expect(result.rows[0]?.permission_count).toBe("347");
+    expect(result.rows[0]?.permission_count).toBe("348");
+    const selfApproval = await pool.query(
+      "select permission_key from security_permission_definition where permission_key='procurement.document.self_approve' and status='active'",
+    );
+    expect(selfApproval.rows).toEqual([{ permission_key: "procurement.document.self_approve" }]);
+    const implicitGrants = await pool.query(
+      "select permission_key from security_role_permission_grant where permission_key='procurement.document.self_approve'",
+    );
+    expect(implicitGrants.rows).toEqual([]);
     const overridePermission = await pool.query<{ permission_key: string }>(
       `select permission_key from security_permission_definition
         where permission_key='platform.approval.override' and status='active'`,

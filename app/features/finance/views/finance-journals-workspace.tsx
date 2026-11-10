@@ -264,7 +264,7 @@ export function FinanceJournalWorkspace({
             ? "Reverse Journal"
             : "Journal Details";
   return (
-    <div className="space-y-5" aria-busy={loading}>
+    <div className="grid min-w-0 gap-2" aria-busy={loading}>
       <WorkspaceHeader
         activeTab={activeTab}
         companyId={companyId}
@@ -306,8 +306,11 @@ export function FinanceJournalWorkspace({
           if (!open) closeDrawer();
         }}
       >
-        <SheetContent className="w-full max-w-none gap-0 sm:max-w-[min(96vw,80rem)]">
-          <SheetHeader className="border-b border-border pr-14">
+        <SheetContent
+          portalClassName="relative isolate z-[1300]"
+          className="min-w-0 gap-0 data-[side=right]:w-full data-[side=right]:max-w-none data-[side=right]:sm:max-w-[min(96vw,80rem)]"
+        >
+          <SheetHeader className="shrink-0 border-b border-border pr-14">
             <SheetTitle>{drawerTitle}</SheetTitle>
             <SheetDescription>
               {drawerMode === "create" || drawerMode === "edit"
@@ -315,7 +318,7 @@ export function FinanceJournalWorkspace({
                 : "Review the Journal, lifecycle evidence and permitted actions without leaving the register."}
             </SheetDescription>
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-3 sm:p-4">
             {drawerMode === "create" || drawerMode === "edit" ? (
               <ManualJournalForm
                 key={`${companyId}:${selectedJournalId ?? "new"}`}
@@ -397,60 +400,67 @@ function WorkspaceHeader({
   onNewJournal: () => void;
 }) {
   return (
-    <header className="border-b border-border pb-4">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <p className="text-sm text-primary">Home / Finance / Journals</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Journals</h1>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            {activeTab === "transactions"
-              ? "Review, prepare, approve, post and reverse Journals from one transaction register."
-              : "Manage recurring templates that generate drafts for the normal approval workflow."}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="grid min-w-64 gap-1">
-            <Label htmlFor="journal-company">Company</Label>
-            <select
-              id="journal-company"
-              className="h-10 rounded-md border border-input bg-background px-3"
-              value={companyId}
-              onChange={(event) => onCompany(event.target.value)}
-            >
-              {options?.companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.code} · {company.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          {options?.base_currency ? (
-            <Badge variant="outline" className="h-10 px-3">
-              Base currency · {options.base_currency}
-            </Badge>
-          ) : null}
-          <div className="grid gap-1">
-            <Label htmlFor="journal-display-decimals">Display decimals</Label>
-            <select
-              id="journal-display-decimals"
-              className="h-10 rounded-md border border-input bg-background px-3"
-              value={displayDecimalPlaces}
-              onChange={(event) => onDisplayDecimalPlaces(Number(event.target.value))}
-              aria-describedby="journal-display-decimals-hint"
-            >
-              {Array.from({ length: 9 }, (_, value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </div>
-          {activeTab === "transactions" && permissions.has("finance.journal.create") ? (
-            <Button onClick={onNewJournal}>＋ New Journal</Button>
-          ) : null}
-        </div>
+    <header
+      aria-label="Journal workspace"
+      className="grid min-w-0 gap-2 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center"
+    >
+      <div className="flex items-center gap-2">
+        <h1 className="m-0 text-xl font-semibold">Journals</h1>
+        {options?.base_currency ? (
+          <span
+            className="text-xs text-muted-foreground"
+            title="Company base currency"
+            aria-label={`Base currency ${options.base_currency}`}
+          >
+            {options.base_currency}
+          </span>
+        ) : null}
       </div>
-      <p id="journal-display-decimals-hint" className="mt-2 text-xs text-muted-foreground">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[minmax(12rem,20rem)_auto_auto] lg:justify-end">
+        <div className="col-span-2 flex min-w-0 items-center gap-2 sm:col-span-1">
+          <Label htmlFor="journal-company" className="text-xs">
+            Company
+          </Label>
+          <select
+            id="journal-company"
+            className="h-9 min-h-9 w-full min-w-0 rounded-md border border-input bg-card px-2 text-sm focus-visible:outline-2 focus-visible:outline-ring"
+            value={companyId}
+            onChange={(event) => onCompany(event.target.value)}
+          >
+            {options?.companies.map((company) => (
+              <option key={company.id} value={company.id}>
+                {company.code} · {company.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex min-w-0 items-center gap-2">
+          <Label htmlFor="journal-display-decimals" className="text-xs">
+            Decimals
+          </Label>
+          <select
+            id="journal-display-decimals"
+            aria-label="Display decimals"
+            title="Display only. Entry and posting precision follow the company base currency."
+            className="h-9 min-h-9 rounded-md border border-input bg-card px-2 text-sm focus-visible:outline-2 focus-visible:outline-ring"
+            value={displayDecimalPlaces}
+            onChange={(event) => onDisplayDecimalPlaces(Number(event.target.value))}
+            aria-describedby="journal-display-decimals-hint"
+          >
+            {Array.from({ length: 9 }, (_, value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </div>
+        {activeTab === "transactions" && permissions.has("finance.journal.create") ? (
+          <Button className="h-9" onClick={onNewJournal}>
+            ＋ New Journal
+          </Button>
+        ) : null}
+      </div>
+      <p id="journal-display-decimals-hint" className="sr-only">
         Display only. Entry and posting precision follow the company base currency.
       </p>
     </header>
@@ -836,8 +846,8 @@ function ManualJournalForm({
   const editable = !detail || detail.state === "draft";
   if (loadingDetail) return <Notice title="Loading Journal" detail="Reading the draft and its current version." />;
   return (
-    <section className="space-y-4 rounded-lg border border-border bg-card p-4">
-      <div className="grid gap-4 lg:grid-cols-2">
+    <section className="grid min-w-0 gap-4 rounded-lg border border-border bg-card p-3 sm:p-4">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
         <div className="grid gap-2">
           <Label htmlFor="journal-date">Date *</Label>
           <Input
@@ -878,7 +888,7 @@ function ManualJournalForm({
         <Alert variant="destructive" role="alert">
           <AlertTitle>Review the Journal form</AlertTitle>
           <AlertDescription>
-            <ul className="list-disc space-y-1 pl-5">
+            <ul className="list-disc space-y-1 pl-5 text-destructive">
               {validationErrors.map((message) => (
                 <li key={message}>{message}</li>
               ))}
@@ -888,12 +898,14 @@ function ManualJournalForm({
       ) : null}
       <div className="flex justify-end">
         <div
-          className={`grid min-w-80 grid-cols-2 border text-right tabular-nums ${validation.debit === validation.credit && validation.debit > 0n ? "border-[var(--nx-success-border)]" : "border-destructive/40"}`}
+          className={`grid w-full max-w-sm grid-cols-2 border text-right tabular-nums ${validation.debit === validation.credit && validation.debit > 0n ? "border-[var(--nx-success-border)]" : "border-destructive/40"}`}
         >
           <span className="bg-muted px-4 py-3 font-semibold">
+            <span className="mb-1 block text-xs font-normal text-muted-foreground">Total debit</span>
             {formatJournalDisplayAmount(formatJournalAmount(validation.debit, decimalPlaces), displayDecimalPlaces)}
           </span>
           <span className="bg-muted px-4 py-3 font-semibold">
+            <span className="mb-1 block text-xs font-normal text-muted-foreground">Total credit</span>
             {formatJournalDisplayAmount(formatJournalAmount(validation.credit, decimalPlaces), displayDecimalPlaces)}
           </span>
         </div>
@@ -982,22 +994,41 @@ function LineEditor({
       label: `${item.code} · ${item.name}${item.kind === "bank" ? " · Bank" : ""}`,
     }));
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[980px] text-sm">
-        <thead className="bg-primary text-left text-primary-foreground">
+    <div className="min-w-0">
+      <table className="block w-full table-fixed text-sm xl:table">
+        <caption className="sr-only">Journal lines</caption>
+        <thead className="sr-only bg-primary text-left text-primary-foreground xl:not-sr-only">
           <tr>
-            <th className="px-3 py-3">Nominal Account</th>
-            <th className="px-3 py-3">Description</th>
-            <th className="px-3 py-3">Required Dimensions</th>
-            <th className="px-3 py-3 text-right">Debit</th>
-            <th className="px-3 py-3 text-right">Credit</th>
-            <th className="w-20 px-3 py-3">Action</th>
+            <th scope="col" className="w-[24%] px-3 py-3">
+              Nominal Account
+            </th>
+            <th scope="col" className="w-[24%] px-3 py-3">
+              Description
+            </th>
+            <th scope="col" className="w-[18%] px-3 py-3">
+              Required Dimensions
+            </th>
+            <th scope="col" className="w-[13%] px-3 py-3 text-right">
+              Debit
+            </th>
+            <th scope="col" className="w-[13%] px-3 py-3 text-right">
+              Credit
+            </th>
+            <th scope="col" className="w-[8%] px-3 py-3">
+              Action
+            </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="grid gap-4 xl:table-row-group">
           {lines.map((line, index) => (
-            <tr key={line.client_id} className="border-t border-border">
-              <td className="p-2">
+            <tr
+              key={line.client_id}
+              className="grid min-w-0 grid-cols-2 gap-3 rounded-lg border border-border p-3 xl:table-row xl:rounded-none xl:border-x-0 xl:border-b-0 xl:p-0"
+            >
+              <td className="col-span-2 grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
+                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                  Nominal Account · Line {index + 1}
+                </span>
                 <SearchableSelect
                   label={`Nominal account line ${index + 1}`}
                   searchLabel={`Search nominal account line ${index + 1}`}
@@ -1009,7 +1040,10 @@ function LineEditor({
                   onValueChange={(value) => changeAccount(index, value)}
                 />
               </td>
-              <td className="p-2">
+              <td className="col-span-2 grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
+                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                  Description
+                </span>
                 <Input
                   aria-label={`Description line ${index + 1}`}
                   value={line.description}
@@ -1017,7 +1051,10 @@ function LineEditor({
                   onChange={(event) => change(index, "description", event.target.value)}
                 />
               </td>
-              <td className="p-2">
+              <td className="col-span-2 grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
+                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                  Required Dimensions
+                </span>
                 {(() => {
                   const dimensions =
                     options?.nominals.find((item) => item.id === line.account_id)?.required_dimensions ?? [];
@@ -1038,7 +1075,10 @@ function LineEditor({
                   );
                 })()}
               </td>
-              <td className="p-2">
+              <td className="grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
+                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                  Debit
+                </span>
                 <JournalAmountInput
                   label={`Debit line ${index + 1}`}
                   value={line.debit}
@@ -1047,7 +1087,10 @@ function LineEditor({
                   onChange={(value) => change(index, "debit", value || "0")}
                 />
               </td>
-              <td className="p-2">
+              <td className="grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
+                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                  Credit
+                </span>
                 <JournalAmountInput
                   label={`Credit line ${index + 1}`}
                   value={line.credit}
@@ -1056,7 +1099,7 @@ function LineEditor({
                   onChange={(value) => change(index, "credit", value || "0")}
                 />
               </td>
-              <td className="p-2">
+              <td className="col-span-2 flex justify-end xl:table-cell xl:p-2">
                 <Button
                   type="button"
                   size="sm"

@@ -74,8 +74,8 @@ test("adopts the approved Excel chart for the existing UAT company and reloads i
   await expect(page.getByRole("button", { name: "Save posting review", exact: true })).toBeDisabled();
   await page.reload();
   await expect(page.getByText("740101 · Income Tax", { exact: true })).toBeVisible();
-  await expect(page.locator(".nx-prototype-toolbar")).toContainText("Live Finance API");
-  await expect(page.locator(".nx-context-summary")).not.toContainText("Nexora Services");
+  await expect(page.getByRole("button", { name: /Density:/ })).toBeVisible();
+  await expect(page.locator(".nx-context-summary")).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByLabel("Posting classification", { exact: true })).toBeVisible();
   await page.screenshot({

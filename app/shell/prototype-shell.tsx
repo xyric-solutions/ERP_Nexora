@@ -1,4 +1,6 @@
 "use client";
+import { purchaseSteps } from "@prototype/features/purchasing/model/purchase-workflow";
+import { PURCHASE_EXPORT_EVENT } from "@prototype/features/purchasing/model/purchase-export";
 import { compactHrWorkspaces } from "@prototype/features/hr/model/hr-section-navigation";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -54,7 +56,17 @@ const legacyJournalPageIds = new Set([
   "recurring-journals",
 ]);
 const navigationPageId = (moduleId: string, pageId: string) =>
-  moduleId === "finance" && legacyJournalPageIds.has(pageId) ? "journal-register" : pageId;
+  moduleId === "inventory"
+    ? ["warehouses", "add-warehouse"].includes(pageId)
+      ? "warehouses"
+      : ["stock-transfers", "add-stock-transfer"].includes(pageId)
+        ? "stock-transfers"
+        : "products"
+    : moduleId === "purchases"
+      ? (purchaseSteps.find((step) => step.page === pageId || step.form === pageId)?.page ?? pageId)
+      : moduleId === "finance" && legacyJournalPageIds.has(pageId)
+        ? "journal-register"
+        : pageId;
 const moduleParties: Record<string, readonly string[]> = {
   sales: ["Atlas Retail Group", "Crescent Finance", "Northstar Foods", "BluePeak Logistics"],
   revenue: ["Crescent Finance", "Orbit Telecom", "Atlas Retail Group", "Northstar Foods"],
@@ -143,7 +155,14 @@ type GlobalSearchResult =
     };
 
 const genericRecordSearchIndex: readonly GlobalSearchResult[] = prototypePageIndex
-  .filter((page) => !page.hiddenFromNavigation && /list|register|queue|detail/i.test(page.archetype))
+  .filter(
+    (page) =>
+      page.moduleId !== "purchases" &&
+      page.moduleId !== "inventory" &&
+      !page.hiddenFromNavigation &&
+      !page.groupHiddenFromNavigation &&
+      /list|register|queue|detail/i.test(page.archetype),
+  )
   .flatMap((page) =>
     rowsFor(page.moduleId, page.moduleLabel, page.label)
       .slice(0, 4)
@@ -262,6 +281,10 @@ export function PrototypeShell({
   const [paymentEntryDirty, setPaymentEntryDirty] = useState(false);
   const routeRef = useRef(route);
   const paymentEntryDirtyRef = useRef(paymentEntryDirty);
+  const reportEntryDirty = useCallback((dirty: boolean) => {
+    paymentEntryDirtyRef.current = dirty;
+    setPaymentEntryDirty(dirty);
+  }, []);
 
   const current = useMemo(() => findPrototypePage(route.moduleId, route.pageId), [route]);
   const isCompactHrWorkspace = current.module.id === "hr" && Object.hasOwn(compactHrWorkspaces, current.group.id);
@@ -277,11 +300,21 @@ export function PrototypeShell({
     isReferenceMasterPage ||
     isCentralChartPage ||
     (current.module.id === "finance" &&
-      ["chart-of-accounts", "nominals", "nominal-detail", "add-nominal"].includes(current.page.id));
+      [
+        "chart-of-accounts",
+        "coa-categories",
+        "coa-sections",
+        "add-coa-category",
+        "add-coa-section",
+        "nominals",
+        "nominal-detail",
+        "add-nominal",
+      ].includes(current.page.id));
   const isLiveBankMasterDataPage =
     current.module.id === "banking" &&
     ["bank-accounts", "add-bank-account", "bank-account-detail", "bank-account-approvals"].includes(current.page.id);
-  const isLiveMasterDataPage = isLiveFinanceChartPage || isLiveBankMasterDataPage;
+  const isLiveMasterDataPage =
+    isLiveFinanceChartPage || isLiveBankMasterDataPage || ["purchases", "inventory"].includes(current.module.id);
   const currentRole = roleOptions.find((role) => role.id === roleId) ?? roleOptions[0];
   const currentCompany = companies.find((company) => company.mode === companyMode) ?? companies[0];
   const currentMode = companyModeOptions.find((mode) => mode.id === companyMode) ?? companyModeOptions[0];
@@ -293,7 +326,11 @@ export function PrototypeShell({
     return prototypeModules.filter((module) => {
       const allowedModuleIds: readonly string[] = allowedByRole === "all" ? [] : allowedByRole;
       const supportedModes: readonly CompanyMode[] = module.modes;
-      const roleMatch = !roleScoped || allowedByRole === "all" || allowedModuleIds.includes(module.id);
+      const roleMatch =
+        !roleScoped ||
+        allowedByRole === "all" ||
+        allowedModuleIds.includes(module.id) ||
+        (module.id === "purchases" && allowedModuleIds.includes("suppliers"));
       const modeMatch = !modeScoped || supportedModes.includes(companyMode);
       const searchMatch =
         !query ||
@@ -301,10 +338,10 @@ export function PrototypeShell({
           module.label,
           module.shortLabel,
           module.code,
-          ...module.groups.map((group) => group.label),
-          ...module.groups.flatMap((group) =>
-            group.pages.filter((page) => !page.hiddenFromNavigation).map((page) => page.label),
-          ),
+          ...module.groups.filter((group) => !group.hiddenFromNavigation).map((group) => group.label),
+          ...module.groups
+            .filter((group) => !group.hiddenFromNavigation)
+            .flatMap((group) => group.pages.filter((page) => !page.hiddenFromNavigation).map((page) => page.label)),
         ].some((value) => value.toLowerCase().includes(query));
       return roleMatch && modeMatch && searchMatch;
     });
@@ -313,7 +350,7 @@ export function PrototypeShell({
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     const pageResults: GlobalSearchResult[] = prototypePageIndex
-      .filter((page) => !page.hiddenFromNavigation)
+      .filter((page) => !page.hiddenFromNavigation && !page.groupHiddenFromNavigation)
       .map((page) => ({
         kind: "page",
         key: `page:${page.moduleId}:${page.id}`,
@@ -346,7 +383,7 @@ export function PrototypeShell({
 
   const confirmPaymentEntryDiscard = useCallback((bypass = false) => {
     if (bypass || !paymentEntryDirtyRef.current || typeof window === "undefined") return true;
-    if (!window.confirm("You have unsaved Bank changes. Leave this page and discard them?")) return false;
+    if (!window.confirm("You have unsaved form changes. Leave this page and discard them?")) return false;
     paymentEntryDirtyRef.current = false;
     setPaymentEntryDirty(false);
     return true;
@@ -535,6 +572,10 @@ export function PrototypeShell({
         return;
       }
       if (normalized === "export") {
+        if (current.module.id === "purchases" && purchaseSteps.some((step) => step.page === current.page.id || step.form === current.page.id)) {
+          window.dispatchEvent(new Event(PURCHASE_EXPORT_EVENT));
+          return;
+        }
         const header = "Document,Date,Party,Reference,Amount,Status,Owner\n";
         const csv = rows
           .map((row) =>
@@ -770,91 +811,87 @@ export function PrototypeShell({
                             </button>
                             {expanded ? (
                               <ul className="nx-submenu">
-                                {module.groups.map((group) => {
-                                  if (module.id === "hr" && Object.hasOwn(compactHrWorkspaces, group.id)) {
+                                {module.groups
+                                  .filter((group) => !group.hiddenFromNavigation)
+                                  .map((group) => {
+                                    if (["purchases", "inventory"].includes(module.id))
+                                      return group.pages
+                                        .filter((page) => !page.hiddenFromNavigation)
+                                        .map((page) => (
+                                          <li key={page.id}>
+                                            <button
+                                              type="button"
+                                              className={`nx-submenu-link${page.id === currentNavigationPageId ? " nx-submenu-link--active" : ""}`}
+                                              aria-current={page.id === currentNavigationPageId ? "page" : undefined}
+                                              onClick={() => navigate(module.id, page.id)}
+                                            >
+                                              <span>{page.label}</span>
+                                            </button>
+                                          </li>
+                                        ));
+                                    if (module.id === "hr" && Object.hasOwn(compactHrWorkspaces, group.id)) {
+                                      return (
+                                        <li key={group.id}>
+                                          <button
+                                            className={`nx-submenu-button${current.module.id === "hr" && current.group.id === group.id ? " bg-primary/15 font-semibold" : ""}`}
+                                            type="button"
+                                            aria-current={
+                                              current.module.id === "hr" && current.group.id === group.id
+                                                ? "page"
+                                                : undefined
+                                            }
+                                            onClick={() => navigate("hr", compactHrWorkspaces[group.id])}
+                                          >
+                                            <span>{group.label}</span>
+                                          </button>
+                                        </li>
+                                      );
+                                    }
+                                    const groupKey = `${module.id}:${group.id}`;
+                                    const groupOpen = expandedGroups.has(groupKey) || group.id === current.group.id;
                                     return (
                                       <li key={group.id}>
                                         <button
-                                          className={`nx-submenu-button${current.module.id === "hr" && current.group.id === group.id ? " bg-primary/15 font-semibold" : ""}`}
+                                          className="nx-submenu-button"
                                           type="button"
-                                          aria-current={
-                                            current.module.id === "hr" && current.group.id === group.id
-                                              ? "page"
-                                              : undefined
-                                          }
-                                          onClick={() => navigate("hr", compactHrWorkspaces[group.id])}
+                                          aria-expanded={groupOpen}
+                                          onClick={() => toggleGroup(module.id, group.id)}
                                         >
                                           <span>{group.label}</span>
+                                          <i className="nx-submenu-button__chevron" />
                                         </button>
+                                        {groupOpen ? (
+                                          <ul className="nx-submenu__list">
+                                            {group.pages
+                                              .filter((page) => !page.hiddenFromNavigation)
+                                              .map((page) => (
+                                                <li key={page.id}>
+                                                  <button
+                                                    className={`nx-submenu-link${page.id === currentNavigationPageId ? " nx-submenu-link--active" : ""}`}
+                                                    aria-current={
+                                                      page.id === currentNavigationPageId ? "page" : undefined
+                                                    }
+                                                    type="button"
+                                                    onClick={() => navigate(module.id, page.id)}
+                                                  >
+                                                    <span>{page.label}</span>
+                                                    {page.status === "in-progress" ? (
+                                                      <small>In progress</small>
+                                                    ) : page.status === "live" ? (
+                                                      <small>Live</small>
+                                                    ) : page.status === "read-only" ? (
+                                                      <small>Read only</small>
+                                                    ) : page.status !== "prototype" ? (
+                                                      <small>Soon</small>
+                                                    ) : null}
+                                                  </button>
+                                                </li>
+                                              ))}
+                                          </ul>
+                                        ) : null}
                                       </li>
                                     );
-                                  }
-                                  const groupKey = `${module.id}:${group.id}`;
-                                  const groupOpen = expandedGroups.has(groupKey) || group.id === current.group.id;
-                                  return (
-                                    <li key={group.id}>
-                                      <button
-                                        className="nx-submenu-button"
-                                        type="button"
-                                        aria-expanded={groupOpen}
-                                        onClick={() => toggleGroup(module.id, group.id)}
-                                      >
-                                        <span>{group.label}</span>
-                                        <i className="nx-submenu-button__chevron" />
-                                      </button>
-                                      {groupOpen ? (
-                                        <ul className="nx-submenu__list">
-                                          {group.pages.map((page) => (
-                                            <li key={page.id}>
-                                              <button
-                                                className={`nx-submenu-link${page.id === current.page.id ? " nx-submenu-link--active" : ""}`}
-                                                aria-current={page.id === current.page.id ? "page" : undefined}
-                                                type="button"
-                                                onClick={() => navigate(module.id, page.id)}
-                                              >
-                                                <span>{page.label}</span>
-                                                {page.status === "in-progress" ? (
-                                                  <small>In progress</small>
-                                                ) : page.status === "live" ? (
-                                                  <small>Live</small>
-                                                ) : page.status === "read-only" ? (
-                                                  <small>Read only</small>
-                                                ) : page.status !== "prototype" ? (
-                                                  <small>Soon</small>
-                                                ) : null}
-                                              </button>
-                                            </li>
-                                          ))}
-                                          {group.pages
-                                            .filter((page) => !page.hiddenFromNavigation)
-                                            .map((page) => (
-                                              <li key={page.id}>
-                                                <button
-                                                  className={`nx-submenu-link${page.id === currentNavigationPageId ? " nx-submenu-link--active" : ""}`}
-                                                  aria-current={
-                                                    page.id === currentNavigationPageId ? "page" : undefined
-                                                  }
-                                                  type="button"
-                                                  onClick={() => navigate(module.id, page.id)}
-                                                >
-                                                  <span>{page.label}</span>
-                                                  {page.status === "in-progress" ? (
-                                                    <small>In progress</small>
-                                                  ) : page.status === "live" ? (
-                                                    <small>Live</small>
-                                                  ) : page.status === "read-only" ? (
-                                                    <small>Read only</small>
-                                                  ) : page.status !== "prototype" ? (
-                                                    <small>Soon</small>
-                                                  ) : null}
-                                                </button>
-                                              </li>
-                                            ))}
-                                        </ul>
-                                      ) : null}
-                                    </li>
-                                  );
-                                })}
+                                  })}
                               </ul>
                             ) : null}
                           </li>
@@ -969,19 +1006,16 @@ export function PrototypeShell({
           {activeWorkspace === "prototype" && isLiveMasterDataPage ? (
             <section
               className="nx-prototype-toolbar"
-              aria-label={isLiveMasterDataPage ? "Account master data controls" : "Prototype controls"}
+              aria-label={
+                current.module.id === "inventory"
+                  ? "Inventory display controls"
+                  : current.module.id === "purchases"
+                    ? "Purchase display controls"
+                    : isLiveMasterDataPage
+                      ? "Account master data controls"
+                      : "Prototype controls"
+              }
             >
-              <strong className="nx-prototype-toolbar__label">
-                {isReferenceMasterPage
-                  ? "Live Master Data API"
-                  : isCentralChartPage
-                    ? "Central Master Data"
-                    : isLiveFinanceChartPage
-                      ? "Live Finance API"
-                      : isLiveBankMasterDataPage
-                        ? "Live Bank API"
-                        : "Mock-only review"}
-              </strong>
               <div className="nx-prototype-toolbar__controls">
                 {!isLiveMasterDataPage && (
                   <>
@@ -1035,28 +1069,20 @@ export function PrototypeShell({
                 >
                   Density: {density === "comfortable" ? "Comfortable" : "Compact"}
                 </button>
-                <select
-                  className="nx-context-control"
-                  value={viewState}
-                  onChange={(event) => setViewState(event.target.value as PrototypeViewState)}
-                  aria-label="Preview page state"
-                  disabled={isLiveMasterDataPage}
-                >
-                  <option value="data">State: Data</option>
-                  <option value="loading">State: Loading</option>
-                  <option value="empty">State: Empty</option>
-                  <option value="error">State: Error</option>
-                </select>
+                {!isLiveMasterDataPage && (
+                  <select
+                    className="nx-context-control"
+                    value={viewState}
+                    onChange={(event) => setViewState(event.target.value as PrototypeViewState)}
+                    aria-label="Preview page state"
+                  >
+                    <option value="data">State: Data</option>
+                    <option value="loading">State: Loading</option>
+                    <option value="empty">State: Empty</option>
+                    <option value="error">State: Error</option>
+                  </select>
+                )}
               </div>
-              <span className="nx-prototype-toolbar__note">
-                {isFiscalPeriodPage
-                  ? "Company fiscal calendar API · PostgreSQL · audited date controls"
-                  : isCentralChartPage
-                    ? "Central reference API · PostgreSQL · no company posting"
-                    : isLiveMasterDataPage
-                      ? "Company account API · PostgreSQL · approval required before use"
-                      : "No APIs · no posting · no Demo Account data"}
-              </span>
             </section>
           ) : null}
 
@@ -1091,36 +1117,27 @@ export function PrototypeShell({
                             {current.group.label}
                           </button>
                         </li>
-                      ) : current.group.label !== current.page.label ? (
+                      ) : !["purchases", "inventory"].includes(current.module.id) &&
+                        current.group.label !== current.page.label &&
+                        current.group.label !== current.module.shortLabel &&
+                        current.group.label !== current.module.label ? (
                         <li>{current.group.label}</li>
                       ) : null}
                       <li aria-current="page">{current.page.label}</li>
                     </ol>
-                    <div className="nx-context-summary" role="note">
-                      <span>
-                        <b>{isLiveMasterDataPage ? "ERP" : currentCompany.shortName}</b>
-                        {isCentralChartPage
-                          ? "Central master data · no company selected"
-                          : isLiveMasterDataPage
-                            ? "Company scope shown in account or form"
-                            : currentCompany.name}
-                      </span>
-                      <span>
-                        <b>{isLiveMasterDataPage ? "AUTH" : currentRole.shortLabel}</b>
-                        {isLiveMasterDataPage ? "Permissions enforced by API" : currentRole.label}
-                      </span>
-                      <span>
-                        <b>{isLiveMasterDataPage ? "DB" : currentMode.shortLabel}</b>
-                        {isLiveMasterDataPage ? "Persisted PostgreSQL records" : currentMode.description}
-                      </span>
-                    </div>
                   </>
                 ) : null}
                 <ActionFeedbackProvider
                   onSuccess={(message) =>
                     pushToast(
                       "success",
-                      isLiveFinanceChartPage ? "Finance updated successfully" : "Bank updated successfully",
+                      current.module.id === "inventory"
+                        ? "Inventory updated successfully"
+                        : current.module.id === "purchases"
+                          ? "Purchases updated successfully"
+                          : isLiveFinanceChartPage
+                            ? "Finance updated successfully"
+                            : "Bank updated successfully",
                       message,
                     )
                   }
@@ -1148,7 +1165,7 @@ export function PrototypeShell({
                     onNavigate={(moduleId, pageId, recordRef, options) =>
                       navigate(moduleId, pageId, recordRef, options)
                     }
-                    onPaymentEntryDirtyChange={setPaymentEntryDirty}
+                    onPaymentEntryDirtyChange={reportEntryDirty}
                     onReceiptEntryDirtyChange={setPaymentEntryDirty}
                   />
                 </ActionFeedbackProvider>
@@ -1178,38 +1195,44 @@ export function PrototypeShell({
             </button>
           </div>
           <div className="nx-submenu-drawer__body">
-            {drawerModule.groups.map((group) =>
-              drawerModule.id === "hr" && Object.hasOwn(compactHrWorkspaces, group.id) ? (
-                <section className="nx-submenu-drawer__group" key={group.id}>
-                  <button
-                    className="nx-submenu-drawer__link w-full rounded-lg! border-0! bg-transparent! text-left hover:bg-[var(--nx-sidebar-hover)]! aria-[current=page]:bg-[var(--nx-sidebar-hover)]!"
-                    type="button"
-                    onClick={() => navigate("hr", compactHrWorkspaces[group.id])}
-                    aria-current={current.module.id === "hr" && current.group.id === group.id ? "page" : undefined}
-                  >
-                    <span>{group.label}</span>
-                  </button>
-                </section>
-              ) : (
-                <section className="nx-submenu-drawer__group" key={group.id}>
-                  <h3 className="nx-submenu-drawer__group-title">{group.label}</h3>
-                  {group.pages
-                    .filter((page) => !page.hiddenFromNavigation)
-                    .map((page) => (
-                      <button
-                        className="nx-submenu-drawer__link w-full rounded-lg! border-0! bg-transparent! text-left hover:bg-[var(--nx-sidebar-hover)]! aria-[current=page]:bg-[var(--nx-sidebar-hover)]!"
-                        aria-current={page.id === currentNavigationPageId ? "page" : undefined}
-                        type="button"
-                        key={page.id}
-                        onClick={() => navigate(drawerModule.id, page.id)}
-                      >
-                        <span>{page.label}</span>
-                        <small>{page.archetype}</small>
-                      </button>
-                    ))}
-                </section>
-              ),
-            )}
+            {drawerModule.groups
+              .filter((group) => !group.hiddenFromNavigation)
+              .map((group) =>
+                drawerModule.id === "hr" && Object.hasOwn(compactHrWorkspaces, group.id) ? (
+                  <section className="nx-submenu-drawer__group" key={group.id}>
+                    <button
+                      className="nx-submenu-drawer__link w-full rounded-lg! border-0! bg-transparent! text-left hover:bg-[var(--nx-sidebar-hover)]! aria-[current=page]:bg-[var(--nx-sidebar-hover)]!"
+                      type="button"
+                      onClick={() => navigate("hr", compactHrWorkspaces[group.id])}
+                      aria-current={current.module.id === "hr" && current.group.id === group.id ? "page" : undefined}
+                    >
+                      <span>{group.label}</span>
+                    </button>
+                  </section>
+                ) : (
+                  <section className="nx-submenu-drawer__group" key={group.id}>
+                    {!["purchases", "inventory"].includes(drawerModule.id) ? (
+                      <h3 className="nx-submenu-drawer__group-title">{group.label}</h3>
+                    ) : null}
+                    {group.pages
+                      .filter((page) => !page.hiddenFromNavigation)
+                      .map((page) => (
+                        <button
+                          className="nx-submenu-drawer__link w-full rounded-lg! border-0! bg-transparent! text-left hover:bg-[var(--nx-sidebar-hover)]! aria-[current=page]:bg-[var(--nx-sidebar-hover)]!"
+                          aria-current={page.id === currentNavigationPageId ? "page" : undefined}
+                          type="button"
+                          key={page.id}
+                          onClick={() => navigate(drawerModule.id, page.id)}
+                        >
+                          <span>{page.label}</span>
+                          {!["purchases", "inventory"].includes(drawerModule.id) ? (
+                            <small>{page.archetype}</small>
+                          ) : null}
+                        </button>
+                      ))}
+                  </section>
+                ),
+              )}
           </div>
         </aside>
       ) : null}

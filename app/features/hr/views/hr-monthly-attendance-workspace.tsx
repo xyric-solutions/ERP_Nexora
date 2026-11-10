@@ -68,7 +68,7 @@ function EmployeeMonth({
   return (
     <section
       aria-label="Employee monthly detail"
-      className="grid min-w-0 gap-5 rounded-xl border border-primary/25 bg-card p-4 sm:p-6"
+      className="grid min-w-0 gap-4 rounded-xl border border-primary/25 bg-card p-4 sm:p-5"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -332,9 +332,9 @@ export function HrMonthlyAttendanceWorkspace({
   return (
     <section
       aria-label="Monthly attendance workspace"
-      className="grid min-w-0 gap-5 font-sans text-foreground [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_td]:font-sans!"
+      className="grid min-w-0 gap-4 font-sans text-foreground [&_label]:gap-1.5 [&_label]:leading-tight [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_td]:font-sans!"
     >
-      <div className="flex flex-wrap items-start justify-between gap-4 rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-4">
         <div className="flex min-w-0 items-start gap-3">
           <div className="rounded-xl bg-primary/15 p-3 text-primary">
             <CalendarRange className="size-6" />
