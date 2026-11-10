@@ -144,6 +144,8 @@ export const createHrEmployeeDraftRequestSchema = z.strictObject({
   joined_on: isoDate,
   work_email: z.string().trim().email().max(320).optional(),
   phone: z.string().trim().max(40).optional(),
+  location_id: identifier.optional(),
+  project_id: identifier.optional(),
 });
 
 export const hrEmployeeDraftResultSchema = z.strictObject({
@@ -158,6 +160,8 @@ export const hrEmployeeDraftResultSchema = z.strictObject({
 export const hrEmployeeDraftDirectoryQuerySchema = z.strictObject({
   company_id: identifier,
   search: z.string().trim().max(160).optional(),
+  /** draft = not yet submitted; submitted = sent for approval; all = both. */
+  status: z.enum(["all", "draft", "submitted"]).default("draft"),
   limit: z.number().int().min(1).max(100).default(50),
 });
 
@@ -169,6 +173,7 @@ export const hrEmployeeDraftSummarySchema = z.strictObject({
   joined_on: isoDate,
   company_id: identifier,
   created_at: z.string().datetime(),
+  status: z.enum(["draft", "pending_approval"]).optional(),
 });
 
 export const hrEmployeeDraftDirectorySchema = z.strictObject({
@@ -181,6 +186,10 @@ export const hrEmployeeDraftDetailSchema = hrEmployeeDraftSummarySchema.extend({
   last_name: z.string().max(100),
   preferred_name: z.string().max(100),
   phone: z.string().max(40),
+  location_id: identifier.nullable().optional(),
+  location: z.string().nullable().optional(),
+  project_id: identifier.nullable().optional(),
+  project: z.string().nullable().optional(),
 });
 
 /** Contact values are isolated from employee profile and private-record APIs. */
@@ -486,6 +495,8 @@ export const updateHrEmployeeDraftRequestSchema = z
     joined_on: isoDate.optional(),
     work_email: z.string().trim().email().max(320).optional(),
     phone: z.string().trim().max(40).optional(),
+    location_id: identifier.nullable().optional(),
+    project_id: identifier.nullable().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, "At least one draft field must be supplied.");
 
@@ -2026,6 +2037,8 @@ export type SubmitHrEmployeeDraftRequest = z.infer<typeof submitHrEmployeeDraftR
 
 export const hrEmployeeDraftApprovalQueueQuerySchema = z.strictObject({
   company_id: identifier,
+  /** pending = the decision queue (default); all = pending and decided. */
+  state: z.enum(["pending", "approved", "rejected", "all"]).default("pending"),
   limit: z.number().int().min(1).max(100).default(50),
 });
 export const hrEmployeeDraftApprovalQueueSchema = z.strictObject({
@@ -2038,6 +2051,8 @@ export const hrEmployeeDraftApprovalQueueSchema = z.strictObject({
       company_id: identifier,
       submitted_by: identifier,
       submitted_at: z.string().datetime(),
+      state: z.enum(["pending", "approved", "rejected"]).optional(),
+      decided_at: z.string().datetime().nullable().optional(),
     }),
   ),
 });
@@ -2046,6 +2061,9 @@ export const hrEmployeeDraftApprovalDetailSchema = hrEmployeeDraftDetailSchema.e
   created_by: identifier,
   submitted_by: identifier,
   submitted_at: z.string().datetime(),
+  approval_state: z.enum(["pending", "approved", "rejected"]).optional(),
+  decided_at: z.string().datetime().nullable().optional(),
+  decision_reason: z.string().nullable().optional(),
   ...approvalOverrideReviewFields,
 });
 export type HrEmployeeDraftApprovalQueueQuery = z.infer<typeof hrEmployeeDraftApprovalQueueQuerySchema>;

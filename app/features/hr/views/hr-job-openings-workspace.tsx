@@ -22,6 +22,16 @@ import {
 } from "../components/hr-detail-tile";
 import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
 import { HrEditButton } from "../components/hr-icon-buttons";
+import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
+
+/** Cancelled openings are no longer listed; All = open, on hold and closed. */
+type OpeningFilter = "all" | "open" | "on_hold" | "closed";
+const openingFilterOptions: readonly { value: OpeningFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "open", label: "Open" },
+  { value: "on_hold", label: "On hold" },
+  { value: "closed", label: "Closed" },
+];
 type Opening = HrJobOpeningDirectory["items"][number];
 export function HrJobOpeningsWorkspace() {
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -47,7 +57,8 @@ export function HrJobOpeningsWorkspace() {
     [closingOn, setClosingOn] = useState(""),
     /** Set while editing an existing opening. */
     [editingId, setEditingId] = useState(""),
-    [openingState, setOpeningState] = useState<Opening["state"]>("open");
+    [openingState, setOpeningState] = useState<Opening["state"]>("open"),
+    [openingFilter, setOpeningFilter] = useState<OpeningFilter>("all");
   const load = useCallback(
     async (company: string) => {
       if (!company) return;
@@ -89,6 +100,9 @@ export function HrJobOpeningsWorkspace() {
       });
   }, [canRead, client, load, sessionLoading]);
   const selected = items.find((item) => item.id === selectedId);
+  const visibleItems = items.filter((item) =>
+    openingFilter === "all" ? item.state !== "cancelled" : item.state === openingFilter,
+  );
   // Mirrors the server rule: non-cancelled openings draw down the requisition's approved headcount.
   const chosenRequisition = approved.find((item) => item.id === requisitionId);
   const raisedHeadcount = items
@@ -310,6 +324,12 @@ export function HrJobOpeningsWorkspace() {
           </Button>
         ) : null}
       </div>
+      <HrMasterStatusFilter<OpeningFilter>
+        label="Opening state"
+        value={openingFilter}
+        options={openingFilterOptions}
+        onChange={setOpeningFilter}
+      />
       {loading ? (
         <Skeleton className="h-80 w-full" />
       ) : (
@@ -327,7 +347,7 @@ export function HrJobOpeningsWorkspace() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
+                {visibleItems.map((item) => (
                   <tr
                     className={`cursor-pointer border-b border-border ${item.id === selectedId ? "bg-accent" : ""}`}
                     key={item.id}
@@ -365,10 +385,10 @@ export function HrJobOpeningsWorkspace() {
                     </td>
                   </tr>
                 ))}
-                {items.length === 0 ? (
+                {visibleItems.length === 0 ? (
                   <tr>
                     <td className="px-4 py-10 text-center text-muted-foreground" colSpan={6}>
-                      No live job openings are recorded for this company.
+                      No job openings match this company and state.
                     </td>
                   </tr>
                 ) : null}
@@ -393,7 +413,7 @@ export function HrJobOpeningsWorkspace() {
                         value={openingState}
                         onChange={(event) => setOpeningState(event.target.value as Opening["state"])}
                       >
-                        {(["open", "on_hold", "closed", "cancelled"] as const).map((state) => (
+                        {(openingState === "cancelled" ? (["open", "on_hold", "closed", "cancelled"] as const) : (["open", "on_hold", "closed"] as const)).map((state) => (
                           <option key={state} value={state}>
                             {state === "on_hold" ? "On hold" : state.charAt(0).toUpperCase() + state.slice(1)}
                           </option>
@@ -546,11 +566,6 @@ export function HrJobOpeningsWorkspace() {
                     {selected.state !== "closed" && selected.state !== "cancelled" ? (
                       <Button variant="outline" onClick={() => void change("closed")}>
                         Close
-                      </Button>
-                    ) : null}
-                    {selected.state !== "cancelled" ? (
-                      <Button variant="outline" onClick={() => void change("cancelled")}>
-                        Cancel
                       </Button>
                     ) : null}
                   </HrDrawerActions>

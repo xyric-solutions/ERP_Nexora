@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { DecideHrEmployeeDraftApprovalRequest, HrEmployeeDraftApprovalDetail } from "@nexora/contracts";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,6 +37,7 @@ import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { approvalOverrideReviewState } from "../approval-override-ui";
 import { HrClickableRow } from "../components/hr-clickable-row";
+import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
 import { HrHireApprovalsPanel } from "../components/hr-hire-approvals-panel";
 import { HrTransferApprovalsPanel } from "../components/hr-transfer-approvals-panel";
 import { HrPromotionApprovalsPanel } from "../components/hr-promotion-approvals-panel";
@@ -45,6 +47,15 @@ import { HrOrganizationPlacementChangeApprovalsPanel } from "../components/hr-or
 
 type LoadState = "loading" | "ready" | "error";
 type Decision = DecideHrEmployeeDraftApprovalRequest["decision"];
+
+/** Employee draft approvals: All (pending and decided) / Approved / Rejected. */
+type DraftApprovalFilter = "all" | "approved" | "rejected";
+const draftApprovalFilterOptions: readonly { value: DraftApprovalFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+];
+const approvalStateLabel = { pending: "Pending", approved: "Approved", rejected: "Rejected" } as const;
 
 type ApprovalKind = "drafts" | "hire" | "transfer" | "promotion" | "manager" | "location" | "placement";
 /** Approval queues grouped by what they change; each kind shows one queue at a time. */
@@ -86,6 +97,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
   const [refreshKey, setRefreshKey] = useState(0);
   const [reason, setReason] = useState("");
   const [decision, setDecision] = useState<Decision | null>(null);
+  const [draftFilter, setDraftFilter] = useState<DraftApprovalFilter>("all");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -223,7 +235,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
     setDecision(null);
     setReason("");
     client
-      .employeeDraftApprovals({ companyId, limit: 50 })
+      .employeeDraftApprovals({ companyId, state: draftFilter, limit: 50 })
       .then((result) => {
         if (!active) return;
         setQueue(result.items);
@@ -235,7 +247,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
     return () => {
       active = false;
     };
-  }, [canApproveDraft, client, companyId, refreshKey]);
+  }, [canApproveDraft, client, companyId, draftFilter, refreshKey]);
 
   useEffect(() => {
     if (!selectedId || !companyId) return;
@@ -370,6 +382,17 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           </DropdownMenu>
         </div>
       </div>
+      {canApproveDraft && kind === "drafts" ? (
+        <HrMasterStatusFilter<DraftApprovalFilter>
+          label="Approval status"
+          value={draftFilter}
+          options={draftApprovalFilterOptions}
+          onChange={(value) => {
+            setDraftFilter(value);
+            setError("");
+          }}
+        />
+      ) : null}
       {canApproveDraft && kind === "drafts" && notice && (
         <Alert>
           <AlertTitle>Decision recorded</AlertTitle>
@@ -405,6 +428,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
                   <th className="w-px whitespace-nowrap px-4 py-3">Employee no.</th>
                   <th className="px-4 py-3">Employee</th>
                   <th className="px-4 py-3">Submitted</th>
+                  <th className="px-4 py-3">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -420,12 +444,17 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
                     <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold">{item.employee_number}</td>
                     <td className="px-4 py-3 font-medium text-foreground">{item.display_name}</td>
                     <td className="px-4 py-3 text-muted-foreground">{new Date(item.submitted_at).toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={item.state === "rejected" ? "destructive" : item.state === "approved" ? "secondary" : "outline"}>
+                        {approvalStateLabel[item.state ?? "pending"]}
+                      </Badge>
+                    </td>
                   </HrClickableRow>
                 ))}
                 {queue.length === 0 && (
                   <tr>
-                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={3}>
-                      No pending approvals in this company.
+                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={4}>
+                      {draftFilter === "all" ? "No employee approvals in this company." : `No ${draftFilter} employee approvals in this company.`}
                     </td>
                   </tr>
                 )}
@@ -461,7 +490,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
               )}
               {detail && detailState === "ready" && (
                 <div className="grid gap-4">
-                  <HrDetailSummary code={detail.employee_number} status="pending">
+                  <HrDetailSummary code={detail.employee_number} status={detail.approval_state ?? "pending"}>
                     {detail.display_name}
                   </HrDetailSummary>
                   <HrDetailGroup title="Contact">
@@ -472,7 +501,13 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
                     <HrDetailTile label="Joined" value={detail.joined_on} />
                     <HrDetailTile label="Submitted" value={new Date(detail.submitted_at).toLocaleString()} />
                   </HrDetailGroup>
-                  {draftOverride.independentApproverRequired ? (
+                  {detail.approval_state && detail.approval_state !== "pending" ? (
+                    <HrDetailGroup title="Decision">
+                      <HrDetailTile label="Decision" value={approvalStateLabel[detail.approval_state]} />
+                      <HrDetailTile label="Decided" value={detail.decided_at ? new Date(detail.decided_at).toLocaleString() : ""} />
+                      <HrDetailTile label="Reason" value={detail.decision_reason ?? ""} />
+                    </HrDetailGroup>
+                  ) : draftOverride.independentApproverRequired ? (
                     <Alert>
                       <AlertTitle>Independent approver required</AlertTitle>
                       <AlertDescription>

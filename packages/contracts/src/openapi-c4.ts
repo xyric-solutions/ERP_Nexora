@@ -5707,6 +5707,7 @@ export function buildOpenApiDocument() {
               schema: { type: "string", minLength: 1, maxLength: 128 },
             },
             { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            { in: "query", name: "status", required: false, schema: { type: "string", enum: ["all", "draft", "submitted"], default: "draft" } },
             {
               in: "query",
               name: "limit",
@@ -5808,6 +5809,7 @@ export function buildOpenApiDocument() {
               required: true,
               schema: { type: "string", minLength: 1, maxLength: 128 },
             },
+            { in: "query", name: "state", required: false, schema: { type: "string", enum: ["pending", "approved", "rejected", "all"], default: "pending" } },
             {
               in: "query",
               name: "limit",

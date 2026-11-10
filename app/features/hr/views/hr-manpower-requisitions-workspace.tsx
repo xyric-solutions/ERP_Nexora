@@ -28,9 +28,18 @@ import {
 } from "../components/hr-detail-tile";
 import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
 import { HrEditButton } from "../components/hr-icon-buttons";
+import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
 import { employmentSetupOptionLabel } from "../model/employment-setup";
 import { hiringBasisLabel, hiringBasisOptions, isHiringBasis } from "../model/hiring-basis";
 import { isWorkArrangement, jobTypeOptions, workArrangementLabel } from "../model/work-arrangement";
+
+/** All = every requisition (drafts and submitted ones stay reachable); Approved and Rejected narrow the list. */
+type RequisitionFilter = "all" | "approved" | "rejected";
+const requisitionFilterOptions: readonly { value: RequisitionFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+];
 
 type Requisition = HrManpowerRequisitionDirectory["items"][number];
 type Editor = {
@@ -99,7 +108,7 @@ export function HrManpowerRequisitionsWorkspace() {
     [records, setRecords] = useState<Requisition[]>([]),
     [selectedId, setSelectedId] = useState(""),
     [query, setQuery] = useState(""),
-    [state, setState] = useState(""),
+    [state, setState] = useState<RequisitionFilter>("all"),
     [editor, setEditor] = useState<Editor | null>(null),
     [message, setMessage] = useState(""),
     [loading, setLoading] = useState(true),
@@ -111,13 +120,13 @@ export function HrManpowerRequisitionsWorkspace() {
     [workLocations, setWorkLocations] = useState<WorkLocation[]>([]),
     [currencies, setCurrencies] = useState<Awaited<ReturnType<HrApiClient["jobGradeCurrencies"]>>["items"]>([]);
   const load = useCallback(
-    async (company: string) => {
+    async (company: string, filter: RequisitionFilter = state) => {
       if (!company) return;
       setLoading(true);
       try {
         const [items, masterItems, gradeItems, unitItems, projectItems, currencyItems, locationItems] =
           await Promise.all([
-            client.manpowerRequisitions({ companyId: company, search: query, state: state || undefined }),
+            client.manpowerRequisitions({ companyId: company, search: query, state: filter === "all" ? undefined : filter }),
             client.masters({ companyId: company, activeOnly: true }),
             client.jobGrades(company),
             client.organizationUnits({ companyId: company }),
@@ -418,21 +427,6 @@ export function HrManpowerRequisitionsWorkspace() {
             ))}
           </select>
         </label>
-        <label className="grid content-start min-w-0 basis-full sm:basis-48 flex-1 gap-1 text-sm font-medium">
-          State
-          <select
-            className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-            value={state}
-            onChange={(event) => setState(event.target.value)}
-          >
-            <option value="">All states</option>
-            {["draft", "submitted", "approved", "rejected", "cancelled"].map((value) => (
-              <option key={value} value={value}>
-                {stateLabel(value as Requisition["state"])}
-              </option>
-            ))}
-          </select>
-        </label>
         <label className="grid content-start min-w-0 basis-full sm:basis-48 flex-[1.3] gap-1 text-sm font-medium">
           Search
           <Input
@@ -455,6 +449,15 @@ export function HrManpowerRequisitionsWorkspace() {
           </Button>
         ) : null}
       </div>
+      <HrMasterStatusFilter<RequisitionFilter>
+        label="Requisition state"
+        value={state}
+        options={requisitionFilterOptions}
+        onChange={(value) => {
+          setState(value);
+          void load(companyId, value);
+        }}
+      />
       {loading ? (
         <Skeleton className="h-80 w-full" />
       ) : (

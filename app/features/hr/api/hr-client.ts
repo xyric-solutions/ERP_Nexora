@@ -346,9 +346,9 @@ export class HrApiClient {
     return this.api.getHrEmployee(employeeId);
   }
 
-  employeeDrafts(input: { companyId: string; search?: string; limit?: number }): Promise<HrEmployeeDraftDirectory> {
+  employeeDrafts(input: { companyId: string; search?: string; status?: "all" | "draft" | "submitted"; limit?: number }): Promise<HrEmployeeDraftDirectory> {
     return this.api.listHrEmployeeDrafts(
-      query({ company_id: input.companyId, search: input.search, limit: input.limit ?? 50 }),
+      query({ company_id: input.companyId, search: input.search, status: input.status, limit: input.limit ?? 50 }),
     );
   }
 
@@ -356,8 +356,8 @@ export class HrApiClient {
     return this.api.getHrEmployeeDraft(employeeId);
   }
 
-  employeeDraftApprovals(input: { companyId: string; limit?: number }): Promise<HrEmployeeDraftApprovalQueue> {
-    return this.api.listHrEmployeeDraftApprovals(query({ company_id: input.companyId, limit: input.limit ?? 50 }));
+  employeeDraftApprovals(input: { companyId: string; state?: "pending" | "approved" | "rejected" | "all"; limit?: number }): Promise<HrEmployeeDraftApprovalQueue> {
+    return this.api.listHrEmployeeDraftApprovals(query({ company_id: input.companyId, state: input.state, limit: input.limit ?? 50 }));
   }
 
   employeeDraftApproval(employeeId: string): Promise<HrEmployeeDraftApprovalDetail> {

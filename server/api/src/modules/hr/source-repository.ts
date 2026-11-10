@@ -3158,7 +3158,9 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
     return this.read(context, "hr.employee.read", async (client) => {
       await this.requireCompanyAccess(client, context, query.company_id);
       const values: unknown[] = [context.tenantId, query.company_id];
-      const filters = ["employee.tenant_id = $1", "scope.company_id = $2", "employee.status = 'draft'"];
+      // Submitted drafts wait for (or have passed) HR approval and stay pending until hired.
+      const statuses = { all: "('draft','pending_approval')", draft: "('draft')", submitted: "('pending_approval')" }[query.status];
+      const filters = ["employee.tenant_id = $1", "scope.company_id = $2", `employee.status in ${statuses}`];
       if (query.search) {
         const parameter = values.push(`%${query.search.replace(/[\\%_]/g, "\\$&")}%`);
         filters.push(
@@ -3174,10 +3176,11 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         joined_on: string | Date;
         company_id: string;
         created_at: string | Date;
+        status: "draft" | "pending_approval";
       }>(
         `select employee.id,employee.employee_number,
                 concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as display_name,
-                employee.work_email,employee.joined_on,scope.company_id,employee.created_at
+                employee.work_email,employee.joined_on,scope.company_id,employee.created_at,employee.status
            from hr_employee_draft_scope scope
            join employee on employee.tenant_id=scope.tenant_id and employee.id=scope.employee_id
           where ${filters.join(" and ")}
@@ -3196,6 +3199,32 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
     });
   }
 
+  /** Location = active 'division' unit and Project = active 'branch' unit of the company; a project must sit under the chosen location. */
+  private async assertDraftPlacement(
+    client: PoolClient,
+    context: HrActorContext,
+    companyId: string,
+    locationId: string | null,
+    projectId: string | null,
+  ): Promise<void> {
+    if (locationId) {
+      const location = await client.query(
+        "select 1 from organization_unit where tenant_id=$1 and id=$2 and type='division' and status='active' and organization_unit_is_within_company(tenant_id,id,$3)",
+        [context.tenantId, locationId, companyId],
+      );
+      if (!location.rowCount)
+        throw new HrApiError(409, "HR_EMPLOYEE_LOCATION_INVALID", "Select an active location in this company.");
+    }
+    if (projectId) {
+      const project = await client.query(
+        "select 1 from organization_unit where tenant_id=$1 and id=$2 and type='branch' and status='active' and organization_unit_is_within_company(tenant_id,id,$3) and ($4::text is null or organization_unit_is_within_company(tenant_id,id,$4))",
+        [context.tenantId, projectId, companyId, locationId],
+      );
+      if (!project.rowCount)
+        throw new HrApiError(409, "HR_EMPLOYEE_PROJECT_INVALID", "Select an active project under the chosen location.");
+    }
+  }
+
   async getEmployeeDraft(context: HrActorContext, employeeId: string): Promise<HrEmployeeDraftDetail> {
     return this.read(context, "hr.employee.read", async (client) => {
       const result = await client.query<{
@@ -3210,13 +3239,21 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         joined_on: string | Date;
         company_id: string;
         created_at: string | Date;
+        status: "draft" | "pending_approval";
+        location_id: string | null;
+        location: string | null;
+        project_id: string | null;
+        project: string | null;
       }>(
         `select employee.id,employee.employee_number,employee.first_name,employee.middle_name,employee.last_name,
                 employee.preferred_name,employee.work_email,employee.phone,employee.joined_on::text,
-                scope.company_id,employee.created_at
+                scope.company_id,employee.created_at,employee.status,
+                scope.location_id,location.name as location,scope.project_id,project.name as project
            from hr_employee_draft_scope scope
            join employee on employee.tenant_id=scope.tenant_id and employee.id=scope.employee_id
-          where scope.tenant_id=$1 and employee.id=$2 and employee.status='draft'
+           left join organization_unit location on location.tenant_id=scope.tenant_id and location.id=scope.location_id
+           left join organization_unit project on project.tenant_id=scope.tenant_id and project.id=scope.project_id
+          where scope.tenant_id=$1 and employee.id=$2 and employee.status in ('draft','pending_approval')
             and exists (select 1 from security_user_company_access access
                          where access.tenant_id=scope.tenant_id and access.user_id=$3
                            and access.company_id=scope.company_id and access.revoked_at is null)`,
@@ -3325,10 +3362,11 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           personalEmail,
         ],
       );
+      await this.assertDraftPlacement(client, context, input.company_id, input.location_id ?? null, input.project_id ?? null);
       await client.query(
-        `insert into hr_employee_draft_scope (tenant_id,employee_id,company_id,created_by)
-         values ($1,$2,$3,$4)`,
-        [context.tenantId, employeeId, input.company_id, context.actor.userId],
+        `insert into hr_employee_draft_scope (tenant_id,employee_id,company_id,created_by,location_id,project_id)
+         values ($1,$2,$3,$4,$5,$6)`,
+        [context.tenantId, employeeId, input.company_id, context.actor.userId, input.location_id ?? null, input.project_id ?? null],
       );
       const auditEventId = await this.appendPlatformAudit(client, context, correlationId, "hr.employee.create", {
         entityId: employeeId,
@@ -3421,10 +3459,12 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         date_of_birth: string | Date | null;
         personal_email: string;
         phone: string;
+        location_id: string | null;
+        project_id: string | null;
       }>(
         `select employee.employee_number,scope.company_id,employee.first_name,employee.middle_name,employee.last_name,
                 employee.preferred_name,employee.joined_on::text,employee.work_email,employee.date_of_birth,
-                employee.personal_email,employee.phone
+                employee.personal_email,employee.phone,scope.location_id,scope.project_id
            from hr_employee_draft_scope scope join employee on employee.tenant_id=scope.tenant_id and employee.id=scope.employee_id
           where scope.tenant_id=$1 and employee.id=$2 and employee.status='draft'
             and exists (select 1 from security_user_company_access access where access.tenant_id=scope.tenant_id
@@ -3451,7 +3491,16 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         joined_on: input.joined_on ?? before.joined_on,
         work_email: input.work_email ?? before.work_email,
         phone: input.phone ?? before.phone,
+        location_id: input.location_id === undefined ? before.location_id : input.location_id,
+        project_id: input.project_id === undefined ? before.project_id : input.project_id,
       };
+      if (after.location_id !== before.location_id || after.project_id !== before.project_id) {
+        await this.assertDraftPlacement(client, context, before.company_id, after.location_id, after.project_id);
+        await client.query(
+          "update hr_employee_draft_scope set location_id=$3,project_id=$4 where tenant_id=$1 and employee_id=$2",
+          [context.tenantId, employeeId, after.location_id, after.project_id],
+        );
+      }
       await client.query(
         `update employee set first_name=$3,middle_name=$4,last_name=$5,preferred_name=$6,joined_on=$7,work_email=$8,phone=$9,updated_at=now()
           where tenant_id=$1 and id=$2`,
@@ -3615,24 +3664,25 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         company_id: string;
         submitted_by: string;
         submitted_at: string | Date;
+        state: "pending" | "approved" | "rejected";
+        decided_at: string | Date | null;
       }>(
         `select approval.id as approval_id,employee.id as employee_id,employee.employee_number,
                 concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as display_name,
-                scope.company_id,approval.submitted_by,approval.submitted_at
+                scope.company_id,approval.submitted_by,approval.submitted_at,approval.state,approval.decided_at
            from hr_employee_draft_approval approval
            join hr_employee_draft_scope scope on scope.tenant_id=approval.tenant_id and scope.employee_id=approval.employee_id
            join employee on employee.tenant_id=approval.tenant_id and employee.id=approval.employee_id
-          where approval.tenant_id=$1 and scope.company_id=$2 and approval.state='pending'
-          order by approval.submitted_at,approval.id limit $3`,
-        [context.tenantId, query.company_id, query.limit],
+          where approval.tenant_id=$1 and scope.company_id=$2 and ($3='all' or approval.state=$3)
+          order by approval.state<>'pending', coalesce(approval.decided_at,approval.submitted_at) desc, approval.id limit $4`,
+        [context.tenantId, query.company_id, query.state, query.limit],
       );
+      const iso = (value: string | Date) => (value instanceof Date ? value : new Date(value)).toISOString();
       return {
         items: result.rows.map((row) => ({
           ...row,
-          submitted_at:
-            row.submitted_at instanceof Date
-              ? row.submitted_at.toISOString()
-              : new Date(row.submitted_at).toISOString(),
+          submitted_at: iso(row.submitted_at),
+          decided_at: row.decided_at ? iso(row.decided_at) : null,
         })),
       };
     });
@@ -3656,16 +3706,20 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         created_by: string;
         submitted_by: string;
         submitted_at: string | Date;
+        approval_state: "pending" | "approved" | "rejected";
+        decided_at: string | Date | null;
+        decision_reason: string | null;
       }>(
         `select employee.id,employee.employee_number,employee.first_name,employee.middle_name,
                 employee.last_name,employee.preferred_name,employee.work_email,employee.phone,
                 employee.joined_on,employee.created_at,employee.created_by,scope.company_id,
-                approval.id as approval_id,approval.submitted_by,approval.submitted_at
+                approval.id as approval_id,approval.submitted_by,approval.submitted_at,
+                approval.state as approval_state,approval.decided_at,approval.decision_reason
            from hr_employee_draft_approval approval
            join employee on employee.tenant_id=approval.tenant_id and employee.id=approval.employee_id
            join hr_employee_draft_scope scope on scope.tenant_id=approval.tenant_id and scope.employee_id=approval.employee_id
-          where approval.tenant_id=$1 and approval.employee_id=$2 and approval.state='pending'
-            and employee.status='pending_approval'
+          where approval.tenant_id=$1 and approval.employee_id=$2
+            and (approval.state<>'pending' or employee.status='pending_approval')
             and exists (select 1 from security_user_company_access access
                          where access.tenant_id=scope.tenant_id and access.user_id=$3
                            and access.company_id=scope.company_id and access.revoked_at is null)`,
@@ -3684,6 +3738,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         joined_on: dateOnly(row.joined_on),
         created_at: new Date(row.created_at).toISOString(),
         submitted_at: new Date(row.submitted_at).toISOString(),
+        decided_at: row.decided_at ? new Date(row.decided_at).toISOString() : null,
         ...approvalOverrideReviewMetadata(context, [row.created_by, row.submitted_by], "hr.employee.approve"),
       };
     });

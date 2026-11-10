@@ -4838,3 +4838,33 @@ Company Chart adoption/review checkpoint (2026-10-20):
   `git diff --check`, theme audit --check, and a repository check against
   the local database (`tmp/demo/offer-filters-smoke.ts`). Not run: browser
   click-through.
+
+## 2026-11-10 — Joining & Approvals filters, Add Employee placement, recruitment filters
+
+- Employee Drafts (Joining & Approvals and Add Employee pages): filters All /
+  Draft / Submitted (`status` on `listHrEmployeeDrafts`, default `draft` for
+  older callers). Submitted = `pending_approval`; those rows open read-only
+  (no Edit / Delete / Submit). Status column added.
+- Approvals > Employee drafts: filters All / Approved / Rejected (`state` on
+  `listHrEmployeeDraftApprovals`; default `pending` keeps the queue counts).
+  All includes pending items, listed first. Decided approvals open read-only
+  with the decision, time and reason. Other approval types are unchanged.
+- Add Employee, Basic information: Location (organisation unit `division`)
+  and Project (`branch`) dropdowns from Organisation Structure. Projects are
+  narrowed to the chosen location; choosing a project fills its location.
+  Stored on `hr_employee_draft_scope.location_id/project_id` (migration HR143,
+  additive, validated by the scope trigger and the repository: active units
+  in the company, project under the location). Shown in the draft drawer.
+- Manpower Requisitions: State dropdown replaced by All / Approved / Rejected
+  pills that reload immediately. All still lists drafts and submitted
+  requisitions so they remain reachable for editing and submission.
+- Job Openings: All / Open / On hold / Closed pills under the Company /
+  Create opening row (client-side; All hides cancelled openings). The Cancel
+  action and the Cancelled editor option were removed for live openings.
+- Known pre-existing issue (not changed): resubmitting a rejected employee
+  draft fails because `hr_employee_draft_approval` is unique per employee.
+- Verification: HR143 applied locally, contracts build, app + API `tsc`,
+  `build:web`, `git diff --check`, theme audit, unit tests 1104/1106 (two
+  pre-existing user-management failures), wizard test extended for
+  Location/Project, repository smoke `tmp/demo/joining-filters-smoke.ts`.
+  Not run: browser click-through, integration tests.

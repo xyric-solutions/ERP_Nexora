@@ -41,6 +41,9 @@ type Basic = {
   joinedOn: string;
   workEmail: string;
   phone: string;
+  /** Organisation Structure units the employee is hired for: Location (division) and Project (branch). */
+  locationId: string;
+  projectId: string;
 };
 /** One row of a step list: saved rows carry a server id; edits and removals apply on Create/Save. */
 type Row<T> = {
@@ -81,7 +84,7 @@ type History = {
 
 const steps = ["Basic information", "Contact information", "Documents", "Employment history"] as const;
 const today = () => new Date().toISOString().slice(0, 10);
-const emptyBasic = (): Basic => ({ companyId: "", firstName: "", middleName: "", lastName: "", preferredName: "", joinedOn: today(), workEmail: "", phone: "" });
+const emptyBasic = (): Basic => ({ companyId: "", firstName: "", middleName: "", lastName: "", preferredName: "", joinedOn: today(), workEmail: "", phone: "", locationId: "", projectId: "" });
 const emptyContact = (): Contact => ({ channel: "phone", usage: "personal", value: "", label: "", primary: false });
 const emptyEmergency = (): Emergency => ({ name: "", relationship: "", phone: "", email: "", primary: false, priority: 0 });
 const emptyDocument = (): DocumentValue => ({ type: "", title: "", reference: "", expiresOn: "" });
@@ -288,6 +291,7 @@ export function HrEmployeeWizard({
   const [notice, setNotice] = useState("");
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [currencies, setCurrencies] = useState<string[]>([]);
+  const [units, setUnits] = useState<Awaited<ReturnType<HrApiClient["organizationUnits"]>>["items"]>([]);
   const [employeeNumber, setEmployeeNumber] = useState("");
   const [basic, setBasic] = useState<Basic>(emptyBasic);
   const [savedBasic, setSavedBasic] = useState<Basic | null>(null);
@@ -345,9 +349,12 @@ export function HrEmployeeWizard({
           joinedOn: profile.joined_on,
           workEmail: profile.work_email ?? "",
           phone: profile.phone ?? "",
+          locationId: ("location_id" in profile ? profile.location_id : null) ?? "",
+          projectId: ("project_id" in profile ? profile.project_id : null) ?? "",
         };
         setEmployeeNumber(profile.employee_number);
-        if ("status" in profile) {
+        // Only approved employees carry a directly editable status; drafts are governed by approval.
+        if (target.kind === "employee" && profile.status) {
           setStatus(profile.status);
           setSavedStatus(profile.status);
         }
@@ -439,6 +446,22 @@ export function HrEmployeeWizard({
     };
   }, [basic.companyId, client, mode.kind]);
 
+  // Locations and projects come from Organisation Structure for the selected company.
+  useEffect(() => {
+    if (!basic.companyId || mode.kind === "employee") return;
+    let active = true;
+    // An unavailable structure only leaves the two pickers empty; the form still saves.
+    Promise.resolve()
+      .then(() => client.organizationUnits({ companyId: basic.companyId, limit: 200 }))
+      .then((result) => active && setUnits(result.items.filter((unit) => unit.status === "active" && (unit.type === "division" || unit.type === "branch"))))
+      .catch(() => active && setUnits([]));
+    return () => {
+      active = false;
+    };
+  }, [basic.companyId, client, mode.kind]);
+  const locations = units.filter((unit) => unit.type === "division");
+  const projects = units.filter((unit) => unit.type === "branch" && (!basic.locationId || unit.parent_id === basic.locationId));
+
   /** Only what the server needs to save the employee; every other field is optional. */
   const basicErrors = () => {
     const problems: string[] = [];
@@ -522,6 +545,8 @@ export function HrEmployeeWizard({
             ...(basic.preferredName.trim() ? { preferred_name: basic.preferredName.trim() } : {}),
             ...(basic.workEmail.trim() ? { work_email: basic.workEmail.trim() } : {}),
             ...(basic.phone.trim() ? { phone: basic.phone.trim() } : {}),
+            ...(basic.locationId ? { location_id: basic.locationId } : {}),
+            ...(basic.projectId ? { project_id: basic.projectId } : {}),
           },
           csrfToken(),
           crypto.randomUUID(),
@@ -541,6 +566,8 @@ export function HrEmployeeWizard({
           ...(basic.joinedOn !== savedBasic.joinedOn ? { joined_on: basic.joinedOn } : {}),
           ...(basic.workEmail.trim() !== savedBasic.workEmail && basic.workEmail.trim() ? { work_email: basic.workEmail.trim() } : {}),
           ...(basic.phone.trim() !== savedBasic.phone ? { phone: basic.phone.trim() } : {}),
+          ...(basic.locationId !== savedBasic.locationId ? { location_id: basic.locationId || null } : {}),
+          ...(basic.projectId !== savedBasic.projectId ? { project_id: basic.projectId || null } : {}),
         };
         if (Object.keys(changes).length) {
           await client.updateEmployeeDraft(id, changes, csrfToken(), crypto.randomUUID());
@@ -764,11 +791,52 @@ export function HrEmployeeWizard({
                     className={selectClass}
                     disabled={busy || mode.kind !== "create"}
                     value={basic.companyId}
-                    onChange={(event) => setBasic({ ...basic, companyId: event.target.value })}
+                    onChange={(event) => setBasic({ ...basic, companyId: event.target.value, locationId: "", projectId: "" })}
                   >
                     {companies.map((company) => (
                       <option key={company.id} value={company.id}>
                         {company.name} ({company.code})
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Location">
+                  <select
+                    className={selectClass}
+                    disabled={busy}
+                    value={basic.locationId}
+                    onChange={(event) => {
+                      const locationId = event.target.value;
+                      const project = units.find((unit) => unit.id === basic.projectId);
+                      // A project from another location no longer applies.
+                      setBasic({ ...basic, locationId, projectId: project && locationId && project.parent_id !== locationId ? "" : basic.projectId });
+                    }}
+                  >
+                    <option value="">{locations.length ? "Select a location" : "No locations in Organisation Structure"}</option>
+                    {locations.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.name} ({unit.code})
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Project">
+                  <select
+                    className={selectClass}
+                    disabled={busy}
+                    value={basic.projectId}
+                    onChange={(event) => {
+                      const projectId = event.target.value;
+                      const project = units.find((unit) => unit.id === projectId);
+                      // Choosing a project also fills in the location it belongs to.
+                      const parent = project && locations.find((unit) => unit.id === project.parent_id);
+                      setBasic({ ...basic, projectId, locationId: parent ? parent.id : basic.locationId });
+                    }}
+                  >
+                    <option value="">{projects.length ? "Select a project" : basic.locationId ? "No projects under this location" : "No projects in Organisation Structure"}</option>
+                    {projects.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.name} ({unit.code})
                       </option>
                     ))}
                   </select>

@@ -678,6 +678,7 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
     const query = hrEmployeeDraftDirectoryQuerySchema.parse({
       company_id: req.query.company_id,
       search: req.query.search,
+      status: req.query.status,
       limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
     });
     res.json(await handle(async () => employees.listDrafts(await loadHrSessionContext(req, dependencies), query)));
@@ -720,6 +721,7 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
   router.get("/employee_draft_approvals", async (req, res) => {
     const query = hrEmployeeDraftApprovalQueueQuerySchema.parse({
       company_id: req.query.company_id,
+      state: req.query.state,
       limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
     });
     res.json(

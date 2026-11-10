@@ -8,6 +8,7 @@ const api = vi.hoisted(() => ({
   listHrCompanies: vi.fn(),
   listHrJobGradeCurrencies: vi.fn(),
   getHrEmployeeNumberPreview: vi.fn(),
+  listHrOrganizationUnits: vi.fn(),
   createHrEmployeeDraft: vi.fn(),
   createHrEmployeeContact: vi.fn(),
   createHrEmployeeEmergencyContact: vi.fn(),
@@ -80,6 +81,10 @@ describe("HrEmployeeWizard", () => {
     api.listHrCompanies.mockResolvedValue({ items: [{ id: "company-1", code: "C1", name: "Company One" }] });
     api.listHrJobGradeCurrencies.mockResolvedValue({ items: [{ currency_code: "PKR", currency_name: "Rupee", is_base: true }] });
     api.getHrEmployeeNumberPreview.mockResolvedValue({ employee_number: "EMP-007" });
+    const unit = (id: string, type: string, parent_id: string, name: string) => ({ id, type, parent_id, name, code: id.toUpperCase(), status: "active", created_at: "2026-01-01T00:00:00.000Z", head_name: null, employee_count: 0 });
+    api.listHrOrganizationUnits.mockResolvedValue({
+      items: [unit("loc-1", "division", "company-1", "Lahore"), unit("prj-1", "branch", "loc-1", "Canal Road"), unit("prj-2", "branch", "company-1", "Head Office"), unit("dept-1", "department", "prj-1", "Finance")],
+    });
     api.createHrEmployeeDraft.mockResolvedValue({ id: "employee-1", employee_number: "EMP-007", status: "draft", company_id: "company-1", audit_event_id: "a", replayed: false });
     for (const method of [api.createHrEmployeeContact, api.createHrEmployeeEmergencyContact, api.uploadHrEmployeeDocument, api.createHrEmployeeEmploymentHistory])
       method.mockImplementation(async () => ({ id: `saved-${Math.random()}`, employee_id: "employee-1", audit_event_id: "a", replayed: false }));
@@ -111,6 +116,11 @@ describe("HrEmployeeWizard", () => {
     await type("First name", "Ayesha");
     await type("Last name", "Khan");
     await type("Email", "ayesha@example.com");
+    // Location and Project come from Organisation Structure; choosing a project fills in its location.
+    expect([...(control("Location") as HTMLSelectElement).options].map((option) => option.value)).toEqual(["", "loc-1"]);
+    await type("Project", "prj-1");
+    expect(control("Location").value).toBe("loc-1");
+    expect([...(control("Project") as HTMLSelectElement).options].map((option) => option.value)).toEqual(["", "prj-1"]);
     await click("Next");
 
     // Contact information holds both contacts and emergency contacts.
@@ -153,7 +163,7 @@ describe("HrEmployeeWizard", () => {
     await click("Create");
     await flush();
     expect(api.createHrEmployeeDraft).toHaveBeenCalledWith(
-      expect.objectContaining({ company_id: "company-1", employee_number: "AUTO", first_name: "Ayesha", last_name: "Khan", work_email: "ayesha@example.com" }),
+      expect.objectContaining({ company_id: "company-1", employee_number: "AUTO", first_name: "Ayesha", last_name: "Khan", work_email: "ayesha@example.com", location_id: "loc-1", project_id: "prj-1" }),
       "csrf-token",
       expect.any(String),
     );

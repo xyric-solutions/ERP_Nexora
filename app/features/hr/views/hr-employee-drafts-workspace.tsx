@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { HrEmployeeDraftDetail } from "@nexora/contracts";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,9 +24,17 @@ import {
   hrDisplayDate,
 } from "../components/hr-detail-tile";
 import { HrEditButton } from "../components/hr-icon-buttons";
+import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
 import { HrEmployeeWizard } from "./hr-employee-wizard";
 
 type LoadState = "loading" | "ready" | "unavailable";
+type DraftFilter = "all" | "draft" | "submitted";
+/** Draft = not yet submitted; Submitted = sent to Approvals (it stays inactive until hired). */
+const draftFilterOptions: readonly { value: DraftFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "draft", label: "Draft" },
+  { value: "submitted", label: "Submitted" },
+];
 
 export function HrEmployeeDraftsWorkspace({
   onAction,
@@ -44,6 +53,7 @@ export function HrEmployeeDraftsWorkspace({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<DraftFilter>("all");
   const [submitReason, setSubmitReason] = useState("");
   const [state, setState] = useState<LoadState>("loading");
   const [detailState, setDetailState] = useState<LoadState>("ready");
@@ -102,7 +112,7 @@ export function HrEmployeeDraftsWorkspace({
     let active = true;
     setState("loading");
     client
-      .employeeDrafts({ companyId, search: appliedSearch || undefined, limit: 50 })
+      .employeeDrafts({ companyId, search: appliedSearch || undefined, status: statusFilter, limit: 50 })
       .then((result) => {
         if (!active) return;
         setDrafts(result.items);
@@ -115,7 +125,7 @@ export function HrEmployeeDraftsWorkspace({
     return () => {
       active = false;
     };
-  }, [appliedSearch, client, companyId, refreshKey]);
+  }, [appliedSearch, client, companyId, refreshKey, statusFilter]);
 
   const openDraft = (employeeId: string) => {
     setDrawerOpen(true);
@@ -217,6 +227,15 @@ export function HrEmployeeDraftsWorkspace({
           </Button>
         ) : null}
       </div>
+      <HrMasterStatusFilter<DraftFilter>
+        label="Draft status"
+        value={statusFilter}
+        options={draftFilterOptions}
+        onChange={(value) => {
+          setStatusFilter(value);
+          setError("");
+        }}
+      />
 
       {notice ? (
         <Alert>
@@ -250,6 +269,7 @@ export function HrEmployeeDraftsWorkspace({
                   <th className="px-4 py-3">Work email</th>
                   <th className="px-4 py-3">Joined</th>
                   <th className="px-4 py-3">Created</th>
+                  <th className="px-4 py-3">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -275,12 +295,17 @@ export function HrEmployeeDraftsWorkspace({
                     <td className="px-4 py-3 text-muted-foreground">
                       {new Date(draft.created_at).toLocaleDateString()}
                     </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={draft.status === "pending_approval" ? "secondary" : "outline"}>
+                        {draft.status === "pending_approval" ? "Submitted" : "Draft"}
+                      </Badge>
+                    </td>
                   </tr>
                 ))}
                 {drafts.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
-                      No employee drafts match this company and search.
+                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={6}>
+                      No employee drafts match this company, status and search.
                     </td>
                   </tr>
                 ) : null}
@@ -295,7 +320,7 @@ export function HrEmployeeDraftsWorkspace({
             busy={submitting}
             error={error}
             footer={
-              selected ? (
+              selected && selected.status !== "pending_approval" ? (
                 <>
                   {canUpdate ? (
                     <>
@@ -347,7 +372,7 @@ export function HrEmployeeDraftsWorkspace({
               ) : null}
               {selected ? (
                 <div className="grid gap-4">
-                  <HrDetailSummary code={selected.employee_number} status="draft">
+                  <HrDetailSummary code={selected.employee_number} status={selected.status === "pending_approval" ? "submitted" : "draft"}>
                     {selected.joined_on ? `Joining ${hrDisplayDate(selected.joined_on)}` : null}
                   </HrDetailSummary>
                   <HrDetailGroup title="Name">
@@ -362,7 +387,17 @@ export function HrEmployeeDraftsWorkspace({
                   </HrDetailGroup>
                   <HrDetailGroup title="Employment">
                     <HrDetailTile label="Joining date" value={hrDisplayDate(selected.joined_on)} />
+                    <HrDetailTile label="Location" value={selected.location ?? ""} />
+                    <HrDetailTile label="Project" value={selected.project ?? ""} />
                   </HrDetailGroup>
+                  {selected.status === "pending_approval" ? (
+                    <Alert>
+                      <AlertTitle>Submitted for approval</AlertTitle>
+                      <AlertDescription>
+                        This employee is in Approvals. It can no longer be edited or deleted here.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
                   <HrDetailSection title="Submit for approval">
                     <label className="grid content-start gap-1.5 text-sm font-medium text-foreground">
                       Submission reason
@@ -375,7 +410,8 @@ export function HrEmployeeDraftsWorkspace({
                       />
                     </label>
                   </HrDetailSection>
-                  {canSubmit ? null : (
+                  )}
+                  {canSubmit || selected.status === "pending_approval" ? null : (
                     <Alert>
                       <AlertTitle>Submission permission required</AlertTitle>
                       <AlertDescription>
