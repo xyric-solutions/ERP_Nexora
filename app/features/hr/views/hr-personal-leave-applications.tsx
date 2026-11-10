@@ -321,7 +321,6 @@ export function HrPersonalLeaveApplications({ company, items, opened, onOpen, on
           <Field title="Reason for leave">
             <Textarea
               required
-              minLength={12}
               maxLength={1000}
               value={reason}
               disabled={busy}
@@ -339,7 +338,7 @@ export function HrPersonalLeaveApplications({ company, items, opened, onOpen, on
               !days.length ||
               !!c.blockers.length ||
               needsDocument ||
-              reason.trim().length < 12
+              reason.trim().length < 1
             }
           >
             {busy ? "Saving…" : "Save leave draft"}
@@ -422,7 +421,6 @@ export function HrPersonalLeaveApplications({ company, items, opened, onOpen, on
             <div className="space-y-3 rounded-lg border border-border p-3">
               <Field title="Leave action reason">
                 <Textarea
-                  minLength={12}
                   maxLength={1000}
                   value={actionReason}
                   disabled={busy}
@@ -434,7 +432,7 @@ export function HrPersonalLeaveApplications({ company, items, opened, onOpen, on
                 {d.allowed_actions.includes("submit") && (
                   <Button
                     type="button"
-                    disabled={busy || actionReason.trim().length < 12 || !d.context}
+                    disabled={busy || actionReason.trim().length < 1 || !d.context}
                     onClick={() => act("submit")}
                   >
                     Submit for approval
@@ -444,7 +442,7 @@ export function HrPersonalLeaveApplications({ company, items, opened, onOpen, on
                   <Button
                     type="button"
                     variant="outline"
-                    disabled={busy || actionReason.trim().length < 12}
+                    disabled={busy || actionReason.trim().length < 1}
                     onClick={() => act("cancel")}
                   >
                     Cancel request

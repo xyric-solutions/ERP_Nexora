@@ -401,7 +401,6 @@ export function HrPayrollPaymentWorkspace({
                           value={bankReference}
                           onChange={(e) => setBankReference(e.target.value)}
                           required
-                          minLength={3}
                           maxLength={120}
                           disabled={busy}
                         />
@@ -429,7 +428,6 @@ export function HrPayrollPaymentWorkspace({
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
                     required
-                    minLength={5}
                     maxLength={500}
                     disabled={busy}
                   />

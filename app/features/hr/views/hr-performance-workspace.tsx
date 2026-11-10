@@ -238,7 +238,6 @@ function PerformanceForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
-            minLength={3}
             maxLength={160}
             disabled={busy}
           />
@@ -313,7 +312,6 @@ function PerformanceForm({
               value={measure}
               onChange={(e) => setMeasure(e.target.value)}
               required
-              minLength={3}
               maxLength={500}
               disabled={busy}
             />
@@ -387,7 +385,6 @@ function PerformanceForm({
                 <Textarea
                   value={ratings[g.id]?.evidence ?? ""}
                   required
-                  minLength={5}
                   maxLength={1000}
                   disabled={busy}
                   onChange={(e) =>
@@ -404,7 +401,6 @@ function PerformanceForm({
             <Textarea
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
-              minLength={10}
               maxLength={4000}
               required
               disabled={busy}
@@ -414,7 +410,6 @@ function PerformanceForm({
             <Textarea
               value={strengths}
               onChange={(e) => setStrengths(e.target.value)}
-              minLength={5}
               maxLength={2000}
               required
               disabled={busy}
@@ -424,7 +419,6 @@ function PerformanceForm({
             <Textarea
               value={development}
               onChange={(e) => setDevelopment(e.target.value)}
-              minLength={5}
               maxLength={2000}
               required
               disabled={busy}
@@ -466,7 +460,6 @@ function PerformanceForm({
             <Textarea
               value={plan}
               onChange={(e) => setPlan(e.target.value)}
-              minLength={10}
               maxLength={4000}
               required
               disabled={busy}
@@ -500,7 +493,6 @@ function PerformanceForm({
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           required
-          minLength={5}
           maxLength={500}
           disabled={busy}
         />
@@ -928,7 +920,6 @@ export function HrPerformanceWorkspace({
                 <Textarea
                   value={reason}
                   required
-                  minLength={5}
                   maxLength={500}
                   disabled={busy}
                   onChange={(e) => setReason(e.target.value)}

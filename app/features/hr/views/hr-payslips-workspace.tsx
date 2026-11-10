@@ -390,7 +390,6 @@ export function HrPayslipsWorkspace({
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   required
-                  minLength={5}
                   maxLength={500}
                   disabled={busy}
                 />

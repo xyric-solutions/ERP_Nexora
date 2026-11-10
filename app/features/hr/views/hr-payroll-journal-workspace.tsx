@@ -430,7 +430,6 @@ export function HrPayrollJournalWorkspace({
                   <Textarea
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
-                    minLength={5}
                     maxLength={500}
                     required
                     disabled={busy}

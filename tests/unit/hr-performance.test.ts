@@ -64,7 +64,7 @@ describe("Exact bounded Performance ratings and strict commands", () => {
     { confirm_override: true },
     { score: "5" },
     { employee_id: "foreign" },
-    { reason: "x" },
+    { reason: "   " },
     { action: "promote_employee" },
   ])("rejects hidden or unsafe inputs %j", (change) =>
     expect(hrPerformanceCommandSchema.safeParse({ ...body, ...change }).success).toBe(false),

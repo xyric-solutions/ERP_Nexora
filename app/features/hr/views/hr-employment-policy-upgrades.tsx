@@ -229,7 +229,6 @@ export function HrEmploymentPolicyUpgrades({
               <Textarea
                 value={reason}
                 required
-                minLength={10}
                 maxLength={500}
                 disabled={busy}
                 onChange={(e) => setReason(e.target.value)}
@@ -365,7 +364,6 @@ export function HrEmploymentPolicyUpgrades({
             <Textarea
               value={reason}
               required
-              minLength={10}
               maxLength={500}
               disabled={busy}
               onChange={(e) => setReason(e.target.value)}

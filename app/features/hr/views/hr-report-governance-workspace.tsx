@@ -330,7 +330,6 @@ function ReportGovernanceBody({
                 <Field title="Disclosure policy reason">
                   <Textarea
                     required
-                    minLength={12}
                     maxLength={1000}
                     value={policyReason}
                     disabled={busy}
@@ -338,7 +337,7 @@ function ReportGovernanceBody({
                   />
                 </Field>
                 <HrDrawerActions>
-                  <Button type="submit" disabled={busy || !selected.length || policyReason.trim().length < 12}>
+                  <Button type="submit" disabled={busy || !selected.length || policyReason.trim().length < 1}>
                     Submit disclosure policy
                   </Button>
                   <Button type="button" variant="outline" disabled={busy} onClick={() => setPolicyForm(false)}>
@@ -420,7 +419,6 @@ function ReportGovernanceBody({
                   </div>
                   <Field title="Export purpose">
                     <Textarea
-                      minLength={12}
                       maxLength={1000}
                       required
                       value={purpose}
@@ -428,7 +426,7 @@ function ReportGovernanceBody({
                       onChange={(e) => setPurpose(e.target.value)}
                     />
                   </Field>
-                  <Button type="submit" disabled={busy || !w.active_policy || !report || purpose.trim().length < 12}>
+                  <Button type="submit" disabled={busy || !w.active_policy || !report || purpose.trim().length < 1}>
                     Create reviewed export
                   </Button>
                 </form>
@@ -568,14 +566,13 @@ function ReportGovernanceBody({
             <Field title={dialog?.action === "download" ? "Download purpose" : "Policy review reason"}>
               <Textarea
                 required
-                minLength={12}
                 maxLength={1000}
                 disabled={busy}
                 value={decisionReason}
                 onChange={(e) => setDecisionReason(e.target.value)}
               />
             </Field>
-            <Button type="submit" disabled={busy || decisionReason.trim().length < 12}>
+            <Button type="submit" disabled={busy || decisionReason.trim().length < 1}>
               {dialog?.action === "download" ? "Confirm authorized download" : "Confirm policy decision"}
             </Button>
           </form>

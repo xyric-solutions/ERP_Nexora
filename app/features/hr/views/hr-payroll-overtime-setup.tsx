@@ -549,7 +549,6 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
                 <Field title="Monetary change reason">
                   <Textarea
                     required
-                    minLength={5}
                     maxLength={500}
                     disabled={busy}
                     value={form.values.reason}

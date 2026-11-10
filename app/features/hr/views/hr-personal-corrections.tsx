@@ -240,7 +240,6 @@ export function HrPersonalCorrections({
             )}
             <Field title="Correction reason">
               <Textarea
-                minLength={12}
                 maxLength={1000}
                 required
                 value={reason}
@@ -250,7 +249,7 @@ export function HrPersonalCorrections({
               />
             </Field>
             <HrDrawerActions>
-              <Button type="submit" disabled={busy || reason.trim().length < 12 || edit.hash !== w?.source_hash}>
+              <Button type="submit" disabled={busy || reason.trim().length < 1 || edit.hash !== w?.source_hash}>
                 Submit correction for HR review
               </Button>
               <Button type="button" variant="outline" disabled={busy} onClick={() => setEdit(null)}>
@@ -377,7 +376,6 @@ export function HrPersonalCorrections({
             <Field title="Verified supporting information reference">
               <Input
                 required
-                minLength={12}
                 maxLength={500}
                 value={reference}
                 disabled={busy}
@@ -389,7 +387,6 @@ export function HrPersonalCorrections({
           <Field title="Decision reason">
             <Textarea
               required
-              minLength={12}
               maxLength={1000}
               value={decisionReason}
               disabled={busy}
@@ -400,8 +397,8 @@ export function HrPersonalCorrections({
             type="submit"
             disabled={
               busy ||
-              decisionReason.trim().length < 12 ||
-              (decision?.action === "approve" && reference.trim().length < 12)
+              decisionReason.trim().length < 1 ||
+              (decision?.action === "approve" && reference.trim().length < 1)
             }
           >
             Confirm correction decision

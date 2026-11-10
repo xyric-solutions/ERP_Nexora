@@ -201,7 +201,6 @@ export function SettlementPayrollHandoff({
                     <Textarea
                       value={map.exclusion_reason}
                       required
-                      minLength={5}
                       maxLength={500}
                       disabled={busy || locked}
                       onChange={(e) =>
@@ -225,7 +224,6 @@ export function SettlementPayrollHandoff({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               required
-              minLength={5}
               maxLength={500}
               disabled={busy}
             />

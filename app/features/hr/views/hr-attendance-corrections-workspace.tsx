@@ -423,7 +423,6 @@ function Editor({
         Correction reason
         <Textarea
           required
-          minLength={8}
           maxLength={1000}
           rows={3}
           value={reason}
@@ -511,7 +510,6 @@ function Decisions({
         <Textarea
           required
           rows={3}
-          minLength={8}
           maxLength={1000}
           value={reason}
           disabled={busy}

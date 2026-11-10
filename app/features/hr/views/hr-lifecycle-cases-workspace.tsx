@@ -269,7 +269,6 @@ function LifecycleCaseForm({
           <Input
             value={reference}
             required
-            minLength={5}
             maxLength={500}
             disabled={busy}
             onChange={(e) => setReference(e.target.value)}
@@ -302,7 +301,6 @@ function LifecycleCaseForm({
                 <Textarea
                   value={task.evidence}
                   required={task.complete}
-                  minLength={task.complete ? 5 : undefined}
                   maxLength={1000}
                   disabled={busy}
                   onChange={(e) =>
@@ -384,7 +382,6 @@ function LifecycleCaseForm({
                 <Input
                   value={line.description}
                   required
-                  minLength={3}
                   maxLength={160}
                   disabled={busy || !!(line.encashment_source_id || line.benefit_source_id)}
                   onChange={(e) =>
@@ -396,7 +393,6 @@ function LifecycleCaseForm({
                 <Input
                   value={line.source_reference}
                   required
-                  minLength={5}
                   maxLength={500}
                   disabled={busy || !!(line.encashment_source_id || line.benefit_source_id)}
                   onChange={(e) =>
@@ -444,7 +440,6 @@ function LifecycleCaseForm({
         <Textarea
           value={notes}
           required={!["onboarding", "clearance"].includes(kind)}
-          minLength={!["onboarding", "clearance"].includes(kind) ? 10 : undefined}
           maxLength={4000}
           disabled={busy}
           onChange={(e) => setNotes(e.target.value)}
@@ -454,7 +449,6 @@ function LifecycleCaseForm({
         <Textarea
           value={reason}
           required
-          minLength={5}
           maxLength={500}
           disabled={busy}
           onChange={(e) => setReason(e.target.value)}
@@ -880,7 +874,6 @@ export function HrLifecycleCasesWorkspace({
                 <Textarea
                   value={reason}
                   required
-                  minLength={5}
                   maxLength={500}
                   disabled={busy}
                   onChange={(e) => setReason(e.target.value)}

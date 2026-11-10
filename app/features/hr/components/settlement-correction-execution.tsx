@@ -103,7 +103,7 @@ export function SettlementCorrectionExecution({
             </label>
           </fieldset>
           <Field title="Supplement calculation reason">
-            <Textarea name="reason" minLength={5} maxLength={500} required disabled={busy} />
+            <Textarea name="reason" maxLength={500} required disabled={busy} />
           </Field>
           <Button type="submit" disabled={busy || !reviewed}>
             Calculate Payroll supplement
@@ -224,7 +224,7 @@ export function SettlementCorrectionExecution({
                     : "Reject this unposted calculation. Its evidence stays in the audit record."}
               </p>
               <Field title="Supplemental Payroll decision reason">
-                <Textarea name="reason" minLength={5} maxLength={500} required disabled={busy} />
+                <Textarea name="reason" maxLength={500} required disabled={busy} />
               </Field>
               <div className="flex flex-wrap gap-2">
                 <Button type="submit" disabled={busy}>

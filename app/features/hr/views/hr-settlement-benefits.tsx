@@ -268,7 +268,6 @@ export function HrSettlementBenefits({
                       <Field title="Benefit calculation review reason">
                         <Textarea
                           required
-                          minLength={10}
                           maxLength={500}
                           value={reason}
                           disabled={busy}
@@ -364,7 +363,7 @@ export function HrSettlementBenefits({
                   <h4 className="font-semibold">New company benefit rule</h4>
                   <div className="grid min-w-0 gap-4 sm:grid-cols-2">
                     <Field title="Benefit rule name">
-                      <Input name="name" required minLength={3} maxLength={160} disabled={busy} />
+                      <Input name="name" required maxLength={160} disabled={busy} />
                     </Field>
                     <Field title="Benefit category">
                       <select name="category" className={selectClass} required disabled={busy} defaultValue="">
@@ -526,10 +525,10 @@ export function HrSettlementBenefits({
                     error={countryRead.error}
                   />
                   <Field title="Signed company benefit policy reference">
-                    <Textarea name="reference" required minLength={10} maxLength={1000} disabled={busy} />
+                    <Textarea name="reference" required maxLength={1000} disabled={busy} />
                   </Field>
                   <Field title="Benefit rule preparation reason">
-                    <Textarea name="reason" required minLength={10} maxLength={500} disabled={busy} />
+                    <Textarea name="reason" required maxLength={500} disabled={busy} />
                   </Field>
                   <HrDrawerActions>
                     <Button type="submit" disabled={busy}>
@@ -658,7 +657,6 @@ export function HrSettlementBenefits({
                 <Field title="Benefit rule decision reason">
                   <Textarea
                     required
-                    minLength={10}
                     maxLength={500}
                     value={reason}
                     disabled={busy}

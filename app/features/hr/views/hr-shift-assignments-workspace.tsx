@@ -422,7 +422,6 @@ function AllocationEditor({
           Allocation reason
           <Textarea
             required
-            minLength={8}
             maxLength={1000}
             rows={3}
             value={reason}
@@ -518,7 +517,6 @@ function EndAllocation({
         End reason
         <Textarea
           required
-          minLength={8}
           maxLength={1000}
           rows={2}
           value={reason}
@@ -530,7 +528,7 @@ function EndAllocation({
         type="submit"
         variant="outline"
         className="justify-self-start"
-        disabled={busy || reason.trim().length < 8}
+        disabled={busy || reason.trim().length < 1}
       >
         {busy ? "Saving…" : action === "cancel" ? "Cancel allocation" : "Close allocation"}
       </Button>

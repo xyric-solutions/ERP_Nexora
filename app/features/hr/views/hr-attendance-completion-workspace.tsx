@@ -389,7 +389,6 @@ function Overtime({
             )}
             <Field title="Business reason">
               <Textarea
-                minLength={8}
                 maxLength={1000}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -565,7 +564,6 @@ function Overtime({
                 <Field title={decision === "cancel" ? "Reason for cancelling" : "Decision reason"}>
                   <Textarea
                     value={decisionReason}
-                    minLength={8}
                     maxLength={1000}
                     onChange={(e) => setDecisionReason(e.target.value)}
                     required
@@ -811,7 +809,6 @@ function CloseAndInputs({
               <Textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                minLength={8}
                 maxLength={1000}
                 required
               />

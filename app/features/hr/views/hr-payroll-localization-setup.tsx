@@ -537,7 +537,6 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
                 <Field title="Statutory source reference">
                   <Textarea
                     required
-                    minLength={5}
                     maxLength={500}
                     disabled={busy}
                     value={form.values.source_reference ?? ""}
@@ -583,7 +582,6 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
                       ) : d.key === "legal_basis" ? (
                         <Textarea
                           required
-                          minLength={5}
                           maxLength={1000}
                           rows={4}
                           value={form.values[d.key] ?? ""}
@@ -620,7 +618,6 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
                   <Field title="Statutory source reference">
                     <Textarea
                       required
-                      minLength={5}
                       maxLength={500}
                       value={form.values.source_reference ?? ""}
                       onChange={(e) => change("source_reference", e.target.value)}
@@ -671,7 +668,6 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
                 <Field title="Statutory change reason">
                   <Textarea
                     required
-                    minLength={5}
                     maxLength={500}
                     disabled={busy}
                     value={form.values.reason}

@@ -481,7 +481,6 @@ function RecordEditor({
         <Field title="Reason">
           <Textarea
             required
-            minLength={5}
             maxLength={500}
             value={form.reason}
             disabled={busy}
@@ -705,7 +704,6 @@ function RecordDetail({
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 required
-                minLength={5}
                 maxLength={500}
                 disabled={busy}
               />
@@ -763,7 +761,6 @@ function RecordDetail({
                   value={bankReference}
                   onChange={(e) => setBankReference(e.target.value)}
                   required
-                  minLength={3}
                   maxLength={128}
                   disabled={busy}
                 />

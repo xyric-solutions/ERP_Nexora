@@ -270,7 +270,6 @@ export function HrSettlementEntitlements({
                           value={reason}
                           onChange={(e) => setReason(e.target.value)}
                           required
-                          minLength={10}
                           maxLength={500}
                           disabled={busy}
                         />
@@ -417,7 +416,6 @@ export function HrSettlementEntitlements({
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   required
-                  minLength={10}
                   maxLength={500}
                   disabled={busy}
                 />
@@ -486,7 +484,6 @@ export function HrSettlementEntitlements({
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       required
-                      minLength={3}
                       maxLength={160}
                       disabled={busy}
                     />
@@ -606,7 +603,6 @@ export function HrSettlementEntitlements({
                     value={reference}
                     onChange={(e) => setReference(e.target.value)}
                     required
-                    minLength={10}
                     maxLength={1000}
                     disabled={busy}
                   />
@@ -616,7 +612,6 @@ export function HrSettlementEntitlements({
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
                     required
-                    minLength={10}
                     maxLength={500}
                     disabled={busy}
                   />

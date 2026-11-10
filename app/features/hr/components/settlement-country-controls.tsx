@@ -119,7 +119,6 @@ export function SettlementCountryFields({
             key={country + "reference"}
             name="legal_authority"
             required
-            minLength={10}
             maxLength={1000}
             disabled={busy}
             placeholder="Reviewed law/document reference and company interpretation"

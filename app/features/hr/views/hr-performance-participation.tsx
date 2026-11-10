@@ -51,7 +51,6 @@ function ContributionForm({
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
           required
-          minLength={10}
           maxLength={4000}
           disabled={busy}
         />
@@ -84,7 +83,6 @@ function ContributionForm({
             <Textarea
               value={ratings[g.id]?.evidence ?? ""}
               required
-              minLength={5}
               maxLength={1000}
               disabled={busy}
               onChange={(e) =>
@@ -97,7 +95,6 @@ function ContributionForm({
       <Field title="Submission reason">
         <Textarea
           required
-          minLength={5}
           maxLength={500}
           value={reason}
           disabled={busy}
@@ -298,7 +295,6 @@ export function PerformanceParticipation({
               <Textarea
                 value={reason}
                 required
-                minLength={5}
                 maxLength={500}
                 disabled={busy}
                 onChange={(e) => setReason(e.target.value)}
@@ -468,7 +464,6 @@ export function PerformanceParticipation({
           <Field title="Comment / reason">
             <Textarea
               required
-              minLength={5}
               maxLength={500}
               disabled={busy}
               value={reason}

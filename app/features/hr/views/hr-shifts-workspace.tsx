@@ -579,7 +579,6 @@ function ShiftEditor({
           Change reason
           <Textarea
             required
-            minLength={8}
             maxLength={1000}
             rows={3}
             value={reason}

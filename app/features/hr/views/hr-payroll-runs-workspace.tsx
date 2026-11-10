@@ -417,7 +417,6 @@ export function HrPayrollRunsWorkspace({
             <Field title="Payroll action reason">
               <Textarea
                 required
-                minLength={5}
                 maxLength={500}
                 value={draft.reason}
                 disabled={busy}

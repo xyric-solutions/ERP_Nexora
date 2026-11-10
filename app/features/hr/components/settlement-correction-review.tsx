@@ -149,7 +149,6 @@ export function SettlementCorrectionReview({
           <Field title="Supporting authority or calculation reference">
             <Textarea
               name="authority"
-              minLength={10}
               maxLength={1000}
               required
               disabled={busy}
@@ -157,7 +156,7 @@ export function SettlementCorrectionReview({
             />
           </Field>
           <Field title="Reason for financial correction">
-            <Textarea name="reason" minLength={5} maxLength={500} required disabled={busy} />
+            <Textarea name="reason" maxLength={500} required disabled={busy} />
           </Field>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" disabled={busy}>
@@ -276,7 +275,7 @@ export function SettlementCorrectionReview({
                   : "Reject this proposal and retain the original financial obligation."}
               </p>
               <Field title="Financial correction decision reason">
-                <Textarea name="decision_reason" minLength={5} maxLength={500} required disabled={busy} />
+                <Textarea name="decision_reason" maxLength={500} required disabled={busy} />
               </Field>
 
               <div className="flex flex-wrap gap-2">

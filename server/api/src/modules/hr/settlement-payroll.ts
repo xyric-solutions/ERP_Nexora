@@ -195,7 +195,7 @@ export async function prepareSettlementPayroll(
           attendanceHash(record),
         ],
       );
-    } else if (map.exclusion_reason.trim().length < 5) fail("Record why each excluded line must not enter Payroll.");
+    } else if (map.exclusion_reason.trim().length < 1) fail("Record why each excluded line must not enter Payroll.");
     await client.query(
       "insert into hr_settlement_payroll_link(tenant_id,company_id,id,case_id,line_index,revision,adjustment_id,component_id,effective_month,source_version,source_terms,reason,exclusion_reason,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14)",
       [

@@ -524,7 +524,6 @@ function LeaveTypes(props: Shared) {
             <Field title="Policy change reason">
               <Textarea
                 value={reason}
-                minLength={12}
                 maxLength={1000}
                 disabled={busy}
                 onChange={(e) => setReason(e.target.value)}
@@ -904,7 +903,6 @@ function LeaveBalances(props: Shared) {
             <Field title="Balance posting reason">
               <Textarea
                 value={reason}
-                minLength={12}
                 maxLength={1000}
                 disabled={busy}
                 onChange={(e) => setReason(e.target.value)}
@@ -1272,7 +1270,6 @@ function RequestEditor(props: Shared) {
           <Field title="Leave request reason">
             <Textarea
               value={reason}
-              minLength={12}
               maxLength={1000}
               disabled={busy}
               onChange={(e) => setReason(e.target.value)}
@@ -1537,7 +1534,6 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
             <Field title={isDraft && action === "cancel" ? "Reason for deleting this draft" : "Decision reason"}>
               <Textarea
                 value={reason}
-                minLength={12}
                 maxLength={1000}
                 disabled={busy}
                 onChange={(e) => setReason(e.target.value)}

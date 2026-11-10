@@ -921,7 +921,7 @@ export class LifecycleCases {
         if (
           ["submit", "approve"].includes(input.action) &&
           (terms.kind === "onboarding" || terms.kind === "clearance") &&
-          terms.tasks.some((t) => !t.complete || t.evidence.length < 5)
+          terms.tasks.some((t) => !t.complete || t.evidence.length < 1)
         )
           fail("Complete every required checklist task with evidence before submitting.");
         if (["submit", "approve"].includes(input.action) && terms.kind === "clearance") {

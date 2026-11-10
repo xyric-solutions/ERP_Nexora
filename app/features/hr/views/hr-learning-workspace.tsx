@@ -566,7 +566,6 @@ export function HrLearningBody({
                 <Field title="Learning objectives">
                   <Textarea
                     required
-                    minLength={12}
                     maxLength={2000}
                     disabled={busy}
                     value={editor.terms.objectives}
@@ -651,7 +650,6 @@ export function HrLearningBody({
                 <Field title="Development need and justification">
                   <Textarea
                     required
-                    minLength={12}
                     maxLength={2000}
                     disabled={busy}
                     value={editor.terms.justification}
@@ -791,7 +789,6 @@ export function HrLearningBody({
             <Field title="Learning change reason">
               <Textarea
                 required
-                minLength={12}
                 maxLength={1000}
                 disabled={busy}
                 value={reason}
@@ -799,7 +796,7 @@ export function HrLearningBody({
               />
             </Field>
             <HrDrawerActions>
-              <Button type="submit" disabled={busy || reason.trim().length < 12}>
+              <Button type="submit" disabled={busy || reason.trim().length < 1}>
                 Save learning draft
               </Button>
               <Button type="button" variant="outline" disabled={busy} onClick={() => setEditor(null)}>
@@ -1039,14 +1036,13 @@ export function HrLearningBody({
               <Field title="Enrollment reason">
                 <Textarea
                   required
-                  minLength={12}
                   maxLength={1000}
                   disabled={busy}
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                 />
               </Field>
-              <Button type="submit" disabled={busy || !enrollRequest || reason.trim().length < 12}>
+              <Button type="submit" disabled={busy || !enrollRequest || reason.trim().length < 1}>
                 Enroll employee
               </Button>
             </form>
@@ -1183,7 +1179,6 @@ export function HrLearningBody({
               <Field title="Verified training evidence reference">
                 <Input
                   required
-                  minLength={12}
                   maxLength={500}
                   disabled={busy}
                   value={attendance.reference}
@@ -1194,7 +1189,6 @@ export function HrLearningBody({
             <Field title="Attendance change reason">
               <Textarea
                 required
-                minLength={12}
                 maxLength={1000}
                 disabled={busy}
                 value={reason}
@@ -1202,7 +1196,7 @@ export function HrLearningBody({
               />
             </Field>
             <HrDrawerActions>
-              <Button type="submit" disabled={busy || reason.trim().length < 12}>
+              <Button type="submit" disabled={busy || reason.trim().length < 1}>
                 Save attendance evidence
               </Button>
               <Button type="button" variant="outline" disabled={busy} onClick={() => setAttendance(null)}>
@@ -1276,14 +1270,13 @@ export function HrLearningBody({
             <Field title="Learning decision reason">
               <Textarea
                 required
-                minLength={12}
                 maxLength={1000}
                 disabled={busy}
                 value={decisionReason}
                 onChange={(e) => setDecisionReason(e.target.value)}
               />
             </Field>
-            <Button type="submit" disabled={busy || decisionReason.trim().length < 12}>
+            <Button type="submit" disabled={busy || decisionReason.trim().length < 1}>
               Confirm Learning action
             </Button>
           </form>

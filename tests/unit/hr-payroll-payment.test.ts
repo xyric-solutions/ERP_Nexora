@@ -38,7 +38,7 @@ describe("Strict salary payment commands", () => {
     { month: "2026-10-02" },
     { confirmed_on: "2026-02-31" },
     { action: "paid" },
-    { bank_reference: "x" },
+    { bank_reference: "  " },
   ])("rejects unsafe confirmation terms %j", (change) =>
     expect(hrPayrollPaymentActionSchema.safeParse({ ...confirm, ...change }).success).toBe(false),
   );
