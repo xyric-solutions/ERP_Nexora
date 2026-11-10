@@ -57,7 +57,8 @@ export function Field({ title, children }: { title: string; children: ReactNode 
     </div>
   );
 }
-export function State({ value }: { value: string }) {
+/** Status badge; `text` overrides the derived label (e.g. "Pending by Manager"). */
+export function State({ value, text }: { value: string; text?: string }) {
   return (
     <Badge
       variant="outline"
@@ -69,7 +70,7 @@ export function State({ value }: { value: string }) {
             : "bg-muted text-foreground!"
       }
     >
-      {label(value)}
+      {text ?? label(value)}
     </Badge>
   );
 }

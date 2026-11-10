@@ -48064,6 +48064,17 @@
           },
           {
             "in": "query",
+            "name": "submitted_only",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "in": "query",
             "name": "status",
             "schema": {
               "type": "string",
@@ -85063,6 +85074,14 @@
               "true",
               "false"
             ]
+          },
+          "submitted_only": {
+            "default": "false",
+            "type": "string",
+            "enum": [
+              "true",
+              "false"
+            ]
           }
         },
         "required": [
@@ -85070,7 +85089,8 @@
           "as_of",
           "limit",
           "offset",
-          "queue_only"
+          "queue_only",
+          "submitted_only"
         ],
         "additionalProperties": false
       },

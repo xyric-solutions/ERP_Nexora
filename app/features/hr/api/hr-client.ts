@@ -219,7 +219,7 @@ export class HrApiClient {
   leaveLedger(input:HrLeaveLedgerQuery):Promise<HrLeaveLedger>{return this.api.timeLeaveLeaveLedger(query(input));}
   postLeaveBalance(input:HrLeaveBalancePostingRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.api.timeLeavePostLeaveBalance(input,csrf,key);}
   leaveContext(input:HrLeaveContextQuery):Promise<HrLeaveContext>{return this.api.timeLeaveLeaveContext(query(input));}
-  listLeaveRequests(input:HrLeaveRequestQuery):Promise<HrLeaveRequestDirectory>{return this.api.timeLeaveListLeaveRequests(query(input));}
+  listLeaveRequests(input:Omit<HrLeaveRequestQuery,"submitted_only">&{submitted_only?:HrLeaveRequestQuery["submitted_only"]}):Promise<HrLeaveRequestDirectory>{return this.api.timeLeaveListLeaveRequests(query(input));}
   getLeaveRequest(company:string,id:string):Promise<HrLeaveRequestDetail>{return this.api.timeLeaveGetLeaveRequest(id,query({company_id:company}));}
   createLeaveRequest(input:CreateHrLeaveRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.api.timeLeaveCreateLeaveRequest(input,csrf,key);}
   actOnLeaveRequest(id:string,input:HrLeaveRequestActionRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.api.timeLeaveActOnLeaveRequest(id,input,csrf,key);}

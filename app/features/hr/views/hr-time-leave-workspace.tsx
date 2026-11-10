@@ -106,13 +106,45 @@ function useAppliedSearch(search: string, apply: (value: string) => void) {
     return () => clearTimeout(timer);
   }, [search, apply]);
 }
-const requestStatusOptions = [
-  { value: "", label: "All" },
-  ...(["draft", "pending_manager", "pending_hr", "approved", "rejected", "cancelled"] as const).map((value) => ({
+/** Leave request statuses as HR & Payroll names them. */
+const leaveStatusLabels: Record<string, string> = {
+  draft: "Draft",
+  pending_manager: "Pending by Manager",
+  pending_hr: "Pending by HR",
+  approved: "Approved",
+  rejected: "Rejected",
+  cancelled: "Cancelled",
+};
+const leaveStatusLabel = (status: string) => leaveStatusLabels[status] ?? label(status);
+/** Leave Requests: the requester's view. "Submitted" = has passed the submit step. */
+const requestFilterOptions = [
+  { value: "all", label: "All" },
+  { value: "draft", label: "Draft" },
+  { value: "submitted", label: "Submitted" },
+] as const;
+/** Leave Approval: every submitted request, by approval status. */
+const approvalFilterOptions = [
+  { value: "all", label: "All" },
+  ...(["pending_manager", "pending_hr", "approved", "rejected", "cancelled"] as const).map((value) => ({
     value,
-    label: value === "pending_hr" ? "Pending HR" : label(value),
+    label: leaveStatusLabels[value]!,
   })),
-];
+] as const;
+type LeaveListFilter = (typeof requestFilterOptions)[number]["value"] | (typeof approvalFilterOptions)[number]["value"];
+type LeaveAction = HrLeaveRequestActionRequest["action"];
+/** Actions offered on each page; the server still decides which ones the user may take. */
+const approvalActions: readonly LeaveAction[] = ["manager_approve", "manager_reject", "hr_approve", "hr_reject", "cancel_approved"];
+const requesterActions: readonly LeaveAction[] = ["submit", "cancel"];
+const actionLabel = (action: LeaveAction) =>
+  action.endsWith("_approve")
+    ? "Approve"
+    : action.endsWith("_reject")
+      ? "Reject"
+      : action === "cancel_approved"
+        ? "Cancel approved leave"
+        : action === "cancel"
+          ? "Cancel request"
+          : "Submit";
 const dateClass = "box-border! min-w-0! max-w-full!";
 function Message({ error }: { error: string }) {
   return error ? (
@@ -978,7 +1010,15 @@ function RequestEditor(props: Shared) {
     onEditing(Boolean(employee || type || reason || Object.keys(choices).length || from !== date || to !== date));
     return () => onEditing(false);
   }, [onEditing, employee, type, reason, choices, from, to, date]);
-  async function submit() {
+  const canSubmit = props.permissions.includes("hr.leave.request.submit");
+  const backToRequests = (requestId?: string) =>
+    onNavigate(
+      "hr",
+      "leave-requests",
+      JSON.stringify({ company_id: company, as_of: date, ...(requestId ? { request_id: requestId } : {}) }),
+    );
+  /** Saves the draft and, for "submit", sends it straight into Leave Approval. */
+  async function submit(intent: "draft" | "submit") {
     setError("");
     const parsed = createHrLeaveRequestSchema.safeParse({
       company_id: company,
@@ -996,13 +1036,36 @@ function RequestEditor(props: Shared) {
       return;
     }
     const r = await save(parsed.data, (k) => client.createLeaveRequest(parsed.data, csrf(), k));
-    if (r) onNavigate("hr", "leave-requests", JSON.stringify({ company_id: company, as_of: date, request_id: r.id }));
+    if (!r) return;
+    if (intent === "draft") {
+      backToRequests(r.id);
+      return;
+    }
+    // Submit uses the saved request's own version and evidence hash.
+    let submitted: HrAttendanceCompletionResult | undefined;
+    try {
+      const saved = await client.getLeaveRequest(company, r.id);
+      if (saved.allowed_actions.includes("submit")) {
+        const action = hrLeaveRequestActionRequestSchema.parse({
+          company_id: company,
+          action: "submit",
+          expected_version: saved.version,
+          expected_evidence_hash: saved.context?.hash,
+          reason: parsed.data.reason,
+        });
+        submitted = await save(action, (k) => client.actOnLeaveRequest(r.id, action, csrf(), k));
+      }
+    } catch {
+      submitted = undefined;
+    }
+    // If submission did not go through, reopen the saved draft so it can be submitted from there.
+    backToRequests(submitted ? undefined : r.id);
   }
   return (
     <HrRecordDrawer
       title="Add Leave Request"
       open
-      onClose={() => onNavigate("hr", "leave-requests", JSON.stringify({ company_id: company, as_of: date }))}
+      onClose={() => backToRequests()}
       busy={busy}
       error={props.saveError}
     >
@@ -1014,7 +1077,7 @@ function RequestEditor(props: Shared) {
           className="grid min-w-0 gap-5"
           onSubmit={(e) => {
             e.preventDefault();
-            void submit();
+            void submit(canSubmit ? "submit" : "draft");
           }}
         >
           <fieldset
@@ -1217,6 +1280,20 @@ function RequestEditor(props: Shared) {
             />
           </Field>
           <HrDrawerActions>
+            {canSubmit ? (
+              <Button
+                variant="outline"
+                type="button"
+                disabled={
+                  busy || query.loading || !context || !employee || !type || !days.length || !!context.blockers.length
+                }
+                onClick={(e) => {
+                  if (e.currentTarget.form?.reportValidity()) void submit("draft");
+                }}
+              >
+                Save as draft
+              </Button>
+            ) : null}
             <Button
               className="text-primary-foreground!"
               disabled={
@@ -1224,7 +1301,7 @@ function RequestEditor(props: Shared) {
               }
               type="submit"
             >
-              Save leave draft
+              {busy ? "Saving…" : canSubmit ? "Submit" : "Save as draft"}
             </Button>
           </HrDrawerActions>
         </form>
@@ -1232,12 +1309,17 @@ function RequestEditor(props: Shared) {
     </HrRecordDrawer>
   );
 }
-function LeaveRequests(props: Shared & { queue: boolean }) {
-  const { client, company, date, revision, busy, save, csrf, permissions, onNavigate, onEditing, initial, queue, companyField } =
+/**
+ * Leave Requests (`approval` false): All / Draft / Submitted, with Add Leave Request.
+ * Leave Approval (`approval` true): every submitted request by approval status, with
+ * Approve / Reject in the drawer. Manager -> HR ordering and who may decide stay on the server.
+ */
+function LeaveRequests(props: Shared & { approval: boolean }) {
+  const { client, company, date, revision, busy, save, csrf, permissions, onNavigate, onEditing, initial, approval, companyField } =
     props;
   const [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
-    [status, setStatus] = useState(""),
+    [filter, setFilter] = useState<LeaveListFilter>("all"),
     [offset, setOffset] = useState(0),
     [selected, setSelected] = useState(initial?.request_id ?? ""),
     [action, setAction] = useState<HrLeaveRequestActionRequest["action"] | "">(""),
@@ -1246,13 +1328,18 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
     [version, setVersion] = useState(0),
     [hash, setHash] = useState<string | undefined>(),
     [error, setError] = useState("");
-  const list = useAttendanceRead(JSON.stringify([company, date, revision, offset, applied, status, queue]), () =>
+  const status =
+    filter === "all" || filter === "submitted"
+      ? undefined
+      : (filter as NonNullable<Parameters<HrApiClient["listLeaveRequests"]>[0]["status"]>);
+  const list = useAttendanceRead(JSON.stringify([company, date, revision, offset, applied, filter, approval]), () =>
     client.listLeaveRequests({
       company_id: company,
       as_of: date,
       search: applied || undefined,
-      status: (status || undefined) as Parameters<HrApiClient["listLeaveRequests"]>[0]["status"],
-      queue_only: queue ? "true" : "false",
+      status,
+      queue_only: "false",
+      submitted_only: approval || filter === "submitted" ? "true" : "false",
       limit: 25,
       offset,
     }),
@@ -1307,6 +1394,9 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
   };
   const request = detail.data && detail.data.id === selected ? detail.data : null;
   const isDraft = request?.status === "draft";
+  const pageActions = (request?.allowed_actions ?? []).filter((a) =>
+    (approval ? approvalActions : requesterActions).includes(a),
+  );
   return (
     <div className="grid min-w-0 gap-4">
       <LeaveToolbar
@@ -1314,27 +1404,8 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
         search={search}
         onSearch={setSearch}
         placeholder="Employee, number or reference"
-        filter={
-          <label className="grid content-start gap-1 text-sm font-medium">
-            Status
-            <select
-              className={selectClass}
-              value={status}
-              onChange={(e) => {
-                setStatus(e.target.value);
-                setOffset(0);
-              }}
-            >
-              {requestStatusOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        }
         action={
-          permissions.includes("hr.leave.request.create") ? (
+          !approval && permissions.includes("hr.leave.request.create") ? (
             <Button
               className="text-primary-foreground!"
               disabled={busy || !!action}
@@ -1346,12 +1417,21 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
           ) : undefined
         }
       />
+      <HrMasterStatusFilter<LeaveListFilter>
+        label={approval ? "Approval status" : "Request status"}
+        value={filter}
+        options={approval ? approvalFilterOptions : requestFilterOptions}
+        onChange={(value) => {
+          setFilter(value);
+          setOffset(0);
+        }}
+      />
       <Message error={error || list.error} />
       {list.loading ? (
         <Skeleton className="h-40" />
       ) : !list.data?.items.length ? (
         <Empty
-          text={queue ? "No leave requests are waiting in this queue." : "No leave requests match this company and filter."}
+          text={approval ? "No submitted leave requests match this filter." : "No leave requests match this company and filter."}
         />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-card">
@@ -1396,7 +1476,7 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">{dayValue(r.requested_days)}</td>
                   <td className="px-4 py-3">
-                    <State value={r.status} />
+                    <State value={r.status} text={leaveStatusLabel(r.status)} />
                   </td>
                 </tr>
               ))}
@@ -1406,7 +1486,7 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
       )}
       <Pagination total={list.data?.total ?? 0} offset={offset} setOffset={setOffset} loading={list.loading} />
       <HrRecordDrawer
-        title={action ? `${label(action)} · ${request?.reference ?? ""}` : (request?.reference ?? "Leave request")}
+        title={action ? `${actionLabel(action)} · ${request?.reference ?? ""}` : (request?.reference ?? "Leave request")}
         description={request ? `${request.display_name} · ${request.leave_type}` : ""}
         open={Boolean(selected)}
         onClose={() => {
@@ -1418,7 +1498,7 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
         footer={
           request && !action ? (
             <>
-              {request.allowed_actions
+              {pageActions
                 .filter((a) => !(isDraft && a === "cancel"))
                 .map((a) => (
                   <Button
@@ -1428,10 +1508,10 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
                     disabled={busy}
                     onClick={() => startAction(a)}
                   >
-                    {label(a)}
+                    {actionLabel(a)}
                   </Button>
                 ))}
-              {isDraft && request.allowed_actions.includes("cancel") ? (
+              {isDraft && pageActions.includes("cancel") ? (
                 <HrDeleteButton label="Delete draft" disabled={busy} onClick={() => startAction("cancel")} />
               ) : null}
             </>
@@ -1474,13 +1554,13 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
                 type="submit"
                 disabled={busy || (action.includes("_") && request.self_decision_requires_override && !override)}
               >
-                {busy ? "Saving…" : isDraft && action === "cancel" ? "Delete draft" : `Confirm ${label(action).toLowerCase()}`}
+                {busy ? "Saving…" : isDraft && action === "cancel" ? "Delete draft" : `Confirm ${actionLabel(action).toLowerCase()}`}
               </Button>
             </HrDrawerActions>
           </form>
         ) : request ? (
           <div className="grid min-w-0 gap-4">
-            <HrDetailSummary code={request.reference} status={request.status}>
+            <HrDetailSummary code={request.reference} status={request.status} statusLabel={leaveStatusLabel(request.status)}>
               Version {request.version}
             </HrDetailSummary>
             <HrDetailGroup title="Request">
@@ -1675,14 +1755,14 @@ export function HrTimeLeaveWorkspace({
         permissions.includes("hr.leave.request.create") ? (
           <>
             {" "}
-            <LeaveRequests key={company + date + "background"} {...shared} queue={false} />{" "}
+            <LeaveRequests key={company + date + "background"} {...shared} approval={false} />{" "}
             <RequestEditor key={company + date} {...shared} />{" "}
           </>
         ) : (
           <Empty text="Leave creation permission is required." />
         )
       ) : (
-        <LeaveRequests key={company + date + mode} {...shared} queue={mode === "leave-approval"} />
+        <LeaveRequests key={company + date + mode} {...shared} approval={mode === "leave-approval"} />
       )}
     </div>
   );

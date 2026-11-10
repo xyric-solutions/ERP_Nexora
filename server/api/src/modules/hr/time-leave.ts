@@ -941,13 +941,15 @@ export class TimeLeave {
         q.search ? `%${q.search.replace(/[\\%_]/g, "\\$&")}%` : null,
         c.actor.userId,
         q.queue_only === "true",
+        // Submitted = has passed the submit step (pending, decided or cancelled after submission).
+        q.submitted_only === "true",
       ];
       const from = `from hr_leave_request r join employee e on e.tenant_id=r.tenant_id and e.id=r.employee_id join hr_leave_type t on t.tenant_id=r.tenant_id and t.id=r.leave_type_id`;
-      const where = `r.tenant_id=$1 and r.company_id=$2 and ($3::text is null or r.status=$3) and ($4::text is null or r.reference ilike $4 escape '\\' or e.employee_number ilike $4 escape '\\' or concat_ws(' ',e.first_name,e.middle_name,e.last_name) ilike $4 escape '\\') and (not $6::boolean or ((r.status='pending_manager' and r.manager_user_id=$5) or r.status='pending_hr'))`;
+      const where = `r.tenant_id=$1 and r.company_id=$2 and ($3::text is null or r.status=$3) and ($4::text is null or r.reference ilike $4 escape '\\' or e.employee_number ilike $4 escape '\\' or concat_ws(' ',e.first_name,e.middle_name,e.last_name) ilike $4 escape '\\') and (not $6::boolean or ((r.status='pending_manager' and r.manager_user_id=$5) or r.status='pending_hr')) and (not $7::boolean or r.submitted_by is not null)`;
       return {
         items: (
           await client.query<HrLeaveRequestSummary>(
-            `select ${requestColumns} ${from} where ${where} order by r.created_at desc,r.id limit $7 offset $8`,
+            `select ${requestColumns} ${from} where ${where} order by r.created_at desc,r.id limit $8 offset $9`,
             [...values, q.limit, q.offset],
           )
         ).rows,

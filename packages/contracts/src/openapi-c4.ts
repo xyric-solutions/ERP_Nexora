@@ -3980,6 +3980,7 @@ export function buildOpenApiDocument() {
             { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 50 } },
             { in: "query", name: "offset", schema: { type: "integer", minimum: 0, maximum: 100000 } },
             { in: "query", name: "queue_only", schema: { type: "string", enum: ["true", "false"] } },
+            { in: "query", name: "submitted_only", schema: { type: "string", enum: ["true", "false"] } },
             {
               in: "query",
               name: "status",

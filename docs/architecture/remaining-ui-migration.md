@@ -4761,3 +4761,23 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Verification: `tsc` (API), `npm run build:web`, HR unit tests (57/57),
   theme audit `--check`, migration applied locally (hr 140). Browser
   click-through of the new form not yet recorded.
+
+## 2026-11-10 - Leave Requests / Leave Approval split
+
+- Leave Requests: filter pills All / Draft / Submitted (shared
+  `HrMasterStatusFilter`); Add Leave Request lives only here. The editor's
+  Submit saves the draft, re-reads it for its version and evidence hash, then
+  runs the existing `submit` action; "Save as draft" keeps it as a draft. If
+  submission is refused, the saved draft reopens. The drawer offers only
+  Submit / Cancel request / Delete draft.
+- Leave Approval: lists every submitted request (`submitted_only=true`, i.e.
+  `submitted_by is not null`) with pills All / Pending by Manager / Pending by
+  HR / Approved / Rejected / Cancelled. The drawer footer offers Approve /
+  Reject (and Cancel approved leave) only when the server's
+  `allowed_actions` include them; manager -> HR ordering, actor separation and
+  permissions are unchanged server rules. No Add action on this page.
+- Contract: `hrLeaveRequestQuerySchema.submitted_only` (default false),
+  OpenAPI parameter and `openapi-v1.json` snapshot updated.
+- Verification: app + API `tsc`, HR unit tests (93/93), OpenAPI snapshot
+  match, `build:web`, theme audit `--check`. Not yet run: leave integration
+  tests (need the 55433 test database) and a browser click-through.
