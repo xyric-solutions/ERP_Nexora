@@ -244,6 +244,35 @@ export class SourceTenantAuthenticationRepository implements TenantAuthenticatio
     }
   }
 
+  /** Active companies the user holds an unrevoked access grant for: the choices shown after sign-in. */
+  async listAccessibleCompanies(
+    tenantId: string,
+    userId: string,
+  ): Promise<{ id: string; code: string; name: string }[]> {
+    const client = await this.pool.connect();
+    try {
+      await beginTenantTransaction(client, tenantId, true);
+      const result = await client.query<{ id: string; code: string; name: string }>(
+        `select company.id, company.code, company.name
+           from organization_unit company
+           join security_user_company_access access
+             on access.tenant_id = company.tenant_id and access.company_id = company.id
+          where company.tenant_id = $1 and access.user_id = $2 and access.revoked_at is null
+            and company.type = 'company' and company.status = 'active'
+          order by company.name, company.code, company.id
+          limit 100`,
+        [tenantId, userId],
+      );
+      await client.query("commit");
+      return result.rows;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async loadSessionVersion(tenantId: string, userId: string): Promise<number | null> {
     const client = await this.pool.connect();
     try {

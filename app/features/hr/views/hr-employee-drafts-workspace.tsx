@@ -46,7 +46,7 @@ export function HrEmployeeDraftsWorkspace({
 }) {
   const { api, csrfToken, session } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
+  const [noCompany, setNoCompany] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [drafts, setDrafts] = useState<Awaited<ReturnType<HrApiClient["employeeDrafts"]>>["items"]>([]);
   const [selected, setSelected] = useState<HrEmployeeDraftDetail | null>(null);
@@ -95,8 +95,9 @@ export function HrEmployeeDraftsWorkspace({
     client
       .companies()
       .then((result) => {
-        setCompanies(result.items);
+        setNoCompany(result.items.length === 0);
         setCompanyId((current) => current || result.items[0]?.id || "");
+        if (!result.items.length) setState("ready");
       })
       .catch(() => setState("unavailable"));
   };
@@ -187,21 +188,6 @@ export function HrEmployeeDraftsWorkspace({
   return (
     <section className="grid min-w-0 grid-cols-1 gap-4" aria-label="Employee drafts">
       <div className="flex min-w-0 flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
-        <label className="grid content-start min-w-0 basis-full gap-1.5 text-sm font-medium text-foreground sm:basis-55 sm:flex-1">
-          Company
-          <select
-            className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2.5 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            disabled={state === "loading" || companies.length === 0}
-            value={companyId}
-            onChange={(event) => setCompanyId(event.target.value)}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name} ({company.code})
-              </option>
-            ))}
-          </select>
-        </label>
         <form
           className="flex min-w-0 basis-full flex-wrap items-end gap-2 sm:basis-65 sm:flex-1"
           onSubmit={(event) => {
@@ -250,6 +236,12 @@ export function HrEmployeeDraftsWorkspace({
         </Alert>
       ) : null}
 
+      {noCompany ? (
+        <Alert>
+          <AlertTitle>Company access required</AlertTitle>
+          <AlertDescription>Company access must be granted before employee drafts can be reviewed.</AlertDescription>
+        </Alert>
+      ) : null}
       {state === "loading" ? (
         <div className="grid gap-2 rounded-lg border border-border bg-card p-4" aria-live="polite">
           <Skeleton className="h-10 w-full" />

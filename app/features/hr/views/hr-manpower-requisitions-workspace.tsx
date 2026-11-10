@@ -103,7 +103,6 @@ export function HrManpowerRequisitionsWorkspace() {
     canCreate = permissions.includes("hr.employee.create"),
     canSubmit = permissions.includes("hr.employee.submit"),
     canApprove = permissions.includes("hr.employee.approve");
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [companyId, setCompanyId] = useState(""),
     [records, setRecords] = useState<Requisition[]>([]),
     [selectedId, setSelectedId] = useState(""),
@@ -163,7 +162,6 @@ export function HrManpowerRequisitionsWorkspace() {
     client
       .companies()
       .then((result) => {
-        setCompanies(result.items);
         const first = result.items[0]?.id ?? "";
         setCompanyId(first);
         return load(first);
@@ -410,23 +408,6 @@ export function HrManpowerRequisitionsWorkspace() {
         </Alert>
       ) : null}
       <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4 border-border">
-        <label className="grid content-start min-w-0 basis-full sm:basis-48 flex-1 gap-1 text-sm font-medium">
-          Company
-          <select
-            className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-            value={companyId}
-            onChange={(event) => {
-              setCompanyId(event.target.value);
-              void load(event.target.value);
-            }}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name} ({company.code})
-              </option>
-            ))}
-          </select>
-        </label>
         <label className="grid content-start min-w-0 basis-full sm:basis-48 flex-[1.3] gap-1 text-sm font-medium">
           Search
           <Input

@@ -230,12 +230,13 @@ export function exportAttendanceRecords(records: readonly HrAttendanceRecord[], 
 }
 
 /**
- * The companies the signed-in user is linked to as an employee (from Employee Self-service), with the chosen one.
- * `status` is "link_required" when the sign-in has no employee record.
+ * The signed-in user's employee link in the company chosen at sign-in (from Employee Self-service).
+ * `status` is "link_required" when the sign-in has no employee record in that company.
  */
-export function useSelfAttendanceCompanies(company: string, today: string) {
-  const { api } = useSession(),
+export function useSelfAttendanceCompanies(today: string) {
+  const { api, activeCompany } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]);
+  const company = activeCompany?.id ?? "";
   const q = { ...(company ? { company_id: company } : {}), month: today.slice(0, 8) + "01", limit: 1, offset: 0 };
   const read = useAttendanceRead(JSON.stringify(q), () => client.selfService(q));
   return { client, read, workspace: read.data };

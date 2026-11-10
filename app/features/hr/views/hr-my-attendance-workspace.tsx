@@ -8,28 +8,28 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AttendanceRecordCalendar,
-  AttendanceRecordTable,
   AttendanceRecordTiles,
   exportAttendanceRecords,
   useSelfAttendanceCompanies,
 } from "../components/hr-attendance-records";
-import { localDate, selectClass, useAttendanceRead } from "../components/hr-workspace-controls";
+import { localDate, useAttendanceRead } from "../components/hr-workspace-controls";
 
 const monthStart = (date: string) => date.slice(0, 8) + "01";
 
-/** Employee self-service: the signed-in employee's own check-in records for a date range. */
+/** Employee self-service: the signed-in employee's own attendance for a From / To date range, with CSV export. */
 export function HrMyAttendanceWorkspace() {
   const today = localDate();
-  const [company, setCompany] = useState(""),
-    [from, setFrom] = useState(monthStart(today)),
+  const [from, setFrom] = useState(monthStart(today)),
     [to, setTo] = useState(today),
     [applied, setApplied] = useState({ from: monthStart(today), to: today }),
     [rangeError, setRangeError] = useState("");
-  const { client, read: membership, workspace } = useSelfAttendanceCompanies(company, today);
+  const { client, read: membership, workspace } = useSelfAttendanceCompanies(today);
   const companyId = workspace?.company_id ?? "";
   const q = { company_id: companyId, ...applied };
   const read = useAttendanceRead(companyId ? JSON.stringify(q) : null, () => client.selfAttendance(q)),
     data = read.data;
+  // Export exactly the From / To dates on screen, once they have loaded.
+  const exportable = !!data && !rangeError && data.from === from && data.to === to;
 
   function show(range: { from: string; to: string }) {
     const parsed = hrSelfAttendanceQuerySchema.safeParse({ company_id: companyId || "pending", ...range });
@@ -70,53 +70,43 @@ export function HrMyAttendanceWorkspace() {
           show({ from, to });
         }}
       >
-        {workspace.memberships.length > 1 && (
-          <label className="grid gap-2 text-sm font-medium lg:w-56">
-            Company
-            <select className={selectClass} value={companyId} onChange={(e) => setCompany(e.target.value)}>
-              {workspace.memberships.map((m) => (
-                <option key={m.company_id} value={m.company_id}>
-                  {m.company_name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
         <label className="grid gap-2 text-sm font-medium lg:w-52">
           From
-          <Input type="date" required value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
+          <Input
+            type="date"
+            required
+            value={from}
+            max={to || undefined}
+            onChange={(e) => {
+              setFrom(e.target.value);
+              show({ from: e.target.value, to });
+            }}
+          />
         </label>
         <label className="grid gap-2 text-sm font-medium lg:w-52">
           To
-          <Input type="date" required value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} />
+          <Input
+            type="date"
+            required
+            value={to}
+            min={from || undefined}
+            onChange={(e) => {
+              setTo(e.target.value);
+              show({ from, to: e.target.value });
+            }}
+          />
         </label>
-        <Button type="submit" className="h-10 text-primary-foreground!">
-          Show attendance
-        </Button>
         <Button
           type="button"
           className="h-10 text-primary-foreground!"
-          disabled={!data}
+          disabled={!exportable}
           onClick={() =>
             data &&
             exportAttendanceRecords(data.records, `attendance-${data.employee_number}-${data.from}-to-${data.to}.csv`)
           }
         >
           <Download className="size-4" aria-hidden="true" />
-          Export selected dates
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-10"
-          onClick={() => {
-            const range = { from: monthStart(today), to: today };
-            setFrom(range.from);
-            setTo(range.to);
-            show(range);
-          }}
-        >
-          Current month
+          Export
         </Button>
       </form>
       {rangeError && (
@@ -139,9 +129,6 @@ export function HrMyAttendanceWorkspace() {
           </p>
           <AttendanceRecordTiles summary={data.summary} />
           <AttendanceRecordCalendar from={data.from} to={data.to} today={data.today} records={data.records} />
-          <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
-            <AttendanceRecordTable records={data.records} />
-          </div>
         </>
       ) : null}
     </section>

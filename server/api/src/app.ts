@@ -14,7 +14,9 @@ import { errorHandler, notFound } from "./http/errors.js";
 import { requestContext } from "./http/request-context.js";
 import { requestLogging } from "./http/request-logging.js";
 import {
+  createActiveCompanyGuard,
   createTenantAuthRouter,
+  type SessionCompanyApiService,
   type TenantAuthApiService,
   type PasswordChangeApiService,
   type TenantSelectionApiService,
@@ -67,6 +69,8 @@ export interface AppDependencies {
   tenantSelectionService?: TenantSelectionApiService;
   passwordChangeService?: PasswordChangeApiService;
   sessionService?: TenantSessionApiService;
+  /** Lists the companies a user can choose after sign-in. */
+  sessionCompanies?: SessionCompanyApiService;
   securityRepository?: SecurityAdministrationApiRepository;
   invalidateSecurityPolicy?: (tenantId: string) => void;
   bankingRepository?: BankingRepository;
@@ -356,6 +360,8 @@ export function createApp(dependencies: AppDependencies): Express {
   );
   app.use(express.json({ limit: "1mb", strict: true }));
   app.use(requestLogging(dependencies.logger, dependencies.metrics));
+  if (dependencies.sessionService)
+    app.use(createActiveCompanyGuard(dependencies.sessionService, dependencies.config.nodeEnv === "production"));
 
   if (
     dependencies.fiscalCalendarRepository &&
@@ -569,6 +575,7 @@ export function createApp(dependencies: AppDependencies): Express {
       ...(dependencies.tenantSelectionService ? { tenantSelection: dependencies.tenantSelectionService } : {}),
       ...(dependencies.passwordChangeService ? { passwordChanges: dependencies.passwordChangeService } : {}),
       ...(dependencies.sessionService ? { sessions: dependencies.sessionService } : {}),
+      ...(dependencies.sessionCompanies ? { companies: dependencies.sessionCompanies } : {}),
       secureCookies: dependencies.config.nodeEnv === "production",
       allowedOrigins: dependencies.config.allowedOrigins,
     }),

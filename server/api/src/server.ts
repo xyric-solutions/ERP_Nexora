@@ -99,6 +99,7 @@ const app = createApp({
   tenantSelectionService,
   passwordChangeService,
   sessionService,
+  sessionCompanies: authRepository,
   securityRepository,
   invalidateSecurityPolicy: (tenantId) => securityPolicyAuthority.invalidate(tenantId),
   bankingRepository: new SourceBankingRepository(

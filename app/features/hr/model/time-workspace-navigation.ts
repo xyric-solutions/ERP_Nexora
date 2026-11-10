@@ -5,7 +5,6 @@ import {
   CalendarRange,
   ClipboardCheck,
   Clock3,
-  FileCheck2,
   Fingerprint,
   Layers3,
   LockKeyhole,
@@ -39,6 +38,8 @@ export const attendanceLeaveWorkspace = {
           label: "Attendance",
           description: "Review daily attendance, punches and exceptions.",
           icon: CalendarCheck,
+          // Everyone's check-ins: shown only to admins, HR and managers (roles with attendance read).
+          permission: "hr.attendance.read",
         },
         {
           id: "attendance-corrections",
@@ -124,14 +125,8 @@ export const attendanceLeaveWorkspace = {
         {
           id: "attendance-period",
           label: "Attendance Period Close",
-          description: "Process and review the attendance month before locking it.",
+          description: "Process, review and lock the attendance month; locked months are the payroll inputs.",
           icon: LockKeyhole,
-        },
-        {
-          id: "attendance-payroll-inputs",
-          label: "Attendance → Payroll Inputs",
-          description: "Inspect finalized attendance inputs and their source evidence.",
-          icon: FileCheck2,
         },
       ],
     },
@@ -142,6 +137,8 @@ export const attendanceLeaveWorkspace = {
 const timePageAliases: Readonly<Record<string, string>> = {
   "time-leave-workspace": "attendance-workspace",
   attendance: "daily-attendance",
+  // Attendance → Payroll Inputs was a read-only view of a locked month; Period Close now shows the same figures.
+  "attendance-payroll-inputs": "attendance-period",
 };
 export const resolveTimePageId = (pageId: string) => timePageAliases[pageId] ?? pageId;
 

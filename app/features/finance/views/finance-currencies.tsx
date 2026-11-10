@@ -48,7 +48,6 @@ export function FinanceCurrencies() {
   const [catalog, setCatalog] = useState<CurrencyCatalogItem[]>([]);
   const [currencies, setCurrencies] = useState<TenantCurrency[]>([]);
   const [rates, setRates] = useState<CurrencyRate[]>([]);
-  const [companies, setCompanies] = useState<Array<{ id: string; code: string; name: string }>>([]);
   const [companyId, setCompanyId] = useState("");
   const [nominals, setNominals] = useState<FinanceNominalSummary[]>([]);
   const [policy, setPolicy] = useState<TransferFxPolicy | null>(null);
@@ -84,7 +83,6 @@ export function FinanceCurrencies() {
       setCatalog(catalogResult.items);
       setCurrencies(currencyResult.items);
       setRates(rateResult.items);
-      setCompanies(companyResult.items);
       setCompanyId((current) => current || companyResult.items[0]?.id || "");
       setSourceCurrency(
         (current) =>
@@ -527,21 +525,12 @@ export function FinanceCurrencies() {
           <p className="mt-1 text-sm text-muted-foreground">
             Choose active, posting-capable Chart of Accounts nominals for differences, rounding and bank charges.
           </p>
+          {!loading && !error && !companyId ? (
+            <p role="alert" className="mt-3 text-sm text-destructive">
+              The company chosen at sign-in is not available for the Bank Transfer FX policy.
+            </p>
+          ) : null}
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <label className="grid gap-1 text-sm font-medium">
-              Company
-              <select
-                className="h-10 rounded-md border border-input bg-background px-3"
-                value={companyId}
-                onChange={(event) => setCompanyId(event.target.value)}
-              >
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.code} · {company.name}
-                  </option>
-                ))}
-              </select>
-            </label>
             {(
               [
                 ["gain", "FX gain nominal"],

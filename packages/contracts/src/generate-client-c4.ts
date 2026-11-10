@@ -335,6 +335,8 @@ CreateHrLocalization,HrLocalizationDecision,HrLocalizationWorkspace,CreateHrOver
   SecurityUserOptions,
   SecurityUserPage,
   SecurityUserRequestAction,
+  SelectSessionCompanyRequest,
+  SessionCompanyDirectory,
   SessionResponse,
 } from "@nexora/contracts";
 
@@ -417,6 +419,13 @@ export class NexoraApiClient {
   getSession(): Promise<SessionResponse> { return this.request("/api/v1/auth/session"); }
   rotateSession(csrfToken: string): Promise<SessionResponse> {
     return this.request("/api/v1/auth/session/rotate", { method: "POST", headers: { "x-csrf-token": csrfToken } });
+  }
+  listSessionCompanies(): Promise<SessionCompanyDirectory> { return this.request("/api/v1/auth/companies"); }
+  selectSessionCompany(payload: SelectSessionCompanyRequest, csrfToken: string): Promise<SessionResponse> {
+    return this.request("/api/v1/auth/session/company", { method: "PUT", headers: { "x-csrf-token": csrfToken }, body: JSON.stringify(payload) });
+  }
+  leaveSessionCompany(csrfToken: string): Promise<SessionResponse> {
+    return this.request("/api/v1/auth/session/company", { method: "DELETE", headers: { "x-csrf-token": csrfToken } });
   }
   logout(csrfToken: string): Promise<void> {
     return this.request("/api/v1/auth/logout", { method: "POST", headers: { "x-csrf-token": csrfToken } });

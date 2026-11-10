@@ -19,15 +19,16 @@ function initials(name: string) {
 
 export function DashboardHeaderControls() {
   const router = useRouter();
-  const { logout, session } = useSession();
+  const { activeCompany, leaveCompany, logout, session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
 
   if (!session) return null;
 
+  /** Signs out of this company and returns to the company list; the back arrow there ends the sign-in. */
   async function signOut() {
     setSigningOut(true);
     try {
-      await logout();
+      await leaveCompany().catch(() => logout());
       router.replace("/login");
     } finally {
       setSigningOut(false);
@@ -46,6 +47,7 @@ export function DashboardHeaderControls() {
           <span className="nx-account-menu__identity">
             <strong>{user.display_name}</strong>
             <small>{user.email}</small>
+            {activeCompany ? <small>{activeCompany.name}</small> : null}
           </span>
           <Button variant="ghost" size="sm" type="button" role="menuitem" disabled={signingOut} onClick={() => void signOut()}>
             {signingOut ? "Signing out…" : "Sign out"}

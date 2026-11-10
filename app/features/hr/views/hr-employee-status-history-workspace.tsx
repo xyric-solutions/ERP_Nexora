@@ -16,7 +16,7 @@ type LoadState = "loading" | "ready" | "error";
 export function HrEmployeeStatusHistoryWorkspace() {
   const { api, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
+  const [noCompany, setNoCompany] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [employees, setEmployees] = useState<HrEmployeeDirectory["items"]>([]);
   const [employeeId, setEmployeeId] = useState("");
@@ -33,7 +33,7 @@ export function HrEmployeeStatusHistoryWorkspace() {
       .companies()
       .then((result) => {
         if (!active) return;
-        setCompanies(result.items);
+        setNoCompany(result.items.length === 0);
         setCompanyId((current) =>
           result.items.some((company) => company.id === current) ? current : (result.items[0]?.id ?? ""),
         );
@@ -104,22 +104,7 @@ export function HrEmployeeStatusHistoryWorkspace() {
           Status evidence is read-only. Status changes must continue through their governed workflow and approval process.
         </AlertDescription>
       </Alert>
-      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 shadow-sm md:grid-cols-2">
-        <label className="grid content-start gap-1.5 text-sm font-medium">
-          Company
-          <select
-            className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
-            value={companyId}
-            onChange={(event) => setCompanyId(event.target.value)}
-            disabled={state === "loading"}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name} ({company.code})
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 shadow-sm md:grid-cols-[minmax(0,28rem)]">
         <label className="grid content-start gap-1.5 text-sm font-medium">
           Employee
           <select
@@ -143,6 +128,12 @@ export function HrEmployeeStatusHistoryWorkspace() {
           <AlertDescription>No mock employment history is shown.</AlertDescription>
         </Alert>
       )}
+      {state === "ready" && noCompany ? (
+        <Alert>
+          <AlertTitle>Company access required</AlertTitle>
+          <AlertDescription>Company access must be granted before employee status history can be reviewed.</AlertDescription>
+        </Alert>
+      ) : null}
       {state === "loading" && <Skeleton className="h-20 w-full" />}
       {employeeId && historyState === "loading" && <Skeleton className="h-32 w-full" />}
       {employeeId && historyState === "error" && (

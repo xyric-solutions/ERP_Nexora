@@ -8,7 +8,6 @@ import type {
   BankStatementImportDetail,
   BankStatementImportOptions,
   BankStatementImportSummary,
-  BankingCompanyDirectory,
   BankingLedgerAccountDirectory,
 } from "@nexora/contracts";
 import type { ReconciliationRecord } from "../model/banking-reconciliation-data";
@@ -96,7 +95,7 @@ export function BankingReconciliationWorkspace({
   const canApprove = permissions.includes("banking.reconciliation.approve") && !readOnly;
   const canCreateAdjustment = permissions.includes("banking.reconciliation_adjustment.create") && !readOnly;
 
-  const [companies, setCompanies] = useState<BankingCompanyDirectory["items"]>([]);
+  const [noCompany, setNoCompany] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [options, setOptions] = useState<BankStatementImportOptions | null>(null);
   const [bankAccountId, setBankAccountId] = useState(initialBankAccountId ?? "");
@@ -202,7 +201,7 @@ export function BankingReconciliationWorkspace({
         }
         const companyDirectory = await client.companies();
         if (!active) return;
-        setCompanies(companyDirectory.items);
+        setNoCompany(companyDirectory.items.length === 0);
         if (initialStatementImportId) {
           const imported = await client.statementImport(initialStatementImportId);
           if (!active) return;
@@ -246,23 +245,6 @@ export function BankingReconciliationWorkspace({
     // Route identity is the aggregate reload boundary.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canRead, client, initialBankAccountId, initialStatementImportId, reconciliationId]);
-
-  async function changeCompany(nextCompanyId: string) {
-    setCompanyId(nextCompanyId);
-    setLoading(true);
-    setError("");
-    try {
-      const loadedOptions = await client.statementImportOptions({ company_id: nextCompanyId });
-      setOptions(loadedOptions);
-      const accountId = loadedOptions.bank_accounts[0]?.id ?? "";
-      setBankAccountId(accountId);
-      if (accountId) await loadImports(nextCompanyId, accountId);
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function changeBankAccount(nextBankAccountId: string) {
     setBankAccountId(nextBankAccountId);
@@ -588,23 +570,13 @@ export function BankingReconciliationWorkspace({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}
+        {!error && noCompany ? (
+          <Alert variant="destructive">
+            <AlertTitle>Company unavailable</AlertTitle>
+            <AlertDescription>Your session has no authorized company for bank reconciliations.</AlertDescription>
+          </Alert>
+        ) : null}
         <div className="grid gap-4 rounded-lg border border-border bg-card p-4 md:grid-cols-2 xl:grid-cols-4">
-          <Field label="Company">
-            <select
-              aria-label="Company"
-              className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm"
-              disabled={loading}
-              value={companyId}
-              onChange={(event) => void changeCompany(event.target.value)}
-            >
-              <option value="">Select company</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.code} · {company.name}
-                </option>
-              ))}
-            </select>
-          </Field>
           <Field label="Bank Account">
             <select
               aria-label="Bank account"

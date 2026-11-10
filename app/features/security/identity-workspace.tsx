@@ -60,7 +60,7 @@ function capabilityLocation(capability: IdentityCapability): IdentityLocation {
 
 export default function IdentityWorkspace({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
-  const { api, session, loading, logout, csrfToken } = useSession();
+  const { api, session, loading, logout, leaveCompany, csrfToken } = useSession();
   const [location, setLocation] = useState<IdentityLocation>(() => identityHashLocation(""));
   const { tab: workspace, section, approvalType, userId, rolePolicyId, userMode } = location;
   const tab = section === "records" ? workspace : section;
@@ -242,7 +242,14 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
                 {session.user.email}
                 <small className="mt-0.5 text-xs font-normal text-muted-foreground">{session.tenant_id}</small>
               </span>
-              <Button variant="outline" onClick={() => void logout().then(() => router.replace("/login"))}>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  void leaveCompany()
+                    .catch(() => logout())
+                    .then(() => router.replace("/login"))
+                }
+              >
                 Sign out
               </Button>
             </div>

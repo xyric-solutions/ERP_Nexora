@@ -154,6 +154,7 @@ export async function buildHrParityRows() {
       else if (page.id === "manpower-requisitions") renderer = "HrManpowerRequisitionsWorkspace";
       else if (page.id === "job-openings") renderer = "HrJobOpeningsWorkspace";
       else if (page.id === "create-employee-from-offer") renderer = "HrOfferEmployeeWorkspace";
+      // attendance-payroll-inputs is a former address that now opens Attendance Period Close.
       else if (["overtime", "attendance-period", "attendance-payroll-inputs"].includes(page.id))
         renderer = "HrAttendanceCompletionWorkspace";
       else if (["leave-types", "leave-balances", "leave-requests", "leave-request", "leave-approval"].includes(page.id))

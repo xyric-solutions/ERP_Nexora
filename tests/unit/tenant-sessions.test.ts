@@ -65,6 +65,13 @@ class MemoryTenantSessionStore implements TenantSessionStore {
     return true;
   }
 
+  async setActiveCompany(id: string, companyId: string | null) {
+    const record = this.records.get(id);
+    if (!record) return false;
+    this.records.set(id, { ...record, activeCompanyId: companyId });
+    return true;
+  }
+
   async enforceConcurrentLimit(tenantId: string, userId: string, maximum: number, keepId: string) {
     const records = [...this.records.values()]
       .filter((record) => record.tenantId === tenantId && record.userId === userId)
@@ -149,6 +156,34 @@ describe("TenantSessionService", () => {
       ).resolves.toEqual({ status: "ok" });
       expect(await service.get(replacementAfterRevocation.token)).toBeNull();
     }
+  });
+
+  it("records the company chosen after sign-in, keeps it across rotation, and clears it", async () => {
+    const store = new MemoryTenantSessionStore();
+    const service = new TenantSessionService(
+      store,
+      "s".repeat(32),
+      { idleTimeoutMs: 30 * 60_000, absoluteTimeoutMs: 8 * 3_600_000 },
+      { loadSessionVersion: async () => 1 },
+    );
+    const issued = await service.issue("tenant-a", "user-a");
+    expect(issued.activeCompanyId).toBeNull();
+    await expect(service.setActiveCompany(issued.token, "wrong", "company-1")).resolves.toEqual({
+      status: "invalid_csrf",
+    });
+    const chosen = await service.setActiveCompany(issued.token, issued.csrfToken, "company-1");
+    expect(chosen).toMatchObject({ status: "ok", session: { activeCompanyId: "company-1" } });
+    expect((await service.get(issued.token))?.activeCompanyId).toBe("company-1");
+
+    const rotated = await service.rotate(issued.token, issued.csrfToken);
+    expect(rotated.status).toBe("ok");
+    if (rotated.status !== "ok") return;
+    expect(rotated.activeCompanyId).toBe("company-1");
+    expect((await service.get(rotated.token))?.activeCompanyId).toBe("company-1");
+
+    const left = await service.setActiveCompany(rotated.token, rotated.csrfToken, null);
+    expect(left).toMatchObject({ status: "ok", session: { activeCompanyId: null } });
+    expect((await service.get(rotated.token))?.activeCompanyId).toBeNull();
   });
 
   it("revalidates impersonation authority and both account session versions on every use", async () => {

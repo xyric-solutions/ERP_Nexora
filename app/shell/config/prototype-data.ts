@@ -801,7 +801,7 @@ export const prototypeModules = [
         p("my-attendance", "My Attendance", "report", "live"),
         p("monthly-attendance", "Monthly Attendance", "list", "live"),
         p("attendance-period", "Attendance Period Close", "workflow", "live"),
-        p("attendance-payroll-inputs", "Attendance → Payroll Inputs", "report", "live"),
+        p("attendance-payroll-inputs", "Attendance → Payroll Inputs", "report", "live", true),
         p("leave-request", "Add Leave Request", "form", "live", true),
         p("time-leave-workspace", "Time & Leave", "dashboard", "live", true),
         p("attendance", "Attendance", "list", "live", true),

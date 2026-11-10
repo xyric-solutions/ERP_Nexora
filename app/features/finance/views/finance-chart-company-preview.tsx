@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChartCompanyPreview, FinanceNominalOptions } from "@nexora/contracts";
+import { inActiveCompany } from "@/lib/session/active-company";
 import { useSession } from "@/lib/session/session-provider";
 import { ApiError } from "@/lib/api/generated";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ export function FinanceChartCompanyPreview({ templateId, onClose }: { templateId
   const permitted =
     !!session?.user.permissions.includes("finance.nominal.read") &&
     !!session.user.permissions.includes("finance.chart_template.read");
-  const [companies, setCompanies] = useState<FinanceNominalOptions["companies"]>([]);
+  const [noCompany, setNoCompany] = useState(false);
   const [currencies, setCurrencies] = useState<FinanceNominalOptions["currencies"]>([]);
   const [company, setCompany] = useState(""),
     [currency, setCurrency] = useState("");
@@ -53,7 +54,11 @@ export function FinanceChartCompanyPreview({ templateId, onClose }: { templateId
     client
       .options()
       .then((options) => {
-        if (active) setCompanies(options.companies);
+        if (!active) return;
+        // Only the company chosen at sign-in may be previewed.
+        const companyId = inActiveCompany({ items: options.companies }).items[0]?.id ?? "";
+        setCompany(companyId);
+        setNoCompany(!companyId);
       })
       .catch((error) => {
         if (active) setError(message(error));
@@ -166,56 +171,35 @@ export function FinanceChartCompanyPreview({ templateId, onClose }: { templateId
           </Alert>
         ) : (
           <>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="adoption-company">Preview company</Label>
-                <select
-                  id="adoption-company"
-                  className={selectClass}
-                  value={company}
-                  disabled={busy}
-                  onChange={(event) => {
-                    setCompany(event.target.value);
-                    setCurrency("");
-                    setCurrencies([]);
-                    setResult(null);
-                    setConfirmed(false);
-                    setSuccess("");
-                    setError("");
-                    setBusy(!!event.target.value);
-                  }}
-                >
-                  <option value="">Select an accessible company</option>
-                  {companies.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.code} · {item.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="adoption-currency">Preview account currency</Label>
-                <select
-                  id="adoption-currency"
-                  className={selectClass}
-                  value={currency}
-                  disabled={busy || !company}
-                  onChange={(event) => {
-                    setCurrency(event.target.value);
-                    setResult(null);
-                    setConfirmed(false);
-                    setSuccess("");
-                    setError("");
-                  }}
-                >
-                  <option value="">Select active currency</option>
-                  {currencies.map((item) => (
-                    <option key={item.code} value={item.code}>
-                      {item.code} · {item.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {noCompany && (
+              <Alert role="alert">
+                <AlertDescription>
+                  The company chosen at sign-in is not available for Chart of Accounts setup.
+                </AlertDescription>
+              </Alert>
+            )}
+            <div className="flex flex-col gap-2 sm:max-w-sm">
+              <Label htmlFor="adoption-currency">Preview account currency</Label>
+              <select
+                id="adoption-currency"
+                className={selectClass}
+                value={currency}
+                disabled={busy || !company}
+                onChange={(event) => {
+                  setCurrency(event.target.value);
+                  setResult(null);
+                  setConfirmed(false);
+                  setSuccess("");
+                  setError("");
+                }}
+              >
+                <option value="">Select active currency</option>
+                {currencies.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.code} · {item.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <Button disabled={busy || !company || !currency} onClick={() => void preview()}>
               {busy ? "Loading preview…" : "Run company preview"}

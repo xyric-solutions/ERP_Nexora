@@ -1,4 +1,5 @@
 "use client";
+import { inActiveCompany } from "@/lib/session/active-company";
 
 import { useEffect, useRef, useState } from "react";
 import type { ReferenceMaster, ReferenceMasterDirectory, ReferenceMasterKind } from "@nexora/contracts";
@@ -46,7 +47,6 @@ function Directory({ kind, onDirtyChange }: Props) {
   const title = kind === "projects" ? "Projects" : "Locations / Cities";
   const canRead = !!session?.user.permissions.includes(`${permission}.read`);
   const canManage = !!session?.user.permissions.includes(`${permission}.manage`) && !session.impersonation;
-  const [companies, setCompanies] = useState<Array<{ id: string; code: string; name: string }>>([]);
   const [company, setCompany] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -65,9 +65,9 @@ function Directory({ kind, onDirtyChange }: Props) {
     let active = true;
     api
       .listReferenceMasterCompanies(kind)
+      .then(inActiveCompany)
       .then((result) => {
         if (!active) return;
-        setCompanies(result.items);
         setCompany((current) =>
           result.items.some((item) => item.id === current) ? current : (result.items[0]?.id ?? ""),
         );
@@ -166,28 +166,7 @@ function Directory({ kind, onDirtyChange }: Props) {
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <label className="grid gap-1">
-              Company
-              <select
-                aria-label="Reference company"
-                className={selectClass}
-                value={company}
-                disabled={selection !== null}
-                onChange={(event) => {
-                  reset();
-                  setCompany(event.target.value);
-                  if (!event.target.value) setLoading(false);
-                }}
-              >
-                <option value="">Select company</option>
-                {companies.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.code} · {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="grid gap-3 sm:grid-cols-3">
             <label className="grid gap-1" htmlFor="reference-search">
               Search
               <Input
@@ -233,7 +212,9 @@ function Directory({ kind, onDirtyChange }: Props) {
           {loading ? (
             <Notice>Loading {title.toLowerCase()}…</Notice>
           ) : !page.items.length ? (
-            <Notice>{company ? "No records match this selection." : "No authorized company is available."}</Notice>
+            <Notice>
+              {company ? "No records match this selection." : "The company chosen at sign-in is not available."}
+            </Notice>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">

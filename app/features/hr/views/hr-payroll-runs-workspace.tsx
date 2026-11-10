@@ -59,8 +59,7 @@ export function HrPayrollRunsWorkspace({
     client = useMemo(() => new HrApiClient(api), [api]),
     permissions = session?.user.permissions ?? [],
     canRead = permissions.includes("hr.payroll.period.read");
-  const [choice, setChoice] = useState(""),
-    [month, setMonth] = useState(localDate().slice(0, 7)),
+  const [month, setMonth] = useState(localDate().slice(0, 7)),
     [search, setSearch] = useState(""),
     [offset, setOffset] = useState(0),
     [revision, setRevision] = useState(0),
@@ -71,7 +70,7 @@ export function HrPayrollRunsWorkspace({
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false);
   const companies = useAttendanceRead(canRead ? "payroll-run-companies" : null, () => client.companies()),
-    company = companies.data?.items.some((c) => c.id === choice) ? choice : (companies.data?.items[0]?.id ?? ""),
+    company = companies.data?.items[0]?.id ?? "",
     query = { company_id: company, month: month + "-01", limit: 25, offset },
     state = useAttendanceRead(company && canRead ? JSON.stringify([query, revision]) : null, () =>
       client.payrollRunWorkspace(query),
@@ -186,25 +185,7 @@ export function HrPayrollRunsWorkspace({
       className="grid min-w-0 gap-4 font-sans [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_input]:font-normal! [&_select]:font-normal! [&_textarea]:font-normal!"
     >
       <section className={panel}>
-        <div className="grid min-w-0 items-end gap-4 md:grid-cols-[1.5fr_1fr_1.5fr]">
-          <Field title="Company">
-            <select
-              className={selectClass}
-              value={company}
-              disabled={locked}
-              onChange={(e) => {
-                setChoice(e.target.value);
-                setOffset(0);
-              }}
-            >
-              <option value="">Select company</option>
-              {companies.data?.items.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.code})
-                </option>
-              ))}
-            </select>
-          </Field>
+        <div className="grid min-w-0 items-end gap-4 md:grid-cols-[1fr_1.5fr]">
           <Field title="Payroll month">
             <Input
               className="box-border! w-full min-w-0! max-w-full!"
@@ -229,6 +210,9 @@ export function HrPayrollRunsWorkspace({
           </Field>
         </div>
       </section>
+      {companies.data && !companies.data.items.length && (
+        <div className={panel}>No authorized company is available.</div>
+      )}
       {!draft && !policyId && !employeeId && (error || state.error || companies.error) && (
         <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
           {error || state.error || companies.error}

@@ -32,8 +32,6 @@ import {
 import { decidedOfferFilterOptions, offerMoney, type DecidedOfferFilter } from "../model/hr-offer-display";
 
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
-const selectClass =
-  "h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50";
 const fail = (error: unknown) =>
   error instanceof ApiError ? error.message : "The handoff could not be loaded or saved. Please retry.";
 const label = (value: string) => value.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
@@ -108,7 +106,6 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
     permissions.includes("hr.employee_assignment.read") &&
     permissions.includes("hr.employment_lifecycle.action") &&
     permissions.includes("hr.employment_relationship.create");
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [company, setCompany] = useState("");
   const [search, setSearch] = useState("");
   const [applied, setApplied] = useState("");
@@ -133,7 +130,6 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
       .companies()
       .then((result) => {
         if (current) {
-          setCompanies(result.items);
           setCompany((value) => (result.items.some((c) => c.id === value) ? value : (result.items[0]?.id ?? "")));
           setLoading(false);
         }
@@ -318,7 +314,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
       )}
       <form
         aria-label="Find offers"
-        className="grid min-w-0 items-end gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+        className="grid min-w-0 items-end gap-4 rounded-xl border border-border bg-card p-4"
         onSubmit={(e) => {
           e.preventDefault();
           setError("");
@@ -326,30 +322,6 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
           setOffset(0);
         }}
       >
-        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
-          Legal company
-          <select
-            className={selectClass}
-            value={company}
-            disabled={busy}
-            onChange={(e) => {
-              setCompany(e.target.value);
-              setSelected("");
-              setWorkspace(null);
-              setOffers({ items: [], total: 0 });
-              setOffset(0);
-              setNotice("");
-              setError("");
-            }}
-          >
-            <option value="">Select an authorized company</option>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
         <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Find an offer
           <Input

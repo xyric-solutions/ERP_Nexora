@@ -25,7 +25,7 @@ import { HrMasterStatusBadge } from "../components/hr-master-status-badge";
 import { HrMasterDeleteButton } from "../components/hr-master-delete-button";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
-import { preferredMasterCompany, rememberMasterCompany } from "../model/organisation-master-navigation";
+import { preferredMasterCompany } from "../model/organisation-master-navigation";
 
 type JobGrade = HrJobGradeDirectory["items"][number];
 type Editor = {
@@ -113,7 +113,6 @@ function toPayload(companyId: string, editor: Editor): CreateHrJobGradeRequest |
 export function HrJobGradesSheetWorkspace() {
   const { api, csrfToken, session, loading: sessionLoading, refresh: refreshSession } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [records, setRecords] = useState<JobGrade[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -180,9 +179,13 @@ export function HrJobGradesSheetWorkspace() {
     client
       .companies()
       .then((result) => {
-        setCompanies(result.items);
         const first = preferredMasterCompany(result.items);
         setCompanyId(first);
+        if (!first) {
+          setMessage("No authorized company is available. Ask your administrator to review company access.");
+          setLoading(false);
+          return;
+        }
         void loadCurrencies(first);
         return loadRecords(first);
       })
@@ -308,28 +311,7 @@ export function HrJobGradesSheetWorkspace() {
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
-      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,.8fr)_minmax(14rem,1fr)_auto] md:items-end">
-        <label className="grid content-start gap-1 text-sm font-medium" htmlFor="job-grade-company">
-          Company
-          <select
-            id="job-grade-company"
-            className="h-10 min-w-0 rounded-md border border-input bg-background px-3"
-            value={companyId}
-            onChange={(event) => {
-              setCompanyId(event.target.value);
-              rememberMasterCompany(event.target.value);
-              closeSheet();
-              void loadCurrencies(event.target.value);
-              void loadRecords(event.target.value);
-            }}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,1fr)_auto] md:items-end">
         <label className="grid content-start gap-1 text-sm font-medium" htmlFor="job-grade-search">
           Search
           <Input

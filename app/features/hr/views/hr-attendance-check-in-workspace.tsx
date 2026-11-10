@@ -16,7 +16,7 @@ import {
   RecordStatus,
   useSelfAttendanceCompanies,
 } from "../components/hr-attendance-records";
-import { Field, localDate, panel, selectClass, useAttendanceRead } from "../components/hr-workspace-controls";
+import { localDate, panel, useAttendanceRead } from "../components/hr-workspace-controls";
 
 /** Current wall-clock time ("HH:MM") in the attendance time zone. */
 function clockIn(timeZone: string) {
@@ -148,8 +148,7 @@ const monthStart = (date: string) => date.slice(0, 8) + "01";
 export function HrAttendanceCheckInWorkspace() {
   const { csrfToken } = useSession();
   const today0 = localDate();
-  const [company, setCompany] = useState(""),
-    [revision, setRevision] = useState(0),
+  const [revision, setRevision] = useState(0),
     [inTime, setInTime] = useState(""),
     [outTime, setOutTime] = useState(""),
     [mode, setMode] = useState<HrAttendanceWorkMode>("office"),
@@ -157,7 +156,7 @@ export function HrAttendanceCheckInWorkspace() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
-  const { client, read: membership, workspace } = useSelfAttendanceCompanies(company, today0);
+  const { client, read: membership, workspace } = useSelfAttendanceCompanies(today0);
   const companyId = workspace?.company_id ?? "";
   const q = { company_id: companyId, from: monthStart(today0), to: today0 };
   const read = useAttendanceRead(companyId ? JSON.stringify([q, revision]) : null, () => client.selfAttendance(q)),
@@ -254,28 +253,6 @@ export function HrAttendanceCheckInWorkspace() {
   const head = data ? headline(data, nowTime) : null;
   return (
     <section aria-label="Daily check-in" className="grid min-w-0 gap-4">
-      {workspace.memberships.length > 1 && (
-        <div className={`${panel} max-w-md`}>
-          <Field title="Company">
-            <select
-              className={selectClass}
-              value={companyId}
-              disabled={busy}
-              onChange={(e) => {
-                setCompany(e.target.value);
-                setNotice("");
-                setError("");
-              }}
-            >
-              {workspace.memberships.map((m) => (
-                <option key={m.company_id} value={m.company_id}>
-                  {m.company_name}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-      )}
       {read.error && (
         <Alert variant="destructive">
           <AlertTitle>Attendance unavailable</AlertTitle>

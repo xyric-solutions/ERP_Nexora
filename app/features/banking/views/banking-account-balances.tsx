@@ -149,21 +149,12 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
   return (
     <div className="space-y-5" aria-busy={loading}>
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-4 shadow-sm">
-        <label className="min-w-64 flex-1 text-sm font-medium text-foreground">
-          Company
-          <select
-            className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            value={companyId}
-            onChange={(event) => setCompanyId(event.target.value)}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.code} · {company.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="max-w-md text-sm text-muted-foreground">
+        {!loading && !error && companies.length === 0 ? (
+          <p role="alert" className="w-full text-sm font-medium text-destructive">
+            Your session has no authorized company for bank accounts.
+          </p>
+        ) : null}
+        <p className="text-sm text-muted-foreground">
           Balances are calculated from posted journal lines. Available and reconciliation values remain unavailable
           until those production workflows are delivered.
         </p>

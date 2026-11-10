@@ -59,7 +59,7 @@ export function HrPayrollJournalWorkspace({
   const canRead = ["hr.payroll.report.read", "hr.payroll.result.read", "finance.journal.read"].every((p) =>
     permissions.includes(p),
   );
-  const [choice, setChoice] = useState(initial?.company_id ?? ""),
+  const [choice] = useState(initial?.company_id ?? ""),
     [month, setMonth] = useState(initial?.month.slice(0, 7) ?? localDate().slice(0, 7)),
     [postingDate, setPostingDate] = useState(""),
     [revision, setRevision] = useState(0),
@@ -154,24 +154,10 @@ export function HrPayrollJournalWorkspace({
       aria-label="Payroll journal workspace"
       className="grid min-w-0 grid-cols-1 gap-3 font-sans [&_p]:mb-0 [&_dd]:font-sans! [&_select]:font-normal! [&_textarea]:font-normal!"
     >
-      <div className="grid min-w-0 grid-cols-1 items-end gap-3 sm:grid-cols-3 lg:grid-cols-[2fr_1fr_1fr]">
-        <Field title="Company">
-          <select
-            className={selectClass}
-            value={company}
-            disabled={busy || !!review}
-            onChange={(e) => {
-              setChoice(e.target.value);
-              setPostingDate("");
-            }}
-          >
-            {companies.data?.items.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.code})
-              </option>
-            ))}
-          </select>
-        </Field>
+      {companies.data && !companies.data.items.length && (
+        <div className={panel}>No authorized company is available.</div>
+      )}
+      <div className="grid min-w-0 grid-cols-1 items-end gap-3 sm:grid-cols-2">
         <Field title="Payroll month">
           <Input
             type="month"

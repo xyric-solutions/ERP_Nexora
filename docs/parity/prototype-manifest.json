@@ -3459,7 +3459,7 @@
               "label": "Attendance → Payroll Inputs",
               "archetype": "report",
               "status": "live",
-              "hiddenFromNavigation": false
+              "hiddenFromNavigation": true
             },
             {
               "id": "leave-request",

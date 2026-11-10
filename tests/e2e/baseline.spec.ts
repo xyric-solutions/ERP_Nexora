@@ -175,7 +175,6 @@ test.describe("Wave 0 HR visual baseline", () => {
       { label: "Corrections", pageId: "attendance-corrections" },
       { label: "Monthly Attendance", pageId: "monthly-attendance" },
       { label: "Attendance Period Close", pageId: "attendance-period" },
-      { label: "Attendance → Payroll Inputs", pageId: "attendance-payroll-inputs" },
     ]);
   });
 

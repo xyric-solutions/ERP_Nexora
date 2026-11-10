@@ -37,6 +37,13 @@ export const impersonationSessionSchema = z.object({
   expires_at: z.string().datetime({ offset: true }),
 });
 
+/** A company the signed-in user may work in (from their company access grants). */
+export const sessionCompanySchema = z.object({
+  id: z.string().min(1).max(128),
+  code: z.string().min(1).max(64),
+  name: z.string().min(1).max(200),
+});
+
 export const sessionResponseSchema = z.object({
   status: z.literal("authenticated"),
   tenant_id: tenantIdentifierSchema,
@@ -45,6 +52,16 @@ export const sessionResponseSchema = z.object({
   idle_expires_at: z.string().datetime({ offset: true }),
   absolute_expires_at: z.string().datetime({ offset: true }),
   impersonation: impersonationSessionSchema.optional(),
+  /** The company chosen after sign-in; every company-scoped request must use it. Null until one is chosen. */
+  active_company: sessionCompanySchema.nullable().optional(),
+});
+
+export const sessionCompanyDirectorySchema = z.object({
+  items: z.array(sessionCompanySchema).max(100),
+});
+
+export const selectSessionCompanyRequestSchema = z.object({
+  company_id: z.string().trim().min(1).max(128),
 });
 
 export const tenantSelectionChoiceSchema = z.object({
@@ -102,4 +119,7 @@ export type PasswordChangeRequiredResponse = z.infer<typeof passwordChangeRequir
 export type AuthenticationCompletionResponse = z.infer<typeof authenticationCompletionResponseSchema>;
 export type ChangeInitialPasswordRequest = z.infer<typeof changeInitialPasswordRequestSchema>;
 export type SessionResponse = z.infer<typeof sessionResponseSchema>;
+export type SessionCompany = z.infer<typeof sessionCompanySchema>;
+export type SessionCompanyDirectory = z.infer<typeof sessionCompanyDirectorySchema>;
+export type SelectSessionCompanyRequest = z.infer<typeof selectSessionCompanyRequestSchema>;
 export type AuthenticatedUser = z.infer<typeof authenticatedUserSchema>;

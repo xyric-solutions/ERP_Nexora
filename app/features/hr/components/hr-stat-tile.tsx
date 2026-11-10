@@ -67,7 +67,7 @@ export function HrInsightHeader({
 }: {
   eyebrow: string;
   title: string;
-  /** Right-hand controls such as the company select. */
+  /** Right-hand controls. */
   children?: ReactNode;
 }) {
   return (
@@ -81,36 +81,17 @@ export function HrInsightHeader({
   );
 }
 
-/** Company select for the Workforce & Insights dashboards. */
-export function HrCompanySelect({
-  id,
-  value,
-  companies,
-  onChange,
-  disabled = false,
-}: {
+/**
+ * Former company select for the Workforce & Insights dashboards. The company is now chosen once
+ * after sign-in, so this renders nothing; the props are kept so existing callers stay valid.
+ */
+export function HrCompanySelect(props: {
   id: string;
   value: string;
   companies: readonly { id: string; name: string; code?: string | null }[];
   onChange: (companyId: string) => void;
   disabled?: boolean;
-}) {
-  return (
-    <label htmlFor={id} className="grid w-full min-w-0 content-start gap-1 text-sm font-medium sm:w-72">
-      Company
-      <select
-        id={id}
-        className="h-9 w-full min-w-0 rounded-md border border-input bg-background px-2.5 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-        value={value}
-        disabled={disabled || companies.length === 0}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {companies.map((company) => (
-          <option key={company.id} value={company.id}>
-            {company.code ? `${company.name} (${company.code})` : company.name}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
+}): null {
+  void props;
+  return null;
 }

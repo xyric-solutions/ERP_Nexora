@@ -15,6 +15,8 @@ export interface TenantSessionRecord {
   userAgentHash: string | null;
   sourceIpHash: string | null;
   impersonation?: TenantImpersonationContext;
+  /** Company chosen after sign-in; company-scoped API requests must match it. */
+  activeCompanyId?: string | null;
 }
 
 export interface TenantImpersonationContext {
@@ -34,6 +36,7 @@ export interface TenantSessionStore {
   revokeByTokenHash(tokenHash: string): Promise<boolean>;
   revokeAll(tenantId: string, userId: string): Promise<number>;
   setImpersonation?(id: string, context: TenantImpersonationContext | null): Promise<boolean>;
+  setActiveCompany?(id: string, companyId: string | null): Promise<boolean>;
   enforceConcurrentLimit?(tenantId: string, userId: string, maximum: number, keepId: string): Promise<void>;
 }
 
@@ -46,6 +49,7 @@ export interface TenantSessionView {
   idleExpiresAt: Date;
   absoluteExpiresAt: Date;
   impersonation?: TenantImpersonationContext;
+  activeCompanyId?: string | null;
 }
 
 export interface IssuedTenantSession extends TenantSessionView {
@@ -160,6 +164,7 @@ export class TenantSessionService {
       current.absoluteExpiresAt,
       effectivePolicy,
     );
+    replacement.activeCompanyId = current.activeCompanyId ?? null;
     if (!(await this.store.rotate(current.id, replacement, now))) return { status: "invalid_session" };
     return { status: "ok", ...this.issued(replacement, replacementToken) };
   }
@@ -217,6 +222,23 @@ export class TenantSessionService {
 
   async endImpersonation(sessionId: string): Promise<boolean> {
     return this.store.setImpersonation ? this.store.setImpersonation(sessionId, null) : false;
+  }
+
+  /**
+   * Chooses (or, with null, leaves) the session's company. The caller must already have verified the user's access
+   * to that company; this only records the choice on the CSRF-checked session.
+   */
+  async setActiveCompany(
+    token: string,
+    csrfToken: string,
+    companyId: string | null,
+  ): Promise<TenantSessionMutationResult & { session?: TenantSessionView }> {
+    const current = await this.findAndTouch(token);
+    if (!current) return { status: "invalid_session" };
+    if (!this.matchesCsrf(current.id, csrfToken)) return { status: "invalid_csrf" };
+    if (!this.store.setActiveCompany || !(await this.store.setActiveCompany(current.id, companyId)))
+      return { status: "invalid_session" };
+    return { status: "ok", session: this.view({ ...current, activeCompanyId: companyId }) };
   }
 
   private async findAndTouch(token: string): Promise<TenantSessionRecord | null> {
@@ -339,6 +361,7 @@ export class TenantSessionService {
       idleExpiresAt: record.idleExpiresAt,
       absoluteExpiresAt: record.absoluteExpiresAt,
       ...(record.impersonation ? { impersonation: record.impersonation } : {}),
+      activeCompanyId: record.activeCompanyId ?? null,
     };
   }
 

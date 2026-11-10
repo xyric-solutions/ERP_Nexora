@@ -48,7 +48,7 @@ export function HrPayrollPaymentWorkspace({
     session?.user.permissions.includes(p),
   );
   const formId = useId();
-  const [choice, setChoice] = useState(initial?.company_id ?? ""),
+  const [choice] = useState(initial?.company_id ?? ""),
     [month, setMonth] = useState(initial?.month.slice(0, 7) ?? localDate().slice(0, 7)),
     [revision, setRevision] = useState(0),
     [detail, setDetail] = useState(false),
@@ -137,26 +137,10 @@ export function HrPayrollPaymentWorkspace({
   const money = (value: string) => (currency ? value + " " + currency : value);
   return (
     <div className="min-w-0 space-y-4" data-payroll-payment-workspace>
+      {companies.data && !companies.data.items.length && (
+        <div className={panel}>No authorized company is available.</div>
+      )}
       <div className="flex flex-wrap items-end gap-3">
-        <div className="w-full sm:w-72">
-          <Field title="Company">
-            <select
-              className={selectClass}
-              value={company}
-              disabled={busy || !!review}
-              onChange={(e) => {
-                setChoice(e.target.value);
-                setNotice("");
-              }}
-            >
-              {companies.data?.items.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.code})
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
         <div className="w-full sm:w-48">
           <Field title="Payroll month">
             <Input

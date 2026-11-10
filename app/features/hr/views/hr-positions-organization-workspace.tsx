@@ -15,7 +15,7 @@ import { BriefcaseBusiness, Building2, Network, UserRound, Users, X } from "luci
 import { HrClickableRow } from "../components/hr-clickable-row";
 import { HrDetailGroup, HrDetailSummary, HrDetailTile, HrStatusPill, hrDisplayDate } from "../components/hr-detail-tile";
 import { HrMasterSheet } from "../components/hr-master-sheet";
-import { HrCompanySelect, HrInlineBar, HrInsightHeader, HrStatTile } from "../components/hr-stat-tile";
+import { HrInlineBar, HrInsightHeader, HrStatTile } from "../components/hr-stat-tile";
 import { positionsOrganizationSample, showPositionsOrganizationSample } from "../model/positions-organization-sample";
 
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
@@ -23,7 +23,6 @@ type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
 export function HrPositionsOrganizationWorkspace({ onNavigate }: { onNavigate: Navigate }) {
   const { api, session, loading: sessionLoading, refresh: refreshSession } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
@@ -63,7 +62,6 @@ export function HrPositionsOrganizationWorkspace({ onNavigate }: { onNavigate: N
     client
       .companies()
       .then((result) => {
-        setCompanies(result.items);
         const first = result.items[0]?.id ?? "";
         setCompanyId(first);
         return load(first, "");
@@ -143,18 +141,6 @@ export function HrPositionsOrganizationWorkspace({ onNavigate }: { onNavigate: N
               placeholder="Employee, job, designation or department"
             />
           </label>
-          <HrCompanySelect
-            id="positions-org-company"
-            value={companyId}
-            companies={companies}
-            onChange={(next) => {
-              setCompanyId(next);
-              setAppliedQuery("");
-              setQuery("");
-              setDepartmentId("");
-              setSelectedId("");
-            }}
-          />
         </div>
       </HrInsightHeader>
 

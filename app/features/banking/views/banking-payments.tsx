@@ -5,7 +5,6 @@ import type {
   BankPaymentOptions,
   BankPaymentState,
   BankPaymentSummary,
-  BankingCompanyDirectory,
 } from "@nexora/contracts";
 
 import { Badge } from "@/components/ui/badge";
@@ -92,7 +91,6 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
   const client = useMemo(() => new BankingApiClient(api), [api]);
   const canRead = session?.user.permissions.includes("banking.payment.read") ?? false;
   const canCreate = session?.user.permissions.includes("banking.payment.create") ?? false;
-  const [companies, setCompanies] = useState<BankingCompanyDirectory["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [bankAccounts, setBankAccounts] = useState<BankPaymentOptions["bank_accounts"]>([]);
   const [rows, setRows] = useState<BankPaymentSummary[]>([]);
@@ -126,7 +124,6 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
     let active = true;
     const timer = window.setTimeout(() => {
       setLoadingCompanies(true);
-      setCompanies([]);
       setCompanyId("");
       setBankAccounts([]);
       invalidateDirectory();
@@ -134,13 +131,11 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
         .companies()
         .then((result) => {
           if (!active || request !== companyRequest.current) return;
-          setCompanies(result.items);
           setCompanyId(result.items[0]?.id ?? "");
           setLoadFailure(null);
         })
         .catch((caught) => {
           if (!active || request !== companyRequest.current) return;
-          setCompanies([]);
           setCompanyId("");
           setBankAccounts([]);
           setRows([]);
@@ -282,30 +277,6 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
 
       <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm" aria-label="Bank payments">
         <div className="grid gap-3 border-b border-border bg-muted/25 p-4 md:grid-cols-2 xl:grid-cols-4">
-          <Field label="Company">
-            <select
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-              value={companyId}
-              disabled={loadingCompanies || companies.length === 0}
-              onChange={(event) => {
-                directoryRequest.current += 1;
-                setCompanyId(event.target.value);
-                setBankAccountId("");
-                setBankAccounts([]);
-                setRows([]);
-                setNextCursor(null);
-                setLoadFailure(null);
-              }}
-            >
-              {companies.length === 0 ? <option value="">No accessible companies</option> : null}
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.code} · {company.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-
           <Field label="Bank account">
             <select
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
@@ -343,7 +314,7 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
             </select>
           </Field>
 
-          <Field label="Search payments">
+          <Field label="Search payments" className="md:col-span-2">
             <Input
               className="h-10"
               maxLength={160}
@@ -530,9 +501,19 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
   );
 }
 
-function Field({ label: fieldLabel, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label: fieldLabel,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <label className="block text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+    <label
+      className={`block text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground ${className ?? ""}`}
+    >
       <span className="mb-1.5 block">{fieldLabel}</span>
       {children}
     </label>

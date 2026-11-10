@@ -256,36 +256,8 @@ export function HrLifecyclePoliciesWorkspace() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <div className="flex min-w-0 flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
-        <label className="grid content-start min-w-0 basis-full gap-1.5 text-sm font-medium sm:basis-64 sm:flex-1">
-          Company
-          <select
-            className="h-9 w-full min-w-0 rounded-md border border-input bg-background px-2.5 text-sm"
-            value={companyId}
-            onChange={(event) => {
-              setState("loading");
-              setPolicies([]);
-              setCompanyId(event.target.value);
-            }}
-            disabled={state === "loading" || !companies.length}
-          >
-            {!companies.length && (
-              <option value="">
-                {state === "loading"
-                  ? "Loading authorized companies…"
-                  : state === "error"
-                    ? "Companies could not be loaded"
-                    : "No authorized companies"}
-              </option>
-            )}
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name} ({company.code})
-              </option>
-            ))}
-          </select>
-        </label>
-        {canManagePolicies && (
+      {canManagePolicies && (
+        <div className="flex min-w-0 flex-wrap items-end justify-end gap-3">
           <Button
             type="button"
             disabled={state !== "ready" || !companyId || actionBusy}
@@ -296,8 +268,8 @@ export function HrLifecyclePoliciesWorkspace() {
           >
             + Create draft policy
           </Button>
-        )}
-      </div>
+        </div>
+      )}
       {state === "loading" && <Skeleton className="h-32 w-full" />}
       {state === "error" && (
         <Alert variant="destructive">

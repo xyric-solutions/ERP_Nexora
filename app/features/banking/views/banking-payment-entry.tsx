@@ -926,45 +926,6 @@ export function BankingPaymentEntry({
         className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-card p-4 shadow-xs max-sm:grid-cols-1"
         aria-label="Payment controls"
       >
-        <Field label="Company" helper="Authenticated company scope">
-          {companies.length === 1 ? (
-            <p
-              className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
-              aria-label="Authenticated company"
-            >
-              {companies[0].code} · {companies[0].name}
-            </p>
-          ) : (
-            <select
-              aria-label="Company"
-              className={selectClass}
-              value={companyId}
-              disabled={busy || Boolean(persistedId)}
-              onChange={(event) =>
-                edit(() => {
-                  setCompanyId(event.target.value);
-                  setWorkflow(emptyBankWorkflowSelection);
-                  setNominalSearch("");
-                  lastNominalSearch.current = "";
-                  setNominalSearching(false);
-                  setDirectoriesCompanyId("");
-                  setBankAccountId("");
-                  setBankAccounts([]);
-                  setNominalAccounts([]);
-                  setNominalAvailability(null);
-                  setLines((current) => current.map((line) => ({ ...line, nominalAccountId: "", dimensions: {} })));
-                })
-              }
-            >
-              <option value="">Select company</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.code} · {company.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </Field>
         <Field label="Posting date" helper="Controls the financial period">
           <Input
             aria-label="Posting date"

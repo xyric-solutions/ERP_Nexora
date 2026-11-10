@@ -24,7 +24,7 @@ import { HrMasterStatusBadge } from "../components/hr-master-status-badge";
 import { HrMasterDeleteButton } from "../components/hr-master-delete-button";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
-import { preferredMasterCompany, rememberMasterCompany } from "../model/organisation-master-navigation";
+import { preferredMasterCompany } from "../model/organisation-master-navigation";
 import {
   canReportTo,
   defaultChildType,
@@ -320,34 +320,13 @@ export function HrOrganizationStructureSheetWorkspace() {
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
-      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,1fr)_auto] md:items-end">
-        <label className="grid content-start gap-1 text-sm font-medium" htmlFor="organization-company">
-          Company
-          <select
-            id="organization-company"
-            className="h-10 min-w-0 rounded-md border border-input bg-background px-3"
-            value={companyId}
-            onChange={(event) => {
-              const id = event.target.value;
-              setCompanyId(id);
-              rememberMasterCompany(id);
-              closeSheet();
-              void refresh(id);
-            }}
-          >
-            {companies.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        {canWrite && company ? (
+      {canWrite && company ? (
+        <div className="flex justify-end">
           <Button className="w-full md:w-auto" onClick={() => openCreate(company.id, "company")}>
             + Add organization unit
           </Button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
       <HrMasterStatusFilter value={statusFilter} onChange={setStatusFilter} />
       {loading ? (
         <Skeleton className="h-72 w-full" />

@@ -135,24 +135,6 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
   return (
     <section className="grid min-w-0 gap-4" aria-label="Employee directory">
       <div className="flex flex-wrap items-end justify-between gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
-        <div className="grid min-w-0 basis-full gap-1.5 sm:min-w-55 sm:flex-1 sm:basis-0">
-          <label className="text-sm font-medium text-foreground" htmlFor="hr-directory-company">
-            Company
-          </label>
-          <select
-            id="hr-directory-company"
-            className="h-9 rounded-md border border-input bg-background px-2.5 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={companyState !== "ready" || companies.length === 0}
-            value={companyId}
-            onChange={(event) => setCompanyId(event.target.value)}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name} ({company.code})
-              </option>
-            ))}
-          </select>
-        </div>
         <form
           className="flex min-w-0 flex-1 flex-wrap items-end gap-2 sm:min-w-65"
           onSubmit={(event) => {
@@ -261,7 +243,7 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
               {employees.length === 0 ? (
                 <tr>
                   <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
-                    No employees match this company and search.
+                    No employees match this search.
                   </td>
                 </tr>
               ) : null}

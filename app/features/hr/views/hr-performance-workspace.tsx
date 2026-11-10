@@ -518,7 +518,7 @@ export function HrPerformanceWorkspace({
     { api, session, csrfToken, loading } = useSession(),
     client = new HrApiClient(api),
     canRead = session?.user.permissions.includes("hr.performance.read");
-  const [choice, setChoice] = useState(() => remembered("company")),
+  const [choice] = useState(() => remembered("company")),
     [cycleChoice, setCycleChoice] = useState(() => remembered("cycle")),
     [search, setSearch] = useState(""),
     [filter, setFilter] = useState(""),
@@ -623,27 +623,10 @@ export function HrPerformanceWorkspace({
             </Button>
           )}
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field title="Company">
-            <select
-              className={selectClass}
-              value={company}
-              disabled={busy || !!editor || !!decision}
-              onChange={(e) => {
-                setChoice(e.target.value);
-                remember("company", e.target.value);
-                setCycleChoice("");
-                remember("cycle", "");
-                reset();
-              }}
-            >
-              {companies.data?.items.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.code})
-                </option>
-              ))}
-            </select>
-          </Field>
+        {companies.data && !companies.data.items.length && (
+          <p className="text-sm text-muted-foreground">No authorized company is available.</p>
+        )}
+        <div className="grid gap-3 sm:max-w-md">
           <Field title="Performance cycle">
             <select
               className={selectClass}

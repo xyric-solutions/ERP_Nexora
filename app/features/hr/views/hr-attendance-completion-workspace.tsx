@@ -45,11 +45,10 @@ import {
   type HrOvertimeDetail,
   type HrOvertimeActionRequest,
   type HrAttendancePeriodWorkspace,
-  type HrAttendancePayrollInputs,
   type HrAttendanceCompletionResult,
 } from "@nexora/contracts";
 type Navigate = (module: string, page: string, record?: string) => void;
-type Mode = "overtime" | "attendance-period" | "attendance-payroll-inputs";
+type Mode = "overtime" | "attendance-period";
 const previousMonth = () => {
   const d = new Date();
   d.setDate(1);
@@ -602,8 +601,8 @@ function Overtime({
     </div>
   );
 }
+/** Attendance Period Close: open, process and lock the month. A locked month's rows are its payroll inputs. */
 function CloseAndInputs({
-  mode,
   client,
   company,
   month,
@@ -617,7 +616,6 @@ function CloseAndInputs({
 }: {
   onEditing: (value: boolean) => void;
   saveError?: string;
-  mode: Exclude<Mode, "overtime">;
   client: HrApiClient;
   company: string;
   month: string;
@@ -636,12 +634,9 @@ function CloseAndInputs({
     [override, setOverride] = useState(false),
     [reviewVersion, setReviewVersion] = useState(0),
     [reviewHash, setReviewHash] = useState<string | undefined>();
-  const periodRead = useAttendanceRead<HrAttendancePeriodWorkspace | HrAttendancePayrollInputs>(
-    JSON.stringify([company, month, mode, revision, offset]),
-    () => {
-      const q = { company_id: company, month, limit: 25, offset };
-      return mode === "attendance-period" ? client.periodWorkspace(q) : client.payrollInputs(q);
-    },
+  const periodRead = useAttendanceRead<HrAttendancePeriodWorkspace>(
+    JSON.stringify([company, month, revision, offset]),
+    () => client.periodWorkspace({ company_id: company, month, limit: 25, offset }),
   );
   const data = periodRead.data,
     loading = periodRead.loading,
@@ -651,7 +646,7 @@ function CloseAndInputs({
     return () => onEditing(false);
   }, [action, onEditing]);
   const period = data?.period,
-    workspace = data && "allowed_actions" in data ? data : null,
+    workspace = data ?? null,
     employee = data?.items.find((item) => item.employee_id === employeeId) ?? null;
   const startAction = (next: "open" | "process" | "lock") => {
     setPeriodOpen(true);
@@ -684,15 +679,6 @@ function CloseAndInputs({
       setOverride(false);
     }
   }
-  const crossLink =
-    mode === "attendance-period" && period?.state === "locked" ? (
-      <Button
-        variant="outline"
-        onClick={() => onNavigate("hr", "attendance-payroll-inputs", JSON.stringify({ company_id: company, month }))}
-      >
-        View payroll inputs <ArrowRight className="size-4" />
-      </Button>
-    ) : null;
   return (
     <div className="grid min-w-0 gap-4">
       {(error || loadError) && !periodOpen && (
@@ -718,7 +704,11 @@ function CloseAndInputs({
           onAction={startAction}
         />
       )}
-      {crossLink ? <div className="flex justify-end">{crossLink}</div> : null}
+      {period?.state === "locked" && data?.items.length ? (
+        <p className="rounded-lg border border-[var(--nx-success-border)] bg-[var(--nx-success-soft)] px-3 py-2 text-sm text-[var(--nx-success-text)]">
+          Locked. These employee figures are frozen as this month&apos;s payroll inputs and are used by Payroll Runs.
+        </p>
+      ) : null}
       {loading ? (
         <Skeleton className="h-40" />
       ) : data?.items.length ? (
@@ -726,11 +716,9 @@ function CloseAndInputs({
       ) : (
         <div className={panel}>
           <p className="text-sm text-muted-foreground">
-            {mode === "attendance-period"
-              ? "No review has been prepared for this month yet. Open the period, then process the review."
-              : period?.state === "locked"
-                ? "This locked legacy period has no daily evidence to show. Its historical inputs are preserved."
-                : "Finalized inputs appear here after the attendance period is locked."}
+            {period?.state === "locked"
+              ? "This locked legacy period has no daily evidence to show. Its historical inputs are preserved."
+              : "No review has been prepared for this month yet. Open the period, then process the review."}
           </p>
         </div>
       )}
@@ -865,7 +853,7 @@ export function HrAttendanceCompletionWorkspace({
       return null;
     }
   }, [initialReference]);
-  const [companyChoice, setCompany] = useState(initial?.company_id ?? ""),
+  const [companyChoice] = useState(initial?.company_id ?? ""),
     [month, setMonth] = useState(initial?.month ?? previousMonth()),
     [revision, setRevision] = useState(0),
     [busy, setBusy] = useState(false),
@@ -876,12 +864,7 @@ export function HrAttendanceCompletionWorkspace({
     [overtimeSearch, setOvertimeSearch] = useState("");
   const lock = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null);
-  const permission =
-    mode === "overtime"
-      ? "hr.attendance.overtime.read"
-      : mode === "attendance-period"
-        ? "hr.attendance.period.read"
-        : "hr.attendance.payroll_input.read";
+  const permission = mode === "overtime" ? "hr.attendance.overtime.read" : "hr.attendance.period.read";
   const permissions = session?.user.permissions ?? [],
     canRead = permissions.includes(permission);
   const companyRead = useAttendanceRead<HrCompanyDirectory>(canRead ? "companies" : null, () => client.companies());
@@ -919,29 +902,10 @@ export function HrAttendanceCompletionWorkspace({
         className={
           panel +
           (mode === "overtime"
-            ? " grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,16rem)_minmax(0,10rem)_minmax(0,1fr)_auto] lg:items-end"
-            : " grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,220px)_auto] md:items-end")
+            ? " grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] lg:items-end"
+            : " grid gap-4 md:grid-cols-[minmax(0,220px)] md:items-end")
         }
       >
-        <Field title="Company">
-          <select
-            className={selectClass}
-            disabled={busy || editing || companyLoading}
-            value={company}
-            onChange={(e) => {
-              setCompany(e.target.value);
-              setError("");
-              setNotice("");
-            }}
-          >
-            <option value="">{companyLoading ? "Loading authorized companies…" : "Select company"}</option>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.code})
-              </option>
-            ))}
-          </select>
-        </Field>
         <Field title="Attendance month">
           <Input
             type="month"
@@ -1020,7 +984,6 @@ export function HrAttendanceCompletionWorkspace({
         <CloseAndInputs
           key={company + month + mode}
           onEditing={setEditing}
-          mode={mode}
           client={client}
           company={company}
           month={month}

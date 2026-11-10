@@ -24,8 +24,6 @@ import {
 } from "../components/hr-attendance-records";
 import { useAttendanceRead } from "../components/hr-workspace-controls";
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
-const selectClass =
-  "h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
 const currentMonth = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -379,37 +377,20 @@ export function HrMonthlyAttendanceWorkspace({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+      {!companyLoading && !error && !companies.length && (
+        <Alert>
+          <AlertTitle>No authorized company</AlertTitle>
+          <AlertDescription>Ask your administrator to review company access.</AlertDescription>
+        </Alert>
+      )}
       <form
-        className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1.2fr_0.7fr_1fr] sm:p-5"
+        className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-[0.7fr_1fr] sm:p-5"
         onSubmit={(e) => {
           e.preventDefault();
           setOffset(0);
           setApplied(search.trim());
         }}
       >
-        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
-          Company
-          <select
-            aria-label="Company"
-            className={selectClass}
-            disabled={companyLoading}
-            value={company}
-            onChange={(e) => {
-              setCompany(e.target.value);
-              setOffset(0);
-              setData(null);
-            }}
-          >
-            {!companies.length && (
-              <option value="">{companyLoading ? "Loading companies…" : "No authorized company"}</option>
-            )}
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.code})
-              </option>
-            ))}
-          </select>
-        </label>
         <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Attendance month
           <Input

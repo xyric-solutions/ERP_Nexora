@@ -121,10 +121,8 @@ export function useHrLandingSummaries(
   return result.key === key ? result.values : {};
 }
 
+/** Card / list toggle. The company is chosen at sign-in, so the company props are no longer shown. */
 export function HrLandingToolbar({
-  companies,
-  companyId,
-  onCompanyChange,
   display,
   onDisplayChange,
   idPrefix,
@@ -137,22 +135,7 @@ export function HrLandingToolbar({
   idPrefix: string;
 }) {
   return (
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-      <label className="grid content-start w-full gap-1 text-xs text-muted-foreground sm:w-64" htmlFor={`${idPrefix}-company`}>
-        Company
-        <select
-          id={`${idPrefix}-company`}
-          className="h-10 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm text-foreground"
-          value={companyId}
-          onChange={(event) => onCompanyChange(event.target.value)}
-        >
-          {companies.map((company) => (
-            <option key={company.id} value={company.id}>
-              {company.name}
-            </option>
-          ))}
-        </select>
-      </label>
+    <div className="mb-5 flex flex-wrap items-end justify-end gap-3" id={`${idPrefix}-toolbar`}>
       <div className="flex gap-1 rounded-lg border border-border bg-card p-1">
         <Button
           type="button"

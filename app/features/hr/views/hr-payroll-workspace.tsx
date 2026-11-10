@@ -810,7 +810,7 @@ export function HrPayrollWorkspace({
     [section, , group] = payrollPages[page],
     permissions = session?.user.permissions ?? [],
     canRead = permissions.includes("hr.payroll." + group + ".read");
-  const [choice, setCompany] = useState(initial?.company_id ?? ""),
+  const [choice] = useState(initial?.company_id ?? ""),
     [month, setMonth] = useState(initial?.month ?? localDate().slice(0, 7) + "-01"),
     [search, setSearch] = useState(""),
     [employeeSearch, setEmployeeSearch] = useState(""),
@@ -863,25 +863,7 @@ export function HrPayrollWorkspace({
       className="grid min-w-0 gap-5 font-sans [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_select]:font-normal! [&_textarea]:font-normal! [&_input]:font-normal!"
     >
       <section className={panel}>
-        <div className="grid min-w-0 items-end gap-4 md:grid-cols-2 xl:grid-cols-[1.5fr_1fr_1.5fr_auto]">
-          <Field title="Company">
-            <select
-              className={selectClass}
-              value={company}
-              disabled={editing || !!selected || busy}
-              onChange={(e) => {
-                setCompany(e.target.value);
-                setOffset(0);
-              }}
-            >
-              <option value="">Select company</option>
-              {companies.data?.items.map((c) => (
-                <option value={c.id} key={c.id}>
-                  {c.name} ({c.code})
-                </option>
-              ))}
-            </select>
-          </Field>
+        <div className="grid min-w-0 items-end gap-4 md:grid-cols-[1fr_1.5fr]">
           <Field title="Payroll month">
             <Input
               type="month"
@@ -909,6 +891,9 @@ export function HrPayrollWorkspace({
           </Field>
         </div>
       </section>
+      {companies.data && !companies.data.items.length && (
+        <div className={panel}>No authorized company is available.</div>
+      )}
       <Message error={companies.error || records.error || options.error || error} />
       {notice && (
         <div

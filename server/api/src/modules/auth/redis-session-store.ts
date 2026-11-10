@@ -17,6 +17,7 @@ interface StoredSession {
   userAgentHash: string | null;
   sourceIpHash: string | null;
   impersonation?: Omit<TenantImpersonationContext, "expiresAt"> & { expiresAt: number };
+  activeCompanyId?: string | null;
 }
 
 const createScript = `
@@ -105,6 +106,21 @@ local ttl = redis.call('PTTL', sessionKey)
 if ttl <= 0 then return 0 end
 local record = cjson.decode(raw)
 if ARGV[2] == '' then record.impersonation = nil else record.impersonation = cjson.decode(ARGV[2]) end
+redis.call('SET', sessionKey, cjson.encode(record), 'PX', ttl)
+return 1
+`;
+
+const activeCompanyScript = `
+local identity = redis.call('GET', KEYS[1])
+if not identity then return 0 end
+local mapping = cjson.decode(identity)
+local sessionKey = ARGV[1] .. mapping.tokenHash
+local raw = redis.call('GET', sessionKey)
+if not raw then return 0 end
+local ttl = redis.call('PTTL', sessionKey)
+if ttl <= 0 then return 0 end
+local record = cjson.decode(raw)
+if ARGV[2] == '' then record.activeCompanyId = nil else record.activeCompanyId = ARGV[2] end
 redis.call('SET', sessionKey, cjson.encode(record), 'PX', ttl)
 return 1
 `;
@@ -229,6 +245,12 @@ export class RedisTenantSessionStore implements TenantSessionStore {
   async setImpersonation(id: string, context: TenantImpersonationContext | null): Promise<boolean> {
     const stored = context ? JSON.stringify({ ...context, expiresAt: context.expiresAt.getTime() }) : "";
     return Number(await this.redis.eval(impersonationScript, 1, this.idKey(id), this.sessionPrefix, stored)) === 1;
+  }
+
+  async setActiveCompany(id: string, companyId: string | null): Promise<boolean> {
+    return (
+      Number(await this.redis.eval(activeCompanyScript, 1, this.idKey(id), this.sessionPrefix, companyId ?? "")) === 1
+    );
   }
 
   async enforceConcurrentLimit(tenantId: string, userId: string, maximum: number, keepId: string): Promise<void> {

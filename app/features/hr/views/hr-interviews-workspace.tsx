@@ -420,7 +420,7 @@ export function HrInterviewsWorkspace() {
     canRead = permissions.includes("hr.employee.read"),
     canUpdate = permissions.includes("hr.employee.update"),
     canSelect = permissions.includes("hr.employee.approve");
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]),
+  const [noCompany, setNoCompany] = useState(false),
     [companyId, setCompanyId] = useState("");
   const [apps, setApps] = useState<HrApplicationDirectory>({ items: [], total: 0 }),
     [applicationId, setApplicationId] = useState("");
@@ -449,7 +449,7 @@ export function HrInterviewsWorkspace() {
       .companies()
       .then((result) => {
         if (!cancelled) {
-          setCompanies(result.items);
+          setNoCompany(result.items.length === 0);
           setCompanyId(result.items[0]?.id ?? "");
           setLoading(false);
         }
@@ -726,43 +726,20 @@ export function HrInterviewsWorkspace() {
           {notice}
         </div>
       ) : null}
+      {noCompany ? (
+        <Alert>
+          <AlertTitle>Company access required</AlertTitle>
+          <AlertDescription>Company access must be granted before interviews can be reviewed.</AlertDescription>
+        </Alert>
+      ) : null}
       <form
-        className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 md:grid-cols-[minmax(12rem,1fr)_minmax(14rem,1.4fr)_auto]"
+        className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 md:grid-cols-[minmax(14rem,1fr)_auto]"
         onSubmit={(e) => {
           e.preventDefault();
           setError("");
           setQuery({ search, offset: 0 });
         }}
       >
-        <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
-          Company
-          <select
-            className={selectClass}
-            disabled={busy}
-            value={companyId}
-            onChange={(e) => {
-              sequence.current += 1;
-              setCompanyId(e.target.value);
-              setApplicationId("");
-              setWorkspace(null);
-              setNotice("");
-              setError("");
-              setEditor(null);
-              setQuery({ search: "", offset: 0 });
-              setSearch("");
-            }}
-          >
-            {!companies.length ? (
-              <option value="">No authorized company</option>
-            ) : (
-              companies.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))
-            )}
-          </select>
-        </label>
         <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
           Find candidate
           <Input

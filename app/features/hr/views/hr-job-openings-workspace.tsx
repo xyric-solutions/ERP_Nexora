@@ -41,8 +41,7 @@ export function HrJobOpeningsWorkspace() {
     canRead = permissions.includes("hr.employee.read"),
     canCreate = permissions.includes("hr.employee.create"),
     canUpdate = permissions.includes("hr.employee.update");
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]),
-    [companyId, setCompanyId] = useState(""),
+  const [companyId, setCompanyId] = useState(""),
     [items, setItems] = useState<Opening[]>([]),
     [approved, setApproved] = useState<Awaited<ReturnType<HrApiClient["manpowerRequisitions"]>>["items"]>([]),
     [selectedId, setSelectedId] = useState(""),
@@ -89,9 +88,13 @@ export function HrJobOpeningsWorkspace() {
     client
       .companies()
       .then((result) => {
-        setCompanies(result.items);
         const first = result.items[0]?.id ?? "";
         setCompanyId(first);
+        if (!first) {
+          setMessage("No authorized company is available. Ask your administrator to review company access.");
+          setLoading(false);
+          return;
+        }
         return load(first);
       })
       .catch(() => {
@@ -291,25 +294,8 @@ export function HrJobOpeningsWorkspace() {
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4 border-border">
-        <label className="grid content-start min-w-0 basis-full sm:basis-48 flex-1 gap-1 text-sm font-medium">
-          Company
-          <select
-            className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-            value={companyId}
-            onChange={(event) => {
-              setCompanyId(event.target.value);
-              void load(event.target.value);
-            }}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name} ({company.code})
-              </option>
-            ))}
-          </select>
-        </label>
-        {canCreate ? (
+      {canCreate ? (
+        <div className="flex flex-wrap items-end justify-end gap-3">
           <Button
             onClick={() => {
               setEditingId("");
@@ -322,8 +308,8 @@ export function HrJobOpeningsWorkspace() {
           >
             + Create opening
           </Button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
       <HrMasterStatusFilter<OpeningFilter>
         label="Opening state"
         value={openingFilter}
@@ -388,7 +374,7 @@ export function HrJobOpeningsWorkspace() {
                 {visibleItems.length === 0 ? (
                   <tr>
                     <td className="px-4 py-10 text-center text-muted-foreground" colSpan={6}>
-                      No job openings match this company and state.
+                      No job openings match this state.
                     </td>
                   </tr>
                 ) : null}

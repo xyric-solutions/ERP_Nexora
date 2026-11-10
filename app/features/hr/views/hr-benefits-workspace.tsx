@@ -17,7 +17,6 @@ import {
   State,
   Metric,
   panel,
-  selectClass,
   useAttendanceRead,
   localDate,
 } from "../components/hr-workspace-controls";
@@ -52,10 +51,11 @@ function BenefitRules({ company }: { company: string }) {
 }
 
 function EmployeeSelfService({ onNavigate }: { onNavigate: Navigate }) {
-  const { api } = useSession(),
+  const { api, activeCompany } = useSession(),
     client = new HrApiClient(api);
-  const [company, setCompany] = useState(""),
-    [month, setMonth] = useState(localDate().slice(0, 7)),
+  // Personal records are read in the company chosen at sign-in.
+  const company = activeCompany?.id ?? "";
+  const [month, setMonth] = useState(localDate().slice(0, 7)),
     [revision, setRevision] = useState(0),
     [offset, setOffset] = useState(0),
     [tab, setTab] = useState("payslips");
@@ -115,31 +115,7 @@ function EmployeeSelfService({ onNavigate }: { onNavigate: Navigate }) {
         them.
       </Notice>
       <div className={panel}>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_12rem_auto]">
-          <Field title="My company">
-            <select
-              className={selectClass}
-              value={w?.company_id ?? company}
-              disabled={profileBusy || read.loading || !w?.memberships.length}
-              onChange={(e) => {
-                setCompany(e.target.value);
-                reset();
-              }}
-            >
-              <option value="">
-                {read.loading
-                  ? "Loading employee account…"
-                  : read.error
-                    ? "Company unavailable"
-                    : "Employee link required"}
-              </option>
-              {w?.memberships.map((m) => (
-                <option key={m.company_id} value={m.company_id}>
-                  {m.company_name}
-                </option>
-              ))}
-            </select>
-          </Field>
+        <div className="grid gap-4 sm:grid-cols-[12rem_auto] sm:justify-start">
           <Field title="Month">
             <Input
               type="month"
@@ -194,9 +170,6 @@ function EmployeeSelfService({ onNavigate }: { onNavigate: Navigate }) {
               </Badge>
             </div>
           </div>
-          {w?.memberships_truncated && (
-            <Notice>Only the first 100 linked companies are listed. Ask Security to review your company access.</Notice>
-          )}
           <Tabs
             value={tab}
             onValueChange={(v) => {

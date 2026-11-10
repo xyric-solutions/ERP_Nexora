@@ -10,15 +10,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrStatusPill, hrDisplayDate } from "../components/hr-detail-tile";
-import { HrCompanySelect, HrInlineBar, HrInsightHeader, HrStatTile } from "../components/hr-stat-tile";
+import { HrInlineBar, HrInsightHeader, HrStatTile } from "../components/hr-stat-tile";
 
 type Navigate = (moduleId: string, pageId: string) => void;
 
 export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
   const { api, session, loading: sessionLoading, refresh: refreshSession } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
-  const [companyId, setCompanyId] = useState("");
   const [summary, setSummary] = useState<HrDashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -52,9 +50,7 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
     client
       .companies()
       .then((result) => {
-        setCompanies(result.items);
         const first = result.items[0]?.id ?? "";
-        setCompanyId(first);
         if (!first) setLoading(false);
         return load(first);
       })
@@ -101,18 +97,7 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
 
   return (
     <section className="grid min-w-0 gap-4" aria-label="HR Dashboard">
-      <HrInsightHeader eyebrow="People & workforce" title="HR Dashboard">
-        <HrCompanySelect
-          id="hr-dashboard-company"
-          value={companyId}
-          companies={companies}
-          disabled={loading}
-          onChange={(next) => {
-            setCompanyId(next);
-            void load(next);
-          }}
-        />
-      </HrInsightHeader>
+      <HrInsightHeader eyebrow="People & workforce" title="HR Dashboard" />
       {error ? (
         <Alert>
           <AlertTitle>Dashboard unavailable</AlertTitle>

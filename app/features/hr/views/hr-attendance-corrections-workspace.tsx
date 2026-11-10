@@ -552,7 +552,7 @@ export function HrAttendanceCorrectionsWorkspace({
     client = useMemo(() => new HrApiClient(api), [api]),
     canRead = session?.user.permissions.includes("hr.attendance.correction.read") ?? false,
     canCreate = session?.user.permissions.includes("hr.attendance.correction.create") ?? false;
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]),
+  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"] | null>(null),
     [company, setCompany] = useState(initialScope.company_id ?? ""),
     [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
@@ -718,8 +718,14 @@ export function HrAttendanceCorrectionsWorkspace({
           {notice}
         </div>
       )}
+      {!companyLoading && companies?.length === 0 ? (
+        <Alert>
+          <AlertTitle>Company access required</AlertTitle>
+          <AlertDescription>Company access must be granted before attendance corrections can be reviewed.</AlertDescription>
+        </Alert>
+      ) : null}
       <form
-        className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1fr_0.7fr_1fr_auto] sm:p-5"
+        className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[0.7fr_1fr_auto] sm:p-5"
         onSubmit={(e) => {
           e.preventDefault();
           setError("");
@@ -727,33 +733,6 @@ export function HrAttendanceCorrectionsWorkspace({
           setOffset(0);
         }}
       >
-        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
-          Company
-          <select
-            aria-label="Company"
-            className={selectClass}
-            value={company}
-            disabled={companyLoading || busy || !!editor}
-            onChange={(e) => {
-              setCompany(e.target.value);
-              setOffset(0);
-              setData({ items: [], total: 0 });
-              setSelected("");
-              setDetail(null);
-              setNotice("");
-              setError("");
-            }}
-          >
-            {!companies.length && (
-              <option value="">{companyLoading ? "Loading companies…" : "No authorized company"}</option>
-            )}
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.code})
-              </option>
-            ))}
-          </select>
-        </label>
         <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Request status
           <select
@@ -895,7 +874,7 @@ export function HrAttendanceCorrectionsWorkspace({
           <ClipboardCheck className="size-8 text-muted-foreground" />
           <h3 className="font-semibold">No correction requests found</h3>
           <p className="max-w-lg text-sm text-muted-foreground">
-            Create a draft for an eligible employee, or adjust the company and filters.
+            Create a draft for an eligible employee, or adjust the filters.
           </p>
         </div>
       )}

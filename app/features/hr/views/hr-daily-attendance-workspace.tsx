@@ -21,8 +21,6 @@ import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import { HrEditButton } from "../components/hr-icon-buttons";
-const selectClass =
-  "h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
 const localDate = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -59,7 +57,7 @@ export function HrDailyAttendanceWorkspace({
   const { api, session, loading: sessionLoading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]);
   const canRead = session?.user.permissions.includes("hr.attendance.read") ?? false;
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]),
+  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"] | null>(null),
     [company, setCompany] = useState(initial?.company_id ?? "");
   const [date, setDate] = useState(initial?.on_date ?? localDate()),
     [search, setSearch] = useState(initial?.search ?? ""),
@@ -156,37 +154,20 @@ export function HrDailyAttendanceWorkspace({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+      {!companyLoading && companies?.length === 0 ? (
+        <Alert>
+          <AlertTitle>Company access required</AlertTitle>
+          <AlertDescription>Company access must be granted before daily attendance can be reviewed.</AlertDescription>
+        </Alert>
+      ) : null}
       <form
-        className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1.2fr_0.7fr_1fr] sm:p-5"
+        className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[0.7fr_1fr] sm:p-5"
         onSubmit={(e) => {
           e.preventDefault();
           setOffset(0);
           setApplied(search.trim());
         }}
       >
-        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
-          Company
-          <select
-            aria-label="Company"
-            className={selectClass}
-            disabled={companyLoading}
-            value={company}
-            onChange={(e) => {
-              setCompany(e.target.value);
-              setOffset(0);
-              setData(null);
-            }}
-          >
-            {!companies.length && (
-              <option value="">{companyLoading ? "Loading companies…" : "No authorized company"}</option>
-            )}
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.code})
-              </option>
-            ))}
-          </select>
-        </label>
         <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Working date
           <Input
@@ -210,7 +191,7 @@ export function HrDailyAttendanceWorkspace({
         </label>
       </form>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span>{data?.total ?? 0} employees match the company, date and search.</span>
+        <span>{data?.total ?? 0} employees match the date and search.</span>
         <span>
           {data
             ? `Period: ${data.period_state ? label(data.period_state) : "Not opened"} · Updated ${new Date(data.generated_at).toLocaleTimeString()}`
@@ -278,7 +259,7 @@ export function HrDailyAttendanceWorkspace({
             <Users className="size-8 text-muted-foreground" />
             <h3 className="font-semibold">No attendance rows to display</h3>
             <p className="max-w-lg text-sm text-muted-foreground">
-              Choose an authorized company and date. Employees need an approved operational placement covering that day.
+              Choose a working date. Employees need an approved operational placement covering that day.
             </p>
           </div>
         )}

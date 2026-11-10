@@ -24,6 +24,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ApiError } from "@/lib/api/generated";
+import { inActiveCompany } from "@/lib/session/active-company";
 import { useSession } from "@/lib/session/session-provider";
 import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warning";
 import { useActionFeedback } from "@/shared/ui/action-feedback";
@@ -81,8 +82,7 @@ function CompanyNominalDirectory({
 }: FinanceNominalsProps) {
   const { api, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new FinanceNominalsClient(api), [api]);
-  const [options, setOptions] = useState(emptyOptions),
-    [company, setCompany] = useState(""),
+  const [company, setCompany] = useState(""),
     [rows, setRows] = useState<FinanceNominalSummary[]>([]);
   const [search, setSearch] = useState(""),
     [state, setState] = useState(""),
@@ -107,11 +107,10 @@ function CompanyNominalDirectory({
       .options()
       .then((result) => {
         if (active) {
-          setOptions(result);
-          setCompany((current) =>
-            result.companies.some((item) => item.id === current) ? current : result.companies[0]?.id || "",
-          );
-          if (!result.companies.length) setLoading(false);
+          // Only the company chosen at sign-in is listed here.
+          const companies = inActiveCompany({ items: result.companies }).items;
+          setCompany((current) => (companies.some((item) => item.id === current) ? current : companies[0]?.id || ""));
+          if (!companies.length) setLoading(false);
         }
       })
       .catch((error) => {
@@ -204,26 +203,7 @@ function CompanyNominalDirectory({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <label>
-            Company
-            <select
-              aria-label="Nominal company"
-              className={selectClass}
-              value={company}
-              onChange={(event) => {
-                resetDirectory(Boolean(event.target.value));
-                setCompany(event.target.value);
-              }}
-            >
-              <option value="">Select company</option>
-              {options.companies.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.code} · {item.name}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className={`grid gap-3 ${approvals ? "sm:grid-cols-3" : "sm:grid-cols-2 xl:grid-cols-4"}`}>
           <label htmlFor="nominal-search">
             Search
             <Input
@@ -292,7 +272,9 @@ function CompanyNominalDirectory({
         {loading ? (
           <Notice text="Loading Nominals…" />
         ) : !rows.length ? (
-          <Notice text={company ? "No records match this selection." : "No authorized company is available."} />
+          <Notice
+            text={company ? "No records match this selection." : "The company chosen at sign-in is not available."}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -399,7 +381,8 @@ export function FinanceNominalForm({
       .then((result) => {
         if (active) {
           setOptions(result);
-          setCompany((current) => current || result.companies[0]?.id || "");
+          // Only the company chosen at sign-in can receive new nominals.
+          setCompany((current) => current || inActiveCompany({ items: result.companies }).items[0]?.id || "");
           setLoading(false);
         }
       })
@@ -586,6 +569,7 @@ export function FinanceNominalForm({
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {notice && <Notice text={notice} />}
+        {!company && !nominalId && <Notice text="The company chosen at sign-in is not available." />}
         {!selected?.creation_enabled && !saved && (
           <Notice text="Section setup is required. Configure the company headers and an available nominal code policy before creating accounts." />
         )}
@@ -596,31 +580,7 @@ export function FinanceNominalForm({
           }}
           className="grid gap-5 md:grid-cols-2"
         >
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="nominal-company">Company</Label>
-            <select
-              id="nominal-company"
-              className={selectClass}
-              disabled={!!saved || busy}
-              value={company}
-              onChange={(event) => {
-                if (dirty && !window.confirm("Discard unsaved Nominal changes?")) return;
-                setCompany(event.target.value);
-                setBankDefinition("");
-                setSection("");
-                setCurrency("");
-                setDirty(true);
-              }}
-            >
-              <option value="">Select company</option>
-              {options.companies.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.code} · {item.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 md:col-span-2">
             <Label htmlFor="nominal-code">Nominal code</Label>
             <Input
               id="nominal-code"

@@ -64,19 +64,15 @@ type Shared = {
   onNavigate: Navigate;
   onEditing: (v: boolean) => void;
   initial?: Record<string, string>;
-  /** Company picker rendered as the first item of each page toolbar. */
-  companyField: ReactNode;
 };
-/** One toolbar row shared by every Leave page: company, search (applies as you type) and the page action. */
+/** One toolbar row shared by every Leave page: search (applies as you type) and the page action. */
 function LeaveToolbar({
-  companyField,
   search,
   onSearch,
   placeholder,
   action,
   filter,
 }: {
-  companyField: ReactNode;
   search: string;
   onSearch: (value: string) => void;
   placeholder: string;
@@ -87,9 +83,8 @@ function LeaveToolbar({
   const searchId = useId();
   return (
     <div
-      className={`grid gap-3 rounded-lg border border-border bg-card p-3 md:items-end ${filter ? "md:grid-cols-[minmax(10rem,14rem)_minmax(12rem,1fr)_11rem_auto]" : "md:grid-cols-[minmax(14rem,.8fr)_minmax(14rem,1fr)_auto]"}`}
+      className={`grid gap-3 rounded-lg border border-border bg-card p-3 md:items-end ${filter ? "md:grid-cols-[minmax(12rem,1fr)_11rem_auto]" : "md:grid-cols-[minmax(14rem,1fr)_auto]"}`}
     >
-      {companyField}
       <label className="grid content-start gap-1 text-sm font-medium" htmlFor={searchId}>
         Search
         <Input
@@ -353,7 +348,7 @@ function PolicyEditor({
   );
 }
 function LeaveTypes(props: Shared) {
-  const { client, company, date, revision, busy, save, csrf, permissions, onEditing, companyField } = props;
+  const { client, company, date, revision, busy, save, csrf, permissions, onEditing } = props;
   const [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
     [statusFilter, setStatusFilter] = useState<HrMasterStatus>("active"),
@@ -468,7 +463,6 @@ function LeaveTypes(props: Shared) {
   return (
     <div className="grid min-w-0 gap-4">
       <LeaveToolbar
-        companyField={companyField}
         search={search}
         onSearch={setSearch}
         placeholder="Search code or leave type"
@@ -692,7 +686,7 @@ function LeaveTypes(props: Shared) {
   );
 }
 function LeaveBalances(props: Shared) {
-  const { client, company, date, revision, busy, save, csrf, permissions, onEditing, companyField } = props;
+  const { client, company, date, revision, busy, save, csrf, permissions, onEditing } = props;
   const [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
     [offset, setOffset] = useState(0),
@@ -775,7 +769,6 @@ function LeaveBalances(props: Shared) {
   return (
     <div className="grid min-w-0 gap-4">
       <LeaveToolbar
-        companyField={companyField}
         search={search}
         onSearch={setSearch}
         placeholder="Search employee or leave type"
@@ -1342,7 +1335,6 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
     onEditing,
     initial,
     approval,
-    companyField,
   } = props;
   const [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
@@ -1427,7 +1419,6 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
   return (
     <div className="grid min-w-0 gap-4">
       <LeaveToolbar
-        companyField={companyField}
         search={search}
         onSearch={setSearch}
         placeholder="Employee, number or reference"
@@ -1699,11 +1690,11 @@ export function HrTimeLeaveWorkspace({
       return {};
     }
   }, [initialReference]);
-  const [companyChoice, setCompany] = useState(initial.company_id ?? ""),
+  const [companyChoice] = useState(initial.company_id ?? ""),
     [date] = useState(/^\d{4}-\d{2}-\d{2}$/.test(initial.as_of ?? "") ? initial.as_of : localDate()),
     [revision, setRevision] = useState(0),
     [busy, setBusy] = useState(false),
-    [editing, setEditing] = useState(false),
+    [, setEditing] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
   const permissions = session?.user.permissions ?? [],
@@ -1746,30 +1737,7 @@ export function HrTimeLeaveWorkspace({
   };
   if (sessionLoading) return <Skeleton className="h-40" />;
   if (!canRead) return <Empty text="You do not have permission to view this Time & Leave screen." />;
-  const companyField = (
-    <label className="grid content-start gap-1 text-sm font-medium">
-      Company
-      <select
-        className={selectClass}
-        value={company}
-        disabled={busy || editing || companies.loading}
-        onChange={(e) => {
-          setCompany(e.target.value);
-          setNotice("");
-          setError("");
-        }}
-      >
-        <option value="">{companies.loading ? "Loading authorized companies…" : "Select company"}</option>
-        {companies.data?.items.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name} ({c.code})
-          </option>
-        ))}
-      </select>
-    </label>
-  );
   const shared: Shared = {
-    companyField,
     saveError: error,
     client,
     company,

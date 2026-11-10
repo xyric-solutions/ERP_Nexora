@@ -71,7 +71,6 @@ function toPayload(companyId: string, editor: Editor): CreateHrJobGradeRequest |
 export function HrJobGradesWorkspace() {
   const { api, csrfToken, session, loading: sessionLoading, refresh: refreshSession } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [records, setRecords] = useState<JobGrade[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -105,9 +104,13 @@ export function HrJobGradesWorkspace() {
       return;
     }
     client.companies().then((result) => {
-      setCompanies(result.items);
       const first = result.items[0]?.id ?? "";
       setCompanyId(first);
+      if (!first) {
+        setMessage("No authorized company is available. Ask your administrator to review company access.");
+        setLoading(false);
+        return;
+      }
       return loadRecords(first);
     }).catch(() => {
       setMessage("Authorized companies could not be loaded. Refresh your session and sign in again if needed.");
@@ -173,12 +176,7 @@ export function HrJobGradesWorkspace() {
       </Alert>
       {message ? <Alert><AlertDescription>{message}</AlertDescription></Alert> : null}
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <label className="grid content-start min-w-72 gap-1 text-sm font-medium">Company
-          <select className="h-9 rounded-md border border-input bg-background px-2" value={companyId} onChange={(event) => { setCompanyId(event.target.value); setEditor(null); void loadRecords(event.target.value); }}>
-            {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
-          </select>
-        </label>
-        <Input className="max-w-sm" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search job grades" />
+        <Input aria-label="Search job grades" className="max-w-sm" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search job grades" />
         {canCreate ? <Button onClick={() => { setEditor(editorFor()); setSelectedId(""); }}>+ Add Job Grade</Button> : null}
       </div>
       {loading ? <Skeleton className="h-72 w-full" /> : (

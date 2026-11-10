@@ -87,7 +87,7 @@ const approvalCategories: readonly { label: string; kinds: readonly { kind: Appr
 export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: string, subject?: string) => void }) {
   const { api, csrfToken, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
+  const [noCompany, setNoCompany] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [queue, setQueue] = useState<Awaited<ReturnType<HrApiClient["employeeDraftApprovals"]>>["items"]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -166,7 +166,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
       .companies()
       .then((result) => {
         if (!active) return;
-        setCompanies(result.items);
+        setNoCompany(result.items.length === 0);
         setCompanyId((current) =>
           result.items.some((item) => item.id === current) ? current : (result.items[0]?.id ?? ""),
         );
@@ -331,21 +331,6 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
   return (
     <section className="grid min-w-0 gap-4" aria-label="Employee and Hire approvals">
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
-        <label className="grid min-w-55 flex-1 content-start gap-1.5 text-sm font-medium text-foreground sm:max-w-sm">
-          Company
-          <select
-            className="h-9 rounded-md border border-input bg-background px-2.5 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-            value={companyId}
-            onChange={(event) => setCompanyId(event.target.value)}
-            disabled={saving || companies.length === 0}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name} ({company.code})
-              </option>
-            ))}
-          </select>
-        </label>
         <div className="grid min-w-55 flex-1 content-start gap-1.5 text-sm font-medium text-foreground sm:max-w-sm">
           <span id="hr-approval-type-label">Approval type</span>
           <DropdownMenu>
@@ -405,6 +390,12 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+      {noCompany ? (
+        <Alert>
+          <AlertTitle>Company access required</AlertTitle>
+          <AlertDescription>Company access must be granted before employee approvals can be reviewed.</AlertDescription>
+        </Alert>
+      ) : null}
       {canApproveDraft && kind === "drafts" && state === "error" && (
         <Alert variant="destructive">
           <AlertTitle>Live approvals unavailable</AlertTitle>

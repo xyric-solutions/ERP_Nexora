@@ -786,20 +786,6 @@ export function HrEmployeeWizard({
           {step === 0 ? (
             profileEditable ? (
               <div className={formGrid}>
-                <Field label="Company">
-                  <select
-                    className={selectClass}
-                    disabled={busy || mode.kind !== "create"}
-                    value={basic.companyId}
-                    onChange={(event) => setBasic({ ...basic, companyId: event.target.value, locationId: "", projectId: "" })}
-                  >
-                    {companies.map((company) => (
-                      <option key={company.id} value={company.id}>
-                        {company.name} ({company.code})
-                      </option>
-                    ))}
-                  </select>
-                </Field>
                 <Field label="Location">
                   <select
                     className={selectClass}

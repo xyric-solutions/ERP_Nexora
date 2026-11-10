@@ -5,7 +5,6 @@ import type {
   BankTransferDetail,
   BankTransferMode,
   BankTransferOptions,
-  BankingCompanyDirectory,
   CreateBankTransferRequest,
 } from "@nexora/contracts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -122,7 +121,6 @@ export function BankingTransferEntry({ transferId, onBack, onDirtyChange, onOpen
   const canSubmit = permissions.has("banking.transfer.submit");
   const canApprove = permissions.has("banking.transfer.approve");
   const readOnly = Boolean(session?.impersonation);
-  const [companies, setCompanies] = useState<BankingCompanyDirectory["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [accounts, setAccounts] = useState<BankOption[]>([]);
   const [postingDate, setPostingDate] = useState(today());
@@ -158,7 +156,6 @@ export function BankingTransferEntry({ transferId, onBack, onDirtyChange, onOpen
       Promise.all([client.companies(), transferId ? client.transfer(transferId) : Promise.resolve(null)])
         .then(async ([companyResult, persisted]) => {
           if (!active) return;
-          setCompanies(companyResult.items);
           const selectedCompany = persisted?.company_id ?? companyResult.items[0]?.id ?? "";
           setCompanyId(selectedCompany);
           if (persisted) {
@@ -185,19 +182,6 @@ export function BankingTransferEntry({ transferId, onBack, onDirtyChange, onOpen
       window.clearTimeout(timer);
     };
   }, [client, session, sessionLoading, transferId]);
-
-  async function changeCompany(next: string) {
-    setCompanyId(next);
-    setAccounts([]);
-    setLines([emptyLine(postingDate)]);
-    setWorkflow(emptyBankWorkflowSelection);
-    markDirty();
-    try {
-      setAccounts((await client.transferOptions({ company_id: next })).bank_accounts);
-    } catch (caught) {
-      setError(message(caught));
-    }
-  }
 
   function changeLine(id: string, patch: Partial<EditableLine>) {
     setLines((current) => current.map((line) => (line.id === id ? { ...line, ...patch } : line)));
@@ -367,24 +351,14 @@ export function BankingTransferEntry({ transferId, onBack, onDirtyChange, onOpen
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
+      {!error && !companyId ? (
+        <Alert variant="destructive">
+          <AlertTitle>Company unavailable</AlertTitle>
+          <AlertDescription>Your session has no authorized company for Bank Transfers.</AlertDescription>
+        </Alert>
+      ) : null}
 
-      <section className="grid gap-4 rounded-lg border border-border bg-card p-4 sm:grid-cols-3">
-        <label htmlFor="transfer-company" className="grid gap-1.5 text-sm font-medium">
-          Company *
-          <select
-            id="transfer-company"
-            className="h-10 rounded-md border border-input bg-background px-3"
-            value={companyId}
-            disabled={!editable || Boolean(detail)}
-            onChange={(event) => void changeCompany(event.target.value)}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.code} · {company.name}
-              </option>
-            ))}
-          </select>
-        </label>
+      <section className="grid gap-4 rounded-lg border border-border bg-card p-4 sm:grid-cols-2">
         <label htmlFor="transfer-posting-date" className="grid gap-1.5 text-sm font-medium">
           Posting date *
           <Input

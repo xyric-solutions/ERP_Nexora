@@ -54,7 +54,6 @@ export function HrCandidateDirectoryWorkspace() {
   const permissions = session?.user.permissions ?? [];
   const canRead = permissions.includes("hr.employee.read");
   const canUpdate = permissions.includes("hr.employee.update");
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [records, setRecords] = useState<Candidate[]>([]);
   const [search, setSearch] = useState("");
@@ -95,9 +94,13 @@ export function HrCandidateDirectoryWorkspace() {
     client
       .companies()
       .then((result) => {
-        setCompanies(result.items);
         const first = result.items[0]?.id ?? "";
         setCompanyId(first);
+        if (!first) {
+          setMessage("No authorized company is available. Ask your administrator to review company access.");
+          setLoading(false);
+          return;
+        }
         return load(first, "", "active");
       })
       .catch(() => {
@@ -202,30 +205,12 @@ export function HrCandidateDirectoryWorkspace() {
         </Alert>
       ) : null}
       <form
-        className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,.8fr)_minmax(14rem,1fr)_auto] md:items-end"
+        className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,1fr)_auto] md:items-end"
         onSubmit={(event) => {
           event.preventDefault();
           void reload();
         }}
       >
-        <label className="grid content-start gap-1 text-sm font-medium">
-          Company
-          <select
-            className={selectClass}
-            value={companyId}
-            onChange={(event) => {
-              const value = event.target.value;
-              setCompanyId(value);
-              void load(value, search, filter);
-            }}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name}
-              </option>
-            ))}
-          </select>
-        </label>
         <label htmlFor="candidate-search" className="grid content-start gap-1 text-sm font-medium">
           Search
           <Input

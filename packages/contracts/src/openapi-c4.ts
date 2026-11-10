@@ -177,7 +177,9 @@ import {
   passwordLoginRequestSchema,
   passwordLoginResponseSchema,
   passwordChangeRequiredResponseSchema,
+  selectSessionCompanyRequestSchema,
   selectTenantRequestSchema,
+  sessionCompanyDirectorySchema,
   sessionResponseSchema,
   tenantSelectionRequiredResponseSchema,
 } from "./auth/index.js";
@@ -1179,6 +1181,57 @@ export function buildOpenApiDocument() {
           responses: {
             "200": {
               description: "Session identifier and CSRF token rotated",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/SessionResponse" } } },
+            },
+            "401": problemResponse,
+            "403": problemResponse,
+            "503": problemResponse,
+          },
+        },
+      },
+      "/auth/companies": {
+        get: {
+          operationId: "listSessionCompanies",
+          security: [{ cookieAuth: [] }],
+          responses: {
+            "200": {
+              description: "Active companies the signed-in user can choose (their company access grants)",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/SessionCompanyDirectory" } } },
+            },
+            "401": problemResponse,
+            "503": problemResponse,
+          },
+        },
+      },
+      "/auth/session/company": {
+        put: {
+          operationId: "selectSessionCompany",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/SelectSessionCompanyRequest" } },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Company chosen for this session; company-scoped requests must use it",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/SessionResponse" } } },
+            },
+            "400": problemResponse,
+            "401": problemResponse,
+            "403": problemResponse,
+            "503": problemResponse,
+          },
+        },
+        delete: {
+          operationId: "leaveSessionCompany",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter],
+          responses: {
+            "200": {
+              description: "Company cleared; the session stays signed in so another company can be chosen",
               content: { "application/json": { schema: { $ref: "#/components/schemas/SessionResponse" } } },
             },
             "401": problemResponse,
@@ -7799,6 +7852,8 @@ export function buildOpenApiDocument() {
         SelectTenantRequest: schema(selectTenantRequestSchema),
         CancelTenantSelectionRequest: schema(cancelTenantSelectionRequestSchema),
         SessionResponse: schema(sessionResponseSchema),
+        SessionCompanyDirectory: schema(sessionCompanyDirectorySchema),
+        SelectSessionCompanyRequest: schema(selectSessionCompanyRequestSchema),
         HealthStatus: schema(healthStatusSchema),
         BankingCompanyDirectory: schema(bankingCompanyDirectorySchema),
         BankingLedgerAccountDirectory: schema(bankingLedgerAccountDirectorySchema),

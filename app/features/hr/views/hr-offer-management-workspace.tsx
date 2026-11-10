@@ -318,8 +318,7 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
     canSubmit = permissions.includes("hr.employee.submit"),
     canApprove = permissions.includes("hr.employee.approve"),
     canException = permissions.includes("hr.payroll.salary.approve");
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]),
-    [companyId, setCompanyId] = useState("");
+  const [companyId, setCompanyId] = useState("");
   const [directory, setDirectory] = useState<HrOfferDirectory>({ items: [], total: 0 }),
     [selectedId, setSelectedId] = useState(""),
     [detail, setDetail] = useState<HrOfferDetail | null>(null);
@@ -348,7 +347,6 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
       .companies()
       .then((r) => {
         if (!cancel) {
-          setCompanies(r.items);
           setCompanyId(r.items[0]?.id ?? "");
           setLoading(false);
         }
@@ -586,48 +584,20 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
           {notice}
         </div>
       ) : null}
+      {!loading && !error && !companyId ? (
+        <Alert>
+          <AlertTitle>No authorized company</AlertTitle>
+          <AlertDescription>Ask your administrator to review company access.</AlertDescription>
+        </Alert>
+      ) : null}
       <form
-        className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_auto]"
+        className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-[minmax(0,1fr)_auto]"
         onSubmit={(e) => {
           e.preventDefault();
           setError("");
           setFilter({ search, state: stateFilter === "all" ? "" : stateFilter, offset: 0 });
         }}
       >
-        <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
-          Company
-          <select
-            className={selectClass}
-            disabled={busy}
-            value={companyId}
-            onChange={(e) => {
-              listSeq.current++;
-              detailSeq.current++;
-              setCompanyId(e.target.value);
-              setDirectory({ items: [], total: 0 });
-              setSelectedId("");
-              setDetail(null);
-              setEditor(null);
-              setApplicationId("");
-              setContext(null);
-              setError("");
-              setNotice("");
-              setFilter({ search: "", state: "", offset: 0 });
-              setSearch("");
-              setStateFilter("all");
-            }}
-          >
-            {companies.length ? (
-              companies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))
-            ) : (
-              <option value="">No authorized companies</option>
-            )}
-          </select>
-        </label>
         <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
           Search offers
           <Input

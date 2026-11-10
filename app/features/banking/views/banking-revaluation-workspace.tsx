@@ -3,7 +3,6 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type {
   BankAccountSummary,
-  BankingCompanyDirectory,
   BankRevaluationDetail,
   BankRevaluationEvent,
   BankRevaluationPreview,
@@ -132,7 +131,7 @@ function RevaluationRegister({
   onNavigate,
 }: Clients & { onNavigate: (recordRef?: string) => void }) {
   const canCreate = permissions.has("banking.revaluation.create");
-  const [companies, setCompanies] = useState<BankingCompanyDirectory["items"]>([]);
+  const [noCompany, setNoCompany] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [currencyOptions, setCurrencyOptions] = useState<CompanyCurrency[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccountSummary[]>([]);
@@ -175,7 +174,7 @@ function RevaluationRegister({
       .companies()
       .then((result) => {
         if (!active) return;
-        setCompanies(result.items);
+        setNoCompany(result.items.length === 0);
         setCompanyId((current) => current || result.items[0]?.id || "");
       })
       .catch((caught) => active && setError(errorMessage(caught)));
@@ -273,29 +272,16 @@ function RevaluationRegister({
       </header>
 
       {error ? <Notice title="Bank Revaluations could not be loaded" detail={error} destructive /> : null}
+      {!error && noCompany ? (
+        <Notice
+          title="Company unavailable"
+          detail="Your session has no authorized company for Bank Revaluation."
+          destructive
+        />
+      ) : null}
 
       <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-        <div className="grid gap-3 border-b border-border bg-muted/20 p-4 sm:grid-cols-2 xl:grid-cols-8">
-          <Filter label="Company" className="xl:col-span-2">
-            <select
-              aria-label="Company"
-              className="h-10 rounded-md border border-input bg-background px-3"
-              value={companyId}
-              onChange={(event) => {
-                setLoading(true);
-                setError("");
-                setCurrency("");
-                setBankAccountId("");
-                setCompanyId(event.target.value);
-              }}
-            >
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.code} - {company.name}
-                </option>
-              ))}
-            </select>
-          </Filter>
+        <div className="grid gap-3 border-b border-border bg-muted/20 p-4 sm:grid-cols-2 xl:grid-cols-7">
           <Filter label="Currency">
             <select
               aria-label="Currency"
@@ -366,7 +352,7 @@ function RevaluationRegister({
               onChange={(event) => setSearch(event.target.value)}
             />
           </Filter>
-          <div className="flex items-end gap-2 xl:col-span-2">
+          <div className="flex items-end gap-2 sm:col-span-2 xl:col-start-6">
             <Button
               type="button"
               className="flex-1"
@@ -482,7 +468,7 @@ function RevaluationForm({
 }) {
   const { csrfToken } = useSession();
   const notify = useActionFeedback();
-  const [companies, setCompanies] = useState<BankingCompanyDirectory["items"]>([]);
+  const [noCompany, setNoCompany] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [companyCurrencies, setCompanyCurrencies] = useState<CompanyCurrency[]>([]);
   const [baseCurrency, setBaseCurrency] = useState("");
@@ -556,7 +542,7 @@ function RevaluationForm({
       .companies()
       .then(async (result) => {
         if (!active) return;
-        setCompanies(result.items);
+        setNoCompany(result.items.length === 0);
         if (revaluationId) {
           await loadDetail(revaluationId);
         } else {
@@ -571,19 +557,6 @@ function RevaluationForm({
       active = false;
     };
   }, [banking, loadDetail, loadOptions, revaluationId]);
-
-  async function changeCompany(value: string) {
-    setCompanyId(value);
-    setCurrency("");
-    setApproverId("");
-    setPreview(null);
-    setError("");
-    try {
-      await loadOptions(value);
-    } catch (caught) {
-      setError(errorMessage(caught));
-    }
-  }
 
   async function applyPreview() {
     if (!companyId || !currency || !revaluationDate) return;
@@ -738,6 +711,13 @@ function RevaluationForm({
       </header>
 
       {error ? <Notice title="Bank Revaluation could not be completed" detail={error} destructive /> : null}
+      {!error && noCompany ? (
+        <Notice
+          title="Company unavailable"
+          detail="Your session has no authorized company for Bank Revaluation."
+          destructive
+        />
+      ) : null}
       {impersonating ? (
         <Notice
           title="Read-only impersonation"
@@ -747,22 +727,7 @@ function RevaluationForm({
 
       <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
         <h2 className="border-b border-border pb-3 text-lg font-semibold">Search</h2>
-        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <Field label="Company" htmlFor="revaluation-company" required>
-            <select
-              id="revaluation-company"
-              className="h-10 rounded-md border border-input bg-background px-3"
-              value={companyId}
-              disabled={Boolean(detail) || !editable}
-              onChange={(event) => void changeCompany(event.target.value)}
-            >
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.code} - {company.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Currency" htmlFor="revaluation-currency" required>
             <select
               id="revaluation-currency"
@@ -957,7 +922,7 @@ function RevaluationForm({
           </>
         ) : (
           <div className="mt-5 rounded-md border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-            Select a company, foreign currency and date, then choose Apply to calculate a read-only preview.
+            Select a foreign currency and date, then choose Apply to calculate a read-only preview.
           </div>
         )}
       </section>

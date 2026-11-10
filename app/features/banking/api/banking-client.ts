@@ -1,3 +1,4 @@
+import { inActiveCompany } from "@/lib/session/active-company";
 import type {
   BankAccountDetail,
   BankAccountDirectory,
@@ -129,7 +130,7 @@ export class BankingApiClient {
   constructor(private readonly api: NexoraApiClient) {}
 
   companies(): Promise<BankingCompanyDirectory> {
-    return this.api.listBankingCompanies();
+    return this.api.listBankingCompanies().then(inActiveCompany);
   }
 
   ledgerAccounts(input: {

@@ -30,7 +30,7 @@ export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialE
   const { api, csrfToken, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
   const [companyRevision, setCompanyRevision] = useState(0);
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
+  const [noCompany, setNoCompany] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [employees, setEmployees] = useState<HrEmployeeDirectory["items"]>([]);
   const [employeeId, setEmployeeId] = useState("");
@@ -57,7 +57,7 @@ export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialE
     loadEmployeeRouteCompanies(client, initialEmployeeId)
       .then((result) => {
         if (!active) return;
-        setCompanies(result.items);
+        setNoCompany(result.items.length === 0);
         setCompanyId((current) =>
           result.items.some((company) => company.id === current) ? current : result.preferredCompanyId,
         );
@@ -125,37 +125,7 @@ export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialE
           separate Hire request below; activation still requires an independent approval.
         </AlertDescription>
       </Alert>
-      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 shadow-sm md:grid-cols-2">
-        <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
-          Company
-          <select
-            className="h-9 w-full min-w-0 rounded-md border border-input bg-background px-2.5 text-sm"
-            value={companyId}
-            onChange={(event) => {
-              setState("loading");
-              setEmployeeId("");
-              setAssignments([]);
-              setAssignmentState("ready");
-              setCompanyId(event.target.value);
-            }}
-            disabled={state === "loading" || !companies.length}
-          >
-            {!companies.length && (
-              <option value="">
-                {state === "loading"
-                  ? "Loading authorized companies…"
-                  : state === "error"
-                    ? "Companies could not be loaded"
-                    : "No authorized companies"}
-              </option>
-            )}
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name} ({company.code})
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 shadow-sm md:grid-cols-[minmax(0,28rem)]">
         <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
           Employee
           <select
@@ -181,8 +151,7 @@ export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialE
         <Alert variant="destructive">
           <AlertTitle>Live HR data unavailable</AlertTitle>
           <AlertDescription>
-            Authorized companies or employees could not be loaded. Retry the request or select another authorized
-            company.
+            Authorized companies or employees could not be loaded. Retry the request.
           </AlertDescription>
           <Button
             type="button"
@@ -197,6 +166,12 @@ export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialE
           </Button>
         </Alert>
       )}
+      {state === "ready" && noCompany ? (
+        <Alert>
+          <AlertTitle>Company access required</AlertTitle>
+          <AlertDescription>Company access must be granted before employee assignments can be reviewed.</AlertDescription>
+        </Alert>
+      ) : null}
       {state === "loading" && <Skeleton className="h-20 w-full" />}
       {employeeId && assignmentState === "loading" && <Skeleton className="h-32 w-full" />}
       {employeeId && assignmentState === "error" && (

@@ -55,7 +55,6 @@ export function HrRecruitmentPipelineWorkspace() {
   const canRead = permissions.includes("hr.employee.read"),
     canCreate = permissions.includes("hr.employee.create"),
     canUpdate = permissions.includes("hr.employee.update");
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [data, setData] = useState<HrApplicationDirectory>({ items: [], total: 0 });
   const [loading, setLoading] = useState(true),
@@ -86,7 +85,6 @@ export function HrRecruitmentPipelineWorkspace() {
       .companies()
       .then((result) => {
         if (!cancelled) {
-          setCompanies(result.items);
           setCompanyId(result.items[0]?.id ?? "");
           setLoading(false);
         }
@@ -275,41 +273,19 @@ export function HrRecruitmentPipelineWorkspace() {
           {notice}
         </div>
       ) : null}
+      {!loading && !error && !companyId ? (
+        <Alert>
+          <AlertTitle>No authorized company</AlertTitle>
+          <AlertDescription>Ask your administrator to review company access.</AlertDescription>
+        </Alert>
+      ) : null}
       <form
-        className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1fr_1.2fr_.7fr_auto]"
+        className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1.2fr_.7fr_auto]"
         onSubmit={(event) => {
           event.preventDefault();
           setFilter({ search, stage: stageFilter, offset: 0 });
         }}
       >
-        <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
-          Company
-          <select
-            value={companyId}
-            disabled={saving}
-            className={selectStyle}
-            onChange={(event) => {
-              requestSequence.current += 1;
-              setCompanyId(event.target.value);
-              setData({ items: [], total: 0 });
-              setSelectedId("");
-              setEditor(false);
-              setNotice("");
-              setError("");
-              setFilter((current) => ({ ...current, offset: 0 }));
-            }}
-          >
-            {companies.length === 0 ? (
-              <option value="">No authorized companies</option>
-            ) : (
-              companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))
-            )}
-          </select>
-        </label>
         <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
           Search applications
           <Input

@@ -1,3 +1,4 @@
+import { inActiveCompany } from "@/lib/session/active-company";
 import type {HrLearningQuery,HrLearningAction} from "@nexora/contracts";
 import type {DeleteHrMasterRequest,HrMasterDeleteResult} from "@nexora/contracts";
 import type {HrPersonalCorrectionQuery,CreateHrPersonalCorrection,HrPersonalCorrectionAction,HrReportGovernanceQuery,HrReportGovernanceAction,HrReportGovernanceResult} from '@nexora/contracts';
@@ -161,7 +162,7 @@ export class HrApiClient {
   constructor(private readonly api: NexoraApiClient) {}
 
   companies(): Promise<HrCompanyDirectory> {
-    return this.api.listHrCompanies();
+    return this.api.listHrCompanies().then(inActiveCompany);
   }
 
   dashboard(companyId: string): Promise<HrDashboardSummary> {

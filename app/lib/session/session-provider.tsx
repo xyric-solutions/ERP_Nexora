@@ -8,6 +8,8 @@ import type {
   PasswordLoginRequest,
   PasswordLoginResponse,
   SelectTenantRequest,
+  SessionCompany,
+  SessionCompanyDirectory,
   SessionResponse,
 } from "@nexora/contracts";
 
@@ -15,6 +17,7 @@ import { NexoraApiClient } from "../api/generated";
 import { BrowserSessionClient } from "../auth/session-client";
 import { apiBaseUrl } from "../../shared/config/runtime";
 import { Button } from "../../components/ui/button";
+import { setActiveCompanyId } from "./active-company";
 
 interface SessionContextValue {
   api: NexoraApiClient;
@@ -24,6 +27,14 @@ interface SessionContextValue {
   selectTenant(payload: SelectTenantRequest): Promise<AuthenticationCompletionResponse>;
   cancelTenantSelection(payload: CancelTenantSelectionRequest): Promise<void>;
   changeInitialPassword(payload: ChangeInitialPasswordRequest): Promise<SessionResponse>;
+  /** The company chosen after sign-in; every screen works in it. Null until chosen. */
+  activeCompany: SessionCompany | null;
+  /** Companies the signed-in user can choose. */
+  listCompanies(): Promise<SessionCompanyDirectory>;
+  /** Enters a company for this session. */
+  selectCompany(companyId: string): Promise<SessionResponse>;
+  /** Leaves the company but stays signed in, so another company can be chosen. */
+  leaveCompany(): Promise<void>;
   logout(): Promise<void>;
   endImpersonation(): Promise<void>;
   refresh(): Promise<void>;
@@ -37,6 +48,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const api = useMemo(() => new NexoraApiClient(apiBaseUrl(), 20_000, () => setSession(null)), []);
   const client = useMemo(() => new BrowserSessionClient(api), [api]);
   const [loading, setLoading] = useState(true);
+  const activeCompany = session?.active_company ?? null;
+  // Feature API clients read this to keep their company lists to the chosen company.
+  setActiveCompanyId(activeCompany?.id ?? null);
 
   const refresh = useCallback(async () => {
     try {
@@ -91,6 +105,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         setSession(result);
         return result;
       },
+      activeCompany,
+      listCompanies: () => client.listCompanies(),
+      async selectCompany(companyId) {
+        const result = await client.selectCompany(companyId);
+        setActiveCompanyId(result.active_company?.id ?? null);
+        setSession(result);
+        return result;
+      },
+      async leaveCompany() {
+        const result = await client.leaveCompany();
+        setActiveCompanyId(null);
+        setSession(result);
+      },
       async logout() {
         try {
           await client.logout();
@@ -118,7 +145,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       refresh,
       csrfToken: () => client.csrfTokenForRequest(),
     }),
-    [api, client, loading, refresh, session],
+    [activeCompany, api, client, loading, refresh, session],
   );
   return (
     <SessionContext.Provider value={value}>
@@ -141,7 +168,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       <Fragment
         key={
           session
-            ? session.tenant_id + ":" + session.user.id + ":" + (session.impersonation?.request_id ?? "")
+            ? session.tenant_id +
+              ":" +
+              session.user.id +
+              ":" +
+              (session.impersonation?.request_id ?? "") +
+              ":" +
+              (activeCompany?.id ?? "")
             : "anonymous"
         }
       >

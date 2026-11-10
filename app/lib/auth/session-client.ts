@@ -5,6 +5,7 @@ import type {
   PasswordLoginRequest,
   PasswordLoginResponse,
   SelectTenantRequest,
+  SessionCompanyDirectory,
   SessionResponse,
 } from "@nexora/contracts";
 
@@ -20,6 +21,9 @@ type SessionTransport = Pick<
   | "rotateSession"
   | "logout"
   | "logoutAll"
+  | "listSessionCompanies"
+  | "selectSessionCompany"
+  | "leaveSessionCompany"
 >;
 
 export class BrowserSessionClient {
@@ -57,6 +61,22 @@ export class BrowserSessionClient {
 
   async rotate(): Promise<SessionResponse> {
     const session = await this.api.rotateSession(this.requireCsrfToken());
+    this.csrfToken = session.csrf_token;
+    return session;
+  }
+
+  listCompanies(): Promise<SessionCompanyDirectory> {
+    return this.api.listSessionCompanies();
+  }
+
+  async selectCompany(companyId: string): Promise<SessionResponse> {
+    const session = await this.api.selectSessionCompany({ company_id: companyId }, this.requireCsrfToken());
+    this.csrfToken = session.csrf_token;
+    return session;
+  }
+
+  async leaveCompany(): Promise<SessionResponse> {
+    const session = await this.api.leaveSessionCompany(this.requireCsrfToken());
     this.csrfToken = session.csrf_token;
     return session;
   }

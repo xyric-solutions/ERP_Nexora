@@ -1,4 +1,4 @@
-import { Router, type Request } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 
 import type {
   AuthenticatedAccount,
@@ -12,8 +12,11 @@ import {
   cancelTenantSelectionRequestSchema,
   changeInitialPasswordRequestSchema,
   passwordLoginRequestSchema,
+  selectSessionCompanyRequestSchema,
   selectTenantRequestSchema,
   type PasswordLoginResponse,
+  type SessionCompany,
+  type SessionCompanyDirectory,
   type SessionResponse,
 } from "@nexora/contracts";
 
@@ -46,6 +49,12 @@ export interface TenantSessionApiService {
   revokeAllForUser: TenantSessionService["revokeAllForUser"];
   startImpersonation?: TenantSessionService["startImpersonation"];
   endImpersonation?: TenantSessionService["endImpersonation"];
+  setActiveCompany?: TenantSessionService["setActiveCompany"];
+}
+
+/** Companies a user may sign in to (their unrevoked company access grants). */
+export interface SessionCompanyApiService {
+  listAccessibleCompanies(tenantId: string, userId: string): Promise<SessionCompany[]>;
 }
 
 export interface PasswordChangeApiService {
@@ -59,6 +68,7 @@ export interface TenantAuthRouterDependencies {
   sessions?: TenantSessionApiService;
   tenantSelection?: TenantSelectionApiService;
   passwordChanges?: PasswordChangeApiService;
+  companies?: SessionCompanyApiService;
   secureCookies?: boolean;
   allowedOrigins?: ReadonlySet<string>;
 }
@@ -154,9 +164,11 @@ function responseForSession(
   session: TenantSessionView,
   realAccount: AuthenticatedAccount,
   effectiveAccount: AuthenticatedAccount = realAccount,
+  activeCompany: SessionCompany | null = null,
 ): SessionResponse {
   return {
     status: "authenticated",
+    active_company: activeCompany,
     tenant_id: session.tenantId,
     user: userResponse(effectiveAccount),
     csrf_token: session.csrfToken,
@@ -414,7 +426,7 @@ export function createTenantAuthRouter(dependencies: TenantAuthRouterDependencie
       throw new HttpError(401, "INVALID_SESSION", "The session is missing or no longer valid.");
     }
     res.setHeader("set-cookie", serializeSessionCookie(token, session.idleExpiresAt, new Date(), secureCookies));
-    res.json(responseForSession(session, realAccount, effectiveAccount));
+    res.json(responseForSession(session, realAccount, effectiveAccount, await activeCompanyOf(session)));
   });
 
   router.post("/session/rotate", async (req, res) => {
@@ -428,7 +440,7 @@ export function createTenantAuthRouter(dependencies: TenantAuthRouterDependencie
       throw new HttpError(401, "INVALID_SESSION", "The session is missing or no longer valid.");
     }
     res.setHeader("set-cookie", serializeSessionCookie(result.token, result.idleExpiresAt, new Date(), secureCookies));
-    res.json(responseForSession(result, account));
+    res.json(responseForSession(result, account, account, await activeCompanyOf(result)));
   });
 
   router.post("/logout", async (req, res) => {
@@ -438,6 +450,69 @@ export function createTenantAuthRouter(dependencies: TenantAuthRouterDependencie
     if (result.status !== "ok") handleMutationFailure(result.status);
     res.setHeader("set-cookie", clearSessionCookie(secureCookies));
     res.status(204).end();
+  });
+
+  /** The session's company, if it is still one of the effective user's accessible companies. */
+  async function activeCompanyOf(session: TenantSessionView): Promise<SessionCompany | null> {
+    if (!session.activeCompanyId || !dependencies.companies) return null;
+    const userId = session.impersonation?.targetUserId ?? session.userId;
+    const companies = await dependencies.companies.listAccessibleCompanies(session.tenantId, userId);
+    return companies.find((company) => company.id === session.activeCompanyId) ?? null;
+  }
+  async function signedInSession(req: Request) {
+    const token = requireSessionToken(req, secureCookies);
+    const session = await sessions.get(token);
+    if (!session) throw new HttpError(401, "INVALID_SESSION", "The session is missing or no longer valid.");
+    return { token, session };
+  }
+  async function sessionAccounts(session: TenantSessionView) {
+    const realAccount = await authentication.loadAuthenticatedAccount(session.tenantId, session.userId);
+    const effectiveAccount =
+      realAccount && session.impersonation
+        ? await authentication.loadAuthenticatedAccount(session.tenantId, session.impersonation.targetUserId)
+        : realAccount;
+    if (!realAccount || !effectiveAccount)
+      throw new HttpError(401, "INVALID_SESSION", "The session is missing or no longer valid.");
+    return { realAccount, effectiveAccount };
+  }
+
+  router.get("/companies", async (req, res) => {
+    const { session } = await signedInSession(req);
+    if (!dependencies.companies) throw new HttpError(503, "AUTH_UNAVAILABLE", "Company selection is not available.");
+    const userId = session.impersonation?.targetUserId ?? session.userId;
+    const response: SessionCompanyDirectory = {
+      items: await dependencies.companies.listAccessibleCompanies(session.tenantId, userId),
+    };
+    res.json(response);
+  });
+
+  router.put("/session/company", async (req, res) => {
+    requireTrustedOrigin(req, allowedOrigins);
+    const input = selectSessionCompanyRequestSchema.parse(req.body);
+    const { token, session } = await signedInSession(req);
+    if (!dependencies.companies || !sessions.setActiveCompany)
+      throw new HttpError(503, "AUTH_UNAVAILABLE", "Company selection is not available.");
+    const userId = session.impersonation?.targetUserId ?? session.userId;
+    const company = (await dependencies.companies.listAccessibleCompanies(session.tenantId, userId)).find(
+      (item) => item.id === input.company_id,
+    );
+    if (!company) throw new HttpError(403, "COMPANY_ACCESS_DENIED", "You do not have access to this company.");
+    const result = await sessions.setActiveCompany(token, req.get("x-csrf-token") ?? "", company.id);
+    if (result.status !== "ok") handleMutationFailure(result.status);
+    if (!result.session) handleMutationFailure("invalid_session");
+    const { realAccount, effectiveAccount } = await sessionAccounts(result.session);
+    res.json(responseForSession(result.session, realAccount, effectiveAccount, company));
+  });
+
+  router.delete("/session/company", async (req, res) => {
+    requireTrustedOrigin(req, allowedOrigins);
+    const { token } = await signedInSession(req);
+    if (!sessions.setActiveCompany) throw new HttpError(503, "AUTH_UNAVAILABLE", "Company selection is not available.");
+    const result = await sessions.setActiveCompany(token, req.get("x-csrf-token") ?? "", null);
+    if (result.status !== "ok") handleMutationFailure(result.status);
+    if (!result.session) handleMutationFailure("invalid_session");
+    const { realAccount, effectiveAccount } = await sessionAccounts(result.session);
+    res.json(responseForSession(result.session, realAccount, effectiveAccount, null));
   });
 
   router.post("/logout-all", async (req, res) => {
@@ -450,4 +525,44 @@ export function createTenantAuthRouter(dependencies: TenantAuthRouterDependencie
   });
 
   return router;
+}
+
+/** company_id values a request names in its query string or JSON body. */
+function requestedCompanyIds(req: Request): string[] {
+  const values: unknown[] = [];
+  const query = req.query?.company_id;
+  if (Array.isArray(query)) values.push(...query);
+  else if (query !== undefined) values.push(query);
+  const body = req.body as { company_id?: unknown } | undefined;
+  if (body && typeof body === "object" && !Array.isArray(body) && body.company_id !== undefined)
+    values.push(body.company_id);
+  return values.filter((value): value is string => typeof value === "string" && value.length > 0);
+}
+
+/**
+ * Keeps every company-scoped request inside the company chosen after sign-in. Company access grants are still
+ * checked by each module; this only stops a signed-in session from reaching a different company without signing out
+ * and choosing it. Security administration manages grants across companies and is exempt.
+ */
+export function createActiveCompanyGuard(sessions: Pick<TenantSessionApiService, "get">, secureCookies = false) {
+  const exempt = ["/api/v1/auth", "/api/v1/security", "/api/v1/health", "/api/v1/jobs"];
+  return async (req: Request, _res: Response, next: NextFunction) => {
+    try {
+      if (exempt.some((prefix) => req.path === prefix || req.path.startsWith(prefix + "/"))) return next();
+      const ids = requestedCompanyIds(req);
+      if (!ids.length) return next();
+      const token = readSessionCookie(req.get("cookie"), secureCookies);
+      if (!token) return next();
+      const session = await sessions.get(token);
+      if (session?.activeCompanyId && ids.some((id) => id !== session.activeCompanyId))
+        throw new HttpError(
+          403,
+          "COMPANY_SCOPE_MISMATCH",
+          "This request is for a different company than the one you signed in to. Sign out and choose that company.",
+        );
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
 }

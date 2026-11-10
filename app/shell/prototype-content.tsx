@@ -2922,9 +2922,9 @@ function PrototypeContentBody(props: PrototypeContentProps) {
     };
     const page =
       pages[timePageId as keyof typeof pages] ??
-      (["overtime", "attendance-period", "attendance-payroll-inputs"].includes(timePageId) ? (
+      (["overtime", "attendance-period"].includes(timePageId) ? (
         <HrAttendanceCompletionWorkspace
-          mode={timePageId as "overtime" | "attendance-period" | "attendance-payroll-inputs"}
+          mode={timePageId as "overtime" | "attendance-period"}
           initialReference={context.recordRef}
           onNavigate={props.onNavigate}
         />

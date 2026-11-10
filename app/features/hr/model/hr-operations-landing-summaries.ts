@@ -83,10 +83,6 @@ const attendancePeriod = ({ client, companyId, once }: HrLandingSummaryContext, 
   once(`attendance-period:${month}`, () =>
     client.periodWorkspace({ company_id: companyId, month, limit: 1, offset: 0 }),
   );
-const attendanceInputs = ({ client, companyId, once }: HrLandingSummaryContext, month: string) =>
-  once(`attendance-payroll-inputs:${month}`, () =>
-    client.payrollInputs({ company_id: companyId, month, limit: 1, offset: 0 }),
-  );
 const correctionCount = (
   { client, companyId, once }: HrLandingSummaryContext,
   status?: "pending_manager" | "pending_hr",
@@ -294,16 +290,6 @@ const attendanceSummaries: WorkspaceLoaders<typeof attendanceLeaveWorkspace> = {
         ),
       line(monthStart(-1), previous),
     );
-  },
-  "attendance-payroll-inputs": async (context) => {
-    const [current, previous] = await Promise.all([
-      attendanceInputs(context, monthStart()),
-      attendanceInputs(context, monthStart(-1)),
-    ]);
-    if (!current.period && !previous.period) return [];
-    const line = (month: string, inputs: typeof current) =>
-      `${monthLabel(month)}: ${inputs.locked ? countLabel(inputs.total, "finalized input") : "not locked"}`;
-    return details(line(monthStart(), current), line(monthStart(-1), previous));
   },
 };
 

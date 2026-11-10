@@ -477,7 +477,6 @@ export function HrLifecycleCasesWorkspace({
     canRead = session?.user.permissions.includes("hr.employment_history.read"),
     section = lifecycleCasePages[page];
   const [companyRevision, setCompanyRevision] = useState(0),
-    [choice, setChoice] = useState(""),
     [search, setSearch] = useState(""),
     [filter, setFilter] = useState(""),
     [offset, setOffset] = useState(0),
@@ -492,7 +491,7 @@ export function HrLifecycleCasesWorkspace({
   const guard = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null),
     companies = useAttendanceRead(canRead ? "lifecycle-companies:" + companyRevision : null, () => client.companies()),
-    company = companies.data?.items.some((c) => c.id === choice) ? choice : (companies.data?.items[0]?.id ?? ""),
+    company = companies.data?.items[0]?.id ?? "",
     q = { company_id: company, section, search: filter, offset, limit: 25 },
     result = useAttendanceRead(company && canRead ? JSON.stringify([q, revision]) : null, () =>
       client.lifecycleCaseWorkspace(q),
@@ -581,35 +580,6 @@ export function HrLifecycleCasesWorkspace({
             </Button>
           )}
         </div>
-        <Field title="Company">
-          <select
-            className={selectClass}
-            value={company}
-            disabled={busy || !!editor || !!decision || companies.loading || !companies.data?.items.length}
-            onChange={(e) => {
-              setChoice(e.target.value);
-              setOffset(0);
-              setOpened("");
-              setError("");
-              setNotice("");
-            }}
-          >
-            {!companies.data?.items.length && (
-              <option value="">
-                {companies.loading
-                  ? "Loading authorized companies…"
-                  : companies.error
-                    ? "Companies could not be loaded"
-                    : "No authorized companies"}
-              </option>
-            )}
-            {companies.data?.items.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.code})
-              </option>
-            ))}
-          </select>
-        </Field>
         {companies.error && (
           <div role="alert" className="space-y-2 text-sm">
             <p>{companies.error}</p>

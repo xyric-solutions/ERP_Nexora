@@ -29,8 +29,7 @@ export function HrPayslipsWorkspace({
   const { api, session, csrfToken, loading } = useSession(),
     client = new HrApiClient(api),
     canRead = ["hr.payroll.payslip.read", "hr.payroll.result.read"].every((p) => session?.user.permissions.includes(p));
-  const [choice, setChoice] = useState(""),
-    [month, setMonth] = useState(localDate().slice(0, 7)),
+  const [month, setMonth] = useState(localDate().slice(0, 7)),
     [search, setSearch] = useState(""),
     [state, setState] = useState<"all" | "pending" | "released">("all"),
     [offset, setOffset] = useState(0),
@@ -45,7 +44,7 @@ export function HrPayslipsWorkspace({
   const guard = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null);
   const companies = useAttendanceRead(canRead ? "payslip-companies" : null, () => client.companies()),
-    company = companies.data?.items.some((c) => c.id === choice) ? choice : (companies.data?.items[0]?.id ?? "");
+    company = companies.data?.items[0]?.id ?? "";
   const query = { company_id: company, month: month + "-01", search, state, limit: 25, offset };
   const data = useAttendanceRead(canRead && company ? JSON.stringify([query, revision]) : null, () =>
     client.payslipWorkspace(query),
@@ -138,24 +137,7 @@ export function HrPayslipsWorkspace({
   return (
     <div className="grid min-w-0 gap-4" data-payslips-workspace>
       <section className={panel} aria-label="Payslip filters">
-        <div className="grid min-w-0 items-end gap-4 md:grid-cols-2 xl:grid-cols-[1.5fr_1fr_1.5fr_1fr]">
-          <Field title="Company">
-            <select
-              className={selectClass}
-              disabled={locked}
-              value={company}
-              onChange={(e) => {
-                setChoice(e.target.value);
-                reset();
-              }}
-            >
-              {companies.data?.items.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.code})
-                </option>
-              ))}
-            </select>
-          </Field>
+        <div className="grid min-w-0 items-end gap-4 md:grid-cols-[1fr_1.5fr_1fr]">
           <Field title="Payroll month">
             <Input
               type="month"
@@ -197,6 +179,9 @@ export function HrPayslipsWorkspace({
           </Field>
         </div>
       </section>
+      {companies.data && !companies.data.items.length && (
+        <div className={panel}>No authorized company is available.</div>
+      )}
       {pageError && !review && !opened && (
         <div role="alert" className={panel + " border-destructive text-destructive"}>
           {pageError}

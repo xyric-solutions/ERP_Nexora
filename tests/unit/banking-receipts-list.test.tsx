@@ -153,16 +153,11 @@ describe("BankingReceipts", () => {
   });
 
   it("sends filters, sort and cursor to the receipt API", async () => {
-    state.api.listBankReceiptOptions.mockImplementation(async (query: string) =>
-      query.includes("company-2")
-        ? { ...accountOptions, bank_accounts: [{ ...accountOptions.bank_accounts[0], id: "account-2" }] }
-        : accountOptions,
-    );
     state.api.listBankReceipts.mockResolvedValue({ items: [receipt], next_cursor: "cursor-2" });
     await render();
-    await change(control<HTMLSelectElement>("Company"), "company-2");
-    await settle();
-    await change(control<HTMLSelectElement>("Bank account"), "account-2");
+    // The company is the one chosen at sign-in; the screen has no company picker.
+    expect(container.querySelector('select[aria-label="Company"]')).toBeNull();
+    await change(control<HTMLSelectElement>("Bank account"), "account-1");
     await change(control<HTMLSelectElement>("Receipt state"), "approved");
     await change(control<HTMLInputElement>("Posting date from"), "2026-10-01");
     await change(control<HTMLInputElement>("Posting date to"), "2026-10-31");
@@ -171,8 +166,8 @@ describe("BankingReceipts", () => {
     await click("Descending ↓");
     const filtered = state.api.listBankReceipts.mock.calls.at(-1)?.[0] as string;
     for (const part of [
-      "company_id=company-2",
-      "bank_account_id=account-2",
+      "company_id=company-1",
+      "bank_account_id=account-1",
       "state=approved",
       "posting_date_from=2026-10-01",
       "posting_date_to=2026-10-31",

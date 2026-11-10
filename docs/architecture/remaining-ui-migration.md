@@ -1,5 +1,32 @@
 # Remaining UI migration checklist
 
+## 2026-11-10 — Sign-in company selection; company pickers removed
+
+- Sign-in (`app/login/page.tsx`) is compact (logo + name, "Sign in", fields) so
+  the button is visible without scrolling. After the password (and any
+  organization / first-password step) it shows **Choose a company**: the user's
+  active companies with an unrevoked `security_user_company_access` grant, as a
+  list. Choosing one enters the ERP; the back arrow signs out completely and
+  returns to username / password. Header **Sign out** (and Identity & Access)
+  leaves the company only, returning to the company list.
+- API: `GET /api/v1/auth/companies`, `PUT /api/v1/auth/session/company`
+  (CSRF; access re-checked), `DELETE /api/v1/auth/session/company`. The Redis
+  session record stores `activeCompanyId` (kept on rotation);
+  `SessionResponse.active_company` is optional/nullable (compatible).
+  `createActiveCompanyGuard` (app.ts, before module routers) rejects any request
+  whose query/body `company_id` differs from the chosen company with
+  403 `COMPANY_SCOPE_MISMATCH`. Exempt: `/auth`, `/security` (grants are managed
+  across companies), `/health`, `/jobs`. Module company-access checks still
+  apply; path-parameter company ids are not inspected by the guard.
+- Web: `app/lib/session/active-company.ts` narrows every company directory
+  (`HrApiClient.companies`, `BankingApiClient.companies`, fiscal-calendar and
+  reference-master company lists) to the chosen company; screens no longer
+  render a company picker (HR, Payroll, Banking, Finance, Master data, landing
+  toolbars, self-service Benefits / Check In / My Attendance). Security admin
+  panels keep their company selectors because they grant access to companies.
+- Verified: see the batch handoff in the session; unit tests
+  `tenant-sessions` and `active-company-guard`.
+
 ## 2026-11-10 — Attendance & Leave: Check In / Out and My Attendance
 
 - Navigation (`time-workspace-navigation.ts`) now orders the sections Daily
@@ -35,6 +62,21 @@
   immutable `hr_attendance_punch_amendment` row (migration HR147); every punch
   reader (daily attendance, month close, self records) skips replaced punches.
   Device-recorded punches stay HR-corrected only.
+- Follow-up 2: the all-employee **Attendance** page (`daily-attendance`) now
+  carries `permission: "hr.attendance.read"` in the workspace definition, and
+  `HrOperationsWorkspace` hides permission-gated pages from the landing cards and
+  section tabs for roles without it (admins/HR/managers keep it; the API already
+  rejects the list without it). My Attendance drops the records table (Check In
+  / Out shows it) and the Current month / Show attendance buttons: From / To
+  apply on change and **Export** downloads exactly that loaded range.
+- Follow-up 3: **Attendance → Payroll Inputs** is retired as a menu page. It was
+  a read-only list of a locked month's `hr_payroll_input` rows, which are copied
+  from the same processed close-run rows Attendance Period Close already lists.
+  Period Close now shows a "Locked · frozen as payroll inputs" notice instead of
+  the cross-link; `attendance-payroll-inputs` stays a hidden alias that opens
+  Period Close. The API endpoint `GET /api/v1/hr/attendance_payroll_inputs`
+  and `HrApiClient.payrollInputs` are unchanged (contract kept). Its landing
+  summary loader and e2e journey step were removed; catalogue regenerated.
 - Safe resume: the Daily Attendance screen already reads these punches; a
   configurable per-company rule set (presets, 7h minimum, late time) would
   replace the constants in `attendanceRecordRules`.

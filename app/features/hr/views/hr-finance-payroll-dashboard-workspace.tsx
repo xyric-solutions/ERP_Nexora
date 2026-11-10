@@ -19,7 +19,7 @@ import {
   payrollMoney,
   payrollMonth,
 } from "../components/hr-finance-payroll-panels";
-import { HrCompanySelect, HrInsightHeader } from "../components/hr-stat-tile";
+import { HrInsightHeader } from "../components/hr-stat-tile";
 import { financePayrollSamplePeriods, showFinancePayrollSample } from "../model/finance-payroll-sample";
 
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
@@ -27,8 +27,6 @@ type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
 export function HrFinancePayrollDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
   const { api, session, loading: sessionLoading, refresh: refreshSession } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
-  const [companyId, setCompanyId] = useState("");
   const [summary, setSummary] = useState<HrFinancePayrollDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -62,9 +60,7 @@ export function HrFinancePayrollDashboardWorkspace({ onNavigate }: { onNavigate:
     client
       .companies()
       .then((result) => {
-        setCompanies(result.items);
         const first = result.items[0]?.id ?? "";
-        setCompanyId(first);
         return load(first);
       })
       .catch(() => {
@@ -104,18 +100,7 @@ export function HrFinancePayrollDashboardWorkspace({ onNavigate }: { onNavigate:
 
   return (
     <section className="grid min-w-0 gap-4" aria-label="Finance and Payroll Dashboard">
-      <HrInsightHeader eyebrow="Finance / payroll control" title="Finance & Payroll Dashboard">
-        <HrCompanySelect
-          id="finance-payroll-company"
-          value={companyId}
-          companies={companies}
-          disabled={loading}
-          onChange={(next) => {
-            setCompanyId(next);
-            void load(next);
-          }}
-        />
-      </HrInsightHeader>
+      <HrInsightHeader eyebrow="Finance / payroll control" title="Finance & Payroll Dashboard" />
 
       {error ? (
         <Alert>

@@ -548,8 +548,7 @@ export function HrShiftAssignmentsWorkspace({
     client = useMemo(() => new HrApiClient(api), [api]);
   const canRead = session?.user.permissions.includes("hr.attendance.shift.read") ?? false,
     canManage = session?.user.permissions.includes("hr.attendance.shift.manage") ?? false;
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]),
-    [company, setCompany] = useState(initialScope.company_id ?? ""),
+  const [company, setCompany] = useState(initialScope.company_id ?? ""),
     [today, setToday] = useState(todayValue);
   const [items, setItems] = useState<HrShiftAllocationDirectory>({ items: [], total: 0 }),
     [selected, setSelected] = useState(""),
@@ -577,7 +576,6 @@ export function HrShiftAssignmentsWorkspace({
       .companies()
       .then((data) => {
         if (current) {
-          setCompanies(data.items);
           setCompany((value) => (data.items.some((c) => c.id === value) ? value : (data.items[0]?.id ?? "")));
           setLoading(false);
         }
@@ -746,7 +744,7 @@ export function HrShiftAssignmentsWorkspace({
       )}
       <form
         aria-label="Find shift assignments"
-        className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(12rem,.8fr)_minmax(12rem,1fr)_10rem_auto] md:items-end"
+        className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(12rem,1fr)_10rem_auto] md:items-end"
         onSubmit={(e) => {
           e.preventDefault();
           setApplied(search.trim());
@@ -754,30 +752,6 @@ export function HrShiftAssignmentsWorkspace({
           setError("");
         }}
       >
-        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
-          Company
-          <select
-            className={selectClass}
-            value={company}
-            disabled={busy || editor}
-            onChange={(e) => {
-              setCompany(e.target.value);
-              setItems({ items: [], total: 0 });
-              setSelected("");
-              setDetail(null);
-              setOffset(0);
-              setError("");
-              setNotice("");
-            }}
-          >
-            <option value="">Select an authorized company</option>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
             <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
               Search assignments
               <Input
