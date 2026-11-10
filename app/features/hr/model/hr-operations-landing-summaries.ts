@@ -199,6 +199,27 @@ const attendanceSummaries: WorkspaceLoaders<typeof attendanceLeaveWorkspace> = {
       hr > 0 && `${hr} awaiting HR`,
     );
   },
+  "attendance-check-in": async ({ client, companyId }) => {
+    const self = await client.selfAttendance({ company_id: companyId, from: today(), to: today() }).catch(() => null);
+    const record = self?.today_record;
+    if (!self) return [];
+    return details(
+      !record?.check_in_time
+        ? "Not checked in today"
+        : record.check_out_time
+          ? `Checked out today after ${Math.floor(record.worked_minutes / 60)}h ${record.worked_minutes % 60}m`
+          : `Checked in today at ${record.check_in_time}`,
+    );
+  },
+  "my-attendance": async ({ client, companyId }) => {
+    const month = monthStart();
+    const self = await client.selfAttendance({ company_id: companyId, from: month, to: today() }).catch(() => null);
+    if (!self?.summary.recorded_days) return [];
+    return details(
+      `${monthLabel(month)}: ${countLabel(self.summary.recorded_days, "recorded day")}`,
+      self.summary.late > 0 && `${self.summary.late} late`,
+    );
+  },
   "daily-attendance": async ({ client, companyId, once }) => {
     const day = await once("daily-attendance:today", () =>
       client.dailyAttendance({ company_id: companyId, on_date: today(), limit: 100, offset: 0 }),

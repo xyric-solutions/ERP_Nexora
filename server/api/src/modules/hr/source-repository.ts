@@ -43,6 +43,7 @@ import type {HrPayrollRunQuery,HrPayrollRunAction,HrPayrollRunWorkspace} from '@
 import {PayrollWorkspace,type PayrollWorkspaceDependencies} from './payroll-workspace.js';
 import type {HrPayrollSection,HrPayrollWorkspaceQuery,HrPayrollWorkspace,HrPayrollItem,HrPayrollOptionsQuery,HrPayrollOptions,CreateHrPayrollRecord,HrPayrollRecordAction,HrPayrollMutationResult} from '@nexora/contracts';
 import {TimeLeave} from './time-leave.js';
+import {SelfAttendance} from './self-attendance.js';
 import type {AttendanceCompletionDependencies} from './attendance-completion.js';
 import type {HrLeaveQuery,HrLeavePolicyInput,CreateHrLeaveTypeRequest,UpdateHrLeavePolicyRequest,HrLeaveTypeStatusRequest,HrLeavePolicy,HrLeaveType,HrLeaveTypeDirectory,HrLeaveAllocation,HrLeaveContextQuery,HrLeaveBalance,HrLeaveBalanceQuery,HrLeaveBalanceDirectory,HrLeaveLedgerQuery,HrLeaveLedger,HrLeaveBalancePostingRequest,HrLeaveContext,CreateHrLeaveRequest,HrLeaveRequestActionRequest,HrLeaveRequestQuery,HrLeaveRequestSummary,HrLeaveRequestDirectory,HrLeaveRequestDetail} from '@nexora/contracts';
 import {AttendanceCompletion} from './attendance-completion.js';
@@ -644,6 +645,11 @@ export class SourceHrRepository {
   async getReportGovernance(c:HrActorContext,q:HrReportGovernanceQuery){return new HrReportGovernance(this.governanceDependencies()).workspace(c,q);}
   async actOnReportGovernance(c:HrActorContext,input:HrReportGovernanceAction,key:string,corr:string){return new HrReportGovernance(this.governanceDependencies()).action(c,input,key,corr);}
   private personalLeave(){return new TimeLeave(this.attendanceDependencies(),true);}
+  private selfAttendance(){return new SelfAttendance(this.attendanceDependencies());}
+  async getSelfAttendance(c:HrActorContext,q:import('@nexora/contracts').HrSelfAttendanceQuery){return this.selfAttendance().workspace(c,q);}
+  async createSelfAttendancePunch(c:HrActorContext,input:import('@nexora/contracts').CreateHrSelfAttendancePunch,key:string,corr:string){return this.selfAttendance().punch(c,input,key,corr);}
+  async saveSelfAttendanceDay(c:HrActorContext,input:import('@nexora/contracts').SaveHrSelfAttendanceDay,key:string,corr:string){return this.selfAttendance().saveDay(c,input,key,corr);}
+  async getEmployeeAttendanceRecords(c:HrActorContext,q:import('@nexora/contracts').HrEmployeeAttendanceRecordsQuery){return this.selfAttendance().employeeRecords(c,q);}
   async getSelfLeaveContext(c:HrActorContext,q:HrSelfLeaveContextQuery){return this.personalLeave().leaveContext(c,q);}
   async getSelfLeaveRequest(c:HrActorContext,company:string,id:string){return this.personalLeave().getLeaveRequest(c,company,id);}
   async createSelfLeaveRequest(c:HrActorContext,input:CreateHrSelfLeaveRequest,key:string,corr:string){return this.personalLeave().createOwnLeaveRequest(c,input,key,corr);}
@@ -2647,7 +2653,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           and ((a.scope='employee' and a.scope_id=r.employee_id) or (a.scope='department' and a.scope_id=r.department_id) or (a.scope='branch' and a.scope_id=r.branch_id))
           order by case a.scope when 'employee' then 1 when 'department' then 2 else 3 end,a.effective_from desc,a.id limit 1) a on true
         left join lateral (select jsonb_agg(jsonb_build_object('direction',x.direction,'occurred_at',x.occurred_at,'source',x.source) order by x.occurred_at,x.id) as punches
-          from (select id,direction,occurred_at,source from hr_attendance_punch where tenant_id=$1 and company_id=$2 and employee_id=r.employee_id and work_date=r.on_date::date order by occurred_at,id limit 129) x) p on true
+          from (select p.id,p.direction,p.occurred_at,p.source from hr_attendance_punch p where p.tenant_id=$1 and p.company_id=$2 and p.employee_id=r.employee_id and p.work_date=r.on_date::date and not exists(select 1 from hr_attendance_punch_amendment m where m.tenant_id=p.tenant_id and m.punch_id=p.id) order by p.occurred_at,p.id limit 129) x) p on true
         left join lateral (select jsonb_agg(jsonb_build_object('kind',kind,'stated_in',stated_in,'stated_out',stated_out)) as corrections
           from hr_attendance_correction where tenant_id=$1 and company_id=$2 and employee_id=r.employee_id and work_date=r.on_date::date and status='approved') c on true
         left join lateral (select jsonb_agg(jsonb_build_object('days',ld.days::text,'portion',ld.portion)) as leaves from hr_leave_request lr

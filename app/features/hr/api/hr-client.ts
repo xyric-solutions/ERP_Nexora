@@ -21,6 +21,7 @@ import type {
   HrCorrectionQuery,HrCorrectionContextQuery,HrCorrectionContext,CreateHrCorrectionRequest,UpdateHrCorrectionRequest,HrCorrectionActionRequest,HrCorrectionSummary,HrCorrectionDirectory,HrCorrectionDetail,HrCorrectionEvidence,HrCorrectionResult,
   HrMonthlyAttendanceQuery, HrMonthlyAttendanceDirectory,
   HrDailyAttendanceQuery, HrDailyAttendanceDirectory,
+  HrSelfAttendanceQuery, HrSelfAttendance, CreateHrSelfAttendancePunch, SaveHrSelfAttendanceDay, HrEmployeeAttendanceRecordsQuery, HrEmployeeAttendanceRecords,
   CreateHrEmployeeDraftRequest,
   HrEmployeeDetail,
   HrCompanyDirectory,
@@ -278,6 +279,10 @@ export class HrApiClient {
   correctionAction(id:string,input:HrCorrectionActionRequest,csrf:string,key:string):Promise<HrCorrectionResult>{return this.api.actOnHrCorrection(id,input,csrf,key);}
   monthlyAttendance(input:HrMonthlyAttendanceQuery):Promise<HrMonthlyAttendanceDirectory>{return this.api.listHrMonthlyAttendance(query(input));}
   dailyAttendance(input:HrDailyAttendanceQuery):Promise<HrDailyAttendanceDirectory>{return this.api.listHrDailyAttendance(query(input));}
+  selfAttendance(input:HrSelfAttendanceQuery):Promise<HrSelfAttendance>{return this.api.selfAttendance(query(input));}
+  createSelfAttendancePunch(input:CreateHrSelfAttendancePunch,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.api.createSelfAttendancePunch(input,csrf,key);}
+  saveSelfAttendanceDay(input:SaveHrSelfAttendanceDay,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.api.saveSelfAttendanceDay(input,csrf,key);}
+  employeeAttendanceRecords(input:HrEmployeeAttendanceRecordsQuery):Promise<HrEmployeeAttendanceRecords>{return this.api.employeeAttendanceRecords(query(input));}
   shiftAllocationContext(input:{companyId:string;scope:CreateHrShiftAllocationRequest["scope"];onDate:string;search?:string}):Promise<HrShiftAllocationContext> {return this.api.getHrShiftAllocationContext(query({company_id:input.companyId,scope:input.scope,on_date:input.onDate,search:input.search}));}
   shiftAllocations(input:{companyId:string;search?:string;scope?:CreateHrShiftAllocationRequest["scope"];scopeId?:string;onDate?:string;state?:string;limit?:number;offset?:number}):Promise<HrShiftAllocationDirectory> {return this.api.listHrShiftAllocations(query({company_id:input.companyId,search:input.search,scope:input.scope,scope_id:input.scopeId,on_date:input.onDate,state:input.state,limit:input.limit??50,offset:input.offset??0}));}
   shiftAllocation(companyId:string,id:string):Promise<HrShiftAllocationDetail> {return this.api.getHrShiftAllocation(id,query({company_id:companyId}));}

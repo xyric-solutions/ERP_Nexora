@@ -1167,6 +1167,99 @@ export type HrMonthlyAttendanceQuery = z.infer<typeof hrMonthlyAttendanceQuerySc
 export type HrMonthlyAttendanceRow = z.infer<typeof hrMonthlyAttendanceRowSchema>;
 export type HrMonthlyAttendanceDirectory = z.infer<typeof hrMonthlyAttendanceDirectorySchema>;
 
+/* Daily check-in / check-out records (self-service punches and the HR month view). */
+const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a 24-hour HH:MM time.");
+const attendanceRecordRange = {
+  from: isoDate,
+  to: isoDate,
+};
+function boundedAttendanceRange(value: { from: string; to: string }, ctx: z.RefinementCtx) {
+  if (value.to < value.from) ctx.addIssue({ code: "custom", path: ["to"], message: "To must be on or after From." });
+  else if (Date.parse(value.to) - Date.parse(value.from) > 92 * 86400000)
+    ctx.addIssue({ code: "custom", path: ["to"], message: "Choose a range of 93 days or fewer." });
+}
+export const hrAttendanceWorkModeSchema = z.enum(["office", "remote"]);
+export const hrAttendanceRecordStatusSchema = z.enum([
+  "completed", "early_leave", "half_day", "in_progress", "missing_check_out", "missing_check_in",
+]);
+export const hrAttendanceRecordSchema = z.strictObject({
+  on_date: isoDate,
+  check_in_at: z.string().nullable(), check_in_time: clockTime.nullable(),
+  check_out_at: z.string().nullable(), check_out_time: clockTime.nullable(),
+  worked_minutes: z.number().int().nonnegative(),
+  status: hrAttendanceRecordStatusSchema,
+  arrival: z.enum(["on_time", "late"]).nullable(),
+  work_mode: hrAttendanceWorkModeSchema.nullable(),
+  note: z.string().nullable(),
+});
+export const hrAttendanceRecordRulesSchema = z.strictObject({
+  minimum_work_minutes: z.number().int().positive(),
+  half_day_below_minutes: z.number().int().positive(),
+  late_after: clockTime,
+  check_in_presets: z.array(clockTime),
+  check_out_presets: z.array(clockTime),
+});
+export const hrAttendanceRecordSummarySchema = z.strictObject({
+  recorded_days: z.number().int().nonnegative(), completed: z.number().int().nonnegative(),
+  early_leave: z.number().int().nonnegative(), half_day: z.number().int().nonnegative(),
+  late: z.number().int().nonnegative(), remote: z.number().int().nonnegative(),
+  worked_minutes: z.number().int().nonnegative(),
+});
+const attendanceRecordsBody = {
+  company_id: identifier, employee_id: identifier, employee_number: z.string(), display_name: z.string(),
+  time_zone: z.string(), today: isoDate, from: isoDate, to: isoDate,
+  rules: hrAttendanceRecordRulesSchema, summary: hrAttendanceRecordSummarySchema,
+  records: z.array(hrAttendanceRecordSchema),
+};
+export const hrSelfAttendanceQuerySchema = z
+  .strictObject({ company_id: identifier, ...attendanceRecordRange })
+  .superRefine(boundedAttendanceRange);
+export const hrSelfAttendanceSchema = z.strictObject({
+  ...attendanceRecordsBody,
+  now_time: clockTime,
+  today_record: hrAttendanceRecordSchema.nullable(),
+  /** False when today's times came from an attendance device; those are corrected through HR. */
+  today_editable: z.boolean(),
+  period_locked: z.boolean(),
+});
+export const createHrSelfAttendancePunchSchema = z.strictObject({
+  company_id: identifier,
+  direction: z.enum(["in", "out"]),
+  /** Today's time in the attendance time zone; omitted or null means now. */
+  time: clockTime.nullable().optional(),
+  work_mode: hrAttendanceWorkModeSchema,
+  /** Blank notes are stored as no note. */
+  note: z.string().trim().max(500).nullable().optional(),
+});
+/** Saves today's check-in (and check-out); an existing self-recorded time is replaced, keeping the original as history. */
+export const saveHrSelfAttendanceDaySchema = z
+  .strictObject({
+    company_id: identifier,
+    check_in: clockTime,
+    check_out: clockTime.nullable().optional(),
+    work_mode: hrAttendanceWorkModeSchema,
+    note: z.string().trim().max(500).nullable().optional(),
+  })
+  .refine((v) => !v.check_out || v.check_out > v.check_in, {
+    path: ["check_out"],
+    message: "Check-out must be after your check-in time.",
+  });
+export type SaveHrSelfAttendanceDay = z.infer<typeof saveHrSelfAttendanceDaySchema>;
+export const hrEmployeeAttendanceRecordsQuerySchema = z
+  .strictObject({ company_id: identifier, employee_id: identifier, ...attendanceRecordRange })
+  .superRefine(boundedAttendanceRange);
+export const hrEmployeeAttendanceRecordsSchema = z.strictObject(attendanceRecordsBody);
+export type HrAttendanceWorkMode = z.infer<typeof hrAttendanceWorkModeSchema>;
+export type HrAttendanceRecordStatus = z.infer<typeof hrAttendanceRecordStatusSchema>;
+export type HrAttendanceRecord = z.infer<typeof hrAttendanceRecordSchema>;
+export type HrAttendanceRecordRules = z.infer<typeof hrAttendanceRecordRulesSchema>;
+export type HrAttendanceRecordSummary = z.infer<typeof hrAttendanceRecordSummarySchema>;
+export type HrSelfAttendanceQuery = z.infer<typeof hrSelfAttendanceQuerySchema>;
+export type HrSelfAttendance = z.infer<typeof hrSelfAttendanceSchema>;
+export type CreateHrSelfAttendancePunch = z.infer<typeof createHrSelfAttendancePunchSchema>;
+export type HrEmployeeAttendanceRecordsQuery = z.infer<typeof hrEmployeeAttendanceRecordsQuerySchema>;
+export type HrEmployeeAttendanceRecords = z.infer<typeof hrEmployeeAttendanceRecordsSchema>;
+
 export const hrCorrectionStatusSchema=z.enum(["draft","pending_manager","pending_hr","approved","rejected","cancelled"]);
 export const hrCorrectionKindSchema=z.enum(["missing_in","missing_out","incorrect_attendance","official_duty"]);
 export const hrCorrectionQuerySchema=z.strictObject({company_id:identifier,search:z.string().trim().max(160).optional(),status:hrCorrectionStatusSchema.optional(),limit:z.number().int().min(1).max(100).default(50),offset:z.number().int().min(0).max(100000).default(0)});

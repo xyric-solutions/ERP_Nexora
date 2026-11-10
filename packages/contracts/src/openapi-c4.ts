@@ -17,6 +17,12 @@ import {
 import { hrSelfLeaveContextQuerySchema, createHrSelfLeaveRequestSchema, hrSelfLeaveActionSchema } from "./hr/index.js";
 import { hrSelfServiceQuerySchema, hrSelfServiceWorkspaceSchema } from "./hr/index.js";
 import {
+  hrSelfAttendanceSchema,
+  createHrSelfAttendancePunchSchema,
+  saveHrSelfAttendanceDaySchema,
+  hrEmployeeAttendanceRecordsSchema,
+} from "./hr/index.js";
+import {
   hrSettlementBenefitQuerySchema,
   hrSettlementBenefitActionSchema,
   hrSettlementBenefitWorkspaceSchema,
@@ -4348,6 +4354,87 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/hr/self_service/attendance": {
+        get: {
+          operationId: "getSelfAttendance",
+          description: "Signed-in employee's check-in state, rules and check-in records for a date range",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "query", name: "company_id", required: true, schema: { type: "string", maxLength: 128 } },
+            { in: "query", name: "from", required: true, schema: { type: "string", format: "date" } },
+            { in: "query", name: "to", required: true, schema: { type: "string", format: "date" } },
+          ],
+          responses: {
+            ...securityErrors,
+            "200": {
+              description: "Signed-in employee's check-in state, rules and check-in records",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrSelfAttendance" } } },
+            },
+          },
+        },
+      },
+      "/hr/self_service/attendance/punches": {
+        post: {
+          operationId: "createSelfAttendancePunch",
+          description: "Record the signed-in employee's own check-in or check-out for today",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrSelfAttendancePunch" } } },
+          },
+          responses: {
+            ...securityErrors,
+            "200": {
+              description: "Audited self-service punch",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrAttendanceCompletionResult" } },
+              },
+            },
+          },
+        },
+      },
+      "/hr/self_service/attendance/day": {
+        post: {
+          operationId: "saveSelfAttendanceDay",
+          description: "Save the signed-in employee's check-in and check-out for today, replacing earlier self-recorded times",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SaveHrSelfAttendanceDay" } } },
+          },
+          responses: {
+            ...securityErrors,
+            "200": {
+              description: "Audited save of today's attendance",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrAttendanceCompletionResult" } },
+              },
+            },
+          },
+        },
+      },
+      "/hr/attendance_records": {
+        get: {
+          operationId: "getEmployeeAttendanceRecords",
+          description: "One employee's check-in records for a date range (attendance and punch read)",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "query", name: "company_id", required: true, schema: { type: "string", maxLength: 128 } },
+            { in: "query", name: "employee_id", required: true, schema: { type: "string", maxLength: 128 } },
+            { in: "query", name: "from", required: true, schema: { type: "string", format: "date" } },
+            { in: "query", name: "to", required: true, schema: { type: "string", format: "date" } },
+          ],
+          responses: {
+            ...securityErrors,
+            "200": {
+              description: "One employee's check-in records",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeAttendanceRecords" } } },
+            },
+          },
+        },
+      },
       "/hr/self_service/leave_context": {
         get: {
           operationId: "getSelfLeaveContext",
@@ -7816,6 +7903,10 @@ export function buildOpenApiDocument() {
         HrLeaveBalancePostingRequest: schema(hrLeaveBalancePostingRequestSchema),
         HrLeaveContextQuery: schema(hrLeaveContextQuerySchema),
         HrLeaveContext: schema(hrLeaveContextSchema),
+        HrSelfAttendance: schema(hrSelfAttendanceSchema),
+        CreateHrSelfAttendancePunch: schema(createHrSelfAttendancePunchSchema),
+        SaveHrSelfAttendanceDay: schema(saveHrSelfAttendanceDaySchema),
+        HrEmployeeAttendanceRecords: schema(hrEmployeeAttendanceRecordsSchema),
         HrLeaveRequestQuery: schema(hrLeaveRequestQuerySchema),
         HrLeaveRequestDirectory: schema(hrLeaveRequestDirectorySchema),
         HrLeaveRequestDetail: schema(hrLeaveRequestDetailSchema),

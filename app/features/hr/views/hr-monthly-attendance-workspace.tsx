@@ -2,12 +2,7 @@
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import type { HrMonthlyAttendanceDirectory, HrMonthlyAttendanceRow } from "@nexora/contracts";
-import {
-  Users,
-  ChevronLeft,
-  ChevronRight,
-  ArrowUpRight,
-} from "lucide-react";
+import { Users, ChevronLeft, ChevronRight, ArrowUpRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,6 +17,12 @@ import {
   attendanceMinutes,
   attendanceStatusClass,
 } from "../components/attendance-status";
+import {
+  AttendanceRecordTable,
+  AttendanceRecordTiles,
+  exportAttendanceRecords,
+} from "../components/hr-attendance-records";
+import { useAttendanceRead } from "../components/hr-workspace-controls";
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
 const selectClass =
   "h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
@@ -42,14 +43,68 @@ const dayCodes: Record<HrMonthlyAttendanceRow["days"][number]["status"], string>
   needs_review: "NR",
   official_duty: "OD",
 };
+/** The employee's own check-in / check-out records for the month (needs attendance punch read). */
+function EmployeeCheckIns({
+  client,
+  company,
+  employee,
+  from,
+  to,
+}: {
+  client: HrApiClient;
+  company: string;
+  employee: string;
+  from: string;
+  to: string;
+}) {
+  const q = { company_id: company, employee_id: employee, from, to };
+  const read = useAttendanceRead(JSON.stringify(q), () => client.employeeAttendanceRecords(q)),
+    records = read.data;
+  return (
+    <section aria-label="Check-in records" className="grid gap-4 rounded-lg border border-border bg-background p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">
+          Check-in records · {from} to {to}
+        </h3>
+        <Button
+          variant="outline"
+          disabled={!records}
+          onClick={() =>
+            records &&
+            exportAttendanceRecords(records.records, `attendance-${records.employee_number}-${from}-to-${to}.csv`)
+          }
+        >
+          <Download className="size-4" />
+          Export
+        </Button>
+      </div>
+      {read.error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {read.error}
+        </p>
+      ) : !records ? (
+        <Skeleton className="h-32 w-full" />
+      ) : (
+        <>
+          <AttendanceRecordTiles summary={records.summary} />
+          <AttendanceRecordTable records={records.records} />
+        </>
+      )}
+    </section>
+  );
+}
 function EmployeeMonth({
   item,
   data,
   onNavigate,
+  client,
+  canReadPunches,
 }: {
   item: HrMonthlyAttendanceRow;
   data: HrMonthlyAttendanceDirectory;
   onNavigate: Navigate;
+  client: HrApiClient;
+  canReadPunches: boolean;
 }) {
   const [date, setDate] = useState(item.days[0]?.on_date ?? "");
   const chosen = item.days.find((d) => d.on_date === date),
@@ -167,6 +222,15 @@ function EmployeeMonth({
           </div>
         </div>
       )}
+      {canReadPunches && (
+        <EmployeeCheckIns
+          client={client}
+          company={data.company_id}
+          employee={item.employee_id}
+          from={data.month}
+          to={data.through_date}
+        />
+      )}
       <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-4">
         <h3 className="text-sm font-semibold">Finalized attendance input</h3>
         {!data.snapshot_access ? (
@@ -213,7 +277,8 @@ export function HrMonthlyAttendanceWorkspace({
   const initialScope = useMemo(() => readHrOperationsScope(initialReference), [initialReference]);
   const { api, session, loading: sessionLoading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]),
-    canRead = session?.user.permissions.includes("hr.attendance.read") ?? false;
+    canRead = session?.user.permissions.includes("hr.attendance.read") ?? false,
+    canReadPunches = session?.user.permissions.includes("hr.attendance.punch.read") ?? false;
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]),
     [company, setCompany] = useState(initialScope.company_id ?? ""),
     [month, setMonth] = useState(
@@ -505,7 +570,9 @@ export function HrMonthlyAttendanceWorkspace({
           overlayClassName="z-[1300]! backdrop-blur-sm!"
         >
           <div className="border-b border-border px-5 py-3 pr-14 sm:px-6">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Monthly Attendance</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+              Monthly Attendance
+            </span>
             <DialogTitle className="m-0! mt-0.5 truncate text-lg font-semibold leading-snug">
               {detail?.display_name ?? "Employee month"}
             </DialogTitle>
@@ -522,6 +589,8 @@ export function HrMonthlyAttendanceWorkspace({
                 item={detail}
                 data={data}
                 onNavigate={onNavigate}
+                client={client}
+                canReadPunches={canReadPunches}
               />
             ) : null}
           </div>

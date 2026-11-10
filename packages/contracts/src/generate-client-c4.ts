@@ -211,6 +211,7 @@ CreateHrLocalization,HrLocalizationDecision,HrLocalizationWorkspace,CreateHrOver
   HrOrganizationUnitMutationResult,
   HrCorrectionContext,CreateHrCorrectionRequest,UpdateHrCorrectionRequest,HrCorrectionActionRequest,HrCorrectionDirectory,HrCorrectionDetail,HrCorrectionResult,
   HrMonthlyAttendanceDirectory,
+  HrSelfAttendance, CreateHrSelfAttendancePunch, SaveHrSelfAttendanceDay, HrEmployeeAttendanceRecords,
   HrDailyAttendanceDirectory,
   CreateHrEmployeeDraftRequest,
   UpdateHrEmployeeDraftRequest,
@@ -846,6 +847,10 @@ export class NexoraApiClient {
   actOnPersonalCorrection(id:string,input:HrPersonalCorrectionAction,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.request('/api/v1/hr/personal_corrections/'+encodeURIComponent(id)+'/actions',{method:'POST',body:JSON.stringify(input),headers:{'x-csrf-token':csrf,'idempotency-key':key}});}
   reportGovernance(query:string):Promise<HrReportGovernanceWorkspace>{return this.request('/api/v1/hr/report_governance'+query);}
   actOnReportGovernance(input:HrReportGovernanceAction,csrf:string,key:string):Promise<HrReportGovernanceResult>{return this.request('/api/v1/hr/report_governance/actions',{method:'POST',body:JSON.stringify(input),headers:{'x-csrf-token':csrf,'idempotency-key':key}});}
+  selfAttendance(query:string):Promise<HrSelfAttendance>{return this.request('/api/v1/hr/self_service/attendance'+query);}
+  createSelfAttendancePunch(input:CreateHrSelfAttendancePunch,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.request('/api/v1/hr/self_service/attendance/punches',{method:'POST',body:JSON.stringify(input),headers:{'x-csrf-token':csrf,'idempotency-key':key}});}
+  saveSelfAttendanceDay(input:SaveHrSelfAttendanceDay,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.request('/api/v1/hr/self_service/attendance/day',{method:'POST',body:JSON.stringify(input),headers:{'x-csrf-token':csrf,'idempotency-key':key}});}
+  employeeAttendanceRecords(query:string):Promise<HrEmployeeAttendanceRecords>{return this.request('/api/v1/hr/attendance_records'+query);}
   selfLeaveContext(query:string):Promise<HrLeaveContext>{return this.request('/api/v1/hr/self_service/leave_context'+query);}
   selfLeaveRequest(company:string,id:string):Promise<HrLeaveRequestDetail>{return this.request('/api/v1/hr/self_service/leave_requests/'+encodeURIComponent(id)+'?company_id='+encodeURIComponent(company));}
   createSelfLeaveRequest(input:CreateHrSelfLeaveRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.request('/api/v1/hr/self_service/leave_requests',{method:'POST',body:JSON.stringify(input),headers:{'x-csrf-token':csrf,'idempotency-key':key}});}

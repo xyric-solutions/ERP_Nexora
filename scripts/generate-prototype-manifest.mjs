@@ -180,6 +180,8 @@ export async function buildHrParityRows() {
       else if (page.id === "attendance") renderer = "HrDailyAttendanceWorkspace";
       else if (page.id === "attendance-corrections") renderer = "HrAttendanceCorrectionsWorkspace";
       else if (page.id === "monthly-attendance") renderer = "HrMonthlyAttendanceWorkspace";
+      else if (page.id === "attendance-check-in") renderer = "HrAttendanceCheckInWorkspace";
+      else if (page.id === "my-attendance") renderer = "HrMyAttendanceWorkspace";
       else if (page.id === "daily-attendance") renderer = "HrDailyAttendanceWorkspace";
       else if (page.id === "shift-assignments") renderer = "HrShiftAssignmentsWorkspace";
       else if (page.id === "shifts") renderer = "HrShiftsWorkspace";

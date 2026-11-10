@@ -92,7 +92,14 @@ function LeaveToolbar({
       {companyField}
       <label className="grid content-start gap-1 text-sm font-medium" htmlFor={searchId}>
         Search
-        <Input id={searchId} type="search" value={search} maxLength={100} placeholder={placeholder} onChange={(e) => onSearch(e.target.value)} />
+        <Input
+          id={searchId}
+          type="search"
+          value={search}
+          maxLength={100}
+          placeholder={placeholder}
+          onChange={(e) => onSearch(e.target.value)}
+        />
       </label>
       {filter}
       {action}
@@ -118,6 +125,9 @@ const leaveStatusLabels: Record<string, string> = {
   cancelled: "Cancelled",
 };
 const leaveStatusLabel = (status: string) => leaveStatusLabels[status] ?? label(status);
+/** Leave Requests show only the requester's stage: Draft until submitted, then Submitted. */
+const requesterStatus = (status: string) => (status === "draft" ? "draft" : "submitted");
+const requesterStatusLabel = (status: string) => (status === "draft" ? "Draft" : "Submitted");
 /** Leave Requests: the requester's view. "Submitted" = has passed the submit step. */
 const requestFilterOptions = [
   { value: "all", label: "All" },
@@ -816,7 +826,9 @@ function LeaveBalances(props: Shared) {
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums">{b.paid ? dayValue(b.balance) : "—"}</td>
                     <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{dayValue(b.reserved)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{dayValue(b.future_used)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
+                      {dayValue(b.future_used)}
+                    </td>
                     <td className="px-4 py-3 text-right font-semibold tabular-nums">
                       {b.paid ? dayValue(b.available) : "Unpaid"}
                     </td>
@@ -829,7 +841,9 @@ function LeaveBalances(props: Shared) {
       )}
       <Pagination total={query.data?.total ?? 0} offset={offset} setOffset={setOffset} loading={query.loading} />
       <HrRecordDrawer
-        title={posting ? "Adjust balance" : selected ? `${selected.display_name} · ${selected.leave_type}` : "Leave ledger"}
+        title={
+          posting ? "Adjust balance" : selected ? `${selected.display_name} · ${selected.leave_type}` : "Leave ledger"
+        }
         description={selected ? `${selected.employee_number} · Leave ledger` : ""}
         open={Boolean(selected)}
         onClose={posting ? () => setPosting(false) : closeLedger}
@@ -859,7 +873,10 @@ function LeaveBalances(props: Shared) {
               void post();
             }}
           >
-            <fieldset disabled={busy} className="m-0! min-w-0 border-0! p-0! grid min-w-0 items-start gap-4 sm:grid-cols-2">
+            <fieldset
+              disabled={busy}
+              className="m-0! min-w-0 border-0! p-0! grid min-w-0 items-start gap-4 sm:grid-cols-2"
+            >
               <Field title="Posting kind">
                 <select className={selectClass} value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
                   <option value="opening">Opening balance</option>
@@ -946,7 +963,10 @@ function LeaveBalances(props: Shared) {
                   label="Adjusted / expired"
                   value={`${dayValue(ledger.data.balance.adjusted)} / ${dayValue(ledger.data.balance.expired)} days`}
                 />
-                <HrDetailTile label="Allocated to settlement" value={`${dayValue(ledger.data.balance.encashed)} days`} />
+                <HrDetailTile
+                  label="Allocated to settlement"
+                  value={`${dayValue(ledger.data.balance.encashed)} days`}
+                />
                 <HrDetailTile
                   label="Spendable"
                   value={selected.paid ? `${dayValue(ledger.data.balance.available)} days` : "Unpaid"}
@@ -1063,13 +1083,7 @@ function RequestEditor(props: Shared) {
     backToRequests(submitted ? undefined : r.id);
   }
   return (
-    <HrRecordDrawer
-      title="Add Leave Request"
-      open
-      onClose={() => backToRequests()}
-      busy={busy}
-      error={props.saveError}
-    >
+    <HrRecordDrawer title="Add Leave Request" open onClose={() => backToRequests()} busy={busy} error={props.saveError}>
       <section className={panel} aria-label="Leave request editor">
         <Message
           error={error || query.error || (!validRange ? "Choose an ordered date range of up to 62 calendar days." : "")}
@@ -1315,8 +1329,21 @@ function RequestEditor(props: Shared) {
  * Approve / Reject in the drawer. Manager -> HR ordering and who may decide stay on the server.
  */
 function LeaveRequests(props: Shared & { approval: boolean }) {
-  const { client, company, date, revision, busy, save, csrf, permissions, onNavigate, onEditing, initial, approval, companyField } =
-    props;
+  const {
+    client,
+    company,
+    date,
+    revision,
+    busy,
+    save,
+    csrf,
+    permissions,
+    onNavigate,
+    onEditing,
+    initial,
+    approval,
+    companyField,
+  } = props;
   const [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
     [filter, setFilter] = useState<LeaveListFilter>("all"),
@@ -1431,7 +1458,11 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
         <Skeleton className="h-40" />
       ) : !list.data?.items.length ? (
         <Empty
-          text={approval ? "No submitted leave requests match this filter." : "No leave requests match this company and filter."}
+          text={
+            approval
+              ? "No submitted leave requests match this filter."
+              : "No leave requests match this company and filter."
+          }
         />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-card">
@@ -1476,7 +1507,11 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">{dayValue(r.requested_days)}</td>
                   <td className="px-4 py-3">
-                    <State value={r.status} text={leaveStatusLabel(r.status)} />
+                    {approval ? (
+                      <State value={r.status} text={leaveStatusLabel(r.status)} />
+                    ) : (
+                      <State value={requesterStatus(r.status)} text={requesterStatusLabel(r.status)} />
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1486,7 +1521,9 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
       )}
       <Pagination total={list.data?.total ?? 0} offset={offset} setOffset={setOffset} loading={list.loading} />
       <HrRecordDrawer
-        title={action ? `${actionLabel(action)} · ${request?.reference ?? ""}` : (request?.reference ?? "Leave request")}
+        title={
+          action ? `${actionLabel(action)} · ${request?.reference ?? ""}` : (request?.reference ?? "Leave request")
+        }
         description={request ? `${request.display_name} · ${request.leave_type}` : ""}
         open={Boolean(selected)}
         onClose={() => {
@@ -1545,7 +1582,11 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
             </Field>
             {action.includes("_") && request.self_decision_requires_override && (
               <label htmlFor="leave-approval-override" className="flex items-start gap-2 text-sm">
-                <Checkbox id="leave-approval-override" checked={override} onCheckedChange={(v) => setOverride(v === true)} />
+                <Checkbox
+                  id="leave-approval-override"
+                  checked={override}
+                  onCheckedChange={(v) => setOverride(v === true)}
+                />
                 I acknowledge an audited super-administrator override (deciding for the routed manager or overriding
                 approver separation).
               </label>
@@ -1559,13 +1600,21 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
                 type="submit"
                 disabled={busy || (action.includes("_") && request.self_decision_requires_override && !override)}
               >
-                {busy ? "Saving…" : isDraft && action === "cancel" ? "Delete draft" : `Confirm ${actionLabel(action).toLowerCase()}`}
+                {busy
+                  ? "Saving…"
+                  : isDraft && action === "cancel"
+                    ? "Delete draft"
+                    : `Confirm ${actionLabel(action).toLowerCase()}`}
               </Button>
             </HrDrawerActions>
           </form>
         ) : request ? (
           <div className="grid min-w-0 gap-4">
-            <HrDetailSummary code={request.reference} status={request.status} statusLabel={leaveStatusLabel(request.status)}>
+            <HrDetailSummary
+              code={request.reference}
+              status={approval ? request.status : requesterStatus(request.status)}
+              statusLabel={approval ? leaveStatusLabel(request.status) : requesterStatusLabel(request.status)}
+            >
               Version {request.version}
             </HrDetailSummary>
             <HrDetailGroup title="Request">

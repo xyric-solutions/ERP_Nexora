@@ -114,6 +114,8 @@ import { HrTimeLeaveWorkspace } from "@prototype/features/hr/views/hr-time-leave
 import { HrAttendanceCompletionWorkspace } from "@prototype/features/hr/views/hr-attendance-completion-workspace";
 import { HrAttendanceCorrectionsWorkspace } from "@prototype/features/hr/views/hr-attendance-corrections-workspace";
 import { HrMonthlyAttendanceWorkspace } from "@prototype/features/hr/views/hr-monthly-attendance-workspace";
+import { HrAttendanceCheckInWorkspace } from "@prototype/features/hr/views/hr-attendance-check-in-workspace";
+import { HrMyAttendanceWorkspace } from "@prototype/features/hr/views/hr-my-attendance-workspace";
 import { HrDailyAttendanceWorkspace } from "@prototype/features/hr/views/hr-daily-attendance-workspace";
 import { HrShiftAssignmentsWorkspace } from "@prototype/features/hr/views/hr-shift-assignments-workspace";
 import { HrShiftsWorkspace } from "@prototype/features/hr/views/hr-shifts-workspace";
@@ -2902,6 +2904,8 @@ function PrototypeContentBody(props: PrototypeContentProps) {
     // Former Time & Leave addresses resolve to their Attendance & Leave pages.
     const timePageId = resolveTimePageId(context.pageId);
     const pages = {
+      "attendance-check-in": <HrAttendanceCheckInWorkspace />,
+      "my-attendance": <HrMyAttendanceWorkspace />,
       shifts: <HrShiftsWorkspace initialReference={context.recordRef} onNavigate={props.onNavigate} />,
       "shift-assignments": (
         <HrShiftAssignmentsWorkspace initialReference={context.recordRef} onNavigate={props.onNavigate} />

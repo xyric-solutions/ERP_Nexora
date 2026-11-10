@@ -1,5 +1,44 @@
 # Remaining UI migration checklist
 
+## 2026-11-10 — Attendance & Leave: Check In / Out and My Attendance
+
+- Navigation (`time-workspace-navigation.ts`) now orders the sections Daily
+  Attendance, Leave Setup, Shift Setup, Month-end & Payroll. Daily Attendance
+  starts with the new **Check In / Out** page; "Attendance Corrections" is
+  labelled **Corrections** (route `attendance-corrections` unchanged). Month-end
+  starts with the new **My Attendance** page.
+- New views: `hr-attendance-check-in-workspace.tsx` (employee's own check-in and
+  check-out with suggested times 9/10/11 AM and 5/6/7 PM plus Now, on-site or
+  remote mode, notes) and `hr-my-attendance-workspace.tsx` (From/To range, summary
+  tiles, Monday-first calendar, records table, CSV export). Shared pieces live in
+  `components/hr-attendance-records.tsx`; the HR Monthly Attendance employee
+  dialog reuses the tiles and table when the user has `hr.attendance.punch.read`.
+- Live API: `GET /api/v1/hr/self_service/attendance`,
+  `POST /api/v1/hr/self_service/attendance/punches` (employee binding is the
+  authority; idempotent, audited, period-lock enforced) and
+  `GET /api/v1/hr/attendance_records` (HR, attendance + punch read). Migration
+  HR144 adds `work_mode` and `note` to `hr_attendance_punch`.
+- Day rules (`server/api/src/modules/hr/self-attendance.ts`): 7h or more is
+  Completed, 4h to under 7h is Early leave, under 4h is Half day; a check-in
+  after 11:00 is Late. The work date and times use the employee's shift time zone
+  for today, else the database session zone; overnight shifts are not split.
+- Verified: typecheck, unit and integration tests (new
+  `hr-self-attendance` suites plus attendance/leave suites), `git diff --check`,
+  theme audit (zero exceptions), catalogue check and `npm.cmd run build:web`.
+  Browser evidence: jsdom-rendered screens with the built CSS in Edge, light and
+  dark at 1280px and 390px. Not yet checked with a signed-in session in the
+  running app.
+- Follow-up (same day): Check In / Out cards are compact rows (editable time,
+  Now, suggested times) with one **Save** below them and this month's records
+  table underneath. Saving again replaces today's self-recorded time:
+  `POST /api/v1/hr/self_service/attendance/day` records a new punch and an
+  immutable `hr_attendance_punch_amendment` row (migration HR147); every punch
+  reader (daily attendance, month close, self records) skips replaced punches.
+  Device-recorded punches stay HR-corrected only.
+- Safe resume: the Daily Attendance screen already reads these punches; a
+  configurable per-company rule set (presets, 7h minimum, late time) would
+  replace the constants in `attendanceRecordRules`.
+
 ## 2026-11-06 — HR drawer content layout and footer actions
 
 - `hr-detail-tile.tsx` now defines the drawer anatomy: `HrDetailSummary` (code,

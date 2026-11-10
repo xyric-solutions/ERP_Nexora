@@ -17,6 +17,8 @@ import {hrLeaveQuerySchema,createHrLeaveTypeRequestSchema,updateHrLeavePolicyReq
 import {hrOvertimeQuerySchema,hrOvertimeContextQuerySchema,createHrOvertimeRequestSchema,hrOvertimeRuleRequestSchema,hrOvertimeActionRequestSchema,replaceHrOvertimeRequestSchema,hrAttendancePeriodQuerySchema,hrAttendancePeriodActionRequestSchema} from '@nexora/contracts';
 import {hrPersonalCorrectionQuerySchema,createHrPersonalCorrectionSchema,hrPersonalCorrectionActionSchema,hrPersonalCorrectionWorkspaceSchema,hrReportGovernanceQuerySchema,hrReportGovernanceActionSchema,hrReportGovernanceWorkspaceSchema,hrReportGovernanceResultSchema} from '@nexora/contracts';
 import {hrSelfLeaveContextQuerySchema,createHrSelfLeaveRequestSchema,hrSelfLeaveActionSchema} from '@nexora/contracts';
+import {saveHrSelfAttendanceDaySchema} from '@nexora/contracts';
+import {hrSelfAttendanceQuerySchema,hrSelfAttendanceSchema,createHrSelfAttendancePunchSchema,hrEmployeeAttendanceRecordsQuerySchema,hrEmployeeAttendanceRecordsSchema} from '@nexora/contracts';
 import {hrSelfServiceQuerySchema,hrSelfServicePayslipQuerySchema,hrSelfServiceWorkspaceSchema,hrPayslipDetailSchema} from '@nexora/contracts';
 import { Router, type Request } from "express";
 import { z } from "zod";
@@ -147,6 +149,10 @@ export interface HrRouterDependencies {
     | "listLeaveRequests"
     | "getLeaveRequest"
     | "createLeaveRequest"
+    | "getSelfAttendance"
+    | "createSelfAttendancePunch"
+    | "saveSelfAttendanceDay"
+    | "getEmployeeAttendanceRecords"
     | "actOnLeaveRequest"
     | "getPayrollLocalization"
     | "createPayrollLocalization"
@@ -396,6 +402,10 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
   router.get('/self_service/leave_requests/:id',async(req,res)=>{const q=hrSelfServicePayslipQuerySchema.parse(req.query),id=z.string().trim().min(1).max(128).parse(req.params.id);res.set('Cache-Control','no-store');res.json(await handle(async()=>hrLeaveRequestDetailSchema.parse(await dependencies.repository.getSelfLeaveRequest(await loadHrSessionContext(req,dependencies),q.company_id,id))));});
   router.post('/self_service/leave_requests',async(req,res)=>{trustedOrigin(req,dependencies.allowedOrigins);const input=createHrSelfLeaveRequestSchema.parse(req.body);res.json(await handle(async()=>dependencies.repository.createSelfLeaveRequest(await loadHrSessionContext(req,dependencies,true),input,idempotencyKey(req),currentRequestContext().correlationId)));});
   router.post('/self_service/leave_requests/:id/actions',async(req,res)=>{trustedOrigin(req,dependencies.allowedOrigins);const input=hrSelfLeaveActionSchema.parse(req.body),id=z.string().trim().min(1).max(128).parse(req.params.id);res.json(await handle(async()=>dependencies.repository.actOnSelfLeaveRequest(await loadHrSessionContext(req,dependencies,true),id,input,idempotencyKey(req),currentRequestContext().correlationId)));});
+  router.get('/self_service/attendance',async(req,res)=>{const q=hrSelfAttendanceQuerySchema.parse({company_id:req.query.company_id,from:req.query.from,to:req.query.to});res.set('Cache-Control','no-store');res.json(await handle(async()=>hrSelfAttendanceSchema.parse(await dependencies.repository.getSelfAttendance(await loadHrSessionContext(req,dependencies),q))));});
+  router.post('/self_service/attendance/punches',async(req,res)=>{trustedOrigin(req,dependencies.allowedOrigins);const input=createHrSelfAttendancePunchSchema.parse(req.body);res.json(await handle(async()=>dependencies.repository.createSelfAttendancePunch(await loadHrSessionContext(req,dependencies,true),input,idempotencyKey(req),currentRequestContext().correlationId)));});
+  router.post('/self_service/attendance/day',async(req,res)=>{trustedOrigin(req,dependencies.allowedOrigins);const input=saveHrSelfAttendanceDaySchema.parse(req.body);res.json(await handle(async()=>dependencies.repository.saveSelfAttendanceDay(await loadHrSessionContext(req,dependencies,true),input,idempotencyKey(req),currentRequestContext().correlationId)));});
+  router.get('/attendance_records',async(req,res)=>{const q=hrEmployeeAttendanceRecordsQuerySchema.parse({company_id:req.query.company_id,employee_id:req.query.employee_id,from:req.query.from,to:req.query.to});res.set('Cache-Control','no-store');res.json(await handle(async()=>hrEmployeeAttendanceRecordsSchema.parse(await dependencies.repository.getEmployeeAttendanceRecords(await loadHrSessionContext(req,dependencies),q))));});
   router.get('/self_service',async(req,res)=>{const q=hrSelfServiceQuerySchema.parse(req.query);res.set('Cache-Control','no-store');res.json(await handle(async()=>hrSelfServiceWorkspaceSchema.parse(await dependencies.repository.getSelfService(await loadHrSessionContext(req,dependencies),q))));});
   router.get('/self_service/payslips/:id',async(req,res)=>{const q=hrSelfServicePayslipQuerySchema.parse(req.query),id=z.string().min(1).max(128).parse(req.params.id);res.set('Cache-Control','no-store');res.json(await handle(async()=>hrPayslipDetailSchema.parse(await dependencies.repository.getSelfServicePayslip(await loadHrSessionContext(req,dependencies),q.company_id,id))));});
   router.get('/settlement_benefits',async(req,res)=>{const q=hrSettlementBenefitQuerySchema.parse(req.query);res.set('Cache-Control','no-store');res.json(await handle(async()=>hrSettlementBenefitWorkspaceSchema.parse(await dependencies.repository.getSettlementBenefits(await loadHrSessionContext(req,dependencies),q))));});

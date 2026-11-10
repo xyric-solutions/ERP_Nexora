@@ -4,7 +4,7 @@
   "counts": {
     "modules": 35,
     "groups": 146,
-    "pages": 817
+    "pages": 819
   },
   "modules": [
     {
@@ -3364,16 +3364,30 @@
               "hiddenFromNavigation": false
             },
             {
-              "id": "shifts",
-              "label": "Shifts & Rules",
-              "archetype": "settings",
+              "id": "attendance-check-in",
+              "label": "Check In / Out",
+              "archetype": "form",
               "status": "live",
               "hiddenFromNavigation": false
             },
             {
-              "id": "shift-assignments",
-              "label": "Shift Assignments",
+              "id": "daily-attendance",
+              "label": "Daily Attendance",
               "archetype": "list",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "attendance-corrections",
+              "label": "Corrections",
+              "archetype": "approval",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "overtime",
+              "label": "Overtime",
+              "archetype": "approval",
               "status": "live",
               "hiddenFromNavigation": false
             },
@@ -3406,23 +3420,23 @@
               "hiddenFromNavigation": false
             },
             {
-              "id": "daily-attendance",
-              "label": "Daily Attendance",
+              "id": "shifts",
+              "label": "Shifts & Rules",
+              "archetype": "settings",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "shift-assignments",
+              "label": "Shift Assignments",
               "archetype": "list",
               "status": "live",
               "hiddenFromNavigation": false
             },
             {
-              "id": "attendance-corrections",
-              "label": "Attendance Corrections",
-              "archetype": "approval",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "overtime",
-              "label": "Overtime",
-              "archetype": "approval",
+              "id": "my-attendance",
+              "label": "My Attendance",
+              "archetype": "report",
               "status": "live",
               "hiddenFromNavigation": false
             },

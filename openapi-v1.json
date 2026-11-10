@@ -49833,6 +49833,429 @@
         }
       }
     },
+    "/hr/self_service/attendance": {
+      "get": {
+        "operationId": "getSelfAttendance",
+        "description": "Signed-in employee's check-in state, rules and check-in records for a date range",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Signed-in employee's check-in state, rules and check-in records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrSelfAttendance"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/hr/self_service/attendance/punches": {
+      "post": {
+        "operationId": "createSelfAttendancePunch",
+        "description": "Record the signed-in employee's own check-in or check-out for today",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHrSelfAttendancePunch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Audited self-service punch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrAttendanceCompletionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/hr/self_service/attendance/day": {
+      "post": {
+        "operationId": "saveSelfAttendanceDay",
+        "description": "Save the signed-in employee's check-in and check-out for today, replacing earlier self-recorded times",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveHrSelfAttendanceDay"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Audited save of today's attendance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrAttendanceCompletionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/hr/attendance_records": {
+      "get": {
+        "operationId": "getEmployeeAttendanceRecords",
+        "description": "One employee's check-in records for a date range (attendance and punch read)",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "employee_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One employee's check-in records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrEmployeeAttendanceRecords"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/hr/self_service/leave_context": {
       "get": {
         "operationId": "getSelfLeaveContext",
@@ -85130,6 +85553,747 @@
         ],
         "additionalProperties": false
       },
+      "HrSelfAttendance": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "employee_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "employee_number": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "time_zone": {
+            "type": "string"
+          },
+          "today": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "rules": {
+            "type": "object",
+            "properties": {
+              "minimum_work_minutes": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "half_day_below_minutes": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "late_after": {
+                "type": "string",
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+              },
+              "check_in_presets": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                }
+              },
+              "check_out_presets": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                }
+              }
+            },
+            "required": [
+              "minimum_work_minutes",
+              "half_day_below_minutes",
+              "late_after",
+              "check_in_presets",
+              "check_out_presets"
+            ],
+            "additionalProperties": false
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "recorded_days": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "completed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "early_leave": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "half_day": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "late": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "remote": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "worked_minutes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "recorded_days",
+              "completed",
+              "early_leave",
+              "half_day",
+              "late",
+              "remote",
+              "worked_minutes"
+            ],
+            "additionalProperties": false
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "on_date": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "check_in_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "check_in_time": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "check_out_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "check_out_time": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "worked_minutes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "completed",
+                    "early_leave",
+                    "half_day",
+                    "in_progress",
+                    "missing_check_out",
+                    "missing_check_in"
+                  ]
+                },
+                "arrival": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "on_time",
+                        "late"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "work_mode": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "office",
+                        "remote"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "on_date",
+                "check_in_at",
+                "check_in_time",
+                "check_out_at",
+                "check_out_time",
+                "worked_minutes",
+                "status",
+                "arrival",
+                "work_mode",
+                "note"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "now_time": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+          },
+          "today_record": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "on_date": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "check_in_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "check_in_time": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "check_out_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "check_out_time": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "worked_minutes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "completed",
+                      "early_leave",
+                      "half_day",
+                      "in_progress",
+                      "missing_check_out",
+                      "missing_check_in"
+                    ]
+                  },
+                  "arrival": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "on_time",
+                          "late"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "work_mode": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "office",
+                          "remote"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "note": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "on_date",
+                  "check_in_at",
+                  "check_in_time",
+                  "check_out_at",
+                  "check_out_time",
+                  "worked_minutes",
+                  "status",
+                  "arrival",
+                  "work_mode",
+                  "note"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "today_editable": {
+            "type": "boolean"
+          },
+          "period_locked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "company_id",
+          "employee_id",
+          "employee_number",
+          "display_name",
+          "time_zone",
+          "today",
+          "from",
+          "to",
+          "rules",
+          "summary",
+          "records",
+          "now_time",
+          "today_record",
+          "today_editable",
+          "period_locked"
+        ],
+        "additionalProperties": false
+      },
+      "CreateHrSelfAttendancePunch": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "in",
+              "out"
+            ]
+          },
+          "time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "work_mode": {
+            "type": "string",
+            "enum": [
+              "office",
+              "remote"
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "company_id",
+          "direction",
+          "work_mode"
+        ],
+        "additionalProperties": false
+      },
+      "SaveHrSelfAttendanceDay": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "check_in": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+          },
+          "check_out": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "work_mode": {
+            "type": "string",
+            "enum": [
+              "office",
+              "remote"
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "company_id",
+          "check_in",
+          "work_mode"
+        ],
+        "additionalProperties": false
+      },
+      "HrEmployeeAttendanceRecords": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "employee_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "employee_number": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "time_zone": {
+            "type": "string"
+          },
+          "today": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "rules": {
+            "type": "object",
+            "properties": {
+              "minimum_work_minutes": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "half_day_below_minutes": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "late_after": {
+                "type": "string",
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+              },
+              "check_in_presets": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                }
+              },
+              "check_out_presets": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                }
+              }
+            },
+            "required": [
+              "minimum_work_minutes",
+              "half_day_below_minutes",
+              "late_after",
+              "check_in_presets",
+              "check_out_presets"
+            ],
+            "additionalProperties": false
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "recorded_days": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "completed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "early_leave": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "half_day": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "late": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "remote": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "worked_minutes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "recorded_days",
+              "completed",
+              "early_leave",
+              "half_day",
+              "late",
+              "remote",
+              "worked_minutes"
+            ],
+            "additionalProperties": false
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "on_date": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "check_in_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "check_in_time": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "check_out_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "check_out_time": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "worked_minutes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "completed",
+                    "early_leave",
+                    "half_day",
+                    "in_progress",
+                    "missing_check_out",
+                    "missing_check_in"
+                  ]
+                },
+                "arrival": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "on_time",
+                        "late"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "work_mode": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "office",
+                        "remote"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "on_date",
+                "check_in_at",
+                "check_in_time",
+                "check_out_at",
+                "check_out_time",
+                "worked_minutes",
+                "status",
+                "arrival",
+                "work_mode",
+                "note"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "company_id",
+          "employee_id",
+          "employee_number",
+          "display_name",
+          "time_zone",
+          "today",
+          "from",
+          "to",
+          "rules",
+          "summary",
+          "records"
+        ],
+        "additionalProperties": false
+      },
       "HrLeaveRequestQuery": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
@@ -86913,6 +88077,21 @@
               "additionalProperties": false
             }
           },
+          "code_previews": {
+            "type": "object",
+            "properties": {
+              "component": {
+                "type": "string"
+              },
+              "structure": {
+                "type": "string"
+              },
+              "loan": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
           "truncated": {
             "type": "boolean"
           }
@@ -86938,8 +88117,8 @@
                 "maxLength": 128
               },
               "reason": {
+                "default": "",
                 "type": "string",
-                "minLength": 1,
                 "maxLength": 500
               },
               "kind": {
@@ -87023,8 +88202,8 @@
                 "maxLength": 128
               },
               "reason": {
+                "default": "",
                 "type": "string",
-                "minLength": 1,
                 "maxLength": 500
               },
               "kind": {
@@ -87036,20 +88215,29 @@
                 "pattern": "^[A-Z0-9][A-Z0-9._/-]{0,31}$"
               },
               "name": {
+                "default": "",
                 "type": "string",
-                "minLength": 1,
                 "maxLength": 160
               },
               "description": {
+                "default": "",
                 "type": "string",
                 "maxLength": 1000
               },
               "currency_code": {
-                "type": "string",
-                "pattern": "^[A-Z]{3}$"
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "items": {
-                "minItems": 1,
+                "default": [],
                 "maxItems": 50,
                 "type": "array",
                 "items": {
@@ -87061,6 +88249,7 @@
                       "maxLength": 128
                     },
                     "amount": {
+                      "default": null,
                       "anyOf": [
                         {
                           "type": "string",
@@ -87072,6 +88261,7 @@
                       ]
                     },
                     "formula": {
+                      "default": null,
                       "anyOf": [
                         {
                           "type": "string",
@@ -87114,8 +88304,8 @@
                 "maxLength": 128
               },
               "reason": {
+                "default": "",
                 "type": "string",
-                "minLength": 1,
                 "maxLength": 500
               },
               "kind": {
@@ -87210,8 +88400,8 @@
                 "maxLength": 128
               },
               "reason": {
+                "default": "",
                 "type": "string",
-                "minLength": 1,
                 "maxLength": 500
               },
               "kind": {
@@ -87258,8 +88448,8 @@
                 "maxLength": 128
               },
               "reason": {
+                "default": "",
                 "type": "string",
-                "minLength": 1,
                 "maxLength": 500
               },
               "kind": {
@@ -87326,8 +88516,8 @@
             "maxLength": 128
           },
           "reason": {
+            "default": "",
             "type": "string",
-            "minLength": 1,
             "maxLength": 500
           },
           "section": {
@@ -106849,6 +108039,8 @@
             "type": "string",
             "enum": [
               "policy",
+              "policy_update",
+              "policy_delete",
               "open",
               "calculate",
               "submit",
@@ -106857,8 +108049,8 @@
             ]
           },
           "reason": {
+            "default": "",
             "type": "string",
-            "minLength": 1,
             "maxLength": 500
           },
           "expected_version": {
@@ -107122,6 +108314,9 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 128
+                },
+                "in_use": {
+                  "type": "boolean"
                 }
               },
               "required": [
@@ -110520,8 +111715,8 @@
                 ]
               },
               "reason": {
+                "default": "",
                 "type": "string",
-                "minLength": 1,
                 "maxLength": 500
               },
               "kind": {
@@ -110696,8 +111891,8 @@
                 ]
               },
               "reason": {
+                "default": "",
                 "type": "string",
-                "minLength": 1,
                 "maxLength": 500
               },
               "kind": {
@@ -110779,8 +111974,8 @@
             "type": "boolean"
           },
           "reason": {
+            "default": "",
             "type": "string",
-            "minLength": 1,
             "maxLength": 500
           }
         },

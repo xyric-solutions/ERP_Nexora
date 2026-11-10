@@ -172,7 +172,7 @@ test.describe("Wave 0 HR visual baseline", () => {
     await page.goto("/#/hr/shifts");
     await runJourney(page, "attendance", [
       { label: "Daily Attendance", pageId: "daily-attendance" },
-      { label: "Attendance Corrections", pageId: "attendance-corrections" },
+      { label: "Corrections", pageId: "attendance-corrections" },
       { label: "Monthly Attendance", pageId: "monthly-attendance" },
       { label: "Attendance Period Close", pageId: "attendance-period" },
       { label: "Attendance → Payroll Inputs", pageId: "attendance-payroll-inputs" },

@@ -2,7 +2,7 @@
 
 Generated from the active route renderer map. Regenerate with `npm run catalogue:generate`.
 
-Of 88 HR catalogue routes: 77 connect to API-backed views, 0 use read-only API views, 11 are navigation hubs, and 0 are mock or unlinked views.
+Of 90 HR catalogue routes: 79 connect to API-backed views, 0 use read-only API views, 11 are navigation hubs, and 0 are mock or unlinked views.
 
 Pages left to connect to an API: none in the current HR catalogue. Navigation hubs link to their connected child pages and do not need their own mutation API.
 
@@ -43,15 +43,17 @@ Source evidence: `app/shell/prototype-content.tsx` selects the renderers below; 
 | People | Employee Record | `/#/hr/employee-record` | `HrEmployeeRecordWorkspace` | API_CONNECTED_SOURCE |
 | People | Positions & Organisation | `/#/hr/positions-org` | `HrPositionsOrganizationWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Attendance & Leave | `/#/hr/attendance-workspace` | `HrOperationsWorkspace` | NAVIGATION_ONLY |
-| Attendance & Leave | Shifts & Rules | `/#/hr/shifts` | `HrShiftsWorkspace` | API_CONNECTED_SOURCE |
-| Attendance & Leave | Shift Assignments | `/#/hr/shift-assignments` | `HrShiftAssignmentsWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Check In / Out | `/#/hr/attendance-check-in` | `HrAttendanceCheckInWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Daily Attendance | `/#/hr/daily-attendance` | `HrDailyAttendanceWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Corrections | `/#/hr/attendance-corrections` | `HrAttendanceCorrectionsWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Overtime | `/#/hr/overtime` | `HrAttendanceCompletionWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Leave Types | `/#/hr/leave-types` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Leave Balances | `/#/hr/leave-balances` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Leave Request | `/#/hr/leave-requests` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Leave Approval | `/#/hr/leave-approval` | `HrTimeLeaveWorkspace` | API_CONNECTED_SOURCE |
-| Attendance & Leave | Daily Attendance | `/#/hr/daily-attendance` | `HrDailyAttendanceWorkspace` | API_CONNECTED_SOURCE |
-| Attendance & Leave | Attendance Corrections | `/#/hr/attendance-corrections` | `HrAttendanceCorrectionsWorkspace` | API_CONNECTED_SOURCE |
-| Attendance & Leave | Overtime | `/#/hr/overtime` | `HrAttendanceCompletionWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Shifts & Rules | `/#/hr/shifts` | `HrShiftsWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | Shift Assignments | `/#/hr/shift-assignments` | `HrShiftAssignmentsWorkspace` | API_CONNECTED_SOURCE |
+| Attendance & Leave | My Attendance | `/#/hr/my-attendance` | `HrMyAttendanceWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Monthly Attendance | `/#/hr/monthly-attendance` | `HrMonthlyAttendanceWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Attendance Period Close | `/#/hr/attendance-period` | `HrAttendanceCompletionWorkspace` | API_CONNECTED_SOURCE |
 | Attendance & Leave | Attendance → Payroll Inputs | `/#/hr/attendance-payroll-inputs` | `HrAttendanceCompletionWorkspace` | API_CONNECTED_SOURCE |

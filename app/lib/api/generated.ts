@@ -308,6 +308,10 @@ import type {
   HrCorrectionDetail,
   HrCorrectionResult,
   HrMonthlyAttendanceDirectory,
+  HrSelfAttendance,
+  CreateHrSelfAttendancePunch,
+  SaveHrSelfAttendanceDay,
+  HrEmployeeAttendanceRecords,
   HrDailyAttendanceDirectory,
   CreateHrEmployeeDraftRequest,
   UpdateHrEmployeeDraftRequest,
@@ -2550,6 +2554,34 @@ export class NexoraApiClient {
       body: JSON.stringify(input),
       headers: { "x-csrf-token": csrf, "idempotency-key": key },
     });
+  }
+  selfAttendance(query: string): Promise<HrSelfAttendance> {
+    return this.request("/api/v1/hr/self_service/attendance" + query);
+  }
+  createSelfAttendancePunch(
+    input: CreateHrSelfAttendancePunch,
+    csrf: string,
+    key: string,
+  ): Promise<HrAttendanceCompletionResult> {
+    return this.request("/api/v1/hr/self_service/attendance/punches", {
+      method: "POST",
+      body: JSON.stringify(input),
+      headers: { "x-csrf-token": csrf, "idempotency-key": key },
+    });
+  }
+  saveSelfAttendanceDay(
+    input: SaveHrSelfAttendanceDay,
+    csrf: string,
+    key: string,
+  ): Promise<HrAttendanceCompletionResult> {
+    return this.request("/api/v1/hr/self_service/attendance/day", {
+      method: "POST",
+      body: JSON.stringify(input),
+      headers: { "x-csrf-token": csrf, "idempotency-key": key },
+    });
+  }
+  employeeAttendanceRecords(query: string): Promise<HrEmployeeAttendanceRecords> {
+    return this.request("/api/v1/hr/attendance_records" + query);
   }
   selfLeaveContext(query: string): Promise<HrLeaveContext> {
     return this.request("/api/v1/hr/self_service/leave_context" + query);
