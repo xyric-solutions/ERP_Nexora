@@ -125,10 +125,13 @@ const requestFilterOptions = [
   { value: "submitted", label: "Submitted" },
 ] as const;
 /** Leave Approval: submitted requests by decision status (cancelled requests are not listed). */
-const approvalFilterOptions = (["pending", "approved", "rejected"] as const).map((value) => ({
-  value,
-  label: leaveStatusLabels[value]!,
-}));
+const approvalFilterOptions = [
+  { value: "all" as const, label: "All" },
+  ...(["pending", "approved", "rejected"] as const).map((value) => ({
+    value,
+    label: leaveStatusLabels[value]!,
+  })),
+];
 type LeaveListFilter = (typeof requestFilterOptions)[number]["value"] | (typeof approvalFilterOptions)[number]["value"];
 type LeaveStatusFilter = NonNullable<Parameters<HrApiClient["listLeaveRequests"]>[0]["status"]>;
 type LeaveAction = HrLeaveRequestActionRequest["action"];
@@ -1316,7 +1319,7 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
     props;
   const [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
-    [filter, setFilter] = useState<LeaveListFilter>(approval ? "pending" : "all"),
+    [filter, setFilter] = useState<LeaveListFilter>("all"),
     [offset, setOffset] = useState(0),
     [selected, setSelected] = useState(initial?.request_id ?? ""),
     [action, setAction] = useState<HrLeaveRequestActionRequest["action"] | "">(""),
