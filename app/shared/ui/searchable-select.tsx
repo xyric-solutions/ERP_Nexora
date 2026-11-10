@@ -25,6 +25,10 @@ export interface SearchableSelectProps {
   search?: string;
   onSearchChange?: (search: string) => void;
   footer?: React.ReactNode;
+  /** Optional shorter text for the closed trigger, e.g. a calling code instead of the full country name. */
+  valueLabel?: (option: SearchableSelectOption) => string;
+  /** Optional search placeholder; defaults to code-or-name wording. */
+  searchPlaceholder?: string;
 }
 
 /** A bounded directory selector. The search input exists only inside its popup. */
@@ -42,6 +46,8 @@ export function SearchableSelect({
   search,
   onSearchChange,
   footer,
+  valueLabel,
+  searchPlaceholder = "Search by code or name…",
 }: SearchableSelectProps) {
   const [localSearch, setLocalSearch] = useState("");
   const query = search ?? localSearch;
@@ -80,7 +86,7 @@ export function SearchableSelect({
         data-value={value}
         title={selected?.label}
       >
-        <span className="truncate">{selected?.label ?? placeholder}</span>
+        <span className="truncate">{selected ? (valueLabel ? valueLabel(selected) : selected.label) : placeholder}</span>
         <ChevronDownIcon data-icon="inline-end" />
       </Combobox.Trigger>
       <Combobox.Portal>
@@ -93,7 +99,7 @@ export function SearchableSelect({
               ref={input}
               render={<Input className="h-10" />}
               aria-label={searchLabel}
-              placeholder="Search by code or name…"
+              placeholder={searchPlaceholder}
               maxLength={160}
               autoComplete="off"
             />

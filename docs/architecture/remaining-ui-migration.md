@@ -1,5 +1,52 @@
 # Remaining UI migration checklist
 
+## 2026-11-10 — International customer form, customer panel, panel close on save
+
+- Customer form rebuilt (`app/features/sales/components/customer-*.tsx`,
+  `views/sales-customers-view.tsx`): only Overview mandatory; international
+  phone (searchable calling-code selector), structured billing/shipping
+  addresses with country selector and postal validation, tax + flexible
+  identification, extended payment terms & credit, multi-field bank accounts
+  (masked in summaries), notes and session-only attachments.
+- Customer list now shows type, contact, opening balance, outstanding, credit
+  limit and status; clicking a row opens a right-side panel (status, opening
+  balance, all sections). Old full-page customer record removed (deep links to
+  CUS- codes open the panel). Opening balance now feeds outstanding balance and
+  credit exposure.
+- Invoices: Save invoice / Create Invoice return to the list with no panel open;
+  Save Receipt closes the panel on success only.
+- Shared: `app/shared/constants/countries.ts`,
+  `app/shared/model/international-validation.ts`; optional `valueLabel` and
+  `searchPlaceholder` props added to `SearchableSelect` (backward compatible).
+- Verified: `tsc --noEmit`, focused ESLint, theme audit --check (0 exceptions),
+  `npm run build:web`, and an Edge walkthrough (15 checks, light/dark, 390px, no
+  console errors). Evidence: `tmp/customer-form-check/`.
+- Known: flag emoji render as two-letter codes on Windows. Still mock data; no
+  Customer API. No stylesheets retired.
+
+## 2026-11-10 — Simplified Sales, Revenue and Customers workspace
+
+- Added `app/features/sales` (Tailwind + shadcn primitives, no feature
+  stylesheet) implementing the approved "Nexora Simple Sales" artifact: Purchase-
+  style lists, entry forms and records with one next action; Delivery dialog;
+  invoice PDF viewer with real PDF download and sheet-only printing; Customer
+  Receipts; tabbed customer form; Returns & Control pages; Recurring Bills.
+- Sales, Revenue and Customers menus rebuilt in `prototype-data.ts`; new
+  `inline` menu groups (no "Selling" header) and `retiredPageRedirects` for old
+  deep links. Sidebar now renders each page link once (previously every group
+  listed its pages twice) and shows waiting counts on Pick, Pack & Delivery and
+  Sales Approvals. Commercial workspace now serves Purchases/Suppliers only.
+- Preserved: routes for all other modules, record deep links via `recordRef`,
+  keyboard row opening, focus states, light/dark tokens. Mock data only; no API.
+- Verified: `tsc --noEmit`, focused ESLint, theme audit (0 exceptions),
+  `git diff --check`, `npm run build:web`, and an Edge walkthrough on
+  localhost:3001 covering the full quotation→receipt flow, over-limit approval,
+  validation, five legacy redirects, dark theme and 390px width (no overflow,
+  no console errors). Evidence: `tmp/sales-impl-check/`.
+- No stylesheets retired. Safe resume: build the Customer API, then swap the
+  session store for a feature data adapter. Details:
+  `docs/architecture/sales-simplified-workflow.md`.
+
 ## 2026-11-02 — Sidebar search icon contrast
 
 - Set expanded and collapsed sidebar search SVGs to the semantic sidebar text
@@ -3605,3 +3652,32 @@ Company Chart adoption/review checkpoint (2026-10-20):
   the production build was unaffected. Safe resume point: authenticated desktop
   and narrow-width visual acceptance of the open transaction and recurring
   drawers when the local development runtime is available.
+
+## Sales quotations approval pass (10 Nov 2026)
+
+- Changed: `app/features/sales` model (types, constants, fixtures, workflow,
+  store counts), `sales-dialogs.tsx` (QuotationDecisionDialog/Buttons),
+  `sales-ui.tsx` (stopped tone, new status tones), document entry/list/record,
+  Sales Approvals, and new `views/sales-quotation-record.tsx`.
+- Tailwind + shadcn primitives only; no new stylesheet. Theme audit: 0 font,
+  0 colour exceptions.
+- Verified: `tsc --noEmit`, eslint on the sales feature, workflow rule script,
+  `git diff --check`, `npm run build:web`. Not yet verified in a browser at
+  desktop/tablet/mobile widths or in dark mode.
+- Resume point: browser pass over Quotations list, quotation record (each
+  status), New Quotation form and Sales Approvals.
+
+## Sales single-approval workflow pass (10 Nov 2026)
+
+- Changed: sales model (single Management approval that auto-confirms the order,
+  pick & pack step, invoice payments, notifications), new
+  `components/fulfilment-panel.tsx` and `components/invoice-panel.tsx` (shadcn
+  `Sheet`), rewritten order record and Pick, Pack & Delivery view, Sales
+  Approvals limited to quotations and returns, shell bell shows sales
+  notifications. Retired: `views/sales-receipts-view.tsx` (Customer Receipts
+  page, no remaining imports), `CreditDialog`, `DeliveryDialog`.
+- Verified: `tsc --noEmit`, eslint (sales + shell), workflow rule script,
+  theme audit (0 exceptions), `git diff --check`, `npm run build:web`.
+  Not yet verified in a browser.
+- Resume point: browser pass over quotation approval, Pick, Pack & Delivery
+  panel, invoice panel (desktop/tablet/mobile, light/dark), and the bell.

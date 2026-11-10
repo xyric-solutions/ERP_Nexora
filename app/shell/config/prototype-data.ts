@@ -25,6 +25,8 @@ export interface PrototypeMenuGroup {
   id: string;
   label: string;
   pages: readonly PrototypePage[];
+  /** Renders the pages directly under the module, without a group header. */
+  inline?: boolean;
 }
 
 export interface PrototypeModule {
@@ -46,7 +48,12 @@ const p = (
   status: PrototypePageStatus = "prototype",
   hiddenFromNavigation = false,
 ): PrototypePage => ({ id, label, archetype, status, hiddenFromNavigation });
-const g = (id: string, label: string, pages: readonly PrototypePage[]): PrototypeMenuGroup => ({ id, label, pages });
+const g = (id: string, label: string, pages: readonly PrototypePage[], inline = false): PrototypeMenuGroup => ({
+  id,
+  label,
+  pages,
+  inline,
+});
 
 export const prototypeModules = [
   {
@@ -138,30 +145,22 @@ export const prototypeModules = [
     code: "SL",
     label: "Sales & Billing",
     shortLabel: "Sales",
-    description: "Quotation-to-cash workspace for orders, fulfilment, invoicing, adjustments and commercial reporting.",
+    description: "Quotation-to-cash: quotations, sales orders, delivery, invoices and customer receipts.",
     category: "Finance & trade",
     modes: allModes,
+    // Simplified flow approved on 10 Nov 2026 (see docs/architecture/sales-simplified-workflow.md).
     groups: [
-      g("quotations", "Quotations", [
-        p("quotations", "All Quotations"),
-        p("add-quotation", "Add Quotation", "form"),
-        p("quotation-detail", "Quotation Detail", "detail"),
-      ]),
-      g("orders", "Sales Orders", [
-        p("sales-orders", "All Sales Orders"),
-        p("add-sales-order", "Add Sales Order", "form"),
-        p("sales-order-detail", "Sales Order Detail", "detail"),
-        p("pick-pack-delivery", "Pick, Pack & Delivery", "workflow"),
-      ]),
-      g("invoices", "Invoices", [
-        p("invoices", "All Invoices"),
-        p("add-invoice", "Add Invoice", "form"),
-        p("invoice-detail", "Invoice Detail", "detail"),
-        p("credit-note", "Credit Note", "form"),
-        p("debit-note", "Debit Note", "form"),
-        p("batch-invoice", "Batch Invoice", "form"),
-        p("proforma-invoice", "Proforma Invoice", "form"),
-      ]),
+      g(
+        "selling",
+        "Sales",
+        [
+          p("quotations", "Quotations"),
+          p("sales-orders", "Sales Orders"),
+          p("pick-pack-delivery", "Pick, Pack & Delivery"),
+          p("invoices", "Invoices"),
+        ],
+        true,
+      ),
       g("sales-control", "Returns & Control", [
         p("sales-returns", "Sales Returns"),
         p("pricing", "Pricing & Discounts", "settings"),
@@ -173,72 +172,22 @@ export const prototypeModules = [
   {
     id: "revenue",
     code: "RV",
-    label: "Revenue & Subscriptions",
+    label: "Revenue",
     shortLabel: "Revenue",
-    description: "Combined contract revenue, recurring billing, usage, renewals and revenue recognition prototype.",
+    description: "Recurring bills that create normal sales invoices on a fixed schedule.",
     category: "Finance & trade",
     modes: ["service", "trading"],
-    groups: [
-      g("revenue-contracts", "Revenue Contracts", [
-        p("revenue-contracts", "Contract Workspace"),
-        p("add-revenue-contract", "Add Revenue Contract", "form"),
-        p("performance-obligations", "Performance Obligations", "detail"),
-        p("transaction-price", "Transaction Price Allocation", "form"),
-        p("fulfilment-evidence", "Fulfilment Evidence", "detail"),
-      ]),
-      g("recognition", "Recognition", [
-        p("recognition-schedules", "Recognition Schedules"),
-        p("recognition-run", "Recognition Run", "workflow"),
-        p("recognition-exceptions", "Exceptions & Holds", "approval"),
-        p("contract-modifications", "Contract Modifications", "form"),
-        p("revenue-rollforward", "Revenue Roll-forward", "report"),
-      ]),
-      g("subscriptions", "Subscriptions", [
-        p("plans", "Plan Catalogue"),
-        p("plan-editor", "Plan Editor", "form"),
-        p("subscriptions", "Subscription Contracts"),
-        p("subscription-detail", "Subscription Detail", "detail"),
-        p("amend-subscription", "Amend, Pause or Cancel", "form"),
-        p("usage-ingestion", "Usage Validation", "workflow"),
-      ]),
-      g("recurring-billing", "Recurring Billing", [
-        p("billing-schedules", "Billing Schedules"),
-        p("billing-run", "Billing Run", "workflow"),
-        p("dunning", "Dunning & Recovery", "workflow"),
-        p("renewals", "Renewal & Churn Workspace"),
-        p("subscription-analytics", "MRR, ARR & Cohorts", "report"),
-      ]),
-    ],
+    groups: [g("recurring-billing", "Recurring Bills", [p("recurring-bills", "Recurring Bills")], true)],
   },
   {
     id: "customers",
     code: "AR",
-    label: "Customers / Accounts Receivable",
+    label: "Customers",
     shortLabel: "Customers",
-    description: "Customer master data, credit, open items, collections, statements and receivable control.",
+    description: "One customer list and one customer form with contact, tax, payment terms, credit limit and bank details.",
     category: "Finance & trade",
     modes: allModes,
-    groups: [
-      g("customer-master", "Customers", [
-        p("customers", "Customer Directory"),
-        p("add-customer", "Add Customer", "form"),
-        p("customer-profile", "Customer Financial Profile", "detail"),
-        p("credit-limit-review", "Credit Limit Review", "approval"),
-      ]),
-      g("receivables", "Receivables", [
-        p("open-items", "Open-item Ledger"),
-        p("customer-receipts", "Customer Receipts"),
-        p("add-customer-receipt", "Add Customer Receipt", "form"),
-        p("receipt-allocation", "Receipt & Credit Allocation", "workflow"),
-        p("refund-writeoff", "Refunds & Write-offs", "form"),
-      ]),
-      g("collections", "Collections", [
-        p("ar-ageing", "AR Ageing", "report"),
-        p("collections-disputes", "Collections & Disputes"),
-        p("customer-statements", "Customer Statements", "report"),
-        p("ar-reconciliation", "AR to GL Reconciliation", "workflow"),
-      ]),
-    ],
+    groups: [g("customer-master", "Customers", [p("customers", "Customers")], true)],
   },
   {
     id: "purchases",
@@ -1580,7 +1529,45 @@ export function findPrototypeModule(moduleId: string) {
   return prototypeModules.find((module) => module.id === moduleId) ?? prototypeModules[0];
 }
 
-export function findPrototypePage(moduleId: string, pageId?: string) {
+/**
+ * Pages retired by the simplified sales flow (10 Nov 2026). Old deep links
+ * from dashboards, AI insights and bookmarks open the page that replaced them
+ * instead of silently falling back to a module's first page.
+ */
+const retiredPageRedirects: Record<string, readonly [moduleId: string, pageId: string, recordRef?: string]> = {
+  "sales:add-quotation": ["sales", "quotations", "new"],
+  "sales:quotation-detail": ["sales", "quotations"],
+  "sales:add-sales-order": ["sales", "sales-orders", "new"],
+  "sales:sales-order-detail": ["sales", "sales-orders"],
+  "sales:add-invoice": ["sales", "invoices", "new"],
+  "sales:invoice-detail": ["sales", "invoices"],
+  "sales:credit-note": ["sales", "invoices"],
+  "sales:debit-note": ["sales", "invoices"],
+  "sales:batch-invoice": ["sales", "invoices"],
+  "sales:proforma-invoice": ["sales", "invoices"],
+  "customers:add-customer": ["customers", "customers", "new"],
+  "customers:customer-profile": ["customers", "customers"],
+  "customers:credit-limit-review": ["customers", "customers"],
+  "customers:open-items": ["sales", "invoices"],
+  // Customer receipts are recorded from the invoice panel (Save Receipt).
+  "sales:customer-receipts": ["sales", "invoices"],
+  "customers:customer-receipts": ["sales", "invoices"],
+  "customers:add-customer-receipt": ["sales", "invoices"],
+  "customers:receipt-allocation": ["sales", "invoices"],
+  "customers:refund-writeoff": ["sales", "invoices"],
+  "customers:ar-ageing": ["sales", "sales-reports"],
+  "customers:collections-disputes": ["sales", "sales-reports"],
+  "customers:collections-workbench": ["sales", "sales-reports"],
+  "customers:customer-statements": ["sales", "sales-reports"],
+  "customers:ar-reconciliation": ["sales", "sales-reports"],
+};
+
+export function findPrototypePage(
+  moduleId: string,
+  pageId?: string,
+): { module: PrototypeModule; group: PrototypeMenuGroup; page: PrototypePage; redirectRecordRef?: string } {
+  const redirect = pageId ? retiredPageRedirects[`${moduleId}:${pageId}`] : undefined;
+  if (redirect) return { ...findPrototypePage(redirect[0], redirect[1]), redirectRecordRef: redirect[2] };
   const selectedModule = findPrototypeModule(moduleId);
   const page =
     selectedModule.groups.flatMap((group) => group.pages).find((item) => item.id === pageId) ??

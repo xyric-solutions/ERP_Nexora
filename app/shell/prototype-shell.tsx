@@ -1,5 +1,6 @@
 "use client";
 import { compactHrWorkspaces } from "@prototype/features/hr/model/hr-section-navigation";
+import { markSalesNotificationRead, useSalesNavigationCounts, useSalesNotifications } from "@prototype/features/sales/model/sales-store";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -80,7 +81,7 @@ function readHashRoute(): RouteState {
   if (typeof window === "undefined") return initialRoute;
   const [moduleId, pageId, ...recordParts] = window.location.hash.replace(/^#\/?/, "").split("/");
   const resolved = findPrototypePage(moduleId || initialRoute.moduleId, pageId || initialRoute.pageId);
-  const recordRef = recordParts.length ? decodeURIComponent(recordParts.join("/")) : undefined;
+  const recordRef = recordParts.length ? decodeURIComponent(recordParts.join("/")) : resolved.redirectRecordRef;
   return { moduleId: resolved.module.id, pageId: resolved.page.id, recordRef };
 }
 
@@ -266,6 +267,10 @@ export function PrototypeShell({
   const current = useMemo(() => findPrototypePage(route.moduleId, route.pageId), [route]);
   const isCompactHrWorkspace = current.module.id === "hr" && Object.hasOwn(compactHrWorkspaces, current.group.id);
   const currentNavigationPageId = navigationPageId(current.module.id, current.page.id);
+  const salesNavigationCounts = useSalesNavigationCounts();
+  // Sales approval decisions notify the quotation creator (session-only prototype data).
+  const salesNotifications = useSalesNotifications();
+  const unreadSalesNotifications = salesNotifications.filter((item) => !item.read).length;
   const isCentralChartPage =
     current.module.id === "finance" && ["central-chart-template", "section-management"].includes(current.page.id);
   const isFiscalPeriodPage =
@@ -361,7 +366,7 @@ export function PrototypeShell({
     ) => {
       if (!confirmPaymentEntryDiscard(options?.bypassUnsavedGuard)) return;
       const resolved = findPrototypePage(moduleId, pageId);
-      const next = { moduleId: resolved.module.id, pageId: resolved.page.id, recordRef };
+      const next = { moduleId: resolved.module.id, pageId: resolved.page.id, recordRef: recordRef ?? resolved.redirectRecordRef };
       routeRef.current = next;
       paymentEntryDirtyRef.current = false;
       setPaymentEntryDirty(false);
@@ -789,6 +794,47 @@ export function PrototypeShell({
                                       </li>
                                     );
                                   }
+                                  const visiblePages = group.pages.filter((page) => !page.hiddenFromNavigation);
+                                  const pageLinks = visiblePages.map((page) => {
+                                    const isCurrent = module.id === current.module.id && page.id === currentNavigationPageId;
+                                    const count = module.id === "sales" ? (salesNavigationCounts[page.id] ?? 0) : 0;
+                                    return (
+                                      <li key={page.id}>
+                                        <button
+                                          className={`nx-submenu-link${isCurrent ? " nx-submenu-link--active" : ""}`}
+                                          aria-current={isCurrent ? "page" : undefined}
+                                          type="button"
+                                          onClick={() => navigate(module.id, page.id)}
+                                        >
+                                          <span>{page.label}</span>
+                                          {count ? (
+                                            <small
+                                              className="ml-auto min-w-5 rounded-full bg-[var(--nx-sidebar-accent)] px-1.5 text-center font-bold text-[var(--nx-action-text)]"
+                                              aria-label={`${count} waiting`}
+                                            >
+                                              {count}
+                                            </small>
+                                          ) : page.status === "in-progress" ? (
+                                            <small>In progress</small>
+                                          ) : page.status === "live" ? (
+                                            <small>Live</small>
+                                          ) : page.status === "read-only" ? (
+                                            <small>Read only</small>
+                                          ) : page.status !== "prototype" ? (
+                                            <small>Soon</small>
+                                          ) : null}
+                                        </button>
+                                      </li>
+                                    );
+                                  });
+                                  // Inline groups list their pages directly under the module, with no group header.
+                                  if (group.inline) {
+                                    return (
+                                      <li key={group.id}>
+                                        <ul className="nx-submenu__list">{pageLinks}</ul>
+                                      </li>
+                                    );
+                                  }
                                   const groupKey = `${module.id}:${group.id}`;
                                   const groupOpen = expandedGroups.has(groupKey) || group.id === current.group.id;
                                   return (
@@ -802,56 +848,7 @@ export function PrototypeShell({
                                         <span>{group.label}</span>
                                         <i className="nx-submenu-button__chevron" />
                                       </button>
-                                      {groupOpen ? (
-                                        <ul className="nx-submenu__list">
-                                          {group.pages.map((page) => (
-                                            <li key={page.id}>
-                                              <button
-                                                className={`nx-submenu-link${page.id === current.page.id ? " nx-submenu-link--active" : ""}`}
-                                                aria-current={page.id === current.page.id ? "page" : undefined}
-                                                type="button"
-                                                onClick={() => navigate(module.id, page.id)}
-                                              >
-                                                <span>{page.label}</span>
-                                                {page.status === "in-progress" ? (
-                                                  <small>In progress</small>
-                                                ) : page.status === "live" ? (
-                                                  <small>Live</small>
-                                                ) : page.status === "read-only" ? (
-                                                  <small>Read only</small>
-                                                ) : page.status !== "prototype" ? (
-                                                  <small>Soon</small>
-                                                ) : null}
-                                              </button>
-                                            </li>
-                                          ))}
-                                          {group.pages
-                                            .filter((page) => !page.hiddenFromNavigation)
-                                            .map((page) => (
-                                              <li key={page.id}>
-                                                <button
-                                                  className={`nx-submenu-link${page.id === currentNavigationPageId ? " nx-submenu-link--active" : ""}`}
-                                                  aria-current={
-                                                    page.id === currentNavigationPageId ? "page" : undefined
-                                                  }
-                                                  type="button"
-                                                  onClick={() => navigate(module.id, page.id)}
-                                                >
-                                                  <span>{page.label}</span>
-                                                  {page.status === "in-progress" ? (
-                                                    <small>In progress</small>
-                                                  ) : page.status === "live" ? (
-                                                    <small>Live</small>
-                                                  ) : page.status === "read-only" ? (
-                                                    <small>Read only</small>
-                                                  ) : page.status !== "prototype" ? (
-                                                    <small>Soon</small>
-                                                  ) : null}
-                                                </button>
-                                              </li>
-                                            ))}
-                                        </ul>
-                                      ) : null}
+                                      {groupOpen ? <ul className="nx-submenu__list">{pageLinks}</ul> : null}
                                     </li>
                                   );
                                 })}
@@ -961,7 +958,7 @@ export function PrototypeShell({
                 onClick={() => setDialog({ type: "notifications" })}
               >
                 <Bell className="h-[1em] w-[1em]" aria-hidden="true" />
-                <span className="nx-icon-button__badge">3</span>
+                <span className="nx-icon-button__badge">{3 + unreadSalesNotifications}</span>
               </button>
               {headerControls}
             </div>
@@ -1091,7 +1088,7 @@ export function PrototypeShell({
                             {current.group.label}
                           </button>
                         </li>
-                      ) : current.group.label !== current.page.label ? (
+                      ) : !current.group.inline && current.group.label !== current.page.label ? (
                         <li>{current.group.label}</li>
                       ) : null}
                       <li aria-current="page">{current.page.label}</li>
@@ -1120,7 +1117,11 @@ export function PrototypeShell({
                   onSuccess={(message) =>
                     pushToast(
                       "success",
-                      isLiveFinanceChartPage ? "Finance updated successfully" : "Bank updated successfully",
+                      isLiveFinanceChartPage
+                        ? "Finance updated successfully"
+                        : ["sales", "revenue", "customers"].includes(current.module.id)
+                          ? `${current.module.shortLabel} updated successfully`
+                          : "Bank updated successfully",
                       message,
                     )
                   }
@@ -1192,7 +1193,7 @@ export function PrototypeShell({
                 </section>
               ) : (
                 <section className="nx-submenu-drawer__group" key={group.id}>
-                  <h3 className="nx-submenu-drawer__group-title">{group.label}</h3>
+                  {group.inline ? null : <h3 className="nx-submenu-drawer__group-title">{group.label}</h3>}
                   {group.pages
                     .filter((page) => !page.hiddenFromNavigation)
                     .map((page) => (
@@ -1361,6 +1362,26 @@ export function PrototypeShell({
             </div>
             <div className="nx-modal__body">
               <div className="nx-notification-list">
+                {salesNotifications.map((notification) => (
+                  <button
+                    type="button"
+                    key={notification.id}
+                    onClick={() => {
+                      setDialog(null);
+                      markSalesNotificationRead(notification.id);
+                      navigate("sales", "quotations", notification.code);
+                    }}
+                  >
+                    <i className={`nx-notification-dot nx-notification-dot--${notification.tone}`} />
+                    <span>
+                      <strong>{notification.title}</strong>
+                      <small>{notification.message}</small>
+                      <em>
+                        For {notification.to} · {notification.at} · {notification.read ? "Read" : "New"}
+                      </em>
+                    </span>
+                  </button>
+                ))}
                 {notifications.map((notification) => (
                   <button
                     type="button"

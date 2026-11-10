@@ -47,7 +47,8 @@ const commercialPages = new Set([
   "customer-receipts", "add-customer-receipt", "receipt-allocation",
 ]);
 export function isCommercialMaturityPage(moduleId: string, pageId: string): boolean {
-  return ["sales", "purchases", "customers", "suppliers"].includes(moduleId) && commercialPages.has(pageId);
+  // Sales and Customers moved to features/sales (simplified flow, 10 Nov 2026).
+  return ["purchases", "suppliers"].includes(moduleId) && commercialPages.has(pageId);
 }
 
 function definitionFor(pageId: string): CommercialDefinition {

@@ -124,6 +124,7 @@ import { HrLifecyclePoliciesWorkspace } from "@prototype/features/hr/views/hr-li
 import { HrBenefitsWorkspace, benefitsPages } from "@prototype/features/hr/views/hr-benefits-workspace";
 import { HrReportingWorkspace, isHrReportingPage } from "@prototype/features/hr/views/hr-reporting-workspace";
 import { CommercialWorkspace, isCommercialMaturityPage } from "@prototype/features/commerce/views/commercial-workspace";
+import { isSalesWorkspacePage, SalesWorkspace } from "@prototype/features/sales/views/sales-workspace";
 import { MasterDataForm, isMatureMasterDataForm } from "@prototype/features/master-data/views/master-data-form";
 import { RecordPreviewDrawer } from "@prototype/features/commerce/components/record-preview-drawer";
 import { isReportsWorkspacePage, ReportsWorkspace } from "@prototype/features/reports/views/reports-workspace";
@@ -3055,6 +3056,11 @@ export function PrototypeContent(props: PrototypeContentProps) {
 
   if (isMatureMasterDataForm(context.pageId)) {
     return <MasterDataForm context={context} onAction={onAction} onNavigate={props.onNavigate} />;
+  }
+
+  // Simplified Sales, Revenue and Customers workspace (approved 10 Nov 2026).
+  if (isSalesWorkspacePage(context.moduleId, context.pageId)) {
+    return <SalesWorkspace context={context} onNavigate={props.onNavigate} />;
   }
 
   if (isCommercialMaturityPage(context.moduleId, context.pageId)) {
