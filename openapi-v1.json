@@ -54568,6 +54568,17 @@
           },
           {
             "in": "query",
+            "name": "stage",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "preparation",
+                "decided"
+              ]
+            }
+          },
+          {
+            "in": "query",
             "name": "offset",
             "schema": {
               "type": "integer",
@@ -55133,6 +55144,18 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 100
+            }
+          },
+          {
+            "in": "query",
+            "name": "available_for_offer",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "default": "false"
             }
           },
           {

@@ -4816,3 +4816,25 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Verification: app + API `tsc`, HR unit tests 93/93, OpenAPI snapshot,
   `build:web`, theme audit. Not run: integration tests (55433 test DB) and
   a browser click-through.
+
+## 2026-11-10 — Offer pages split by status, compact offer rows
+
+- Offer Management shows only offers being prepared: filters All / Draft /
+  Submitted (All = draft + submitted, server `stage=preparation`).
+- Create Employee from Offer shows only decided offers: filters All /
+  Approved / Rejected / Withdrawn (All = every state after submitted,
+  including earlier generated/sent/accepted records; `stage=decided`).
+  The page still opens on Approved.
+- Prepare offer lists only Selected applications without an open or
+  approved offer (`available_for_offer=true`, the same rule as the server
+  blocker), so the "offer already exists" blocker no longer appears for
+  candidates already offered.
+- Both offer tables are denser: `px-3 py-1.5` cells, candidate and offer
+  reference on one line, narrower minimum width.
+- Contract/OpenAPI: `stage` on `listHrOffers`, `available_for_offer` on
+  `listHrApplications`; snapshot regenerated. Both optional and backward
+  compatible.
+- Verification: contracts build, app + API `tsc`, `build:web`,
+  `git diff --check`, theme audit --check, and a repository check against
+  the local database (`tmp/demo/offer-filters-smoke.ts`). Not run: browser
+  click-through.

@@ -1,14 +1,20 @@
 /**
- * Offer statuses shown in filters (Offer Management and Create Employee from Offer):
- * Draft -> Submitted -> Approved or Rejected, or Withdrawn. Earlier generated/sent/accepted/
- * declined/expired records keep their stored state and appear under "All".
+ * Offer status filters. Offer Management works on offers still being prepared
+ * (Draft, Submitted); Create Employee from Offer works on decided offers
+ * (Approved, Rejected, Withdrawn). "All" on each page means all of that page's
+ * statuses; earlier generated/sent/accepted/declined/expired records appear
+ * under "All" on the Create Employee page.
  */
-export const offerStates = ["draft", "submitted", "approved", "rejected", "withdrawn"] as const;
-export type OfferFilter = "all" | (typeof offerStates)[number];
-export const offerFilterOptions: readonly { value: OfferFilter; label: string }[] = [
+export type OfferStage = "preparation" | "decided";
+export type PreparationOfferFilter = "all" | "draft" | "submitted";
+export type DecidedOfferFilter = "all" | "approved" | "rejected" | "withdrawn";
+export const preparationOfferFilterOptions: readonly { value: PreparationOfferFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "draft", label: "Draft" },
   { value: "submitted", label: "Submitted" },
+];
+export const decidedOfferFilterOptions: readonly { value: DecidedOfferFilter; label: string }[] = [
+  { value: "all", label: "All" },
   { value: "approved", label: "Approved" },
   { value: "rejected", label: "Rejected" },
   { value: "withdrawn", label: "Withdrawn" },

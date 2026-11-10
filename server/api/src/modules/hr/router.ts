@@ -559,7 +559,7 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
     res.json(await handle(async()=>dependencies.repository.getOfferContext(await loadHrSessionContext(req,dependencies),input)));
   });
   router.get("/recruitment_offers",async(req,res)=>{
-    const input=hrOfferQuerySchema.parse({company_id:req.query.company_id,search:req.query.search,state:req.query.state,limit:req.query.limit===undefined?undefined:Number(req.query.limit),offset:req.query.offset===undefined?undefined:Number(req.query.offset)});
+    const input=hrOfferQuerySchema.parse({company_id:req.query.company_id,search:req.query.search,state:req.query.state,stage:req.query.stage,limit:req.query.limit===undefined?undefined:Number(req.query.limit),offset:req.query.offset===undefined?undefined:Number(req.query.offset)});
     res.json(await handle(async()=>dependencies.repository.listOffers(await loadHrSessionContext(req,dependencies),input)));
   });
   router.get("/recruitment_offers/:offerId",async(req,res)=>{
@@ -579,7 +579,7 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
     res.json(await handle(async()=>dependencies.repository.performOfferAction(await loadHrSessionContext(req,dependencies,true),id,input,idempotencyKey(req),currentRequestContext().correlationId)));
   });
   router.get("/applications", async (req, res) => {
-    const query = hrApplicationQuerySchema.parse({ company_id: req.query.company_id, search: req.query.search, stage: req.query.stage, limit: req.query.limit === undefined ? undefined : Number(req.query.limit), offset: req.query.offset === undefined ? undefined : Number(req.query.offset) });
+    const query = hrApplicationQuerySchema.parse({ company_id: req.query.company_id, search: req.query.search, stage: req.query.stage, available_for_offer: req.query.available_for_offer, limit: req.query.limit === undefined ? undefined : Number(req.query.limit), offset: req.query.offset === undefined ? undefined : Number(req.query.offset) });
     res.json(await handle(async () => dependencies.repository.listApplications(await loadHrSessionContext(req, dependencies), query)));
   });
   router.post("/applications", async (req, res) => {

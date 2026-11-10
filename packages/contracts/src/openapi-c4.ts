@@ -5296,6 +5296,7 @@ export function buildOpenApiDocument() {
                 ],
               },
             },
+            { in: "query", name: "stage", schema: { type: "string", enum: ["preparation", "decided"] } },
             { in: "query", name: "offset", schema: { type: "integer", minimum: 0, maximum: 100000 } },
             { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 100 } },
           ],
@@ -5424,6 +5425,7 @@ export function buildOpenApiDocument() {
               },
             },
             { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 100 } },
+            { in: "query", name: "available_for_offer", schema: { type: "string", enum: ["true", "false"], default: "false" } },
             { in: "query", name: "offset", schema: { type: "integer", minimum: 0, maximum: 100000 } },
           ],
           responses: {

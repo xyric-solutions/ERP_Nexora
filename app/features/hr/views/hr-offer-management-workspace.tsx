@@ -22,7 +22,7 @@ import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { employmentSetupOptionLabel, payCycleLabel, paymentRouteLabel } from "../model/employment-setup";
 import { HrEditButton } from "../components/hr-icon-buttons";
-import { offerFilterOptions, offerMoney, type OfferFilter } from "../model/hr-offer-display";
+import { offerMoney, preparationOfferFilterOptions, type PreparationOfferFilter } from "../model/hr-offer-display";
 import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import {
@@ -324,7 +324,7 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
     [selectedId, setSelectedId] = useState(""),
     [detail, setDetail] = useState<HrOfferDetail | null>(null);
   const [search, setSearch] = useState(""),
-    [stateFilter, setStateFilter] = useState<OfferFilter>("all"),
+    [stateFilter, setStateFilter] = useState<PreparationOfferFilter>("all"),
     [decision, setDecision] = useState<OfferAction | "">(""),
     [filter, setFilter] = useState({ search: "", state: "", offset: 0 });
   const [loading, setLoading] = useState(true),
@@ -368,7 +368,7 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
     const seq = ++listSeq.current;
     setLoading(true);
     try {
-      const r = await client.offers({ companyId, ...filter });
+      const r = await client.offers({ companyId, ...filter, stage: "preparation" });
       if (seq === listSeq.current) {
         setDirectory(r);
         setSelectedId((id) => (r.items.some((item) => item.id === id) ? id : ""));
@@ -440,7 +440,7 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
     if (editor !== "new" || !companyId) return;
     let cancelled = false;
     client
-      .applications({ companyId, stage: "selected", search: appQuery || undefined, limit: 100 })
+      .applications({ companyId, stage: "selected", availableForOffer: true, search: appQuery || undefined, limit: 100 })
       .then((r) => {
         if (!cancelled) {
           setApplications(r.items);
@@ -655,10 +655,10 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
           </Button>
         ) : null}
       </form>
-      <HrMasterStatusFilter<OfferFilter>
+      <HrMasterStatusFilter<PreparationOfferFilter>
         label="Offer status"
         value={stateFilter}
-        options={offerFilterOptions}
+        options={preparationOfferFilterOptions}
         onChange={(value) => {
           setStateFilter(value);
           setError("");
@@ -689,7 +689,7 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
                 }}
               >
                 <option value="" disabled>
-                  {applications.length ? "Select a candidate" : "No candidates have reached Selected"}
+                  {applications.length ? "Select a candidate" : "No selected candidates are waiting for an offer"}
                 </option>
                 {applications.map((app) => (
                   <option key={app.id} value={app.id}>
@@ -730,14 +730,14 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-200 border-collapse text-left text-sm" aria-label="Offer register">
+            <table className="w-full min-w-160 border-collapse text-left text-sm" aria-label="Offer register">
               <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3">Candidate</th>
-                  <th className="px-4 py-3">Opening</th>
-                  <th className="px-4 py-3">Monthly gross</th>
-                  <th className="px-4 py-3">Valid until</th>
-                  <th className="px-4 py-3">Status</th>
+                  <th className="whitespace-nowrap px-3 py-2">Candidate</th>
+                  <th className="whitespace-nowrap px-3 py-2">Opening</th>
+                  <th className="whitespace-nowrap px-3 py-2">Monthly gross</th>
+                  <th className="whitespace-nowrap px-3 py-2">Valid until</th>
+                  <th className="whitespace-nowrap px-3 py-2">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -748,16 +748,16 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
                     className={`cursor-pointer border-b border-border/70 transition-colors last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${item.id === selectedId ? "bg-primary/5" : ""}`}
                     {...openRow(item)}
                   >
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-foreground">{item.candidate_name}</p>
-                      <p className="font-mono text-xs text-muted-foreground">{item.reference}</p>
+                    <td className="px-3 py-1.5">
+                      <span className="font-medium text-foreground">{item.candidate_name}</span>
+                      <span className="ml-2 font-mono text-xs text-muted-foreground">{item.reference}</span>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{item.opening_title}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
+                    <td className="px-3 py-1.5 text-muted-foreground">{item.opening_title}</td>
+                    <td className="px-3 py-1.5 text-muted-foreground">
                       {money(item.proposed_gross, item.currency_code)}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{item.valid_until}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-1.5 text-muted-foreground">{item.valid_until}</td>
+                    <td className="px-3 py-1.5">
                       <Badge variant={item.is_overdue ? "destructive" : "secondary"}>
                         {item.is_overdue && ["draft", "submitted"].includes(item.state) ? "Overdue" : label(item.state)}
                       </Badge>

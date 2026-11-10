@@ -29,7 +29,7 @@ import {
   HrStatusPill,
   hrDisplayDate,
 } from "../components/hr-detail-tile";
-import { offerFilterOptions, offerMoney, type OfferFilter } from "../model/hr-offer-display";
+import { decidedOfferFilterOptions, offerMoney, type DecidedOfferFilter } from "../model/hr-offer-display";
 
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
 const selectClass =
@@ -112,7 +112,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
   const [company, setCompany] = useState("");
   const [search, setSearch] = useState("");
   const [applied, setApplied] = useState("");
-  const [stateFilter, setStateFilter] = useState<OfferFilter>(initialOfferId ? "all" : "approved");
+  const [stateFilter, setStateFilter] = useState<DecidedOfferFilter>(initialOfferId ? "all" : "approved");
   const [offset, setOffset] = useState(0);
   const [offers, setOffers] = useState<HrOfferDirectory>({ items: [], total: 0 });
   const [selected, setSelected] = useState(initialOfferId ?? "");
@@ -153,7 +153,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
     let current = true;
     setLoading(true);
     client
-      .offers({ companyId: company, state: stateFilter === "all" ? undefined : stateFilter, search: applied || undefined, offset })
+      .offers({ companyId: company, stage: "decided", state: stateFilter === "all" ? undefined : stateFilter, search: applied || undefined, offset })
       .then((result) => {
         if (current) {
           setOffers(result);
@@ -362,10 +362,10 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
           />
         </label>
       </form>
-      <HrMasterStatusFilter<OfferFilter>
+      <HrMasterStatusFilter<DecidedOfferFilter>
         label="Offer status"
         value={stateFilter}
-        options={offerFilterOptions}
+        options={decidedOfferFilterOptions}
         onChange={(value) => {
           setStateFilter(value);
           setOffset(0);
@@ -387,14 +387,14 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-200 border-collapse text-left text-sm" aria-label="Offers">
+              <table className="w-full min-w-160 border-collapse text-left text-sm" aria-label="Offers">
                 <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3">Candidate</th>
-                    <th className="px-4 py-3">Opening</th>
-                    <th className="px-4 py-3">Joining date</th>
-                    <th className="px-4 py-3">Monthly gross</th>
-                    <th className="px-4 py-3">Offer status</th>
+                    <th className="whitespace-nowrap px-3 py-2">Candidate</th>
+                    <th className="whitespace-nowrap px-3 py-2">Opening</th>
+                    <th className="whitespace-nowrap px-3 py-2">Joining date</th>
+                    <th className="whitespace-nowrap px-3 py-2">Monthly gross</th>
+                    <th className="whitespace-nowrap px-3 py-2">Offer status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -405,16 +405,16 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
                       className={`cursor-pointer border-b border-border/70 transition-colors last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selected === o.id ? "bg-primary/5" : ""}`}
                       {...openRow(o)}
                     >
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-foreground">{o.candidate_name}</p>
-                        <p className="font-mono text-xs text-muted-foreground">{o.reference}</p>
+                      <td className="px-3 py-1.5">
+                        <span className="font-medium text-foreground">{o.candidate_name}</span>
+                        <span className="ml-2 font-mono text-xs text-muted-foreground">{o.reference}</span>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{o.opening_title}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{o.joining_on}</td>
-                      <td className="px-4 py-3 text-muted-foreground">
+                      <td className="px-3 py-1.5 text-muted-foreground">{o.opening_title}</td>
+                      <td className="px-3 py-1.5 text-muted-foreground">{o.joining_on}</td>
+                      <td className="px-3 py-1.5 text-muted-foreground">
                         {offerMoney(o.proposed_gross, o.currency_code)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-1.5">
                         <Badge
                           variant={o.state === "approved" ? "secondary" : "outline"}
                         >

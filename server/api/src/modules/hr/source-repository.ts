@@ -1515,6 +1515,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       const values: unknown[] = [context.tenantId, query.company_id];
       const filters = ["a.tenant_id=$1", "a.company_id=$2"];
       if (query.stage) { values.push(query.stage); filters.push(`a.stage=$${values.length}`); }
+      // Same rule as the offer-context blocker: no open or approved offer may already exist.
+      if (query.available_for_offer === "true") filters.push("not exists(select 1 from hr_recruitment_offer existing where existing.tenant_id=a.tenant_id and existing.application_id=a.id and existing.state in ('draft','submitted','approved','generated','sent','accepted'))");
       if (query.search) { values.push(`%${query.search}%`); filters.push(`(a.reference ilike $${values.length} or concat_ws(' ',c.first_name,c.last_name) ilike $${values.length} or c.email ilike $${values.length} or o.title ilike $${values.length})`); }
       const joins = "from hr_recruitment_application a join hr_candidate c on c.tenant_id=a.tenant_id and c.id=a.candidate_id join hr_job_opening o on o.tenant_id=a.tenant_id and o.id=a.opening_id";
       const count = await client.query<{total: number}>(`select count(*)::int as total ${joins} where ${filters.join(" and ")}`, values);
@@ -1755,6 +1757,9 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       const values:unknown[]=[context.tenantId,query.company_id],filters=["o.tenant_id=$1","o.company_id=$2"];
       if(query.search){values.push(`%${query.search}%`);filters.push(`(o.reference ilike $${values.length} or concat_ws(' ',c.first_name,c.last_name) ilike $${values.length} or j.title ilike $${values.length})`);}
       if(query.state){values.push(query.state);filters.push(`o.state=$${values.length}`);}
+      // preparation = Offer Management (draft/submitted); decided = Create Employee from Offer (everything after).
+      if(query.stage==='preparation')filters.push(`o.state in ('draft','submitted')`);
+      if(query.stage==='decided')filters.push(`o.state not in ('draft','submitted')`);
       const count=await client.query<{total:number}>(`select count(*)::int as total ${this.offerJoins()} where ${filters.join(" and ")}`,values);
       values.push(query.limit,query.offset);
       const result=await client.query<HrOfferDirectory["items"][number] & {created_at:Date}>(`select ${this.offerColumns()} ${this.offerJoins()} where ${filters.join(" and ")} order by o.created_at desc,o.id desc limit $${values.length-1} offset $${values.length}`,values);

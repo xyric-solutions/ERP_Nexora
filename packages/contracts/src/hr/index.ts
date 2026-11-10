@@ -792,7 +792,7 @@ export const hrApplicationTransitions: Readonly<Record<z.infer<typeof hrApplicat
   application: ["screening", "rejected", "withdrawn"], screening: ["shortlisted", "rejected", "withdrawn"], shortlisted: ["interview", "rejected", "withdrawn"],
   interview: ["evaluation", "rejected", "withdrawn"], evaluation: ["rejected", "withdrawn"], selected: ["rejected", "withdrawn"], hired: [], rejected: [], withdrawn: [],
 };
-export const hrApplicationQuerySchema = z.strictObject({ company_id: identifier, search: z.string().trim().max(160).optional(), stage: hrApplicationStageSchema.optional(), limit: z.number().int().min(1).max(100).default(100), offset: z.number().int().min(0).max(100000).default(0) });
+export const hrApplicationQuerySchema = z.strictObject({ company_id: identifier, search: z.string().trim().max(160).optional(), stage: hrApplicationStageSchema.optional(), available_for_offer: z.enum(["true", "false"]).default("false"), limit: z.number().int().min(1).max(100).default(100), offset: z.number().int().min(0).max(100000).default(0) });
 export const hrApplicationSchema = z.strictObject({
   id: identifier, company_id: identifier, reference: z.string(), candidate_id: identifier, candidate_name: z.string(), candidate_email: z.string(), opening_id: identifier, opening_title: z.string(), opening_reference: z.string(),
   stage: hrApplicationStageSchema, created_at: z.string().datetime(), updated_at: z.string().datetime(),
@@ -853,7 +853,7 @@ export type HrInterviewActionRequest = z.infer<typeof hrInterviewActionRequestSc
 export type HrInterviewActionResult = z.infer<typeof hrInterviewActionResultSchema>;
 
 export const hrOfferStateSchema = z.enum(["draft","submitted","approved","generated","sent","accepted","declined","rejected","expired","withdrawn"]);
-export const hrOfferQuerySchema = z.strictObject({company_id:identifier,search:z.string().trim().max(160).optional(),state:hrOfferStateSchema.optional(),limit:z.number().int().min(1).max(100).default(50),offset:z.number().int().min(0).max(100000).default(0)});
+export const hrOfferQuerySchema = z.strictObject({company_id:identifier,search:z.string().trim().max(160).optional(),state:hrOfferStateSchema.optional(),stage:z.enum(["preparation","decided"]).optional(),limit:z.number().int().min(1).max(100).default(50),offset:z.number().int().min(0).max(100000).default(0)});
 export const hrOfferScopeQuerySchema = z.strictObject({company_id:identifier});
 export const hrOfferContextQuerySchema = z.strictObject({company_id:identifier,application_id:identifier});
 export const hrOfferContextSchema = z.strictObject({application_id:identifier,application_reference:z.string(),candidate_name:z.string(),company_name:z.string(),opening_id:identifier,opening_title:z.string(),opening_reference:z.string(),requisition_id:identifier,requisition_reference:z.string(),designation_id:identifier,designation:z.string(),job_grade_id:identifier,job_grade:z.string(),employment_setup_id:identifier,employment_setup:z.string(),payment_route:hrPaymentRouteSchema,pay_cycle:hrPayCycleSchema,branch_id:identifier.nullable(),branch:z.string().nullable(),project:z.string().nullable(),hiring_basis:hrHiringBasisSchema.nullable(),department_id:identifier,department:z.string(),salary_minimum:z.string(),salary_maximum:z.string(),currency_code:z.string(),positions_authorized:z.number().int(),positions_reserved:z.number().int(),today:isoDate,blockers:z.array(z.string())});
