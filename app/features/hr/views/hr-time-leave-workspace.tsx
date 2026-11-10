@@ -1547,7 +1547,8 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
             {action.includes("_") && request.self_decision_requires_override && (
               <label htmlFor="leave-approval-override" className="flex items-start gap-2 text-sm">
                 <Checkbox id="leave-approval-override" checked={override} onCheckedChange={(v) => setOverride(v === true)} />
-                I explicitly acknowledge an audited super-administrator override of actor separation.
+                I acknowledge an audited super-administrator override (deciding for the routed manager or overriding
+                approver separation).
               </label>
             )}
             <HrDrawerActions>

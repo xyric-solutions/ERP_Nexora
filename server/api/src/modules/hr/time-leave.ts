@@ -47,6 +47,14 @@ const policyColumns = `id,version_number,effective_from::text,effective_to::text
 const requestColumns = `r.id,r.reference,r.company_id,r.employee_id,e.employee_number,concat_ws(' ',e.first_name,e.middle_name,e.last_name) as display_name,r.leave_type_id,t.name as leave_type,t.paid,r.from_date::text,r.to_date::text,r.requested_days::text,r.reason,r.document_id,r.status,r.version,r.workflow_managed,r.requested_by,r.submitted_by,r.manager_user_id,r.manager_decided_by,r.hr_decided_by,r.subject_user_ids,r.requires_hr_approval,r.review_source_hash`;
 const operational = (date: string) =>
   `((a.assignment_status='legacy_compatibility' or (a.assignment_status='ended' and a.employment_relationship_id is null)) or (a.assignment_status in ('active','ended') and er.approval_state='approved' and (er.status='active' or ${date}<current_date)))`;
+/** True when the actor is not the routed manager of a pending-manager request but may override on their behalf. */
+function leaveManagerOnBehalf(c: HrActorContext, r: Pick<HrLeaveRequestSummary, "status" | "manager_user_id">): boolean {
+  return (
+    r.status === "pending_manager" &&
+    r.manager_user_id !== c.actor.userId &&
+    c.actor.permissions.includes("platform.approval.override")
+  );
+}
 export class TimeLeave {
   private readonly writes: AttendanceCompletion;
   constructor(
@@ -884,7 +892,9 @@ export class TimeLeave {
         ...(["pending_hr", "approved"].includes(r.status) ? [r.manager_decided_by ?? ""] : []),
         ...(r.status === "approved" ? [r.hr_decided_by ?? ""] : []),
       ],
-      locked = context?.blockers.some((b) => b.includes("locked attendance")) ?? true;
+      locked = context?.blockers.some((b) => b.includes("locked attendance")) ?? true,
+      // HR141: a super administrator may decide the manager stage for the routed manager, as an audited override.
+      onBehalf = leaveManagerOnBehalf(c, r);
     if (r.workflow_managed && !locked) {
       if (r.status === "approved" && this.has(c, "hr.leave.request.cancel")) {
         const policy = evaluateApprovalActor({
@@ -909,26 +919,27 @@ export class TimeLeave {
         this.has(c, "hr.leave.request.submit")
       )
         actions.push("submit");
-      if ((r.status === "pending_manager" && r.manager_user_id === c.actor.userId) || r.status === "pending_hr")
+      if ((r.status === "pending_manager" && (r.manager_user_id === c.actor.userId || onBehalf)) || r.status === "pending_hr")
         for (const decision of ["approve", "reject"] as const) {
           const action = `${r.status === "pending_manager" ? "manager" : "hr"}_${decision}` as const,
             policy = evaluateApprovalActor({
               account: c.actor,
               normalDecisionPermission: `hr.leave.request.${action}`,
-              makerActorIds: makers,
+              // Deciding for the routed manager is always an audited override.
+              makerActorIds: onBehalf ? [...makers, c.actor.userId] : makers,
               impersonated: Boolean(c.impersonationRequestId || (c.realActorId && c.realActorId !== c.actor.userId)),
             });
           if (
             policy.kind !== "forbidden" &&
             (decision === "reject" ||
-              (context && !context.blockers.length && context.manager_user_id === r.manager_user_id))
+              (context && !context.blockers.length && (onBehalf || context.manager_user_id === r.manager_user_id)))
           )
             actions.push(action);
         }
     }
     return {
       allowed_actions: this.personal ? actions.filter((a) => a === "submit" || a === "cancel") : actions,
-      self_decision_requires_override: this.personal ? false : makers.includes(c.actor.userId),
+      self_decision_requires_override: this.personal ? false : makers.includes(c.actor.userId) || onBehalf,
     };
   }
   async listLeaveRequests(c: HrActorContext, q: HrLeaveRequestQuery): Promise<HrLeaveRequestDirectory> {
@@ -1212,6 +1223,7 @@ export class TimeLeave {
               ...before.subject_user_ids,
               ...context.subject_user_ids,
               ...(action.startsWith("hr_") ? [before.manager_decided_by ?? ""] : []),
+              ...(action.startsWith("manager_") && leaveManagerOnBehalf(c, before) ? [c.actor.userId] : []),
             ],
             permission = `hr.leave.request.${action}`,
             impersonated = Boolean(c.impersonationRequestId || (c.realActorId && c.realActorId !== c.actor.userId)),
