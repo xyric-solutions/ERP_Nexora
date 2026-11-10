@@ -123,6 +123,23 @@ const text = (r: Row, k: string): string | null =>
           ].join("-")
         : (r[k] as Date).toISOString()
       : String(r[k]);
+/** Standard audit reasons used when the optional reason is left blank (at least five characters). */
+const defaultCreateReason = {
+  component: "Pay component created.",
+  structure: "Salary structure created.",
+  salary: "Salary revision created.",
+  adjustment: "Payroll input created.",
+  loan: "Loan or advance created.",
+} as const;
+const defaultActionReason = {
+  submit: "Submitted for approval.",
+  approve: "Approved.",
+  reject: "Rejected.",
+  cancel: "Cancelled.",
+  activate: "Activated.",
+  deactivate: "Deactivated.",
+  confirm_disbursement: "Disbursement confirmed.",
+} as const;
 const sectionFor = {
   component: "components",
   structure: "structures",
@@ -565,6 +582,8 @@ export class PayrollWorkspace {
     key: string,
     corr: string,
   ): Promise<HrPayrollMutationResult> {
+    // Reason is optional; the audit trail records a standard reason when it is left blank.
+    input = { ...input, reason: input.reason || defaultCreateReason[input.kind] };
     const section = sectionFor[input.kind],
       permission = this.permission(section, "manage");
     return this.runWrite(
@@ -628,7 +647,8 @@ export class PayrollWorkspace {
         } else if (input.kind === "structure") {
           await client.query(
             `insert into hr_salary_structure(id,tenant_id,company_id,code,name,description,currency_code,created_by,workflow_managed) values($1,$2,$3,$4,$5,$6,$7,$8,true)`,
-            [id, tenant, company, input.code, input.name, input.description, input.currency_code, actor],
+            // A structure saved without a name is named by its automatic code.
+            [id, tenant, company, input.code, input.name || input.code, input.description, input.currency_code, actor],
           );
           const sources = [];
           for (const item of input.items)
@@ -641,12 +661,18 @@ export class PayrollWorkspace {
           const variables = new Set(["PAID_DAYS", "UNPAID_DAYS", "CALENDAR_DAYS"]);
           let pos = 0;
           for (const { item, component } of sources) {
-            if ((component.method === "fixed") !== (item.amount !== null))
+            // Amount and formula are optional: a fixed component defaults to 0 and a formula
+            // component to its own formula.
+            const fixed = component.method === "fixed";
+            if (fixed ? item.formula !== null : item.amount !== null)
               fail("Structure items must use the component calculation method.");
+            const amount = fixed ? (item.amount ?? "0") : null,
+              formula = fixed ? null : (item.formula ?? String(component.formula ?? ""));
+            if (!fixed && !formula) fail("The formula component has no formula to use.");
             if (item.formula) validatePayrollFormula(item.formula, variables);
             await client.query(
               `insert into hr_salary_structure_item(tenant_id,structure_id,component_id,amount,formula_override,position) values($1,$2,$3,$4,$5,$6)`,
-              [tenant, id, item.component_id, item.amount, item.formula, ++pos],
+              [tenant, id, item.component_id, amount, formula, ++pos],
             );
             variables.add(String(component.code));
           }
@@ -780,6 +806,7 @@ export class PayrollWorkspace {
     key: string,
     corr: string,
   ): Promise<HrPayrollMutationResult> {
+    input = { ...input, reason: input.reason || defaultActionReason[input.action] };
     const section = input.section,
       permission = this.permission(
         section,

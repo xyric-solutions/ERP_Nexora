@@ -588,8 +588,9 @@ export class SourceHrRepository {
   private payrollWorkspace(){return new PayrollWorkspace(this.payrollDependencies());}
   private overtimeMoney(){return new PayrollOvertimeSetup(this.payrollDependencies());}
   async getOvertimeMoneyWorkspace(c:HrActorContext,q:HrOvertimeMoneyQuery):Promise<HrOvertimeMoneyWorkspace>{return this.overtimeMoney().workspace(c,q);}
-  async createOvertimeMoney(c:HrActorContext,input:CreateHrOvertimeMoney,key:string,corr:string){return this.overtimeMoney().create(c,input,key,corr);}
-  async decideOvertimeMoney(c:HrActorContext,id:string,input:HrOvertimeMoneyDecision,key:string,corr:string){return this.overtimeMoney().action(c,id,input,key,corr);}
+  // The overtime reason is optional; a standard reason is recorded when it is left blank.
+  async createOvertimeMoney(c:HrActorContext,input:CreateHrOvertimeMoney,key:string,corr:string){return this.overtimeMoney().create(c,{...input,reason:input.reason||(input.kind==='policy'?'Overtime policy created.':'Employee assigned to overtime policy.')},key,corr);}
+  async decideOvertimeMoney(c:HrActorContext,id:string,input:HrOvertimeMoneyDecision,key:string,corr:string){const standard={submit:'Submitted for approval.',approve:'Approved.',reject:'Rejected.',release:'Released.'} as const;return this.overtimeMoney().action(c,id,{...input,reason:input.reason||standard[input.action]},key,corr);}
   private localization(){return new PayrollLocalizationSetup(this.payrollDependencies(),this.statutoryMode);}
   async getPayrollLocalization(c:HrActorContext,q:HrLocalizationQuery){return this.localization().workspace(c,q);}
   async createPayrollLocalization(c:HrActorContext,input:CreateHrLocalization,key:string,corr:string){return this.localization().create(c,input,key,corr);}

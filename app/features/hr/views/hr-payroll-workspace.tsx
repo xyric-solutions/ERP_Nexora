@@ -217,17 +217,24 @@ function RecordEditor({
         position: Number(form.position),
       };
     else if (section === "structures")
+      // Every structure field is optional; rows without a component are left out and blank
+      // amounts or formulas fall back to the component's own terms on the server.
       input = {
         ...common,
         code: form.code,
         name: form.name,
         description: form.description,
-        currency_code: form.currency_code,
-        items: items.map((i) => ({
-          component_id: i.component_id,
-          amount: options?.components.find((c) => c.id === i.component_id)?.method === "fixed" ? i.amount : null,
-          formula: options?.components.find((c) => c.id === i.component_id)?.method === "formula" ? i.formula : null,
-        })),
+        currency_code: form.currency_code.trim().toUpperCase() || null,
+        items: items
+          .filter((i) => i.component_id)
+          .map((i) => {
+            const method = options?.components.find((c) => c.id === i.component_id)?.method;
+            return {
+              component_id: i.component_id,
+              amount: method === "fixed" && i.amount.trim() ? i.amount.trim() : null,
+              formula: method === "formula" && i.formula.trim() ? i.formula.trim() : null,
+            };
+          }),
       };
     else if (section === "salaries")
       input = {
@@ -268,22 +275,13 @@ function RecordEditor({
     if (await save(parsed.data, (key) => client.createPayrollRecord(parsed.data, csrf(), key))) onClose();
   }
   return (
-    <section className={panel + " border-primary/30"} aria-label="New Payroll record">
-      <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-primary">New record</div>
-          <h2 className="mt-1 text-lg font-semibold">{name(kinds[section])}</h2>
-        </div>
-        <Button variant="outline" onClick={onClose} disabled={busy}>
-          Close editor
-        </Button>
-      </header>
+    <section className="grid min-w-0" aria-label="New Payroll record">
       <form className="grid gap-5" onSubmit={submit}>
         <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0! md:grid-cols-2">
           {["components", "structures"].includes(section) && (
             <>
               {field("code", "Code")}
-              {field("name", "Name")}
+              {field("name", "Name", "text", section !== "structures")}
             </>
           )}
           {section === "components" && (
@@ -340,7 +338,8 @@ function RecordEditor({
               />
             </>
           )}
-          {["structures", "salaries", "loans"].includes(section) && field("currency_code", "Currency (ISO code)")}
+          {["structures", "salaries", "loans"].includes(section) &&
+            field("currency_code", "Currency (ISO code)", "text", section !== "structures")}
           {["salaries", "adjustments", "loans"].includes(section) && (
             <>
               <Field title="Find employee">
@@ -438,6 +437,7 @@ function RecordEditor({
                 >
                   <Pick
                     title={"Component " + (index + 1)}
+                    required={false}
                     value={item.component_id}
                     change={(v) =>
                       setItems((s) => s.map((i, n) => (n === index ? { component_id: v, amount: "", formula: "" } : i)))
@@ -447,7 +447,6 @@ function RecordEditor({
                   <Field title={method === "formula" ? "Formula " + (index + 1) : "Amount " + (index + 1)}>
                     <Input
                       value={method === "formula" ? item.formula : item.amount}
-                      required
                       onChange={(e) =>
                         setItems((s) =>
                           s.map((i, n) =>
@@ -480,7 +479,6 @@ function RecordEditor({
         )}
         <Field title="Reason">
           <Textarea
-            required
             maxLength={500}
             value={form.reason}
             disabled={busy}
@@ -495,16 +493,9 @@ function RecordEditor({
             records.
           </p>
         )}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">
-            {section === "components" || section === "structures"
-              ? "Configuration is saved with immutable terms."
-              : "Creates a draft. Submission and independent approval follow separately."}
-          </p>
+        <div className="flex justify-end">
           <Button className="text-primary-foreground!" type="submit" disabled={busy || !options}>
-            {busy
-              ? "Saving…"
-              : "Save " + (section === "components" || section === "structures" ? "configuration" : "draft")}
+            {busy ? "Saving…" : "Save"}
           </Button>
         </div>
       </form>
@@ -594,9 +585,6 @@ function RecordDetail({
             <State value={record.status} />
           </div>
         </div>
-        <Button variant="outline" onClick={close} disabled={busy}>
-          Close details
-        </Button>
       </header>
       <dl className="mt-5 grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Object.entries(record.details)
@@ -816,7 +804,9 @@ export function HrPayrollWorkspace({
     client = useMemo(() => new HrApiClient(api), [api]),
     [section, , group] = payrollPages[page],
     permissions = session?.user.permissions ?? [],
-    canRead = permissions.includes("hr.payroll." + group + ".read");
+    canRead = permissions.includes("hr.payroll." + group + ".read"),
+    /** Pay Components, Salary Structures and Salary Revisions keep only the toolbar and the records. */
+    payDesign = page === "payroll-setup" || page === "salary-structures" || page === "salary-revisions";
   const [choice, setCompany] = useState(initial?.company_id ?? ""),
     [month, setMonth] = useState(initial?.month ?? localDate().slice(0, 7) + "-01"),
     [search, setSearch] = useState(""),
@@ -916,24 +906,6 @@ export function HrPayrollWorkspace({
           </Field>
         </div>
       </section>
-      {section === "components" && company && (
-        <details className={panel}>
-          <summary className="cursor-pointer font-semibold">
-            Monetary overtime policies &amp; employee arrangements
-          </summary>
-          <div className="mt-5">
-            <HrPayrollOvertimeSetup key={company} company={company} onDate={month} />
-          </div>
-        </details>
-      )}
-      {section === "components" && company && (
-        <details className={panel}>
-          <summary className="cursor-pointer font-semibold">Statutory company &amp; employee setup</summary>
-          <div className="mt-5">
-            <HrPayrollLocalizationSetup key={company} company={company} onDate={month} />
-          </div>
-        </details>
-      )}
       <Message error={companies.error || records.error || options.error || error} />
       {notice && (
         <div
@@ -943,7 +915,7 @@ export function HrPayrollWorkspace({
           {notice}
         </div>
       )}
-      {records.data?.notices.map((text, i) => (
+      {!payDesign && records.data?.notices.map((text, i) => (
         <p
           key={i}
           className="rounded-lg border border-border bg-muted/40 p-3 text-sm leading-relaxed text-muted-foreground"
@@ -951,7 +923,7 @@ export function HrPayrollWorkspace({
           {text}
         </p>
       ))}
-      <div className="grid gap-3 sm:grid-cols-3">
+      {!payDesign && <div className="grid gap-3 sm:grid-cols-3">
         <Metric title="Matching records" value={records.data?.total ?? "—"} hint="Authorized company records" />
         <Metric
           title="Current view"
@@ -963,12 +935,16 @@ export function HrPayrollWorkspace({
           value={month.slice(0, 7)}
           hint="Attendance, salary and Finance share the same period"
         />
-      </div>
+      </div>}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <Layers3 className="h-5 w-5 text-primary" />
-          {payrollPages[page][1]}
-        </h2>
+        {payDesign ? (
+          <span />
+        ) : (
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <Layers3 className="h-5 w-5 text-primary" />
+            {payrollPages[page][1]}
+          </h2>
+        )}
         <div className="flex flex-wrap gap-2">
           {section === "adjustments" && (
             <Button
@@ -987,15 +963,14 @@ export function HrPayrollWorkspace({
               onClick={() => setEditing(true)}
             >
               <Plus className="h-4 w-4" />
-              New {name(kinds[section as keyof typeof kinds])}
+              {section === "components" ? "New pay component" : `New ${name(kinds[section as keyof typeof kinds])}`}
             </Button>
           )}
         </div>
       </div>
       {editing ? (
         <HrRecordDrawer
-          title={`New ${name(kinds[section as keyof typeof kinds])}`}
-          description="Create the governed Payroll record without leaving the current register."
+          title={section === "components" ? "New pay component" : `New ${name(kinds[section as keyof typeof kinds])}`}
           open
           busy={busy}
           error={error}
@@ -1129,6 +1104,19 @@ export function HrPayrollWorkspace({
             </Button>
           </div>
         </div>
+      )}
+      {section === "components" && company && (
+        <section className={panel} aria-label="Overtime pay">
+          <HrPayrollOvertimeSetup key={company} company={company} onDate={month} />
+        </section>
+      )}
+      {section === "components" && company && (
+        <details className={panel}>
+          <summary className="cursor-pointer font-semibold">Statutory company &amp; employee setup</summary>
+          <div className="mt-5">
+            <HrPayrollLocalizationSetup key={company} company={company} onDate={month} />
+          </div>
+        </details>
       )}
     </div>
   );

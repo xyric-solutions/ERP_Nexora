@@ -207,13 +207,13 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
         <div>
           <h3 className="flex items-center gap-2 text-lg font-semibold">
             <ShieldCheck className="h-5 w-5 text-primary" />
-            Monetary overtime
+            Overtime pay
           </h3>
         </div>
         {data?.can_create && (
           <Button onClick={() => open(null)} className="text-primary-foreground!">
             <Plus className="h-4 w-4" />
-            {section === "policies" ? "New monetary policy" : "New employee arrangement"}
+            {section === "policies" ? "New overtime policy" : "Assign employee to policy"}
           </Button>
         )}
       </header>
@@ -227,7 +227,7 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
             setOffset(0);
           }}
         >
-          Company policies
+          Overtime policies
         </Button>
         <Button
           variant={section === "arrangements" ? "secondary" : "outline"}
@@ -238,7 +238,7 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
             setOffset(0);
           }}
         >
-          Employee arrangements
+          Employee assignments
         </Button>
       </div>
       <div className="grid min-w-0 items-end gap-3 sm:grid-cols-[1fr_auto]">
@@ -362,8 +362,8 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
           form?.row
             ? "Review monetary overtime"
             : form?.kind === "policy"
-              ? "New monetary overtime policy"
-              : "New employee overtime arrangement"
+              ? "New overtime policy"
+              : "Assign employee to overtime policy"
         }
         description={
           form?.row
@@ -546,16 +546,15 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
             )}
             {(!form.row || !!form.row.allowed_actions.length) && (
               <>
-                <Field title="Monetary change reason">
+                <Field title="Reason">
                   <Textarea
-                    required
                     maxLength={500}
                     disabled={busy}
                     value={form.values.reason}
                     onChange={(e) => change("reason", e.target.value)}
                   />
                 </Field>
-                <Button type="submit" disabled={busy} className="justify-self-start text-primary-foreground!">
+                <Button type="submit" disabled={busy} className="justify-self-end text-primary-foreground!">
                   {busy ? "Saving…" : form.row ? "Confirm monetary decision" : "Save monetary draft"}
                 </Button>
               </>

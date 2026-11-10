@@ -4868,3 +4868,36 @@ Company Chart adoption/review checkpoint (2026-10-20):
   pre-existing user-management failures), wizard test extended for
   Location/Project, repository smoke `tmp/demo/joining-filters-smoke.ts`.
   Not run: browser click-through, integration tests.
+
+## 2026-11-10 — Pay Design pages simplified, optional structure fields and reasons
+
+- Pay Components, Salary Structures and Salary Revisions keep only the
+  Company / Payroll month / Search toolbar and the records: the page heading,
+  workspace notices and the three summary cards are hidden on these pages
+  (other Payroll pages are unchanged).
+- Pay Components: the overtime setup is shown directly (no collapsible) and
+  renamed for clarity — "Overtime pay", tabs "Overtime policies" / "Employee
+  assignments", buttons "New overtime policy" / "Assign employee to policy";
+  "New Component" became "New pay component". Statutory setup stays a
+  collapsible section.
+- Record editor: the "Close editor" header and the "Close details" button are
+  removed (the drawer's own close remains); helper text removed; Save is
+  right-aligned.
+- New Structure: every field optional (contract + server). A blank name uses
+  the automatic code, currency may be empty, rows without a component are
+  dropped, a fixed component defaults to 0 and a formula component to its own
+  formula.
+- Reason is optional for every Payroll record create/action and for overtime
+  policies/assignments (no "Optional" label). When blank the server records a
+  standard reason (e.g. "Salary structure created.", "Approved."), so audit
+  events stay non-blank. Migration HR145 relaxes
+  `hr_payroll_workspace_event_reason_check` from 5 to 1 character (applied
+  locally as a direct ALTER because HR144 from parallel work is not yet in the
+  ledger; the runner applies HR145 normally after HR144).
+- OpenAPI snapshot not regenerated in this batch: `openapi-v1.json` currently
+  also carries uncommitted parallel work; regenerate it once that lands.
+- Verification: contracts build, app + API `tsc`, `build:web`, theme audit,
+  unit tests 1104/1106 (two pre-existing user-management failures), and a
+  rolled-back repository check (`tmp/demo/payroll-optional-smoke.ts`: empty
+  structure saved as SAL-001 with a standard audit reason). Not run: browser
+  click-through, integration tests.
