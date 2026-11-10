@@ -4744,3 +4744,20 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Verification: rendered drafts list, monthly modal, period bar (light/dark)
   with built CSS in Edge; tsc, ESLint (no new unused findings), unit tests
   1104/1106 (2 pre-existing user-management failures), production build.
+
+## 2026-11-10 - HR140 Location -> Project -> Department
+
+- Organisation Structure now reads Company -> Location -> Project ->
+  Department (stored types unchanged: `division` = Location, `branch` =
+  Project). "Add organization unit" asks only for a name for a Location; a
+  Project also needs a Location; a Department needs a Location and then a
+  Project filtered to that Location. The parent is derived from those picks.
+- API `assertOrganizationParentType`: Location under company (or legacy
+  business unit), Project under Location, Department under Project. Edits that
+  keep the current parent are not re-checked, so units placed under the
+  earlier order can still be renamed; moving them must follow the new order.
+- HR140 migration: placement coherence ranks Location above Project; holiday
+  and requisition branch checks accept a Project anywhere in the company.
+- Verification: `tsc` (API), `npm run build:web`, HR unit tests (57/57),
+  theme audit `--check`, migration applied locally (hr 140). Browser
+  click-through of the new form not yet recorded.

@@ -871,7 +871,8 @@ export class SourceHrRepository {
       } else if (operation === "update") {
         const update = input as UpdateHrOrganizationUnitRequest;
         const parentType = await this.requireOrganizationParent(client, context, update.company_id, update.parent_id);
-        this.assertOrganizationParentType(before.type, parentType);
+        // Units placed under the earlier hierarchy keep their parent on a rename.
+        if (update.parent_id !== before.parent_id) this.assertOrganizationParentType(before.type, parentType);
         await client.query(`update organization_unit set parent_id=$3,code=$4,name=$5,updated_at=now() where tenant_id=$1 and id=$2`, [context.tenantId, unitId, update.parent_id, update.code.toUpperCase(), update.name]);
       } else {
         const change = input as ChangeHrOrganizationUnitStatusRequest;
@@ -925,14 +926,17 @@ export class SourceHrRepository {
   }
 
   private assertOrganizationParentType(childType: string, parentType: string): void {
-    // Company -> Project (branch) -> Location (division) -> Department. Business
-    // units and warehouses are legacy levels kept for existing records.
+    // Company -> Location (division) -> Project (branch) -> Department. A
+    // Location sits under the company, a Project under a Location and a
+    // Department under a Project. Business units and warehouses are legacy
+    // levels kept for existing records. Existing units whose parent is not
+    // being changed are not re-checked (see the update path).
     const allowedParents: Record<string, readonly string[]> = {
       business_unit: ["company"],
-      branch: ["company", "business_unit"],
-      division: ["company", "business_unit", "branch"],
-      department: ["company", "business_unit", "branch", "division"],
-      warehouse: ["company", "business_unit", "branch", "division"],
+      division: ["company", "business_unit"],
+      branch: ["division"],
+      department: ["branch"],
+      warehouse: ["company", "business_unit", "division", "branch"],
     };
     if (!allowedParents[childType]?.includes(parentType))
       throw new HrApiError(409, "HR_ORGANIZATION_PARENT_TYPE_INVALID", `A ${childType} cannot report to a ${parentType}.`);

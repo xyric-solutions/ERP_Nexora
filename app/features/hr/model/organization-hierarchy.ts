@@ -5,9 +5,9 @@ export type OrganizationUnitType = Unit["type"];
 export type OrganizationParentType = OrganizationUnitType | "company";
 
 /**
- * Organisation Structure reads Company -> Project -> Location -> Department.
- * Stored types are unchanged: "branch" is shown as Project and "division" as
- * Location. Business units and warehouses are legacy levels: existing records
+ * Organisation Structure reads Company -> Location -> Project -> Department.
+ * Stored types are unchanged: "division" is shown as Location and "branch" as
+ * Project. Business units and warehouses are legacy levels: existing records
  * still display, but they are no longer offered for new units.
  */
 export const organizationUnitTypeLabels: Record<OrganizationUnitType, string> = {
@@ -19,35 +19,39 @@ export const organizationUnitTypeLabels: Record<OrganizationUnitType, string> = 
 };
 
 /** Unit types offered when creating a unit, in hierarchy order. */
-export const selectableOrganizationUnitTypes = ["branch", "division", "department"] as const satisfies readonly OrganizationUnitType[];
+export const selectableOrganizationUnitTypes = ["division", "branch", "department"] as const satisfies readonly OrganizationUnitType[];
 
 /** Top-down order used wherever several levels are listed together. */
 export const organizationHierarchyOrder: readonly OrganizationUnitType[] = [
   "business_unit",
-  "branch",
   "division",
+  "branch",
   "department",
   "warehouse",
 ];
 
-/** Mirrors the API parent-type rule; the server remains the authority. */
+/**
+ * Mirrors the API parent-type rule for new or re-parented units; the server
+ * remains the authority. A Location sits under the company, a Project under a
+ * Location and a Department under a Project.
+ */
 const allowedParents: Record<OrganizationUnitType, readonly OrganizationParentType[]> = {
   business_unit: ["company"],
-  branch: ["company", "business_unit"],
-  division: ["company", "business_unit", "branch"],
-  department: ["company", "business_unit", "branch", "division"],
-  warehouse: ["company", "business_unit", "branch", "division"],
+  division: ["company", "business_unit"],
+  branch: ["division"],
+  department: ["branch"],
+  warehouse: ["company", "business_unit", "division", "branch"],
 };
 
 export function canReportTo(childType: OrganizationUnitType, parentType: OrganizationParentType): boolean {
   return allowedParents[childType].includes(parentType);
 }
 
-/** The usual next level beneath a parent: Project under a company, then Location, then Department. */
+/** The usual next level beneath a parent: Location under a company, then Project, then Department. */
 export function defaultChildType(parentType: OrganizationParentType): OrganizationUnitType {
-  if (parentType === "branch") return "division";
-  if (parentType === "division") return "department";
-  return "branch";
+  if (parentType === "division") return "branch";
+  if (parentType === "branch") return "department";
+  return "division";
 }
 
 /** True when `unitId` is `ancestorId` itself or sits anywhere beneath it. */

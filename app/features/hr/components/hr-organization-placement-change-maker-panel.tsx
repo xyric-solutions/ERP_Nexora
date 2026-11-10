@@ -32,9 +32,9 @@ const placementKeys: Record<PlacementType, keyof HrOrganizationPlacementSnapshot
   department: "department_id",
   warehouse: "warehouse_id",
 };
-/** Company -> Project -> Location -> Department; legacy levels follow their hierarchy position. */
+/** Company -> Location -> Project -> Department; legacy levels follow their hierarchy position. */
 const allLevels: Array<{ type: PlacementType; key: keyof HrOrganizationPlacementSnapshot; label: string }> = (
-  ["business_unit", "branch", "division", "department", "warehouse"] as const
+  ["business_unit", "division", "branch", "department", "warehouse"] as const
 ).map((type) => ({ type, key: placementKeys[type], label: organizationUnitTypeLabels[type] }));
 
 function localDate(): string {

@@ -34,7 +34,23 @@ import {
 } from "../model/organization-hierarchy";
 
 type Unit = HrOrganizationUnitDirectory["items"][number];
-type Editor = { mode: "create" | "edit"; parentId: string; type: UnitType; code: string; name: string };
+/**
+ * A Location reports into the company, a Project into a Location and a
+ * Department into a Project. `parentId` is derived from the Location/Project
+ * picks; on edit it starts as the unit's current parent so a rename never
+ * re-parents a unit placed under the earlier hierarchy.
+ */
+type Editor = {
+  mode: "create" | "edit";
+  parentId: string;
+  locationId: string;
+  projectId: string;
+  type: UnitType;
+  code: string;
+  name: string;
+};
+const selectClass =
+  "h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm font-normal disabled:cursor-not-allowed disabled:opacity-50";
 
 export function HrOrganizationStructureSheetWorkspace() {
   const { api, csrfToken, session, loading: sessionLoading, refresh: refreshSession } = useSession();
@@ -107,6 +123,23 @@ export function HrOrganizationStructureSheetWorkspace() {
       organizationUnitPrefixes[type],
       units.map((unit) => unit.code),
     );
+  /** Nearest ancestor of `type`, including the unit itself. */
+  const ancestorOfType = (unitId: string, type: UnitType) => {
+    const visited = new Set<string>();
+    let current = units.find((unit) => unit.id === unitId);
+    while (current && !visited.has(current.id)) {
+      if (current.type === type) return current.id;
+      visited.add(current.id);
+      const parentId: string = current.parent_id;
+      current = units.find((unit) => unit.id === parentId);
+    }
+    return "";
+  };
+  /** Parent implied by the Location/Project picks for the levels this form manages. */
+  const derivedParent = (type: UnitType, locationId: string, projectId: string) =>
+    type === "division" ? companyId : type === "branch" ? locationId : type === "department" ? projectId : "";
+  const activeOfType = (type: UnitType) =>
+    units.filter((unit) => unit.type === type && unit.status === "active" && unit.id !== selected?.id);
   const closeSheet = () => {
     if (!saving) {
       setEditor(null);
@@ -118,7 +151,17 @@ export function HrOrganizationStructureSheetWorkspace() {
     parentType: UnitType | "company" = selected?.type ?? "company",
   ) => {
     const type = defaultChildType(parentType);
-    setEditor({ mode: "create", parentId, type, code: generatedCode(type), name: "" });
+    const locationId = parentType === "company" ? "" : ancestorOfType(parentId, "division");
+    const projectId = parentType === "company" ? "" : ancestorOfType(parentId, "branch");
+    setEditor({
+      mode: "create",
+      parentId: derivedParent(type, locationId, projectId),
+      locationId,
+      projectId,
+      type,
+      code: generatedCode(type),
+      name: "",
+    });
     setMessage("");
   };
   const openEdit = () =>
@@ -126,13 +169,22 @@ export function HrOrganizationStructureSheetWorkspace() {
     setEditor({
       mode: "edit",
       parentId: selected.parent_id,
+      locationId: ancestorOfType(selected.parent_id, "division"),
+      projectId: ancestorOfType(selected.parent_id, "branch"),
       type: selected.type,
       code: selected.code,
       name: selected.name,
     });
   const save = async () => {
-    if (!editor || !companyId || !editor.parentId || !editor.name.trim()) {
-      setMessage("Parent and name are required.");
+    if (!editor || !companyId) return;
+    const missing = [
+      !editor.parentId && editor.type === "branch" ? "location" : "",
+      !editor.parentId && editor.type === "department" ? (editor.locationId ? "project" : "location and project") : "",
+      !editor.parentId && !["branch", "department"].includes(editor.type) ? "parent" : "",
+      !editor.name.trim() ? "name" : "",
+    ].filter(Boolean);
+    if (missing.length) {
+      setMessage(`Choose or enter the ${missing.join(" and ")}.`);
       return;
     }
     setSaving(true);
@@ -386,25 +438,16 @@ export function HrOrganizationStructureSheetWorkspace() {
                     Unit type
                     <select
                       id="organization-unit-type"
-                      className="h-10 rounded-md border border-input bg-background px-3"
+                      className={selectClass}
                       value={editor.type}
                       onChange={(event) => {
                         const type = event.target.value as UnitType;
-                        const parentType =
-                          editor.parentId === companyId
-                            ? "company"
-                            : units.find((unit) => unit.id === editor.parentId)?.type;
+                        // Location and Project picks carry over between types.
                         setEditor({
                           ...editor,
                           type,
                           code: generatedCode(type),
-                          // Keep the chosen parent while it can still hold this type.
-                          parentId:
-                            parentType && canReportTo(type, parentType)
-                              ? editor.parentId
-                              : canReportTo(type, "company")
-                                ? companyId
-                                : "",
+                          parentId: derivedParent(type, editor.locationId, editor.projectId),
                         });
                       }}
                     >
@@ -431,31 +474,94 @@ export function HrOrganizationStructureSheetWorkspace() {
                 />
               </label>
             </HrDetailSection>
-            <HrDetailSection title="Hierarchy">
-              <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-parent">
-                Reports into
-                <select
-                  id="organization-parent"
-                  className="h-10 rounded-md border border-input bg-background px-3"
-                  value={editor.parentId}
-                  onChange={(event) => setEditor({ ...editor, parentId: event.target.value })}
-                >
-                  {canReportTo(editor.type, "company") && company ? (
-                    <option value={company.id}>{company.name}</option>
-                  ) : null}
-                  {units
-                    .filter(
-                      (unit) =>
-                        unit.id !== selected?.id && unit.status === "active" && canReportTo(editor.type, unit.type),
-                    )
-                    .map((unit) => (
-                      <option key={unit.id} value={unit.id}>
-                        {typeLabels[unit.type]} · {unit.name}
+            {editor.type === "branch" || editor.type === "department" ? (
+              <HrDetailSection title="Hierarchy">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-location">
+                    Location
+                    <select
+                      id="organization-location"
+                      className={selectClass}
+                      value={editor.locationId}
+                      onChange={(event) => {
+                        const locationId = event.target.value;
+                        const projectId =
+                          units.find((unit) => unit.id === editor.projectId)?.parent_id === locationId
+                            ? editor.projectId
+                            : "";
+                        setEditor({
+                          ...editor,
+                          locationId,
+                          projectId,
+                          parentId: derivedParent(editor.type, locationId, projectId),
+                        });
+                      }}
+                    >
+                      <option value="" disabled>
+                        Select a location
                       </option>
-                    ))}
-                </select>
-              </label>
-            </HrDetailSection>
+                      {activeOfType("division").map((unit) => (
+                        <option key={unit.id} value={unit.id}>
+                          {unit.name} · {unit.code}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {editor.type === "department" ? (
+                    <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-project">
+                      Project
+                      <select
+                        id="organization-project"
+                        className={selectClass}
+                        value={editor.projectId}
+                        disabled={!editor.locationId}
+                        onChange={(event) => {
+                          const projectId = event.target.value;
+                          setEditor({ ...editor, projectId, parentId: projectId });
+                        }}
+                      >
+                        <option value="" disabled>
+                          {editor.locationId ? "Select a project" : "Choose a location first"}
+                        </option>
+                        {activeOfType("branch")
+                          .filter((unit) => unit.parent_id === editor.locationId)
+                          .map((unit) => (
+                            <option key={unit.id} value={unit.id}>
+                              {unit.name} · {unit.code}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                  ) : null}
+                </div>
+              </HrDetailSection>
+            ) : editor.type !== "division" ? (
+              <HrDetailSection title="Hierarchy">
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-parent">
+                  Reports into
+                  <select
+                    id="organization-parent"
+                    className={selectClass}
+                    value={editor.parentId}
+                    onChange={(event) => setEditor({ ...editor, parentId: event.target.value })}
+                  >
+                    {canReportTo(editor.type, "company") && company ? (
+                      <option value={company.id}>{company.name}</option>
+                    ) : null}
+                    {units
+                      .filter(
+                        (unit) =>
+                          unit.id !== selected?.id && unit.status === "active" && canReportTo(editor.type, unit.type),
+                      )
+                      .map((unit) => (
+                        <option key={unit.id} value={unit.id}>
+                          {typeLabels[unit.type]} · {unit.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              </HrDetailSection>
+            ) : null}
           </div>
         ) : (
           <div className="grid min-w-0 gap-4">
