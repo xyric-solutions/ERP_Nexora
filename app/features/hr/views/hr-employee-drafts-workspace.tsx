@@ -146,8 +146,8 @@ export function HrEmployeeDraftsWorkspace({
   };
 
   const submitDraft = async () => {
-    if (!selected || !submitReason.trim()) {
-      setError("A submission reason is required for approval evidence.");
+    if (!selected) {
+      setError("Select a draft to submit.");
       return;
     }
     setSubmitting(true);

@@ -125,7 +125,7 @@ export function HrPositionsOrganizationWorkspace({ onNavigate }: { onNavigate: N
   const peak = Math.max(0, ...(view?.departments ?? []).map((item) => item.active_people));
   const selected = view?.items.find((item) => item.assignment_id === selectedId) ?? null;
   const eyebrow = "m-0! text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground";
-  const th = "px-4 py-2.5";
+  const th = "px-4 py-3";
 
   return (
     <section className="grid min-w-0 gap-4" aria-label="Positions and Organisation">
@@ -188,20 +188,20 @@ export function HrPositionsOrganizationWorkspace({ onNavigate }: { onNavigate: N
                       key={item.department_id}
                       onOpen={() => setDepartmentId((current) => (current === item.department_id ? "" : item.department_id))}
                     >
-                      <td className={`px-4 py-2.5 font-medium sm:pl-5 ${item.department_id === departmentId ? "text-[var(--nx-brand)]" : ""}`}>
+                      <td className={`px-4 py-3 font-medium sm:pl-5 ${item.department_id === departmentId ? "text-[var(--nx-brand)]" : ""}`}>
                         {item.department}
                       </td>
-                      <td className="px-4 py-2.5">
+                      <td className="px-4 py-3">
                         <HrInlineBar value={item.active_people} max={peak} label={`${item.active_people} people`} />
                       </td>
-                      <td className="px-4 py-2.5 text-right font-semibold tabular-nums">{item.active_people}</td>
-                      <td className="px-4 py-2.5 text-right text-xs text-muted-foreground tabular-nums">
+                      <td className="px-4 py-3 text-right font-semibold tabular-nums">{item.active_people}</td>
+                      <td className="px-4 py-3 text-right text-xs text-muted-foreground tabular-nums">
                         {metrics?.current_assignments
                           ? `${Math.round((item.active_people / metrics.current_assignments) * 100)}%`
                           : "—"}
                       </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">{item.job_count}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums sm:pr-5">{item.manager_count}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{item.job_count}</td>
+                      <td className="px-4 py-3 text-right tabular-nums sm:pr-5">{item.manager_count}</td>
                     </HrClickableRow>
                   ))}
                   {view.departments.length === 0 ? (
@@ -256,23 +256,23 @@ export function HrPositionsOrganizationWorkspace({ onNavigate }: { onNavigate: N
                 <tbody>
                   {rows.map((item) => (
                     <HrClickableRow key={item.assignment_id} onOpen={() => setSelectedId(item.assignment_id)}>
-                      <td className="px-4 py-2.5 sm:pl-5">
+                      <td className="px-4 py-3 sm:pl-5">
                         <span className="block font-medium">{item.employee_name}</span>
                         <span className="text-xs text-muted-foreground">{item.employee_number}</span>
                       </td>
-                      <td className="px-4 py-2.5">{item.designation}</td>
-                      <td className="px-4 py-2.5">
+                      <td className="px-4 py-3">{item.designation}</td>
+                      <td className="px-4 py-3">
                         <span className="block">{item.job}</span>
                         <span className="text-xs text-muted-foreground">{item.job_grade}</span>
                       </td>
-                      <td className="px-4 py-2.5">
+                      <td className="px-4 py-3">
                         <span className="block">{item.department}</span>
                         <span className="text-xs text-muted-foreground">{item.branch}</span>
                       </td>
-                      <td className="px-4 py-2.5">
+                      <td className="px-4 py-3">
                         {item.reporting_manager ?? <HrStatusPill status="top" tone="neutral" label="Top level" />}
                       </td>
-                      <td className="px-4 py-2.5 tabular-nums sm:pr-5">{hrDisplayDate(item.effective_from)}</td>
+                      <td className="px-4 py-3 tabular-nums sm:pr-5">{hrDisplayDate(item.effective_from)}</td>
                     </HrClickableRow>
                   ))}
                   {rows.length === 0 ? (

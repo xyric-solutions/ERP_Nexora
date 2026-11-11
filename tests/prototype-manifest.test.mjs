@@ -12,7 +12,7 @@ import {
 
 test("the approved prototype manifest freezes the live catalogue", async () => {
   const manifest = buildManifest();
-  assert.deepEqual(manifest.counts, { modules: 35, groups: 147, pages: 816 });
+  assert.deepEqual(manifest.counts, { modules: 35, groups: 142, pages: 801 });
 
   const committed = await readFile(new URL("../docs/parity/prototype-manifest.json", import.meta.url), "utf8");
   assert.equal(committed, serializeManifest(manifest));
@@ -20,7 +20,7 @@ test("the approved prototype manifest freezes the live catalogue", async () => {
 
 test("the HR parity register covers every HR screen once", async () => {
   const rows = await buildHrParityRows();
-  assert.equal(rows.length, 87);
+  assert.equal(rows.length, 72);
   assert.equal(new Set(rows.map((row) => row.page_id)).size, rows.length);
   assert.deepEqual(
     rows
@@ -29,11 +29,11 @@ test("the HR parity register covers every HR screen once", async () => {
       .sort(),
     [],
   );
-  assert.equal(rows.filter((row) => row.api_integration === "NAVIGATION_ONLY").length, 11);
-  assert.equal(rows.filter((row) => row.api_integration === "API_CONNECTED_SOURCE").length, 76);
+  assert.equal(rows.filter((row) => row.api_integration === "NAVIGATION_ONLY").length, 7);
+  assert.equal(rows.filter((row) => row.api_integration === "API_CONNECTED_SOURCE").length, 65);
   assert.equal(rows.filter((row) => row.api_integration === "API_READ_ONLY").length, 0);
   assert.equal(rows.find((row) => row.page_id === "payment-batch").current_renderer, "HrPayrollPaymentWorkspace");
-  assert.equal(rows.find((row) => row.page_id === "training-programs").current_renderer, "HrLearningWorkspace");
+  assert.equal(rows.find((row) => row.page_id === "loans-benefits").current_renderer, "HrLoanBenefitsWorkspace");
   assert.equal(rows.find((row) => row.page_id === "payroll-workspace").current_renderer, "HrOperationsWorkspace");
   const coverage = await readFile(new URL("../docs/parity/hr-api-coverage.md", import.meta.url), "utf8");
   assert.equal(coverage, serializeHrApiCoverage(rows));

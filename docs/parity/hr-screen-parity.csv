@@ -60,32 +60,14 @@ hr,payroll,Payroll,employee-loans,Loans & Advances,list,live,HrPayrollWorkspace,
 hr,payroll,Payroll,payroll-journal,Payroll Journal,report,live,HrPayrollJournalWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M15 Payments & Finance
 hr,payroll,Payroll,payment-batch,Payment Batch,workflow,live,HrPayrollPaymentWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M15 Payments & Finance
 hr,payroll,Payroll,payslips,Payslips,workflow,live,HrPayslipsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M13 Payroll & Statutory
-hr,performance,Performance Management,performance-workspace,Performance Management,dashboard,live,HrOperationsWorkspace,NAVIGATION_ONLY,NAVIGATION_ONLY,M08 Manage & Develop
-hr,performance,Performance Management,performance-cycles,Performance Cycles,settings,live,HrPerformanceWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M08 Manage & Develop
-hr,performance,Performance Management,goals-kpis,Goals & KPIs,workflow,live,HrPerformanceWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M08 Manage & Develop
-hr,performance,Performance Management,performance-reviews,Performance Reviews,approval,live,HrPerformanceWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M08 Manage & Develop
-hr,performance,Performance Management,performance-outcomes,Performance Outcomes,workflow,live,HrPerformanceWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M08 Manage & Develop
-hr,learning,Learning & Development,learning-workspace,Learning & Development,dashboard,live,HrOperationsWorkspace,NAVIGATION_ONLY,NAVIGATION_ONLY,M08 Manage & Develop
-hr,learning,Learning & Development,training-programs,Training Programmes,settings,live,HrLearningWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M08 Manage & Develop
-hr,learning,Learning & Development,training-requests,Training Requests,approval,live,HrLearningWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M08 Manage & Develop
-hr,learning,Learning & Development,training-sessions,Training Sessions,workflow,live,HrLearningWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M08 Manage & Develop
-hr,learning,Learning & Development,training-completions,Completion & Certificates,workflow,live,HrLearningWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M08 Manage & Develop
 hr,employee-lifecycle,Employee Lifecycle,employee-lifecycle-workspace,Employee Lifecycle,dashboard,live,HrOperationsWorkspace,NAVIGATION_ONLY,NAVIGATION_ONLY,M10 Separation & Settlement
 hr,employee-lifecycle,Employee Lifecycle,lifecycle-policies,Lifecycle Policies,settings,live,HrLifecyclePoliciesWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M10 Separation & Settlement
 hr,employee-lifecycle,Employee Lifecycle,onboarding,Onboarding,workflow,live,HrLifecycleCasesWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,"M07 Hire, Onboard & Probation"
 hr,employee-lifecycle,Employee Lifecycle,probation-reviews,Probation Reviews,approval,live,HrLifecycleCasesWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,"M07 Hire, Onboard & Probation"
-hr,employee-lifecycle,Employee Lifecycle,employee-movements,"Transfers, Promotions & Movements",approval,live,HrLifecycleMovementsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M09 Move & Reward
+hr,employee-lifecycle,Employee Lifecycle,employee-movements,Transfers,approval,live,HrEmployeeChangesWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M09 Move & Reward
+hr,employee-lifecycle,Employee Lifecycle,employee-promotions,Promotions,approval,live,HrEmployeeChangesWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M09 Move & Reward
+hr,employee-lifecycle,Employee Lifecycle,loans-benefits,Loan Requests,list,live,HrLoanBenefitsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M14 Benefits & Loans
+hr,employee-lifecycle,Employee Lifecycle,advance-requests,Advance Requests,list,live,HrLoanBenefitsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M14 Benefits & Loans
 hr,employee-lifecycle,Employee Lifecycle,resignations,Resignations,workflow,live,HrLifecycleCasesWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M10 Separation & Settlement
-hr,employee-lifecycle,Employee Lifecycle,terminations,Termination Cases,approval,live,HrLifecycleCasesWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M10 Separation & Settlement
+hr,employee-lifecycle,Employee Lifecycle,terminations,Termination,approval,live,HrLifecycleCasesWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M10 Separation & Settlement
 hr,employee-lifecycle,Employee Lifecycle,clearance,Exit Clearance,workflow,live,HrLifecycleCasesWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M10 Separation & Settlement
-hr,employee-lifecycle,Employee Lifecycle,final-settlements,Final Settlements,approval,live,HrLifecycleCasesWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M10 Separation & Settlement
-hr,employee-lifecycle,Employee Lifecycle,offboarding,Offboarding Control Centre,workflow,live,HrLifecycleCasesWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M10 Separation & Settlement
-hr,benefits-self-service,Benefits & Self-service,benefits-self-service-workspace,Benefits & Self-service,dashboard,live,HrOperationsWorkspace,NAVIGATION_ONLY,NAVIGATION_ONLY,M14 Benefits & Loans
-hr,benefits-self-service,Benefits & Self-service,loans-benefits,"Loans, Benefits & Gratuity",list,live,HrBenefitsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M14 Benefits & Loans
-hr,benefits-self-service,Benefits & Self-service,statutory-deductions,Statutory Deductions,settings,live,HrBenefitsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M14 Benefits & Loans
-hr,benefits-self-service,Benefits & Self-service,employee-self-service,Employee Self-service,dashboard,live,HrBenefitsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M16 Self-service
-hr,benefits-self-service,Benefits & Self-service,hr-report-centre,HR & Payroll Report Centre,report,live,HrBenefitsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M17 Reporting & Compliance
-hr,hr-compliance,"Reporting, Compliance & Audit",hr-compliance-workspace,"Reporting, Compliance & Audit",dashboard,live,HrOperationsWorkspace,NAVIGATION_ONLY,NAVIGATION_ONLY,M17 Reporting & Compliance
-hr,hr-compliance,"Reporting, Compliance & Audit",hr-compliance-configuration,Compliance Configuration,settings,live,HrReportGovernanceWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M17 Reporting & Compliance
-hr,hr-compliance,"Reporting, Compliance & Audit",hr-report-audit-log,Report Audit Log,report,live,HrReportGovernanceWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M02 Workflow & Audit
-hr,hr-compliance,"Reporting, Compliance & Audit",hr-export-centre,Secure Export Centre,workflow,live,HrReportGovernanceWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M17 Reporting & Compliance

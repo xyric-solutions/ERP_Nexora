@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, GraduationCap, Layers3, MapPin, Network, Users, Wallet } from "lucide-react";
+import { BriefcaseBusiness, GraduationCap, Layers3, MapPin, Network, Wallet } from "lucide-react";
 
 export const organisationMasterGroups = [
   {
@@ -57,20 +57,6 @@ export const organisationMasterGroups = [
       },
     ],
   },
-  {
-    id: "employment",
-    label: "Employment Setup",
-    description: "Set the payment route and pay cycle behind each employment arrangement.",
-    items: [
-      {
-        id: "employment-setup",
-        label: "Employment Setup",
-        description: "Payment route and pay cycle for each employment arrangement.",
-        icon: Users,
-        type: "employment_setup",
-      },
-    ],
-  },
 ] as const;
 
 export const organisationMasterPages = organisationMasterGroups.flatMap((group) => [...group.items]);
@@ -78,8 +64,10 @@ export type OrganisationMasterPage = (typeof organisationMasterPages)[number];
 
 /** Former page IDs that now open a merged page, so saved links keep working. */
 const legacyMasterPageAliases: Readonly<Record<string, string>> = {
-  "employment-types": "employment-setup",
-  "employee-categories": "employment-setup",
+  "employment-types": "cost-centres",
+  "employee-categories": "cost-centres",
+  // Employment Setup merged into Cost Centre (HR149).
+  "employment-setup": "cost-centres",
 };
 export const resolveOrganisationMasterPageId = (pageId: string) => legacyMasterPageAliases[pageId] ?? pageId;
 export const isOrganisationMasterPage = (pageId: string) => {

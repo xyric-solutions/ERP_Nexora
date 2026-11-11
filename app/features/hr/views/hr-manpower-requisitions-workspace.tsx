@@ -29,7 +29,7 @@ import {
 import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
-import { employmentSetupOptionLabel } from "../model/employment-setup";
+import { costCentreOptionLabel, payCycleLabel, paymentRouteLabel } from "../model/employment-setup";
 import { hiringBasisLabel, hiringBasisOptions, isHiringBasis } from "../model/hiring-basis";
 import { isWorkArrangement, jobTypeOptions, workArrangementLabel } from "../model/work-arrangement";
 
@@ -52,7 +52,7 @@ type Editor = {
   workArrangement: HrWorkArrangement | "";
   designationId: string;
   gradeId: string;
-  employmentSetupId: string;
+  costCenterId: string;
   projectId: string;
   hiringBasis: HrHiringBasis | "";
   departmentId: string;
@@ -70,7 +70,7 @@ const blankEditor = (): Editor => ({
   workArrangement: "",
   designationId: "",
   gradeId: "",
-  employmentSetupId: "",
+  costCenterId: "",
   projectId: "",
   hiringBasis: "",
   departmentId: "",
@@ -173,7 +173,7 @@ export function HrManpowerRequisitionsWorkspace() {
   }, [canRead, client, load, sessionLoading]);
   const selected = records.find((record) => record.id === selectedId),
     designations = masters.filter((item) => item.type === "designation"),
-    employmentSetups = masters.filter((item) => item.type === "employment_setup"),
+    costCentres = masters.filter((item) => item.type === "cost_center"),
     departments = units.filter((item) => item.type === "department");
   // Grade level is the visible grade; the name is added only when two grades share a level.
   const gradeLabel = (grade: (typeof grades)[number]) =>
@@ -199,7 +199,7 @@ export function HrManpowerRequisitionsWorkspace() {
     workArrangement: record.work_arrangement ?? "",
     designationId: record.designation_id ?? "",
     gradeId: record.job_grade_id ?? "",
-    employmentSetupId: record.employment_setup_id,
+    costCenterId: record.cost_center_id ?? "",
     projectId: record.project_id ?? "",
     hiringBasis: record.hiring_basis ?? "",
     departmentId: record.department_id ?? "",
@@ -266,7 +266,7 @@ export function HrManpowerRequisitionsWorkspace() {
       !editor.workArrangement ||
       !editor.designationId ||
       !editor.gradeId ||
-      !editor.employmentSetupId ||
+      !editor.costCenterId ||
       !editor.projectId ||
       !editor.hiringBasis ||
       !editor.departmentId ||
@@ -300,7 +300,7 @@ export function HrManpowerRequisitionsWorkspace() {
       job_title: editor.jobTitle.trim(),
       designation_id: editor.designationId,
       job_grade_id: editor.gradeId,
-      employment_setup_id: editor.employmentSetupId,
+      cost_center_id: editor.costCenterId,
       project_id: editor.projectId,
       hiring_basis: editor.hiringBasis,
       work_arrangement: editor.workArrangement,
@@ -606,16 +606,16 @@ export function HrManpowerRequisitionsWorkspace() {
                         </select>
                       </label>
                       <label className="grid content-start gap-1 text-sm">
-                        Employment setup
+                        Cost centre
                         <select
                           className={selectClass}
-                          value={editor.employmentSetupId}
-                          onChange={(event) => setEditor({ ...editor, employmentSetupId: event.target.value })}
+                          value={editor.costCenterId}
+                          onChange={(event) => setEditor({ ...editor, costCenterId: event.target.value })}
                         >
                           <option value="">Select</option>
-                          {employmentSetups.map((item) => (
+                          {costCentres.map((item) => (
                             <option key={item.id} value={item.id}>
-                              {employmentSetupOptionLabel(item)}
+                              {costCentreOptionLabel(item)}
                             </option>
                           ))}
                         </select>
@@ -814,7 +814,11 @@ export function HrManpowerRequisitionsWorkspace() {
                   <HrDetailTile label="Job title" value={selected.job_title} />
                   <HrDetailTile label="Designation" value={selected.designation} />
                   <HrDetailTile label="Job grade" value={selected.job_grade} />
-                  <HrDetailTile label="Employment setup" value={selected.employment_setup} />
+                  <HrDetailTile
+                    label="Cost centre"
+                    value={selected.cost_center ?? selected.employment_setup ?? undefined}
+                    hint={`${paymentRouteLabel(selected.payment_route)} / ${payCycleLabel(selected.pay_cycle)}`}
+                  />
                   <HrDetailTile
                     label="Hiring basis"
                     value={selected.hiring_basis ? hiringBasisLabel(selected.hiring_basis) : undefined}

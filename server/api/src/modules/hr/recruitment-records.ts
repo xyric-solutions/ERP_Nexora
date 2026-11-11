@@ -90,11 +90,11 @@ export class HrRecruitmentRecords {
       if (before.state !== "draft")
         throw new HrApiError(409, "HR_MANPOWER_REQUISITION_NOT_EDITABLE", "Only draft requisitions can be edited. Move it back to Draft first.");
       await client.query(
-        `update hr_manpower_requisition set job_title=$4,designation_id=$5,job_grade_id=$6,employment_setup_id=$7,project_id=$8,hiring_basis=$9,
+        `update hr_manpower_requisition set job_title=$4,designation_id=$5,job_grade_id=$6,cost_center_id=$7,project_id=$8,hiring_basis=$9,
                 work_arrangement=$10,department_id=$11,work_location_id=$12,positions_requested=$13,position_type=$14,replacement_employee_id=$15,
                 salary_minimum=$16,salary_maximum=$17,currency_code=$18,target_start_date=$19,reason=$20,required_skills=$21::jsonb,updated_at=now()
           where tenant_id=$1 and company_id=$2 and id=$3`,
-        [context.tenantId, input.company_id, id, input.job_title, input.designation_id, input.job_grade_id, input.employment_setup_id, input.project_id, input.hiring_basis, input.work_arrangement, input.department_id, input.work_location_id ?? null, input.positions_requested, input.position_type, input.replacement_employee_id ?? null, input.salary_minimum, input.salary_maximum, input.currency_code, input.target_start_date, input.reason, JSON.stringify(input.required_skills)],
+        [context.tenantId, input.company_id, id, input.job_title, input.designation_id, input.job_grade_id, input.cost_center_id, input.project_id, input.hiring_basis, input.work_arrangement, input.department_id, input.work_location_id ?? null, input.positions_requested, input.position_type, input.replacement_employee_id ?? null, input.salary_minimum, input.salary_maximum, input.currency_code, input.target_start_date, input.reason, JSON.stringify(input.required_skills)],
       );
       const audit = await this.dependencies.audit(client, context, correlationId, "hr.manpower_requisition.update", "hr_manpower_requisition", id, before, { ...input });
       return { id, company_id: input.company_id, audit_event_id: audit };

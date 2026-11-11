@@ -153,7 +153,7 @@ export function AttendanceEmployeeTable({
   selected: string;
   onOpen: (employeeId: string) => void;
 }) {
-  const th = "px-4 py-2.5";
+  const th = "px-4 py-3";
   return (
     <div className="min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-sm">
       <div className="overflow-x-auto">
@@ -173,17 +173,17 @@ export function AttendanceEmployeeTable({
           <tbody>
             {items.map((item) => (
               <HrClickableRow key={item.employee_id} onOpen={() => onOpen(item.employee_id)}>
-                <td className={`px-4 py-2.5 sm:pl-5 ${selected === item.employee_id ? "text-[var(--nx-brand)]" : ""}`}>
+                <td className={`px-4 py-3 sm:pl-5 ${selected === item.employee_id ? "text-[var(--nx-brand)]" : ""}`}>
                   <span className="block font-medium">{item.display_name}</span>
                   <span className="text-xs text-muted-foreground">{item.employee_number}</span>
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{dayValue(item.calendar_days)}</td>
-                <td className="px-4 py-2.5 text-right font-semibold tabular-nums">{dayValue(item.paid_days)}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{dayValue(item.unpaid_days)}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{dayValue(item.approved_leave_days)}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{minutes(overtimeMinutes(item))}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{item.correction_count}</td>
-                <td className="px-4 py-2.5 sm:pr-5">
+                <td className="px-4 py-3 text-right tabular-nums">{dayValue(item.calendar_days)}</td>
+                <td className="px-4 py-3 text-right font-semibold tabular-nums">{dayValue(item.paid_days)}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{dayValue(item.unpaid_days)}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{dayValue(item.approved_leave_days)}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{minutes(overtimeMinutes(item))}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{item.correction_count}</td>
+                <td className="px-4 py-3 sm:pr-5">
                   {item.exception_count ? (
                     <HrStatusPill status="exceptions" tone="warning" label={`${item.exception_count} exception(s)`} />
                   ) : (
@@ -262,15 +262,15 @@ export function AttendanceEmployeeDetails({
           Daily trace
         </h3>
         <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-120 text-left text-[13px]">
+          <table className="w-full min-w-120 text-left text-sm">
             <thead className="border-b border-border bg-muted/60 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-3 py-2">Date</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2 text-right">Paid / unpaid</th>
-                <th className="px-3 py-2 text-right">Worked</th>
-                <th className="px-3 py-2 text-right">OT</th>
-                <th className="px-3 py-2">
+                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Paid / unpaid</th>
+                <th className="px-4 py-3 text-right">Worked</th>
+                <th className="px-4 py-3 text-right">OT</th>
+                <th className="px-4 py-3">
                   <span className="sr-only">Open</span>
                 </th>
               </tr>
@@ -278,7 +278,7 @@ export function AttendanceEmployeeDetails({
             <tbody>
               {item.days.map((day) => (
                 <tr key={day.on_date} className="border-b border-border/70 align-top last:border-0">
-                  <td className="px-3 py-2 whitespace-nowrap tabular-nums">
+                  <td className="px-4 py-3 whitespace-nowrap tabular-nums">
                     {hrDisplayDate(day.on_date)}
                     {day.issues.length ? (
                       <ul className="m-0! mt-1 grid list-none gap-0.5 p-0! text-xs whitespace-normal text-[var(--nx-warning)]">
@@ -288,19 +288,19 @@ export function AttendanceEmployeeDetails({
                       </ul>
                     ) : null}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-4 py-3">
                     <AttendanceStatusBadge
                       status={day.status as Parameters<typeof AttendanceStatusBadge>[0]["status"]}
                     />
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
+                  <td className="px-4 py-3 text-right tabular-nums">
                     {dayValue(day.paid_days)} / {dayValue(day.unpaid_days)}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{minutes(day.worked_minutes)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">
+                  <td className="px-4 py-3 text-right tabular-nums">{minutes(day.worked_minutes)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">
                     {minutes(day.overtime.reduce((n, o) => n + o.minutes, 0))}
                   </td>
-                  <td className="px-2 py-1.5 text-right">
+                  <td className="px-4 py-3 text-right">
                     <Button
                       variant="ghost"
                       size="icon"

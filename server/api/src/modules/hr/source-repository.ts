@@ -54,7 +54,7 @@ import { summarizeAttendanceMonth } from "./monthly-attendance.js";
 import { createHash, randomUUID } from "node:crypto";
 
 import { hrInterviewTemplates, hrRecruitmentEvidencePolicy } from "@nexora/contracts";
-import { hrApplicationTransitions, hrRetiredMasterTypes } from "@nexora/contracts";
+import { HR_DEFAULT_REASON, hrApplicationTransitions, hrRetiredMasterTypes } from "@nexora/contracts";
 import { evaluateApprovalActor, type AuthenticatedAccount } from "@nexora/auth";
 import type {
   HrCorrectionQuery,HrCorrectionContextQuery,HrCorrectionContext,CreateHrCorrectionRequest,UpdateHrCorrectionRequest,HrCorrectionActionRequest,HrCorrectionSummary,HrCorrectionDirectory,HrCorrectionDetail,HrCorrectionEvidence,HrCorrectionResult,
@@ -141,6 +141,11 @@ import type {
   CreateHrEmploymentLifecyclePolicyRequest,
   HrEmploymentLifecyclePolicyResult,
   SubmitHrEmploymentLifecyclePolicyRequest,
+  UpdateHrEmploymentLifecyclePolicyRequest,
+  DeactivateHrEmploymentLifecyclePolicyRequest,
+  HrEmploymentLifecyclePolicyDeactivationResult,
+  DeleteHrEmploymentLifecyclePolicyRequest,
+  HrEmploymentLifecyclePolicyDeleteResult,
   HrEmploymentLifecyclePolicySubmissionResult,
   ApproveHrEmploymentLifecyclePolicyRequest,
   HrEmploymentLifecyclePolicyApprovalResult,
@@ -1375,7 +1380,8 @@ export class SourceHrRepository {
       values.push(query.limit);
       const result = await client.query<HrManpowerRequisitionDirectory["items"][number] & { salary_minimum: string; salary_maximum: string; submitted_at: Date | null; decided_at: Date | null; created_at: Date }>(
         `select request.id,request.company_id,request.reference,request.job_title,designation.name as designation,grade.name as job_grade,
-                request.employment_setup_id,employment_setup.name as employment_setup,employment_setup.payment_route,employment_setup.pay_cycle,
+                request.employment_setup_id,employment_setup.name as employment_setup,request.cost_center_id,cost_center.name as cost_center,
+                coalesce(cost_center.payment_route,employment_setup.payment_route) as payment_route,coalesce(cost_center.pay_cycle,employment_setup.pay_cycle) as pay_cycle,
                 branch.name as branch,request.project_id,project.name as project,request.hiring_basis,request.work_arrangement,department.name as department,
                 request.work_location_id,work_location.name as work_location,work_location_city.city as work_location_city,
                 request.designation_id,request.job_grade_id,request.department_id,request.positions_requested,
@@ -1385,7 +1391,8 @@ export class SourceHrRepository {
            from hr_manpower_requisition request
            join hr_master_record designation on designation.tenant_id=request.tenant_id and designation.id=request.designation_id
            join hr_master_record grade on grade.tenant_id=request.tenant_id and grade.id=request.job_grade_id
-           join hr_master_record employment_setup on employment_setup.tenant_id=request.tenant_id and employment_setup.id=request.employment_setup_id
+           left join hr_master_record employment_setup on employment_setup.tenant_id=request.tenant_id and employment_setup.id=request.employment_setup_id
+           left join hr_master_record cost_center on cost_center.tenant_id=request.tenant_id and cost_center.id=request.cost_center_id
            left join organization_unit branch on branch.tenant_id=request.tenant_id and branch.id=request.branch_id
            left join erp_project project on project.tenant_id=request.tenant_id and project.company_id=request.company_id and project.id=request.project_id
            join organization_unit department on department.tenant_id=request.tenant_id and department.id=request.department_id
@@ -1413,7 +1420,7 @@ export class SourceHrRepository {
       const replay = await client.query<{request_fingerprint:string;response_body:HrManpowerRequisitionResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update", [context.tenantId,context.actor.userId,path,idempotencyKey]);
       if (replay.rows[0]) { if (replay.rows[0].request_fingerprint!==fingerprint) throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","The idempotency key was already used for another request."); await client.query("commit"); return {...replay.rows[0].response_body,replayed:true}; }
       const id=`manpower-requisition-${randomUUID()}`, reference=`MRQ-${new Date().getUTCFullYear()}-${randomUUID().replaceAll("-","").slice(0,6).toUpperCase()}`;
-      await client.query(`insert into hr_manpower_requisition (id,tenant_id,company_id,reference,job_title,designation_id,job_grade_id,employment_setup_id,branch_id,department_id,positions_requested,position_type,replacement_employee_id,salary_minimum,salary_maximum,currency_code,target_start_date,reason,required_skills,created_by,project_id,hiring_basis,work_arrangement,work_location_id) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20,$21,$22,$23,$24)`, [id,context.tenantId,input.company_id,reference,input.job_title,input.designation_id,input.job_grade_id,input.employment_setup_id,input.branch_id??null,input.department_id,input.positions_requested,input.position_type,input.replacement_employee_id??null,input.salary_minimum,input.salary_maximum,input.currency_code,input.target_start_date,input.reason,JSON.stringify(input.required_skills),context.actor.userId,input.project_id,input.hiring_basis,input.work_arrangement,input.work_location_id??null]);
+      await client.query(`insert into hr_manpower_requisition (id,tenant_id,company_id,reference,job_title,designation_id,job_grade_id,cost_center_id,branch_id,department_id,positions_requested,position_type,replacement_employee_id,salary_minimum,salary_maximum,currency_code,target_start_date,reason,required_skills,created_by,project_id,hiring_basis,work_arrangement,work_location_id) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20,$21,$22,$23,$24)`, [id,context.tenantId,input.company_id,reference,input.job_title,input.designation_id,input.job_grade_id,input.cost_center_id,input.branch_id??null,input.department_id,input.positions_requested,input.position_type,input.replacement_employee_id??null,input.salary_minimum,input.salary_maximum,input.currency_code,input.target_start_date,input.reason,JSON.stringify(input.required_skills),context.actor.userId,input.project_id,input.hiring_basis,input.work_arrangement,input.work_location_id??null]);
       const audit = await this.appendPlatformAudit(client,context,correlationId,"hr.manpower_requisition.create",{entityId:id,entityType:"hr_manpower_requisition",before:null,after:{reference,...input,state:"draft"}});
       const result:HrManpowerRequisitionResult={id,reference,state:"draft",company_id:input.company_id,audit_event_id:audit,replayed:false};
       await client.query("insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,201,$6,$7)",[context.tenantId,context.actor.userId,path,idempotencyKey,fingerprint,result,stateHash(result)]);
@@ -1740,11 +1747,11 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
     this.requireOfferRead(context);return this.read(context,"hr.employee.read",async client=>{await this.requireCompanyAccess(client,context,query.company_id);return this.readOfferContext(client,context,query.company_id,query.application_id);});
   }
   private async readOfferContext(client: PoolClient, context: HrActorContext, companyId:string, applicationId:string, excludeOfferId=""): Promise<HrOfferContext> {
-    const result=await client.query<HrOfferContext & {application_stage:string;candidate_status:string;opening_state:string;requisition_state:string;active_offer:boolean}>(`select a.id as application_id,a.reference as application_reference,concat_ws(' ',c.first_name,c.last_name) as candidate_name,company.name as company_name,o.id as opening_id,o.title as opening_title,o.reference as opening_reference,r.id as requisition_id,r.reference as requisition_reference,r.designation_id,designation.name as designation,r.job_grade_id,grade.name as job_grade,r.employment_setup_id,es.name as employment_setup,es.payment_route,es.pay_cycle,branch.id as branch_id,branch.name as branch,project.name as project,r.hiring_basis,r.department_id,department.name as department,r.salary_minimum::text,r.salary_maximum::text,r.currency_code,o.positions_requested::int as positions_authorized,
+    const result=await client.query<HrOfferContext & {application_stage:string;candidate_status:string;opening_state:string;requisition_state:string;active_offer:boolean}>(`select a.id as application_id,a.reference as application_reference,concat_ws(' ',c.first_name,c.last_name) as candidate_name,company.name as company_name,o.id as opening_id,o.title as opening_title,o.reference as opening_reference,r.id as requisition_id,r.reference as requisition_reference,r.designation_id,designation.name as designation,r.job_grade_id,grade.name as job_grade,r.employment_setup_id,es.name as employment_setup,r.cost_center_id,coalesce(rcc.payment_route,es.payment_route) as payment_route,coalesce(rcc.pay_cycle,es.pay_cycle) as pay_cycle,branch.id as branch_id,branch.name as branch,project.name as project,r.hiring_basis,r.department_id,department.name as department,r.salary_minimum::text,r.salary_maximum::text,r.currency_code,o.positions_requested::int as positions_authorized,
       (select count(*)::int from hr_recruitment_offer reserved where reserved.tenant_id=a.tenant_id and reserved.opening_id=o.id and (reserved.state='accepted' or exists(select 1 from hr_offer_employee_handoff h where h.tenant_id=reserved.tenant_id and h.offer_id=reserved.id) or (reserved.state in ('approved','generated','sent') and reserved.valid_until>=current_date))) as positions_reserved,
       current_date::text as today,a.stage as application_stage,c.status as candidate_status,o.state as opening_state,r.state as requisition_state,
       exists(select 1 from hr_recruitment_offer existing where existing.tenant_id=a.tenant_id and existing.application_id=a.id and existing.id<>$4 and existing.state in ('draft','submitted','approved','generated','sent','accepted')) as active_offer
-      from hr_recruitment_application a join hr_candidate c on c.tenant_id=a.tenant_id and c.id=a.candidate_id join organization_unit company on company.tenant_id=a.tenant_id and company.id=a.company_id join hr_job_opening o on o.tenant_id=a.tenant_id and o.id=a.opening_id join hr_manpower_requisition r on r.tenant_id=o.tenant_id and r.id=o.requisition_id join hr_master_record designation on designation.tenant_id=r.tenant_id and designation.id=r.designation_id join hr_master_record grade on grade.tenant_id=r.tenant_id and grade.id=r.job_grade_id join hr_master_record es on es.tenant_id=r.tenant_id and es.id=r.employment_setup_id join organization_unit department on department.tenant_id=r.tenant_id and department.id=r.department_id left join lateral (with recursive up(id,parent_id,type,depth) as (select u.id,u.parent_id,u.type,0 from organization_unit u where u.tenant_id=department.tenant_id and u.id=department.parent_id union all select p.id,p.parent_id,p.type,up.depth+1 from organization_unit p join up on p.id=up.parent_id where p.tenant_id=department.tenant_id and up.depth<16) select id from up where type='branch' order by depth limit 1) ancestor_branch on true left join organization_unit branch on branch.tenant_id=r.tenant_id and branch.type='branch' and branch.id=coalesce(r.branch_id,ancestor_branch.id) left join erp_project project on project.tenant_id=r.tenant_id and project.company_id=r.company_id and project.id=r.project_id where a.tenant_id=$1 and a.company_id=$2 and a.id=$3`,[context.tenantId,companyId,applicationId,excludeOfferId]);
+      from hr_recruitment_application a join hr_candidate c on c.tenant_id=a.tenant_id and c.id=a.candidate_id join organization_unit company on company.tenant_id=a.tenant_id and company.id=a.company_id join hr_job_opening o on o.tenant_id=a.tenant_id and o.id=a.opening_id join hr_manpower_requisition r on r.tenant_id=o.tenant_id and r.id=o.requisition_id join hr_master_record designation on designation.tenant_id=r.tenant_id and designation.id=r.designation_id join hr_master_record grade on grade.tenant_id=r.tenant_id and grade.id=r.job_grade_id left join hr_master_record es on es.tenant_id=r.tenant_id and es.id=r.employment_setup_id left join hr_master_record rcc on rcc.tenant_id=r.tenant_id and rcc.id=r.cost_center_id join organization_unit department on department.tenant_id=r.tenant_id and department.id=r.department_id left join lateral (with recursive up(id,parent_id,type,depth) as (select u.id,u.parent_id,u.type,0 from organization_unit u where u.tenant_id=department.tenant_id and u.id=department.parent_id union all select p.id,p.parent_id,p.type,up.depth+1 from organization_unit p join up on p.id=up.parent_id where p.tenant_id=department.tenant_id and up.depth<16) select id from up where type='branch' order by depth limit 1) ancestor_branch on true left join organization_unit branch on branch.tenant_id=r.tenant_id and branch.type='branch' and branch.id=coalesce(r.branch_id,ancestor_branch.id) left join erp_project project on project.tenant_id=r.tenant_id and project.company_id=r.company_id and project.id=r.project_id where a.tenant_id=$1 and a.company_id=$2 and a.id=$3`,[context.tenantId,companyId,applicationId,excludeOfferId]);
     const row=result.rows[0];if(!row)throw new HrApiError(404,"HR_APPLICATION_NOT_FOUND","The application is unavailable in your company scope.");
     const {application_stage,candidate_status,opening_state,requisition_state,active_offer,...facts}=row;
     const blockers:string[]=[];
@@ -1777,7 +1784,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
     this.requireOfferRead(context);return this.read(context,"hr.employee.read",async client=>{await this.requireCompanyAccess(client,context,companyId);return this.readOfferDetail(client,context,companyId,id);});
   }
   private async readOfferDetail(client:PoolClient, context:HrActorContext, companyId:string, id:string):Promise<HrOfferDetail> {
-    const record=await client.query<Omit<HrOfferDetail,"context"|"history"|"created_at"> & {created_at:Date;salary_minimum:string;salary_maximum:string}>(`select ${this.offerColumns()},o.probation_months,o.notice_days,o.cost_center_id,cc.name as cost_center,o.work_location_id,wl.name as work_location,o.employment_setup_id,es.name as employment_setup,es.payment_route,es.pay_cycle,o.reporting_manager_id,case when manager.id is null then null else concat_ws(' ',manager.first_name,manager.last_name) end as reporting_manager,o.note,o.range_exception_reason,o.created_by,o.submitted_by,o.approved_by,o.exception_approved_by,o.approval_override_event_id,o.document_text,o.delivery_reference,o.response_reference,o.responded_on::text,o.salary_minimum::text,o.salary_maximum::text ${this.offerJoins()} join hr_master_record cc on cc.tenant_id=o.tenant_id and cc.id=o.cost_center_id join hr_master_record wl on wl.tenant_id=o.tenant_id and wl.id=o.work_location_id join hr_master_record es on es.tenant_id=o.tenant_id and es.id=o.employment_setup_id left join employee manager on manager.tenant_id=o.tenant_id and manager.id=o.reporting_manager_id where o.tenant_id=$1 and o.company_id=$2 and o.id=$3`,[context.tenantId,companyId,id]);
+    const record=await client.query<Omit<HrOfferDetail,"context"|"history"|"created_at"> & {created_at:Date;salary_minimum:string;salary_maximum:string}>(`select ${this.offerColumns()},o.probation_months,o.notice_days,o.cost_center_id,cc.name as cost_center,o.work_location_id,wl.name as work_location,o.employment_setup_id,es.name as employment_setup,coalesce(cc.payment_route,es.payment_route) as payment_route,coalesce(cc.pay_cycle,es.pay_cycle) as pay_cycle,o.reporting_manager_id,case when manager.id is null then null else concat_ws(' ',manager.first_name,manager.last_name) end as reporting_manager,o.note,o.range_exception_reason,o.created_by,o.submitted_by,o.approved_by,o.exception_approved_by,o.approval_override_event_id,o.document_text,o.delivery_reference,o.response_reference,o.responded_on::text,o.salary_minimum::text,o.salary_maximum::text ${this.offerJoins()} join hr_master_record cc on cc.tenant_id=o.tenant_id and cc.id=o.cost_center_id join hr_master_record wl on wl.tenant_id=o.tenant_id and wl.id=o.work_location_id left join hr_master_record es on es.tenant_id=o.tenant_id and es.id=o.employment_setup_id left join employee manager on manager.tenant_id=o.tenant_id and manager.id=o.reporting_manager_id where o.tenant_id=$1 and o.company_id=$2 and o.id=$3`,[context.tenantId,companyId,id]);
     const row=record.rows[0];if(!row)throw new HrApiError(404,"HR_OFFER_NOT_FOUND","The offer is unavailable in your company scope.");
     const ctx=await this.readOfferContext(client,context,companyId,row.application_id,id);
     const history=await client.query<HrOfferDetail["history"][number] & {occurred_at:Date}>(`select e.id,e.action,e.from_state,e.to_state,e.reason,e.evidence_reference,e.actor_id,coalesce(u.display_name,u.email,e.actor_id) as actor_name,e.occurred_at from hr_recruitment_offer_event e left join security_user_account u on u.tenant_id=e.tenant_id and u.id=e.actor_id where e.tenant_id=$1 and e.offer_id=$2 order by e.occurred_at,e.id`,[context.tenantId,id]);
@@ -1787,11 +1794,12 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
   async createOffer(context:HrActorContext,input:CreateHrOfferRequest,key:string,corr:string):Promise<HrOfferResult>{return this.mutateOffer(context,input,key,corr);}
   async updateOffer(context:HrActorContext,id:string,input:UpdateHrOfferRequest,key:string,corr:string):Promise<HrOfferResult>{return this.mutateOffer(context,input,key,corr,id);}
   async performOfferAction(context:HrActorContext,id:string,input:HrOfferActionRequest,key:string,corr:string):Promise<HrOfferResult>{return this.mutateOffer(context,input,key,corr,id);}
-  private async validateOfferTerms(client:PoolClient,context:HrActorContext,ctx:HrOfferContext,terms:CreateHrOfferRequest|UpdateHrOfferRequest):Promise<void>{
+  /** Validates offer terms and returns the range-exception reason to store (optional; standard text when out of range and blank). */
+  private async validateOfferTerms(client:PoolClient,context:HrActorContext,ctx:HrOfferContext,terms:CreateHrOfferRequest|UpdateHrOfferRequest):Promise<string>{
     if(terms.valid_until<ctx.today || terms.joining_on<ctx.today || terms.valid_until>terms.joining_on)throw new HrApiError(400,"HR_OFFER_DATES_INVALID","Validity and joining dates must be current or future, with validity on or before joining.");
     const range=await client.query<{outside:boolean}>("select $1::numeric<$2::numeric or $1::numeric>$3::numeric as outside",[terms.proposed_gross,ctx.salary_minimum,ctx.salary_maximum]);
-    if(range.rows[0]!.outside&&!terms.range_exception_reason.trim())throw new HrApiError(400,"HR_OFFER_EXCEPTION_REASON_REQUIRED","Explain the proposed compensation exception before submitting an out-of-range offer.");
-    for(const [id,type] of [[terms.cost_center_id,"cost_center"],[terms.work_location_id,"work_location"],[terms.employment_setup_id,"employment_setup"],[ctx.designation_id,"designation"],[ctx.job_grade_id,"job_grade"]]){
+    const exceptionReason=range.rows[0]!.outside?(terms.range_exception_reason.trim()||HR_DEFAULT_REASON):terms.range_exception_reason;
+    for(const [id,type] of [[terms.cost_center_id,"cost_center"],[terms.work_location_id,"work_location"],[ctx.designation_id,"designation"],[ctx.job_grade_id,"job_grade"]]){
       const record=await client.query("select id from hr_master_record where tenant_id=$1 and company_id=$2 and id=$3 and master_type=$4 and status='active' for share",[context.tenantId,terms.company_id,id,type]);
       if(!record.rowCount)throw new HrApiError(409,"HR_OFFER_MASTER_INVALID","All offer placement and employment masters must be active in this company.");
     }
@@ -1802,6 +1810,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       const manager=await client.query("select e.id from employee e join employee_assignment a on a.tenant_id=e.tenant_id and a.employee_id=e.id where e.tenant_id=$1 and e.id=$2 and e.status in ('active','probation','confirmed') and a.company_id=$3 and a.assignment_status in ('active','legacy_compatibility') and a.effective_from<=current_date and (a.effective_to is null or a.effective_to>=current_date) limit 1",[context.tenantId,terms.reporting_manager_id,terms.company_id]);
       if(!manager.rowCount)throw new HrApiError(409,"HR_OFFER_MANAGER_INVALID","Select an active reporting manager in this company.");
     }
+    return exceptionReason;
   }
   private async mutateOffer(context:HrActorContext,input:CreateHrOfferRequest|UpdateHrOfferRequest|HrOfferActionRequest,key:string,corr:string,offerId?:string):Promise<HrOfferResult>{
     this.requireOfferRead(context);
@@ -1832,8 +1841,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       if(create && ctx.positions_reserved>=ctx.positions_authorized)throw new HrApiError(409,"HR_OFFER_HEADCOUNT_EXCEEDED","All authorized positions are already reserved.");
       if(!("action" in input)){
         if(before&&before.state!=="draft")throw new HrApiError(409,"HR_OFFER_TERMS_FROZEN","Only draft offer terms can be edited. Withdraw this offer and prepare a new version if needed.");
-        await this.validateOfferTerms(client,context,ctx,input);
-        const terms=[input.proposed_gross,input.joining_on,input.valid_until,input.probation_months,input.notice_days,input.cost_center_id,input.work_location_id,input.employment_setup_id,input.reporting_manager_id,input.note,input.range_exception_reason];
+        const exceptionReason=await this.validateOfferTerms(client,context,ctx,input);
+        const terms=[input.proposed_gross,input.joining_on,input.valid_until,input.probation_months,input.notice_days,input.cost_center_id,input.work_location_id,null,input.reporting_manager_id,input.note,exceptionReason];
         if(create)await client.query("insert into hr_recruitment_offer (tenant_id,id,company_id,application_id,opening_id,requisition_id,reference,designation_id,job_grade_id,branch_id,department_id,salary_minimum,salary_maximum,currency_code,created_by,proposed_gross,joining_on,valid_until,probation_months,notice_days,cost_center_id,work_location_id,employment_setup_id,reporting_manager_id,note,range_exception_reason) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)",[context.tenantId,id,input.company_id,appId,ctx.opening_id,ctx.requisition_id,reference,ctx.designation_id,ctx.job_grade_id,ctx.branch_id,ctx.department_id,ctx.salary_minimum,ctx.salary_maximum,ctx.currency_code,context.actor.userId,...terms]);
         else{await client.query("update hr_recruitment_offer set proposed_gross=$3,joining_on=$4,valid_until=$5,probation_months=$6,notice_days=$7,cost_center_id=$8,work_location_id=$9,employment_setup_id=$10,reporting_manager_id=$11,note=$12,range_exception_reason=$13,version=version+1,updated_at=now() where tenant_id=$1 and id=$2",[context.tenantId,id,...terms]);version++;reason="Draft offer terms updated.";}
       }else{
@@ -1846,13 +1855,13 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         if(input.action==="expire"&&!before!.is_overdue)throw new HrApiError(409,"HR_OFFER_NOT_EXPIRED","The offer validity date has not passed.");
         if(!closing&&(before!.valid_until<ctx.today||before!.joining_on<ctx.today))throw new HrApiError(409,"HR_OFFER_EXPIRED","This offer's validity or joining date has passed. Withdraw or expire it and prepare new terms.");
         if(["approve","generate","record_sent","accept"].includes(input.action)){
-          await this.validateOfferTerms(client,context,ctx,{...before!,company_id:input.company_id,expected_version:before!.version});
+          await this.validateOfferTerms(client,context,ctx,{...before!,company_id:input.company_id,expected_version:before!.version,employment_setup_id:undefined});
           const reservations=await client.query<{count:number}>("select count(*)::int as count from hr_recruitment_offer o where tenant_id=$1 and opening_id=$2 and id<>$3 and (state='accepted' or exists(select 1 from hr_offer_employee_handoff h where h.tenant_id=o.tenant_id and h.offer_id=o.id) or (state in ('approved','generated','sent') and valid_until>=current_date))",[context.tenantId,ctx.opening_id,id]);
           if(reservations.rows[0]!.count>=ctx.positions_authorized)throw new HrApiError(409,"HR_OFFER_HEADCOUNT_EXCEEDED","All authorized positions are reserved by approved or accepted offers.");
         }
         let extra="",values:unknown[]=[context.tenantId,id];
         if(input.action==="submit"){
-          await this.validateOfferTerms(client,context,ctx,{...before!,company_id:input.company_id,expected_version:before!.version});
+          await this.validateOfferTerms(client,context,ctx,{...before!,company_id:input.company_id,expected_version:before!.version,employment_setup_id:undefined});
           state="submitted";values.push(context.actor.userId);extra=",submitted_by=$4";
         }else if(input.action==="approve"||input.action==="reject_approval"){
           if(input.action==="approve"&&before!.outside_range&&(!input.approve_range_exception||!context.actor.permissions.includes("hr.payroll.salary.approve")))throw new HrApiError(403,"HR_OFFER_EXCEPTION_APPROVAL_REQUIRED","Out-of-range compensation requires explicit approval and salary approval permission.");
@@ -1860,7 +1869,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           state=input.action==="approve"?"approved":"rejected";values.push(context.actor.userId,input.reason,input.action==="approve"&&before!.outside_range?context.actor.userId:null,override);extra=",approved_by=$4,approved_at=now(),approval_reason=$5,exception_approved_by=$6,approval_override_event_id=$7";
         }else if(input.action==="generate"){
           const approver=await client.query<{name:string}>("select coalesce(display_name,email) as name from security_user_account where tenant_id=$1 and id=$2",[context.tenantId,before!.approved_by]);
-          const offer=before!;const letter=[ctx.company_name,"EMPLOYMENT OFFER",`Reference: ${reference}`,`Candidate: ${offer.candidate_name}`,"",`We are pleased to offer you the position of ${ctx.designation} (${ctx.job_grade}), ${ctx.department}, ${ctx.branch}.`,`Employment setup: ${offer.employment_setup} (${offer.pay_cycle} pay cycle)`,`Monthly gross compensation: ${offer.currency_code} ${offer.proposed_gross}`,`Joining date: ${offer.joining_on}`,`Offer valid through: ${offer.valid_until}`,`Probation: ${offer.probation_months} months. Notice: ${offer.notice_days} days.`,`Work location: ${offer.work_location}`,`Reporting manager: ${offer.reporting_manager??"To be assigned"}`,offer.note?`Additional terms: ${offer.note}`:"", "Please confirm your acceptance before the validity date.",`Approved by: ${approver.rows[0]?.name ?? offer.approved_by}`].filter(Boolean).join("\n");
+          const offer=before!;const letter=[ctx.company_name,"EMPLOYMENT OFFER",`Reference: ${reference}`,`Candidate: ${offer.candidate_name}`,"",`We are pleased to offer you the position of ${ctx.designation} (${ctx.job_grade}), ${ctx.department}, ${ctx.branch}.`,`Payment terms: ${offer.payment_route === "accounts_payable" ? "Accounts payable" : offer.payment_route === "stipend" ? "Stipend" : "Payroll"} (${offer.pay_cycle} pay cycle)`,`Monthly gross compensation: ${offer.currency_code} ${offer.proposed_gross}`,`Joining date: ${offer.joining_on}`,`Offer valid through: ${offer.valid_until}`,`Probation: ${offer.probation_months} months. Notice: ${offer.notice_days} days.`,`Work location: ${offer.work_location}`,`Reporting manager: ${offer.reporting_manager??"To be assigned"}`,offer.note?`Additional terms: ${offer.note}`:"", "Please confirm your acceptance before the validity date.",`Approved by: ${approver.rows[0]?.name ?? offer.approved_by}`].filter(Boolean).join("\n");
           state="generated";values.push(letter);extra=",document_text=$4";
         }else if(input.action==="record_sent"){state="sent";values.push(input.evidence_reference);extra=",delivery_reference=$4";
         }else if(input.action==="accept"||input.action==="decline"){
@@ -1936,8 +1945,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
   }
 
   private async requireOfferAssignmentMatch(client:PoolClient, context:HrActorContext, employeeId:string, input:CreateHrProfileDraftAssignmentRequest):Promise<void> {
-    const source=await client.query<{matches:boolean}>(`select (o.company_id=$3 and o.branch_id is not distinct from $4::text and o.department_id is not distinct from $5::text and o.designation_id=$6 and o.job_grade_id=$7 and o.cost_center_id=$8 and o.work_location_id=$9 and o.employment_setup_id=$10 and o.reporting_manager_id is not distinct from $11::text and o.joining_on=$12::date) as matches from hr_offer_employee_handoff h join hr_recruitment_offer o on o.tenant_id=h.tenant_id and o.id=h.offer_id where h.tenant_id=$1 and h.employee_id=$2`,[context.tenantId,employeeId,input.company_id,input.branch_id??null,input.department_id??null,input.designation_id,input.job_grade_id,input.cost_center_id,input.work_location_id,input.employment_setup_id,input.reporting_manager_id??null,input.effective_from]);
-    if(source.rows[0] && !source.rows[0].matches)throw new HrApiError(409,"HR_OFFER_ASSIGNMENT_MISMATCH","The initial assignment must match the approved offer's company, role, grade, location, cost centre, employment setup, manager and joining date.");
+    const source=await client.query<{matches:boolean}>(`select (o.company_id=$3 and o.branch_id is not distinct from $4::text and o.department_id is not distinct from $5::text and o.designation_id=$6 and o.job_grade_id=$7 and o.cost_center_id=$8 and o.work_location_id=$9 and ($10::text is null or true) and o.reporting_manager_id is not distinct from $11::text and o.joining_on=$12::date) as matches from hr_offer_employee_handoff h join hr_recruitment_offer o on o.tenant_id=h.tenant_id and o.id=h.offer_id where h.tenant_id=$1 and h.employee_id=$2`,[context.tenantId,employeeId,input.company_id,input.branch_id??null,input.department_id??null,input.designation_id,input.job_grade_id,input.cost_center_id,input.work_location_id,input.employment_setup_id,input.reporting_manager_id??null,input.effective_from]);
+    if(source.rows[0] && !source.rows[0].matches)throw new HrApiError(409,"HR_OFFER_ASSIGNMENT_MISMATCH","The initial assignment must match the approved offer's company, role, grade, location, cost centre, manager and joining date.");
   }
 
   private allocationSelect(): string {
@@ -2140,7 +2149,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
             blockers.push("The highest-priority assigned shift is inactive. Review its assignment.");
           if (shift.work_location_id && shift.work_location_id !== at.work_location_id)
             blockers.push(
-              "The highest-priority shift does not match the employee’s effective work location.",
+              "The highest-priority shift does not match the employeeâ€™s effective work location.",
             );
           if (!shift.configured || !shift.resolved || !shift.resolved.configured)
             blockers.push("The assigned shift needs timezone, duration or rotation configuration.");
@@ -2330,7 +2339,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
             throw new HrApiError(
               409,
               "HR_SHIFT_ALLOCATION_REPLACEMENT_INVALID",
-              "Replace only the same target’s allocation covering the new start date.",
+              "Replace only the same targetâ€™s allocation covering the new start date.",
             );
           if (previous.effective_from === create.effective_from)
             await client.query(
@@ -2537,14 +2546,13 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
     if(result.issues.length)throw new HrApiError(409,"HR_CORRECTION_NOT_RESOLVED",`The proposed correction still needs review: ${result.issues.join(" ")}`);
   }
 
-  private async validateCorrectionTerms(client:PoolClient,input:{stated_in:string|null;stated_out:string|null},evidence:HrCorrectionEvidence,checkLocalOffset=true):Promise<void>{
+  /** Check-in/out times may be any valid time; future times only block submission and approval. */
+  private async validateCorrectionTerms(client:PoolClient,input:{stated_in:string|null;stated_out:string|null},deciding:boolean):Promise<void>{
+    if(!deciding)return;
     for(const value of [input.stated_in,input.stated_out]){
       if(!value)continue;
-      const instant=Date.parse(value),start=Date.parse(evidence.day.scheduled_start??""),end=Date.parse(evidence.day.scheduled_end??"");
-      if(!Number.isFinite(start)||!Number.isFinite(end)||instant<start-43200000||instant>end+43200000)throw new HrApiError(400,"HR_CORRECTION_TIME_OUTSIDE_SHIFT","Use a timestamp within 12 hours of the effective shift window, including the following date for overnight work.");
-      const valid=(await client.query<{past:boolean;local:string}>(`select $1::timestamptz<=now() as past,to_char($1::timestamptz at time zone $2,'YYYY-MM-DD"T"HH24:MI') as local`,[value,evidence.day.time_zone])).rows[0]!;
-      if(!valid.past)throw new HrApiError(400,"HR_CORRECTION_FUTURE_TIMESTAMP","Stated punch timestamps cannot be in the future.");
-      if(checkLocalOffset&&valid.local!==value.slice(0,16))throw new HrApiError(400,"HR_CORRECTION_TIMEZONE_MISMATCH","The supplied UTC offset does not match the shift timezone at that local time.");
+      const valid=(await client.query<{past:boolean}>("select $1::timestamptz<=now() as past",[value])).rows[0]!;
+      if(!valid.past)throw new HrApiError(400,"HR_CORRECTION_FUTURE_TIMESTAMP","Check-in and check-out times cannot be in the future when submitting.");
     }
   }
   private async mutateCorrection(context:HrActorContext,input:CreateHrCorrectionRequest|UpdateHrCorrectionRequest|HrCorrectionActionRequest,key:string,corr:string,id?:string):Promise<HrCorrectionResult>{
@@ -2564,7 +2572,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       }
       const employeeId=before?.employee_id??(input as CreateHrCorrectionRequest).employee_id,onDate=before?.work_date??(input as CreateHrCorrectionRequest).work_date;
       const needsEvidence=action==="create"||action==="update"||action==="submit"||action.endsWith("_approve");
-      if(needsEvidence){evidence=await this.correctionEvidence(client,context,input.company_id,employeeId,onDate,id);if(evidence.blockers.length)throw new HrApiError(409,"HR_CORRECTION_EVIDENCE_BLOCKED",evidence.blockers.join(" "));if(input.expected_evidence_hash!==evidence.hash)throw new HrApiError(409,"HR_CORRECTION_EVIDENCE_STALE","Attendance evidence changed. Refresh it and review before continuing.");await this.validateCorrectionTerms(client,"kind" in input?input:before!,evidence,"kind" in input);if(action==="submit"||action.endsWith("_approve"))await this.validateCorrectionCandidate(client,context,input.company_id,"kind" in input?input:before!,evidence);}
+      if(needsEvidence){evidence=await this.correctionEvidence(client,context,input.company_id,employeeId,onDate,id);const deciding=action==="submit"||action.endsWith("_approve");/* Drafts save freely; blockers apply when the correction is submitted or approved. */if(deciding&&evidence.blockers.length)throw new HrApiError(409,"HR_CORRECTION_EVIDENCE_BLOCKED",evidence.blockers.join(" "));if(input.expected_evidence_hash!==evidence.hash)throw new HrApiError(409,"HR_CORRECTION_EVIDENCE_STALE","Attendance evidence changed. Refresh it and review before continuing.");await this.validateCorrectionTerms(client,"kind" in input?input:before!,deciding);if(action==="submit"||action.endsWith("_approve"))await this.validateCorrectionCandidate(client,context,input.company_id,"kind" in input?input:before!,evidence);}
       if(action==="create"){
         id=`attendance-correction-${randomUUID()}`;const terms=input as CreateHrCorrectionRequest;
         await client.query("insert into hr_attendance_correction (tenant_id,id,company_id,employee_id,work_date,kind,stated_in,stated_out,reason,requested_by,workflow_managed) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true)",[context.tenantId,id,input.company_id,employeeId,onDate,terms.kind,terms.stated_in,terms.stated_out,terms.reason,context.actor.userId]);
@@ -3109,7 +3117,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
                 assignment.company_id, assignment.branch_id, branch.name as branch,
                 assignment.department_id, department.name as department,
                 designation.name as designation, employment_setup.name as employment_setup,
-                employment_setup.payment_route, employment_setup.pay_cycle,
+                coalesce(cost_center.payment_route, employment_setup.payment_route) as payment_route,
+                coalesce(cost_center.pay_cycle, employment_setup.pay_cycle) as pay_cycle,
                 job_grade.name as job_grade, work_location.name as work_location,
                 manager.id as reporting_manager_id, manager.employee_number as reporting_manager_number,
                 concat_ws(' ', manager.first_name, manager.middle_name, manager.last_name) as reporting_manager_name,
@@ -3124,7 +3133,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
            join organization_unit department
              on department.tenant_id = assignment.tenant_id and department.id = assignment.department_id
            join hr_master_record designation on designation.tenant_id = assignment.tenant_id and designation.id = assignment.designation_id
-           join hr_master_record employment_setup on employment_setup.tenant_id = assignment.tenant_id and employment_setup.id = assignment.employment_setup_id
+           left join hr_master_record employment_setup on employment_setup.tenant_id = assignment.tenant_id and employment_setup.id = assignment.employment_setup_id
+           left join hr_master_record cost_center on cost_center.tenant_id = assignment.tenant_id and cost_center.id = assignment.cost_center_id
            join hr_master_record job_grade on job_grade.tenant_id = assignment.tenant_id and job_grade.id = assignment.job_grade_id
            join hr_master_record work_location on work_location.tenant_id = assignment.tenant_id and work_location.id = assignment.work_location_id
            left join employee manager on manager.tenant_id = assignment.tenant_id and manager.id = assignment.reporting_manager_id
@@ -3945,7 +3955,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           input.job_grade_id,
           input.cost_center_id,
           input.work_location_id,
-          input.employment_setup_id,
+          null, // Employment setups are retired (HR149); terms come from the cost centre.
           input.reporting_manager_id ?? null,
           input.effective_from,
           context.actor.userId,
@@ -4271,7 +4281,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
              on job.tenant_id=assignment.tenant_id and job.id=assignment.job_id
            join hr_master_record job_grade
              on job_grade.tenant_id=assignment.tenant_id and job_grade.id=assignment.job_grade_id
-           join hr_master_record employment_setup
+           left join hr_master_record employment_setup
              on employment_setup.tenant_id=assignment.tenant_id and employment_setup.id=assignment.employment_setup_id
            join hr_master_record work_location
              on work_location.tenant_id=assignment.tenant_id and work_location.id=assignment.work_location_id
@@ -4413,7 +4423,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
     return this.read(context, "hr.employment_lifecycle_policy.read", async (client) => {
       await this.requireCompanyAccess(client, context, query.company_id);
       const result = await client.query<EmploymentLifecyclePolicyRow>(
-        `select id,legal_employer_id as company_id,code,name,version,status,effective_from,effective_to,
+        `select id,legal_employer_id as company_id,code,name,description,version,status,effective_from,effective_to,
                 created_by,submitted_by
            from hr_employment_lifecycle_policy
           where tenant_id=$1 and legal_employer_id=$2
@@ -4488,8 +4498,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       const version = (versionResult.rows[0]?.version ?? 0) + 1;
       await client.query(
         `insert into hr_employment_lifecycle_policy
-          (id,tenant_id,legal_employer_id,code,name,version,status,effective_from,effective_to,created_by)
-         values ($1,$2,$3,$4,$5,$6,'draft',$7,$8,$9)`,
+          (id,tenant_id,legal_employer_id,code,name,version,status,effective_from,effective_to,created_by,description)
+         values ($1,$2,$3,$4,$5,$6,'draft',coalesce($7::date,current_date),$8,$9,$10)`,
         [
           id,
           context.tenantId,
@@ -4497,9 +4507,10 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           input.code,
           input.name,
           version,
-          input.effective_from,
+          input.effective_from ?? null,
           input.effective_to ?? null,
           context.actor.userId,
+          input.description ?? "",
         ],
       );
       const preEmploymentStateId = `employment-lifecycle-state-${randomUUID()}`;
@@ -4668,6 +4679,241 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
     }
   }
 
+  /** Locks a draft lifecycle policy for a draft-only edit or delete, after the idempotency replay check. */
+  private async lockDraftEmploymentLifecyclePolicy(
+    client: PoolClient,
+    context: HrActorContext,
+    policyId: string,
+    companyId: string,
+  ) {
+    const policy = await client.query<{
+      company_id: string;
+      code: string;
+      name: string;
+      version: number;
+      description: string;
+      status: "draft" | "pending_approval" | "approved" | "active" | "inactive";
+      effective_from: string | Date;
+      effective_to: string | Date | null;
+    }>(
+      `select legal_employer_id as company_id,code,name,description,version,status,effective_from,effective_to
+         from hr_employment_lifecycle_policy
+        where tenant_id=$1 and id=$2 and legal_employer_id=$4
+          and exists (select 1 from security_user_company_access access where access.tenant_id=hr_employment_lifecycle_policy.tenant_id and access.user_id=$3 and access.company_id=hr_employment_lifecycle_policy.legal_employer_id and access.revoked_at is null)
+        for update`,
+      [context.tenantId, policyId, context.actor.userId, companyId],
+    );
+    const row = policy.rows[0];
+    if (!row) throw new HrApiError(404, "HR_LIFECYCLE_POLICY_NOT_FOUND", "The lifecycle policy was not found in your company scope.");
+    if (row.status !== "draft")
+      throw new HrApiError(
+        409,
+        "HR_LIFECYCLE_POLICY_NOT_DRAFT",
+        "Only draft lifecycle policies can be edited or deleted. Submitted versions are immutable.",
+      );
+    return {
+      ...row,
+      effective_from: dateOnly(row.effective_from),
+      effective_to: row.effective_to ? dateOnly(row.effective_to) : null,
+    };
+  }
+
+  async updateEmploymentLifecyclePolicy(
+    context: HrActorContext,
+    policyId: string,
+    input: UpdateHrEmploymentLifecyclePolicyRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmploymentLifecyclePolicyResult> {
+    if (!validIdempotencyKey(idempotencyKey))
+      throw new HrApiError(400, "INVALID_IDEMPOTENCY_KEY", "The idempotency key is invalid.");
+    if (!context.actor.permissions.includes("hr.employment_lifecycle_policy.manage"))
+      throw new HrApiError(403, "PERMISSION_DENIED", "You are not permitted to manage lifecycle policies.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level read committed");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+        `nexora:hr:lifecycle-policy-draft:${context.tenantId}:${policyId}`,
+      ]);
+      await this.requireCompanyAccess(client, context, input.company_id);
+      const path = `/api/v1/hr/employment_lifecycle_policies/${policyId}/update`;
+      const fingerprint = stateHash(input);
+      const replay = await client.query<{ request_fingerprint: string; response_body: HrEmploymentLifecyclePolicyResult }>(
+        `select request_fingerprint,response_body from platform_admin_idempotency
+          where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey],
+      );
+      if (replay.rows[0]) {
+        if (replay.rows[0].request_fingerprint !== fingerprint)
+          throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request.");
+        await client.query("commit");
+        return { ...replay.rows[0].response_body, replayed: true };
+      }
+      const before = await this.lockDraftEmploymentLifecyclePolicy(client, context, policyId, input.company_id);
+      await client.query(
+        `update hr_employment_lifecycle_policy
+            set name=$3,description=$6,effective_from=coalesce($4::date,effective_from),
+                effective_to=coalesce($5::date,effective_to),updated_at=now()
+          where tenant_id=$1 and id=$2`,
+        [
+          context.tenantId,
+          policyId,
+          input.name,
+          input.effective_from ?? null,
+          input.effective_to ?? null,
+          input.description ?? "",
+        ],
+      );
+      const audit = await this.appendPlatformAudit(
+        client,
+        context,
+        correlationId,
+        "hr.employment_lifecycle_policy.update",
+        {
+          entityId: policyId,
+          entityType: "employment_lifecycle_policy",
+          before,
+          after: {
+            ...before,
+            name: input.name,
+            description: input.description ?? "",
+            effective_from: input.effective_from ?? before.effective_from,
+            effective_to: input.effective_to ?? before.effective_to,
+          },
+        },
+      );
+      const result: HrEmploymentLifecyclePolicyResult = {
+        id: policyId,
+        company_id: before.company_id,
+        code: before.code,
+        name: input.name,
+        version: before.version,
+        status: "draft",
+        audit_event_id: audit,
+        replayed: false,
+      };
+      await client.query(
+        `insert into platform_admin_idempotency
+          (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag)
+         values ($1,$2,'POST',$3,$4,$5,200,$6,$7)`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stateHash(result)],
+      );
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** Deletes an unreferenced draft policy and its draft states and transitions. The record-code
+   * counter is not lowered, so the deleted code is never reissued. */
+  async deleteEmploymentLifecyclePolicy(
+    context: HrActorContext,
+    policyId: string,
+    input: DeleteHrEmploymentLifecyclePolicyRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmploymentLifecyclePolicyDeleteResult> {
+    if (!validIdempotencyKey(idempotencyKey))
+      throw new HrApiError(400, "INVALID_IDEMPOTENCY_KEY", "The idempotency key is invalid.");
+    if (!context.actor.permissions.includes("hr.employment_lifecycle_policy.manage"))
+      throw new HrApiError(403, "PERMISSION_DENIED", "You are not permitted to manage lifecycle policies.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level read committed");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+        `nexora:hr:lifecycle-policy-draft:${context.tenantId}:${policyId}`,
+      ]);
+      await this.requireCompanyAccess(client, context, input.company_id);
+      const path = `/api/v1/hr/employment_lifecycle_policies/${policyId}/delete`;
+      const fingerprint = stateHash({ policyId, action: "delete", input });
+      const replay = await client.query<{
+        request_fingerprint: string;
+        response_body: HrEmploymentLifecyclePolicyDeleteResult;
+      }>(
+        `select request_fingerprint,response_body from platform_admin_idempotency
+          where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey],
+      );
+      if (replay.rows[0]) {
+        if (replay.rows[0].request_fingerprint !== fingerprint)
+          throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request.");
+        await client.query("commit");
+        return { ...replay.rows[0].response_body, replayed: true };
+      }
+      const before = await this.lockDraftEmploymentLifecyclePolicy(client, context, policyId, input.company_id);
+      const usage = await client.query<{ in_use: boolean }>(
+        `select (
+           exists (select 1 from hr_employment_relationship where tenant_id=$1 and lifecycle_policy_id=$2)
+           or exists (select 1 from hr_employment_policy_adoption where tenant_id=$1 and (source_policy_id=$2 or target_policy_id=$2))
+           or exists (
+             select 1 from hr_employment_lifecycle_request request
+              where request.tenant_id=$1
+                and (request.transition_id in (select id from hr_employment_lifecycle_transition where tenant_id=$1 and policy_id=$2)
+                  or request.previous_state_id in (select id from hr_employment_lifecycle_state where tenant_id=$1 and policy_id=$2)
+                  or request.resulting_state_id in (select id from hr_employment_lifecycle_state where tenant_id=$1 and policy_id=$2)))
+           or exists (
+             select 1 from hr_employment_event event
+              where event.tenant_id=$1
+                and (event.previous_state_id in (select id from hr_employment_lifecycle_state where tenant_id=$1 and policy_id=$2)
+                  or event.resulting_state_id in (select id from hr_employment_lifecycle_state where tenant_id=$1 and policy_id=$2)))
+         ) as in_use`,
+        [context.tenantId, policyId],
+      );
+      if (usage.rows[0]?.in_use)
+        throw new HrApiError(
+          409,
+          "HR_LIFECYCLE_POLICY_IN_USE",
+          "This lifecycle policy is referenced by employment records and cannot be deleted. Nothing was changed.",
+        );
+      await client.query("delete from hr_employment_lifecycle_transition where tenant_id=$1 and policy_id=$2", [
+        context.tenantId,
+        policyId,
+      ]);
+      await client.query("delete from hr_employment_lifecycle_state where tenant_id=$1 and policy_id=$2", [
+        context.tenantId,
+        policyId,
+      ]);
+      await client.query("delete from hr_employment_lifecycle_policy where tenant_id=$1 and id=$2", [
+        context.tenantId,
+        policyId,
+      ]);
+      const audit = await this.appendPlatformAudit(
+        client,
+        context,
+        correlationId,
+        "hr.employment_lifecycle_policy.delete",
+        { entityId: policyId, entityType: "employment_lifecycle_policy", before, after: null },
+      );
+      const result: HrEmploymentLifecyclePolicyDeleteResult = {
+        id: policyId,
+        company_id: before.company_id,
+        code: before.code,
+        deleted: true,
+        audit_event_id: audit,
+        replayed: false,
+      };
+      await client.query(
+        `insert into platform_admin_idempotency
+          (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag)
+         values ($1,$2,'POST',$3,$4,$5,200,$6,$7)`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stateHash(result)],
+      );
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async approveEmploymentLifecyclePolicy(
     context: HrActorContext,
     policyId: string,
@@ -4769,6 +5015,108 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         name: before.name,
         version: before.version,
         status: "approved",
+        audit_event_id: audit,
+        replayed: false,
+      };
+      await client.query(
+        `insert into platform_admin_idempotency
+          (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag)
+         values ($1,$2,'POST',$3,$4,$5,200,$6,$7)`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stateHash(result)],
+      );
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** Deactivates an approved or active policy. History, codes and employment links are kept. */
+  async deactivateEmploymentLifecyclePolicy(
+    context: HrActorContext,
+    policyId: string,
+    input: DeactivateHrEmploymentLifecyclePolicyRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmploymentLifecyclePolicyDeactivationResult> {
+    if (!validIdempotencyKey(idempotencyKey))
+      throw new HrApiError(400, "INVALID_IDEMPOTENCY_KEY", "The idempotency key is invalid.");
+    if (!context.actor.permissions.includes("hr.employment_lifecycle_policy.manage"))
+      throw new HrApiError(403, "PERMISSION_DENIED", "You are not permitted to manage lifecycle policies.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level read committed");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+        `nexora:hr:lifecycle-policy-status:${context.tenantId}:${policyId}`,
+      ]);
+      await this.requireCompanyAccess(client, context, input.company_id);
+      const path = `/api/v1/hr/employment_lifecycle_policies/${policyId}/deactivate`;
+      const fingerprint = stateHash(input);
+      const replay = await client.query<{
+        request_fingerprint: string;
+        response_body: HrEmploymentLifecyclePolicyDeactivationResult;
+      }>(
+        `select request_fingerprint,response_body from platform_admin_idempotency
+          where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey],
+      );
+      if (replay.rows[0]) {
+        if (replay.rows[0].request_fingerprint !== fingerprint)
+          throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request.");
+        await client.query("commit");
+        return { ...replay.rows[0].response_body, replayed: true };
+      }
+      const policy = await client.query<{
+        company_id: string;
+        code: string;
+        name: string;
+        version: number;
+        status: "draft" | "pending_approval" | "approved" | "active" | "inactive";
+      }>(
+        `select legal_employer_id as company_id,code,name,version,status
+           from hr_employment_lifecycle_policy
+          where tenant_id=$1 and id=$2 and legal_employer_id=$3
+          for update`,
+        [context.tenantId, policyId, input.company_id],
+      );
+      const before = policy.rows[0];
+      if (!before)
+        throw new HrApiError(404, "HR_LIFECYCLE_POLICY_NOT_FOUND", "The lifecycle policy was not found in your company scope.");
+      if (before.status !== "active" && before.status !== "approved")
+        throw new HrApiError(
+          409,
+          "HR_LIFECYCLE_POLICY_NOT_ACTIVE",
+          "Only approved or active lifecycle policies can be deactivated.",
+        );
+      await client.query(
+        `update hr_employment_lifecycle_policy
+            set status='inactive',deactivated_by=$3,deactivated_at=now(),updated_at=now()
+          where tenant_id=$1 and id=$2`,
+        [context.tenantId, policyId, context.actor.userId],
+      );
+      const audit = await this.appendPlatformAudit(
+        client,
+        context,
+        correlationId,
+        "hr.employment_lifecycle_policy.deactivate",
+        {
+          entityId: policyId,
+          entityType: "employment_lifecycle_policy",
+          before,
+          after: { ...before, status: "inactive", reason: input.reason },
+        },
+      );
+      const result: HrEmploymentLifecyclePolicyDeactivationResult = {
+        id: policyId,
+        company_id: before.company_id,
+        code: before.code,
+        name: before.name,
+        version: before.version,
+        status: "inactive",
         audit_event_id: audit,
         replayed: false,
       };
@@ -5241,7 +5589,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
             row.job_grade_id,
             row.cost_center_id,
             row.work_location_id,
-            row.employment_setup_id,
+            null, // Employment setups are retired (HR149); terms come from the cost centre.
             row.reporting_manager_id,
             row.effective_on,
             context.actor.userId,
@@ -5313,7 +5661,9 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
     return this.read(context, "hr.employee_assignment.change", async (client) => {
       await this.requireCompanyAccess(client, context, query.company_id);
       const values: unknown[] = [context.tenantId, query.company_id];
-      const filters = ["request.tenant_id=$1", "request.company_id=$2", "request.request_state='pending'"];
+      const filters = ["request.tenant_id=$1", "request.company_id=$2"];
+      const status = query.status ?? "pending";
+      if (status !== "all") filters.push(`request.request_state=$${values.push(status)}`);
       if (query.search) {
         const parameter = values.push(`%${query.search.replace(/[\\%_]/g, "\\$&")}%`);
         filters.push(
@@ -5459,7 +5809,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           input.job_grade_id,
           input.cost_center_id,
           input.work_location_id,
-          input.employment_setup_id,
+          null, // Employment setups are retired (HR149); terms come from the cost centre.
           input.reporting_manager_id ?? null,
           input.effective_on,
           input.reason,
@@ -5635,7 +5985,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
             row.proposed_job_grade_id,
             row.proposed_cost_center_id,
             row.proposed_work_location_id,
-            row.proposed_employment_setup_id,
+            null, // Employment setups are retired (HR149); terms come from the cost centre.
             row.proposed_reporting_manager_id,
             row.effective_on,
             context.actor.userId,
@@ -5717,7 +6067,9 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
     return this.read(context, "hr.employee_assignment.change", async (client) => {
       await this.requireCompanyAccess(client, context, query.company_id);
       const values: unknown[] = [context.tenantId, query.company_id];
-      const filters = ["request.tenant_id=$1", "request.company_id=$2", "request.request_state='pending'"];
+      const filters = ["request.tenant_id=$1", "request.company_id=$2"];
+      const status = query.status ?? "pending";
+      if (status !== "all") filters.push(`request.request_state=$${values.push(status)}`);
       if (query.search) {
         const parameter = values.push(`%${query.search.replace(/[\\%_]/g, "\\$&")}%`);
         filters.push(
@@ -6062,7 +6414,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
             row.proposed_job_grade_id,
             row.cost_center_id,
             row.work_location_id,
-            row.employment_setup_id,
+            null, // Employment setups are retired (HR149); terms come from the cost centre.
             row.reporting_manager_id,
             row.effective_on,
             context.actor.userId,
@@ -6531,7 +6883,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
             row.job_grade_id,
             row.cost_center_id,
             row.work_location_id,
-            row.employment_setup_id,
+            null, // Employment setups are retired (HR149); terms come from the cost centre.
             row.proposed_reporting_manager_id,
             row.effective_on,
             context.actor.userId,
@@ -6996,7 +7348,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
             row.job_grade_id,
             row.cost_center_id,
             row.proposed_work_location_id,
-            row.employment_setup_id,
+            null, // Employment setups are retired (HR149); terms come from the cost centre.
             row.reporting_manager_id,
             row.effective_on,
             context.actor.userId,
@@ -7493,7 +7845,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
             row.job_grade_id,
             row.cost_center_id,
             row.work_location_id,
-            row.employment_setup_id,
+            null, // Employment setups are retired (HR149); terms come from the cost centre.
             row.reporting_manager_id,
             row.effective_on,
             context.actor.userId,
@@ -7809,7 +8161,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           throw new HrApiError(
             409,
             "HR_JOB_GRADE_CURRENCY_NOT_CONFIGURED",
-            "Choose a currency configured for this company under Finance → Company currencies.",
+            "Choose a currency configured for this company under Finance â†’ Company currencies.",
           );
       }
       let id = gradeId;
@@ -7992,15 +8344,15 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       if (masterId && !before) throw new HrApiError(404, "HR_MASTER_NOT_FOUND", "HR master record was not found.");
       const masterType = String(operation === "create" ? (input as CreateHrMasterRequest).type : before?.master_type);
       if ((hrRetiredMasterTypes as readonly string[]).includes(masterType))
-        throw new HrApiError(409, "HR_MASTER_TYPE_RETIRED", "Employment types and employee categories are retired and read-only. Use an employment setup instead.");
+        throw new HrApiError(409, "HR_MASTER_TYPE_RETIRED", "Employment types, employee categories and employment setups are retired and read-only. Set the payment route and pay cycle on the cost centre.");
       if (operation === "update" && before) {
         const update = input as UpdateHrMasterRequest;
         if (masterType === "work_location" && (!update.configuration_key || !update.configuration_value))
           throw new HrApiError(400, "HR_MASTER_CONFIGURATION_REQUIRED", "Configuration is required when updating this HR master type.");
-        if (masterType === "employment_setup" && (!update.payment_route || !update.pay_cycle || update.configuration_key || update.configuration_value))
-          throw new HrApiError(400, "HR_MASTER_CONFIGURATION_REQUIRED", "An employment setup requires a payment route and pay cycle and no other configuration.");
-        if (masterType !== "employment_setup" && (update.payment_route || update.pay_cycle))
-          throw new HrApiError(400, "HR_MASTER_CONFIGURATION_INVALID", "Payment route and pay cycle apply only to employment setups.");
+        if (masterType === "cost_center" && (!update.payment_route || !update.pay_cycle))
+          throw new HrApiError(400, "HR_MASTER_CONFIGURATION_REQUIRED", "A cost centre requires a payment route and pay cycle.");
+        if (masterType !== "cost_center" && (update.payment_route || update.pay_cycle))
+          throw new HrApiError(400, "HR_MASTER_CONFIGURATION_INVALID", "Payment route and pay cycle apply only to cost centres.");
       }
       if (operation !== "status")
         await this.assertMasterReferences(client, context, masterType, input as CreateHrMasterRequest | UpdateHrMasterRequest, before);
@@ -8033,7 +8385,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
       if (code === "23505") throw new HrApiError(409, "HR_MASTER_DUPLICATE", "That code or name already exists for this company and master type.");
       if (code === "23514" && String((error as { message?: unknown }).message).startsWith("employment types and employee categories are retired"))
-        throw new HrApiError(409, "HR_MASTER_TYPE_RETIRED", "Employment types and employee categories are retired and read-only. Use an employment setup instead.");
+        throw new HrApiError(409, "HR_MASTER_TYPE_RETIRED", "Employment types, employee categories and employment setups are retired and read-only. Set the payment route and pay cycle on the cost centre.");
       if (code === "23514") throw new HrApiError(409, "HR_MASTER_CONFIGURATION_INVALID", "The master configuration is invalid for this record type.");
       throw error;
     } finally {
@@ -8174,7 +8526,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         if (resource === "job_grade" && row?.master_type !== "job_grade") throw new HrApiError(404, "HR_JOB_GRADE_NOT_FOUND", "Job grade was not found.");
         if (!row) throw new HrApiError(404, "HR_MASTER_NOT_FOUND", "HR master record was not found.");
         if ((hrRetiredMasterTypes as readonly string[]).includes(row.master_type))
-          throw new HrApiError(409, "HR_MASTER_TYPE_RETIRED", "Employment types and employee categories are retired and read-only. Use an employment setup instead.");
+          throw new HrApiError(409, "HR_MASTER_TYPE_RETIRED", "Employment types, employee categories and employment setups are retired and read-only. Set the payment route and pay cycle on the cost centre.");
         before = { ...row.state, ...(row.grade ? { job_grade_detail: row.grade } : {}), code: row.code, status: row.status };
         kind = row.master_type;
       }
@@ -8215,7 +8567,9 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
                                                      then proposal.source_evidence->'cost_center_mappings' else '[]'::jsonb end) mapping
                           where proposal.tenant_id=$1 and mapping->>'cost_center_id'=$2)
                or exists(select 1 from journal_line where tenant_id=$1 and dimensions->>'cost_center'=$2)
-               or exists(select 1 from manual_journal_line where tenant_id=$1 and dimensions->>'cost_center'=$2) as used`,
+               or exists(select 1 from manual_journal_line where tenant_id=$1 and dimensions->>'cost_center'=$2)
+               or exists(select 1 from hr_leave_type where tenant_id=$1 and $2=any(applicable_cost_center_ids))
+               or exists(select 1 from hr_leave_policy_version where tenant_id=$1 and $2=any(applicable_cost_center_ids)) as used`,
           [context.tenantId, recordId],
         );
         if (used.rows[0]?.used) throw inUse();
@@ -8255,7 +8609,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       // ON DELETE RESTRICT: assignments, requisitions, offers, shifts, HR134 legacy map, history ...
       if (code === "23503" || code === "23001") throw inUse();
       if (code === "23514" && message.startsWith("retired employment masters"))
-        throw new HrApiError(409, "HR_MASTER_TYPE_RETIRED", "Employment types and employee categories are retired and read-only. Use an employment setup instead.");
+        throw new HrApiError(409, "HR_MASTER_TYPE_RETIRED", "Employment types, employee categories and employment setups are retired and read-only. Set the payment route and pay cycle on the cost centre.");
       // A guard on deactivating the record (for example active placements) also means it is still in use.
       if (code === "23514" && !message.startsWith("retired employment masters")) throw inUse();
       throw error;
@@ -8312,7 +8666,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
                 on designation.tenant_id=assignment.tenant_id and designation.id=assignment.designation_id
               join hr_master_record job_grade
                 on job_grade.tenant_id=assignment.tenant_id and job_grade.id=assignment.job_grade_id
-              join hr_master_record employment_setup
+              left join hr_master_record employment_setup
                 on employment_setup.tenant_id=assignment.tenant_id and employment_setup.id=assignment.employment_setup_id
               join hr_master_record work_location
                 on work_location.tenant_id=assignment.tenant_id and work_location.id=assignment.work_location_id`;
@@ -8723,6 +9077,9 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       | "hr.employment_lifecycle_policy.submit"
       | "hr.employment_lifecycle_policy.approve"
       | "hr.employment_lifecycle_policy.activate"
+      | "hr.employment_lifecycle_policy.update"
+      | "hr.employment_lifecycle_policy.delete"
+      | "hr.employment_lifecycle_policy.deactivate"
       | "hr.master.job.create"
       | "hr.job_grade.create"
       | "hr.job_grade.update"

@@ -74,9 +74,8 @@ run("governed employee Hire repository", () => {
        values
         ('hire-test-designation-two',$1,$2,'designation','HIRE-DES-2','Hire Test Designation Two','r06.maker',null,null),
         ('hire-test-grade-two',$1,$2,'job_grade','HIRE-GRD-2','Hire Test Grade Two','r06.maker',null,null),
-        ('hire-test-cost-center-two',$1,$2,'cost_center','HIRE-CC-2','Hire Test Cost Center Two','r06.maker',null,null),
-        ('hire-test-location-two',$1,$2,'work_location','HIRE-LOC-2','Hire Test Location Two','r06.maker',null,null),
-        ('hire-test-employment-setup',$1,$2,'employment_setup','HIRE-ES','Hire Test Employment Setup','r06.maker','payroll','monthly')
+        ('hire-test-cost-center-two',$1,$2,'cost_center','HIRE-CC-2','Hire Test Cost Center Two','r06.maker','payroll','monthly'),
+        ('hire-test-location-two',$1,$2,'work_location','HIRE-LOC-2','Hire Test Location Two','r06.maker',null,null)
        on conflict (tenant_id,id) do nothing`,
       [sourceTestTenantId, companyId],
     );
@@ -170,7 +169,6 @@ run("governed employee Hire repository", () => {
         job_grade_id: "hire-test-grade-two",
         cost_center_id: "hire-test-cost-center-two",
         work_location_id: "hire-test-location-two",
-        employment_setup_id: "hire-test-employment-setup",
         effective_from: effectiveOn,
       },
       `hire-profile-assignment-${suffix}`,

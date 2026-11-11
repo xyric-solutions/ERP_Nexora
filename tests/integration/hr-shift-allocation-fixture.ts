@@ -19,7 +19,6 @@ export async function createShiftAllocationFixture(pool: DatabasePool, users = [
     "job_grade",
     "cost_center",
     "work_location",
-    "employment_setup",
   ]) {
     const id = `shift-master-${kind}-${suffix}`;
     masters[kind] = id;
@@ -34,8 +33,9 @@ export async function createShiftAllocationFixture(pool: DatabasePool, users = [
         `Roster ${kind.replaceAll("_", " ")}`,
         kind === "work_location" ? "working_pattern" : null,
         kind === "work_location" ? "on_site" : null,
-        kind === "employment_setup" ? "payroll" : null,
-        kind === "employment_setup" ? "monthly" : null,
+        // Since HR149 the cost centre carries the payment route and pay cycle.
+        kind === "cost_center" ? "payroll" : null,
+        kind === "cost_center" ? "monthly" : null,
       ],
     );
   }
@@ -76,7 +76,7 @@ export async function createShiftAllocationFixture(pool: DatabasePool, users = [
         masters.job_grade,
         masters.cost_center,
         masters.work_location,
-        masters.employment_setup,
+        null,
         effectiveTo,
         reportingManagerId,
       ],

@@ -99,7 +99,7 @@ run("Live recruitment pipeline", () => {
         job_title: "Pipeline integration vacancy",
         designation_id: "r06-uat-designation",
         job_grade_id: grade.id,
-        employment_setup_id: "r06-uat-employment-setup",
+        cost_center_id: "r06-uat-cost-center",
         branch_id: "nexora-r06-uat-branch",
         department_id: "nexora-r06-uat-department",
         positions_requested: 2,

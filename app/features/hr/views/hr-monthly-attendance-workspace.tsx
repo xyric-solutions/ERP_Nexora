@@ -446,7 +446,7 @@ export function HrMonthlyAttendanceWorkspace({
                       "Needs review",
                       "Worked",
                     ].map((h) => (
-                      <th key={h} scope="col" className="px-3 py-3 text-xs font-semibold text-muted-foreground">
+                      <th key={h} scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">
                         {h}
                       </th>
                     ))}
@@ -459,18 +459,18 @@ export function HrMonthlyAttendanceWorkspace({
                       {...openRow(row)}
                       className={`cursor-pointer border-t border-border outline-none hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selected === row.employee_id ? "bg-primary/5" : ""}`}
                     >
-                      <td className="px-3 py-3">
+                      <td className="px-4 py-3">
                         <strong className="block">{row.display_name}</strong>
                         <span className="mt-1 block text-xs text-muted-foreground">{row.employee_number}</span>
                       </td>
-                      <td className="px-3 py-3 tabular-nums">{row.covered_days}</td>
-                      <td className="px-3 py-3 tabular-nums">
+                      <td className="px-4 py-3 tabular-nums">{row.covered_days}</td>
+                      <td className="px-4 py-3 tabular-nums">
                         {row.counts.present} / {row.counts.half_day}
                       </td>
-                      <td className="px-3 py-3 tabular-nums">{row.counts.absent}</td>
-                      <td className="px-3 py-3 tabular-nums">{row.approved_leave_days}</td>
-                      <td className="px-3 py-3 tabular-nums">{row.counts.needs_review}</td>
-                      <td className="px-3 py-3 tabular-nums">{attendanceMinutes(row.worked_minutes)}</td>
+                      <td className="px-4 py-3 tabular-nums">{row.counts.absent}</td>
+                      <td className="px-4 py-3 tabular-nums">{row.approved_leave_days}</td>
+                      <td className="px-4 py-3 tabular-nums">{row.counts.needs_review}</td>
+                      <td className="px-4 py-3 tabular-nums">{attendanceMinutes(row.worked_minutes)}</td>
                     </tr>
                   ))}
                 </tbody>

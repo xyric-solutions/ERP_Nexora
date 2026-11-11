@@ -31,6 +31,7 @@ import {
 } from "./payroll-calculation.js";
 import { requireHrCompanyPermission } from "./company-authority.js";
 import { HrApiError, type HrActorContext } from "./source-repository.js";
+import { defaultNominalAccounts, paidThroughPayroll, payrollPlacements } from "./payroll-population.js";
 type Dependencies = Pick<AttendanceCompletionDependencies, "pool" | "read" | "company" | "override" | "audit"> & {
   statutoryMode?: StatutoryExecutionMode;
 };
@@ -712,16 +713,33 @@ export class PayrollRuns {
     );
   }
   private async calculate(client: PoolClient, c: HrActorContext, q: HrPayrollRunQuery, p: Row) {
-    const inputs = (
+    const attendanceInputs = (
       await client.query(
         `select id,employee_id,evidence_version,source_hash,calendar_days::text,paid_days::text,unpaid_days::text,overtime_regular_minutes,overtime_weekend_minutes,overtime_holiday_minutes,correction_count,completion_payload from hr_payroll_input where tenant_id=$1 and company_id=$2 and period_id=$3 order by employee_id collate "C" limit 501`,
         [c.tenantId, q.company_id, p.attendance_period_id],
       )
     ).rows;
+    // Accounts-payable people are paid through supplier invoices, so they stay out of the Payroll run.
+    const placements = await payrollPlacements(
+      client,
+      c.tenantId,
+      q.company_id,
+      attendanceInputs.map((i) => String(i.employee_id)),
+      q.month,
+    );
+    const inputs = attendanceInputs.filter((i) => paidThroughPayroll(placements.get(String(i.employee_id))));
+    if (attendanceInputs.length && !inputs.length)
+      conflict("No employee in this attendance period is paid through Payroll; all are on the Accounts payable route.");
     if (!inputs.length || inputs.length > 500)
       conflict(
         "This synchronous calculation supports 1–500 employees. Larger periods require durable worker execution.",
       );
+    const nominals = await defaultNominalAccounts(
+      client,
+      c.tenantId,
+      q.company_id,
+      inputs.flatMap((i) => placements.get(String(i.employee_id)) ?? []),
+    );
     const payloads = inputs.map((row) => {
       const parsed = hrAttendanceCloseEmployeeSchema.safeParse(row.completion_payload);
       if (
@@ -768,10 +786,15 @@ export class PayrollRuns {
     ).rows;
     const adjustments = await this.adjustments(client, c, q, true);
     if (adjustments.length > 1000) conflict("More than 1000 approved inputs require durable worker execution.");
+    const outsidePayroll = (employee: string) => !paidThroughPayroll(placements.get(employee));
+    if (adjustments.some((a) => outsidePayroll(String(a.employee_id))))
+      conflict("An approved Payroll adjustment belongs to an employee paid through Accounts payable.");
     if (adjustments.some((a) => !payloads.some((p) => p.employee_id === a.employee_id)))
       conflict("An approved adjustment employee has no published attendance input for this period.");
     const loans = await loanRecoveries(client, c, q, true);
     if (loans.length > 1000) conflict("More than 1000 loan instalments require durable worker execution.");
+    if (loans.some((a) => outsidePayroll(String(a.employee_id))))
+      conflict("A loan instalment belongs to an employee paid through Accounts payable.");
     if (loans.some((a) => !payloads.some((p) => p.employee_id === a.employee_id)))
       conflict("An active loan employee has no published attendance input for this period.");
     const hashes = [];
@@ -873,9 +896,20 @@ export class PayrollRuns {
       calculated.gross = statutory.gross;
       calculated.deductions = statutory.deductions;
       calculated.net = statutory.net;
+      const placement = placements.get(payload.employee_id) ?? null,
+        nominal = placement?.default_nominal ? (nominals.get(placement.default_nominal) ?? null) : null;
+      if (nominal)
+        for (const line of calculated.lines) if (line.kind === "earning") line.expense_account_id = nominal;
+      const costing = {
+        payment_route: placement?.payment_route ?? null,
+        cost_center_id: placement?.cost_center_id ?? null,
+        cost_center_code: placement?.cost_center_code ?? null,
+        default_nominal_account_id: nominal,
+      };
       const id = "payroll-result-" + randomUUID(),
         input = inputs[index]!,
         hash = attendanceHash({
+          costing,
           calculated,
           attendance: input.source_hash,
           salaries: sourceSalaries,
@@ -886,7 +920,7 @@ export class PayrollRuns {
         }),
         run = Number(p.run_number) + 1;
       await client.query(
-        `insert into hr_payroll_result(id,tenant_id,company_id,period_id,employee_id,salary_assignment_id,run_number,currency_code,gross,deductions,net,attendance_source_hash,calculation_hash,payroll_input_id,payroll_input_evidence_version,execution_evidence,employer_contributions,warnings) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'attendance_close_v5',$15::jsonb,$16,$17::jsonb)`,
+        `insert into hr_payroll_result(id,tenant_id,company_id,period_id,employee_id,salary_assignment_id,run_number,currency_code,gross,deductions,net,attendance_source_hash,calculation_hash,payroll_input_id,payroll_input_evidence_version,execution_evidence,employer_contributions,warnings,cost_center_id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'attendance_close_v5',$15::jsonb,$16,$17::jsonb,$18)`,
         [
           id,
           c.tenantId,
@@ -905,6 +939,7 @@ export class PayrollRuns {
           JSON.stringify({
             engine_version: calculated.engine_version,
             assembly_version: "payroll_statutory_v1",
+            costing,
             statutory,
             overtime: overtime.map((item) => ({ source: item.source, evidence: item.evidence, line: item.line })),
             adjustments: employeeAdjustments,
@@ -915,6 +950,7 @@ export class PayrollRuns {
           }),
           statutory.employer_contributions,
           JSON.stringify(statutory.blockers),
+          costing.cost_center_id,
         ],
       );
       const lineIds = new Map<string, string>();

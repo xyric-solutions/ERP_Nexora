@@ -11,7 +11,7 @@ import {
   type HrPayrollJournalAction,
 } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
-import { Field, State, panel, selectClass, useAttendanceRead, localDate } from "../components/hr-workspace-controls";
+import { Field, State, panel, useAttendanceRead, localDate } from "../components/hr-workspace-controls";
 import { HrClickableRow } from "../components/hr-clickable-row";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
@@ -22,6 +22,7 @@ import {
   HrDetailTile,
   hrDisplayDate,
 } from "../components/hr-detail-tile";
+import { SearchableSelect } from "@/shared/ui/searchable-select";
 const titles = {
   prepare: "Prepare accrual proposal",
   accept: "Accept for Finance posting",
@@ -37,14 +38,22 @@ const statusOptions: readonly { value: StatusFilter; label: string }[] = [
   { value: "rejected", label: "Rejected" },
 ];
 /** Proposal states: prepared -> accepted -> posted, or rejected. No proposal yet is a pending preview. */
+/** Accounts that need a whole-account cost centre: lines already tagged with an employee's cost centre do not. */
+function accountsNeedingCostCentre(snapshot: HrPayrollJournalWorkspace) {
+  return snapshot.dimension_requirements.filter(
+    (a) =>
+      a.required_dimensions.includes("cost_center") &&
+      snapshot.lines.some((l) => l.account_id === a.account_id && !l.dimensions?.cost_center),
+  );
+}
 function statusGroup(snapshot: HrPayrollJournalWorkspace): Exclude<StatusFilter, "all"> {
   const state = snapshot.proposal?.state;
   if (state === "accepted" || state === "posted") return "approved";
   if (state === "rejected") return "rejected";
   return "pending";
 }
-const th = "whitespace-nowrap px-3 py-2";
-const td = "px-3 py-1.5";
+const th = "whitespace-nowrap px-4 py-3";
+const td = "px-4 py-3";
 const REVIEW_FORM_ID = "payroll-journal-review";
 export function HrPayrollJournalWorkspace({
   initialReference,
@@ -66,7 +75,6 @@ export function HrPayrollJournalWorkspace({
     [review, setReview] = useState<Review | null>(null),
     [reason, setReason] = useState(""),
     [costCentres, setCostCentres] = useState<Record<string, string>>({}),
-    [centreSearch, setCentreSearch] = useState(""),
     [centreLabels, setCentreLabels] = useState<Record<string, string>>({}),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -78,7 +86,7 @@ export function HrPayrollJournalWorkspace({
   const query = {
     company_id: company,
     month: month + "-01",
-    cost_center_search: centreSearch,
+    cost_center_search: "",
     ...(postingDate ? { posting_date: postingDate } : {}),
   };
   const data = useAttendanceRead(canRead && company ? JSON.stringify([query, revision]) : null, () =>
@@ -96,9 +104,7 @@ export function HrPayrollJournalWorkspace({
       action: review.action,
       ...(review.action === "prepare"
         ? {
-            cost_center_mappings: review.snapshot.dimension_requirements
-              .filter((a) => a.required_dimensions.includes("cost_center"))
-              .map((a) => ({ account_id: a.account_id, cost_center_id: costCentres[a.account_id] ?? "" })),
+            cost_center_mappings: accountsNeedingCostCentre(review.snapshot).map((a) => ({ account_id: a.account_id, cost_center_id: costCentres[a.account_id] ?? "" })),
           }
         : {}),
       expected_version: review.snapshot.proposal?.version ?? 0,
@@ -133,7 +139,6 @@ export function HrPayrollJournalWorkspace({
     setReview({ action, snapshot });
     setReason("");
     setCostCentres({});
-    setCentreSearch("");
     setError("");
   }
   function closeDrawer() {
@@ -216,7 +221,7 @@ export function HrPayrollJournalWorkspace({
           <tbody>
             {data.loading && !current ? (
               <tr>
-                <td className="px-3 py-6 text-center text-muted-foreground" colSpan={9}>
+                <td className="px-4 py-6 text-center text-muted-foreground" colSpan={9}>
                   <span role="status">Loading approved Payroll and Finance evidence…</span>
                 </td>
               </tr>
@@ -246,7 +251,7 @@ export function HrPayrollJournalWorkspace({
               </HrClickableRow>
             ) : (
               <tr>
-                <td className="px-3 py-6 text-center text-muted-foreground" colSpan={9}>
+                <td className="px-4 py-6 text-center text-muted-foreground" colSpan={9}>
                   {current ? "No journal matches this status." : "No Payroll journal for this company and month."}
                 </td>
               </tr>
@@ -303,17 +308,9 @@ export function HrPayrollJournalWorkspace({
             >
               <h3 className="font-semibold">{titles[review.action]}</h3>
               {review.action === "prepare" &&
-                review.snapshot.dimension_requirements.some((a) => a.required_dimensions.includes("cost_center")) && (
+                accountsNeedingCostCentre(review.snapshot).length > 0 && (
                   <fieldset className="grid min-w-0 gap-4 rounded-lg border border-border p-4" disabled={busy}>
                     <legend className="px-1 text-sm font-semibold">Whole-account cost-centre allocation</legend>
-                    <Field title="Find a company cost centre">
-                      <Input
-                        value={centreSearch}
-                        onChange={(e) => setCentreSearch(e.target.value)}
-                        maxLength={120}
-                        placeholder="Search code or name"
-                      />
-                    </Field>
                     {data.loading && (
                       <p className="text-sm text-muted-foreground" role="status">
                         Loading company cost centres…
@@ -324,45 +321,43 @@ export function HrPayrollJournalWorkspace({
                         {String(data.error)}
                       </p>
                     )}
-                    {review.snapshot.dimension_requirements
-                      .filter((a) => a.required_dimensions.includes("cost_center"))
+                    {accountsNeedingCostCentre(review.snapshot)
                       .map((account) => (
-                        <Field title={account.account_code + " cost centre"} key={account.account_id}>
-                          <select
-                            required
-                            className={selectClass + " w-full min-w-0"}
+                        <div className="grid min-w-0 content-start gap-2 text-sm font-medium" key={account.account_id}>
+                          <label htmlFor={"journal-centre-" + account.account_id}>{account.account_code + " cost centre"}</label>
+                          <SearchableSelect
+                            id={"journal-centre-" + account.account_id}
+                            label={account.account_code + " cost centre"}
                             value={costCentres[account.account_id] ?? ""}
-                            onChange={(e) => {
-                              const id = e.target.value;
+                            placeholder="Select a company cost centre"
+                            searchPlaceholder="Search by code or name…"
+                            required
+                            loading={data.loading && !current}
+                            options={[
+                              ...(costCentres[account.account_id] &&
+                              !(current?.cost_centres ?? []).some((c) => c.id === costCentres[account.account_id])
+                                ? [
+                                    {
+                                      value: costCentres[account.account_id]!,
+                                      label:
+                                        centreLabels[costCentres[account.account_id] ?? ""] ??
+                                        costCentres[account.account_id]!,
+                                    },
+                                  ]
+                                : []),
+                              ...(current?.cost_centres ?? []).map((c) => ({ value: c.id, label: c.code + " · " + c.name })),
+                            ]}
+                            onValueChange={(id) => {
                               setCostCentres((v) => ({ ...v, [account.account_id]: id }));
                               const chosen = current?.cost_centres.find((c) => c.id === id);
                               if (chosen) setCentreLabels((v) => ({ ...v, [id]: chosen.code + " · " + chosen.name }));
                             }}
-                          >
-                            <option value="">Select a company cost centre</option>
-                            {costCentres[account.account_id] &&
-                              !(current?.cost_centres ?? []).some((c) => c.id === costCentres[account.account_id]) && (
-                                <option value={costCentres[account.account_id]}>
-                                  {centreLabels[costCentres[account.account_id] ?? ""] ??
-                                    costCentres[account.account_id]}
-                                </option>
-                              )}
-                            {(current?.cost_centres ?? []).map((c) => (
-                              <option value={c.id} key={c.id}>
-                                {c.code + " · " + c.name}
-                              </option>
-                            ))}
-                          </select>
-                        </Field>
+                          />
+                        </div>
                       ))}
-                    {current?.cost_centres_truncated && (
-                      <p className="text-sm text-muted-foreground" role="status">
-                        Showing 500 matches. Refine the search to find another cost centre.
-                      </p>
-                    )}
                     {current && !current.cost_centres.length && !data.loading && (
                       <p className="text-sm text-muted-foreground" role="status">
-                        No active company cost centres match. Update Cost Centres or change the search before
+                        No active company cost centres. Add one in Cost Centres before
                         preparing.
                       </p>
                     )}
@@ -373,7 +368,6 @@ export function HrPayrollJournalWorkspace({
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   maxLength={500}
-                  required
                   disabled={busy}
                 />
               </Field>
@@ -456,7 +450,7 @@ export function HrPayrollJournalWorkspace({
                   ))}
                   {!shown.lines.length && (
                     <tr>
-                      <td className="px-3 py-6 text-center text-muted-foreground" colSpan={5}>
+                      <td className="px-4 py-6 text-center text-muted-foreground" colSpan={5}>
                         Approved results will supply the journal lines.
                       </td>
                     </tr>

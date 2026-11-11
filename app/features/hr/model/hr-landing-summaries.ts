@@ -56,7 +56,7 @@ export const organisationLandingSummaries: HrLandingSummaryLoaders = {
       (item) => item.configuration_key === "default_nominal" && item.configuration_value,
     );
     return details(
-      boundedCount(items.length, "cost centre"),
+      `${boundedCount(items.length, "cost centre")} · ${nameList(items.map((item) => paymentRouteLabel(item.payment_route)))}`,
       nameList(items.map((item) => item.name)),
       withNominal.length ? `${withNominal.length} with a default nominal code` : "No default nominal codes",
     );
@@ -82,14 +82,6 @@ export const organisationLandingSummaries: HrLandingSummaryLoaders = {
     const { items } = await masters(context, "job");
     if (!items.length) return [];
     return details(boundedCount(items.length, "job"), nameList(items.map((item) => item.name)));
-  },
-  "employment-setup": async (context) => {
-    const { items } = await masters(context, "employment_setup");
-    if (!items.length) return [];
-    return details(
-      `${boundedCount(items.length, "setup")} · ${nameList(items.map((item) => paymentRouteLabel(item.payment_route)))}`,
-      nameList(items.map((item) => item.name)),
-    );
   },
 };
 

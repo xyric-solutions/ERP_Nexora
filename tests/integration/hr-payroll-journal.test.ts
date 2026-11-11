@@ -4,7 +4,10 @@ import { vi } from "vitest";
 import { createApp } from "../../server/api/src/app.js";
 import { createLogger, createMetrics } from "../../packages/observability/src/index.js";
 import type { TenantAuthApiService, TenantSessionApiService } from "../../server/api/src/modules/auth/tenant-router.js";
-import { createProductionJournalFixture } from "./hr-payroll-production-journal-fixture.js";
+import {
+  createProductionJournalFixture,
+  simulatePreCostCentreResults,
+} from "./hr-payroll-production-journal-fixture.js";
 import { randomUUID } from "node:crypto";
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { createDatabasePool, type DatabasePool } from "../../packages/db/src/index.js";
@@ -148,6 +151,8 @@ run("Payroll accrual review and actual Finance posting", () => {
   });
   it("blocks closed Finance periods, required dimensions and changed account roles", async () => {
     const f = await fixture();
+    // Results without a frozen cost centre (pre-HR148) need an explicit whole-account mapping.
+    await simulatePreCostCentreResults(pool, f.companyId);
     await pool.query(`update financial_period set status='closed' where tenant_id=$1 and company_id=$2`, [
       tenant,
       f.companyId,
@@ -370,8 +375,10 @@ run("Payroll accrual review and actual Finance posting", () => {
     ).rejects.toThrow();
   });
   it("preserves historical proposals without posting dates as read-only accounting evidence", async () => {
-    const f = await fixture(),
-      before = await f.journalRead(),
+    const f = await fixture();
+    // Historical proposals predate frozen employee cost centres.
+    await simulatePreCostCentreResults(pool, f.companyId);
+    const before = await f.journalRead(),
       id = "historical-" + randomUUID(),
       client = await pool.connect();
     try {

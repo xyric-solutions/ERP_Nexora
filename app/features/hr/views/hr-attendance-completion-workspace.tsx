@@ -16,7 +16,6 @@ import {
   State,
   Metric,
   History,
-  selectClass,
   panel,
 } from "../components/hr-workspace-controls";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -35,6 +34,7 @@ import {
 } from "../components/attendance-status";
 import {
   createHrOvertimeRequestSchema,
+  hrOvertimeRuleRequestSchema,
   replaceHrOvertimeRequestSchema,
   hrOvertimeActionRequestSchema,
   hrAttendancePeriodActionRequestSchema,
@@ -47,12 +47,17 @@ import {
   type HrAttendancePeriodWorkspace,
   type HrAttendanceCompletionResult,
 } from "@nexora/contracts";
+import { SearchableSelect } from "@/shared/ui/searchable-select";
 type Navigate = (module: string, page: string, record?: string) => void;
 type Mode = "overtime" | "attendance-period";
 const previousMonth = () => {
   const d = new Date();
   d.setDate(1);
   d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+};
+const currentMonth = () => {
+  const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 };
 type Save = (
@@ -74,6 +79,8 @@ function Overtime({
   saveError,
   newRequest,
   search,
+  openFirst = "",
+  onSaved,
 }: {
   onEditing: (value: boolean) => void;
   saveError?: string;
@@ -87,10 +94,14 @@ function Overtime({
   onNavigate: Navigate;
   /** Increments each time "New overtime request" is pressed in the page header. */
   newRequest: number;
+  /** Request to open in the drawer when the list loads (e.g. one just saved). */
+  openFirst?: string;
+  /** Called after a draft is created or edited, with its working date. */
+  onSaved?: (id: string, workDate: string) => void;
   /** Search text typed in the page header row. */
   search: string;
 }) {
-  const [selected, setSelected] = useState(""),
+  const [selected, setSelected] = useState(openFirst),
     [applied, setApplied] = useState(search.trim()),
     [offset, setOffset] = useState(0),
     [error, setError] = useState(""),
@@ -101,6 +112,8 @@ function Overtime({
     [employeeSearch, setEmployeeSearch] = useState(""),
     [lookup, setLookup] = useState(""),
     [requested, setRequested] = useState("60"),
+    [ruleMinimum, setRuleMinimum] = useState("0"),
+    [ruleCap, setRuleCap] = useState("240"),
     [reason, setReason] = useState(""),
     [decision, setDecision] = useState<HrOvertimeActionRequest["action"] | "">(""),
     [decisionReason, setDecisionReason] = useState(""),
@@ -122,6 +135,11 @@ function Overtime({
     setReason("");
     setError("");
   }
+  // Typing in the Employee dropdown searches the server after a short pause.
+  useEffect(() => {
+    const timer = setTimeout(() => setLookup(employeeSearch.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [employeeSearch]);
   const listRead = useAttendanceRead<HrOvertimeDirectory>(
     JSON.stringify([company, month, revision, offset, applied]),
     () => client.listOvertime({ company_id: company, month, limit: 25, offset, search: applied || undefined }),
@@ -159,6 +177,24 @@ function Overtime({
   }, [search]);
   const evidence = context?.evidence;
   const editing = editor?.mode === "edit" ? editor : null;
+  /** Adds the operational overtime rule a day needs before overtime can be saved. */
+  async function addRule(category: "regular" | "weekend" | "holiday") {
+    setError("");
+    const parsed = hrOvertimeRuleRequestSchema.safeParse({
+      company_id: company,
+      category,
+      effective_from: date,
+      effective_to: null,
+      minimum_minutes: Number(ruleMinimum),
+      daily_cap_minutes: Number(ruleCap),
+      reason: "",
+    });
+    if (!parsed.success) {
+      setError("Use whole minutes, with the daily cap above the minimum.");
+      return;
+    }
+    await save(parsed.data, (key) => client.createOvertimeRule(parsed.data, key, csrf()));
+  }
   async function saveRequest() {
     setError("");
     if (editing) {
@@ -179,6 +215,7 @@ function Overtime({
         setEditor(null);
         setSelected(r.id);
         setReason("");
+        onSaved?.(r.id, parsed.data.work_date);
       }
       return;
     }
@@ -199,6 +236,7 @@ function Overtime({
       setEditor(null);
       setSelected(r.id);
       setReason("");
+      onSaved?.(r.id, parsed.data.work_date);
     }
   }
   async function decide() {
@@ -268,7 +306,7 @@ function Overtime({
             <Button
               type="submit"
               form="overtime-request-form"
-              disabled={busy || evidenceBusy || !evidence || evidence.blockers.length > 0}
+              disabled={busy || evidenceBusy || !evidence || !evidence.rule}
             >
               {editing ? "Save changes" : "Save overtime draft"}
             </Button>
@@ -300,59 +338,34 @@ function Overtime({
                   <Input value={editing.employeeName} readOnly disabled />
                 </Field>
               ) : (
-                <>
-                  <Field title="Find employee">
-                    <div className="flex min-w-0 gap-2">
-                      <Input
-                        aria-label="Find employee"
-                        value={employeeSearch}
-                        onChange={(e) => setEmployeeSearch(e.target.value)}
-                        placeholder="Name or employee number"
-                      />
-                      <Button
-                        variant="outline"
-                        type="button"
-                        onClick={() => {
-                          setEmployee("");
-                          setLookup(employeeSearch);
-                        }}
-                      >
-                        Find
-                      </Button>
-                    </div>
-                  </Field>
-                  <Field title="Employee">
-                    <select
-                      className={selectClass}
-                      value={employee}
-                      onChange={(e) => setEmployee(e.target.value)}
-                      required
-                      disabled={evidenceBusy && !employee}
-                    >
-                      <option value="">Select employee</option>
-                      {context?.employees.map((e) => (
-                        <option key={e.id} value={e.id}>
-                          {e.code} · {e.name}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                </>
+                <div className="grid min-w-0 content-start gap-2 text-sm font-medium">
+                  <label htmlFor="hr-overtime-employee">Employee</label>
+                  <SearchableSelect
+                    id="hr-overtime-employee"
+                    label="Employee"
+                    value={employee}
+                    placeholder="Select employee"
+                    searchPlaceholder="Search by name or employee number…"
+                    loading={evidenceBusy && !context}
+                    required
+                    search={employeeSearch}
+                    onSearchChange={setEmployeeSearch}
+                    options={context?.employees.map((e) => ({ value: e.id, label: `${e.code} · ${e.name}` })) ?? []}
+                    onValueChange={setEmployee}
+                  />
+                </div>
               )}
               <Field title="Requested overtime minutes">
                 <Input
                   type="number"
                   min={1}
-                  max={evidence?.eligible_minutes || 1440}
+                  max={1440}
                   value={requested}
                   onChange={(e) => setRequested(e.target.value)}
                   required
                 />
               </Field>
             </div>
-            {!editing && context?.employees_capped && (
-              <p className="text-xs text-muted-foreground">Showing the first 100 employees. Refine the employee search.</p>
-            )}
             {evidenceBusy ? (
               <Skeleton className="h-24" />
             ) : (
@@ -383,6 +396,36 @@ function Overtime({
                       ))}
                     </ul>
                   )}
+                  {!evidence.rule && context?.can_manage_rules && (
+                    <div className="mt-4 grid gap-3 rounded-lg border border-border bg-card p-3">
+                      <strong className="text-sm">Add {label(evidence.category).toLowerCase()} overtime rule</strong>
+                      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                        <Field title="Minimum minutes">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={1439}
+                            value={ruleMinimum}
+                            disabled={busy}
+                            onChange={(e) => setRuleMinimum(e.target.value)}
+                          />
+                        </Field>
+                        <Field title="Daily cap minutes">
+                          <Input
+                            type="number"
+                            min={1}
+                            max={1440}
+                            value={ruleCap}
+                            disabled={busy}
+                            onChange={(e) => setRuleCap(e.target.value)}
+                          />
+                        </Field>
+                        <Button type="button" variant="outline" disabled={busy} onClick={() => void addRule(evidence.category)}>
+                          Add rule
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             )}
@@ -391,7 +434,6 @@ function Overtime({
                 maxLength={1000}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                required
               />
             </Field>
           </form>
@@ -565,7 +607,6 @@ function Overtime({
                     value={decisionReason}
                     maxLength={1000}
                     onChange={(e) => setDecisionReason(e.target.value)}
-                    required
                   />
                 </Field>
                 {decision.includes("_") && detail.self_decision_requires_override && (
@@ -798,7 +839,6 @@ function CloseAndInputs({
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 maxLength={1000}
-                required
               />
             </Field>
             {action === "lock" && workspace?.self_decision_requires_override && (
@@ -854,7 +894,8 @@ export function HrAttendanceCompletionWorkspace({
     }
   }, [initialReference]);
   const [companyChoice] = useState(initial?.company_id ?? ""),
-    [month, setMonth] = useState(initial?.month ?? previousMonth()),
+    [month, setMonth] = useState(initial?.month ?? (mode === "overtime" ? currentMonth() : previousMonth())),
+    [openOvertime, setOpenOvertime] = useState(""),
     [revision, setRevision] = useState(0),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -979,6 +1020,12 @@ export function HrAttendanceCompletionWorkspace({
           onEditing={setEditing}
           newRequest={newRequest}
           search={overtimeSearch}
+          openFirst={openOvertime}
+          onSaved={(id, workDate) => {
+            const target = workDate.slice(0, 7) + "-01";
+            setOpenOvertime(id);
+            if (target !== month) setMonth(target);
+          }}
         />
       ) : (
         <CloseAndInputs

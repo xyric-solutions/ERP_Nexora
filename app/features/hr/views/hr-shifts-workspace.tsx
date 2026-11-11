@@ -35,6 +35,7 @@ import {
   hrDisplayDate,
 } from "../components/hr-detail-tile";
 
+import { SearchableSelect } from "@/shared/ui/searchable-select";
 const selectClass =
   "h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50";
 const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -95,6 +96,11 @@ function ShiftEditor({
   const [context, setContext] = useState<HrShiftContext | null>(null);
   const [locationSearch, setLocationSearch] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
+  // Typing in the Work location dropdown searches the server after a short pause.
+  useEffect(() => {
+    const timer = setTimeout(() => setLocationQuery(locationSearch.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [locationSearch]);
   const [choices, setChoices] = useState<HrShiftSummary[]>([]);
   const [choiceTotal, setChoiceTotal] = useState(0);
   const [choiceOffset, setChoiceOffset] = useState(0);
@@ -312,56 +318,31 @@ function ShiftEditor({
         </div>
       </HrDetailSection>
       <HrDetailSection title="Work location">
-        <label className="grid content-start gap-2 text-sm font-medium">
-          Work location
-          <select
-            className={selectClass}
+        <div className="grid content-start gap-2 text-sm font-medium">
+          <label htmlFor="hr-shift-work-location">Work location</label>
+          <SearchableSelect
+            id="hr-shift-work-location"
+            label="Work location"
             value={location}
-            disabled={busy || contextBusy}
-            onChange={(e) => {
-              setLocation(e.target.value);
+            placeholder="Company-wide"
+            searchPlaceholder="Search active locations…"
+            disabled={busy}
+            loading={contextBusy && !context}
+            search={locationSearch}
+            onSearchChange={setLocationSearch}
+            options={[
+              { value: "", label: "Company-wide" },
+              ...(initial?.work_location_id && !context?.locations.some((l) => l.id === initial.work_location_id)
+                ? [{ value: initial.work_location_id, label: `${initial.work_location} (current)` }]
+                : []),
+              ...(context?.locations.map((l) => ({ value: l.id, label: `${l.name} (${l.code})` })) ?? []),
+            ]}
+            onValueChange={(next) => {
+              setLocation(next);
               setRotation([]);
             }}
-          >
-            <option value="">Company-wide</option>
-            {initial?.work_location_id && !context?.locations.some((l) => l.id === initial.work_location_id) && (
-              <option value={initial.work_location_id}>{initial.work_location} (current)</option>
-            )}
-            {context?.locations.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name} ({l.code})
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="grid content-start min-w-0 flex-1 gap-2 text-xs text-muted-foreground">
-            Find work location
-            <Input
-              value={locationSearch}
-              maxLength={160}
-              disabled={busy}
-              onChange={(e) => setLocationSearch(e.target.value)}
-              placeholder="Search active locations"
-            />
-          </label>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy || contextBusy}
-            onClick={() => {
-              setError("");
-              setLocationQuery(locationSearch.trim());
-            }}
-          >
-            Find location
-          </Button>
+          />
         </div>
-        {context?.locations_capped && (
-          <p className="text-xs text-muted-foreground">
-            Showing the first 100 matches. Refine the location search to find another site.
-          </p>
-        )}
       </HrDetailSection>
       {kind === "rotating" ? (
         <HrDetailSection title="Weekly rotation">
@@ -578,7 +559,6 @@ function ShiftEditor({
         <label className="grid content-start gap-2 text-sm font-medium">
           Change reason
           <Textarea
-            required
             maxLength={1000}
             rows={3}
             value={reason}

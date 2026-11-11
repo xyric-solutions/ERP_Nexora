@@ -23,6 +23,7 @@ import {
 import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
+import { HrPagination, HrSearchField, matchesSearch, useHrPage } from "../components/hr-list-controls";
 
 /** Cancelled openings are no longer listed; All = open, on hold and closed. */
 type OpeningFilter = "all" | "open" | "on_hold" | "closed";
@@ -57,7 +58,8 @@ export function HrJobOpeningsWorkspace() {
     /** Set while editing an existing opening. */
     [editingId, setEditingId] = useState(""),
     [openingState, setOpeningState] = useState<Opening["state"]>("open"),
-    [openingFilter, setOpeningFilter] = useState<OpeningFilter>("all");
+    [openingFilter, setOpeningFilter] = useState<OpeningFilter>("all"),
+    [search, setSearch] = useState("");
   const load = useCallback(
     async (company: string) => {
       if (!company) return;
@@ -103,9 +105,19 @@ export function HrJobOpeningsWorkspace() {
       });
   }, [canRead, client, load, sessionLoading]);
   const selected = items.find((item) => item.id === selectedId);
-  const visibleItems = items.filter((item) =>
-    openingFilter === "all" ? item.state !== "cancelled" : item.state === openingFilter,
+  const visibleItems = items.filter(
+    (item) =>
+      (openingFilter === "all" ? item.state !== "cancelled" : item.state === openingFilter) &&
+      matchesSearch(search, [
+        item.reference,
+        item.title,
+        item.requisition_reference,
+        item.closing_on,
+        item.state.replaceAll("_", " "),
+        ...item.channels,
+      ]),
   );
+  const openingsPage = useHrPage(visibleItems, `${companyId}:${openingFilter}:${search.trim()}`);
   // Mirrors the server rule: non-cancelled openings draw down the requisition's approved headcount.
   const chosenRequisition = approved.find((item) => item.id === requisitionId);
   const raisedHeadcount = items
@@ -294,9 +306,16 @@ export function HrJobOpeningsWorkspace() {
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
-      {canCreate ? (
-        <div className="flex flex-wrap items-end justify-end gap-3">
+      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,1fr)_auto] md:items-end">
+        <HrSearchField
+          id="hr-job-openings-search"
+          value={search}
+          onChange={setSearch}
+          placeholder="Search reference, opening, requisition or channel"
+        />
+        {canCreate ? (
           <Button
+            className="w-full md:w-auto"
             onClick={() => {
               setEditingId("");
               setTitle("");
@@ -308,8 +327,8 @@ export function HrJobOpeningsWorkspace() {
           >
             + Create opening
           </Button>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
       <HrMasterStatusFilter<OpeningFilter>
         label="Opening state"
         value={openingFilter}
@@ -333,7 +352,7 @@ export function HrJobOpeningsWorkspace() {
                 </tr>
               </thead>
               <tbody>
-                {visibleItems.map((item) => (
+                {openingsPage.pageRows.map((item) => (
                   <tr
                     className={`cursor-pointer border-b border-border ${item.id === selectedId ? "bg-accent" : ""}`}
                     key={item.id}
@@ -374,13 +393,20 @@ export function HrJobOpeningsWorkspace() {
                 {visibleItems.length === 0 ? (
                   <tr>
                     <td className="px-4 py-10 text-center text-muted-foreground" colSpan={6}>
-                      No job openings match this state.
+                      {search.trim() ? "No job openings match this search." : "No job openings match this state."}
                     </td>
                   </tr>
                 ) : null}
               </tbody>
             </table>
           </div>
+          <HrPagination
+            label="Job opening pages"
+            page={openingsPage.page}
+            pageCount={openingsPage.pageCount}
+            total={openingsPage.total}
+            onPageChange={openingsPage.setPage}
+          />
           {editor ? (
             <HrRecordDrawer
               title={editingId ? title || "Edit job opening" : "Create job opening"}

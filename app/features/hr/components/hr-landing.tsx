@@ -135,7 +135,7 @@ export function HrLandingToolbar({
   idPrefix: string;
 }) {
   return (
-    <div className="mb-5 flex flex-wrap items-end justify-end gap-3" id={`${idPrefix}-toolbar`}>
+    <div className="flex shrink-0 items-center" id={`${idPrefix}-toolbar`}>
       <div className="flex gap-1 rounded-lg border border-border bg-card p-1">
         <Button
           type="button"
@@ -249,14 +249,9 @@ export function HrLandingPage({
   const noCompany = !company.companyId && !company.error && company.companies.length === 0;
   return (
     <div className="min-w-0">
-      <h1 className="mb-4! mt-0! text-2xl font-bold tracking-tight">{title}</h1>
-      {company.error ? <HrLandingNotice message={company.error} onRetry={company.retry} /> : null}
-      {sessionLoading ? (
-        <Skeleton className="h-60 w-full" />
-      ) : !session ? (
-        <HrLandingNotice message="Sign in to view this area." />
-      ) : (
-        <>
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <h1 className="m-0! min-w-0 text-2xl font-bold tracking-tight">{title}</h1>
+        {!sessionLoading && session ? (
           <HrLandingToolbar
             idPrefix={idPrefix}
             companies={company.companies}
@@ -265,6 +260,15 @@ export function HrLandingPage({
             display={display}
             onDisplayChange={setDisplay}
           />
+        ) : null}
+      </div>
+      {company.error ? <HrLandingNotice message={company.error} onRetry={company.retry} /> : null}
+      {sessionLoading ? (
+        <Skeleton className="h-60 w-full" />
+      ) : !session ? (
+        <HrLandingNotice message="Sign in to view this area." />
+      ) : (
+        <>
           {noCompany ? <HrLandingNotice message="No authorized company is available." /> : null}
           <HrLandingSections
             groups={groups}

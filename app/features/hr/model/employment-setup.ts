@@ -1,6 +1,6 @@
 import type { HrPayCycle, HrPaymentRoute } from "@nexora/contracts";
 
-/** Shared labels for the Employment Setup master (HR134): one record = payment route + pay cycle. */
+/** Payment route and pay cycle labels. Since HR149 these terms live on the cost centre. */
 export const paymentRouteOptions = [
   { value: "payroll", label: "Payroll" },
   { value: "stipend", label: "Stipend" },
@@ -32,8 +32,8 @@ export function isPayCycle(value: string): value is HrPayCycle {
   return payCycleOptions.some((option) => option.value === value);
 }
 
-/** Picker label, e.g. "ES-001 · Permanent staff · Payroll / Monthly". */
-export function employmentSetupOptionLabel(record: {
+/** Cost centre picker label, e.g. "CC-001 · Client Delivery · Payroll / Monthly". */
+export function costCentreOptionLabel(record: {
   code: string;
   name: string;
   payment_route: string | null;

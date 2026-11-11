@@ -3,8 +3,8 @@
   "source": "app/prototype-data.ts",
   "counts": {
     "modules": 35,
-    "groups": 146,
-    "pages": 819
+    "groups": 142,
+    "pages": 801
   },
   "modules": [
     {
@@ -3168,7 +3168,7 @@
               "label": "Employment Setup",
               "archetype": "list",
               "status": "live",
-              "hiddenFromNavigation": false
+              "hiddenFromNavigation": true
             },
             {
               "id": "employment-types",
@@ -3568,88 +3568,6 @@
           ]
         },
         {
-          "id": "performance",
-          "label": "Performance Management",
-          "pages": [
-            {
-              "id": "performance-workspace",
-              "label": "Performance Management",
-              "archetype": "dashboard",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "performance-cycles",
-              "label": "Performance Cycles",
-              "archetype": "settings",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "goals-kpis",
-              "label": "Goals & KPIs",
-              "archetype": "workflow",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "performance-reviews",
-              "label": "Performance Reviews",
-              "archetype": "approval",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "performance-outcomes",
-              "label": "Performance Outcomes",
-              "archetype": "workflow",
-              "status": "live",
-              "hiddenFromNavigation": false
-            }
-          ]
-        },
-        {
-          "id": "learning",
-          "label": "Learning & Development",
-          "pages": [
-            {
-              "id": "learning-workspace",
-              "label": "Learning & Development",
-              "archetype": "dashboard",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "training-programs",
-              "label": "Training Programmes",
-              "archetype": "settings",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "training-requests",
-              "label": "Training Requests",
-              "archetype": "approval",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "training-sessions",
-              "label": "Training Sessions",
-              "archetype": "workflow",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "training-completions",
-              "label": "Completion & Certificates",
-              "archetype": "workflow",
-              "status": "live",
-              "hiddenFromNavigation": false
-            }
-          ]
-        },
-        {
           "id": "employee-lifecycle",
           "label": "Employee Lifecycle",
           "pages": [
@@ -3683,8 +3601,29 @@
             },
             {
               "id": "employee-movements",
-              "label": "Transfers, Promotions & Movements",
+              "label": "Transfers",
               "archetype": "approval",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "employee-promotions",
+              "label": "Promotions",
+              "archetype": "approval",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "loans-benefits",
+              "label": "Loan Requests",
+              "archetype": "list",
+              "status": "live",
+              "hiddenFromNavigation": false
+            },
+            {
+              "id": "advance-requests",
+              "label": "Advance Requests",
+              "archetype": "list",
               "status": "live",
               "hiddenFromNavigation": false
             },
@@ -3697,7 +3636,7 @@
             },
             {
               "id": "terminations",
-              "label": "Termination Cases",
+              "label": "Termination",
               "archetype": "approval",
               "status": "live",
               "hiddenFromNavigation": false
@@ -3705,95 +3644,6 @@
             {
               "id": "clearance",
               "label": "Exit Clearance",
-              "archetype": "workflow",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "final-settlements",
-              "label": "Final Settlements",
-              "archetype": "approval",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "offboarding",
-              "label": "Offboarding Control Centre",
-              "archetype": "workflow",
-              "status": "live",
-              "hiddenFromNavigation": false
-            }
-          ]
-        },
-        {
-          "id": "benefits-self-service",
-          "label": "Benefits & Self-service",
-          "pages": [
-            {
-              "id": "benefits-self-service-workspace",
-              "label": "Benefits & Self-service",
-              "archetype": "dashboard",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "loans-benefits",
-              "label": "Loans, Benefits & Gratuity",
-              "archetype": "list",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "statutory-deductions",
-              "label": "Statutory Deductions",
-              "archetype": "settings",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "employee-self-service",
-              "label": "Employee Self-service",
-              "archetype": "dashboard",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "hr-report-centre",
-              "label": "HR & Payroll Report Centre",
-              "archetype": "report",
-              "status": "live",
-              "hiddenFromNavigation": false
-            }
-          ]
-        },
-        {
-          "id": "hr-compliance",
-          "label": "Reporting, Compliance & Audit",
-          "pages": [
-            {
-              "id": "hr-compliance-workspace",
-              "label": "Reporting, Compliance & Audit",
-              "archetype": "dashboard",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "hr-compliance-configuration",
-              "label": "Compliance Configuration",
-              "archetype": "settings",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "hr-report-audit-log",
-              "label": "Report Audit Log",
-              "archetype": "report",
-              "status": "live",
-              "hiddenFromNavigation": false
-            },
-            {
-              "id": "hr-export-centre",
-              "label": "Secure Export Centre",
               "archetype": "workflow",
               "status": "live",
               "hiddenFromNavigation": false

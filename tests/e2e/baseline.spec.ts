@@ -142,8 +142,8 @@ test.describe("Wave 0 HR visual baseline", () => {
       "monthly-attendance",
       "leave-requests",
       "payroll-runs",
-      "offboarding",
-      "hr-report-centre",
+      "clearance",
+      "lifecycle-policies",
     ]);
     const screens = (await loadHrScreens()).filter((screen) => mobileIds.has(screen.page_id));
     expect(screens).toHaveLength(7);
@@ -192,9 +192,8 @@ test.describe("Wave 0 HR visual baseline", () => {
   test("completes the separation journey by keyboard", async ({ page }) => {
     await page.goto("/#/hr/resignations");
     await runJourney(page, "separation", [
+      { label: "Termination", pageId: "terminations" },
       { label: "Exit Clearance", pageId: "clearance" },
-      { label: "Final Settlements", pageId: "final-settlements" },
-      { label: "Offboarding Control Centre", pageId: "offboarding" },
     ]);
   });
 });

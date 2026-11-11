@@ -45,6 +45,7 @@ import {
   type DayStatus,
 } from "../model/hr-attendance-data";
 
+import { hrDataTableClass } from "../components/hr-table";
 export const HR_ATTENDANCE_PAGES = [
   "shifts",
   "shift-assignments",
@@ -218,7 +219,7 @@ function DailyAttendance({ onAction }: { onAction: (action: string, subject?: st
       </div>
 
       <div className="nx-table-wrap">
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead>
             <tr>
               <th>Employee</th><th>Department</th><th>Shift</th><th>In</th><th>Out</th>
@@ -258,7 +259,7 @@ function Shifts({ onAction }: { onAction: (action: string, subject?: string) => 
     <div className="nx-recon">
 
       <div className="nx-table-wrap">
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead>
             <tr><th>Code</th><th>Shift</th><th>Type</th><th>Hours</th><th className="amount">Grace in</th><th className="amount">Break</th><th className="amount">OT after</th><th>Weekly off</th><th>Status</th></tr>
           </thead>
@@ -315,7 +316,7 @@ function ShiftAssignments({ onAction }: { onAction: (action: string, subject?: s
   return (
     <div className="nx-recon">
       <div className="nx-table-wrap">
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead><tr><th>Reference</th><th>Scope</th><th>Applies to</th><th>Shift</th><th>Effective from</th><th>Effective to</th><th>Assigned by</th><th>Note</th></tr></thead>
           <tbody>
             {[...shiftAssignments].sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom)).map((row) => (
@@ -352,8 +353,8 @@ function Corrections({ onAction }: { onAction: (action: string, subject?: string
 
 
       <div className="nx-table-wrap">
-        <table className="nx-data-table">
-          <thead><tr><th>Reference</th><th>Employee</th><th>Date</th><th>Type</th><th>Stated in</th><th>Stated out</th><th>Reason</th><th>Manager</th><th>HR</th><th>Status</th><th /></tr></thead>
+        <table className={hrDataTableClass}>
+          <thead><tr><th>Reference</th><th>Employee</th><th>Date</th><th>Type</th><th>Check in</th><th>Check out</th><th>Reason</th><th>Manager</th><th>HR</th><th>Status</th><th /></tr></thead>
           <tbody>
             {attendanceCorrections.map((row) => (
               <tr key={row.id}>
@@ -414,7 +415,7 @@ function Overtime({ onAction }: { onAction: (action: string, subject?: string) =
 
 
       <div className="nx-table-wrap">
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead><tr><th>Employee</th><th>Date</th><th>Shift</th><th>In</th><th>Out</th><th className="amount">Overtime</th><th>Category</th><th className="amount">Rate</th><th>Status</th><th /></tr></thead>
           <tbody>
             {claims.map(({ day, name }) => {
@@ -447,7 +448,7 @@ function LeaveTypesScreen() {
   return (
     <div className="nx-recon">
       <div className="nx-table-wrap">
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead><tr><th>Code</th><th>Leave type</th><th>Paid</th><th className="amount">Entitlement</th><th>Accrual</th><th>Carry forward</th><th className="amount">Max balance</th><th>Request</th><th>HR approval</th><th>Applies to</th></tr></thead>
           <tbody>
             {leaveTypes.map((type) => (
@@ -482,7 +483,7 @@ function LeaveBalances({ onAction }: { onAction: (action: string, subject?: stri
   return (
     <div className="nx-recon">
       <div className="nx-table-wrap">
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead>
             <tr>
               <th>Employee</th><th>Leave type</th>
@@ -515,7 +516,7 @@ function LeaveBalances({ onAction }: { onAction: (action: string, subject?: stri
       <section className="grid min-w-0 gap-3 rounded border border-border bg-card p-4 shadow-xs">
         <header><div><span className="nx-eyebrow">Leave workflow</span><h2>Requests in flight</h2></div></header>
         <div className="nx-table-wrap">
-          <table className="nx-data-table">
+          <table className={hrDataTableClass}>
             <thead><tr><th>Reference</th><th>Employee</th><th>Type</th><th>From</th><th>To</th><th className="amount">Days</th><th>Balance then</th><th>Manager</th><th>HR</th><th>Status</th></tr></thead>
             <tbody>
               {leaveRequests.map((request) => {
@@ -577,7 +578,7 @@ function AttendancePeriodScreen({ onAction }: { onAction: (action: string, subje
 
 
       <div className="nx-table-wrap">
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead><tr><th>Employee</th><th>Date</th><th>Status</th><th>Detail</th><th /></tr></thead>
           <tbody>
             {exceptions.length === 0 ? (
@@ -630,7 +631,7 @@ function PayrollInputs({ onAction }: { onAction: (action: string, subject?: stri
 
 
       <div className="nx-table-wrap">
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead>
             <tr>
               <th>Employee</th><th>Period</th>

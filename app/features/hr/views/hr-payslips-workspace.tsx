@@ -17,8 +17,8 @@ const tableWrap = "relative overflow-x-auto rounded-lg border border-border bg-c
 const tableClass = "w-full border-collapse text-left text-sm";
 const theadClass =
   "border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground";
-const th = "whitespace-nowrap px-3 py-2";
-const td = "px-3 py-1.5";
+const th = "whitespace-nowrap px-4 py-3";
+const td = "px-4 py-3";
 const releaseFormId = "payslip-release-form";
 
 export function HrPayslipsWorkspace({
@@ -272,7 +272,7 @@ export function HrPayslipsWorkspace({
               <tbody>
                 {!w.items.length ? (
                   <tr>
-                    <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                       No posted payslips match this company, month and filter.
                     </td>
                   </tr>
@@ -358,7 +358,7 @@ export function HrPayslipsWorkspace({
               <tbody>
                 {!w.history.length ? (
                   <tr>
-                    <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
+                    <td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">
                       No publication actions for this period.
                     </td>
                   </tr>
@@ -428,7 +428,6 @@ export function HrPayslipsWorkspace({
               <Textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                required
                 maxLength={500}
                 disabled={busy}
               />

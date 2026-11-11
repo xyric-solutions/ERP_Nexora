@@ -75,9 +75,8 @@ run("governed employee Promotion repository", () => {
         ('promotion-target-designation',$1,$2,'designation','PR-DES-2','Senior Associate','r06.maker',null,null),
         ('promotion-source-grade',$1,$2,'job_grade','PR-GRD-1','Grade 1','r06.maker',null,null),
         ('promotion-target-grade',$1,$2,'job_grade','PR-GRD-2','Grade 2','r06.maker',null,null),
-        ('promotion-cost-center',$1,$2,'cost_center','PR-CC','Promotion Cost Center','r06.maker',null,null),
-        ('promotion-location',$1,$2,'work_location','PR-LOC','Promotion Location','r06.maker',null,null),
-        ('promotion-employment-setup',$1,$2,'employment_setup','PR-ES','Promotion Employment Setup','r06.maker','payroll','monthly')
+        ('promotion-cost-center',$1,$2,'cost_center','PR-CC','Promotion Cost Center','r06.maker','payroll','monthly'),
+        ('promotion-location',$1,$2,'work_location','PR-LOC','Promotion Location','r06.maker',null,null)
        on conflict (tenant_id,id) do nothing`,
       [sourceTestTenantId, companyId],
     );
@@ -177,7 +176,6 @@ run("governed employee Promotion repository", () => {
         job_grade_id: "promotion-source-grade",
         cost_center_id: "promotion-cost-center",
         work_location_id: "promotion-location",
-        employment_setup_id: "promotion-employment-setup",
         effective_from: yesterday,
       },
       `promotion-profile-${suffix}`,
@@ -343,7 +341,7 @@ run("governed employee Promotion repository", () => {
               target.department_id=source.department_id as same_department,
               target.cost_center_id=source.cost_center_id as same_cost_center,
               target.work_location_id=source.work_location_id as same_location,
-              target.employment_setup_id=source.employment_setup_id as same_employment_setup,
+              target.employment_setup_id is not distinct from source.employment_setup_id as same_employment_setup,
               target.reporting_manager_id is not distinct from source.reporting_manager_id as same_manager,
               target.employment_relationship_id=source.employment_relationship_id as same_relationship
          from hr_employee_promotion_request request

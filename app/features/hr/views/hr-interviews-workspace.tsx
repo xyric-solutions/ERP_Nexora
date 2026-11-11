@@ -55,6 +55,8 @@ const failure = (err: unknown) =>
 function ScheduleForm({
   scope,
   panel,
+  panelSearch,
+  onPanelSearch,
   busy,
   run,
   close,
@@ -62,6 +64,9 @@ function ScheduleForm({
 }: {
   scope: Scope;
   panel: HrInterviewPanelDirectory["items"];
+  /** Typed panel search; the list reloads from the server as you type. */
+  panelSearch: string;
+  onPanelSearch: (value: string) => void;
   busy: boolean;
   run: RunAction;
   close: () => void;
@@ -160,6 +165,14 @@ function ScheduleForm({
       </HrDetailSection>
       {!interview ? (
         <HrDetailSection title="Panel members · choose 2–8">
+          <Input
+            type="search"
+            aria-label="Search panel members"
+            value={panelSearch}
+            maxLength={160}
+            placeholder="Search by name or email…"
+            onChange={(e) => onPanelSearch(e.target.value)}
+          />
           <div className="grid max-h-48 gap-2 overflow-y-auto sm:grid-cols-2">
             {panel.map((person) => (
               <label key={person.id} className="flex items-center gap-2 rounded-md bg-muted/40 p-2 text-sm">
@@ -178,7 +191,7 @@ function ScheduleForm({
           </div>
           {!panel.length ? (
             <p className="text-sm text-muted-foreground">
-              No matching eligible panel accounts. Refine the panel search or check company access.
+              No matching eligible panel accounts.
             </p>
           ) : null}
         </HrDetailSection>
@@ -186,7 +199,7 @@ function ScheduleForm({
         <HrDetailSection title="Reason">
           <label className="grid content-start gap-1.5 text-sm">
             Reason for rescheduling
-            <Textarea required maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} />
+            <Textarea maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
         </HrDetailSection>
       )}
@@ -344,7 +357,6 @@ function StatusForm({
         <label className="grid content-start gap-1.5 text-sm">
           Outcome reason
           <Textarea
-            required
             maxLength={1000}
             value={reason}
             disabled={busy}
@@ -352,7 +364,7 @@ function StatusForm({
           />
         </label>
       </HrDetailSection>
-      <Button type="submit" variant="outline" disabled={busy || !reason.trim()}>
+      <Button type="submit" variant="outline" disabled={busy}>
         Save outcome
       </Button>
     </form>
@@ -398,7 +410,6 @@ function AssessmentDecision({
         <label className="grid content-start gap-1 text-sm">
           Decision evidence
           <Textarea
-            required
             maxLength={1000}
             value={reason}
             placeholder="Record findings and supporting reference"
@@ -406,7 +417,7 @@ function AssessmentDecision({
           />
         </label>
       </HrDetailSection>
-      <Button type="submit" variant="outline" disabled={busy || !reason.trim()}>
+      <Button type="submit" variant="outline" disabled={busy}>
         Record final decision
       </Button>
     </form>
@@ -426,11 +437,24 @@ export function HrInterviewsWorkspace() {
     [applicationId, setApplicationId] = useState("");
   const [search, setSearch] = useState(""),
     [query, setQuery] = useState({ search: "", offset: 0 });
+  // The candidate search applies as you type, after a short pause, from the first page.
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setQuery((current) => (current.search === search.trim() ? current : { search: search.trim(), offset: 0 })),
+      300,
+    );
+    return () => clearTimeout(timer);
+  }, [search]);
   const [workspace, setWorkspace] = useState<HrInterviewWorkspace | null>(null),
     [selectedId, setSelectedId] = useState("");
   const [panel, setPanel] = useState<HrInterviewPanelDirectory["items"]>([]),
     [panelSearch, setPanelSearch] = useState(""),
     [panelQuery, setPanelQuery] = useState("");
+  // Typing in the panel search reloads eligible accounts after a short pause.
+  useEffect(() => {
+    const timer = setTimeout(() => setPanelQuery(panelSearch.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [panelSearch]);
   const [editor, setEditor] = useState<"schedule" | "reschedule" | null>(null),
     [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false);
@@ -733,7 +757,7 @@ export function HrInterviewsWorkspace() {
         </Alert>
       ) : null}
       <form
-        className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 md:grid-cols-[minmax(14rem,1fr)_auto]"
+        className="grid items-end gap-3 rounded-xl border border-border bg-card p-4"
         onSubmit={(e) => {
           e.preventDefault();
           setError("");
@@ -741,18 +765,15 @@ export function HrInterviewsWorkspace() {
         }}
       >
         <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
-          Find candidate
+          Search
           <Input
             type="search"
             value={search}
             maxLength={160}
-            placeholder="Candidate, reference or role, then Enter"
+            placeholder="Candidate, reference or role"
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
-        <Button type="submit" variant="outline" disabled={busy}>
-          Search
-        </Button>
       </form>
       <div className="relative min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
         <table className="w-full min-w-160 text-left text-sm">
@@ -779,16 +800,16 @@ export function HrInterviewsWorkspace() {
                   }
                 }}
               >
-                <td className="px-4 py-2.5">
+                <td className="px-4 py-3">
                   <span className="block font-medium">{item.candidate_name}</span>
                   <span className="block text-xs text-muted-foreground">{item.candidate_email}</span>
                 </td>
-                <td className="px-4 py-2.5">{item.opening_title}</td>
-                <td className="px-4 py-2.5 whitespace-nowrap">{item.reference}</td>
-                <td className="px-4 py-2.5">
+                <td className="px-4 py-3">{item.opening_title}</td>
+                <td className="px-4 py-3 whitespace-nowrap">{item.reference}</td>
+                <td className="px-4 py-3">
                   <Badge variant={item.stage === "rejected" ? "destructive" : "secondary"}>{label(item.stage)}</Badge>
                 </td>
-                <td className="px-4 py-2.5 whitespace-nowrap">{new Date(item.updated_at).toLocaleDateString()}</td>
+                <td className="px-4 py-3 whitespace-nowrap">{new Date(item.updated_at).toLocaleDateString()}</td>
               </tr>
             ))}
             {!apps.items.length ? (
@@ -908,30 +929,12 @@ export function HrInterviewsWorkspace() {
             >
               {editor && canUpdate ? (
                 <>
-                  <form
-                    className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      setPanelQuery(panelSearch);
-                    }}
-                  >
-                    <label className="grid content-start flex-1 gap-1 text-sm">
-                      Find panel account
-                      <Input
-                        value={panelSearch}
-                        maxLength={160}
-                        placeholder="Name or email"
-                        onChange={(e) => setPanelSearch(e.target.value)}
-                      />
-                    </label>
-                    <Button type="submit" variant="outline" disabled={busy}>
-                      Find panel
-                    </Button>
-                  </form>
                   <ScheduleForm
                     key={`${applicationId}-${editor}-${selectedId}`}
                     scope={scope}
                     panel={panel}
+                    panelSearch={panelSearch}
+                    onPanelSearch={setPanelSearch}
                     busy={busy}
                     run={run}
                     close={() => setEditor(null)}
@@ -1026,7 +1029,6 @@ export function HrInterviewsWorkspace() {
                       <label className="grid content-start gap-1.5 text-sm">
                         Assessment instructions
                         <Textarea
-                          required
                           maxLength={1000}
                           value={assessmentReason}
                           onChange={(e) => setAssessmentReason(e.target.value)}
@@ -1036,7 +1038,7 @@ export function HrInterviewsWorkspace() {
                     <Button
                       type="submit"
                       variant="outline"
-                      disabled={busy || !assessmentTitle.trim() || !assessmentReason.trim()}
+                      disabled={busy || !assessmentTitle.trim()}
                     >
                       <Plus className="size-4" />
                       Add assessment
@@ -1089,7 +1091,6 @@ export function HrInterviewsWorkspace() {
                       <label className="grid content-start gap-1.5 text-sm">
                         Selection reason
                         <Textarea
-                          required
                           maxLength={1000}
                           value={decisionReason}
                           onChange={(e) => setDecisionReason(e.target.value)}
@@ -1099,7 +1100,7 @@ export function HrInterviewsWorkspace() {
                     <Button
                       type="submit"
                       className="text-primary-foreground!"
-                      disabled={busy || !workspace.readiness.ready || !decisionReason.trim()}
+                      disabled={busy || !workspace.readiness.ready}
                     >
                       Confirm selection
                     </Button>

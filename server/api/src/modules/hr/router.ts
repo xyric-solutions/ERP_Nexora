@@ -56,6 +56,9 @@ import {
   submitHrEmploymentLifecyclePolicyRequestSchema,
   approveHrEmploymentLifecyclePolicyRequestSchema,
   activateHrEmploymentLifecyclePolicyRequestSchema,
+  updateHrEmploymentLifecyclePolicyRequestSchema,
+  deleteHrEmploymentLifecyclePolicyRequestSchema,
+  deactivateHrEmploymentLifecyclePolicyRequestSchema,
   createHrJobRequestSchema,
   createHrEmployeeHireRequestSchema,
   decideHrEmployeeHireRequestSchema,
@@ -271,6 +274,9 @@ export interface HrRouterDependencies {
     | "submitEmploymentLifecyclePolicy"
     | "approveEmploymentLifecyclePolicy"
     | "activateEmploymentLifecyclePolicy"
+    | "updateEmploymentLifecyclePolicy"
+    | "deleteEmploymentLifecyclePolicy"
+    | "deactivateEmploymentLifecyclePolicy"
     | "createJob"
     | "listEmployeeHireRequests"
     | "getEmployeeHireRequest"
@@ -831,6 +837,7 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
     const query = hrEmployeeTransferRequestDirectoryQuerySchema.parse({
       company_id: req.query.company_id,
       search: req.query.search,
+      status: req.query.status,
       limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
     });
     res.json(await handle(async () => movements.listTransfers(await loadHrSessionContext(req, dependencies), query)));
@@ -881,6 +888,7 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
     const query = hrEmployeePromotionRequestDirectoryQuerySchema.parse({
       company_id: req.query.company_id,
       search: req.query.search,
+      status: req.query.status,
       limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
     });
     res.json(await handle(async () => movements.listPromotions(await loadHrSessionContext(req, dependencies), query)));
@@ -1434,6 +1442,56 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
       ),
     );
     res.status(result.replayed ? 200 : 201).json(result);
+  });
+  router.patch("/employment_lifecycle_policies/:policyId", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const policyId = z.string().trim().min(1).max(128).parse(req.params.policyId);
+    const input = updateHrEmploymentLifecyclePolicyRequestSchema.parse(req.body);
+    res.json(
+      await handle(async () =>
+        lifecycle.updatePolicy(
+          await loadHrSessionContext(req, dependencies, true),
+          policyId,
+          input,
+          idempotencyKey(req),
+          currentRequestContext().correlationId,
+        ),
+      ),
+    );
+  });
+  router.delete("/employment_lifecycle_policies/:policyId", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const policyId = z.string().trim().min(1).max(128).parse(req.params.policyId);
+    const body: unknown = req.body;
+    const hasBody = typeof body === "object" && body !== null && Object.keys(body).length > 0;
+    const input = deleteHrEmploymentLifecyclePolicyRequestSchema.parse(hasBody ? body : { company_id: req.query.company_id });
+    res.json(
+      await handle(async () =>
+        lifecycle.deletePolicy(
+          await loadHrSessionContext(req, dependencies, true),
+          policyId,
+          input,
+          idempotencyKey(req),
+          currentRequestContext().correlationId,
+        ),
+      ),
+    );
+  });
+  router.post("/employment_lifecycle_policies/:policyId/deactivate", async (req, res) => {
+    trustedOrigin(req, dependencies.allowedOrigins);
+    const policyId = z.string().trim().min(1).max(128).parse(req.params.policyId);
+    const input = deactivateHrEmploymentLifecyclePolicyRequestSchema.parse(req.body);
+    res.json(
+      await handle(async () =>
+        lifecycle.deactivatePolicy(
+          await loadHrSessionContext(req, dependencies, true),
+          policyId,
+          input,
+          idempotencyKey(req),
+          currentRequestContext().correlationId,
+        ),
+      ),
+    );
   });
   router.post("/employment_lifecycle_policies/:policyId/submit", async (req, res) => {
     trustedOrigin(req, dependencies.allowedOrigins);

@@ -211,24 +211,24 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
               <table className="w-full min-w-130 text-left text-sm">
                 <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-2.5 sm:pl-5">Employee</th>
-                    <th className="px-4 py-2.5">Position</th>
-                    <th className="px-4 py-2.5 text-right sm:pr-5">Joined</th>
+                    <th className="px-4 py-3 sm:pl-5">Employee</th>
+                    <th className="px-4 py-3">Position</th>
+                    <th className="px-4 py-3 text-right sm:pr-5">Joined</th>
                   </tr>
                 </thead>
                 <tbody>
                   {summary.recent_joiner_list.map((joiner) => (
                     <tr key={joiner.employee_id} className="border-b border-border/70 last:border-0">
-                      <td className="px-4 py-2.5 sm:pl-5">
+                      <td className="px-4 py-3 sm:pl-5">
                         <span className="block font-medium">{joiner.employee_name}</span>
                         <span className="text-xs text-muted-foreground">{joiner.employee_number}</span>
                       </td>
-                      <td className="px-4 py-2.5">
+                      <td className="px-4 py-3">
                         {[joiner.designation, joiner.department].filter(Boolean).join(" · ") || (
                           <span className="text-muted-foreground">Not recorded</span>
                         )}
                       </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums sm:pr-5">{hrDisplayDate(joiner.joined_on)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums sm:pr-5">{hrDisplayDate(joiner.joined_on)}</td>
                     </tr>
                   ))}
                   {summary.recent_joiner_list.length === 0 ? (

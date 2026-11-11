@@ -45,8 +45,8 @@ type Draft = {
 };
 const tableClass = "w-full border-collapse text-left text-sm";
 const headClass = "border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground";
-const th = "whitespace-nowrap px-3 py-2";
-const td = "px-3 py-1.5";
+const th = "whitespace-nowrap px-4 py-3";
+const td = "px-4 py-3";
 const tableWrap = "relative overflow-x-auto rounded-lg border border-border bg-card shadow-sm";
 
 export function HrPayrollRunsWorkspace({
@@ -185,7 +185,7 @@ export function HrPayrollRunsWorkspace({
       className="grid min-w-0 gap-4 font-sans [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_input]:font-normal! [&_select]:font-normal! [&_textarea]:font-normal!"
     >
       <section className={panel}>
-        <div className="grid min-w-0 items-end gap-4 md:grid-cols-[1fr_1.5fr]">
+        <div className="grid min-w-0 items-end gap-4 md:grid-cols-[minmax(9.5rem,11rem)_minmax(0,1fr)_auto]">
           <Field title="Payroll month">
             <Input
               className="box-border! w-full min-w-0! max-w-full!"
@@ -208,6 +208,12 @@ export function HrPayrollRunsWorkspace({
               onChange={(e) => setSearch(e.target.value)}
             />
           </Field>
+          {canManagePolicy && (
+            <Button className="w-full text-primary-foreground! md:w-auto" disabled={locked} onClick={() => begin("policy")}>
+              <Plus className="h-4 w-4" />
+              Payroll policy
+            </Button>
+          )}
         </div>
       </section>
       {companies.data && !companies.data.items.length && (
@@ -242,12 +248,6 @@ export function HrPayrollRunsWorkspace({
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {canManagePolicy && (
-            <Button className="text-primary-foreground!" disabled={locked} onClick={() => begin("policy")}>
-              <Plus className="h-4 w-4" />
-              Payroll policy
-            </Button>
-          )}
           {!review && data?.allowed_actions.includes("open") && (
             <Button variant="outline" disabled={locked} onClick={() => begin("open")}>
               Open period
@@ -340,7 +340,7 @@ export function HrPayrollRunsWorkspace({
                 ))}
                 {!policies.length && (
                   <tr>
-                    <td className="px-3 py-6 text-center text-muted-foreground" colSpan={5}>
+                    <td className="px-4 py-6 text-center text-muted-foreground" colSpan={5}>
                       {state.loading ? "Loading payroll policies…" : "No payroll policies match this company and search."}
                     </td>
                   </tr>
@@ -382,7 +382,7 @@ export function HrPayrollRunsWorkspace({
               ))}
               {!employees.length && (
                 <tr>
-                  <td className="px-3 py-6 text-center text-muted-foreground" colSpan={6}>
+                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={6}>
                     {state.loading
                       ? "Loading Payroll results…"
                       : data?.total && !data.employees.length

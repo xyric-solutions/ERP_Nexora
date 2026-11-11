@@ -1,4 +1,5 @@
 "use client";
+import { HrPagination, matchesSearch, useHrPage } from "./hr-list-controls";
 import { HrDrawerActions } from "./hr-drawer-context";
 import { HrRecordDrawer } from "./hr-record-drawer";
 import { HrClickableRow } from "./hr-clickable-row";
@@ -45,6 +46,7 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
   userId,
   canUseApprovalOverride,
   onAction,
+  search = "",
 }: {
   client: HrApiClient;
   csrfToken: () => string;
@@ -53,6 +55,8 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
   userId?: string;
   canUseApprovalOverride: boolean;
   onAction: (action: string, subject?: string) => void;
+  /** Typed search from the approvals toolbar. */
+  search?: string;
 }) {
   const [queue, setQueue] = useState<HrEmployeeOrganizationPlacementChangeRequestReview[]>([]);
   const [loadedCompanyId, setLoadedCompanyId] = useState("");
@@ -66,6 +70,10 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const visibleQueue = queue.filter((item) =>
+    matchesSearch(search, [item.employee_name, item.employee_number, item.reason, item.effective_on]),
+  );
+  const queuePage = useHrPage(visibleQueue, `${companyId}:${search.trim()}`);
   const retry = useRef<{ fingerprint: string; key: string } | null>(null);
 
   useEffect(() => {
@@ -205,7 +213,7 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
               </tr>
             </thead>
             <tbody>
-              {queue.map((item) => (
+              {queuePage.pageRows.map((item) => (
                 <HrClickableRow
                   key={item.id}
                   disabled={saving}
@@ -223,9 +231,25 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
                   <td className="px-4 py-3 text-muted-foreground">{item.effective_on}</td>
                 </HrClickableRow>
               ))}
+              {visibleQueue.length === 0 && (
+                <tr>
+                  <td className="px-4 py-8 text-center text-muted-foreground" colSpan={3}>
+                    No requests match this search.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
+      )}
+      {!loading && !loadError && queue.length > 0 && (
+        <HrPagination
+          label="Approval request pages"
+          page={queuePage.page}
+          pageCount={queuePage.pageCount}
+          total={queuePage.total}
+          onPageChange={queuePage.setPage}
+        />
       )}
       {detailLoading && <Skeleton className="h-32 w-full" />}
       {error && (
@@ -299,7 +323,7 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
               <Button
                 type="button"
                 disabled={
-                  saving || approvalOverride.independentApproverRequired || !detail.hierarchy_ready || !reason.trim()
+                  saving || approvalOverride.independentApproverRequired || !detail.hierarchy_ready
                 }
                 onClick={() => setDecision("approved")}
               >
@@ -308,7 +332,7 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
               <Button
                 type="button"
                 variant="outline"
-                disabled={saving || approvalOverride.independentApproverRequired || !reason.trim()}
+                disabled={saving || approvalOverride.independentApproverRequired}
                 onClick={() => setDecision("rejected")}
               >
                 Reject

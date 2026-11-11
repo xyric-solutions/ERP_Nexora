@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
-import { employmentSetupOptionLabel, payCycleLabel, paymentRouteLabel } from "../model/employment-setup";
+import { costCentreOptionLabel, payCycleLabel, paymentRouteLabel } from "../model/employment-setup";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { offerMoney, preparationOfferFilterOptions, type PreparationOfferFilter } from "../model/hr-offer-display";
 import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
@@ -90,9 +90,8 @@ function OfferEditor({
     valid_until: detail?.valid_until ?? "",
     probation_months: detail?.probation_months ?? 3,
     notice_days: detail?.notice_days ?? 30,
-    cost_center_id: detail?.cost_center_id ?? "",
+    cost_center_id: detail?.cost_center_id ?? context.cost_center_id ?? "",
     work_location_id: detail?.work_location_id ?? "",
-    employment_setup_id: detail?.employment_setup_id ?? context.employment_setup_id,
     reporting_manager_id: detail?.reporting_manager_id ?? null,
     note: detail?.note ?? "",
     range_exception_reason: detail?.range_exception_reason ?? "",
@@ -119,7 +118,11 @@ function OfferEditor({
           value={`${money(context.salary_minimum, context.currency_code)} – ${money(context.salary_maximum, context.currency_code)}`}
         />
         <HrDetailTile label="Project / department" value={`${context.branch ?? "Not set"} · ${context.department}`} />
-        <HrDetailTile label="Employment setup" value={context.employment_setup} hint={context.requisition_reference} />
+        <HrDetailTile
+          label="Payment terms"
+          value={`${paymentRouteLabel(context.payment_route)} / ${payCycleLabel(context.pay_cycle)}`}
+          hint={context.requisition_reference}
+        />
       </HrDetailGroup>
       <HrDetailSection title="Terms">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -184,7 +187,6 @@ function OfferEditor({
             [
               ["cost_center_id", "cost_center", "Cost centre"],
               ["work_location_id", "work_location", "Work location"],
-              ["employment_setup_id", "employment_setup", "Employment setup"],
             ] as const
           ).map(([key, type, title]) => (
             <label key={key} className="grid content-start gap-1.5 text-sm">
@@ -195,9 +197,7 @@ function OfferEditor({
                   .filter((item) => item.type === type)
                   .map((item) => (
                     <option key={item.id} value={item.id}>
-                      {item.type === "employment_setup"
-                        ? employmentSetupOptionLabel(item)
-                        : `${item.name} (${item.code})`}
+                      {item.type === "cost_center" ? costCentreOptionLabel(item) : `${item.name} (${item.code})`}
                     </option>
                   ))}
               </select>
@@ -231,9 +231,8 @@ function OfferEditor({
           </Alert>
         ) : null}
         <label className="grid content-start gap-1.5 text-sm">
-          Compensation exception reason {outside ? "(required)" : "(if applicable)"}
+          Compensation exception reason
           <Textarea
-            required={outside}
             maxLength={1000}
             value={terms.range_exception_reason}
             onChange={(e) => field("range_exception_reason", e.target.value)}
@@ -302,7 +301,7 @@ function OfferDecisionForm({
       ) : null}
       <label className="grid content-start gap-1.5 text-sm" htmlFor="offer-decision-reason">
         {action === "approve" ? "Approval note" : action === "submit" ? "Submission note" : "Reason"}
-        <Textarea id="offer-decision-reason" required maxLength={1000} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)} />
+        <Textarea id="offer-decision-reason" maxLength={1000} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)} />
       </label>
     </form>
   );
@@ -415,12 +414,11 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
     Promise.all([
       client.masters({ companyId, type: "cost_center", limit: 100 }),
       client.masters({ companyId, type: "work_location", limit: 100 }),
-      client.masters({ companyId, type: "employment_setup", limit: 100 }),
       client.employees({ companyId, limit: 100 }),
     ])
-      .then(([cc, wl, es, people]) => {
+      .then(([cc, wl, people]) => {
         if (!cancelled) {
-          setMasters([...cc.items, ...wl.items, ...es.items]);
+          setMasters([...cc.items, ...wl.items]);
           setEmployees(people.items.filter((item) => ["active", "probation", "confirmed"].includes(item.status)));
         }
       })
@@ -703,11 +701,11 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
             <table className="w-full min-w-160 border-collapse text-left text-sm" aria-label="Offer register">
               <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="whitespace-nowrap px-3 py-2">Candidate</th>
-                  <th className="whitespace-nowrap px-3 py-2">Opening</th>
-                  <th className="whitespace-nowrap px-3 py-2">Monthly gross</th>
-                  <th className="whitespace-nowrap px-3 py-2">Valid until</th>
-                  <th className="whitespace-nowrap px-3 py-2">Status</th>
+                  <th className="whitespace-nowrap px-4 py-3">Candidate</th>
+                  <th className="whitespace-nowrap px-4 py-3">Opening</th>
+                  <th className="whitespace-nowrap px-4 py-3">Monthly gross</th>
+                  <th className="whitespace-nowrap px-4 py-3">Valid until</th>
+                  <th className="whitespace-nowrap px-4 py-3">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -718,16 +716,16 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
                     className={`cursor-pointer border-b border-border/70 transition-colors last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${item.id === selectedId ? "bg-primary/5" : ""}`}
                     {...openRow(item)}
                   >
-                    <td className="px-3 py-1.5">
+                    <td className="px-4 py-3">
                       <span className="font-medium text-foreground">{item.candidate_name}</span>
                       <span className="ml-2 font-mono text-xs text-muted-foreground">{item.reference}</span>
                     </td>
-                    <td className="px-3 py-1.5 text-muted-foreground">{item.opening_title}</td>
-                    <td className="px-3 py-1.5 text-muted-foreground">
+                    <td className="px-4 py-3 text-muted-foreground">{item.opening_title}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
                       {money(item.proposed_gross, item.currency_code)}
                     </td>
-                    <td className="px-3 py-1.5 text-muted-foreground">{item.valid_until}</td>
-                    <td className="px-3 py-1.5">
+                    <td className="px-4 py-3 text-muted-foreground">{item.valid_until}</td>
+                    <td className="px-4 py-3">
                       <Badge variant={item.is_overdue ? "destructive" : "secondary"}>
                         {item.is_overdue && ["draft", "submitted"].includes(item.state) ? "Overdue" : label(item.state)}
                       </Badge>
@@ -889,9 +887,8 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
               <HrDetailTile label="Joining date" value={hrDisplayDate(detail.joining_on)} />
               <HrDetailTile label="Valid through" value={hrDisplayDate(detail.valid_until)} />
               <HrDetailTile
-                label="Employment setup"
-                value={detail.employment_setup}
-                hint={`${paymentRouteLabel(detail.payment_route)} / ${payCycleLabel(detail.pay_cycle)}`}
+                label="Payment terms"
+                value={`${paymentRouteLabel(detail.payment_route)} / ${payCycleLabel(detail.pay_cycle)}`}
               />
             </HrDetailGroup>
             <HrDetailGroup title="Placement">

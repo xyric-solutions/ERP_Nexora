@@ -38,6 +38,7 @@ import {
 import type { ModuleColumn, ModuleRow } from "@prototype/shared/types/module-profile-types";
 import { ModuleSearchableTable } from "@prototype/shared/ui/module-views";
 
+import { hrDataTableClass } from "../components/hr-table";
 type MasterView = { kind: "list" } | { kind: "record"; recordId: string; tab: RecordTab };
 type RecordTab = "Details" | "History" | "Audit trail";
 
@@ -158,7 +159,7 @@ export function HrMasterScreen({
 
         {view.tab === "History" ? (
           <div className="nx-table-wrap">
-            <table className="nx-data-table">
+            <table className={hrDataTableClass}>
               <thead><tr><th>Effective</th><th>Change</th><th>From</th><th>To</th><th>By</th></tr></thead>
               <tbody>
                 <tr><td>{record.createdOn}</td><td>Created</td><td>—</td><td>{record.name}</td><td>{record.createdBy}</td></tr>
@@ -172,7 +173,7 @@ export function HrMasterScreen({
 
         {view.tab === "Audit trail" ? (
           <div className="nx-table-wrap">
-            <table className="nx-data-table">
+            <table className={hrDataTableClass}>
               <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Field</th><th>Old value</th><th>New value</th></tr></thead>
               <tbody>
                 <tr><td>{record.createdOn} 09:14</td><td>{record.createdBy}</td><td>Created</td><td>—</td><td>—</td><td>{record.code}</td></tr>

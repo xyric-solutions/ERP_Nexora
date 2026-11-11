@@ -89,6 +89,11 @@ import type {
   HrEmploymentLifecyclePolicyApprovalResult,
   ActivateHrEmploymentLifecyclePolicyRequest,
   HrEmploymentLifecyclePolicyActivationResult,
+  UpdateHrEmploymentLifecyclePolicyRequest,
+  DeleteHrEmploymentLifecyclePolicyRequest,
+  HrEmploymentLifecyclePolicyDeleteResult,
+  DeactivateHrEmploymentLifecyclePolicyRequest,
+  HrEmploymentLifecyclePolicyDeactivationResult,
   HrMasterDirectory,
   HrMasterType,
   CreateHrMasterRequest,
@@ -583,6 +588,35 @@ export class HrApiClient {
     return this.api.activateHrEmploymentLifecyclePolicy(policyId, input, csrfToken, idempotencyKey);
   }
 
+  /** Draft-only: name and effective period; code and version are kept. */
+  updateEmploymentLifecyclePolicy(
+    policyId: string,
+    input: UpdateHrEmploymentLifecyclePolicyRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmploymentLifecyclePolicyResult> {
+    return this.api.updateHrEmploymentLifecyclePolicy(policyId, input, csrfToken, idempotencyKey);
+  }
+
+  /** Draft-only and unreferenced; the deleted code is never reissued. */
+  deleteEmploymentLifecyclePolicy(
+    policyId: string,
+    input: DeleteHrEmploymentLifecyclePolicyRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmploymentLifecyclePolicyDeleteResult> {
+    return this.api.deleteHrEmploymentLifecyclePolicy(policyId, input, csrfToken, idempotencyKey);
+  }
+
+  deactivateEmploymentLifecyclePolicy(
+    policyId: string,
+    input: DeactivateHrEmploymentLifecyclePolicyRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmploymentLifecyclePolicyDeactivationResult> {
+    return this.api.deactivateHrEmploymentLifecyclePolicy(policyId, input, csrfToken, idempotencyKey);
+  }
+
   masters(input: {
     companyId: string;
     type?: HrMasterType;
@@ -693,10 +727,11 @@ export class HrApiClient {
   transferRequests(input: {
     companyId: string;
     search?: string;
+    status?: "pending" | "approved" | "rejected" | "all";
     limit?: number;
   }): Promise<HrEmployeeTransferRequestDirectory> {
     return this.api.listHrEmployeeTransferRequests(
-      query({ company_id: input.companyId, search: input.search, limit: input.limit ?? 50 }),
+      query({ company_id: input.companyId, search: input.search, status: input.status, limit: input.limit ?? 50 }),
     );
   }
 
@@ -726,10 +761,11 @@ export class HrApiClient {
   promotionRequests(input: {
     companyId: string;
     search?: string;
+    status?: "pending" | "approved" | "rejected" | "all";
     limit?: number;
   }): Promise<HrEmployeePromotionRequestDirectory> {
     return this.api.listHrEmployeePromotionRequests(
-      query({ company_id: input.companyId, search: input.search, limit: input.limit ?? 50 }),
+      query({ company_id: input.companyId, search: input.search, status: input.status, limit: input.limit ?? 50 }),
     );
   }
 

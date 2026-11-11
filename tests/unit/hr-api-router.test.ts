@@ -56,6 +56,8 @@ function appForHr(
     | "listEmployeeStatusHistory"
     | "listEmploymentLifecyclePolicies"
     | "createEmploymentLifecyclePolicy"
+    | "updateEmploymentLifecyclePolicy"
+    | "deleteEmploymentLifecyclePolicy"
   >,
 ) {
   const auth = {
@@ -317,11 +319,11 @@ describe("HR API foundation", () => {
       .set("origin", "https://hr.example.test")
       .set("x-csrf-token", session.csrfToken)
       .set("idempotency-key", "configured-master-3")
-      .send({ company_id: "company-a", type: "employment_setup", code: "AUTO", name: "Staff", description: "Salaried staff", payment_route: "payroll" });
+      .send({ company_id: "company-a", type: "cost_center", code: "AUTO", name: "Delivery", description: "Client delivery", payment_route: "payroll" });
     expect(missing.status).toBe(400);
     expect(repository.createMaster).toHaveBeenCalledTimes(1);
 
-    const setup = { company_id: "company-a", type: "employment_setup", code: "AUTO", name: "Permanent staff", description: "", payment_route: "payroll", pay_cycle: "monthly" };
+    const setup = { company_id: "company-a", type: "cost_center", code: "AUTO", name: "Client Delivery", description: "", payment_route: "payroll", pay_cycle: "monthly" };
     const setupAccepted = await request(appForHr(repository))
       .post("/api/v1/hr/masters")
       .set("cookie", "nexora_session=token-hr")
@@ -693,10 +695,93 @@ describe("HR API foundation", () => {
     expect(response.status).toBe(201);
     expect(repository.createEmploymentLifecyclePolicy).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: "tenant-hr" }),
-      payload,
+      { ...payload, description: "" },
       "lifecycle-policy-1",
       expect.any(String),
     );
+  });
+
+  it("protects draft lifecycle-policy edits and deletes with browser mutation controls", async () => {
+    const repository = {
+      updateEmploymentLifecyclePolicy: vi.fn(async () => ({
+        id: "policy-1", company_id: "company-a", code: "LCP-001", name: "Renamed", version: 1,
+        status: "draft", audit_event_id: "audit-u", replayed: false,
+      })),
+      deleteEmploymentLifecyclePolicy: vi.fn(async () => ({
+        id: "policy-1", company_id: "company-a", code: "LCP-001", deleted: true, audit_event_id: "audit-d", replayed: false,
+      })),
+    } as unknown as Pick<SourceHrRepository, "updateEmploymentLifecyclePolicy" | "deleteEmploymentLifecyclePolicy">;
+    const app = appForHr(repository);
+    const payload = { company_id: "company-a", name: "Renamed", effective_from: "2026-11-01" };
+    const updated = await request(app)
+      .patch("/api/v1/hr/employment_lifecycle_policies/policy-1")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "lifecycle-policy-update-1")
+      .send(payload);
+    expect(updated.status).toBe(200);
+    expect(repository.updateEmploymentLifecyclePolicy).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }), "policy-1", { ...payload, description: "" }, "lifecycle-policy-update-1", expect.any(String),
+    );
+    const invalid = await request(app)
+      .patch("/api/v1/hr/employment_lifecycle_policies/policy-1")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "lifecycle-policy-update-2")
+      .send({ ...payload, effective_to: "2026-10-01" });
+    expect(invalid.status).toBe(400);
+    const deleted = await request(app)
+      .delete("/api/v1/hr/employment_lifecycle_policies/policy-1?company_id=company-a")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "lifecycle-policy-delete-1");
+    expect(deleted.status).toBe(200);
+    expect(repository.deleteEmploymentLifecyclePolicy).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }), "policy-1", { company_id: "company-a" }, "lifecycle-policy-delete-1", expect.any(String),
+    );
+    const forged = await request(app)
+      .delete("/api/v1/hr/employment_lifecycle_policies/policy-1")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", "wrong")
+      .set("idempotency-key", "lifecycle-policy-delete-2")
+      .send({ company_id: "company-a" });
+    expect(forged.status).toBe(403);
+    expect(repository.deleteEmploymentLifecyclePolicy).toHaveBeenCalledTimes(1);
+  });
+
+  it("protects lifecycle-policy deactivation with browser mutation controls", async () => {
+    const repository = {
+      deactivateEmploymentLifecyclePolicy: vi.fn(async () => ({
+        id: "policy-1", company_id: "company-a", code: "LCP-001", name: "Standard", version: 1,
+        status: "inactive", audit_event_id: "audit-x", replayed: false,
+      })),
+    } as unknown as Pick<SourceHrRepository, "deactivateEmploymentLifecyclePolicy">;
+    const app = appForHr(repository);
+    const payload = { company_id: "company-a", reason: "Replaced by the 2027 policy" };
+    const deactivated = await request(app)
+      .post("/api/v1/hr/employment_lifecycle_policies/policy-1/deactivate")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "lifecycle-policy-deactivate-1")
+      .send(payload);
+    expect(deactivated.status).toBe(200);
+    expect(repository.deactivateEmploymentLifecyclePolicy).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }), "policy-1", payload, "lifecycle-policy-deactivate-1", expect.any(String),
+    );
+    const forged = await request(app)
+      .post("/api/v1/hr/employment_lifecycle_policies/policy-1/deactivate")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", "wrong")
+      .set("idempotency-key", "lifecycle-policy-deactivate-2")
+      .send(payload);
+    expect(forged.status).toBe(403);
+    expect(repository.deactivateEmploymentLifecyclePolicy).toHaveBeenCalledTimes(1);
   });
 
   it("protects lifecycle-policy submission with the standard browser mutation controls", async () => {
@@ -1199,7 +1284,7 @@ describe("HR API foundation", () => {
       .set("origin", "https://hr.example.test")
       .set("x-csrf-token", session.csrfToken)
       .set("idempotency-key", "work-location-change-request-invalid")
-      .send({ ...payload, reason: "" });
+      .send({ ...payload, reason: "x".repeat(1001) });
     expect(invalid.status).toBe(400);
 
     const decision = { decision: "approved", reason: "Independent location approval completed." };

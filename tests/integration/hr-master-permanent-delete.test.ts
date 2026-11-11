@@ -45,13 +45,14 @@ run("HR Organisation & Masters permanent delete (HR135)", () => {
   async function unitRow(id: string) {
     return (await pool.query<{ code: string; status: string }>("select code,status from organization_unit where tenant_id=$1 and id=$2", [sourceTestTenantId, id])).rows[0];
   }
-  async function inactiveMaster(type: "designation" | "job" | "cost_center" | "work_location" | "employment_setup", code = "AUTO") {
+  async function inactiveMaster(type: "designation" | "job" | "cost_center" | "work_location", code = "AUTO") {
     const terms =
-      type === "employment_setup"
-        ? { payment_route: "payroll" as const, pay_cycle: "monthly" as const }
-        : type === "cost_center"
-          ? { configuration_key: "default_nominal", configuration_value: "5000" }
-          : type === "work_location"
+      type === "cost_center"
+        ? {
+            payment_route: "payroll" as const,
+            pay_cycle: "monthly" as const,
+          }
+        : type === "work_location"
             ? { configuration_key: "working_pattern", configuration_value: "on_site" }
             : {};
     const created = await repo.createMaster(context, { company_id: company, type, code, name: `Delete ${type} ${randomUUID().slice(0, 8)}`, description: "", ...terms }, key(), corr);
@@ -66,7 +67,7 @@ run("HR Organisation & Masters permanent delete (HR135)", () => {
   }
 
   it("permanently deletes an inactive, unreferenced master with audit and deletion evidence", async () => {
-    for (const type of ["designation", "job", "cost_center", "work_location", "employment_setup"] as const) {
+    for (const type of ["designation", "job", "cost_center", "work_location"] as const) {
       const id = await inactiveMaster(type);
       const { code } = (await masterRow(id))!;
       const result = await repo.deleteMaster(context, id, { company_id: company }, key(), corr);
@@ -113,7 +114,7 @@ run("HR Organisation & Masters permanent delete (HR135)", () => {
   });
 
   it("refuses records still referenced by assignments and keeps them deactivated", async () => {
-    for (const id of ["r06-uat-cost-center", "r06-uat-employment-setup"]) {
+    for (const id of ["r06-uat-cost-center"]) {
       await withSetupStatus(id, "inactive");
       try {
         await expect(repo.deleteMaster(context, id, { company_id: company }, key(), corr)).rejects.toMatchObject({
@@ -130,12 +131,17 @@ run("HR Organisation & Masters permanent delete (HR135)", () => {
 
   it("refuses retired employment types and setups referenced by the HR134 legacy map", async () => {
     const legacyId = `legacy-type-${randomUUID()}`;
-    const setupId = await inactiveMaster("employment_setup");
+    // Employment setups are retired (HR149) and can only exist as archived rows.
+    const setupId = `legacy-setup-${randomUUID()}`;
     const client = await pool.connect();
     try {
       await client.query("begin");
       await client.query("set local session_replication_role = replica");
       await client.query("select set_config('nexora.tenant_id',$1,true)", [sourceTestTenantId]);
+      await client.query(
+        "insert into hr_master_record(id,tenant_id,company_id,master_type,code,name,status,created_by,deactivated_by,deactivated_at,payment_route,pay_cycle) values($1,$2,$3,'employment_setup',$4,$5,'inactive','r06.maker','migration-0149',now(),'payroll','monthly')",
+        [setupId, sourceTestTenantId, company, `ES-${Date.now()}`, `Legacy ${setupId}`],
+      );
       await client.query(
         "insert into hr_master_record(id,tenant_id,company_id,master_type,code,name,status,created_by,deactivated_by,deactivated_at) values($1,$2,$3,'employment_type',$4,$5,'inactive','r06.maker','migration-0134',now())",
         [legacyId, sourceTestTenantId, company, `ET-${Date.now()}`, `Legacy ${legacyId}`],
@@ -150,7 +156,7 @@ run("HR Organisation & Masters permanent delete (HR135)", () => {
     }
     await expect(repo.deleteMaster(context, legacyId, { company_id: company }, key(), corr)).rejects.toMatchObject({ status: 409, code: "HR_MASTER_TYPE_RETIRED" });
     expect(await masterRow(legacyId)).toMatchObject({ status: "inactive" });
-    await expect(repo.deleteMaster(context, setupId, { company_id: company }, key(), corr)).rejects.toMatchObject({ status: 409, code: "HR_MASTER_IN_USE" });
+    await expect(repo.deleteMaster(context, setupId, { company_id: company }, key(), corr)).rejects.toMatchObject({ status: 409, code: "HR_MASTER_TYPE_RETIRED" });
     expect(await masterRow(setupId)).toMatchObject({ status: "inactive" });
   });
 

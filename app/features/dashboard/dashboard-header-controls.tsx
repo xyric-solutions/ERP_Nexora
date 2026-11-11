@@ -19,16 +19,17 @@ function initials(name: string) {
 
 export function DashboardHeaderControls() {
   const router = useRouter();
-  const { activeCompany, leaveCompany, logout, session } = useSession();
+  const { activeCompany, logout, session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
 
   if (!session) return null;
 
-  /** Signs out of this company and returns to the company list; the back arrow there ends the sign-in. */
+  /** Ends the sign-in completely and returns to the username and password form. */
   async function signOut() {
     setSigningOut(true);
     try {
-      await leaveCompany().catch(() => logout());
+      // The session is cleared locally even if the server call fails, so the form still shows.
+      await logout().catch(() => undefined);
       router.replace("/login");
     } finally {
       setSigningOut(false);

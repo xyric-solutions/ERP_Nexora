@@ -214,7 +214,7 @@ export function HrDailyAttendanceWorkspace({
               <thead className="sticky top-0 z-10 bg-muted">
                 <tr>
                   {["Employee", "Shift / department", "In / out", "Worked", "Late", "Status"].map((h) => (
-                    <th key={h} scope="col" className="px-3 py-3 text-xs font-semibold text-muted-foreground">
+                    <th key={h} scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">
                       {h}
                     </th>
                   ))}
@@ -227,23 +227,23 @@ export function HrDailyAttendanceWorkspace({
                     {...openRow(row)}
                     className={`cursor-pointer border-t border-border outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selected === row.employee_id ? "bg-primary/5" : ""}`}
                   >
-                    <td className="px-3 py-3">
+                    <td className="px-4 py-3">
                       <span className="block font-semibold">{row.display_name}</span>
                       <span className="mt-1 block text-xs text-muted-foreground">{row.employee_number}</span>
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="px-4 py-3">
                       <span className="block">{row.shift_name ?? "Shift not assigned"}</span>
                       <span className="mt-1 block text-xs text-muted-foreground">
                         {row.department ?? "No department"}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-xs">
+                    <td className="px-4 py-3 text-xs">
                       <span className="block">{time(row.first_in, row.time_zone)}</span>
                       <span className="mt-1 block text-muted-foreground">{time(row.last_out, row.time_zone)}</span>
                     </td>
-                    <td className="px-3 py-3 tabular-nums">{minutes(row.worked_minutes)}</td>
-                    <td className="px-3 py-3 tabular-nums">{row.late_minutes}m</td>
-                    <td className="px-3 py-3">
+                    <td className="px-4 py-3 tabular-nums">{minutes(row.worked_minutes)}</td>
+                    <td className="px-4 py-3 tabular-nums">{row.late_minutes}m</td>
+                    <td className="px-4 py-3">
                       <Status row={row} />
                       {row.correction_applied && (
                         <span className="mt-1 block text-xs text-muted-foreground">Approved correction</span>

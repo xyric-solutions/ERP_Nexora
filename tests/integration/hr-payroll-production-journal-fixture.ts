@@ -6,6 +6,29 @@ import { publishApprovedStatutoryPack } from "../../server/api/src/modules/hr/pa
 import { grantJournalFixtureAuthority, journalActor } from "./hr-payroll-journal-fixture.js";
 import { ensureCompanyCurrencyFixture, sourceTestTenantId as tenant } from "./source-security-fixture.js";
 import type { HrPayrollJournalAction, HrPayrollRunAction } from "../../packages/contracts/src/hr/index.js";
+/**
+ * Simulates Payroll results calculated before HR148 (no frozen cost centre), which keep the v1
+ * whole-account journal assembly. Isolated test database only: briefly lifts the snapshot guard.
+ */
+export async function simulatePreCostCentreResults(pool: DatabasePool, companyId: string) {
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+    await client.query("select set_config('nexora.tenant_id',$1,true)", [tenant]);
+    await client.query("alter table hr_payroll_result disable trigger hr_payroll_result_immutable");
+    await client.query("update hr_payroll_result set cost_center_id=null where tenant_id=$1 and company_id=$2", [
+      tenant,
+      companyId,
+    ]);
+    await client.query("alter table hr_payroll_result enable trigger hr_payroll_result_immutable");
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 /** Artificial production-classification path, isolated DB only; no legal rates or normal-company business facts. */
 export async function createProductionJournalFixture(
   pool: DatabasePool,

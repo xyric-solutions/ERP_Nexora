@@ -138,14 +138,14 @@ export function HrFinancePayrollDashboardWorkspace({ onNavigate }: { onNavigate:
               <table className="w-full min-w-200 text-left text-sm">
                 <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-2.5 sm:pl-5">Period</th>
-                    <th className="px-4 py-2.5">Status</th>
-                    <th className="px-4 py-2.5 text-right">Employees</th>
-                    <th className="px-4 py-2.5 text-right">Gross</th>
-                    <th className="px-4 py-2.5 text-right">Deductions</th>
-                    <th className="px-4 py-2.5 text-right">Net</th>
-                    <th className="px-4 py-2.5">Journal</th>
-                    <th className="px-4 py-2.5 sm:pr-5">Payment</th>
+                    <th className="px-4 py-3 sm:pl-5">Period</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Employees</th>
+                    <th className="px-4 py-3 text-right">Gross</th>
+                    <th className="px-4 py-3 text-right">Deductions</th>
+                    <th className="px-4 py-3 text-right">Net</th>
+                    <th className="px-4 py-3">Journal</th>
+                    <th className="px-4 py-3 sm:pr-5">Payment</th>
                   </tr>
                 </thead>
                 <tbody>

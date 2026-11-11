@@ -36,6 +36,7 @@ import {
   HrDetailTile,
   hrDisplayDate,
 } from "../components/hr-detail-tile";
+import { SearchableSelect } from "@/shared/ui/searchable-select";
 type Scope = CreateHrShiftAllocationRequest["scope"];
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
 const selectClass =
@@ -73,7 +74,11 @@ function TargetPicker({
     [query, setQuery] = useState(""),
     [loading, setLoading] = useState(false),
     [error, setError] = useState("");
-  const remembered = useRef<{ id: string; name: string } | null>(null);
+  // Typing in the target dropdown searches the server after a short pause.
+  useEffect(() => {
+    const timer = setTimeout(() => setQuery(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
   useEffect(() => {
     if (!onDate) return;
     let current = true;
@@ -100,60 +105,29 @@ function TargetPicker({
   }, [client, companyId, scope, onDate, query, revision]);
   return (
     <div className="grid min-w-0 gap-3">
-      <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
-        {scopeLabel(scope)}
-        <select
-          required
-          className={selectClass}
+      <div className="grid content-start min-w-0 gap-2 text-sm font-medium">
+        <label htmlFor={`hr-shift-target-${scope}`}>{scopeLabel(scope)}</label>
+        <SearchableSelect
+          id={`hr-shift-target-${scope}`}
+          label={scopeLabel(scope)}
           value={value}
-          disabled={disabled || loading}
-          onChange={(e) => {
-            remembered.current = {
-              id: e.target.value,
-              name: data?.targets.find((t) => t.id === e.target.value)?.name ?? "Selected target",
-            };
-            onChange(e.target.value);
-          }}
-        >
-          <option value="">Select an authorized {scope}</option>
-          {value && !data?.targets.some((t) => t.id === value) && (
-            <option value={value}>
-              {remembered.current?.id === value ? remembered.current.name : "Selected target"} (review dates)
-            </option>
-          )}
-          {data?.targets.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name} ({t.code})
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="grid content-start min-w-0 flex-1 gap-2 text-xs text-muted-foreground">
-          Find {scope}
-          <Input
-            value={search}
-            maxLength={160}
-            disabled={disabled}
-            placeholder="Name or code"
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </label>
-        <Button type="button" variant="outline" disabled={disabled || loading} onClick={() => setQuery(search.trim())}>
-          Find target
-        </Button>
+          placeholder={`Select an authorized ${scope}`}
+          searchPlaceholder="Search by name or code…"
+          disabled={disabled}
+          loading={loading && !data}
+          required
+          search={search}
+          onSearchChange={setSearch}
+          options={data?.targets.map((t) => ({ value: t.id, label: `${t.name} (${t.code})` })) ?? []}
+          onValueChange={onChange}
+        />
       </div>
       {error && (
         <p role="status" className="text-sm text-destructive">
           {error}
         </p>
       )}
-      {data?.capped && (
-        <p className="text-xs text-muted-foreground">
-          Showing 100 matches. Refine the target search to find another record.
-        </p>
-      )}
-      {data && !data.targets.length && (
+      {data && !data.targets.length && !query && (
         <p className="text-xs text-muted-foreground">
           No matching {scope} is available on this date. Employee choices require approved operational employment.
         </p>
@@ -421,7 +395,6 @@ function AllocationEditor({
         <label className="grid content-start gap-2 text-sm font-medium">
           Allocation reason
           <Textarea
-            required
             maxLength={1000}
             rows={3}
             value={reason}
@@ -516,7 +489,6 @@ function EndAllocation({
       <label className="grid content-start gap-2 text-sm font-medium">
         End reason
         <Textarea
-          required
           maxLength={1000}
           rows={2}
           value={reason}
@@ -528,7 +500,7 @@ function EndAllocation({
         type="submit"
         variant="outline"
         className="justify-self-start"
-        disabled={busy || reason.trim().length < 1}
+        disabled={busy}
       >
         {busy ? "Saving…" : action === "cancel" ? "Cancel allocation" : "Close allocation"}
       </Button>

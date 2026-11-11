@@ -90,11 +90,10 @@ run("governed employee work-location-change repository", () => {
        values
         ('work-location-designation',$1,$2,'designation','WL-DES','Work Location Role','r06.maker',null,null),
         ('work-location-grade',$1,$2,'job_grade','WL-GRD','Work Location Grade','r06.maker',null,null),
-        ('work-location-cost-center',$1,$2,'cost_center','WL-CC','Work Location Cost Center','r06.maker',null,null),
+        ('work-location-cost-center',$1,$2,'cost_center','WL-CC','Work Location Cost Center','r06.maker','payroll','monthly'),
         ('work-location-source',$1,$2,'work_location','WL-SRC','Islamabad Office','r06.maker',null,null),
         ('work-location-target',$1,$2,'work_location','WL-TGT','Lahore Office','r06.maker',null,null),
-        ('work-location-no-profile',$1,$2,'work_location','WL-NOP','Unreviewed Office','r06.maker',null,null),
-        ('work-location-employment-setup',$1,$2,'employment_setup','WL-ES','Work Location Employment Setup','r06.maker','payroll','monthly')
+        ('work-location-no-profile',$1,$2,'work_location','WL-NOP','Unreviewed Office','r06.maker',null,null)
        on conflict (tenant_id,id) do nothing`,
       [sourceTestTenantId, companyId],
     );
@@ -208,7 +207,6 @@ run("governed employee work-location-change repository", () => {
         job_grade_id: "work-location-grade",
         cost_center_id: "work-location-cost-center",
         work_location_id: "work-location-source",
-        employment_setup_id: "work-location-employment-setup",
         effective_from: yesterday,
       },
       `work-location-profile-${suffix}`,
@@ -368,7 +366,7 @@ run("governed employee work-location-change repository", () => {
               target.designation_id=source.designation_id as same_designation,
               target.job_grade_id=source.job_grade_id as same_grade,
               target.cost_center_id=source.cost_center_id as same_cost_center,
-              target.employment_setup_id=source.employment_setup_id as same_employment_setup,
+              target.employment_setup_id is not distinct from source.employment_setup_id as same_employment_setup,
               target.reporting_manager_id is not distinct from source.reporting_manager_id as same_manager,
               target.employment_relationship_id=source.employment_relationship_id as same_relationship
          from hr_employee_work_location_change_request request

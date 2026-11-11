@@ -78,7 +78,8 @@ export function validatePayrollFormula(formula: string, allowed: ReadonlySet<str
       }
       if (tokens[i++] !== ")" || (t === "round" ? count !== 2 : count < 2))
         fail("Use two arguments for round and at least two for min/max.");
-    } else if (!t || !allowed.has(t.startsWith("[") ? t.slice(1, -1) : t)) fail("A formula contains an unavailable or forward component reference.");
+    } else if (!t || !allowed.has(t.startsWith("[") ? t.slice(1, -1) : t))
+      fail("A formula contains an unavailable or forward component reference.");
     depth--;
   };
   const term = (): void => {
@@ -226,6 +227,14 @@ export class PayrollWorkspace {
       ).rows[0];
       detail.recovered = balance.recovered;
       detail.outstanding = balance.outstanding;
+      detail.loan_kind = text(r, "loan_kind") ?? "loan";
+      detail.component_name =
+        (
+          await client.query(
+            "select code||' · '||name as label from hr_pay_component where tenant_id=$1 and company_id=$2 and id=$3",
+            [c.tenantId, r.company_id, r.component_id],
+          )
+        ).rows[0]?.label ?? null;
     }
     if (section === "journals")
       lines = (
@@ -341,6 +350,10 @@ export class PayrollWorkspace {
         where.push(
           `exists(select 1 from hr_payslip_release s where s.tenant_id=r.tenant_id and s.company_id=r.company_id and s.payroll_result_id=r.id)`,
         );
+      if (q.section === "loans" && q.loan_kind) {
+        values.push(q.loan_kind);
+        where.push(`r.loan_kind=$${values.length}`);
+      }
       if (q.search) {
         values.push("%" + q.search.replace(/[\\%_]/g, "\\$&") + "%");
         where.push(
@@ -434,7 +447,12 @@ export class PayrollWorkspace {
                 structure: await previewHrCode(client, c.tenantId, q.company_id, "structure"),
               }
             : {}),
-          ...(has("loan") ? { loan: await previewHrCode(client, c.tenantId, q.company_id, "loan") } : {}),
+          ...(has("loan")
+            ? {
+                loan: await previewHrCode(client, c.tenantId, q.company_id, "loan"),
+                advance: await previewHrCode(client, c.tenantId, q.company_id, "advance"),
+              }
+            : {}),
         };
         return {
           employees: employees.slice(0, 100),
@@ -613,7 +631,16 @@ export class PayrollWorkspace {
         if (input.kind === "component" || input.kind === "structure")
           input = { ...input, code: await allocateHrCode(client, tenant, company, input.kind, input.code) };
         if (input.kind === "loan")
-          input = { ...input, reference: await allocateHrCode(client, tenant, company, "loan", input.reference) };
+          input = {
+            ...input,
+            reference: await allocateHrCode(
+              client,
+              tenant,
+              company,
+              input.loan_kind === "advance" ? "advance" : "loan",
+              input.reference,
+            ),
+          };
         let status = "draft";
         if (input.kind === "component") {
           const account = (
@@ -789,7 +816,7 @@ export class PayrollWorkspace {
           if (!currency || currency.decimal_places > 4) fail("Choose an active currency with supported precision.");
           loanSchedule(input.principal, input.instalment_count, currency.decimal_places);
           await client.query(
-            `insert into hr_employee_loan(id,tenant_id,company_id,employee_id,reference,principal,currency_code,start_month,instalment_count,component_id,created_by,workflow_managed) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true)`,
+            `insert into hr_employee_loan(id,tenant_id,company_id,employee_id,reference,principal,currency_code,start_month,instalment_count,component_id,created_by,workflow_managed,loan_kind) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,$12)`,
             [
               id,
               tenant,
@@ -802,6 +829,7 @@ export class PayrollWorkspace {
               input.instalment_count,
               input.component_id,
               actor,
+              input.loan_kind,
             ],
           );
         }

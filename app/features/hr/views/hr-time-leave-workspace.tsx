@@ -45,6 +45,7 @@ import {
   type HrLeaveRequestActionRequest,
   type HrAttendanceCompletionResult,
 } from "@nexora/contracts";
+import { SearchableSelect } from "@/shared/ui/searchable-select";
 type Mode = "leave-types" | "leave-balances" | "leave-requests" | "leave-request" | "leave-approval";
 type Navigate = (module: string, page: string, record?: string) => void;
 type Save = (
@@ -203,20 +204,21 @@ const newPolicy = (date: string): HrLeavePolicyInput => ({
   minimum_request_days: "0.5",
   maximum_request_days: "30",
   requires_hr_approval: true,
+  applicable_cost_center_ids: [],
   applicable_employment_setup_ids: [],
   applicable_genders: [],
   document_required_after_days: null,
 });
-type EmploymentSetupOption = HrLeaveTypeDirectory["employment_setups"][number];
+type CostCentreOption = HrLeaveTypeDirectory["cost_centres"][number];
 function PolicyEditor({
   policy,
   setPolicy,
-  employmentSetups,
+  costCentres,
   busy,
 }: {
   policy: HrLeavePolicyInput;
   setPolicy: (p: HrLeavePolicyInput) => void;
-  employmentSetups: EmploymentSetupOption[];
+  costCentres: CostCentreOption[];
   busy: boolean;
 }) {
   const update = <K extends keyof HrLeavePolicyInput>(key: K, value: HrLeavePolicyInput[K]) =>
@@ -318,19 +320,19 @@ function PolicyEditor({
         </label>
       </div>
       <div>
-        <p className="text-sm font-medium">Eligible employment setups</p>
+        <p className="text-sm font-medium">Eligible cost centres</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {employmentSetups.map((c) => (
-            <label htmlFor={"leave-employment-setup-" + c.id} key={c.id} className="flex items-center gap-2 text-sm">
+          {costCentres.map((c) => (
+            <label htmlFor={"leave-cost-centre-" + c.id} key={c.id} className="flex items-center gap-2 text-sm">
               <Checkbox
-                id={"leave-employment-setup-" + c.id}
-                checked={policy.applicable_employment_setup_ids.includes(c.id)}
+                id={"leave-cost-centre-" + c.id}
+                checked={policy.applicable_cost_center_ids.includes(c.id)}
                 onCheckedChange={(v) =>
                   update(
-                    "applicable_employment_setup_ids",
+                    "applicable_cost_center_ids",
                     v === true
-                      ? [...policy.applicable_employment_setup_ids, c.id]
-                      : policy.applicable_employment_setup_ids.filter((x) => x !== c.id),
+                      ? [...policy.applicable_cost_center_ids, c.id]
+                      : policy.applicable_cost_center_ids.filter((x) => x !== c.id),
                   )
                 }
               />
@@ -401,7 +403,9 @@ function LeaveTypes(props: Shared) {
               minimum_request_days: p.minimum_request_days,
               maximum_request_days: p.maximum_request_days,
               requires_hr_approval: p.requires_hr_approval,
-              applicable_employment_setup_ids: p.applicable_employment_setup_ids,
+              applicable_cost_center_ids: p.applicable_cost_center_ids,
+              // Employment setups are retired (HR149); eligibility is by cost centre.
+              applicable_employment_setup_ids: [],
               applicable_genders: p.applicable_genders,
               document_required_after_days: p.document_required_after_days,
             }
@@ -525,7 +529,7 @@ function LeaveTypes(props: Shared) {
             <PolicyEditor
               policy={policy}
               setPolicy={setPolicy}
-              employmentSetups={query.data?.employment_setups ?? []}
+              costCentres={query.data?.cost_centres ?? []}
               busy={busy}
             />
             <Field title="Policy change reason">
@@ -534,7 +538,6 @@ function LeaveTypes(props: Shared) {
                 maxLength={1000}
                 disabled={busy}
                 onChange={(e) => setReason(e.target.value)}
-                required
               />
             </Field>
             <HrDrawerActions>
@@ -919,7 +922,6 @@ function LeaveBalances(props: Shared) {
                 maxLength={1000}
                 disabled={busy}
                 onChange={(e) => setReason(e.target.value)}
-                required
               />
             </Field>
             {ledger.data?.balance.hash !== postingHash && (
@@ -1001,6 +1003,11 @@ function RequestEditor(props: Shared) {
     [choices, setChoices] = useState<Record<string, "full" | "first_half" | "second_half" | "skip">>({}),
     [reason, setReason] = useState(""),
     [error, setError] = useState("");
+  // Typing in the Employee dropdown searches the server after a short pause.
+  useEffect(() => {
+    const timer = setTimeout(() => setLookup(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
   const validRange = !!from && !!to && to >= from && Date.parse(to) - Date.parse(from) <= 61 * 86400000;
   const query = useAttendanceRead(
     validRange ? JSON.stringify([company, from, to, employee, type, document, lookup, revision]) : null,
@@ -1118,45 +1125,25 @@ function RequestEditor(props: Shared) {
               />
             </Field>
             <div className="grid min-w-0 content-start gap-2 text-sm font-medium">
-              <label htmlFor="leave-find-employee">Find employee</label>
-              <div className="flex min-w-0 gap-2">
-                <Input
-                  id="leave-find-employee"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Name or employee number"
-                />
-                <Button
-                  variant="outline"
-                  type="button"
-                  onClick={() => {
-                    setEmployee("");
-                    setLookup(search);
-                  }}
-                >
-                  Find
-                </Button>
-              </div>
-            </div>
-            <Field title="Employee">
-              <select
-                className={selectClass}
+              <label htmlFor="leave-employee">Employee</label>
+              <SearchableSelect
+                id="leave-employee"
+                label="Employee"
                 value={employee}
-                onChange={(e) => {
-                  setEmployee(e.target.value);
+                placeholder="Select employee"
+                searchPlaceholder="Search by name or employee number…"
+                loading={query.loading && !context}
+                required
+                search={search}
+                onSearchChange={setSearch}
+                options={context?.employees.map((e) => ({ value: e.id, label: `${e.code} · ${e.name}` })) ?? []}
+                onValueChange={(next) => {
+                  setEmployee(next);
                   setDocument("");
                   setChoices({});
                 }}
-                required
-              >
-                <option value="">Select employee</option>
-                {context?.employees.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.code} · {e.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
+              />
+            </div>
             <Field title="Leave type">
               <select
                 className={selectClass}
@@ -1186,11 +1173,6 @@ function RequestEditor(props: Shared) {
               </select>
             </Field>
           </fieldset>
-          {context?.employees_capped && (
-            <p className="text-xs text-muted-foreground">
-              The first 100 matching employees are shown. Refine the employee search.
-            </p>
-          )}
           {query.loading ? (
             <Skeleton className="h-32" />
           ) : (
@@ -1283,7 +1265,6 @@ function RequestEditor(props: Shared) {
               maxLength={1000}
               disabled={busy}
               onChange={(e) => setReason(e.target.value)}
-              required
             />
           </Field>
           <HrDrawerActions>
@@ -1568,7 +1549,6 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
                 maxLength={1000}
                 disabled={busy}
                 onChange={(e) => setReason(e.target.value)}
-                required
               />
             </Field>
             {action.includes("_") && request.self_decision_requires_override && (

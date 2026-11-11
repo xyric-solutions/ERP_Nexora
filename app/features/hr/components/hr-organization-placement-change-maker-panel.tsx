@@ -181,7 +181,6 @@ export function HrOrganizationPlacementChangeMakerPanel({
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
-
           </div>
           <Badge variant="outline">Same-day effective</Badge>
         </div>
@@ -205,7 +204,7 @@ export function HrOrganizationPlacementChangeMakerPanel({
         )}
         {state === "ready" && (
           <>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
               {levels.map((level, index) => {
                 // Options sit beneath the nearest level already chosen above this one.
                 const ancestorId = levels
@@ -220,7 +219,7 @@ export function HrOrganizationPlacementChangeMakerPanel({
                   <label key={level.type} className="grid content-start gap-1.5 text-sm font-medium">
                     {level.label}
                     <select
-                      className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
+                      className="h-9 w-full min-w-0 truncate rounded-md border border-input bg-background px-2.5 text-sm"
                       value={selection[level.key] ?? ""}
                       disabled={submitting}
                       onChange={(event) => changeLevel(index, event.target.value)}
@@ -236,7 +235,10 @@ export function HrOrganizationPlacementChangeMakerPanel({
                 );
               })}
             </div>
-            <label htmlFor="organization-placement-effective-on" className="grid content-start gap-1.5 text-sm font-medium">
+            <label
+              htmlFor="organization-placement-effective-on"
+              className="grid content-start gap-1.5 text-sm font-medium"
+            >
               Effective date
               <Input id="organization-placement-effective-on" type="date" value={effectiveOn} disabled readOnly />
             </label>
@@ -254,7 +256,7 @@ export function HrOrganizationPlacementChangeMakerPanel({
               />
             </label>
             <div>
-              <Button type="button" onClick={submit} disabled={submitting || !changed || !retained || !reason.trim()}>
+              <Button type="button" onClick={submit} disabled={submitting || !changed || !retained}>
                 {submitting ? "Submitting organization change..." : "Submit organization-placement request"}
               </Button>
             </div>

@@ -106,3 +106,43 @@ backfill only and re-enabled in the same migration.
 
 Take a database backup before applying HR134 outside local/UAT; it takes
 exclusive locks on core HR tables.
+
+## HR149 — Employment Setup merged into Cost Centre (2026-11-11)
+
+Employment Setup (HR134) is retired. A **cost centre** now carries the payment
+route and pay cycle of the people it pays, alongside its optional default nominal.
+
+**Migration `0149_cost_centre_employment_terms`**
+- Backfills each cost centre's `payment_route`/`pay_cycle` from the setup used by
+  its most recent assignment; unused cost centres default to payroll/monthly.
+  **Fails closed** if a cost centre's current employees use different routes or
+  cycles (split the cost centre first).
+- Adds `hr_manpower_requisition.cost_center_id` (required on new requisitions),
+  backfilled from the cost centre whose terms match the requisition's setup.
+- Adds `applicable_cost_center_ids` to leave types and policy versions, mapped
+  from setups by matching route/cycle; **fails closed** rather than widen a
+  restriction no cost centre matches. Validated by
+  `validate_hr_leave_cost_center_scope`.
+- Archives every employment setup (`deactivated_by = 'migration-0149'`); the
+  retired-masters guard now refuses new, edited or reactivated setups.
+- `employment_setup_id` / `proposed_employment_setup_id` become nullable on
+  assignments, transfers, requisitions and offers; new rows store NULL. The
+  assignment, transfer, requisition and offer validation functions accept
+  rows without a setup (transfers no longer compare setups).
+- Constraint `hr_master_employment_terms`: cost centres must carry both terms
+  (explicit `IS NOT NULL`), other kinds none.
+- Proof: `tests/integration/hr-cost-centre-terms-migration.test.ts`.
+
+**Application**
+- API: `employment_setup` joins the retired master types; cost-centre create/
+  update requires both terms. Responses keep the legacy setup fields as nullable
+  and take route/cycle from the cost centre (setup only as a fallback).
+- Payroll routing reads the route from the cost centre.
+- UI: Employment Setup page/card removed (old links open Cost Centres); Cost
+  Centre form has Payment route and Pay cycle; hire, offer and requisition
+  forms pick a cost centre (labelled with its terms) instead of a setup; leave
+  policies choose eligible cost centres.
+
+**Rollback outline:** restore the HR134/HR140 function bodies, backfill and
+re-require the setup columns from cost-centre terms, reactivate the archived
+setups, then drop the HR149 columns, constraint and trigger.

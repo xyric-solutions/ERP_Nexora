@@ -42,6 +42,7 @@ import {
   type PayrollResult,
 } from "../model/hr-payroll-data";
 
+import { hrDataTableClass } from "../components/hr-table";
 export const HR_PAYROLL_PAGES = [
   "payroll-setup",
   "salary-structures",
@@ -82,7 +83,7 @@ function PayComponents() {
       </HrNotice>
 
       <div className="nx-table-wrap">
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead>
             <tr><th className="amount">Priority</th><th>Code</th><th>Component</th><th>Type</th><th>Basis</th><th>Formula</th><th>Taxable</th><th>Prorated</th><th>GL account</th><th>Status</th></tr>
           </thead>
@@ -124,7 +125,7 @@ function SalaryStructures() {
                 </div>
                 <span className={`nx-status nx-status-${structure.status.toLowerCase()}`}>{structure.status}</span>
               </header>
-              <table className="nx-data-table">
+              <table className={hrDataTableClass}>
                 <thead><tr><th>Component</th><th className="amount">Amount</th></tr></thead>
                 <tbody>
                   {structure.items.map((item) => (
@@ -144,7 +145,7 @@ function SalaryStructures() {
       <section className="grid min-w-0 gap-3 rounded border border-border bg-card p-4 shadow-xs">
         <header><div><span className="nx-eyebrow">Assignments</span><h2>Employee salary assignments</h2></div></header>
         <div className="nx-table-wrap">
-          <table className="nx-data-table">
+          <table className={hrDataTableClass}>
             <thead><tr><th>Reference</th><th>Employee</th><th>Structure</th><th>Overrides</th><th>Effective from</th><th>Effective to</th><th>Approval</th><th>Approved by</th></tr></thead>
             <tbody>
               {salaryAssignments.map((assignment) => (
@@ -171,7 +172,7 @@ function SalaryRevisions({ onAction }: { onAction: (action: string, subject?: st
   return (
     <div className="nx-recon">
       <div className="nx-table-wrap">
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead><tr><th>Reference</th><th>Employee</th><th>Effective</th><th className="amount">Old gross</th><th className="amount">New gross</th><th className="amount">Change</th><th>Reason</th><th>Requested by</th><th>Approved by</th><th>Status</th><th /></tr></thead>
           <tbody>
             {salaryRevisions.map((revision) => {
@@ -226,7 +227,7 @@ function PayrollRuns({ onAction }: { onAction: (action: string, subject?: string
       </ol>
 
       <div className="nx-table-wrap">
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead><tr><th>Period</th><th>Start</th><th>End</th><th>Salary date</th><th>Company</th><th className="amount">Employees</th><th className="amount">Net payroll</th><th>Journal</th><th>Payment batch</th><th>Status</th></tr></thead>
           <tbody>
             {payrollPeriods.map((row) => {
@@ -287,7 +288,7 @@ function PayrollReview({ onAction }: { onAction: (action: string, subject?: stri
 
       <section className="grid min-w-0 gap-3 rounded border border-border bg-card p-4 shadow-xs">
         <header><div><span className="nx-eyebrow">Department totals</span><h2>Where the cost sits</h2></div></header>
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead><tr><th>Department</th><th className="amount">Employees</th><th className="amount">Gross</th><th className="amount">Net</th></tr></thead>
           <tbody>
             {totals.byDepartment.map((row) => (
@@ -305,7 +306,7 @@ function PayrollReview({ onAction }: { onAction: (action: string, subject?: stri
 
       <section className="grid min-w-0 gap-3 rounded border border-border bg-card p-4 shadow-xs">
         <header><div><span className="nx-eyebrow">Variance against {previousRun ? "August 2026" : "the prior period"}</span><h2>What moved, and why</h2></div></header>
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead><tr><th>Employee</th><th className="amount">Previous net</th><th className="amount">This period</th><th className="amount">Change</th><th className="amount">%</th><th>Explanation</th></tr></thead>
           <tbody>
             {variances.length === 0 ? (
@@ -326,7 +327,7 @@ function PayrollReview({ onAction }: { onAction: (action: string, subject?: stri
 
       <section className="grid min-w-0 gap-3 rounded border border-border bg-card p-4 shadow-xs">
         <header><div><span className="nx-eyebrow">Exceptions</span><h2>Investigate before approving</h2></div></header>
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead><tr><th>Employee</th><th>Exception</th><th /></tr></thead>
           <tbody>
             {totals.exceptions.length === 0 ? (
@@ -344,7 +345,7 @@ function PayrollReview({ onAction }: { onAction: (action: string, subject?: stri
 
       <section className="grid min-w-0 gap-3 rounded border border-border bg-card p-4 shadow-xs">
         <header><div><span className="nx-eyebrow">Approval</span><h2>Configurable approval levels</h2></div></header>
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead><tr><th className="amount">Level</th><th>Role</th><th>Approved by</th><th>On</th><th>Status</th></tr></thead>
           <tbody>
             {period.approvals.map((approval) => (
@@ -412,7 +413,7 @@ function Loans({ onAction }: { onAction: (action: string, subject?: string) => v
             <div><span>Disbursed</span><strong>{loan.disbursedOn ?? "—"}</strong></div>
           </div>
           {loan.instalments.length > 0 ? (
-            <table className="nx-data-table">
+            <table className={hrDataTableClass}>
               <thead><tr><th>Instalment</th><th>Period</th><th className="amount">Amount</th><th>Status</th></tr></thead>
               <tbody>
                 {loan.instalments.map((instalment) => (
@@ -431,7 +432,7 @@ function Loans({ onAction }: { onAction: (action: string, subject?: string) => v
 
       <section className="grid min-w-0 gap-3 rounded border border-border bg-card p-4 shadow-xs">
         <header><div><span className="nx-eyebrow">Adjustments</span><h2>Bonus, arrears and recoveries</h2></div></header>
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead><tr><th>Reference</th><th>Employee</th><th>Period</th><th>Kind</th><th>Component</th><th className="amount">Amount</th><th>Reason</th><th>Status</th></tr></thead>
           <tbody>
             {payrollAdjustments.map((adjustment) => (
@@ -471,7 +472,7 @@ function PayrollJournalScreen({ onAction }: { onAction: (action: string, subject
 
 
       <div className="nx-table-wrap">
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead><tr><th>Account</th><th>Description</th><th className="amount">Debit</th><th className="amount">Credit</th></tr></thead>
           <tbody>
             {journal.lines.map((line, index) => (
@@ -520,7 +521,7 @@ function PaymentBatchScreen({ onAction }: { onAction: (action: string, subject?:
 
 
       <div className="nx-table-wrap">
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead><tr><th>Employee</th><th>Bank account</th><th className="amount">Amount</th><th>Reference</th><th>Status</th></tr></thead>
           <tbody>
             {batch.payments.map((payment) => (
@@ -583,7 +584,7 @@ function Payslip({ result, onAction }: { result: PayrollResult; onAction: (actio
 
       <div className="grid items-start gap-3.5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,26.875rem),1fr))]">
         <div className="min-w-0 overflow-x-auto">
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead><tr><th>Earnings</th><th>Basis</th><th className="amount">Amount</th></tr></thead>
           <tbody>
             {earnings.map((item) => (
@@ -599,7 +600,7 @@ function Payslip({ result, onAction }: { result: PayrollResult; onAction: (actio
         </div>
 
         <div className="min-w-0 overflow-x-auto">
-        <table className="nx-data-table">
+        <table className={hrDataTableClass}>
           <thead><tr><th>Deductions</th><th>Basis</th><th className="amount">Amount</th></tr></thead>
           <tbody>
             {deductions.length === 0 ? (

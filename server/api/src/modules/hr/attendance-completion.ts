@@ -631,7 +631,7 @@ export class AttendanceCompletion {
       input,
       async (client) => {
         const evidence = await this.evidence(client, context, input.company_id, input.employee_id, input.work_date);
-        this.validateEvidence(evidence, input.expected_evidence_hash, input.requested_minutes);
+        this.validateEvidence(evidence, input.expected_evidence_hash, input.requested_minutes, true);
         const id = `overtime-${randomUUID()}`;
         await client.query(
           `insert into hr_overtime_request(tenant_id,id,company_id,employee_id,work_date,category,requested_minutes,reason,requested_by,operational_rule_id,operational_rule_evidence_hash,workflow_managed,review_source_hash) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,$12)`,
@@ -703,7 +703,7 @@ export class AttendanceCompletion {
         if (!this.actions(context, before, original).can_edit)
           denied("Only your own draft overtime request in an open period can be edited.");
         const evidence = await this.evidence(client, context, input.company_id, before.employee_id, input.work_date);
-        this.validateEvidence(evidence, input.expected_evidence_hash, input.requested_minutes);
+        this.validateEvidence(evidence, input.expected_evidence_hash, input.requested_minutes, true);
         const cancelled = { ...before, status: "cancelled", version: before.version + 1 };
         await client.query(
           "update hr_overtime_request set status='cancelled',version=version+1,decision_comment=$3 where tenant_id=$1 and id=$2",
@@ -756,7 +756,17 @@ export class AttendanceCompletion {
       },
     );
   }
-  private validateEvidence(evidence: HrOvertimeEvidence, expected: string | undefined, minutes: number) {
+  /**
+   * Drafts save freely: only an operational rule (required by the database) and fresh evidence are checked.
+   * Submission and approval apply every blocker and the eligible-minute limits.
+   */
+  private validateEvidence(evidence: HrOvertimeEvidence, expected: string | undefined, minutes: number, draft = false) {
+    if (draft) {
+      if (!evidence.rule)
+        conflict("Set up an operational overtime rule for this day's category before saving overtime.");
+      if (expected !== evidence.hash) conflict("Attendance evidence changed. Refresh and review before continuing.");
+      return;
+    }
     if (evidence.blockers.length) conflict(evidence.blockers.join(" "));
     if (expected !== evidence.hash) conflict("Attendance evidence changed. Refresh and review before continuing.");
     if (minutes > evidence.eligible_minutes || minutes < (evidence.rule?.minimum_minutes ?? 1))

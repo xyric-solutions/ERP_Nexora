@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { HrEmployeeAssignmentDirectory, HrMasterDirectory, HrOrganizationUnitDirectory } from "@nexora/contracts";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { HrApiClient } from "../api/hr-client";
 import { isWithinUnit } from "../model/organization-hierarchy";
-import { employmentSetupOptionLabel } from "../model/employment-setup";
+import { costCentreOptionLabel } from "../model/employment-setup";
 
 type Props = {
   client: HrApiClient;
@@ -54,7 +53,6 @@ export function HrHireMakerPanel({
   const [jobGradeId, setJobGradeId] = useState("");
   const [costCenterId, setCostCenterId] = useState("");
   const [workLocationId, setWorkLocationId] = useState("");
-  const [employmentSetupId, setEmploymentSetupId] = useState("");
   const [jobId, setJobId] = useState("");
   const [effectiveOn, setEffectiveOn] = useState(() => new Date().toISOString().slice(0, 10));
   const [reason, setReason] = useState("");
@@ -85,12 +83,12 @@ export function HrHireMakerPanel({
     Promise.all([
       client.masters({ companyId, activeOnly: true, limit: 100 }),
       client.organizationUnits({ companyId, limit: 200 }),
-      client.masters({ companyId, type: "employment_setup", activeOnly: true, limit: 100 }),
+      client.masters({ companyId, type: "cost_center", activeOnly: true, limit: 100 }),
     ])
-      .then(([masterResult, placementResult, setupResult]) => {
+      .then(([masterResult, placementResult, centreResult]) => {
         if (!active) return;
-        // Employment setups load separately so the shared 100-record catalogue cannot crowd them out.
-        setMasters([...masterResult.items.filter((item) => item.type !== "employment_setup"), ...setupResult.items]);
+        // Cost centres load separately so the shared 100-record catalogue cannot crowd them out.
+        setMasters([...masterResult.items.filter((item) => item.type !== "cost_center"), ...centreResult.items]);
         setPlacements(placementResult.items);
         setState("ready");
       })
@@ -113,7 +111,6 @@ export function HrHireMakerPanel({
       jobGradeId,
       costCenterId,
       workLocationId,
-      employmentSetupId,
       effectiveOn,
     ];
     if (required.some((value) => !value)) {
@@ -128,7 +125,6 @@ export function HrHireMakerPanel({
       job_grade_id: jobGradeId,
       cost_center_id: costCenterId,
       work_location_id: workLocationId,
-      employment_setup_id: employmentSetupId,
       effective_from: effectiveOn,
     };
     const fingerprint = JSON.stringify(input);
@@ -188,22 +184,7 @@ export function HrHireMakerPanel({
       triggerLabel="Manage assignment & hire"
       busy={savingAssignment || submitting}
     >
-      <section
-        className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm"
-        aria-label="Governed Hire request"
-      >
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Employment control
-            </p>
-
-          </div>
-          <Badge variant={profileAssignment ? "secondary" : "outline"}>
-            {profileAssignment ? "Profile context ready" : "Profile context required"}
-          </Badge>
-        </div>
-
+      <section className="grid min-w-0 gap-4" aria-label="Governed Hire request">
         {state === "loading" && <Skeleton className="h-28 w-full" />}
         {error && (
           <Alert variant="destructive">
@@ -228,11 +209,9 @@ export function HrHireMakerPanel({
         )}
 
         {state === "ready" && !profileAssignment && canCreateAssignment && (
-          <div className="grid gap-3">
-            <div>
-              <h3 className="font-medium text-foreground">1. Profile-draft assignment</h3>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid min-w-0 gap-3">
+            <h3 className="m-0! text-sm font-semibold text-foreground">Profile assignment</h3>
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
               <SelectField
                 label="Project"
                 value={branchId}
@@ -269,6 +248,7 @@ export function HrHireMakerPanel({
                 value={costCenterId}
                 onChange={setCostCenterId}
                 items={byType("cost_center")}
+                optionLabel={costCentreOptionLabel}
                 disabled={savingAssignment}
               />
               <MasterSelect
@@ -278,15 +258,10 @@ export function HrHireMakerPanel({
                 items={byType("work_location")}
                 disabled={savingAssignment}
               />
-              <MasterSelect
-                label="Employment setup"
-                value={employmentSetupId}
-                onChange={setEmploymentSetupId}
-                items={byType("employment_setup")}
-                optionLabel={employmentSetupOptionLabel}
-                disabled={savingAssignment}
-              />
-              <label htmlFor="hire-profile-effective-on" className="grid content-start gap-1.5 text-sm font-medium text-foreground">
+              <label
+                htmlFor="hire-profile-effective-on"
+                className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
+              >
                 Effective date
                 <Input
                   id="hire-profile-effective-on"
@@ -306,10 +281,8 @@ export function HrHireMakerPanel({
         )}
 
         {state === "ready" && profileAssignment && (
-          <div className="grid gap-3">
-            <div>
-              <h3 className="font-medium text-foreground">2. Request independent Hire approval</h3>
-            </div>
+          <div className="grid min-w-0 gap-3">
+            <h3 className="m-0! text-sm font-semibold text-foreground">Hire request</h3>
             {!canRequestHire ? (
               <Alert>
                 <AlertTitle>Hire request permission required</AlertTitle>
@@ -319,7 +292,7 @@ export function HrHireMakerPanel({
               </Alert>
             ) : (
               <>
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                   <MasterSelect
                     label="Approved job"
                     value={jobId}
@@ -332,7 +305,7 @@ export function HrHireMakerPanel({
                   />
                   <label
                     htmlFor="hire-request-effective-on"
-                    className="grid content-start gap-1.5 text-sm font-medium text-foreground"
+                    className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
                   >
                     Effective date
                     <Input
@@ -347,7 +320,10 @@ export function HrHireMakerPanel({
                     />
                   </label>
                 </div>
-                <label htmlFor="hire-request-reason" className="grid content-start gap-1.5 text-sm font-medium text-foreground">
+                <label
+                  htmlFor="hire-request-reason"
+                  className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
+                >
                   Business reason
                   <Textarea
                     id="hire-request-reason"
@@ -358,7 +334,6 @@ export function HrHireMakerPanel({
                       hireRetry.current = null;
                     }}
                     disabled={submitting}
-                    placeholder="Explain why this approved profile should become an active employment relationship."
                   />
                 </label>
                 <div>
@@ -366,7 +341,7 @@ export function HrHireMakerPanel({
                     type="button"
                     className="text-primary-foreground!"
                     onClick={requestHire}
-                    disabled={submitting || !jobId || !reason.trim()}
+                    disabled={submitting || !jobId}
                   >
                     {submitting ? "Submitting Hire request..." : "Submit Hire request"}
                   </Button>
@@ -395,11 +370,11 @@ function SelectField({
 }) {
   const id = `hire-placement-${label.toLowerCase().replaceAll(" ", "-")}`;
   return (
-    <label htmlFor={id} className="grid content-start gap-1.5 text-sm font-medium text-foreground">
+    <label htmlFor={id} className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground">
       {label}
       <select
         id={id}
-        className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
+        className="h-9 w-full min-w-0 truncate rounded-md border border-input bg-background px-2.5 text-sm"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}
@@ -422,6 +397,7 @@ function MasterSelect({
   items,
   optionLabel = (item) => `${item.name} (${item.code})`,
   disabled,
+  className = "",
 }: {
   label: string;
   value: string;
@@ -429,14 +405,18 @@ function MasterSelect({
   items: HrMasterDirectory["items"];
   optionLabel?: (item: HrMasterDirectory["items"][number]) => string;
   disabled: boolean;
+  className?: string;
 }) {
   const id = `hire-master-${label.toLowerCase().replaceAll(" ", "-")}`;
   return (
-    <label htmlFor={id} className="grid content-start gap-1.5 text-sm font-medium text-foreground">
+    <label
+      htmlFor={id}
+      className={`grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground ${className}`}
+    >
       {label}
       <select
         id={id}
-        className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
+        className="h-9 w-full min-w-0 truncate rounded-md border border-input bg-background px-2.5 text-sm"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}

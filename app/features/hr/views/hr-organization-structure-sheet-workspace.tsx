@@ -24,6 +24,7 @@ import { HrMasterStatusBadge } from "../components/hr-master-status-badge";
 import { HrMasterDeleteButton } from "../components/hr-master-delete-button";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
+import { HrPagination, HrSearchField, matchesSearch, useHrPage } from "../components/hr-list-controls";
 import { preferredMasterCompany } from "../model/organisation-master-navigation";
 import {
   canReportTo,
@@ -61,6 +62,7 @@ export function HrOrganizationStructureSheetWorkspace() {
   const [selectedId, setSelectedId] = useState("");
   const [editor, setEditor] = useState<Editor | null>(null);
   const [statusFilter, setStatusFilter] = useState<HrMasterStatus>("active");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true),
     [saving, setSaving] = useState(false),
     [message, setMessage] = useState("");
@@ -106,7 +108,13 @@ export function HrOrganizationStructureSheetWorkspace() {
     selected = units.find((item) => item.id === selectedId);
   const childrenOf = (parentId: string) => units.filter((item) => item.parent_id === parentId);
   const visibleIds = new Set(
-    units.filter((unit) => statusFilter === "all" || unit.status === statusFilter).map((unit) => unit.id),
+    units
+      .filter(
+        (unit) =>
+          (statusFilter === "all" || unit.status === statusFilter) &&
+          matchesSearch(search, [unit.name, unit.code, typeLabels[unit.type]]),
+      )
+      .map((unit) => unit.id),
   );
   for (const id of [...visibleIds]) {
     let parent = units.find((unit) => unit.id === id)?.parent_id;
@@ -118,6 +126,8 @@ export function HrOrganizationStructureSheetWorkspace() {
     }
   }
   const visibleChildrenOf = (parentId: string) => childrenOf(parentId).filter((unit) => visibleIds.has(unit.id));
+  /** Top-level branches (with everything beneath them) are paged 15 at a time. */
+  const topLevelPage = useHrPage(visibleChildrenOf(companyId), `${companyId}:${statusFilter}:${search.trim()}`);
   const generatedCode = (type: UnitType) =>
     nextGeneratedCode(
       organizationUnitPrefixes[type],
@@ -320,13 +330,19 @@ export function HrOrganizationStructureSheetWorkspace() {
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
-      {canWrite && company ? (
-        <div className="flex justify-end">
+      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,1fr)_auto] md:items-end">
+        <HrSearchField
+          id="hr-organization-structure-search"
+          value={search}
+          onChange={setSearch}
+          placeholder="Search location, project or department by name or code"
+        />
+        {canWrite && company ? (
           <Button className="w-full md:w-auto" onClick={() => openCreate(company.id, "company")}>
             + Add organization unit
           </Button>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
       <HrMasterStatusFilter value={statusFilter} onChange={setStatusFilter} />
       {loading ? (
         <Skeleton className="h-72 w-full" />
@@ -356,14 +372,23 @@ export function HrOrganizationStructureSheetWorkspace() {
               <small className="ml-2 font-normal text-muted-foreground">{company.code}</small>
             </span>
           </button>
-          <ul className="m-0 list-none p-0">{visibleChildrenOf(company.id).map((unit) => renderUnit(unit, 1))}</ul>
+          <ul className="m-0 list-none p-0">{topLevelPage.pageRows.map((unit) => renderUnit(unit, 1))}</ul>
           {visibleIds.size === 0 ? (
             <p className="px-4 py-10 text-center text-sm text-muted-foreground">
-              No organization units match these filters.
+              {search.trim() ? "No organization units match this search." : "No organization units match these filters."}
             </p>
           ) : null}
         </nav>
       )}
+      {!loading && company ? (
+        <HrPagination
+          label="Organization structure pages"
+          page={topLevelPage.page}
+          pageCount={topLevelPage.pageCount}
+          total={topLevelPage.total}
+          onPageChange={topLevelPage.setPage}
+        />
+      ) : null}
       <HrMasterSheet
         message={message}
         open={Boolean(editor || selectedId)}

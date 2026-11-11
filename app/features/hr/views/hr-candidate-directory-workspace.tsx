@@ -264,19 +264,19 @@ export function HrCandidateDirectoryWorkspace() {
                     }
                   }}
                 >
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-3">
                     <span className="block font-medium">{record.display_name}</span>
                     <span className="block text-xs text-muted-foreground">{record.reference}</span>
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-3">
                     <span className="block">{record.email}</span>
                     {record.phone ? <span className="block text-xs text-muted-foreground">{record.phone}</span> : null}
                   </td>
-                  <td className="px-4 py-2.5">{sourceLabel[record.source]}</td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-3">{sourceLabel[record.source]}</td>
+                  <td className="px-4 py-3">
                     <HrMasterStatusBadge status={record.status === "active" ? "active" : "inactive"} />
                   </td>
-                  <td className="px-4 py-2.5">{new Date(record.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-3">{new Date(record.created_at).toLocaleDateString()}</td>
                 </tr>
               ))}
               {records.length === 0 ? (

@@ -403,6 +403,11 @@ import {
   hrEmploymentLifecyclePolicyApprovalResultSchema,
   activateHrEmploymentLifecyclePolicyRequestSchema,
   hrEmploymentLifecyclePolicyActivationResultSchema,
+  updateHrEmploymentLifecyclePolicyRequestSchema,
+  deleteHrEmploymentLifecyclePolicyRequestSchema,
+  deactivateHrEmploymentLifecyclePolicyRequestSchema,
+  hrEmploymentLifecyclePolicyDeactivationResultSchema,
+  hrEmploymentLifecyclePolicyDeleteResultSchema,
   createHrJobRequestSchema,
   hrJobResultSchema,
   createHrEmployeeHireRequestSchema,
@@ -4151,6 +4156,7 @@ export function buildOpenApiDocument() {
               },
             },
             { in: "query", name: "month", required: true, schema: { type: "string", format: "date" } },
+            { in: "query", name: "loan_kind", schema: { type: "string", enum: ["loan", "advance"] } },
             { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 50 } },
             { in: "query", name: "offset", schema: { type: "integer", minimum: 0, maximum: 100000 } },
           ],
@@ -7026,6 +7032,12 @@ export function buildOpenApiDocument() {
             { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
             {
               in: "query",
+              name: "status",
+              required: false,
+              schema: { type: "string", enum: ["pending", "approved", "rejected", "all"], default: "pending" },
+            },
+            {
+              in: "query",
               name: "limit",
               required: false,
               schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
@@ -7141,6 +7153,12 @@ export function buildOpenApiDocument() {
               schema: { type: "string", minLength: 1, maxLength: 128 },
             },
             { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            {
+              in: "query",
+              name: "status",
+              required: false,
+              schema: { type: "string", enum: ["pending", "approved", "rejected", "all"], default: "pending" },
+            },
             {
               in: "query",
               name: "limit",
@@ -7678,6 +7696,48 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/hr/employment_lifecycle_policies/{policyId}": {
+        patch: {
+          operationId: "updateHrEmploymentLifecyclePolicy",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "policyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/UpdateHrEmploymentLifecyclePolicyRequest" } },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Draft lifecycle policy name and effective period updated; code and version are kept",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyResult" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+        delete: {
+          operationId: "deleteHrEmploymentLifecyclePolicy",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "policyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/DeleteHrEmploymentLifecyclePolicyRequest" } },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Unreferenced draft lifecycle policy deleted with its draft definition; the code is not reissued",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyDeleteResult" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
       "/hr/employment_lifecycle_policies/{policyId}/submit": {
         post: {
           operationId: "submitHrEmploymentLifecyclePolicy",
@@ -7729,6 +7789,36 @@ export function buildOpenApiDocument() {
               content: {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyApprovalResult" },
+                },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employment_lifecycle_policies/{policyId}/deactivate": {
+        post: {
+          operationId: "deactivateHrEmploymentLifecyclePolicy",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "policyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/DeactivateHrEmploymentLifecyclePolicyRequest" },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Approved or active lifecycle policy deactivated",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyDeactivationResult" },
                 },
               },
             },
@@ -8140,6 +8230,11 @@ export function buildOpenApiDocument() {
         HrEmploymentLifecyclePolicyApprovalResult: schema(hrEmploymentLifecyclePolicyApprovalResultSchema),
         ActivateHrEmploymentLifecyclePolicyRequest: schema(activateHrEmploymentLifecyclePolicyRequestSchema),
         HrEmploymentLifecyclePolicyActivationResult: schema(hrEmploymentLifecyclePolicyActivationResultSchema),
+        UpdateHrEmploymentLifecyclePolicyRequest: schema(updateHrEmploymentLifecyclePolicyRequestSchema),
+        DeleteHrEmploymentLifecyclePolicyRequest: schema(deleteHrEmploymentLifecyclePolicyRequestSchema),
+        HrEmploymentLifecyclePolicyDeleteResult: schema(hrEmploymentLifecyclePolicyDeleteResultSchema),
+        DeactivateHrEmploymentLifecyclePolicyRequest: schema(deactivateHrEmploymentLifecyclePolicyRequestSchema),
+        HrEmploymentLifecyclePolicyDeactivationResult: schema(hrEmploymentLifecyclePolicyDeactivationResultSchema),
         CreateHrJobRequest: schema(createHrJobRequestSchema),
         HrJobResult: schema(hrJobResultSchema),
         CreateHrEmployeeHireRequest: schema(createHrEmployeeHireRequestSchema),

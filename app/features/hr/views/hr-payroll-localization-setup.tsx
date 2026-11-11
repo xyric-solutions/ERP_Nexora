@@ -667,7 +667,6 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
               <>
                 <Field title="Statutory change reason">
                   <Textarea
-                    required
                     maxLength={500}
                     disabled={busy}
                     value={form.values.reason}

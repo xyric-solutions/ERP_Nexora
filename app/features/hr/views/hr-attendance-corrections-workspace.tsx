@@ -26,8 +26,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
+import { SearchableSelect } from "@/shared/ui/searchable-select";
 import { HrApiClient } from "../api/hr-client";
 import { HrEditButton } from "../components/hr-icon-buttons";
+import { HrClickableRow } from "../components/hr-clickable-row";
+import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
 import {
   AttendanceStatusBadge,
   attendanceLabel as label,
@@ -84,6 +87,17 @@ function utcOffset(value: string | null, zone: string) {
       .formatToParts(new Date(value ?? Date.now()))
       .find((p) => p.type === "timeZoneName")?.value ?? "GMT";
   return text === "GMT" ? "+00:00" : text.replace("GMT", "");
+}
+/** UTC offset of a local "YYYY-MM-DDTHH:mm" wall-clock time in `zone` (handles daylight-saving changes). */
+function offsetForLocal(local: string, zone: string) {
+  const minutesOf = (offset: string) => {
+    const m = /^([+-])(d{2}):(d{2})$/.exec(offset);
+    return m ? (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3])) : 0;
+  };
+  const guess = Date.parse(local.slice(0, 16) + ":00Z");
+  if (!Number.isFinite(guess)) return "+00:00";
+  const first = utcOffset(new Date(guess).toISOString(), zone);
+  return utcOffset(new Date(guess - minutesOf(first) * 60000).toISOString(), zone);
 }
 function Evidence({ value }: { value: HrCorrectionEvidence }) {
   return (
@@ -146,46 +160,27 @@ function Evidence({ value }: { value: HrCorrectionEvidence }) {
 function TimestampField({
   name,
   value,
-  offset,
   disabled,
   onValue,
-  onOffset,
 }: {
   name: string;
   value: string;
-  offset: string;
   disabled: boolean;
   onValue: (v: string) => void;
-  onOffset: (v: string) => void;
 }) {
   return (
-    <div className="grid min-w-0 content-start gap-2">
-      <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
-        {name}
-        <Input
-          required
-          className="box-border! w-full min-w-0! max-w-full!"
-          type="datetime-local"
-          step="60"
-          value={value}
-          disabled={disabled}
-          onChange={(e) => onValue(e.target.value)}
-        />
-      </label>
-      <label className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        {name} UTC offset
-        <Input
-          required
-          aria-label={`${name} UTC offset`}
-          className="w-28"
-          pattern="[+-](0[0-9]|1[0-4]):[0-5][0-9]"
-          value={offset}
-          disabled={disabled}
-          onChange={(e) => onOffset(e.target.value)}
-          placeholder="+05:00"
-        />
-      </label>
-    </div>
+    <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
+      {name}
+      <Input
+        required
+        className="box-border! w-full min-w-0! max-w-full!"
+        type="datetime-local"
+        step="60"
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onValue(e.target.value)}
+      />
+    </label>
   );
 }
 type CorrectionPrefill = { employee_id: string; employee_number: string; work_date: string };
@@ -229,10 +224,13 @@ function Editor({
     [version] = useState(initial?.version),
     [start, setStart] = useState(""),
     [end, setEnd] = useState(""),
-    [inOffset, setInOffset] = useState("+00:00"),
-    [outOffset, setOutOffset] = useState("+00:00"),
-    [search, setSearch] = useState(prefill?.employee_number ?? ""),
+    [search, setSearch] = useState(""),
     [applied, setApplied] = useState(prefill?.employee_number ?? "");
+  // Typing in the Employee dropdown searches the server after a short pause.
+  useEffect(() => {
+    const timer = setTimeout(() => setApplied(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
   const [context, setContext] = useState<HrCorrectionContext | null>(null),
     [loading, setLoading] = useState(false),
     [error, setError] = useState(""),
@@ -257,8 +255,6 @@ function Editor({
           const zone = value.evidence.day.time_zone ?? "UTC";
           setStart(localTime(initial?.stated_in ?? null, zone));
           setEnd(localTime(initial?.stated_out ?? null, zone));
-          setInOffset(utcOffset(initial?.stated_in ?? value.evidence.day.scheduled_start, zone));
-          setOutOffset(utcOffset(initial?.stated_out ?? value.evidence.day.scheduled_end, zone));
           initialized.current = true;
         }
       })
@@ -273,9 +269,11 @@ function Editor({
     };
   }, [client, companyId, date, employee, applied, revision, initial]);
   const evidence = context?.evidence,
-    blocked = !evidence || !!evidence.blockers.length || loading;
-  const iso = (value: string, offset: string) =>
-    value ? `${value.length === 16 ? value + ":00" : value}${offset}` : null;
+    blocked = !evidence || loading;
+  // Times are entered in the shift's timezone (or this browser's when no shift is configured).
+  const zone = evidence?.day.time_zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const iso = (value: string) =>
+    value ? `${value.length === 16 ? value + ":00" : value}${offsetForLocal(value, zone)}` : null;
   return (
     <form
       aria-label="Correction draft editor"
@@ -285,8 +283,8 @@ function Editor({
         const terms = {
           company_id: companyId,
           kind,
-          stated_in: kind === "missing_in" || kind === "incorrect_attendance" ? iso(start, inOffset) : null,
-          stated_out: kind === "missing_out" || kind === "incorrect_attendance" ? iso(end, outOffset) : null,
+          stated_in: kind === "missing_in" || kind === "incorrect_attendance" ? iso(start) : null,
+          stated_out: kind === "missing_out" || kind === "incorrect_attendance" ? iso(end) : null,
           reason,
           expected_evidence_hash: evidence?.hash ?? "",
         };
@@ -341,88 +339,49 @@ function Editor({
           </select>
         </label>
       </div>
-      {!initial && (
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="grid content-start min-w-0 flex-1 gap-2 text-sm font-medium">
-            Find employee
-            <Input
-              maxLength={160}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Name or employee number"
-            />
-          </label>
-          <Button type="button" variant="outline" disabled={busy || loading} onClick={() => setApplied(search.trim())}>
-            Find
-          </Button>
-        </div>
-      )}
-      <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
-        Employee
-        <select
-          required
-          className={selectClass}
-          disabled={busy || loading || !!initial}
+      <div className="grid content-start min-w-0 gap-2 text-sm font-medium">
+        <label htmlFor="hr-correction-employee">Employee</label>
+        <SearchableSelect
+          id="hr-correction-employee"
+          label="Employee"
           value={employee}
-          onChange={(e) => {
-            setEmployee(e.target.value);
+          placeholder="Select an operational employee"
+          searchPlaceholder="Search by name or employee number…"
+          disabled={busy || !!initial}
+          loading={loading && !context}
+          required
+          search={search}
+          onSearchChange={setSearch}
+          options={[
+            ...(employee && initial && !context?.employees.some((v) => v.id === employee)
+              ? [{ value: employee, label: initial.display_name }]
+              : []),
+            ...(context?.employees.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` })) ?? []),
+          ]}
+          onValueChange={(next) => {
+            setEmployee(next);
             initialized.current = false;
           }}
-        >
-          <option value="">Select an operational employee</option>
-          {employee && !context?.employees.some((v) => v.id === employee) && (
-            <option value={employee}>{initial?.display_name ?? "Selected employee"}</option>
-          )}
-          {context?.employees.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.code} · {p.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      {context?.employees_capped && (
-        <p className="text-xs text-muted-foreground">Showing the first 100 employees. Search to narrow the choices.</p>
-      )}
+        />
+      </div>
       {loading ? (
         <Skeleton className="h-40 w-full" />
       ) : evidence ? (
         <Evidence value={evidence} />
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          Choose an employee to load the effective shift and current attendance evidence.
-        </p>
-      )}
+      ) : null}
       {kind !== "official_duty" && (
         <div className="grid min-w-0 gap-4 sm:grid-cols-2">
           {(kind === "missing_in" || kind === "incorrect_attendance") && (
-            <TimestampField
-              name="Stated in"
-              value={start}
-              offset={inOffset}
-              disabled={busy}
-              onValue={setStart}
-              onOffset={setInOffset}
-            />
+            <TimestampField name="Check in" value={start} disabled={busy} onValue={setStart} />
           )}
           {(kind === "missing_out" || kind === "incorrect_attendance") && (
-            <TimestampField
-              name="Stated out"
-              value={end}
-              offset={outOffset}
-              disabled={busy}
-              onValue={setEnd}
-              onOffset={setOutOffset}
-            />
+            <TimestampField name="Check out" value={end} disabled={busy} onValue={setEnd} />
           )}
         </div>
       )}
-      <p className="text-xs text-muted-foreground">
-        Times in {evidence?.day.time_zone ?? "the employee's shift timezone"}
-      </p>
       <label className="grid content-start gap-2 text-sm font-medium">
         Correction reason
         <Textarea
-          required
           maxLength={1000}
           rows={3}
           value={reason}
@@ -451,10 +410,11 @@ function Decisions({
   const [action, setAction] = useState<HrCorrectionActionRequest["action"]>(
       detail.allowed_actions.find((a) => a !== "cancel") ?? "cancel",
     ),
+    choices = detail.allowed_actions.filter((a) => a !== "cancel"),
     [reason, setReason] = useState(""),
     [override, setOverride] = useState(false),
     [error, setError] = useState("");
-  if (!detail.allowed_actions.length) return null;
+  if (!choices.length) return null;
   const decision = action.includes("approve") || action.includes("reject");
   return (
     <form
@@ -498,7 +458,7 @@ function Decisions({
             setOverride(false);
           }}
         >
-          {detail.allowed_actions.map((a) => (
+          {choices.map((a) => (
             <option key={a} value={a}>
               {label(a)}
             </option>
@@ -508,7 +468,6 @@ function Decisions({
       <label className="grid content-start gap-2 text-sm font-medium">
         Action reason
         <Textarea
-          required
           rows={3}
           maxLength={1000}
           value={reason}
@@ -687,21 +646,12 @@ export function HrAttendanceCorrectionsWorkspace({
         <AlertDescription>Your role needs attendance correction read permission.</AlertDescription>
       </Alert>
     );
-  const review = (id: string, reference: string) => (
-    <Button
-      variant="outline"
-      size="sm"
-      disabled={busy || !!editor}
-      aria-label={`Review ${reference}`}
-      onClick={() => {
-        setSelected(id);
-        setDetail(null);
-        setError("");
-      }}
-    >
-      Review
-    </Button>
-  );
+  const openRow = (id: string) => {
+    if (busy || editor) return;
+    setSelected(id);
+    setDetail(null);
+    setError("");
+  };
   return (
     <section
       aria-label="Attendance corrections workspace"
@@ -815,39 +765,35 @@ export function HrAttendanceCorrectionsWorkspace({
         <>
           <div className="hidden min-w-0 overflow-hidden rounded-xl border border-border bg-card md:block">
             <div className="max-h-[38rem] overflow-auto">
-              <table className="w-full min-w-[1000px] text-left text-sm">
+              <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 z-10 bg-muted">
                   <tr>
-                    {["Reference / employee", "Working date", "Type", "Requested by", "Status", ""].map((h, i) => (
-                      <th scope="col" key={i} className="px-4 py-3 text-xs font-semibold text-muted-foreground">
-                        {h || <span className="sr-only">Actions</span>}
+                    {["Reference / employee", "Working date", "Type", "Requested by", "Status"].map((h) => (
+                      <th scope="col" key={h} className="px-4 py-3 text-xs font-semibold text-muted-foreground">
+                        {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {data.items.map((row) => (
-                    <tr
-                      key={row.id}
-                      className={`border-t border-border hover:bg-muted/40 ${selected === row.id ? "bg-primary/5" : ""}`}
-                    >
-                      <td className="px-4 py-4">
+                    <HrClickableRow key={row.id} disabled={busy || !!editor} onOpen={() => openRow(row.id)}>
+                      <td className="px-4 py-3">
                         <strong className="block">{row.reference}</strong>
                         <span className="mt-1 block text-xs text-muted-foreground">
                           {row.employee_number} · {row.display_name}
                         </span>
                       </td>
-                      <td className="px-4 py-4">{row.work_date}</td>
-                      <td className="px-4 py-4">{label(row.kind)}</td>
-                      <td className="px-4 py-4">{row.requested_by_name}</td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-3">{row.work_date}</td>
+                      <td className="px-4 py-3">{label(row.kind)}</td>
+                      <td className="px-4 py-3">{row.requested_by_name}</td>
+                      <td className="px-4 py-3">
                         <Status value={row.status} />
                         {!row.workflow_managed && (
                           <span className="mt-1 block text-xs text-muted-foreground">Legacy evidence</span>
                         )}
                       </td>
-                      <td className="px-4 py-4">{review(row.id, row.reference)}</td>
-                    </tr>
+                    </HrClickableRow>
                   ))}
                 </tbody>
               </table>
@@ -855,7 +801,20 @@ export function HrAttendanceCorrectionsWorkspace({
           </div>
           <div className="grid gap-3 md:hidden">
             {data.items.map((row) => (
-              <article key={row.id} className="grid min-w-0 gap-3 rounded-xl border border-border bg-card p-4">
+              <div
+                key={row.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open ${row.reference}`}
+                onClick={() => openRow(row.id)}
+                onKeyDown={(e) => {
+                  if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    openRow(row.id);
+                  }
+                }}
+                className="grid min-w-0 cursor-pointer gap-3 rounded-xl border border-border bg-card p-4 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <h3 className="break-all text-sm font-semibold">{row.reference}</h3>
                   <Status value={row.status} />
@@ -864,8 +823,7 @@ export function HrAttendanceCorrectionsWorkspace({
                 <p className="text-xs text-muted-foreground">
                   {row.employee_number} · {row.work_date} · {label(row.kind)}
                 </p>
-                {review(row.id, row.reference)}
-              </article>
+              </div>
             ))}
           </div>
         </>
@@ -901,120 +859,133 @@ export function HrAttendanceCorrectionsWorkspace({
           </Button>
         </div>
       </div>
-      {!editor &&
-        (detailLoading ? (
+      <HrRecordDrawer
+        title={detail?.reference ?? "Attendance correction"}
+        open={!!selected && !editor}
+        onClose={() => {
+          setSelected("");
+          setDetail(null);
+        }}
+        busy={busy}
+        error={error}
+        notice={notice}
+        footer={
+          detail ? (
+            <>
+              {detail.allowed_actions.includes("cancel") && (
+                <HrConfirmDeleteButton
+                  label="Cancel draft"
+                  title={`Cancel ${detail.reference}?`}
+                  description="The draft is cancelled and kept in history. It does not change attendance."
+                  confirmLabel="Cancel draft"
+                  variant="outline"
+                  disabled={busy}
+                  onConfirm={async () => {
+                    const input = hrCorrectionActionRequestSchema.parse({
+                      company_id: detail.company_id,
+                      expected_version: detail.version,
+                      action: "cancel",
+                      reason: "",
+                      expected_evidence_hash: detail.evidence?.hash ?? null,
+                      override_self_approval: false,
+                    });
+                    try {
+                      await mutate(JSON.stringify({ id: detail.id, input }), (key) =>
+                        client.correctionAction(detail.id, input, csrfToken(), key),
+                      );
+                      return true;
+                    } catch {
+                      return false;
+                    }
+                  }}
+                />
+              )}
+              {detail.can_edit && (
+                <HrEditButton
+                  label="Edit draft"
+                  disabled={busy}
+                  onClick={() => setEditor({ initial: detail, key: Date.now() })}
+                />
+              )}
+            </>
+          ) : null
+        }
+      >
+        {detailLoading || !detail ? (
           <Skeleton className="h-48 w-full" />
         ) : (
-          detail && (
-            <section
-              aria-label="Correction request detail"
-              className="grid min-w-0 gap-5 rounded-xl border border-primary/25 bg-card p-4 sm:p-6"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="break-all text-lg font-semibold">{detail.reference}</h2>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {detail.employee_number} · {detail.display_name} · {detail.work_date} · version {detail.version}
-                  </p>
-                </div>
-                <Status value={detail.status} />
-              </div>
-              <dl className="m-0 grid gap-3 sm:grid-cols-2">
-                {[
-                  ["Correction type", label(detail.kind)],
-                  ["Stated in", displayTime(detail.stated_in, detail.evidence?.day.time_zone ?? null)],
-                  ["Stated out", displayTime(detail.stated_out, detail.evidence?.day.time_zone ?? null)],
-                  ["Routed manager", detail.manager_name ?? "Assigned on submission"],
-                ].map(([name, value]) => (
-                  <div key={name} className="min-w-0 rounded-lg border border-border bg-background p-3">
-                    <dt className="text-xs text-muted-foreground">{name}</dt>
-                    <dd className="m-0 mt-1 break-words text-sm font-medium">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-              <p className="whitespace-pre-wrap break-words rounded-lg border border-border bg-background p-4 text-sm">
-                {detail.reason}
+          <section aria-label="Correction request detail" className="grid min-w-0 gap-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <p className="m-0 text-xs text-muted-foreground">
+                {detail.employee_number} · {detail.display_name} · {detail.work_date} · version {detail.version}
               </p>
-              {detail.evidence_unavailable && <p className="text-sm text-destructive">{detail.evidence_unavailable}</p>}
-              {detail.evidence && <Evidence value={detail.evidence} />}
-              {detail.evidence_changed && (
-                <p className="rounded-lg border border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] p-3 text-sm text-[var(--nx-warning)]!">
-                  Current evidence differs from the previous workflow step. Review it before deciding.
-                </p>
+              <Status value={detail.status} />
+            </div>
+            <dl className="m-0 grid gap-3 sm:grid-cols-2">
+              {[
+                ["Correction type", label(detail.kind)],
+                ["Check in", displayTime(detail.stated_in, detail.evidence?.day.time_zone ?? null)],
+                ["Check out", displayTime(detail.stated_out, detail.evidence?.day.time_zone ?? null)],
+                ["Routed manager", detail.manager_name ?? "Assigned on submission"],
+              ].map(([name, value]) => (
+                <div key={name} className="min-w-0 rounded-lg border border-border bg-background p-3">
+                  <dt className="text-xs text-muted-foreground">{name}</dt>
+                  <dd className="m-0 mt-1 break-words text-sm font-medium">{value}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="whitespace-pre-wrap break-words rounded-lg border border-border bg-background p-4 text-sm">
+              {detail.reason}
+            </p>
+            {detail.evidence_unavailable && <p className="text-sm text-destructive">{detail.evidence_unavailable}</p>}
+            {detail.evidence && <Evidence value={detail.evidence} />}
+            {detail.evidence_changed && (
+              <p className="rounded-lg border border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] p-3 text-sm text-[var(--nx-warning)]!">
+                Current evidence differs from the previous workflow step.
+              </p>
+            )}
+            {session?.user.permissions.includes("hr.attendance.read") && (
+              <Button variant="outline" className="justify-self-start" onClick={view}>
+                Open daily evidence
+                <ArrowUpRight className="size-4" />
+              </Button>
+            )}
+            <Decisions
+              key={`${detail.id}:${detail.version}`}
+              detail={detail}
+              busy={busy}
+              onAction={(input) =>
+                mutate(JSON.stringify({ id: detail.id, input }), (key) =>
+                  client.correctionAction(detail.id, input, csrfToken(), key),
+                )
+              }
+            />
+            <div>
+              <h3 className="text-sm font-semibold">Workflow history</h3>
+              {detail.history.length ? (
+                <ol className="m-0 mt-3 grid list-none gap-3 p-0">
+                  {detail.history.map((event) => (
+                    <li key={event.id} className="grid gap-1 rounded-lg border border-border bg-background p-3">
+                      <strong className="text-sm">
+                        {label(event.action)} · version {event.version}
+                      </strong>
+                      <span className="text-xs text-muted-foreground">
+                        {event.actor_name} · {new Date(event.occurred_at).toLocaleString()}
+                      </span>
+                      <p className="whitespace-pre-wrap break-words text-sm">{event.reason}</p>
+                      {event.override_event_id && (
+                        <span className="text-xs text-[var(--nx-warning)]">Super-administrator override recorded</span>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="mt-2 text-xs text-muted-foreground">No workflow events recorded.</p>
               )}
-              {!detail.workflow_managed && (
-                <p className="text-sm text-muted-foreground">Legacy request retained as read-only evidence.</p>
-              )}
-              {detail.status === "draft" && !detail.evidence?.manager_user_id && (
-                <p className="text-sm text-muted-foreground">
-                  Submission needs an effective reporting manager with an active user binding and company access.
-                </p>
-              )}
-              <div className="flex flex-wrap gap-2">
-                {detail.can_edit && !editor && (
-                  <HrEditButton
-                    label="Edit draft"
-                    disabled={busy}
-                    onClick={() => setEditor({ initial: detail, key: Date.now() })}
-                  />
-                )}
-                {session?.user.permissions.includes("hr.attendance.read") && (
-                  <Button variant="outline" onClick={view}>
-                    Open daily evidence
-                    <ArrowUpRight className="size-4" />
-                  </Button>
-                )}
-              </div>
-              <HrRecordDrawer
-                title="Attendance correction decision"
-                triggerLabel="Review correction action"
-                disabled={!detail.allowed_actions.length}
-                busy={busy}
-                error={error}
-                notice={notice}
-                completionKey={notice}
-              >
-                <Decisions
-                  key={`${detail.id}:${detail.version}`}
-                  detail={detail}
-                  busy={busy}
-                  onAction={(input) =>
-                    mutate(JSON.stringify({ id: detail.id, input }), (key) =>
-                      client.correctionAction(detail.id, input, csrfToken(), key),
-                    )
-                  }
-                />
-              </HrRecordDrawer>
-              <div>
-                <h3 className="text-sm font-semibold">Workflow history</h3>
-                {detail.history.length ? (
-                  <ol className="m-0 mt-3 grid max-h-96 list-none gap-3 overflow-auto p-0">
-                    {detail.history.map((event) => (
-                      <li key={event.id} className="grid gap-1 rounded-lg border border-border bg-background p-3">
-                        <strong className="text-sm">
-                          {label(event.action)} · version {event.version}
-                        </strong>
-                        <span className="text-xs text-muted-foreground">
-                          {event.actor_name} · {new Date(event.occurred_at).toLocaleString()}
-                        </span>
-                        <p className="whitespace-pre-wrap break-words text-sm">{event.reason}</p>
-                        {event.override_event_id && (
-                          <span className="text-xs text-[var(--nx-warning)]">
-                            Super-administrator override recorded
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                ) : (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    No governed workflow events exist for this legacy record.
-                  </p>
-                )}
-              </div>
-            </section>
-          )
-        ))}
+            </div>
+          </section>
+        )}
+      </HrRecordDrawer>
     </section>
   );
 }

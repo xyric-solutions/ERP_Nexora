@@ -8,7 +8,7 @@ const url = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL;
 const run = url ? describe : describe.skip;
 const company = "nexora-r06-uat-company";
 
-run("HR Employment Setup masters (HR134)", () => {
+run("Cost centre payment terms after the Employment Setup merge (HR149)", () => {
   let pool: DatabasePool;
   let repo: SourceHrRepository;
   const context: HrActorContext = {
@@ -45,30 +45,30 @@ run("HR Employment Setup masters (HR134)", () => {
     ).rows[0]!;
   }
 
-  it("creates an employment setup with an ES code, its terms and audit evidence", async () => {
+  it("creates a cost centre with a CC code, its payment terms and audit evidence", async () => {
     const name = `Contract weekly ${randomUUID().slice(0, 8)}`;
     const created = await repo.createMaster(
       context,
-      { company_id: company, type: "employment_setup", code: "AUTO", name, description: "", payment_route: "accounts_payable", pay_cycle: "weekly" },
+      { company_id: company, type: "cost_center", code: "AUTO", name, description: "", payment_route: "accounts_payable", pay_cycle: "weekly" },
       key(),
       corr,
     );
-    expect(await row(created.id)).toMatchObject({ master_type: "employment_setup", payment_route: "accounts_payable", pay_cycle: "weekly", status: "active" });
-    expect((await row(created.id)).code).toMatch(/^ES-\d{3,}$/);
+    expect(await row(created.id)).toMatchObject({ master_type: "cost_center", payment_route: "accounts_payable", pay_cycle: "weekly", status: "active" });
+    expect((await row(created.id)).code).toMatch(/^CC-\d{3,}$/);
     const audit = await pool.query<{ action: string; entity_id: string; after_hash: string | null }>(
       "select action,entity_id,after_hash from platform_admin_audit_event where tenant_id=$1 and id=$2",
       [sourceTestTenantId, created.audit_event_id],
     );
     expect(audit.rows[0]).toMatchObject({ action: "hr.master.create", entity_id: created.id });
     expect(audit.rows[0]?.after_hash).toBeTruthy();
-    const directory = await repo.listMasters(context, { company_id: company, type: "employment_setup", active_only: true, limit: 100 });
-    expect(directory.items.find((item) => item.id === created.id)).toMatchObject({ type: "employment_setup", payment_route: "accounts_payable", pay_cycle: "weekly", configuration_key: null });
+    const directory = await repo.listMasters(context, { company_id: company, type: "cost_center", active_only: true, limit: 100 });
+    expect(directory.items.find((item) => item.id === created.id)).toMatchObject({ type: "cost_center", payment_route: "accounts_payable", pay_cycle: "weekly", configuration_key: null });
   });
 
   it("keeps both terms on update and refuses an update without them", async () => {
     const created = await repo.createMaster(
       context,
-      { company_id: company, type: "employment_setup", code: "AUTO", name: `Staff ${randomUUID().slice(0, 8)}`, description: "", payment_route: "payroll", pay_cycle: "monthly" },
+      { company_id: company, type: "cost_center", code: "AUTO", name: `Staff ${randomUUID().slice(0, 8)}`, description: "", payment_route: "payroll", pay_cycle: "monthly" },
       key(),
       corr,
     );
@@ -100,8 +100,8 @@ run("HR Employment Setup masters (HR134)", () => {
     ).rejects.toMatchObject({ status: 400, code: "HR_MASTER_CONFIGURATION_INVALID" });
   });
 
-  it("rejects creating, changing or reactivating retired employment types and categories", async () => {
-    for (const type of ["employment_type", "employee_category"] as const) {
+  it("rejects creating, changing or reactivating retired employment types, categories and setups", async () => {
+    for (const type of ["employment_type", "employee_category", "employment_setup"] as const) {
       await expect(
         repo.createMaster(context, { company_id: company, type, code: "AUTO", name: `Retired ${randomUUID()}`, description: "" }, key(), corr),
       ).rejects.toMatchObject({ status: 409, code: "HR_MASTER_TYPE_RETIRED" });

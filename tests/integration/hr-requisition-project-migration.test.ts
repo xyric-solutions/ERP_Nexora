@@ -134,7 +134,8 @@ describe("HR136 requisition project and hiring basis migration", () => {
     // Legacy HR135 requisition: branch, no project or hiring basis.
     await requisition("hr136-req-legacy01", { branch: true });
 
-    await migrateSourceModule(pool, "hr");
+    // Pinned: HR149 retires employment setups (its own proof covers the merge).
+    await migrateSourceModule(pool, "hr", { throughVersion: 137 });
   }, 180_000);
 
   afterAll(async () => {

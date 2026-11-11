@@ -180,7 +180,7 @@ export function HrPayrollPaymentWorkspace({
           <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <tr>
               {columns.map((t) => (
-                <th key={t} scope="col" className="whitespace-nowrap px-3 py-2">
+                <th key={t} scope="col" className="whitespace-nowrap px-4 py-3">
                   {t}
                 </th>
               ))}
@@ -189,28 +189,28 @@ export function HrPayrollPaymentWorkspace({
           <tbody>
             {data.loading || companies.loading ? (
               <tr>
-                <td colSpan={columns.length} className="px-3 py-6 text-center text-muted-foreground">
+                <td colSpan={columns.length} className="px-4 py-6 text-center text-muted-foreground">
                   <span role="status">Loading salary obligations and posted bank evidence…</span>
                 </td>
               </tr>
             ) : w && hasRecord ? (
               <HrClickableRow onOpen={() => setDetail(true)} disabled={busy}>
-                <td className="px-3 py-1.5 font-mono text-xs font-medium">
+                <td className="px-4 py-3 font-mono text-xs font-medium">
                   {w.batch?.reference ?? <span className="font-sans text-muted-foreground">Not prepared</span>}
                 </td>
-                <td className="whitespace-nowrap px-3 py-1.5">{month}</td>
-                <td className="px-3 py-1.5 tabular-nums">{w.period?.run_number ?? "—"}</td>
-                <td className="px-3 py-1.5 tabular-nums">{w.totals.employee_count}</td>
-                <td className="whitespace-nowrap px-3 py-1.5 tabular-nums">{money(w.totals.net)}</td>
-                <td className="whitespace-nowrap px-3 py-1.5 tabular-nums">{money(w.totals.confirmed)}</td>
-                <td className="whitespace-nowrap px-3 py-1.5 tabular-nums">{money(w.totals.outstanding)}</td>
-                <td className="px-3 py-1.5">
+                <td className="whitespace-nowrap px-4 py-3">{month}</td>
+                <td className="px-4 py-3 tabular-nums">{w.period?.run_number ?? "—"}</td>
+                <td className="px-4 py-3 tabular-nums">{w.totals.employee_count}</td>
+                <td className="whitespace-nowrap px-4 py-3 tabular-nums">{money(w.totals.net)}</td>
+                <td className="whitespace-nowrap px-4 py-3 tabular-nums">{money(w.totals.confirmed)}</td>
+                <td className="whitespace-nowrap px-4 py-3 tabular-nums">{money(w.totals.outstanding)}</td>
+                <td className="px-4 py-3">
                   <State value={w.batch?.state ?? "not prepared"} />
                 </td>
               </HrClickableRow>
             ) : (
               <tr>
-                <td colSpan={columns.length} className="px-3 py-6 text-center text-muted-foreground">
+                <td colSpan={columns.length} className="px-4 py-6 text-center text-muted-foreground">
                   {w ? "No payroll run or salary batch for this month." : "Select a company to view salary batches."}
                 </td>
               </tr>
@@ -327,7 +327,6 @@ export function HrPayrollPaymentWorkspace({
                 <Textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  required
                   maxLength={500}
                   disabled={busy}
                 />

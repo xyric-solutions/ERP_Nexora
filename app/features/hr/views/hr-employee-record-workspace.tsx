@@ -153,7 +153,6 @@ export function HrEmployeeRecordWorkspace({
           />
         </HrDetailGroup>
         <HrDetailGroup title="Pay setup">
-          <HrDetailTile label="Employment setup" value={employee.employment_setup} />
           <HrDetailTile label="Payment route" value={paymentRouteLabel(employee.payment_route)} />
           <HrDetailTile label="Pay cycle" value={payCycleLabel(employee.pay_cycle)} />
         </HrDetailGroup>
@@ -197,7 +196,6 @@ export function HrEmployeeRecordWorkspace({
           <dl className="mt-4 grid min-w-0 gap-3">
             <Detail label="Designation" value={employee.designation} />
             <Detail label="Job grade" value={employee.job_grade} />
-            <Detail label="Employment setup" value={employee.employment_setup} />
             <Detail label="Payment route" value={paymentRouteLabel(employee.payment_route)} />
             <Detail label="Pay cycle" value={payCycleLabel(employee.pay_cycle)} />
             <Detail label="Department" value={employee.department} />

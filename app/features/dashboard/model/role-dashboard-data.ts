@@ -397,7 +397,7 @@ export const roleDashboardDefinitions = {
       { id: "hr-priority-payroll", title: "Clear payroll validation blockers", detail: "Thirteen employees have missing or unapproved inputs.", due: "Today", priority: "urgent", status: "Blocked", target: { moduleId: "hr", pageId: "payroll-validation" } },
       { id: "hr-priority-leave", title: "Review leave queue", detail: "Three requests will breach the response SLA today.", due: "Today, 2:00 PM", priority: "high", status: "Pending", target: { moduleId: "hr", pageId: "leave-approval" } },
       { id: "hr-priority-onboarding", title: "Complete new-starter access", detail: "One onboarding checklist is overdue.", due: "Overdue", priority: "high", status: "At risk", target: { moduleId: "hr", pageId: "onboarding" } },
-      { id: "hr-priority-exit", title: "Validate final settlement", detail: "One offboarding case needs Finance handoff.", due: "06 Sep", priority: "normal", status: "Review", target: { moduleId: "hr", pageId: "offboarding" } },
+      { id: "hr-priority-exit", title: "Complete exit clearance", detail: "One exit case has open clearance items.", due: "06 Sep", priority: "normal", status: "Review", target: { moduleId: "hr", pageId: "clearance" } },
     ],
     exceptions: [
       { id: "hr-exception-bank", title: "Missing payroll bank details", detail: "Four employee records cannot proceed to payment handoff.", severity: "high", owner: "HR Operations", target: { moduleId: "hr", pageId: "payroll-inputs" } },

@@ -111,6 +111,16 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
   const [applied, setApplied] = useState("");
   const [stateFilter, setStateFilter] = useState<DecidedOfferFilter>(initialOfferId ? "all" : "approved");
   const [offset, setOffset] = useState(0);
+  // The offer search applies as you type, after a short pause, from the first page.
+  useEffect(() => {
+    const next = search.trim();
+    if (next === applied) return;
+    const timer = setTimeout(() => {
+      setApplied(next);
+      setOffset(0);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, applied]);
   const [offers, setOffers] = useState<HrOfferDirectory>({ items: [], total: 0 });
   const [selected, setSelected] = useState(initialOfferId ?? "");
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
@@ -242,7 +252,6 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
       job_grade_id: o.context.job_grade_id,
       cost_center_id: o.cost_center_id,
       work_location_id: o.work_location_id,
-      employment_setup_id: o.employment_setup_id,
       reporting_manager_id: o.reporting_manager_id ?? undefined,
       effective_from: o.joining_on,
     };
@@ -313,7 +322,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
         </div>
       )}
       <form
-        aria-label="Find offers"
+        aria-label="Search offers"
         className="grid min-w-0 items-end gap-4 rounded-xl border border-border bg-card p-4"
         onSubmit={(e) => {
           e.preventDefault();
@@ -323,14 +332,14 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
         }}
       >
         <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
-          Find an offer
+          Search
           <Input
             type="search"
             value={search}
             disabled={busy}
             onChange={(e) => setSearch(e.target.value)}
             maxLength={160}
-            placeholder="Candidate, offer reference or opening, then Enter"
+            placeholder="Candidate, offer reference or opening"
           />
         </label>
       </form>
@@ -362,11 +371,11 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
               <table className="w-full min-w-160 border-collapse text-left text-sm" aria-label="Offers">
                 <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th className="whitespace-nowrap px-3 py-2">Candidate</th>
-                    <th className="whitespace-nowrap px-3 py-2">Opening</th>
-                    <th className="whitespace-nowrap px-3 py-2">Joining date</th>
-                    <th className="whitespace-nowrap px-3 py-2">Monthly gross</th>
-                    <th className="whitespace-nowrap px-3 py-2">Offer status</th>
+                    <th className="whitespace-nowrap px-4 py-3">Candidate</th>
+                    <th className="whitespace-nowrap px-4 py-3">Opening</th>
+                    <th className="whitespace-nowrap px-4 py-3">Joining date</th>
+                    <th className="whitespace-nowrap px-4 py-3">Monthly gross</th>
+                    <th className="whitespace-nowrap px-4 py-3">Offer status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -377,16 +386,16 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
                       className={`cursor-pointer border-b border-border/70 transition-colors last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selected === o.id ? "bg-primary/5" : ""}`}
                       {...openRow(o)}
                     >
-                      <td className="px-3 py-1.5">
+                      <td className="px-4 py-3">
                         <span className="font-medium text-foreground">{o.candidate_name}</span>
                         <span className="ml-2 font-mono text-xs text-muted-foreground">{o.reference}</span>
                       </td>
-                      <td className="px-3 py-1.5 text-muted-foreground">{o.opening_title}</td>
-                      <td className="px-3 py-1.5 text-muted-foreground">{o.joining_on}</td>
-                      <td className="px-3 py-1.5 text-muted-foreground">
+                      <td className="px-4 py-3 text-muted-foreground">{o.opening_title}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{o.joining_on}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
                         {offerMoney(o.proposed_gross, o.currency_code)}
                       </td>
-                      <td className="px-3 py-1.5">
+                      <td className="px-4 py-3">
                         <Badge
                           variant={o.state === "approved" ? "secondary" : "outline"}
                         >
@@ -566,9 +575,8 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
                 <HrDetailTile label="Cost centre" value={data.offer.cost_center} />
                 <HrDetailTile label="Work location" value={data.offer.work_location} />
                 <HrDetailTile
-                  label="Employment setup"
-                  value={data.offer.employment_setup}
-                  hint={`${paymentRouteLabel(data.offer.payment_route)} / ${payCycleLabel(data.offer.pay_cycle)}`}
+                  label="Payment terms"
+                  value={`${paymentRouteLabel(data.offer.payment_route)} / ${payCycleLabel(data.offer.pay_cycle)}`}
                 />
                 <HrDetailTile label="Reporting manager" value={data.offer.reporting_manager ?? "No manager agreed"} />
               </HrDetailGroup>

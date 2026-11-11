@@ -1,4 +1,5 @@
 "use client";
+import { HrPagination, matchesSearch, useHrPage } from "./hr-list-controls";
 import { HrDrawerActions } from "./hr-drawer-context";
 import { HrRecordDrawer } from "./hr-record-drawer";
 import { HrClickableRow } from "./hr-clickable-row";
@@ -39,6 +40,7 @@ export function HrPromotionApprovalsPanel({
   userId,
   canUseApprovalOverride,
   onAction,
+  search = "",
 }: {
   client: HrApiClient;
   csrfToken: () => string;
@@ -46,6 +48,8 @@ export function HrPromotionApprovalsPanel({
   userId: string | undefined;
   canUseApprovalOverride: boolean;
   onAction: (action: string, subject?: string) => void;
+  /** Typed search from the approvals toolbar. */
+  search?: string;
 }) {
   const [queue, setQueue] = useState<Awaited<ReturnType<HrApiClient["promotionRequests"]>>["items"]>([]);
   const [selected, setSelected] = useState<{ employeeId: string; requestId: string } | null>(null);
@@ -58,6 +62,10 @@ export function HrPromotionApprovalsPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const visibleQueue = queue.filter((item) =>
+    matchesSearch(search, [item.employee_name, item.employee_number, item.proposed_designation, item.proposed_job, item.proposed_job_grade, item.effective_on]),
+  );
+  const queuePage = useHrPage(visibleQueue, `${companyId}:${search.trim()}`);
   const retry = useRef<{ fingerprint: string; key: string } | null>(null);
   const approvalOverride = approvalOverrideReviewState(detail, detail?.requested_by === userId, canUseApprovalOverride);
 
@@ -207,7 +215,7 @@ export function HrPromotionApprovalsPanel({
                 </tr>
               </thead>
               <tbody>
-                {queue.map((item) => (
+                {queuePage.pageRows.map((item) => (
                   <HrClickableRow key={item.id} disabled={saving} onOpen={() => review(item.employee_id, item.id)}>
                     <td className="px-4 py-3">
                       <p className="font-medium text-foreground">{item.employee_name}</p>
@@ -222,16 +230,23 @@ export function HrPromotionApprovalsPanel({
                     <td className="px-4 py-3 text-muted-foreground">{item.effective_on}</td>
                     </HrClickableRow>
                 ))}
-                {queue.length === 0 && (
+                {visibleQueue.length === 0 && (
                   <tr>
                     <td className="px-4 py-8 text-center text-muted-foreground" colSpan={3}>
-                      No pending Promotion approvals in this company.
+                      {queue.length > 0 ? "No requests match this search." : "No pending Promotion approvals in this company."}
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
+          <HrPagination
+            label="Approval request pages"
+            page={queuePage.page}
+            pageCount={queuePage.pageCount}
+            total={queuePage.total}
+            onPageChange={queuePage.setPage}
+          />
           <HrRecordDrawer
             title="Review promotion request"
             open={!!selected}
@@ -304,7 +319,7 @@ export function HrPromotionApprovalsPanel({
                       <HrDrawerActions>
                         <Button
                           type="button"
-                          disabled={saving || !reason.trim()}
+                          disabled={saving}
                           onClick={() => setDecision("approved")}
                         >
                           Approve Promotion
@@ -312,7 +327,7 @@ export function HrPromotionApprovalsPanel({
                         <Button
                           type="button"
                           variant="destructive"
-                          disabled={saving || !reason.trim()}
+                          disabled={saving}
                           onClick={() => setDecision("rejected")}
                         >
                           Reject Promotion

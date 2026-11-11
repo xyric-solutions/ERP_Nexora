@@ -8,7 +8,7 @@ const base = {
   job_title: "Data Analyst",
   designation_id: "designation-1",
   job_grade_id: "grade-1",
-  employment_setup_id: "setup-1",
+  cost_center_id: "cost-centre-1",
   project_id: "project-1",
   hiring_basis: "project_based",
   work_arrangement: "hybrid",

@@ -80,15 +80,19 @@ describe("Organisation & Masters landing summaries", () => {
     await expect(organisationLandingSummaries.designations!(shared)).resolves.toEqual([]);
   });
 
-  it("shows cost centres with how many carry a default nominal code", async () => {
+  it("shows cost centres with their payment routes", async () => {
     const masters = vi.fn(async () => ({
       items: [
-        master("Head office", { configuration_key: "default_nominal", configuration_value: "6100" }),
-        master("Projects"),
+        master("Head office", {
+          configuration_key: "default_nominal",
+          configuration_value: "6100",
+          payment_route: "payroll",
+        }),
+        master("Projects", { payment_route: "accounts_payable" }),
       ],
     }));
     await expect(organisationLandingSummaries["cost-centres"]!(context({ masters }))).resolves.toEqual([
-      "2 cost centres",
+      "2 cost centres · Payroll · Accounts payable",
       "Head office · Projects",
     ]);
   });

@@ -38,6 +38,7 @@ import { HrApiClient } from "../api/hr-client";
 import { approvalOverrideReviewState } from "../approval-override-ui";
 import { HrClickableRow } from "../components/hr-clickable-row";
 import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
+import { HrPagination, HrSearchField, matchesSearch, useHrPage } from "../components/hr-list-controls";
 import { HrHireApprovalsPanel } from "../components/hr-hire-approvals-panel";
 import { HrTransferApprovalsPanel } from "../components/hr-transfer-approvals-panel";
 import { HrPromotionApprovalsPanel } from "../components/hr-promotion-approvals-panel";
@@ -101,6 +102,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [search, setSearch] = useState("");
   const retry = useRef<{ fingerprint: string; key: string } | null>(null);
   const canApproveDraft = session?.user.permissions.includes("hr.employee.approve") ?? false;
   const canApproveHire = session?.user.permissions.includes("hr.employment_lifecycle.approve") ?? false;
@@ -317,6 +319,11 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
     }
   };
 
+  const visibleQueue = queue.filter((item) =>
+    matchesSearch(search, [item.employee_number, item.display_name, approvalStateLabel[item.state ?? "pending"]]),
+  );
+  const draftsPage = useHrPage(visibleQueue, `${companyId}:${draftFilter}:${search.trim()}`);
+
   if (sessionLoading) return <Skeleton className="h-32 w-full" />;
   if (!canApprove)
     return (
@@ -337,25 +344,25 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
             <DropdownMenuTrigger
               disabled={saving}
               aria-labelledby="hr-approval-type-label hr-approval-type-value"
-              className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background px-2.5 text-left text-sm font-normal text-foreground outline-none hover:border-primary/50 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 data-popup-open:border-primary"
+              className="group flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background px-2.5 text-left text-sm font-normal text-foreground outline-none hover:border-primary/50 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 data-popup-open:border-primary data-popup-open:ring-3 data-popup-open:ring-(--nx-focus-ring)"
             >
               <span id="hr-approval-type-value" className="min-w-0 flex-1 truncate">
                 {kindLabel}
                 <span className="text-muted-foreground"> · {kindGroup}</span>
               </span>
               <ApprovalCount value={countValues[kind]} />
-              <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-popup-open:rotate-180 group-data-popup-open:text-(--nx-brand)" aria-hidden="true" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="min-w-64">
+            <DropdownMenuContent className="min-w-64 rounded-xl border border-border p-1.5 shadow-lg ring-0">
               <DropdownMenuRadioGroup value={kind} onValueChange={(value) => setChosenKind(value as ApprovalKind)}>
                 {visibleCategories.map((category, index) => (
                   <DropdownMenuGroup key={category.label}>
                     {index > 0 ? <DropdownMenuSeparator /> : null}
-                    <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wide">
+                    <DropdownMenuLabel className="px-3 text-[11px] font-semibold uppercase tracking-wide">
                       {category.label}
                     </DropdownMenuLabel>
                     {category.kinds.map((item) => (
-                      <DropdownMenuRadioItem key={item.kind} value={item.kind} className="py-1.5">
+                      <DropdownMenuRadioItem key={item.kind} value={item.kind}>
                         <span className="min-w-0 flex-1 truncate">{item.label}</span>
                         <ApprovalCount value={countValues[item.kind]} />
                       </DropdownMenuRadioItem>
@@ -365,6 +372,14 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
+        </div>
+        <div className="min-w-55 flex-1">
+          <HrSearchField
+            id="hr-approvals-search"
+            value={search}
+            onChange={setSearch}
+            placeholder="Search employee name or number"
+          />
         </div>
       </div>
       {canApproveDraft && kind === "drafts" ? (
@@ -423,7 +438,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
                 </tr>
               </thead>
               <tbody>
-                {queue.map((item) => (
+                {draftsPage.pageRows.map((item) => (
                   <HrClickableRow
                     key={item.approval_id}
                     disabled={saving}
@@ -442,16 +457,27 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
                     </td>
                   </HrClickableRow>
                 ))}
-                {queue.length === 0 && (
+                {visibleQueue.length === 0 && (
                   <tr>
                     <td className="px-4 py-8 text-center text-muted-foreground" colSpan={4}>
-                      {draftFilter === "all" ? "No employee approvals in this company." : `No ${draftFilter} employee approvals in this company.`}
+                      {queue.length > 0
+                        ? "No employee approvals match this search."
+                        : draftFilter === "all"
+                          ? "No employee approvals in this company."
+                          : `No ${draftFilter} employee approvals in this company.`}
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
+          <HrPagination
+            label="Employee approval pages"
+            page={draftsPage.page}
+            pageCount={draftsPage.pageCount}
+            total={draftsPage.total}
+            onPageChange={draftsPage.setPage}
+          />
           <HrRecordDrawer
             title="Employee approval"
             open={!!selectedId}
@@ -523,7 +549,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
                       <HrDrawerActions>
                         <Button
                           type="button"
-                          disabled={saving || !reason.trim()}
+                          disabled={saving}
                           onClick={() => setDecision("approved")}
                         >
                           Approve draft
@@ -531,7 +557,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
                         <Button
                           type="button"
                           variant="destructive"
-                          disabled={saving || !reason.trim()}
+                          disabled={saving}
                           onClick={() => setDecision("rejected")}
                         >
                           Reject draft
@@ -581,6 +607,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           userId={userId}
           canUseApprovalOverride={canUseApprovalOverride}
           onAction={reportAction}
+          search={search}
         />
       )}
       {canApproveTransfer && kind === "transfer" && (
@@ -592,6 +619,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           userId={userId}
           canUseApprovalOverride={canUseApprovalOverride}
           onAction={reportAction}
+          search={search}
         />
       )}
       {canApprovePromotion && kind === "promotion" && (
@@ -603,6 +631,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           userId={userId}
           canUseApprovalOverride={canUseApprovalOverride}
           onAction={reportAction}
+          search={search}
         />
       )}
       {canApproveManagerChange && kind === "manager" && (
@@ -614,6 +643,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           userId={userId}
           canUseApprovalOverride={canUseApprovalOverride}
           onAction={reportAction}
+          search={search}
         />
       )}
       {canApproveWorkLocationChange && kind === "location" && (
@@ -625,6 +655,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           userId={userId}
           canUseApprovalOverride={canUseApprovalOverride}
           onAction={reportAction}
+          search={search}
         />
       )}
       {canApproveOrganizationPlacementChange && kind === "placement" && (
@@ -637,6 +668,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           userId={userId}
           canUseApprovalOverride={canUseApprovalOverride}
           onAction={reportAction}
+          search={search}
         />
       )}
     </section>

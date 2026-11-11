@@ -2,7 +2,8 @@
 import { payrollNavigationContext } from "../components/payroll-navigation";
 import { HrPayrollLocalizationSetup } from "./hr-payroll-localization-setup";
 import { HrPayrollOvertimeSetup } from "./hr-payroll-overtime-setup";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { SearchableSelect } from "@/shared/ui/searchable-select";
 import { Wallet, Plus, ArrowRight, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -182,6 +183,12 @@ function RecordEditor({
     () => client.payrollOptions({ company_id: company, on_date: date, search }),
   );
   const options = available.data ?? (date === month && search === "" ? baseOptions : null);
+  // Typing in the Employee dropdown searches the server after a short pause.
+  const [typedEmployee, setTypedEmployee] = useState(search);
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(typedEmployee.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [typedEmployee, setSearch]);
   const change = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const automatic = (key: string) => key === "code" || key === "reference";
   const preview =
@@ -347,19 +354,22 @@ function RecordEditor({
             field("currency_code", "Currency (ISO code)", "text", section !== "structures")}
           {["salaries", "adjustments", "loans"].includes(section) && (
             <>
-              <Field title="Find employee">
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Employee name or number"
+              <div className="grid min-w-0 content-start gap-2 text-sm font-medium">
+                <label htmlFor="hr-payroll-employee">Employee</label>
+                <SearchableSelect
+                  id="hr-payroll-employee"
+                  label="Employee"
+                  value={form.employee_id}
+                  placeholder="Choose employee"
+                  searchPlaceholder="Search by name or employee number…"
+                  loading={available.loading && !options}
+                  required
+                  search={typedEmployee}
+                  onSearchChange={setTypedEmployee}
+                  options={(options?.employees ?? []).map((e) => ({ value: e.id, label: e.label }))}
+                  onValueChange={(v) => change("employee_id", v)}
                 />
-              </Field>
-              <Pick
-                title="Employee"
-                value={form.employee_id}
-                change={(v) => change("employee_id", v)}
-                options={options?.employees ?? []}
-              />
+              </div>
             </>
           )}
           {section === "structures" && field("description", "Description", "text", false)}
@@ -696,7 +706,6 @@ function RecordDetail({
               <Textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                required
                 maxLength={500}
                 disabled={busy}
               />
@@ -863,7 +872,7 @@ export function HrPayrollWorkspace({
       className="grid min-w-0 gap-5 font-sans [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_select]:font-normal! [&_textarea]:font-normal! [&_input]:font-normal!"
     >
       <section className={panel}>
-        <div className="grid min-w-0 items-end gap-4 md:grid-cols-[1fr_1.5fr]">
+        <div className="grid min-w-0 items-end gap-4 md:grid-cols-[minmax(9.5rem,11rem)_minmax(0,1fr)_auto]">
           <Field title="Payroll month">
             <Input
               type="month"
@@ -889,6 +898,16 @@ export function HrPayrollWorkspace({
               maxLength={120}
             />
           </Field>
+          {section in kinds && permissions.includes("hr.payroll." + group + ".manage") && (
+            <Button
+              className="w-full text-primary-foreground! md:w-auto"
+              disabled={editing || busy || !company || !!selected}
+              onClick={() => setEditing(true)}
+            >
+              <Plus className="h-4 w-4" />
+              {section === "components" ? "New pay component" : `New ${name(kinds[section as keyof typeof kinds])}`}
+            </Button>
+          )}
         </div>
       </section>
       {companies.data && !companies.data.items.length && (
@@ -903,20 +922,6 @@ export function HrPayrollWorkspace({
           {notice}
         </div>
       )}
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        <div className="flex flex-wrap gap-2">
-          {section in kinds && permissions.includes("hr.payroll." + group + ".manage") && (
-            <Button
-              className="text-primary-foreground!"
-              disabled={editing || busy || !company || !!selected}
-              onClick={() => setEditing(true)}
-            >
-              <Plus className="h-4 w-4" />
-              {section === "components" ? "New pay component" : `New ${name(kinds[section as keyof typeof kinds])}`}
-            </Button>
-          )}
-        </div>
-      </div>
       {editing ? (
         <HrRecordDrawer
           title={section === "components" ? "New pay component" : `New ${name(kinds[section as keyof typeof kinds])}`}

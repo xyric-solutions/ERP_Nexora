@@ -1,18 +1,12 @@
 import {
+  Award,
   BadgeDollarSign,
   BanknoteArrowDown,
-  BookOpenCheck,
   BriefcaseBusiness,
-  CalendarCheck2,
-  ChartNoAxesCombined,
   CircleDollarSign,
   ClipboardCheck,
-  ClipboardList,
-  FileArchive,
   FileCheck2,
-  FileClock,
   FileSpreadsheet,
-  GraduationCap,
   HandCoins,
   Landmark,
   ListChecks,
@@ -21,13 +15,8 @@ import {
   ReceiptText,
   Repeat2,
   Scale,
-  ScrollText,
-  Send,
-  ShieldCheck,
   Sparkles,
-  Target,
   UserRoundCheck,
-  UsersRound,
   WalletCards,
 } from "lucide-react";
 
@@ -121,96 +110,6 @@ export const payrollWorkspace = {
   ],
 } as const;
 
-export const performanceWorkspace = {
-  id: "performance-workspace",
-  label: "Performance Management",
-  groups: [
-    {
-      id: "plan",
-      label: "Plan & Align",
-      description: "Set the review cycle and align employee goals with measurable outcomes.",
-      pages: [
-        {
-          id: "performance-cycles",
-          label: "Performance Cycles",
-          description: "Create governed review periods, dates and rating controls.",
-          icon: CalendarCheck2,
-        },
-        {
-          id: "goals-kpis",
-          label: "Goals & KPIs",
-          description: "Agree weighted employee goals, targets and supporting evidence.",
-          icon: Target,
-        },
-      ],
-    },
-    {
-      id: "review",
-      label: "Review & Outcomes",
-      description: "Complete reviews and govern the resulting development or recognition actions.",
-      pages: [
-        {
-          id: "performance-reviews",
-          label: "Performance Reviews",
-          description: "Assess approved goals and submit evidence-backed employee reviews.",
-          icon: ClipboardList,
-        },
-        {
-          id: "performance-outcomes",
-          label: "Performance Outcomes",
-          description: "Approve and follow through development, recognition and promotion outcomes.",
-          icon: ChartNoAxesCombined,
-        },
-      ],
-    },
-  ],
-} as const;
-
-export const learningWorkspace = {
-  id: "learning-workspace",
-  label: "Learning & Development",
-  groups: [
-    {
-      id: "plan",
-      label: "Plan Learning",
-      description: "Maintain the learning catalogue and review employee development requests.",
-      pages: [
-        {
-          id: "training-programs",
-          label: "Training Programmes",
-          description: "Define governed programmes, attendance rules, assessments and providers.",
-          icon: GraduationCap,
-        },
-        {
-          id: "training-requests",
-          label: "Training Requests",
-          description: "Prepare and approve employee participation requests.",
-          icon: Send,
-        },
-      ],
-    },
-    {
-      id: "deliver",
-      label: "Deliver & Complete",
-      description: "Schedule cohorts, record attendance and issue controlled completion evidence.",
-      pages: [
-        {
-          id: "training-sessions",
-          label: "Training Sessions",
-          description: "Schedule programme sessions, facilitators and participant capacity.",
-          icon: UsersRound,
-        },
-        {
-          id: "training-completions",
-          label: "Completion & Certificates",
-          description: "Record results and produce verified completion certificates.",
-          icon: BookOpenCheck,
-        },
-      ],
-    },
-  ],
-} as const;
-
 export const lifecycleWorkspace = {
   id: "employee-lifecycle-workspace",
   label: "Employee Lifecycle",
@@ -247,137 +146,66 @@ export const lifecycleWorkspace = {
       pages: [
         {
           id: "employee-movements",
-          label: "Transfers, Promotions & Movements",
-          description: "Prepare and approve governed employee placement changes.",
+          label: "Transfers",
+          description: "Employee transfers and movements.",
           icon: BriefcaseBusiness,
+        },
+        {
+          id: "employee-promotions",
+          label: "Promotions",
+          description: "Employee promotions.",
+          icon: Award,
+        },
+      ],
+    },
+    {
+      id: "benefits",
+      label: "Loan Benefits",
+      description: "Employee loan and advance requests.",
+      pages: [
+        {
+          id: "loans-benefits",
+          label: "Loan Requests",
+          description: "Employee loan requests and recoveries.",
+          icon: HandCoins,
+        },
+        {
+          id: "advance-requests",
+          label: "Advance Requests",
+          description: "Employee salary advance requests.",
+          icon: Sparkles,
         },
       ],
     },
     {
       id: "exit",
-      label: "Exit & Settlement",
-      description: "Coordinate resignation, termination, clearance, settlement and offboarding.",
+      label: "Resignations & Offboarding",
+      description: "Resignations, terminations and exit clearance.",
       pages: [
         {
           id: "resignations",
           label: "Resignations",
-          description: "Record employee-initiated exits and notice-period evidence.",
+          description: "Employee-initiated exits and notice periods.",
           icon: LogOut,
         },
         {
           id: "terminations",
-          label: "Termination Cases",
-          description: "Manage employer-initiated exit cases with controlled approval.",
+          label: "Termination",
+          description: "Employer-initiated exit cases.",
           icon: Scale,
         },
         {
           id: "clearance",
           label: "Exit Clearance",
-          description: "Track departmental clearance, assets and unresolved obligations.",
+          description: "Departmental clearance, assets and obligations.",
           icon: ListChecks,
         },
-        {
-          id: "final-settlements",
-          label: "Final Settlements",
-          description: "Review governed entitlements, deductions and final payroll settlement.",
-          icon: CircleDollarSign,
-        },
-        {
-          id: "offboarding",
-          label: "Offboarding Control Centre",
-          description: "Monitor end-to-end exit readiness and outstanding controls.",
-          icon: FileClock,
-        },
       ],
     },
   ],
 } as const;
 
-export const benefitsWorkspace = {
-  id: "benefits-self-service-workspace",
-  label: "Benefits & Self-service",
-  groups: [
-    {
-      id: "rewards",
-      label: "Benefits & Deductions",
-      description: "Review employee benefits and maintain statutory deduction controls.",
-      pages: [
-        {
-          id: "loans-benefits",
-          label: "Loans, Benefits & Gratuity",
-          description: "Review employee benefit membership, balances and gratuity information.",
-          icon: Sparkles,
-        },
-        {
-          id: "statutory-deductions",
-          label: "Statutory Deductions",
-          description: "Maintain governed statutory tax and contribution settings.",
-          icon: ShieldCheck,
-        },
-      ],
-    },
-    {
-      id: "service",
-      label: "Employee Service & Reports",
-      description: "Give employees a controlled service view and open HR reporting.",
-      pages: [
-        {
-          id: "employee-self-service",
-          label: "Employee Self-service",
-          description: "Review personal employment, pay, leave and request information.",
-          icon: UsersRound,
-        },
-        {
-          id: "hr-report-centre",
-          label: "HR & Payroll Report Centre",
-          description: "Run authorized operational and statutory HR reports.",
-          icon: FileSpreadsheet,
-        },
-      ],
-    },
-  ],
-} as const;
-
-export const complianceWorkspace = {
-  id: "hr-compliance-workspace",
-  label: "Reporting, Compliance & Audit",
-  groups: [
-    {
-      id: "govern",
-      label: "Govern Disclosure",
-      description: "Control report access, reviewed exports and immutable disclosure evidence.",
-      pages: [
-        {
-          id: "hr-compliance-configuration",
-          label: "Compliance Configuration",
-          description: "Set permitted reports, row limits and authorization expiry.",
-          icon: ShieldCheck,
-        },
-        {
-          id: "hr-export-centre",
-          label: "Secure Export Centre",
-          description: "Create reviewed export receipts and authorize controlled downloads.",
-          icon: FileArchive,
-        },
-        {
-          id: "hr-report-audit-log",
-          label: "Report Audit Log",
-          description: "Inspect immutable policy, export and download events.",
-          icon: ScrollText,
-        },
-      ],
-    },
-  ],
-} as const;
-
-export const hrSectionWorkspaces = [
-  payrollWorkspace,
-  performanceWorkspace,
-  learningWorkspace,
-  lifecycleWorkspace,
-  benefitsWorkspace,
-  complianceWorkspace,
-] as const;
+export const hrSectionWorkspaces = [payrollWorkspace, lifecycleWorkspace] as const;
 
 export const findHrSectionWorkspace = (pageId: string) =>
   hrSectionWorkspaces.find((workspace) => workspace.id === pageId);
@@ -394,9 +222,5 @@ export const compactHrWorkspaces: Record<string, string> = {
   recruitment: "recruitment-workspace",
   "attendance-leave": attendanceLeaveWorkspace.id,
   payroll: payrollWorkspace.id,
-  performance: performanceWorkspace.id,
-  learning: learningWorkspace.id,
   "employee-lifecycle": lifecycleWorkspace.id,
-  "benefits-self-service": benefitsWorkspace.id,
-  "hr-compliance": complianceWorkspace.id,
 };

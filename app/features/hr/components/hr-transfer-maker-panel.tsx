@@ -122,7 +122,6 @@ export function HrTransferMakerPanel({
       job_grade_id: source.job_grade_id,
       cost_center_id: source.cost_center_id,
       work_location_id: source.work_location_id,
-      employment_setup_id: source.employment_setup_id,
       ...(source.reporting_manager_id ? { reporting_manager_id: source.reporting_manager_id } : {}),
       effective_on: effectiveOn,
       reason: trimmed,
@@ -152,7 +151,6 @@ export function HrTransferMakerPanel({
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
-
           </div>
           <Badge variant="outline">Same-day effective</Badge>
         </div>
@@ -173,13 +171,13 @@ export function HrTransferMakerPanel({
 
         {state === "ready" && (
           <div className="grid gap-4">
-            <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-2">
               <ContextField label="Current job" value={source.job || source.designation} />
               <ContextField label="Designation" value={source.designation} />
               <ContextField label="Grade" value={source.job_grade} />
               <ContextField label="Work location" value={source.work_location} />
             </dl>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
               <PlacementSelect
                 label="Proposed project"
                 value={branchId}
@@ -201,12 +199,18 @@ export function HrTransferMakerPanel({
                   retry.current = null;
                 }}
               />
-              <label htmlFor="transfer-effective-on" className="grid content-start gap-1.5 text-sm font-medium text-foreground">
+              <label
+                htmlFor="transfer-effective-on"
+                className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
+              >
                 Effective date
                 <Input id="transfer-effective-on" type="date" value={effectiveOn} disabled readOnly />
               </label>
             </div>
-            <label htmlFor="transfer-request-reason" className="grid content-start gap-1.5 text-sm font-medium text-foreground">
+            <label
+              htmlFor="transfer-request-reason"
+              className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
+            >
               Business reason
               <Textarea
                 id="transfer-request-reason"
@@ -221,7 +225,7 @@ export function HrTransferMakerPanel({
               />
             </label>
             <div>
-              <Button type="button" onClick={submit} disabled={submitting || !placementChanged || !reason.trim()}>
+              <Button type="button" onClick={submit} disabled={submitting || !placementChanged}>
                 {submitting ? "Submitting Transfer..." : "Submit Transfer request"}
               </Button>
             </div>
@@ -247,11 +251,11 @@ function PlacementSelect({
 }) {
   const id = `transfer-${label.toLowerCase().replaceAll(" ", "-")}`;
   return (
-    <label htmlFor={id} className="grid content-start gap-1.5 text-sm font-medium text-foreground">
+    <label htmlFor={id} className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground">
       {label}
       <select
         id={id}
-        className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
+        className="h-9 w-full min-w-0 truncate rounded-md border border-input bg-background px-2.5 text-sm"
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}

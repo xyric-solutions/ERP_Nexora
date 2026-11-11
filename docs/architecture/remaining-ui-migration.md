@@ -1,5 +1,77 @@
 # Remaining UI migration checklist
 
+## 2026-11-11 — Employee Lifecycle improvements (policies, cases, changes, loans)
+
+- Lifecycle Policies: name + policy text only (effective date defaults to the
+  creation day on the server); All / Active / Deactivated filter; drawer with
+  delete/edit (drafts) and Deactivate (approved/active). Policy upgrades panel
+  removed from this page (API kept). Migration 0150 adds
+  `description`, `deactivated_by/at`; new `POST …/{policyId}/deactivate`.
+- Lifecycle cases: `state` query filter; new `reject` decision and `rejected`
+  state (0150 recreates the case guard and unique indexes so a rejected case
+  does not block a new one); checklist items need only be marked done (no
+  evidence). Onboarding filters All / Offer / Draft / Submitted / Approved /
+  Rejected — "Offer" lists hires from accepted offers without an onboarding
+  case. Probation: "+ Start review", workflow strip, Employee / Review /
+  Approval groups. Resignation / Termination / Exit Clearance: All / Draft /
+  Approved / Cancelled; edit and delete icons always visible (enabled for drafts).
+- Employee Changes: Transfers (`employee-movements`) and Promotions
+  (`employee-promotions`) pages in `hr-employee-changes-workspace.tsx`;
+  transfer/promotion lists accept `status` (default pending). Prepare changes
+  remains under People > Employment Assignments.
+- Loan Benefits: Loans and Advances tabs; migration 0151 adds
+  `hr_employee_loan.loan_kind`; codes LN-/ADV- previewed read-only; recovery
+  component lists active fixed deduction components. Benefit rules UI removed.
+- Verified: app tsc, `build:web`, API build, `api:check`, unit suite (only the
+  pre-existing user-management failures), integration suites for lifecycle
+  cases, policies, transfers, promotions, loans and payroll workspace on the
+  test DB, theme audit, catalogue check.
+- Remaining: no browser screenshots; transfer/promotion requests have no
+  cancel/delete API; promotions carry no salary/department change by design;
+  Payroll > Loans & Advances still lists both kinds together.
+
+## 2026-11-11 — HR & Payroll restructure: Employee Lifecycle, retired areas
+
+- Removed from navigation, routing, landing summaries and the parity manifest:
+  Performance Management, Learning & Development, Benefits & Self-service
+  (Statutory Deductions, Employee Self-service, HR & Payroll Report Centre),
+  Reporting, Compliance & Audit, Final Settlements and Offboarding. Their web
+  views/components were deleted (performance, learning, report-governance,
+  personal leave/corrections, settlement entitlements/payroll/correction UI,
+  learning certificate, performance fixture). Server API modules, contracts and
+  database tables are intentionally kept; no data was removed.
+- Employee Lifecycle groups: Policy & Joining (Lifecycle Policies, Onboarding,
+  Probation Reviews), Employee Changes, Loan Benefits (`loans-benefits`, moved
+  from Benefits; loans/advances + benefit rules tabs), Resignations &
+  Offboarding (Resignations, Termination, Exit Clearance). Lifecycle pages no
+  longer render a second `PageIntro` title under the section tabs.
+- Lifecycle cases (`hr-lifecycle-cases-workspace.tsx`): search at the top with
+  `+ Create case` beside it, compact full-width rows (`HrClickableRow`), record
+  drawer with edit icon, delete icon (cancels the draft, confirmed) and
+  Submit/Approve/Return in the footer. Probation Reviews no longer offers Create
+  case. Onboarding/Exit Clearance forms use a compact checklist; employee and
+  approved-exit pickers use `SearchableSelect`. `apply_exit` (offboarding) is no
+  longer offered in the UI.
+- Lifecycle Policies: searchable compact register, detail drawer with
+  edit/delete for drafts and Submit/Approve/Activate. New API:
+  `PATCH|DELETE /api/v1/hr/employment_lifecycle_policies/{policyId}` (draft only,
+  manage permission, idempotent, audited; delete refused when referenced).
+- Dropdowns: `Select`, `DropdownMenu` and `SearchableSelect` popups now sit at
+  `z-[1600]` (above HR drawers/dialogs), use collision padding, grow to the
+  longest option up to the available width and wrap long option labels.
+  Employee-change maker drawers (Manage assignment & hire, transfer, promotion,
+  manager, work location, placement) use at most two columns with full-width,
+  shrinkable selects; Employment setup spans both columns.
+- Verified: `npx tsc --noEmit`, `npm.cmd run build:web` (pass), ESLint on
+  touched files (only pre-existing findings remain), `node
+  scripts/audit-ui-theme.mjs --check` (0 exceptions), manifest tests pass.
+- Remaining: browser screenshots of the redesigned pages were not captured;
+  e2e mobile screenshot baselines for removed pages (`offboarding`,
+  `hr-report-centre`) must be regenerated for `clearance` and
+  `lifecycle-policies`; `tests/hr-lifecycle-phase4.test.mjs` and
+  `tests/hr-reporting-phase5.test.mjs` still import stale `app/<file>` paths;
+  the new lifecycle-policy integration test needs the test database.
+
 ## 2026-11-10 — Sign-in company selection; company pickers removed
 
 - Sign-in (`app/login/page.tsx`) is compact (logo + name, "Sign in", fields) so
@@ -5023,3 +5095,249 @@ Company Chart adoption/review checkpoint (2026-10-20):
   user-management failures), HR146 trigger check in a rolled-back transaction.
   Not run: browser click-through; full policy create/edit/delete through the
   API (the local company has no liability account).
+
+## 2026-11-11 — HR landing view toggle beside the page title
+
+- `app/features/hr/components/hr-landing.tsx`: the card/list view toggle now
+  sits on the same row as the page title (right-aligned) instead of on its own
+  row, removing the empty band above the first numbered section. Applies to
+  every `HrLandingPage` (Organisation & Masters, People, Recruitment,
+  Operations). Toggle is hidden while the session loads or when signed out,
+  as before. `organisation-masters-demo.tsx` (demo route) left unchanged.
+- Verification: `git diff --check`, app `tsc`, `build:web`, theme audit
+  `--write`/`--check` passed. Not run: browser screenshot at narrow widths.
+
+## 2026-11-11 — One row height for HR & Payroll tables
+
+- Standard (from the Organisation & Masters sheets): `text-sm` table, `px-4 py-3`
+  cells. Defined in `app/features/hr/components/hr-table.ts` (`hrCell`,
+  `hrDataTableClass`).
+- 28 HR files normalized: per-cell `py-1.5/py-2/py-2.5/py-4/p-3` → `py-3`,
+  `px-2/px-3/px-5` → `px-4`; shared `th`/`td` constants in payroll runs,
+  journal, payslips, attendance month-end and positions updated the same way;
+  one `text-[13px]` table → `text-sm`. Reporting `reportTableClass` cells
+  changed from fixed `h-9`/`h-11` + `px-2.5` to `px-4 py-3`.
+- 28 HR tables moved off legacy `nx-data-table` (11px text, 11/12px padding)
+  to `hrDataTableClass` (attendance, lifecycle, master, payroll screens).
+  `nx-data-table` CSS retained: banking, commerce and shared shell
+  (`prototype-content.tsx`) still use it.
+- Intentional exceptions: empty-state rows keep `py-6/8/10`; the 31-day
+  attendance calendar grid (`hr-attendance-screens.tsx`) stays dense; edge
+  insets `sm:pl-5/sm:pr-5` kept; `organisation-masters-demo.tsx` untouched;
+  generic shell/shared tables (`prototype-content.tsx`, `module-views.tsx`)
+  are cross-module and unchanged.
+- Verification: `git diff --check`, app `tsc`, `build:web`, theme audit
+  `--write/--check` passed; eslint on changed files shows only pre-existing
+  findings (hooks/labels/unused `HrNotice`). Compiled CSS confirmed to contain
+  the descendant variants. Not run: browser screenshots per screen.
+
+## 2026-11-11 — Search + 15-row pages; themed native dropdowns
+
+- New `app/features/hr/components/hr-list-controls.tsx`: `HR_PAGE_SIZE = 15`,
+  `matchesSearch`, `useHrPage` (client-side page that resets on search/filter/
+  company change), `HrPagination` ("16–30 of 42", Previous/Next, hidden at ≤15),
+  `HrSearchField`.
+- Organisation Structure (`hr-organization-structure-sheet-workspace.tsx`):
+  search toolbar (name, code, unit type) beside "+ Add organization unit";
+  matches keep their ancestors visible; top-level branches paged 15 at a time.
+- Job Openings: search (reference, title, requisition, channels, closing,
+  state) beside "+ Create opening"; table paged at 15.
+- Employee Approvals: search beside the Approval type dropdown, passed to the
+  drafts table and all six panels (hire, transfer, promotion, manager,
+  work location, organisation placement) via a new optional `search` prop;
+  each paged at 15. Lists still load up to 50 records from the API (unchanged),
+  so search/paging cover those loaded records.
+- Dropdowns: `app/globals.css` gives every native single `<select>` the
+  customizable-select look (`appearance: base-select`) matching the Approval
+  type menu — popover panel, rounded rows, accent hover, trailing check,
+  chevron that flips; hover/open borders primary. Native values, keyboard,
+  validation and change events are unchanged. Gated by `@supports`; Firefox/
+  Safari keep native lists. Applies app-wide (344 selects). Closed-control
+  styling from component classes still wins.
+- Verification: `git diff --check`, app `tsc`, `build:web`, theme audit
+  `--write/--check` (back to baseline 1 literal line) passed; eslint on
+  changed files shows only pre-existing findings. Edge 157 screenshots of the
+  open picker in light and dark confirmed; select heights identical with and
+  without base-select. Not run: signed-in click-through of the three pages.
+
+## 2026-11-11 — Pipeline stage filters; payroll toolbar actions
+
+- Recruitment Pipeline: stage pills and the Stage dropdown now offer only
+  All / Selected / Rejected / Withdrawn (`filterStages`). Row badges and the
+  "Stage change" drawer still use the full workflow stages.
+- Payroll workspace (`hr-payroll-workspace.tsx`, used by Payroll Inputs and
+  the other payroll record sections): the "New …" button moved into the
+  month/search toolbar row; Payroll month column narrowed to 9.5–11rem.
+- Payroll Runs: "Payroll policy" moved into the same toolbar row with a
+  narrowed month; period actions (open, calculate, submit, return, approve)
+  stay beside the period status.
+- Verification: `git diff --check`, app `tsc`, `build:web`, theme audit
+  passed; eslint shows only pre-existing findings. Edge 157 render of the
+  toolbar at 1100px and 390px: month value fits (176px), button on the row
+  at desktop, stacked on mobile.
+
+## 2026-11-11 — Dropdown look v2 (tinted chosen option)
+
+- `app/globals.css` native select picker: bordered rounded-xl panel, 36px
+  semibold rows, neutral hover (`foreground/9%`), chosen option tinted
+  `--nx-brand-soft` with `--nx-brand` text and check; open trigger gets a
+  primary border, `--nx-focus-ring` glow and a brand-coloured flipped chevron.
+- `app/components/ui/dropdown-menu.tsx` `DropdownMenuRadioItem` (only user:
+  Employee Approvals "Approval type") matches: same row size, neutral
+  highlight, tinted checked state. Approval type trigger/panel/labels aligned.
+  Checkbox items and other menu items unchanged.
+- Verification: `git diff --check`, `tsc`, `build:web`, theme audit passed;
+  Edge 157 screenshots of the open picker in light and dark.
+
+## 2026-11-11 — Every HR & Payroll reason is optional
+
+- Contracts (`packages/contracts/src/hr/index.ts`): new `optionalReason(max)`
+  (`trim().max().overwrite(v => v || HR_DEFAULT_REASON).default(...)`) on all
+  72 request reasons plus the shared interview reason. Blank/missing reasons
+  are recorded as `HR_DEFAULT_REASON` ("No reason was entered.", 22 chars),
+  which satisfies every existing DB reason check (strictest min 12), so no
+  migration was needed. Response schemas unchanged. `openapi-v1.json`
+  regenerated (88 lines, reason defaults only; no path changes).
+- Server: settlement exclusion reason (`settlement-payroll.ts`) and offer
+  compensation-exception reason (`validateOfferTerms`) now record the standard
+  reason instead of rejecting a blank one; the contract exclusion refine only
+  requires an empty reason on included lines.
+- UI (40 HR files): removed `required` on reason fields, blank-reason
+  button guards, blank-reason handler checks/messages and the
+  "(required)/(if applicable)" offer label. No "Optional" wording added.
+  Typed reasons shorter than a table's existing minimum (5–12 chars) are still
+  rejected as before; only blank is new.
+- Tests: router/performance unit tests updated (over-long reason still
+  rejected; blank reason parses to the standard text).
+- Verification: app + API `tsc`, API build, `build:web`, theme audit,
+  `git diff --check` passed; unit 1110/1113 → only the pre-existing
+  user-management failures remain (plus contract test path-list drift that
+  predates this change). Not run: signed-in click-through of each form.
+
+## 2026-11-11 — "Find" boxes replaced by searchable dropdowns
+
+- `app/shared/ui/searchable-select.tsx` restyled to the shared dropdown look
+  (glowing open border, flipping brand chevron, tinted selected row, neutral
+  highlight, search box at the top of the list); now accepts `id`,
+  `searchPlaceholder`, `className`, and remembers the chosen label when a
+  search or reload omits it. Banking/Finance users of it get the same look.
+- Find box + Find button removed; Employee (or target) is one searchable
+  dropdown whose typed text searches the server after 300 ms:
+  Attendance Corrections, Attendance Completion (overtime), Payroll record
+  editor (salaries/adjustments/loans), Leave request form, Shift Assignments
+  target, Shifts work location. "Showing the first 100…" notes removed.
+- Performance: toolbar "Employee options search / Find employee" removed;
+  Employee and Responsible employee are searchable dropdowns over the loaded
+  list (server search would reload the workspace and unmount the open form).
+- Payroll Journal: "Find a company cost centre" removed; each account's cost
+  centre is a searchable dropdown over the loaded (≤500) centres.
+- Interviews: "Find panel account / Find panel" replaced by a search box at
+  the top of the panel checklist (as you type); "Find candidate" list search
+  renamed "Search" and applies as you type (Search button removed).
+  Offer → Employee "Find an offer" renamed "Search", applies as you type.
+- List-filter toolbars that already say "Search" were left as they are.
+- Verification: app `tsc`, `build:web`, theme audit, `git diff --check`;
+  searchable-select + banking unit tests 52/52; Edge 157 render of the open
+  dropdown in light/dark. Not run: signed-in click-through of each form.
+
+## 2026-11-11 — Correction & overtime drafts save freely; Check in / Check out
+
+- Attendance corrections (server `source-repository.ts`): creating/editing a
+  draft no longer stops on evidence blockers (future date, missing shift,
+  locked period…). The 12-hour shift-window and UTC-offset-mismatch checks
+  are removed entirely. Blockers, future-time check and attendance
+  re-evaluation still apply at submit/approve. DB checks kept (times required
+  by correction type; check-out after check-in).
+- Correction form: "Stated in/out" → "Check in/out" (form, detail, legacy
+  table); UTC offset inputs removed — the offset is derived from the shift
+  timezone (browser zone if no shift) via `offsetForLocal` (DST-safe,
+  verified); "Times in …" and "Choose an employee to load…" lines removed;
+  Save enabled whenever evidence is loaded.
+- Overtime (`attendance-completion.ts`): drafts (create/replace) skip blockers
+  and eligible-minute limits; only an operational overtime rule (required by
+  the DB: `operational_rule_id NOT NULL` + insert trigger) and fresh evidence
+  are checked. Submit/approve unchanged. UI Save enabled when evidence loads;
+  minutes input max 1440.
+- No screen existed to create operational overtime rules (local DB had 0).
+  The overtime drawer now shows "Add <category> overtime rule" (minimum
+  minutes, daily cap) when the day has no rule and the user holds
+  `hr.attendance.overtime_rule.manage`, calling the existing API.
+- Verification: app + API `tsc`, `build:web`, theme audit, diff check;
+  attendance/overtime unit tests 55/55; API healthy after restart. Not run:
+  signed-in save of a correction/overtime draft.
+
+## 2026-11-11 — No "Review" buttons: rows open the side drawer
+
+- Attendance Corrections: Review column/button and the fixed 1000px table
+  width (horizontal scrollbar) removed; rows (and mobile cards) open the
+  record in the side drawer. Drawer footer: edit icon (drafts) and delete
+  icon = cancel draft with confirmation (the API has no hard delete; cancel
+  keeps history). Workflow decisions sit inline in the drawer (the nested
+  "Review correction action" drawer is gone); cancel moved to the icon.
+- Employment Policy Upgrades: "Review upgrade" and per-row action buttons
+  removed; rows open a drawer with Approve/Reject (inline reason form),
+  evidence, and a delete icon for cancelling a pending request.
+- Overtime pay setup: "Review monetary record" removed; the whole card opens.
+- Settlement benefit rules: "Review" action column removed; rows open a
+  drawer with Submit/Approve/Reject and the decision form.
+- Overtime request: Save waits for an operational rule (the inline
+  "Add … overtime rule" sits in the same drawer).
+- Not changed: navigation/step buttons that start with "Review" (e.g. "Review
+  shift assignments", "Review approval" in settlement correction steps,
+  lifecycle "Review approvals" tab) and the prototype Payroll Screens page.
+- Verification: app `tsc`, `build:web`, theme audit, diff check, eslint (no
+  new findings), related unit tests 117/117. Not run: signed-in click-through.
+
+## 2026-11-11 — Payroll: payment routes, employee cost centres, default nominals (HR148)
+
+- Migration `0148_payroll_employee_cost_centres` (additive): `hr_payroll_result.cost_center_id`
+  (FK hr_master_record); `hr_payroll_accrual_dimension_lines()`; journal amount
+  reconciliation compares per-account totals; dimension trigger keeps v1 rules and adds
+  v2 (`payroll_accrual_employee_cost_centres_v2`): every line (account, amount, cost
+  centre) must equal the frozen employee split; tagged cost centres must be active.
+  Applied locally with `DATABASE_MIGRATION_URL`.
+- `server/api/src/modules/hr/payroll-population.ts`: each employee's placement for the
+  payroll month (assignment covering month end) → payment route, cost centre, default
+  nominal; default nominal codes must resolve to active, postable expense accounts.
+- Payroll run calculation: employees whose employment setup route is
+  `accounts_payable` are excluded (payroll and stipend included; no setup = included as
+  before); clear errors if an AP employee has approved adjustments/loans or if nobody is
+  on Payroll. Cost centre (and route/nominal) frozen on each result and in the hash and
+  execution evidence. A cost centre's default nominal replaces the expense account of
+  that employee's earning lines (employer statutory contributions keep their component
+  accounts).
+- Payroll journal: expense debits split by frozen cost centre (tagged
+  `dimensions.cost_center`); liabilities and net pay stay whole. Results without a cost
+  centre (all runs before HR148) produce identical v1 lines, so existing proposals still
+  verify. Finance whole-account mappings apply only to untagged lines; the journal screen
+  asks for a cost centre only for accounts that still have untagged lines. The
+  "every attendance employee" check counts only employees paid through Payroll.
+- Tests: unit (accrual split, mapping precedence, inactive centre) 216/216 payroll unit
+  tests; integration on a fresh test DB: journal 11/11, dimensions 10/10 (new v2 test
+  incl. tamper rejection and Finance posting), runs 23/23 (new: AP exclusion, default
+  nominal, invalid nominal), review 12/12, statutory 10/10, encashment 9/9.
+  Pre-existing, unrelated: jurisdiction "mid-month override" (fails identically without
+  this change) and two supplemental-settlement tests whose currency-rate cleanup is
+  rejected by Finance rate-version rules.
+- Not changed: no UI yet shows which employees were left out as AP; no AP supplier
+  invoice is generated from HR (contractor pay still goes through Purchases/AP).
+
+## 2026-11-11 — Employment Setup merged into Cost Centre (HR149)
+
+- See `docs/architecture/hr-employment-setup-merge.md` (HR149 section) for the
+  data migration, fail-closed rules and rollback outline.
+- UI: Cost Centre form gains Payment route and Pay cycle; Employment Setup page,
+  navigation group and landing card removed (alias → Cost Centres); hire,
+  offer and requisition forms use the cost centre (label shows its terms);
+  offer/employee views show "Payment terms"; leave policy eligibility lists
+  cost centres.
+- Verification: app + API `tsc`, API build, `build:web`, theme audit, diff
+  check; unit 1114/1118 (remaining: 2 pre-existing user-management, 1 flaky
+  dependency-direction timeout that passes alone, 1 landing test since fixed);
+  integration on fresh DB: HR149 proof 5/5, payroll runs 23/23, governed
+  promotion/transfer/hire master fixtures updated; HR149 rehearsed on a copy
+  of the local DB, then applied locally (R06-CC payroll/monthly, ES-001/002
+  archived, 5/5 requisitions with cost centre).
+- Pre-existing/unrelated failures left as found: recruitment fixtures lack an
+  HR136 project/hiring basis; drafts-status and transfer-status filters from
+  parallel uncommitted work; master-delete message/org-unit cases.

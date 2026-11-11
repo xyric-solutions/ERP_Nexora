@@ -2,7 +2,7 @@
 
 Generated from the active route renderer map. Regenerate with `npm run catalogue:generate`.
 
-Of 90 HR catalogue routes: 79 connect to API-backed views, 0 use read-only API views, 11 are navigation hubs, and 0 are mock or unlinked views.
+Of 72 HR catalogue routes: 65 connect to API-backed views, 0 use read-only API views, 7 are navigation hubs, and 0 are mock or unlinked views.
 
 Pages left to connect to an API: none in the current HR catalogue. Navigation hubs link to their connected child pages and do not need their own mutation API.
 
@@ -71,32 +71,14 @@ Source evidence: `app/shell/prototype-content.tsx` selects the renderers below; 
 | Payroll | Payroll Journal | `/#/hr/payroll-journal` | `HrPayrollJournalWorkspace` | API_CONNECTED_SOURCE |
 | Payroll | Payment Batch | `/#/hr/payment-batch` | `HrPayrollPaymentWorkspace` | API_CONNECTED_SOURCE |
 | Payroll | Payslips | `/#/hr/payslips` | `HrPayslipsWorkspace` | API_CONNECTED_SOURCE |
-| Performance Management | Performance Management | `/#/hr/performance-workspace` | `HrOperationsWorkspace` | NAVIGATION_ONLY |
-| Performance Management | Performance Cycles | `/#/hr/performance-cycles` | `HrPerformanceWorkspace` | API_CONNECTED_SOURCE |
-| Performance Management | Goals & KPIs | `/#/hr/goals-kpis` | `HrPerformanceWorkspace` | API_CONNECTED_SOURCE |
-| Performance Management | Performance Reviews | `/#/hr/performance-reviews` | `HrPerformanceWorkspace` | API_CONNECTED_SOURCE |
-| Performance Management | Performance Outcomes | `/#/hr/performance-outcomes` | `HrPerformanceWorkspace` | API_CONNECTED_SOURCE |
-| Learning & Development | Learning & Development | `/#/hr/learning-workspace` | `HrOperationsWorkspace` | NAVIGATION_ONLY |
-| Learning & Development | Training Programmes | `/#/hr/training-programs` | `HrLearningWorkspace` | API_CONNECTED_SOURCE |
-| Learning & Development | Training Requests | `/#/hr/training-requests` | `HrLearningWorkspace` | API_CONNECTED_SOURCE |
-| Learning & Development | Training Sessions | `/#/hr/training-sessions` | `HrLearningWorkspace` | API_CONNECTED_SOURCE |
-| Learning & Development | Completion & Certificates | `/#/hr/training-completions` | `HrLearningWorkspace` | API_CONNECTED_SOURCE |
 | Employee Lifecycle | Employee Lifecycle | `/#/hr/employee-lifecycle-workspace` | `HrOperationsWorkspace` | NAVIGATION_ONLY |
 | Employee Lifecycle | Lifecycle Policies | `/#/hr/lifecycle-policies` | `HrLifecyclePoliciesWorkspace` | API_CONNECTED_SOURCE |
 | Employee Lifecycle | Onboarding | `/#/hr/onboarding` | `HrLifecycleCasesWorkspace` | API_CONNECTED_SOURCE |
 | Employee Lifecycle | Probation Reviews | `/#/hr/probation-reviews` | `HrLifecycleCasesWorkspace` | API_CONNECTED_SOURCE |
-| Employee Lifecycle | Transfers, Promotions & Movements | `/#/hr/employee-movements` | `HrLifecycleMovementsWorkspace` | API_CONNECTED_SOURCE |
+| Employee Lifecycle | Transfers | `/#/hr/employee-movements` | `HrEmployeeChangesWorkspace` | API_CONNECTED_SOURCE |
+| Employee Lifecycle | Promotions | `/#/hr/employee-promotions` | `HrEmployeeChangesWorkspace` | API_CONNECTED_SOURCE |
+| Employee Lifecycle | Loan Requests | `/#/hr/loans-benefits` | `HrLoanBenefitsWorkspace` | API_CONNECTED_SOURCE |
+| Employee Lifecycle | Advance Requests | `/#/hr/advance-requests` | `HrLoanBenefitsWorkspace` | API_CONNECTED_SOURCE |
 | Employee Lifecycle | Resignations | `/#/hr/resignations` | `HrLifecycleCasesWorkspace` | API_CONNECTED_SOURCE |
-| Employee Lifecycle | Termination Cases | `/#/hr/terminations` | `HrLifecycleCasesWorkspace` | API_CONNECTED_SOURCE |
+| Employee Lifecycle | Termination | `/#/hr/terminations` | `HrLifecycleCasesWorkspace` | API_CONNECTED_SOURCE |
 | Employee Lifecycle | Exit Clearance | `/#/hr/clearance` | `HrLifecycleCasesWorkspace` | API_CONNECTED_SOURCE |
-| Employee Lifecycle | Final Settlements | `/#/hr/final-settlements` | `HrLifecycleCasesWorkspace` | API_CONNECTED_SOURCE |
-| Employee Lifecycle | Offboarding Control Centre | `/#/hr/offboarding` | `HrLifecycleCasesWorkspace` | API_CONNECTED_SOURCE |
-| Benefits & Self-service | Benefits & Self-service | `/#/hr/benefits-self-service-workspace` | `HrOperationsWorkspace` | NAVIGATION_ONLY |
-| Benefits & Self-service | Loans, Benefits & Gratuity | `/#/hr/loans-benefits` | `HrBenefitsWorkspace` | API_CONNECTED_SOURCE |
-| Benefits & Self-service | Statutory Deductions | `/#/hr/statutory-deductions` | `HrBenefitsWorkspace` | API_CONNECTED_SOURCE |
-| Benefits & Self-service | Employee Self-service | `/#/hr/employee-self-service` | `HrBenefitsWorkspace` | API_CONNECTED_SOURCE |
-| Benefits & Self-service | HR & Payroll Report Centre | `/#/hr/hr-report-centre` | `HrBenefitsWorkspace` | API_CONNECTED_SOURCE |
-| Reporting, Compliance & Audit | Reporting, Compliance & Audit | `/#/hr/hr-compliance-workspace` | `HrOperationsWorkspace` | NAVIGATION_ONLY |
-| Reporting, Compliance & Audit | Compliance Configuration | `/#/hr/hr-compliance-configuration` | `HrReportGovernanceWorkspace` | API_CONNECTED_SOURCE |
-| Reporting, Compliance & Audit | Report Audit Log | `/#/hr/hr-report-audit-log` | `HrReportGovernanceWorkspace` | API_CONNECTED_SOURCE |
-| Reporting, Compliance & Audit | Secure Export Centre | `/#/hr/hr-export-centre` | `HrReportGovernanceWorkspace` | API_CONNECTED_SOURCE |

@@ -8,6 +8,7 @@ const sources = {
   component: ["PAY", "hr_pay_component", "code", "company_id"],
   structure: ["SAL", "hr_salary_structure", "code", "company_id"],
   loan: ["LN", "hr_employee_loan", "reference", "company_id"],
+  advance: ["ADV", "hr_employee_loan", "reference", "company_id"],
   lifecycle: ["LCP", "hr_employment_lifecycle_policy", "code", "legal_employer_id"],
   programme: ["TRN", "hr_learning_record", "terms->>'code'", "company_id"],
   overtime: ["OTP", "hr_ot_monetary_policy", "reference", "company_id"],

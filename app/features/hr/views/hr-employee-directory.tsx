@@ -205,11 +205,11 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
           <table className="w-full min-w-160 border-collapse text-left text-sm">
             <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-3 py-2">Employee</th>
-                <th className="px-3 py-2">Designation</th>
-                <th className="px-3 py-2">Department</th>
-                <th className="px-3 py-2">Joined</th>
-                <th className="px-3 py-2">Status</th>
+                <th className="px-4 py-3">Employee</th>
+                <th className="px-4 py-3">Designation</th>
+                <th className="px-4 py-3">Department</th>
+                <th className="px-4 py-3">Joined</th>
+                <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -219,20 +219,20 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
                   key={employee.id}
                   {...openRow(employee)}
                 >
-                  <td className="max-w-64 px-3 py-2">
+                  <td className="max-w-64 px-4 py-3">
                     <p className="m-0! truncate font-medium text-foreground">{employee.display_name}</p>
                     <p className="m-0! truncate text-xs text-muted-foreground">
                       {employee.employee_number}
                       {employee.work_email ? ` · ${employee.work_email}` : ""}
                     </p>
                   </td>
-                  <td className="max-w-48 truncate px-3 py-2 text-muted-foreground">{employee.designation}</td>
-                  <td className="max-w-48 px-3 py-2 text-muted-foreground">
+                  <td className="max-w-48 truncate px-4 py-3 text-muted-foreground">{employee.designation}</td>
+                  <td className="max-w-48 px-4 py-3 text-muted-foreground">
                     <span className="block truncate text-foreground">{employee.department}</span>
                     {employee.branch ? <span className="block truncate text-xs">{employee.branch}</span> : null}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{employee.joined_on}</td>
-                  <td className="px-3 py-2">
+                  <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{employee.joined_on}</td>
+                  <td className="px-4 py-3">
                     <Badge variant={employeeStatusVariant(employee.status)}>
                       {employee.status.replaceAll("_", " ")}
                     </Badge>

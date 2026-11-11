@@ -162,7 +162,7 @@ export function AttendanceRecordTable({
             <thead className="border-b border-border text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 {["Date", "Check in", "Check out", "Total", "Status", "Arrival", "Mode", "Notes"].map((h) => (
-                  <th key={h} scope="col" className="px-3 py-3">
+                  <th key={h} scope="col" className="px-4 py-3">
                     {h}
                   </th>
                 ))}
@@ -171,22 +171,22 @@ export function AttendanceRecordTable({
             <tbody>
               {records.map((r) => (
                 <tr key={r.on_date} className="border-b border-border/70 last:border-0">
-                  <td className="whitespace-nowrap px-3 py-3 font-semibold">{r.on_date}</td>
-                  <td className="whitespace-nowrap px-3 py-3">{clockLabel(r.check_in_time)}</td>
-                  <td className="whitespace-nowrap px-3 py-3">{clockLabel(r.check_out_time)}</td>
-                  <td className="whitespace-nowrap px-3 py-3 font-semibold tabular-nums">
+                  <td className="whitespace-nowrap px-4 py-3 font-semibold">{r.on_date}</td>
+                  <td className="whitespace-nowrap px-4 py-3">{clockLabel(r.check_in_time)}</td>
+                  <td className="whitespace-nowrap px-4 py-3">{clockLabel(r.check_out_time)}</td>
+                  <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums">
                     {r.check_out_time ? durationLabel(r.worked_minutes) : "-"}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-3">
+                  <td className="whitespace-nowrap px-4 py-3">
                     <RecordStatus status={r.status} />
                   </td>
                   <td
-                    className={`whitespace-nowrap px-3 py-3 ${r.arrival === "late" ? "text-[var(--nx-warning)]" : r.arrival ? "text-[var(--nx-success-text)]" : ""}`}
+                    className={`whitespace-nowrap px-4 py-3 ${r.arrival === "late" ? "text-[var(--nx-warning)]" : r.arrival ? "text-[var(--nx-success-text)]" : ""}`}
                   >
                     {r.arrival === "late" ? "Late" : r.arrival ? "On time" : "-"}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-3">{r.work_mode ? workModeLabels[r.work_mode] : "-"}</td>
-                  <td className="min-w-48 px-3 py-3 text-muted-foreground">{r.note ?? "-"}</td>
+                  <td className="whitespace-nowrap px-4 py-3">{r.work_mode ? workModeLabels[r.work_mode] : "-"}</td>
+                  <td className="min-w-48 px-4 py-3 text-muted-foreground">{r.note ?? "-"}</td>
                 </tr>
               ))}
             </tbody>

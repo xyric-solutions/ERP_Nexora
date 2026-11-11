@@ -38,7 +38,8 @@ const labels: Record<HrApplicationStage, string> = {
   rejected: "Rejected",
   withdrawn: "Withdrawn",
 };
-const stages = Object.keys(labels) as HrApplicationStage[];
+/** Stage filters shown on the pipeline (besides All); other stages still appear on rows and in stage changes. */
+const filterStages: readonly HrApplicationStage[] = ["selected", "rejected", "withdrawn"];
 const selectStyle =
   "h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50";
 const failure = (error: unknown, fallback: string) => (error instanceof ApiError ? error.message : fallback);
@@ -307,8 +308,8 @@ export function HrRecruitmentPipelineWorkspace() {
               setFilter({ search, stage: event.target.value, offset: 0 });
             }}
           >
-            <option value="">All stages</option>
-            {stages.map((stage) => (
+            <option value="">All</option>
+            {filterStages.map((stage) => (
               <option key={stage} value={stage}>
                 {labels[stage]}
               </option>
@@ -407,7 +408,7 @@ export function HrRecruitmentPipelineWorkspace() {
         </HrRecordDrawer>
       ) : null}
       <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by stage">
-        {(["", ...stages] as const).map((stage) => {
+        {(["", ...filterStages] as const).map((stage) => {
           const active = filter.stage === stage;
           const count = stage ? data.items.filter((item) => item.stage === stage).length : data.items.length;
           return (
@@ -423,7 +424,7 @@ export function HrRecruitmentPipelineWorkspace() {
                 setFilter({ search, stage, offset: 0 });
               }}
             >
-              {stage ? labels[stage] : "All stages"}
+              {stage ? labels[stage] : "All"}
               <span className="tabular-nums opacity-70">{count}</span>
             </Button>
           );
@@ -461,21 +462,21 @@ export function HrRecruitmentPipelineWorkspace() {
                     }
                   }}
                 >
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-3">
                     <span className="block font-medium">{item.candidate_name}</span>
                     <span className="block text-xs text-muted-foreground">{item.reference}</span>
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-3">
                     <span className="block">{item.opening_title}</span>
                     <span className="block text-xs text-muted-foreground">{item.opening_reference}</span>
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-3">
                     <Badge variant={item.stage === "rejected" || item.stage === "withdrawn" ? "outline" : "secondary"}>
                       {labels[item.stage]}
                     </Badge>
                   </td>
-                  <td className="px-4 py-2.5 whitespace-nowrap">{date(item.created_at)}</td>
-                  <td className="px-4 py-2.5 whitespace-nowrap">{date(item.updated_at)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">{date(item.created_at)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">{date(item.updated_at)}</td>
                 </tr>
               ))}
               {data.items.length === 0 ? (

@@ -281,7 +281,20 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
       ) : (
         <div className="grid min-w-0 gap-3 lg:grid-cols-2">
           {data.items.map((row) => (
-            <article key={row.id} className={panel + " grid gap-3"}>
+            <div
+              key={row.id}
+              role="button"
+              tabIndex={0}
+              aria-label={"Open " + row.reference}
+              onClick={() => open(row)}
+              onKeyDown={(e) => {
+                if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                  e.preventDefault();
+                  open(row);
+                }
+              }}
+              className={panel + " grid cursor-pointer gap-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"}
+            >
               <header className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="break-all text-xs text-muted-foreground">{row.reference}</p>
@@ -318,10 +331,7 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
               ) : (
                 <p className="text-xs text-muted-foreground">Historical terms retained read-only.</p>
               )}
-              <Button variant="outline" className="justify-self-start" onClick={() => open(row)}>
-                Review monetary record
-              </Button>
-            </article>
+            </div>
           ))}
         </div>
       )}

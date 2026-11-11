@@ -267,6 +267,11 @@ CreateHrLocalization,HrLocalizationDecision,HrLocalizationWorkspace,CreateHrOver
   HrEmploymentLifecyclePolicyApprovalResult,
   ActivateHrEmploymentLifecyclePolicyRequest,
   HrEmploymentLifecyclePolicyActivationResult,
+  UpdateHrEmploymentLifecyclePolicyRequest,
+  DeleteHrEmploymentLifecyclePolicyRequest,
+  HrEmploymentLifecyclePolicyDeleteResult,
+  DeactivateHrEmploymentLifecyclePolicyRequest,
+  HrEmploymentLifecyclePolicyDeactivationResult,
   CreateHrJobRequest,
   CreateHrEmployeeHireRequest,
   HrEmployeeHireRequestResult,
@@ -1042,6 +1047,16 @@ export class NexoraApiClient {
   createHrEmploymentLifecyclePolicy(payload: CreateHrEmploymentLifecyclePolicyRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmploymentLifecyclePolicyResult> {
     return this.request("/api/v1/hr/employment_lifecycle_policies", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
+  updateHrEmploymentLifecyclePolicy(policyId: string, payload: UpdateHrEmploymentLifecyclePolicyRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmploymentLifecyclePolicyResult> {
+    return this.request(\`/api/v1/hr/employment_lifecycle_policies/\${encodeURIComponent(policyId)}\`, { method: "PATCH", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  deleteHrEmploymentLifecyclePolicy(policyId: string, payload: DeleteHrEmploymentLifecyclePolicyRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmploymentLifecyclePolicyDeleteResult> {
+    return this.request(\`/api/v1/hr/employment_lifecycle_policies/\${encodeURIComponent(policyId)}\`, { method: "DELETE", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  deactivateHrEmploymentLifecyclePolicy(policyId: string, payload: DeactivateHrEmploymentLifecyclePolicyRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmploymentLifecyclePolicyDeactivationResult> {
+    return this.request(\`/api/v1/hr/employment_lifecycle_policies/\${encodeURIComponent(policyId)}/deactivate\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+
   submitHrEmploymentLifecyclePolicy(policyId: string, payload: SubmitHrEmploymentLifecyclePolicyRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmploymentLifecyclePolicySubmissionResult> {
     return this.request(\`/api/v1/hr/employment_lifecycle_policies/\${encodeURIComponent(policyId)}/submit\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }

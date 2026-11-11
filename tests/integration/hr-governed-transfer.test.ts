@@ -78,9 +78,8 @@ run("governed employee Transfer repository", () => {
        values
         ('transfer-designation',$1,$2,'designation','TR-DES','Transfer Designation','r06.maker',null,null),
         ('transfer-grade',$1,$2,'job_grade','TR-GRD','Transfer Grade','r06.maker',null,null),
-        ('transfer-cost-center',$1,$2,'cost_center','TR-CC','Transfer Cost Center','r06.maker',null,null),
-        ('transfer-location',$1,$2,'work_location','TR-LOC','Transfer Location','r06.maker',null,null),
-        ('transfer-employment-setup',$1,$2,'employment_setup','TR-ES','Transfer Employment Setup','r06.maker','payroll','monthly')
+        ('transfer-cost-center',$1,$2,'cost_center','TR-CC','Transfer Cost Center','r06.maker','payroll','monthly'),
+        ('transfer-location',$1,$2,'work_location','TR-LOC','Transfer Location','r06.maker',null,null)
        on conflict (tenant_id,id) do nothing`,
       [sourceTestTenantId, companyId],
     );
@@ -173,7 +172,6 @@ run("governed employee Transfer repository", () => {
         job_grade_id: "transfer-grade",
         cost_center_id: "transfer-cost-center",
         work_location_id: "transfer-location",
-        employment_setup_id: "transfer-employment-setup",
         effective_from: yesterday,
       },
       `transfer-profile-${suffix}`,
@@ -226,7 +224,6 @@ run("governed employee Transfer repository", () => {
       job_grade_id: "transfer-grade",
       cost_center_id: "transfer-cost-center",
       work_location_id: "transfer-location",
-      employment_setup_id: "transfer-employment-setup",
       effective_on: today,
       reason: `${label} is moving to the target operating branch.`,
     };
