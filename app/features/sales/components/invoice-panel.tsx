@@ -1,29 +1,32 @@
 "use client";
 
 /**
- * Invoice panel (prototype): details, payments and payment history in one
- * right-side panel. Replaces the separate Customer Receipts section. Each
- * Save Receipt still creates an individual receipt record (RCT-) in the
- * background so payment history stays traceable.
+ * Invoice panel (prototype). Invoices are read-only once issued. The panel
+ * shows the invoice, its payment history (posted receipts and return
+ * receipts) and its sale returns. Per the meeting of 11 Nov 2026:
+ * - payments are no longer entered here; Receive Payment opens a receipt on
+ *   the Receipts page with this invoice ready to allocate;
+ * - Sale Return is chosen from Add New on the Invoices page (the panel lists
+ *   the invoice's returns); there is no separate returns module.
  *
- * Mock only: nothing is posted to the ledger or bank. When the Sales API is
- * built, receipts must be posted server-side with audit and idempotency.
+ * Mock only: nothing is posted to the ledger, bank or stock. When the Sales
+ * API is built, returns and receipts must be posted server-side with audit
+ * and idempotency.
  */
 
 import { useState, type ReactNode } from "react";
-import { FileText } from "lucide-react";
+import { FileText, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Field, KeyValues, LinkButton, selectClass, StatusPill, tableClass } from "./sales-ui";
+import { cn } from "cn";
+import { KeyValues, LinkButton, salesLayer, StatusPill, tableClass } from "./sales-ui";
 import { InvoicePdfViewer } from "./invoice-viewer";
 import { sidePanelClass } from "./fulfilment-panel";
 import type { SalesNav } from "./sales-nav";
-import { RECEIPT_ACCOUNTS, RECEIPT_METHODS } from "../model/sales-constants";
-import { formatDate, money } from "../model/sales-format";
-import { commitSales, useSalesState } from "../model/sales-store";
+import { formatDate } from "../model/sales-format";
+import { currencySummary, docMoney } from "../model/sales-currency";
+import { useSalesState } from "../model/sales-store";
 import {
-  appliedTo,
   approvalOf,
   approverName,
   displayStatus,
@@ -31,19 +34,17 @@ import {
   findCustomer,
   findDocument,
   invoiceBalance,
+  invoiceCredit,
   lineAmount,
-  newPaymentInput,
   paidOn,
   receiptsFor,
-  recordInvoicePayment,
-  validatePayment,
-  type FieldErrors,
-  type PaymentInput,
-  type PaymentKind,
+  returnedOn,
+  returnedQty,
+  returnsFor,
+  returnValue,
+  reversalsFor,
 } from "../model/sales-workflow";
-import type { SalesDocument } from "../model/sales-types";
-
-const PAYMENT_KINDS: readonly PaymentKind[] = ["Paid in full", "Partially paid"];
+import type { CustomerReceipt, SalesDocument } from "../model/sales-types";
 
 function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
   return (
@@ -57,55 +58,24 @@ function Section({ title, children, aside }: { title: string; children: ReactNod
   );
 }
 
-function InvoiceBody({ invoice, nav, onClose }: { invoice: SalesDocument; nav: SalesNav; onClose: () => void }) {
+function InvoiceBody({ invoice, nav }: { invoice: SalesDocument; nav: SalesNav }) {
   const state = useSalesState();
   const customer = findCustomer(state, invoice.customerId);
   const order = findDocument(state, "order", invoice.links.order);
   const quotation = findDocument(state, "quotation", invoice.links.quotation ?? order?.links.quotation);
   const approved = quotation ? approvalOf(quotation) : undefined;
   const receipts = receiptsFor(state, invoice.code);
+  const reversals = reversalsFor(state, invoice.code);
+  const returns = returnsFor(state, invoice.code);
   const total = documentTotal(invoice);
   const received = paidOn(state, invoice);
+  const returned = returnedOn(state, invoice);
   const balance = invoiceBalance(state, invoice);
-  const status = displayStatus(invoice);
-  const paid = invoice.status === "Paid";
+  const credit = invoiceCredit(state, invoice);
   const lastReceipt = receipts[receipts.length - 1];
-
-  const [payment, setPayment] = useState<PaymentInput>(() => newPaymentInput(state, invoice));
-  const [errors, setErrors] = useState<FieldErrors>({});
   const [pdfOpen, setPdfOpen] = useState(false);
-
-  const update = (patch: Partial<PaymentInput>) => {
-    setPayment((current) => {
-      const next = { ...current, ...patch };
-      // Paid in full always settles the whole balance.
-      if (next.kind === "Paid in full") next.amount = Math.round(balance * 100) / 100;
-      else if (patch.kind === "Partially paid") next.amount = 0;
-      return next;
-    });
-    setErrors((current) => {
-      const next = { ...current };
-      for (const key of Object.keys(patch)) delete next[key];
-      if ("kind" in patch) delete next.amount;
-      return next;
-    });
-  };
-
-  const saveReceipt = () => {
-    const found = validatePayment(state, invoice, payment);
-    if (Object.keys(found).length) {
-      setErrors(found);
-      return;
-    }
-    try {
-      const code = commitSales((sales) => recordInvoicePayment(sales, invoice.code, payment, nav.actor));
-      nav.notify(`Receipt ${code} saved against ${invoice.code}.`);
-      // Saved: close the panel and return to the list, which shows the new balance and status.
-      onClose();
-    } catch (error) {
-      nav.notify(error instanceof Error ? error.message : "The receipt could not be saved.");
-    }
-  };
+  /** Amount a receipt applied to (or a return receipt reversed from) this invoice. */
+  const onInvoice = (doc: CustomerReceipt) => doc.alloc.filter((line) => line.inv === invoice.code).reduce((sum, line) => sum + line.amount, 0);
 
   // Navigating replaces the invoice route, which closes this panel.
   const open = (code: string) => nav.open(code);
@@ -113,15 +83,16 @@ function InvoiceBody({ invoice, nav, onClose }: { invoice: SalesDocument; nav: S
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <section className="grid grid-cols-3 border-b border-border bg-muted">
+        <section className="grid grid-cols-2 border-b border-border bg-muted sm:grid-cols-4">
           {[
-            ["Invoice total", money(total)],
-            ["Received", money(received)],
-            ["Balance due", money(balance)],
+            ["Invoice total", docMoney(total, invoice)],
+            ["Received", docMoney(received, invoice)],
+            ["Returned", docMoney(returned, invoice)],
+            [credit > 0 ? "Credit due to customer" : "Balance due", docMoney(credit > 0 ? credit : balance, invoice)],
           ].map(([label, value], index) => (
-            <div key={label} className={index < 2 ? "min-w-0 border-r border-border px-4 py-3" : "min-w-0 px-4 py-3"}>
+            <div key={label} className="min-w-0 border-b border-border px-4 py-3 not-last:border-r max-sm:nth-2:border-r-0 sm:border-b-0">
               <span className="block text-xs text-muted-foreground">{label}</span>
-              <strong className={index === 2 && balance > 0 ? "block text-sm font-bold text-[var(--nx-danger)] tabular-nums" : "block text-sm font-bold tabular-nums"}>{value}</strong>
+              <strong className={index === 3 && balance > 0 ? "block text-sm font-bold text-[var(--nx-danger)] tabular-nums" : "block text-sm font-bold tabular-nums"}>{value}</strong>
             </div>
           ))}
         </section>
@@ -129,14 +100,13 @@ function InvoiceBody({ invoice, nav, onClose }: { invoice: SalesDocument; nav: S
         <Section title="Invoice details">
           <KeyValues
             rows={[
-              ["Customer", customer?.display ?? "—"],
+              ["Customer", customer ? <LinkButton key="c" onClick={() => open(customer.code)}>{customer.display}</LinkButton> : "—"],
               ["Invoice date", formatDate(invoice.date)],
               ["Due date", formatDate(invoice.date2)],
               ["Terms", invoice.terms],
-              ["Payment status", <StatusPill key="s" status={status} />],
-              ["Payment method", lastReceipt ? lastReceipt.method : "—"],
-              ["Last payment date", lastReceipt ? formatDate(lastReceipt.date) : "—"],
-              ["Last reference", lastReceipt?.reference || "—"],
+              ["Currency", currencySummary(invoice)],
+              ["Payment status", <StatusPill key="s" status={displayStatus(invoice)} />],
+              ["Last payment", lastReceipt ? `${formatDate(lastReceipt.date)} · ${lastReceipt.method}` : "—"],
               ...(quotation ? ([["Quotation", <LinkButton key="q" mono onClick={() => open(quotation.code)}>{quotation.code}</LinkButton>]] as [string, ReactNode][]) : []),
               ...(approved ? ([["Approved by", `${approverName(approved)} · ${approved.at}`]] as [string, ReactNode][]) : []),
               ...(order ? ([["Sales order", <LinkButton key="o" mono onClick={() => open(order.code)}>{order.code}</LinkButton>]] as [string, ReactNode][]) : []),
@@ -145,15 +115,16 @@ function InvoiceBody({ invoice, nav, onClose }: { invoice: SalesDocument; nav: S
               ...(invoice.reference ? ([["Reference", invoice.reference]] as [string, ReactNode][]) : []),
             ]}
           />
-          <div className="overflow-x-auto px-4 pb-4">
+          <div className="relative overflow-x-auto px-4 pb-4">
             <table className={tableClass}>
-              <thead><tr><th>Item</th><th className="text-right!">Qty</th><th className="text-right!">Amount</th></tr></thead>
+              <thead><tr><th>Item</th><th className="text-right!">Qty</th><th className="text-right!">Returned</th><th className="text-right!">Amount</th></tr></thead>
               <tbody>
                 {invoice.lines.map((item, index) => (
                   <tr key={`${item.sku}-${index}`}>
                     <td>{item.desc}<small>{item.tax}% sales tax</small></td>
                     <td className="text-right tabular-nums whitespace-nowrap">{item.qty} {item.uom}</td>
-                    <td className="text-right font-semibold tabular-nums">{money(lineAmount(item))}</td>
+                    <td className="text-right tabular-nums">{returnedQty(state, invoice.code, item) || "—"}</td>
+                    <td className="text-right font-semibold tabular-nums">{docMoney(lineAmount(item), invoice)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -161,83 +132,58 @@ function InvoiceBody({ invoice, nav, onClose }: { invoice: SalesDocument; nav: S
           </div>
         </Section>
 
-        <Section title="Record payment">
-          {paid ? (
-            <p className="m-0 px-4 py-4 text-[0.8125rem] text-muted-foreground">This invoice is fully paid. No balance is due.</p>
-          ) : (
-            <div className="grid gap-3 p-4 sm:grid-cols-2">
-              <Field label="Change invoice status to" required>
-                <select className={selectClass} value={payment.kind} onChange={(event) => update({ kind: event.target.value as PaymentKind })}>
-                  {PAYMENT_KINDS.map((kind) => <option key={kind}>{kind}</option>)}
-                </select>
-              </Field>
-              <Field
-                label="Amount received"
-                required
-                error={errors.amount}
-                hint={payment.kind === "Paid in full" ? "Settles the full balance." : `Less than ${money(balance)}.`}
-              >
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  className="text-right"
-                  value={payment.amount}
-                  readOnly={payment.kind === "Paid in full"}
-                  aria-invalid={Boolean(errors.amount)}
-                  onChange={(event) => update({ amount: Number(event.target.value) })}
-                />
-              </Field>
-              <Field label="Payment date" required error={errors.date}>
-                <Input type="date" value={payment.date} aria-invalid={Boolean(errors.date)} onChange={(event) => update({ date: event.target.value })} />
-              </Field>
-              <Field label="Payment method" required error={errors.method}>
-                <select className={selectClass} value={payment.method} onChange={(event) => update({ method: event.target.value })}>
-                  {RECEIPT_METHODS.map((method) => <option key={method}>{method}</option>)}
-                </select>
-              </Field>
-              {payment.method !== "Cash" ? (
-                <Field label="Received into">
-                  <select className={selectClass} value={payment.account} onChange={(event) => update({ account: event.target.value })}>
-                    {RECEIPT_ACCOUNTS.map((account) => <option key={account}>{account}</option>)}
-                  </select>
-                </Field>
-              ) : null}
-              <Field label="Reference / transaction ID" required={payment.method !== "Cash"} error={errors.reference}>
-                <Input
-                  value={payment.reference}
-                  placeholder={payment.method === "Cheque" ? "Cheque number" : "e.g. IBFT 88231"}
-                  aria-invalid={Boolean(errors.reference)}
-                  onChange={(event) => update({ reference: event.target.value })}
-                />
-              </Field>
-              <p className="m-0 text-xs text-muted-foreground sm:col-span-2">
-                After saving, the balance becomes {money(Math.max(0, balance - (Number(payment.amount) || 0)))} and the status changes to {payment.kind}.
-              </p>
-            </div>
-          )}
-        </Section>
-
-        <Section title="Payment history" aside={<span className="text-xs text-muted-foreground">{receipts.length} payment(s)</span>}>
-          {receipts.length ? (
-            <div className="overflow-x-auto px-4 pb-4 pt-2">
+        <Section title="Payment history" aside={<span className="text-xs text-muted-foreground">{receipts.length + reversals.length} entr{receipts.length + reversals.length === 1 ? "y" : "ies"}</span>}>
+          {receipts.length || reversals.length ? (
+            <div className="relative overflow-x-auto px-4 pb-4 pt-2">
               <table className={tableClass}>
-                <thead><tr><th>Receipt</th><th>Date</th><th>Method</th><th>Reference</th><th className="text-right!">Amount</th></tr></thead>
+                <thead><tr><th>Document</th><th>Date</th><th>Method</th><th>Reference</th><th className="text-right!">Amount</th></tr></thead>
                 <tbody>
                   {receipts.map((receipt) => (
                     <tr key={receipt.id}>
-                      <td><span className="font-mono font-semibold">{receipt.code}</span><small>{receipt.owner}</small></td>
+                      <td><LinkButton mono onClick={() => open(receipt.code)}>{receipt.code}</LinkButton><small>{receipt.owner}</small></td>
                       <td>{formatDate(receipt.date)}</td>
                       <td>{receipt.method}<small>{receipt.account}</small></td>
                       <td>{receipt.reference || "—"}</td>
-                      <td className="text-right font-semibold tabular-nums">{money(appliedTo(receipt, invoice.code))}</td>
+                      <td className="text-right font-semibold tabular-nums">{docMoney(onInvoice(receipt), invoice)}</td>
+                    </tr>
+                  ))}
+                  {reversals.map((reversal) => (
+                    <tr key={reversal.id}>
+                      <td><LinkButton mono onClick={() => open(reversal.code)}>{reversal.code}</LinkButton><small>Return of {reversal.against}</small></td>
+                      <td>{formatDate(reversal.date)}</td>
+                      <td>{reversal.method}<small>{reversal.account}</small></td>
+                      <td>{reversal.reference || "—"}</td>
+                      <td className="text-right font-semibold text-[var(--nx-danger)] tabular-nums">−{docMoney(onInvoice(reversal), invoice)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           ) : (
-            <p className="m-0 px-4 py-4 text-[0.8125rem] text-muted-foreground">No payments recorded yet.</p>
+            <p className="m-0 px-4 py-4 text-[0.8125rem] text-muted-foreground">No payments yet. Use Receive Payment to record one in Receipts.</p>
+          )}
+        </Section>
+
+        <Section title="Sale returns" aside={<span className="text-xs text-muted-foreground">{returns.length} return(s)</span>}>
+          {returns.length ? (
+            <div className="relative overflow-x-auto px-4 pb-4 pt-2">
+              <table className={tableClass}>
+                <thead><tr><th>Return</th><th>Date</th><th>Items</th><th>Reason</th><th className="text-right!">Value</th></tr></thead>
+                <tbody>
+                  {returns.map((item) => (
+                    <tr key={item.id}>
+                      <td className="font-mono font-semibold">{item.code}<small>{item.history[0]?.by}</small></td>
+                      <td>{formatDate(item.date)}</td>
+                      <td>{item.lines.map((line) => <span key={`${line.sku}-${line.desc}`} className="block">{line.qty} × {line.desc}</span>)}</td>
+                      <td>{item.reason}</td>
+                      <td className="text-right font-semibold tabular-nums">{docMoney(returnValue(item), invoice)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="m-0 px-4 py-4 text-[0.8125rem] text-muted-foreground">No returns against this invoice. Record one with Add New › Sale Return on the Invoices page.</p>
           )}
         </Section>
       </div>
@@ -246,7 +192,11 @@ function InvoiceBody({ invoice, nav, onClose }: { invoice: SalesDocument; nav: S
         <Button type="button" variant="outline" onClick={() => setPdfOpen(true)}>
           <FileText /> View PDF
         </Button>
-        {!paid ? <Button type="button" onClick={saveReceipt}>Save Receipt</Button> : null}
+        {balance > 0 ? (
+          <Button type="button" onClick={() => nav.openNew("receipts", invoice.code)}>
+            <Wallet /> Receive Payment
+          </Button>
+        ) : null}
       </SheetFooter>
 
       {pdfOpen ? (
@@ -260,24 +210,24 @@ function InvoiceBody({ invoice, nav, onClose }: { invoice: SalesDocument; nav: S
   );
 }
 
-/** Right-side invoice panel: details, Save Receipt and payment history. */
+/** Right-side invoice panel: read-only invoice, payment history and returns. */
 export function InvoicePanel({ invoiceCode, nav, onClose }: { invoiceCode: string | null; nav: SalesNav; onClose: () => void }) {
   const state = useSalesState();
   const invoice = invoiceCode ? findDocument(state, "invoice", invoiceCode) : undefined;
   const customer = invoice ? findCustomer(state, invoice.customerId) : undefined;
   return (
     <Sheet open={Boolean(invoice)} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className={sidePanelClass}>
+      <SheetContent side="right" overlayClassName={salesLayer.sheetOverlay} className={cn(sidePanelClass, salesLayer.sheet)}>
         {invoice ? (
           <>
             <SheetHeader className="border-b border-border pr-12">
               <div className="flex flex-wrap items-center gap-2">
-                <SheetTitle className="font-mono text-lg font-bold">{invoice.code}</SheetTitle>
+                <SheetTitle className="m-0 font-mono text-lg font-bold">{invoice.code}</SheetTitle>
                 <StatusPill status={displayStatus(invoice)} />
               </div>
-              <SheetDescription>{customer?.display ?? "—"} · Invoice details, payments and payment history</SheetDescription>
+              <SheetDescription className="m-0">{customer?.display ?? "—"} · Read-only invoice, payment history and returns</SheetDescription>
             </SheetHeader>
-            <InvoiceBody key={`${invoice.code}-${invoice.status}-${invoice.history.length}`} invoice={invoice} nav={nav} onClose={onClose} />
+            <InvoiceBody key={`${invoice.code}-${invoice.history.length}`} invoice={invoice} nav={nav} />
           </>
         ) : null}
       </SheetContent>

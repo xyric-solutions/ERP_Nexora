@@ -12,6 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
@@ -545,13 +546,12 @@ export function BankingTransferEntry({ transferId, onBack, onDirtyChange, onOpen
                     <td className="p-2">
                       <div className="flex min-w-40 items-center gap-2">
                         <span className="text-xs font-semibold text-muted-foreground">{source?.currency ?? "—"}</span>
-                        <Input
+                        <AmountInput
                           aria-label="Amount"
-                          inputMode="decimal"
-                          className="text-right"
+                          decimals={8}
                           value={line.amount}
                           disabled={!editable}
-                          onChange={(event) => changeLine(line.id, { amount: event.target.value })}
+                          onValueChange={(raw) => changeLine(line.id, { amount: raw })}
                         />
                       </div>
                       {crossCurrency ? (
@@ -565,13 +565,12 @@ export function BankingTransferEntry({ transferId, onBack, onDirtyChange, onOpen
                         <div className="mt-3 rounded-md border border-border bg-muted/30 p-2">
                           <label className="grid gap-1 text-xs font-medium">
                             Optional bank charge ({source?.currency ?? "source currency"})
-                            <Input
+                            <AmountInput
                               aria-label="Bank charge"
-                              inputMode="decimal"
-                              className="text-right"
+                              decimals={8}
                               value={line.bankCharge}
                               disabled={!editable}
-                              onChange={(event) => changeLine(line.id, { bankCharge: event.target.value })}
+                              onValueChange={(raw) => changeLine(line.id, { bankCharge: raw })}
                             />
                           </label>
                           {editable ? (

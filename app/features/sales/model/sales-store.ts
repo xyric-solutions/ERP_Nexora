@@ -36,14 +36,13 @@ export function commitSales<T>(change: (draft: SalesState) => T): T {
   return result;
 }
 
-/** Counts shown beside Pick, Pack & Delivery and Sales Approvals in the menu. */
+/** Counts shown in the menu: quotations waiting for approval, orders to deliver and draft receipts. */
 export function useSalesNavigationCounts(): Record<string, number> {
   const current = useSalesState();
   return {
-    "pick-pack-delivery": current.order.filter((order) => order.status === "Confirmed" || order.status === "Packed").length,
-    "sales-approvals":
-      current.quotation.filter((quotation) => quotation.status === "Pending approval").length +
-      current.returns.filter((item) => item.status === "Pending approval").length,
+    quotations: current.quotation.filter((quotation) => quotation.status === "Pending approval").length,
+    "pick-pack-delivery": current.order.filter((order) => order.status === "Confirmed" && !order.delivery).length,
+    receipts: current.receipt.filter((doc) => doc.status === "Draft").length,
   };
 }
 

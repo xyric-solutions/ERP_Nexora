@@ -19,6 +19,7 @@ import {
 } from "@nexora/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -454,9 +455,9 @@ export function HrSettlementBenefits({
                                 : "Company rate per service year"
                           }
                         >
-                          <Input
+                          <AmountInput
                             name="rate"
-                            inputMode="decimal"
+                            decimals={4}
                             required
                             disabled={busy}
                             placeholder="Enter approved currency amount"

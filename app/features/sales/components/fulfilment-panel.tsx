@@ -4,7 +4,8 @@
  * Pick, Pack & Delivery panel for one sales order (prototype).
  *
  * One right-side panel takes an approved order through pick, pack and
- * delivery, then offers Create Invoice. No step here asks for approval:
+ * delivery, then offers Create Invoice, which opens the invoice form
+ * prefilled from the order. No step here asks for approval:
  * Management approval happens once, on the quotation.
  */
 
@@ -15,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "cn";
-import { Field, KeyValues, LinkButton, selectClass, StatusPill } from "./sales-ui";
+import { Field, KeyValues, LinkButton, salesLayer, selectClass, StatusPill } from "./sales-ui";
 import type { SalesNav } from "./sales-nav";
 import { SALES_WAREHOUSES } from "../model/sales-constants";
 import { formatDate, todayIso } from "../model/sales-format";
@@ -23,10 +24,10 @@ import { commitSales, useSalesState } from "../model/sales-store";
 import {
   approvalOf,
   approverName,
-  createInvoiceFromOrder,
   deliveryAddress,
   findCustomer,
   findDocument,
+  fulfilmentStage,
   nextDeliveryNumber,
   recordDelivery,
   savePickPack,
@@ -76,6 +77,7 @@ function FulfilmentBody({ order, nav, onClose }: { order: SalesDocument; nav: Sa
 
   const packed = Boolean(order.pickPack);
   const delivered = Boolean(order.delivery);
+  const stage = fulfilmentStage(order);
   const pickInput = { picked, packages, packedBy, notes: packNotes };
 
   const run = (change: () => string) => {
@@ -115,13 +117,10 @@ function FulfilmentBody({ order, nav, onClose }: { order: SalesDocument; nav: Sa
     });
   };
 
+  // Opens the invoice form prefilled from this order; the invoice is saved from that form.
   const createInvoice = () => {
-    run(() => {
-      const code = commitSales((sales) => createInvoiceFromOrder(sales, order.code, nav.actor));
-      onClose();
-      nav.go("invoices");
-      return `Invoice ${code} created and saved. Click it in Invoices to record payments.`;
-    });
+    onClose();
+    nav.openNew("invoices", order.code);
   };
 
   const togglePick = (index: number, checked: boolean) => {
@@ -236,14 +235,14 @@ function FulfilmentBody({ order, nav, onClose }: { order: SalesDocument; nav: Sa
       </div>
 
       <SheetFooter className="flex-row flex-wrap justify-end border-t border-border bg-muted">
-        {order.status === "Confirmed" ? (
+        {order.status !== "Confirmed" ? null : stage === "Not started" ? (
           <>
             <Button type="button" variant="outline" onClick={savePack}>Save Pick & Pack</Button>
             <Button type="button" onClick={saveDelivery}>Save Delivery</Button>
           </>
-        ) : order.status === "Packed" ? (
+        ) : stage === "Packed" ? (
           <Button type="button" onClick={saveDelivery}>Save Delivery</Button>
-        ) : order.status === "Delivered" ? (
+        ) : stage === "Delivered" ? (
           <Button type="button" onClick={createInvoice}>Create Invoice</Button>
         ) : order.links.invoice ? (
           <Button type="button" variant="outline" onClick={() => { onClose(); nav.open(order.links.invoice!); }}>Open invoice {order.links.invoice}</Button>
@@ -259,17 +258,17 @@ export function FulfilmentPanel({ orderCode, nav, onClose }: { orderCode: string
   const order = orderCode ? findDocument(state, "order", orderCode) : undefined;
   return (
     <Sheet open={Boolean(order)} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className={sidePanelClass}>
+      <SheetContent side="right" overlayClassName={salesLayer.sheetOverlay} className={cn(sidePanelClass, salesLayer.sheet)}>
         {order ? (
           <>
             <SheetHeader className="border-b border-border pr-12">
               <div className="flex flex-wrap items-center gap-2">
-                <SheetTitle className="font-mono text-lg font-bold">{order.code}</SheetTitle>
-                <StatusPill status={order.status} />
+                <SheetTitle className="m-0 font-mono text-lg font-bold">{order.code}</SheetTitle>
+                <StatusPill status={fulfilmentStage(order)} />
               </div>
-              <SheetDescription>Pick, pack and deliver this order. Then create the invoice.</SheetDescription>
+              <SheetDescription className="m-0">Pick, pack and deliver this order. Then create the invoice.</SheetDescription>
             </SheetHeader>
-            <FulfilmentBody key={`${order.code}-${order.status}`} order={order} nav={nav} onClose={onClose} />
+            <FulfilmentBody key={`${order.code}-${fulfilmentStage(order)}`} order={order} nav={nav} onClose={onClose} />
           </>
         ) : null}
       </SheetContent>

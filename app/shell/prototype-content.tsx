@@ -23,6 +23,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import type { CompanyMode } from "@prototype/shared/fixtures/mock-data";
 import { RoleDashboard } from "@prototype/features/dashboard/views/role-dashboard";
@@ -1287,9 +1288,8 @@ function FormView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
                         </select>
                       </td>
                       <td>
-                        <Input
+                        <AmountInput
                           defaultValue={row.amount.replace(/[^0-9.]/g, "")}
-                          inputMode="decimal"
                           aria-label={"Rate line " + (index + 1)}
                         />
                       </td>

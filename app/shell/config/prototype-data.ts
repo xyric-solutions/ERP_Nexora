@@ -148,7 +148,9 @@ export const prototypeModules = [
     description: "Quotation-to-cash: quotations, sales orders, delivery, invoices and customer receipts.",
     category: "Finance & trade",
     modes: allModes,
-    // Simplified flow approved on 10 Nov 2026 (see docs/architecture/sales-simplified-workflow.md).
+    // Simplified flow approved on 10 Nov 2026 and revised in the review of 11 Nov 2026
+    // (see docs/architecture/sales-simplified-workflow.md). Returns & Control was removed:
+    // Sale Return sits on the opened invoice, approvals on the quotation itself.
     groups: [
       g(
         "selling",
@@ -158,15 +160,10 @@ export const prototypeModules = [
           p("sales-orders", "Sales Orders"),
           p("pick-pack-delivery", "Pick, Pack & Delivery"),
           p("invoices", "Invoices"),
+          p("receipts", "Receipts"),
         ],
         true,
       ),
-      g("sales-control", "Returns & Control", [
-        p("sales-returns", "Sales Returns"),
-        p("pricing", "Pricing & Discounts", "settings"),
-        p("sales-approvals", "Sales Approvals", "approval"),
-        p("sales-reports", "Sales Reports", "report"),
-      ]),
     ],
   },
   {
@@ -1549,17 +1546,22 @@ const retiredPageRedirects: Record<string, readonly [moduleId: string, pageId: s
   "customers:customer-profile": ["customers", "customers"],
   "customers:credit-limit-review": ["customers", "customers"],
   "customers:open-items": ["sales", "invoices"],
-  // Customer receipts are recorded from the invoice panel (Save Receipt).
-  "sales:customer-receipts": ["sales", "invoices"],
-  "customers:customer-receipts": ["sales", "invoices"],
-  "customers:add-customer-receipt": ["sales", "invoices"],
-  "customers:receipt-allocation": ["sales", "invoices"],
+  // Customer receipts: listed and entered on Sales → Receipts (also saved from the invoice panel).
+  "sales:customer-receipts": ["sales", "receipts"],
+  "customers:customer-receipts": ["sales", "receipts"],
+  "customers:add-customer-receipt": ["sales", "receipts", "new"],
+  "customers:receipt-allocation": ["sales", "receipts"],
   "customers:refund-writeoff": ["sales", "invoices"],
-  "customers:ar-ageing": ["sales", "sales-reports"],
-  "customers:collections-disputes": ["sales", "sales-reports"],
-  "customers:collections-workbench": ["sales", "sales-reports"],
-  "customers:customer-statements": ["sales", "sales-reports"],
-  "customers:ar-reconciliation": ["sales", "sales-reports"],
+  // Returns & Control removed in the sales review of 11 Nov 2026.
+  "sales:sales-returns": ["sales", "invoices"],
+  "sales:pricing": ["sales", "quotations"],
+  "sales:sales-approvals": ["sales", "quotations"],
+  "sales:sales-reports": ["reports", "sales-invoice-detail-report"],
+  "customers:ar-ageing": ["reports", "sales-invoice-detail-report"],
+  "customers:collections-disputes": ["reports", "sales-invoice-detail-report"],
+  "customers:collections-workbench": ["reports", "sales-invoice-detail-report"],
+  "customers:customer-statements": ["reports", "sales-invoice-detail-report"],
+  "customers:ar-reconciliation": ["reports", "sales-invoice-detail-report"],
 };
 
 export function findPrototypePage(

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { HrLifecycleCaseAction, HrLifecycleCaseRecord } from "@nexora/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "./hr-workspace-controls";
 import { formatHrMinor, parseHrCurrency } from "./payroll-money";
@@ -21,7 +22,8 @@ export function SettlementCorrectionReview({
 }) {
   const [editing, setEditing] = useState(false),
     [decision, setDecision] = useState<{ id: string; decision: "approve" | "reject" } | null>(null),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [amounts, setAmounts] = useState<Record<number, string>>({});
   const workspace = record.financial_corrections;
   if (!workspace || record.terms.kind !== "settlement") return null;
   const lines = record.terms.lines,
@@ -45,6 +47,7 @@ export function SettlementCorrectionReview({
             disabled={busy}
             onClick={() => {
               setError("");
+              setAmounts({});
               setEditing(true);
             }}
           >
@@ -124,13 +127,12 @@ export function SettlementCorrectionReview({
                       try {
                         if (!line.calculation) return;
                         const value = calculateHrSettlementMinor(
-                            event.target.value,
-                            line.calculation.rate_minor,
-                            line.calculation.rate_divisor,
-                            line.calculation.rate_multiplier,
-                          ),
-                          amount = event.currentTarget.form?.elements.namedItem(`amount-${index}`);
-                        if (amount instanceof HTMLInputElement) amount.value = formatHrMinor(value, scale);
+                          event.target.value,
+                          line.calculation.rate_minor,
+                          line.calculation.rate_divisor,
+                          line.calculation.rate_multiplier,
+                        );
+                        setAmounts((current) => ({ ...current, [index]: formatHrMinor(value, scale) }));
                         setError("");
                       } catch {
                         setError("Use an exact encashed-day quantity within the approved rule cap.");
@@ -140,10 +142,11 @@ export function SettlementCorrectionReview({
                 </Field>
               )}
               <Field title={`Corrected amount for line ${index + 1} (${currency})`}>
-                <Input
+                <AmountInput
                   name={`amount-${index}`}
-                  inputMode="decimal"
-                  defaultValue={formatHrMinor(currentAmount(index), scale)}
+                  decimals={scale}
+                  value={amounts[index] ?? formatHrMinor(currentAmount(index), scale)}
+                  onValueChange={(raw) => setAmounts((current) => ({ ...current, [index]: raw }))}
                   required
                   disabled={busy}
                 />

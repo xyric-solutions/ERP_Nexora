@@ -11,6 +11,7 @@ import { Eye, EyeOff, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import { countryName, CURRENCIES } from "@/shared/constants/countries";
 import { maskAccount, postalHint } from "@/shared/model/international-validation";
@@ -424,6 +425,15 @@ export function CustomerSectionBody({
     options: { hint?: string; step?: number; min?: number; max?: number; readOnly?: boolean } = {},
   ) => (
     <Field label={label} error={errors[key]} hint={options.hint}>
+      {key === "creditLimit" || key === "openingBalance" ? (
+        <AmountInput
+          allowNegative={key === "openingBalance"}
+          readOnly={options.readOnly}
+          value={customer[key]}
+          aria-invalid={Boolean(errors[key])}
+          onValueChange={(_, value) => update({ [key]: value } as Partial<SalesCustomer>)}
+        />
+      ) : (
       <Input
         type="number"
         inputMode="decimal"
@@ -436,6 +446,7 @@ export function CustomerSectionBody({
         aria-invalid={Boolean(errors[key])}
         onChange={(event) => update({ [key]: numberValue(event.target.value) } as Partial<SalesCustomer>)}
       />
+      )}
     </Field>
   );
 

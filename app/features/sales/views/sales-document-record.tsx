@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   ActivityList,
@@ -18,19 +19,22 @@ import {
   type FlowStep,
 } from "../components/sales-ui";
 import { FulfilmentPanel } from "../components/fulfilment-panel";
+import { DeleteDraftDialog } from "../components/sales-dialogs";
 import type { SalesNav } from "../components/sales-nav";
 import { customerPhone } from "../model/customer-model";
-import { formatDate, money } from "../model/sales-format";
+import { formatDate } from "../model/sales-format";
+import { currencySummary, docMoney } from "../model/sales-currency";
 import { commitSales, useSalesState } from "../model/sales-store";
 import {
   approvalOf,
   approvalSummary,
   confirmOrder,
-  createInvoiceFromOrder,
+  deleteOrder,
   displayStatus,
   documentChain,
   findCustomer,
   findDocument,
+  fulfilmentStage,
   historyTime,
   lineAmount,
   lineTotals,
@@ -50,7 +54,7 @@ function flowSteps(state: SalesState, order: SalesDocument, open: (code: string)
     { label: "Quotation", done: Boolean(quotation), skipped: !quotation, link: link(quotation?.code), detail: quotation ? historyTime(quotation, "Saved") : "Direct order" },
     {
       label: approved ? "Approved" : "Order confirmed",
-      done: order.status !== "Saved",
+      done: order.status !== "Draft",
       detail: approved ? approvalSummary(quotation!).replace("Approved by ", "") : historyTime(order, "Confirmed"),
     },
     { label: "Picked & packed", done: Boolean(order.pickPack), detail: order.pickPack ? `${order.pickPack.packages} pkg · ${order.pickPack.packedBy}` : "" },
@@ -70,6 +74,7 @@ export function DocumentRecord({ code, nav }: { code: string; nav: SalesNav }) {
   const doc = findDocument(state, "order", code);
   const [editing, setEditing] = useState(false);
   const [fulfilling, setFulfilling] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   if (!doc) {
     return (
@@ -89,6 +94,18 @@ export function DocumentRecord({ code, nav }: { code: string; nav: SalesNav }) {
   const next = nextActionFor(state, doc);
   const totals = lineTotals(doc.lines);
   const quotation = findDocument(state, "quotation", doc.links.quotation);
+  const stage = fulfilmentStage(doc);
+
+  const remove = () => {
+    setDeleting(false);
+    try {
+      commitSales((sales) => deleteOrder(sales, doc.code));
+      nav.go("sales-orders");
+      nav.notify(`Draft ${doc.code} deleted.`);
+    } catch (error) {
+      nav.notify(error instanceof Error ? error.message : "The draft could not be deleted.");
+    }
+  };
 
   const run = (change: () => string) => {
     try {
@@ -106,13 +123,8 @@ export function DocumentRecord({ code, nav }: { code: string; nav: SalesNav }) {
         return `${doc.code} confirmed. It is now in Pick, Pack & Delivery.`;
       });
     } else if (next.action === "delivery") setFulfilling(true);
-    else if (next.action === "createInvoice") {
-      run(() => {
-        const invoiceCode = commitSales((sales) => createInvoiceFromOrder(sales, doc.code, nav.actor));
-        nav.go("invoices");
-        return `Invoice ${invoiceCode} created and saved. Click it in Invoices to record payments.`;
-      });
-    }
+    // Opens the invoice form prefilled from this order; the invoice is saved from that form.
+    else if (next.action === "createInvoice") nav.openNew("invoices", doc.code);
   };
 
   return (
@@ -120,17 +132,33 @@ export function DocumentRecord({ code, nav }: { code: string; nav: SalesNav }) {
       <PageHead
         eyebrow="Sales · Sales Order"
         title={`Sales Order · ${doc.code}`}
-        status={<StatusPill status={doc.status} />}
+        status={
+          <>
+            <StatusPill status={doc.status} />
+            {doc.status === "Confirmed" ? <StatusPill status={stage} /> : null}
+          </>
+        }
         actions={
           <>
             <Button type="button" variant="outline" onClick={nav.back}>Back to list</Button>
-            {doc.status === "Saved" ? <Button type="button" variant="outline" onClick={() => setEditing(true)}>Edit</Button> : null}
-            {doc.pickPack || doc.status === "Confirmed" ? (
+            {doc.status === "Draft" ? <Button type="button" variant="outline" onClick={() => setEditing(true)}>Edit</Button> : null}
+            {doc.status === "Draft" ? <Button type="button" variant="destructive" onClick={() => setDeleting(true)}><Trash2 /> Delete</Button> : null}
+            {doc.status === "Confirmed" && stage !== "Invoiced" ? (
               <Button type="button" variant="outline" onClick={() => setFulfilling(true)}>Pick, Pack & Delivery</Button>
             ) : null}
           </>
         }
       />
+
+      <section
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-dashed border-[var(--nx-success-border)] bg-[var(--nx-success-soft)] px-3 py-2 text-[0.8125rem]"
+        aria-label="Document type"
+      >
+        <strong className="text-[var(--nx-success-text)]">Sales Order · customer confirmed</strong>
+        <span className="text-muted-foreground">
+          {doc.status === "Draft" ? "Draft direct order. Confirm Order when the customer confirms it." : `The customer's order is confirmed. Fulfilment: ${stage}.`}
+        </span>
+      </section>
 
       <FlowStrip steps={flowSteps(state, doc, (target) => nav.open(target))} />
 
@@ -149,14 +177,14 @@ export function DocumentRecord({ code, nav }: { code: string; nav: SalesNav }) {
           ["Customer", customer ? <LinkButton key="c" onClick={() => nav.open(customer.code)}>{customer.display}</LinkButton> : "—"],
           ["Order date", formatDate(doc.date)],
           ["Delivery date", formatDate(doc.date2)],
-          ["Total", money(totals.total)],
+          ["Total", docMoney(totals.total, doc)],
           ["Approval", quotation ? approvalSummary(quotation) : "Direct order, no approval"],
         ]}
       />
 
       <div className="grid min-w-0 grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_18.75rem]">
         <Card title="Products and services" aside={doc.reference ? <span className="text-xs text-muted-foreground">Reference {doc.reference}</span> : undefined}>
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className={tableClass}>
               <thead>
                 <tr>
@@ -176,9 +204,9 @@ export function DocumentRecord({ code, nav }: { code: string; nav: SalesNav }) {
                     <td><strong>{item.desc}</strong><small>{item.sku || "Other charge"}</small></td>
                     <td className="text-right tabular-nums">{item.qty}</td>
                     <td>{item.uom || "Each"}</td>
-                    <td className="text-right tabular-nums">{money(item.rate)}</td>
+                    <td className="text-right tabular-nums">{docMoney(item.rate, doc)}</td>
                     <td className="text-right tabular-nums">{item.tax}%</td>
-                    <td className="text-right font-semibold tabular-nums">{money(lineAmount(item))}</td>
+                    <td className="text-right font-semibold tabular-nums">{docMoney(lineAmount(item), doc)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -190,13 +218,13 @@ export function DocumentRecord({ code, nav }: { code: string; nav: SalesNav }) {
             ) : (
               <span className="text-xs text-muted-foreground">No notes on this document.</span>
             )}
-            <TotalsSummary rows={[["Untaxed amount", money(totals.sub)], ["Sales tax", money(totals.tax)]]} total={["Total", money(totals.total)]} />
+            <TotalsSummary rows={[["Untaxed amount", docMoney(totals.sub, doc)], ["Sales tax", docMoney(totals.tax, doc)]]} total={["Total", docMoney(totals.total, doc)]} />
           </footer>
         </Card>
 
         <aside className="grid min-w-0 content-start gap-3.5 md:grid-cols-2 xl:grid-cols-1">
           {doc.pickPack || doc.delivery ? (
-            <Card title="Pick, pack & delivery" aside={<StatusPill status={doc.delivery ? "Delivered" : "Packed"} />}>
+            <Card title="Pick, pack & delivery" aside={<StatusPill status={stage} />}>
               <KeyValues
                 rows={[
                   ...(doc.pickPack
@@ -220,6 +248,7 @@ export function DocumentRecord({ code, nav }: { code: string; nav: SalesNav }) {
                 ["Contact", customer?.contactName ?? "—"],
                 ["Phone", customerPhone(customer) || "—"],
                 ["Terms", doc.terms],
+                ["Currency", currencySummary(doc)],
                 ["Ship from", doc.warehouse],
               ]}
             />
@@ -229,6 +258,7 @@ export function DocumentRecord({ code, nav }: { code: string; nav: SalesNav }) {
       </div>
 
       <FulfilmentPanel orderCode={fulfilling ? doc.code : null} nav={nav} onClose={() => setFulfilling(false)} />
+      <DeleteDraftDialog code={deleting ? doc.code : null} onClose={() => setDeleting(false)} onConfirm={remove} />
     </div>
   );
 }

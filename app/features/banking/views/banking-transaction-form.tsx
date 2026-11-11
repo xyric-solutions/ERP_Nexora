@@ -14,6 +14,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import { customers, suppliers } from "@prototype/shared/fixtures/mock-data";
 import { AccountSelect } from "../components/banking-account-select";
@@ -279,7 +280,7 @@ export function BankingTransactionForm({
               <Input id="ba-swift" value={draft.swift} onChange={(event) => set("swift", event.target.value)} />
             </Field>
             <Field label="Overdraft limit" htmlFor="ba-od">
-              <Input id="ba-od" value={draft.overdraftLimit} onChange={(event) => set("overdraftLimit", event.target.value)} inputMode="decimal" />
+              <AmountInput id="ba-od" value={draft.overdraftLimit} onValueChange={(raw) => set("overdraftLimit", raw)} />
             </Field>
             <div className="col-span-full grid min-w-0 content-start gap-1.5">
               <AccountSelect
@@ -387,7 +388,7 @@ export function BankingTransactionForm({
           description={isForeign ? "A foreign-currency transaction is converted to the base currency at the rate entered here." : undefined}
         >
           <Field label={type.amountLabel} htmlFor="txn-amount" required={!type.isMasterData} error={errorFor("amount")}>
-            <Input id="txn-amount" value={draft.amount} onChange={(event) => set("amount", event.target.value)} inputMode="decimal" placeholder="0.00" />
+            <AmountInput id="txn-amount" value={draft.amount} onValueChange={(raw) => set("amount", raw)} placeholder="0.00" />
           </Field>
           {!type.isMasterData ? (
             <Field label="Currency" htmlFor="txn-currency">
@@ -406,18 +407,18 @@ export function BankingTransactionForm({
           ) : null}
           {isForeign ? (
             <Field label={`Exchange rate to ${BASE_CURRENCY}`} htmlFor="txn-rate" required error={errorFor("exchangeRate")} helper={`Base value ${formatMoney(preview.baseCurrencyAmount)}`}>
-              <Input id="txn-rate" value={draft.exchangeRate} onChange={(event) => set("exchangeRate", event.target.value)} inputMode="decimal" />
+              <AmountInput id="txn-rate" decimals={6} value={draft.exchangeRate} onValueChange={(raw) => set("exchangeRate", raw)} />
             </Field>
           ) : null}
           {type.needsRevaluation ? (
             <Field label="Closing rate" htmlFor="txn-reval-rate" required error={errorFor("revaluedRate")} helper="Rate used to restate the balance at period end.">
-              <Input id="txn-reval-rate" value={draft.revaluedRate} onChange={(event) => set("revaluedRate", event.target.value)} inputMode="decimal" placeholder="e.g. 1.0925" />
+              <AmountInput id="txn-reval-rate" decimals={6} value={draft.revaluedRate} onValueChange={(raw) => set("revaluedRate", raw)} placeholder="e.g. 1.0925" />
             </Field>
           ) : null}
           {type.allowsBankCharge ? (
             <>
               <Field label="Bank charge (optional)" htmlFor="txn-charge" helper="Adds a separate expense line to the same entry.">
-                <Input id="txn-charge" value={draft.bankChargeAmount} onChange={(event) => set("bankChargeAmount", event.target.value)} inputMode="decimal" placeholder="0.00" />
+                <AmountInput id="txn-charge" value={draft.bankChargeAmount} onValueChange={(raw) => set("bankChargeAmount", raw)} placeholder="0.00" />
               </Field>
               <div className="grid min-w-0 content-start gap-1.5">
                 <AccountSelect

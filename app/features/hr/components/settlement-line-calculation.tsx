@@ -2,6 +2,7 @@
 import { calculateHrSettlementMinor, type HrLifecycleCaseTerms } from "@nexora/contracts";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Field } from "../components/hr-workspace-controls";
 type Line = Extract<HrLifecycleCaseTerms, { kind: "settlement" }>["lines"][number];
 export function SettlementLineCalculation({
@@ -59,13 +60,13 @@ export function SettlementLineCalculation({
               />
             </Field>
             <Field title={"Line " + (index + 1) + " rate in minor units"}>
-              <Input
+              <AmountInput
                 value={calc.rate_minor}
-                inputMode="numeric"
-                pattern="(0|[1-9][0-9]{0,14})"
+                decimals={0}
+                maxLength={19}
                 required
                 disabled={busy}
-                onChange={(e) => change(calc.quantity, e.target.value)}
+                onValueChange={(raw) => change(calc.quantity, raw)}
               />
             </Field>
           </div>

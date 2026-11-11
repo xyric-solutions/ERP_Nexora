@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Download, FileText, Minus, Plus, Printer } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, Minus, Plus, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DocumentViewerFrame, viewerToolbarButton } from "./document-viewer";
 import { addressLines, customerPhone } from "../model/customer-model";
-import { downloadInvoicePdf, INVOICE_ISSUER, type InvoicePdfInput } from "../model/invoice-pdf";
-import { amountInWords, figure, formatDate } from "../model/sales-format";
+import { documentFacts, downloadInvoicePdf, INVOICE_ISSUER, type InvoicePdfInput } from "../model/invoice-pdf";
+import { amountInWords, figure } from "../model/sales-format";
+import { docCurrency } from "../model/sales-currency";
 
 const A4_WIDTH = 794;
 
@@ -18,25 +20,18 @@ function InvoiceSheet({ invoice, customer, deliveryNo, received, balance, zoom }
   const sub = invoice.lines.reduce((sum, item) => sum + item.qty * item.rate, 0);
   const tax = invoice.lines.reduce((sum, item) => sum + (item.qty * item.rate * item.tax) / 100, 0);
   const total = sub + tax;
+  const currency = docCurrency(invoice);
   const label = "mb-[0.35em] block text-[0.82em] font-bold uppercase tracking-[0.08em] text-[var(--nx-paper-muted)]";
-  const facts: [string, string][] = [
-    ["Invoice no.", invoice.code],
-    ["Invoice date", formatDate(invoice.date)],
-    ["Due date", formatDate(invoice.date2)],
-    ["Payment terms", invoice.terms],
-    ["Sales order", invoice.links.order ?? "—"],
-    ["Delivery", deliveryNo || "—"],
-    ["Customer ref.", invoice.reference || "—"],
-    ["Currency", "PKR"],
-  ];
+  const quotation = invoice.kind === "quotation";
+  const { title, facts } = documentFacts(invoice, deliveryNo);
   return (
     <article
       data-print-sheet
-      aria-label={`Tax invoice ${invoice.code}`}
+      aria-label={`${title} ${invoice.code}`}
       style={{ "--z": zoom } as React.CSSProperties}
       className="relative min-h-[calc(1123px*var(--z))] w-[calc(794px*var(--z))] bg-[var(--nx-paper)] px-[3.6em] py-[3.4em] text-[calc(12px*var(--z))] leading-[1.45] text-[var(--nx-paper-ink)] shadow-[0_6px_24px_var(--nx-shadow-color-overlay)]"
     >
-      {invoice.status === "Paid" ? (
+      {!quotation && invoice.status === "Paid" ? (
         <div aria-hidden="true" className="absolute top-[13em] right-[4em] rotate-[-12deg] rounded-[0.4em] border-[0.22em] border-[var(--nx-success)] px-[0.9em] py-[0.3em] text-[1.9em] font-extrabold tracking-[0.12em] text-[var(--nx-success)] opacity-85">
           PAID
         </div>
@@ -52,7 +47,7 @@ function InvoiceSheet({ invoice, customer, deliveryNo, received, balance, zoom }
           </div>
         </div>
         <div className="text-right">
-          <h2 className="m-0 text-[2em] font-semibold tracking-tight text-[var(--nx-paper-ink)]">Tax Invoice</h2>
+          <h2 className="m-0 text-[2em] font-semibold tracking-tight text-[var(--nx-paper-ink)]">{title}</h2>
           <span className="mt-[0.4em] inline-block rounded-[2em] border border-[var(--nx-paper-rule)] px-[0.7em] py-[0.15em] text-[0.82em] font-semibold uppercase tracking-[0.08em] text-[var(--nx-paper-muted)]">Prototype specimen</span>
         </div>
       </header>
@@ -105,9 +100,9 @@ function InvoiceSheet({ invoice, customer, deliveryNo, received, balance, zoom }
               </td>
               <td className="text-right">{figure(item.qty)}</td>
               <td>{item.uom || "Each"}</td>
-              <td className="text-right">{figure(item.rate)}</td>
+              <td className="text-right">{figure(item.rate, currency)}</td>
               <td className="text-right">{Number(item.tax).toFixed(1)}</td>
-              <td className="text-right">{figure(item.qty * item.rate)}</td>
+              <td className="text-right">{figure(item.qty * item.rate, currency)}</td>
             </tr>
           ))}
         </tbody>
@@ -116,23 +111,23 @@ function InvoiceSheet({ invoice, customer, deliveryNo, received, balance, zoom }
       <section data-print-close className="grid grid-cols-[1fr_minmax(15em,0.75fr)] gap-[2.6em] pt-[1.4em]">
         <div>
           <span className={label}>Amount in words</span>
-          <div className="text-[1.25em] font-semibold leading-[1.35]">{amountInWords(total)}</div>
+          <div className="text-[1.25em] font-semibold leading-[1.35]">{amountInWords(total, currency)}</div>
           <p className="mt-[1em] mb-0 text-[0.9em] text-[var(--nx-paper-muted)]">
             {invoice.notes ? `${invoice.notes} ` : ""}
             {INVOICE_ISSUER.terms}
           </p>
         </div>
         <dl className="m-0 [&>div]:flex [&>div]:justify-between [&>div]:gap-[1em] [&>div]:border-b [&>div]:border-[var(--nx-paper-rule)] [&>div]:py-[0.45em] [&_dd]:m-0 [&_dd]:font-semibold [&_dt]:text-[var(--nx-paper-muted)]">
-          <div><dt>Subtotal</dt><dd>PKR {figure(sub)}</dd></div>
-          <div><dt>Sales tax</dt><dd>PKR {figure(tax)}</dd></div>
+          <div><dt>Subtotal</dt><dd>{currency} {figure(sub, currency)}</dd></div>
+          <div><dt>Sales tax</dt><dd>{currency} {figure(tax, currency)}</dd></div>
           <div className="mt-[0.3em] border-y-[0.17em]! border-[var(--nx-paper-ink)]!">
-            <dt className="font-bold uppercase tracking-[0.08em] text-[var(--nx-paper-ink)]!">Total due</dt>
-            <dd className="text-[1.35em] font-extrabold!">PKR {figure(total)}</dd>
+            <dt className="font-bold uppercase tracking-[0.08em] text-[var(--nx-paper-ink)]!">{quotation ? "Total" : "Total due"}</dt>
+            <dd className="text-[1.35em] font-extrabold!">{currency} {figure(total, currency)}</dd>
           </div>
-          {received > 0 ? (
+          {!quotation && received > 0 ? (
             <>
-              <div><dt>Received</dt><dd>PKR {figure(received)}</dd></div>
-              <div><dt>Balance due</dt><dd>PKR {figure(balance)}</dd></div>
+              <div><dt>Received</dt><dd>{currency} {figure(received, currency)}</dd></div>
+              <div><dt>Balance due</dt><dd>{currency} {figure(balance, currency)}</dd></div>
             </>
           ) : null}
         </dl>
@@ -143,7 +138,7 @@ function InvoiceSheet({ invoice, customer, deliveryNo, received, balance, zoom }
           <span className={label}>Remittance</span>
           <span className="block text-[0.9em] text-[var(--nx-paper-muted)]">{INVOICE_ISSUER.bank}</span>
           <span className="block text-[0.9em] text-[var(--nx-paper-muted)]">{INVOICE_ISSUER.account}</span>
-          <span className="block text-[0.9em] text-[var(--nx-paper-muted)]">Quote {invoice.code} on every payment.</span>
+          <span className="block text-[0.9em] text-[var(--nx-paper-muted)]">{quotation ? `Quote ${invoice.code} on your purchase order.` : `Quote ${invoice.code} on every payment.`}</span>
         </div>
         <div className="grid grid-cols-3 gap-[1.2em] self-end text-center text-[0.88em] text-[var(--nx-paper-muted)]">
           {["Prepared by", "Reviewed by", "Authorised signatory"].map((signature) => (
@@ -158,45 +153,48 @@ function InvoiceSheet({ invoice, customer, deliveryNo, received, balance, zoom }
   );
 }
 
-/** Full-screen PDF view of an invoice with Download, Print and zoom. */
-export function InvoicePdfViewer({ input, customerLabel, onClose }: { input: InvoicePdfInput; customerLabel: string; onClose: () => void }) {
+/**
+ * Full-screen PDF view of an invoice or quotation with Download, Print and
+ * zoom. There is deliberately no email action (meeting of 11 Nov 2026): the
+ * user downloads the PDF and sends it themselves. `autoPrint` opens the
+ * browser print dialog once the sheet has rendered.
+ */
+export function InvoicePdfViewer({
+  input,
+  customerLabel,
+  onClose,
+  autoPrint = false,
+}: {
+  input: InvoicePdfInput;
+  customerLabel: string;
+  onClose: () => void;
+  autoPrint?: boolean;
+}) {
   const [zoom, setZoom] = useState(fitZoom);
-  const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    closeRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
     const onResize = () => setZoom((current) => Math.min(current, fitZoom()));
-    window.addEventListener("keydown", onKey);
     window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("resize", onResize);
-      previous?.focus?.();
-    };
-  }, [onClose]);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
-  const toolbarButton =
-    "border-[var(--nx-emphasis-border)]! bg-transparent! text-[var(--nx-emphasis-text)]! hover:bg-[var(--nx-emphasis-surface-hover)]!";
+  useEffect(() => {
+    if (!autoPrint) return;
+    const timer = window.setTimeout(() => window.print(), 150);
+    return () => window.clearTimeout(timer);
+  }, [autoPrint]);
+
+  const toolbarButton = viewerToolbarButton;
 
   return (
-    <div
-      data-print-viewer
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Invoice ${input.invoice.code} PDF`}
-      className="fixed inset-0 z-[190] flex flex-col bg-[var(--nx-overlay-scrim-strong)]"
-    >
-      <div className="nx-no-print flex flex-wrap items-center gap-2.5 border-b border-[var(--nx-emphasis-border)] bg-[var(--nx-emphasis-background)] px-4 py-2 text-[var(--nx-emphasis-text)]">
-        <div className="flex min-w-0 flex-[1_1_12rem] items-center gap-2 font-semibold">
-          <FileText className="size-5 shrink-0 text-[var(--nx-emphasis-danger)]" aria-hidden="true" />
-          <span className="truncate">
-            {input.invoice.code}.pdf <small className="font-normal text-[var(--nx-emphasis-muted)]">· 1 page · {customerLabel}</small>
-          </span>
-        </div>
+    <DocumentViewerFrame
+      label={`${input.invoice.kind === "quotation" ? "Quotation" : "Invoice"} ${input.invoice.code} PDF`}
+      title={`${input.invoice.code}.pdf`}
+      subtitle={`1 page · ${customerLabel}`}
+      iconClassName="text-[var(--nx-emphasis-danger)]"
+      onClose={onClose}
+      tools={
+        <>
         <div className="flex items-center gap-1">
           <Button type="button" size="icon" variant="outline" className={toolbarButton} aria-label="Zoom out" onClick={() => setZoom((value) => Math.max(0.4, Math.round((value - 0.1) * 10) / 10))}>
             <Minus />
@@ -212,13 +210,10 @@ export function InvoicePdfViewer({ input, customerLabel, onClose }: { input: Inv
         <Button type="button" variant="outline" className={toolbarButton} onClick={() => window.print()}>
           <Printer /> Print
         </Button>
-        <Button ref={closeRef} type="button" onClick={onClose}>
-          Close
-        </Button>
-      </div>
-      <div className="grid flex-1 content-start justify-center overflow-auto px-4 pt-6 pb-10">
-        <InvoiceSheet {...input} zoom={zoom} />
-      </div>
-    </div>
+        </>
+      }
+    >
+      <InvoiceSheet {...input} zoom={zoom} />
+    </DocumentViewerFrame>
   );
 }

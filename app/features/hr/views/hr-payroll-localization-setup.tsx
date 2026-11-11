@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import { Plus, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
 import {
@@ -606,23 +607,22 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
                           value={form.values[d.key] ?? ""}
                           onChange={(e) => change(d.key, e.target.value)}
                         />
+                      ) : d.type === "money" ? (
+                        <AmountInput
+                          required={!d.optional}
+                          decimals={4}
+                          maxLength={26}
+                          value={form.values[d.key] ?? ""}
+                          onValueChange={(raw) => change(d.key, raw)}
+                        />
                       ) : (
                         <Input
                           required={!d.optional}
                           type={d.type === "date" ? "date" : d.type === "number" ? "number" : "text"}
-                          inputMode={d.type === "money" ? "decimal" : undefined}
                           min={d.type === "number" ? 2000 : undefined}
                           max={d.type === "number" ? 2200 : undefined}
                           readOnly={form.kind === "jurisdiction_override_revocation" && d.type === "date"}
-                          maxLength={
-                            d.type === "money"
-                              ? 21
-                              : d.key === "legal_basis"
-                                ? 1000
-                                : d.key === "evidence_reference"
-                                  ? 500
-                                  : undefined
-                          }
+                          maxLength={d.key === "legal_basis" ? 1000 : d.key === "evidence_reference" ? 500 : undefined}
                           value={form.values[d.key] ?? ""}
                           onChange={(e) => change(d.key, e.target.value)}
                         />

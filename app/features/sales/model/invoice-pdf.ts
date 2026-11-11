@@ -8,10 +8,12 @@
  */
 
 import { amountInWords, figure, formatDate } from "./sales-format";
+import { BASE_CURRENCY, docCurrency, docRate } from "./sales-currency";
 import { addressLines, customerPhone } from "./customer-model";
 import type { SalesCustomer, SalesDocument } from "./sales-types";
 
 export interface InvoicePdfInput {
+  /** Invoice or quotation. Quotations print as "Quotation" without payment details. */
   invoice: SalesDocument;
   customer: SalesCustomer | undefined;
   deliveryNo: string;
@@ -117,7 +119,47 @@ function tableHeader(page: Page, top: number) {
   page.rule(top + 6, 0.9, 0.1);
 }
 
+/** "USD (1 USD = PKR 280.50)" for a foreign-currency document, otherwise "PKR". */
+function currencyFact(invoice: SalesDocument): string {
+  const currency = docCurrency(invoice);
+  return currency === BASE_CURRENCY ? currency : `${currency} (1 ${currency} = PKR ${docRate(invoice)})`;
+}
+
+/** Title and reference facts printed on an invoice or a quotation. */
+export function documentFacts(invoice: SalesDocument, deliveryNo: string): { title: string; facts: [string, string][] } {
+  if (invoice.kind === "quotation") {
+    return {
+      title: "Quotation",
+      facts: [
+        ["Quotation no.", invoice.code],
+        ["Quotation date", formatDate(invoice.date)],
+        ["Valid until", formatDate(invoice.date2)],
+        ["Payment terms", invoice.terms],
+        ["Customer ref.", invoice.reference || "-"],
+        ["Status", invoice.status],
+        ["Prepared by", invoice.owner || "-"],
+        ["Currency", currencyFact(invoice)],
+      ],
+    };
+  }
+  return {
+    title: "Tax Invoice",
+    facts: [
+      ["Invoice no.", invoice.code],
+      ["Invoice date", formatDate(invoice.date)],
+      ["Due date", formatDate(invoice.date2)],
+      ["Payment terms", invoice.terms],
+      ["Sales order", invoice.links.order ?? "-"],
+      ["Delivery", deliveryNo || "-"],
+      ["Customer ref.", invoice.reference || "-"],
+      ["Currency", currencyFact(invoice)],
+    ],
+  };
+}
+
 export function buildInvoicePdf({ invoice, customer, deliveryNo, received, balance }: InvoicePdfInput): Blob {
+  const quotation = invoice.kind === "quotation";
+  const { title, facts } = documentFacts(invoice, deliveryNo);
   const pages: Page[] = [];
   let page = new Page();
   pages.push(page);
@@ -130,7 +172,7 @@ export function buildInvoicePdf({ invoice, customer, deliveryNo, received, balan
   page.text(INVOICE_ISSUER.address, LEFT + 42, 73, 7.5, { gray: muted });
   page.text(INVOICE_ISSUER.registration, LEFT + 42, 83, 7.5, { gray: muted });
   page.text(INVOICE_ISSUER.email, LEFT + 42, 93, 7.5, { gray: muted });
-  page.text("Tax Invoice", RIGHT, 66, 21, { align: "right" });
+  page.text(title, RIGHT, 66, 21, { align: "right" });
   page.text("PROTOTYPE SPECIMEN", RIGHT, 82, 7, { bold: true, align: "right", gray: muted });
   page.rule(106, 1.6, 0.1);
 
@@ -145,20 +187,10 @@ export function buildInvoicePdf({ invoice, customer, deliveryNo, received, balan
       : "",
   ].filter(Boolean);
   billLines.forEach((value, index) => page.text(value, LEFT, 158 + index * 11.5, 8.5, { gray: muted }));
-  const facts: [string, string][] = [
-    ["INVOICE NO.", invoice.code],
-    ["INVOICE DATE", formatDate(invoice.date)],
-    ["DUE DATE", formatDate(invoice.date2)],
-    ["PAYMENT TERMS", invoice.terms],
-    ["SALES ORDER", invoice.links.order ?? "-"],
-    ["DELIVERY", deliveryNo || "-"],
-    ["CUSTOMER REF.", invoice.reference || "-"],
-    ["CURRENCY", "PKR"],
-  ];
   facts.forEach(([label, value], index) => {
     const x = index % 2 === 0 ? 318 : 440;
     const top = 128 + Math.floor(index / 2) * 26;
-    page.text(label, x, top, 7, { bold: true, gray: muted });
+    page.text(label.toUpperCase(), x, top, 7, { bold: true, gray: muted });
     page.text(value, x, top + 11, 9, { bold: true });
   });
   page.rule(222, 0.5, 0.75);
@@ -180,9 +212,9 @@ export function buildInvoicePdf({ invoice, customer, deliveryNo, received, balan
     page.text(item.desc, COL.desc, top + 11, 7.5, { gray: muted });
     page.text(figure(item.qty), COL.qty, top, 8.5, { align: "right" });
     page.text(item.uom || "Each", COL.unit, top, 8.5);
-    page.text(figure(item.rate), COL.rate, top, 8.5, { align: "right" });
+    page.text(figure(item.rate, currency), COL.rate, top, 8.5, { align: "right" });
     page.text(Number(item.tax).toFixed(1), COL.tax, top, 8.5, { align: "right" });
-    page.text(figure(item.qty * item.rate), COL.amount, top, 8.5, { align: "right" });
+    page.text(figure(item.qty * item.rate, currency), COL.amount, top, 8.5, { align: "right" });
     page.rule(top + 18, 0.4, 0.8);
     top += 30;
   });
@@ -196,9 +228,10 @@ export function buildInvoicePdf({ invoice, customer, deliveryNo, received, balan
   const sub = invoice.lines.reduce((sum, item) => sum + item.qty * item.rate, 0);
   const tax = invoice.lines.reduce((sum, item) => sum + (item.qty * item.rate * item.tax) / 100, 0);
   const total = sub + tax;
+  const currency = docCurrency(invoice);
   page.text("AMOUNT IN WORDS", LEFT, top + 4, 7, { bold: true, gray: muted });
   let wordsTop = top + 18;
-  for (const lineText of wrap(amountInWords(total), 10.5, 250, true)) {
+  for (const lineText of wrap(amountInWords(total, currency), 10.5, 250, true)) {
     page.text(lineText, LEFT, wordsTop, 10.5, { bold: true });
     wordsTop += 13;
   }
@@ -215,16 +248,16 @@ export function buildInvoicePdf({ invoice, customer, deliveryNo, received, balan
     page.rule(rowTop + (strong ? 9 : 6), strong ? 1.4 : 0.5, strong ? 0.1 : 0.78, totalsLeft, RIGHT);
     rowTop += strong ? 24 : 19;
   };
-  totalRow("Subtotal", `PKR ${figure(sub)}`);
-  totalRow("Sales tax", `PKR ${figure(tax)}`);
+  totalRow("Subtotal", `${currency} ${figure(sub, currency)}`);
+  totalRow("Sales tax", `${currency} ${figure(tax, currency)}`);
   page.rule(rowTop - 13, 1.4, 0.1, totalsLeft, RIGHT);
   rowTop += 2;
-  totalRow("TOTAL DUE", `PKR ${figure(total)}`, true);
-  if (received > 0) {
-    totalRow("Received", `PKR ${figure(received)}`);
-    totalRow("Balance due", `PKR ${figure(balance)}`);
+  totalRow(quotation ? "TOTAL" : "TOTAL DUE", `${currency} ${figure(total, currency)}`, true);
+  if (!quotation && received > 0) {
+    totalRow("Received", `${currency} ${figure(received, currency)}`);
+    totalRow("Balance due", `${currency} ${figure(balance, currency)}`);
   }
-  if (invoice.status === "Paid") page.stamp("PAID", 420, 190);
+  if (!quotation && invoice.status === "Paid") page.stamp("PAID", 420, 190);
 
   // Remittance and signatures
   const footTop = Math.max(wordsTop, rowTop) + 30;
@@ -232,7 +265,7 @@ export function buildInvoicePdf({ invoice, customer, deliveryNo, received, balan
   page.text("REMITTANCE", LEFT, footTop + 16, 7, { bold: true, gray: muted });
   page.text(INVOICE_ISSUER.bank, LEFT, footTop + 29, 7.5, { gray: muted });
   page.text(INVOICE_ISSUER.account, LEFT, footTop + 39, 7.5, { gray: muted });
-  page.text(`Quote ${invoice.code} on every payment.`, LEFT, footTop + 49, 7.5, { gray: muted });
+  page.text(quotation ? `Quote ${invoice.code} on your purchase order.` : `Quote ${invoice.code} on every payment.`, LEFT, footTop + 49, 7.5, { gray: muted });
   ["Prepared by", "Reviewed by", "Authorised signatory"].forEach((label, index) => {
     const x = 330 + index * 74;
     page.rule(footTop + 40, 0.5, 0.6, x, x + 64);

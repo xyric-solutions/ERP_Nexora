@@ -5,67 +5,140 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Field, KeyValues, selectClass } from "./sales-ui";
-import { APPROVER_ROLES } from "../model/sales-constants";
-import { money } from "../model/sales-format";
-import { decisionNeedsNote, type ReturnInput } from "../model/sales-workflow";
-import type { ApprovalDecision, SalesDocument } from "../model/sales-types";
+import { cn } from "cn";
+import { Field, KeyValues, salesLayer, selectClass, tableClass } from "./sales-ui";
+import { useDiscardGuard, useIsDirty } from "./discard-guard";
+import { formatDate, todayIso } from "../model/sales-format";
+import { docMoney } from "../model/sales-currency";
+import {
+  customerLabel,
+  decisionNeedsNote,
+  documentTotal,
+  lineAmount,
+  newReturnInput,
+  returnedQty,
+  validateReturn,
+  type FieldErrors,
+  type ReturnInput,
+} from "../model/sales-workflow";
+import type { ApprovalDecision, SalesDocument, SalesState } from "../model/sales-types";
 
-/** New sales return against an invoice; it goes to Sales Approvals. */
-export function ReturnDialog({
-  open,
+/**
+ * Sale Return, chosen from Add New on the Invoices page (meeting of 11 Nov
+ * 2026: "when clicking add new, there should be a sale return option"; there
+ * is no separate returns module). Pick the invoice, enter the quantity
+ * returned per line; the value incl. sales tax is credited to that invoice.
+ */
+export function SaleReturnDialog({
   invoices,
-  customerName,
-  validate,
+  state,
   onClose,
   onSave,
 }: {
-  open: boolean;
+  /** Invoices that still have something to return. */
   invoices: readonly SalesDocument[];
-  customerName: (id: string) => string;
-  validate: (input: ReturnInput) => string;
+  state: SalesState;
   onClose: () => void;
   onSave: (input: ReturnInput) => void;
 }) {
-  const [input, setInput] = useState<ReturnInput>({ invoice: "", item: "", qty: 1, reason: "" });
-  const [error, setError] = useState("");
-  const invoice = invoices.find((candidate) => candidate.code === input.invoice);
+  const [input, setInput] = useState<ReturnInput>({ invoice: "", date: todayIso(), qty: [], reason: "" });
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const { guard, dialog } = useDiscardGuard(useIsDirty(input));
+  const invoice = invoices.find((item) => item.code === input.invoice);
+  const value = invoice ? invoice.lines.reduce((sum, line, index) => sum + lineAmount({ ...line, qty: Number(input.qty[index]) || 0 }), 0) : 0;
+
+  const chooseInvoice = (code: string) => {
+    const chosen = invoices.find((item) => item.code === code);
+    setInput((current) => (chosen ? { ...newReturnInput(chosen), date: current.date, reason: current.reason } : { ...current, invoice: "", qty: [] }));
+    setErrors({});
+  };
+
+  const setQty = (index: number, qty: number) => {
+    setInput((current) => ({ ...current, qty: current.qty.map((item, i) => (i === index ? qty : item)) }));
+    setErrors((current) => ({ ...current, [`qty.${index}`]: "", lines: "" }));
+  };
+
   const save = () => {
-    const problem = validate(input);
-    if (problem) setError(problem);
+    if (!invoice) {
+      setErrors({ invoice: "Choose the invoice the goods were sold on." });
+      return;
+    }
+    const found = validateReturn(state, input);
+    if (Object.keys(found).length) setErrors(found);
     else onSave(input);
   };
+
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open onOpenChange={(next) => !next && guard(onClose)}>
+      <DialogContent overlayClassName={salesLayer.dialogOverlay} className={cn("sm:max-w-2xl", salesLayer.dialog)}>
         <DialogHeader>
-          <DialogTitle>New sales return</DialogTitle>
-          <DialogDescription>The return goes to Sales Approvals.</DialogDescription>
+          <DialogTitle className="m-0">Sale Return{invoice ? ` · ${invoice.code}` : ""}</DialogTitle>
+          <DialogDescription className="m-0">Choose the invoice and enter what the customer returned. The value, including sales tax, is credited to that invoice and lowers its balance.</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Invoice" required className="sm:col-span-2">
-            <select className={selectClass} value={input.invoice} onChange={(event) => { const target = invoices.find((candidate) => candidate.code === event.target.value); setInput({ ...input, invoice: event.target.value, item: target?.lines[0]?.desc ?? "" }); setError(""); }}>
-              <option value="">Select invoice</option>
-              {invoices.map((candidate) => <option key={candidate.code} value={candidate.code}>{candidate.code} · {customerName(candidate.customerId)}</option>)}
-            </select>
+        <Field label="Invoice" required error={errors.invoice || undefined}>
+          <select className={selectClass} value={input.invoice} aria-invalid={Boolean(errors.invoice)} onChange={(event) => chooseInvoice(event.target.value)}>
+            <option value="">{invoices.length ? "Choose an invoice" : "No invoice has anything left to return"}</option>
+            {invoices.map((item) => (
+              <option key={item.code} value={item.code}>
+                {item.code} · {customerLabel(state, item.customerId)} · {formatDate(item.date)} · {docMoney(documentTotal(item), item)}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {invoice ? (
+          <div className="max-h-[45vh] overflow-auto">
+            <table className={cn(tableClass, "[&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2")}>
+              <thead>
+                <tr><th>Item</th><th className="text-right!">Invoiced</th><th className="text-right!">Already returned</th><th className="text-right!">Return now</th><th className="text-right!">Value</th></tr>
+              </thead>
+              <tbody>
+                {invoice.lines.map((line, index) => {
+                  const done = returnedQty(state, invoice.code, line);
+                  const left = line.qty - done;
+                  const error = errors[`qty.${index}`];
+                  return (
+                    <tr key={`${line.sku}-${index}`}>
+                      <td>{line.desc}<small>{line.sku || "Other charge"} · {docMoney(line.rate, invoice)} + {line.tax}% tax</small></td>
+                      <td className="text-right tabular-nums">{line.qty} {line.uom}</td>
+                      <td className="text-right tabular-nums">{done}</td>
+                      <td className="w-28">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={left}
+                          step={1}
+                          className="h-8.5 text-right"
+                          disabled={left <= 0}
+                          value={input.qty[index] ?? 0}
+                          aria-label={`Quantity returned, ${line.desc}`}
+                          aria-invalid={Boolean(error)}
+                          onChange={(event) => setQty(index, Number(event.target.value))}
+                        />
+                        {error ? <small className="text-[var(--nx-danger)]!">{error}</small> : null}
+                      </td>
+                      <td className="text-right font-semibold tabular-nums">{docMoney(lineAmount({ ...line, qty: Number(input.qty[index]) || 0 }), invoice)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+        {errors.lines ? <p className="m-0 text-xs font-semibold text-[var(--nx-danger)]" role="alert">{errors.lines}</p> : null}
+        <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
+          <Field label="Return date" required error={errors.date || undefined}>
+            <Input type="date" value={input.date} aria-invalid={Boolean(errors.date)} onChange={(event) => { setInput({ ...input, date: event.target.value }); setErrors((current) => ({ ...current, date: "" })); }} />
           </Field>
-          <Field label="Item" required className="sm:col-span-2">
-            <select className={selectClass} value={input.item} disabled={!invoice} onChange={(event) => { setInput({ ...input, item: event.target.value }); setError(""); }}>
-              {invoice ? invoice.lines.map((item) => <option key={item.desc}>{item.desc}</option>) : <option value="">Select an invoice first</option>}
-            </select>
-          </Field>
-          <Field label="Quantity" required>
-            <Input type="number" min={1} step={1} className="text-right" value={input.qty} onChange={(event) => { setInput({ ...input, qty: Number(event.target.value) }); setError(""); }} />
-          </Field>
-          <Field label="Reason" required>
-            <Input value={input.reason} placeholder="Damaged, wrong item…" onChange={(event) => { setInput({ ...input, reason: event.target.value }); setError(""); }} />
+          <Field label="Reason" required error={errors.reason || undefined}>
+            <Input value={input.reason} placeholder="Damaged, wrong item, not used…" aria-invalid={Boolean(errors.reason)} onChange={(event) => { setInput({ ...input, reason: event.target.value }); setErrors((current) => ({ ...current, reason: "" })); }} />
           </Field>
         </div>
-        {error ? <p className="m-0 text-xs font-semibold text-[var(--nx-danger)]" role="alert">{error}</p> : null}
+        <p className="m-0 text-right text-sm">Return value <strong className="tabular-nums">{docMoney(value, invoice)}</strong></p>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="button" onClick={save}>Save return</Button>
+          <Button type="button" variant="outline" onClick={() => guard(onClose)}>Cancel</Button>
+          <Button type="button" onClick={save} disabled={!invoices.length}>Save Sale Return</Button>
         </DialogFooter>
+        {dialog}
       </DialogContent>
     </Dialog>
   );
@@ -74,25 +147,25 @@ export function ReturnDialog({
 const DECISION_COPY: Record<ApprovalDecision, { title: string; text: string; button: string; notePlaceholder: string }> = {
   Approved: {
     title: "Approve",
-    text: "Approving confirms the sales order straight away and sends it to Pick, Pack & Delivery. No further approval is needed. Your name, role and the date are recorded and the creator is notified.",
-    button: "Approve & Confirm Order",
-    notePlaceholder: "Optional note for the salesperson",
+    text: "Approves the offered price. The quotation shows Approved; Confirm Order is a separate step when the customer orders. Your name and the date are recorded and the creator is notified.",
+    button: "Approve",
+    notePlaceholder: "",
   },
   "Changes requested": {
     title: "Request changes on",
-    text: "The quotation goes back to its creator to correct and resubmit. Your name, role and note are recorded and the creator is notified.",
+    text: "The quotation goes back to its creator to correct and resubmit. Your name and reason are recorded and the creator is notified.",
     button: "Request changes",
     notePlaceholder: "What needs to change before you can approve it",
   },
   Rejected: {
     title: "Reject",
-    text: "The quotation is closed and cannot be turned into an order. Your name, role and note are recorded and the creator is notified.",
+    text: "The quotation is closed. It can be reset to draft and resent later. Your name and reason are recorded and the creator is notified.",
     button: "Reject quotation",
     notePlaceholder: "Why the quotation is rejected",
   },
 };
 
-/** Reviewer decision on a quotation: Approve, Request Changes or Reject, with role and note. */
+/** Approver's decision on a quotation. A reason is asked for only on Reject or Request Changes. */
 export function QuotationDecisionDialog({
   quotation,
   decision,
@@ -114,33 +187,28 @@ export function QuotationDecisionDialog({
   /** Shown but does not stop the decision, e.g. over credit limit. */
   warning?: string;
   onClose: () => void;
-  onConfirm: (role: string, note: string) => void;
+  onConfirm: (note: string) => void;
 }) {
-  const [role, setRole] = useState("");
   const [note, setNote] = useState("");
-  const [errors, setErrors] = useState<{ role?: string; note?: string }>({});
+  const [error, setError] = useState("");
   const copy = DECISION_COPY[decision];
   const needsNote = decisionNeedsNote(decision);
   const confirm = () => {
-    const found = {
-      role: role ? undefined : "Choose the role you are deciding as.",
-      note: needsNote && !note.trim() ? "Add a note so the salesperson knows what to do." : undefined,
-    };
-    if (found.role || found.note) {
-      setErrors(found);
+    if (needsNote && !note.trim()) {
+      setError("Add a reason so the creator knows what to do.");
       return;
     }
-    onConfirm(role, note.trim());
+    onConfirm(needsNote ? note.trim() : "");
   };
   return (
     <Dialog open={Boolean(quotation)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent overlayClassName={salesLayer.dialogOverlay} className={cn("sm:max-w-md", salesLayer.dialog)}>
         <DialogHeader>
-          <DialogTitle>{copy.title} {quotation?.code}</DialogTitle>
-          <DialogDescription>{copy.text}</DialogDescription>
+          <DialogTitle className="m-0">{copy.title} {quotation?.code}</DialogTitle>
+          <DialogDescription className="m-0">{copy.text}</DialogDescription>
         </DialogHeader>
         <div className="-mx-4">
-          <KeyValues rows={[["Customer", customerName || "—"], ["Total", money(total)], ["Reviewer", reviewer]]} />
+          <KeyValues rows={[["Customer", customerName || "—"], ["Total", docMoney(total, quotation ?? undefined)], ["Approver", reviewer]]} />
         </div>
         {decision === "Approved" && (blocker || warning) ? (
           <p
@@ -154,28 +222,17 @@ export function QuotationDecisionDialog({
             {blocker || warning}
           </p>
         ) : null}
-        <div className="grid gap-3">
-          <Field label="Deciding as" required error={errors.role}>
-            <select
-              className={selectClass}
-              value={role}
-              aria-invalid={Boolean(errors.role)}
-              onChange={(event) => { setRole(event.target.value); setErrors((current) => ({ ...current, role: undefined })); }}
-            >
-              <option value="">Select role</option>
-              {APPROVER_ROLES.map((option) => <option key={option}>{option}</option>)}
-            </select>
-          </Field>
-          <Field label="Note" required={needsNote} error={errors.note}>
+        {needsNote ? (
+          <Field label="Reason" required error={error || undefined}>
             <Textarea
               rows={3}
               value={note}
-              aria-invalid={Boolean(errors.note)}
+              aria-invalid={Boolean(error)}
               placeholder={copy.notePlaceholder}
-              onChange={(event) => { setNote(event.target.value); setErrors((current) => ({ ...current, note: undefined })); }}
+              onChange={(event) => { setNote(event.target.value); setError(""); }}
             />
           </Field>
-        </div>
+        ) : null}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="button" variant={decision === "Rejected" ? "destructive" : "default"} disabled={decision === "Approved" && Boolean(blocker)} onClick={confirm}>{copy.button}</Button>
@@ -185,7 +242,7 @@ export function QuotationDecisionDialog({
   );
 }
 
-/** Three reviewer buttons: Reject, Request Changes, Approve. */
+/** Approver buttons: Reject, Request Changes, Approve. */
 export function QuotationDecisionButtons({ onDecide, size = "sm" }: { onDecide: (decision: ApprovalDecision) => void; size?: "sm" | "default" }) {
   const click = (decision: ApprovalDecision) => (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -195,7 +252,25 @@ export function QuotationDecisionButtons({ onDecide, size = "sm" }: { onDecide: 
     <div className="flex flex-wrap justify-end gap-1.5 whitespace-nowrap">
       <Button type="button" size={size} variant="destructive" onClick={click("Rejected")}>Reject</Button>
       <Button type="button" size={size} variant="outline" onClick={click("Changes requested")}>Request Changes</Button>
-      <Button type="button" size={size} onClick={click("Approved")}>Approve & Confirm Order</Button>
+      <Button type="button" size={size} onClick={click("Approved")}>Approve</Button>
     </div>
+  );
+}
+
+/** Confirmation before deleting a draft. */
+export function DeleteDraftDialog({ code, onClose, onConfirm }: { code: string | null; onClose: () => void; onConfirm: () => void }) {
+  return (
+    <Dialog open={Boolean(code)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent overlayClassName={salesLayer.dialogOverlay} className={cn("sm:max-w-sm", salesLayer.dialog)}>
+        <DialogHeader>
+          <DialogTitle className="m-0">Delete {code}?</DialogTitle>
+          <DialogDescription className="m-0">Only drafts can be deleted. This removes the draft from this session and cannot be undone.</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>Keep it</Button>
+          <Button type="button" variant="destructive" onClick={onConfirm}>Delete draft</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,4 +1,4 @@
-import type { SalesDocumentKind } from "./sales-types";
+import type { MoneyDocType, SalesDocumentKind } from "./sales-types";
 
 export const SALES_TERMS = ["Due on receipt", "Net 7", "Net 15", "Net 30", "Net 45", "Net 60", "Net 90"] as const;
 export const SALES_TERM_DAYS: Record<string, number> = {
@@ -93,11 +93,11 @@ export const SALES_KINDS: Record<SalesDocumentKind, SalesKindMeta> = {
     date2: "Valid until",
     date2Days: 30,
     referenceLabel: "Customer RFQ / reference",
-    lifecycle: ["Saved", "Management approval", "Order confirmed"],
+    lifecycle: ["Draft", "Approved", "Order confirmed"],
     saveLabel: "Save",
-    statuses: ["Open", "Pending approval", "Changes requested", "Approved", "Rejected", "Ordered"],
+    statuses: ["Draft", "Pending approval", "Changes requested", "Approved", "Rejected", "Ordered"],
     description:
-      "Prices offered to customers. Save a quotation and submit it to Management. Approval confirms the sales order automatically and sends it to Pick, Pack & Delivery. Open any quotation to follow it through to payment.",
+      "A quotation is a price offered to a customer, not yet an order. Choose an approver to send it for approval, or leave the approver empty and approve it yourself. Open an approved quotation and click Confirm Order when the customer orders.",
   },
   order: {
     label: "Sales Order",
@@ -108,10 +108,10 @@ export const SALES_KINDS: Record<SalesDocumentKind, SalesKindMeta> = {
     date2: "Delivery date",
     date2Days: 14,
     referenceLabel: "Customer PO number",
-    lifecycle: ["Saved", "Confirmed", "Picked & packed", "Delivered", "Invoiced"],
+    lifecycle: ["Draft", "Confirmed"],
     saveLabel: "Save",
-    statuses: ["Saved", "Confirmed", "Packed", "Delivered", "Invoiced"],
-    description: "Customer orders. Orders from approved quotations are confirmed automatically; each order then shows one next action: Pick & Pack, Save Delivery, then Create Invoice.",
+    statuses: ["Draft", "Confirmed"],
+    description: "Orders the customer has confirmed. Confirm Order on an approved quotation creates one; direct orders are confirmed here. Fulfilment then moves through Pick & Pack, Delivery and Invoice.",
   },
   invoice: {
     label: "Invoice",
@@ -125,7 +125,7 @@ export const SALES_KINDS: Record<SalesDocumentKind, SalesKindMeta> = {
     lifecycle: ["Issued", "Paid"],
     saveLabel: "Save invoice",
     statuses: ["Unpaid", "Partially paid", "Overdue", "Paid"],
-    description: "Sales tax invoices and their payments. Click an invoice to see its details, record full or part payments with Save Receipt, and review its payment history.",
+    description: "Sales tax invoices. Click an invoice to see its details, payment history and returns. Add New › Sale Return records goods returned against an invoice. Payments are recorded in Receipts, where outstanding invoices are listed automatically for allocation.",
   },
 };
 
@@ -136,11 +136,64 @@ export const SALES_MODULE_PAGES: Record<string, readonly string[]> = {
     "sales-orders",
     "pick-pack-delivery",
     "invoices",
-    "sales-returns",
-    "pricing",
-    "sales-approvals",
-    "sales-reports",
+    "receipts",
   ],
   revenue: ["recurring-bills"],
   customers: ["customers"],
 };
+
+/** Fulfilment progress of a confirmed sales order, shown beside its order status. */
+export const FULFILMENT_STAGES = ["Not started", "Packed", "Delivered", "Invoiced"] as const;
+
+/* ---------------------------------------------------- receipts & payments */
+
+export interface MoneyDocMeta {
+  type: MoneyDocType;
+  /** Menu and title label. */
+  label: string;
+  plural: string;
+  prefix: string;
+  description: string;
+  /** Wording for the money direction in forms, e.g. "Amount received". */
+  amountLabel: string;
+}
+
+/** Add New on the Receipts page. Codes keep RCT- for receipts and add new prefixes for the rest. */
+export const MONEY_DOC_TYPES: readonly MoneyDocMeta[] = [
+  {
+    type: "Receipt",
+    label: "Receipt",
+    plural: "Receipts",
+    prefix: "RCT",
+    description: "Money received from a customer, allocated against their outstanding invoices. Anything not allocated stays on account.",
+    amountLabel: "Amount received",
+  },
+  {
+    type: "Customer payment",
+    label: "Customer Payment",
+    plural: "Customer Payments",
+    prefix: "CPY",
+    description: "Money paid to a customer, such as a security deposit, an advance or a tender fee.",
+    amountLabel: "Amount paid",
+  },
+  {
+    type: "Return receipt",
+    label: "Return Receipt",
+    plural: "Return Receipts",
+    prefix: "RRC",
+    description: "Refunds or reverses part or all of a posted receipt, for example a refund or a bounced cheque. Reversed allocations reopen the invoice balances.",
+    amountLabel: "Amount returned",
+  },
+  {
+    type: "Return payment",
+    label: "Return Payment",
+    plural: "Return Payments",
+    prefix: "RPY",
+    description: "The customer returns part or all of a customer payment, for example a refunded security deposit.",
+    amountLabel: "Amount returned",
+  },
+];
+
+export const moneyDocMeta = (type: MoneyDocType): MoneyDocMeta => MONEY_DOC_TYPES.find((meta) => meta.type === type) ?? MONEY_DOC_TYPES[0];
+
+export const PAYMENT_PURPOSES = ["Security deposit", "Advance", "Tender fee", "Refund of overpayment", "Other"] as const;

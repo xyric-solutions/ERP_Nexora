@@ -3,12 +3,13 @@
 /**
  * Sales, Revenue and Customers workspace (prototype).
  *
- * Follows the approved "Nexora Simple Sales" artifact and the Purchase module
- * pattern: one list per document with a single New button, a form with one
- * Save, and one next action on every record. Flow: New Quotation → Management
- * approval (confirms the order) → Pick & Pack → Delivery → Create Invoice →
- * Record Payment in the invoice panel. Data is session-only mock data;
- * no Sales, Customer or Revenue API exists yet.
+ * Follows the Purchase module pattern: one list per document with a single
+ * New button, a form with one Save, and one next action on every record.
+ * Flow (meeting of 11 Nov 2026): Quotation (optional approver) → Approved →
+ * Confirm Order → Pick & Pack → Delivery → Create Invoice → Receipts. Sale
+ * Return is recorded from an opened invoice; the separate Returns & Control
+ * pages were removed. Data is session-only mock data; no Sales, Customer or
+ * Revenue API exists yet.
  */
 
 import { useMemo } from "react";
@@ -22,7 +23,7 @@ import { DocumentEntry } from "./sales-document-entry";
 import { DocumentList } from "./sales-document-list";
 import { DocumentRecord } from "./sales-document-record";
 import { QuotationRecord } from "./sales-quotation-record";
-import { ApprovalsView, PricingView, ReportsView, ReturnsView } from "./sales-control-views";
+import { ReceiptList } from "./sales-receipts-view";
 import { RecurringBillsView } from "./sales-recurring-view";
 
 export function isSalesWorkspacePage(moduleId: string, pageId: string): boolean {
@@ -62,7 +63,7 @@ export function SalesWorkspace({ context, onNavigate }: SalesWorkspaceProps) {
     const kind = kindOfCode(code);
     if (kind) onNavigate(ROUTE_BY_KIND[kind][0], ROUTE_BY_KIND[kind][1], code, { replace: true });
   };
-  // Saved invoices and customers return to their list with the side panel closed.
+  // Saved invoices, receipts and customers return to their list with the side panel closed.
   const replaceWithList = (code: string) => {
     const kind = kindOfCode(code);
     if (kind) onNavigate(ROUTE_BY_KIND[kind][0], ROUTE_BY_KIND[kind][1], undefined, { replace: true });
@@ -71,9 +72,23 @@ export function SalesWorkspace({ context, onNavigate }: SalesWorkspaceProps) {
   if (recordRef) {
     if (recordRef === "new" || recordRef.startsWith("new:")) {
       const preset = recordRef.slice(4) || undefined;
+      // Add New / Batch / Receive Payment open a sheet over the Receipts list.
+      if (pageId === "receipts") return <ReceiptList nav={nav} creating preset={preset} onSaved={replaceWithList} />;
       if (pageId in NEW_KIND_BY_PAGE) {
         const kind = NEW_KIND_BY_PAGE[pageId as keyof typeof NEW_KIND_BY_PAGE];
-        return <DocumentEntry key={recordRef} kind={kind} customerCode={preset} nav={nav} onSaved={kind === "invoice" ? replaceWithList : replaceWith} />;
+        // Create Invoice on a delivered order opens the invoice form prefilled from it (new:SO-…).
+        const fromOrder = kind === "invoice" && preset && kindOfCode(preset) === "order" ? preset : undefined;
+        return (
+          <DocumentEntry
+            key={recordRef}
+            kind={kind}
+            customerCode={fromOrder ? undefined : preset}
+            fromOrder={fromOrder}
+            nav={nav}
+            onSaved={kind === "invoice" ? replaceWithList : replaceWith}
+            onCancel={fromOrder ? () => nav.open(fromOrder) : undefined}
+          />
+        );
       }
       if (pageId === "customers") return <CustomerForm key={recordRef} nav={nav} onSaved={replaceWithList} />;
     }
@@ -84,6 +99,8 @@ export function SalesWorkspace({ context, onNavigate }: SalesWorkspaceProps) {
     if (kind === "order") return <DocumentRecord key={recordRef} code={recordRef} nav={nav} />;
     // Invoices open in the right-side invoice panel over the Invoices list.
     if (kind === "invoice") return <DocumentList kind="invoice" nav={nav} selected={recordRef} />;
+    // Receipts open in the right-side receipt panel over the Receipts list.
+    if (kind === "receipt") return <ReceiptList nav={nav} selected={recordRef} onSaved={replaceWithList} />;
   }
 
   switch (pageId) {
@@ -93,16 +110,10 @@ export function SalesWorkspace({ context, onNavigate }: SalesWorkspaceProps) {
       return <DocumentList kind="order" nav={nav} />;
     case "invoices":
       return <DocumentList kind="invoice" nav={nav} />;
+    case "receipts":
+      return <ReceiptList nav={nav} onSaved={replaceWithList} />;
     case "pick-pack-delivery":
       return <DeliveryView nav={nav} />;
-    case "sales-returns":
-      return <ReturnsView nav={nav} />;
-    case "pricing":
-      return <PricingView />;
-    case "sales-approvals":
-      return <ApprovalsView nav={nav} />;
-    case "sales-reports":
-      return <ReportsView />;
     case "recurring-bills":
       return <RecurringBillsView nav={nav} />;
     case "customers":

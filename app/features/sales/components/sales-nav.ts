@@ -4,7 +4,7 @@ import type { SalesDocumentKind } from "../model/sales-types";
 export interface SalesNav {
   /** Signed-in user's display name, written into activity history. */
   actor: string;
-  /** Opens a record by code. keepPage keeps the current menu item (e.g. Sales Approvals). */
+  /** Opens a record by code. keepPage keeps the current menu item. */
   open: (code: string, keepPage?: boolean) => void;
   /** Starts a new record on a page; preset carries a source code such as an invoice. */
   openNew: (pageId: string, preset?: string) => void;
@@ -15,18 +15,26 @@ export interface SalesNav {
   notify: (message: string) => void;
 }
 
-export const KIND_BY_PREFIX: Record<string, SalesDocumentKind | "customer"> = {
+export type SalesRecordKind = SalesDocumentKind | "customer" | "receipt";
+
+export const KIND_BY_PREFIX: Record<string, SalesRecordKind> = {
   QTN: "quotation",
   SO: "order",
   INV: "invoice",
   CUS: "customer",
+  // Receipts page documents: receipts, customer payments and their returns.
+  RCT: "receipt",
+  CPY: "receipt",
+  RRC: "receipt",
+  RPY: "receipt",
 };
 
-export const ROUTE_BY_KIND: Record<SalesDocumentKind | "customer", [moduleId: string, pageId: string]> = {
+export const ROUTE_BY_KIND: Record<SalesRecordKind, [moduleId: string, pageId: string]> = {
   quotation: ["sales", "quotations"],
   order: ["sales", "sales-orders"],
   invoice: ["sales", "invoices"],
   customer: ["customers", "customers"],
+  receipt: ["sales", "receipts"],
 };
 
 export function kindOfCode(code: string) {

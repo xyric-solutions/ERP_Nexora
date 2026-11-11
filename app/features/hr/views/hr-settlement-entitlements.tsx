@@ -18,6 +18,7 @@ import {
 } from "@nexora/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useSession } from "@/lib/session/session-provider";
@@ -552,10 +553,10 @@ export function HrSettlementEntitlements({
                     <SettlementSalaryFactors busy={busy} />
                   ) : (
                     <Field title="Company rate per day">
-                      <Input
-                        inputMode="decimal"
+                      <AmountInput
+                        decimals={4}
                         value={rate}
-                        onChange={(e) => setRate(e.target.value)}
+                        onValueChange={(raw) => setRate(raw)}
                         required
                         disabled={busy}
                         placeholder="For example 100.50"

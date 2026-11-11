@@ -18,6 +18,8 @@ const STATUS_TONE: Record<string, Tone> = {
   "Not invoiced": "warning", Draft: "neutral", "Prototype only": "neutral", "Changes requested": "warning",
   "Not submitted": "neutral", "Not started": "neutral", "Not applicable": "neutral", "Ready to confirm": "info",
   "Ready for delivery": "info", "Ready to invoice": "info", "Ready to pick": "info", "Ready to deliver": "info",
+  Posted: "success", Allocated: "success", "Partly allocated": "warning", "On account": "info", Returned: "purple",
+  "Partly returned": "warning", Outstanding: "warning",
 };
 
 const TONE_CLASS: Record<Tone, string> = {
@@ -42,6 +44,23 @@ export function StatusPill({ status }: { status: string }) {
   );
 }
 
+/* ------------------------------------------------------------- overlays */
+
+/**
+ * Stacking order for Sales overlays. The shell sidebar (z 60) and its
+ * drawers (z 80–130) sit above the primitives' default z-50, which left the
+ * sidebar uncovered and clipped full-screen previews. Side panels use the
+ * shell modal layer; dialogs opened from a panel and the document viewer stay
+ * above it; toasts (z 180) remain on top.
+ */
+export const salesLayer = {
+  sheetOverlay: "z-[160]",
+  sheet: "z-[161]",
+  dialogOverlay: "z-[170]",
+  dialog: "z-[171]",
+  viewer: "z-[175]",
+} as const;
+
 /* ----------------------------------------------------------- page parts */
 
 export function PageHead({
@@ -58,8 +77,9 @@ export function PageHead({
   actions?: ReactNode;
 }) {
   return (
-    <header className="flex flex-col items-start justify-between gap-4 border-b border-border pb-4 md:flex-row md:items-end md:gap-6">
-      <div className="min-w-0">
+    // Side by side only when there is room; the actions keep one row instead of stacking under each other.
+    <header className="flex flex-col items-start justify-between gap-4 border-b border-border pb-4 xl:flex-row xl:items-end xl:gap-6">
+      <div className="min-w-0 xl:flex-1">
         <span className="text-xs font-bold uppercase tracking-[0.06em] text-[var(--nx-brand)]">{eyebrow}</span>
         <div className="mt-1 flex flex-wrap items-center gap-2.5">
           <h1 className="m-0 text-2xl font-bold leading-tight tracking-tight text-foreground">{title}</h1>
@@ -67,7 +87,7 @@ export function PageHead({
         </div>
         {description ? <p className="mt-1.5 mb-0 max-w-190 text-xs leading-relaxed text-muted-foreground">{description}</p> : null}
       </div>
-      {actions ? <div className="flex w-full flex-wrap items-center justify-start gap-2 md:w-auto md:justify-end">{actions}</div> : null}
+      {actions ? <div className="flex w-full flex-wrap items-center justify-start gap-2 xl:w-auto xl:shrink-0 xl:justify-end">{actions}</div> : null}
     </header>
   );
 }

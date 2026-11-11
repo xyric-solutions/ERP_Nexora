@@ -5,6 +5,7 @@ import { useId, useRef, useState } from "react";
 import { BookOpen, RefreshCw, Plus, Download, ArrowRight, CalendarDays, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -507,12 +508,12 @@ export function HrLearningBody({
                     />
                   </Field>
                   <Field title="Estimated cost per participant">
-                    <Input
+                    <AmountInput
                       required
-                      inputMode="decimal"
+                      decimals={4}
                       disabled={busy}
                       value={editor.terms.cost_per_participant}
-                      onChange={(e) => patch({ cost_per_participant: e.target.value })}
+                      onValueChange={(raw) => patch({ cost_per_participant: raw })}
                     />
                   </Field>
                   <Field title="Cost currency">

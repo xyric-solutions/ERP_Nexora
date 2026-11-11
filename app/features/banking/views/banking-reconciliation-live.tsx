@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { BankingApiClient } from "../api/banking-client";
@@ -694,20 +695,22 @@ export function BankingReconciliationWorkspace({
             />
           </Field>
           <Field label="Opening Balance">
-            <Input
+            <AmountInput
               aria-label="Opening statement balance"
-              inputMode="decimal"
+              allowNegative
+              decimals={8}
               placeholder="Fetched when transactions load"
               readOnly
               value={openingBalance}
             />
           </Field>
           <Field label="Statement Ending Balance">
-            <Input
+            <AmountInput
               aria-label="Closing statement balance"
-              inputMode="decimal"
+              allowNegative
+              decimals={8}
               value={closingBalance}
-              onChange={(event) => setClosingBalance(event.target.value)}
+              onValueChange={(raw) => setClosingBalance(raw)}
             />
           </Field>
         </div>

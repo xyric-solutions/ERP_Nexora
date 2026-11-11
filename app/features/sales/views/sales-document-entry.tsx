@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "cn";
+import { SearchableSelect } from "@/shared/ui/searchable-select";
+import { currencyDigits } from "@/shared/constants/countries";
 import {
   Card,
   EntryActionBar,
@@ -19,6 +22,10 @@ import {
   TotalsSummary,
 } from "../components/sales-ui";
 import type { SalesNav } from "../components/sales-nav";
+import { CurrencyFields } from "../components/currency-fields";
+import { currencyDefaults, docCurrency, docMoney, docRate, toBase } from "../model/sales-currency";
+import { useDiscardGuard, useIsDirty } from "../components/discard-guard";
+import { approverDirectory } from "../model/sales-approvers";
 import { SALES_CATALOG, SALES_KINDS, SALES_TERM_DAYS, SALES_TERMS, SALES_WAREHOUSES, SALESPEOPLE } from "../model/sales-constants";
 import { documentTermsFor, onCreditHold } from "../model/customer-model";
 import { addDays, money, moneyWhole } from "../model/sales-format";
@@ -28,6 +35,8 @@ import {
   deliveryAddress,
   displayStatus,
   exposure,
+  findDocument,
+  invoiceDraftFromOrder,
   lineAmount,
   lineTotals,
   newDocumentDraft,
@@ -42,6 +51,7 @@ type EntryTab = "lines" | "other";
 export function DocumentEntry({
   kind,
   customerCode,
+  fromOrder,
   existing,
   nav,
   onSaved,
@@ -49,6 +59,8 @@ export function DocumentEntry({
 }: {
   kind: SalesDocumentKind;
   customerCode?: string;
+  /** Invoices only: delivered sales order whose values prefill the form. Nothing is saved until Save. */
+  fromOrder?: string;
   existing?: SalesDocument;
   nav: SalesNav;
   onSaved: (code: string) => void;
@@ -56,8 +68,17 @@ export function DocumentEntry({
 }) {
   const state = useSalesState();
   const meta = SALES_KINDS[kind];
+  const [source] = useState<{ draft?: SalesDocument; error?: string }>(() => {
+    if (kind !== "invoice" || !fromOrder) return {};
+    try {
+      return { draft: invoiceDraftFromOrder(state, fromOrder, nav.actor) };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : `${fromOrder} cannot be invoiced.` };
+    }
+  });
   const [draft, setDraft] = useState<SalesDocument>(() => {
     if (existing) return structuredClone(existing);
+    if (source.draft) return source.draft;
     const presetCustomer = state.customers.find((item) => item.code === customerCode);
     return newDocumentDraft(state, kind, presetCustomer?.id);
   });
@@ -65,8 +86,18 @@ export function DocumentEntry({
   const [tab, setTab] = useState<EntryTab>("lines");
   const isNew = !draft.code;
   const customer = state.customers.find((item) => item.id === draft.customerId);
+  // An invoice raised from a delivered order stays with that order's customer.
+  const sourceOrder = kind === "invoice" && isNew ? findDocument(state, "order", draft.links.order) : undefined;
   const totals = lineTotals(draft.lines);
-  const cancel = onCancel ?? nav.back;
+  const { guard, dialog } = useDiscardGuard(useIsDirty(draft));
+  const cancel = () => guard(onCancel ?? nav.back);
+  const approverOptions = useMemo(
+    () => [
+      { value: "", label: "No approver · I approve it myself" },
+      ...approverDirectory(nav.actor).map((person) => ({ value: person.name, label: `${person.name} · ${person.title}` })),
+    ],
+    [nav.actor],
+  );
 
   const update = (patch: Partial<SalesDocument>) => {
     setDraft((current) => {
@@ -84,7 +115,13 @@ export function DocumentEntry({
 
   const chooseCustomer = (id: string) => {
     const chosen = state.customers.find((item) => item.id === id);
-    update({ customerId: id, terms: chosen ? documentTermsFor(chosen) : draft.terms, owner: chosen?.salesperson ?? draft.owner });
+    update({
+      customerId: id,
+      terms: chosen ? documentTermsFor(chosen) : draft.terms,
+      owner: chosen?.salesperson ?? draft.owner,
+      // A new document starts in the customer's preferred currency.
+      ...(chosen && isNew ? currencyDefaults(chosen.currency) : {}),
+    });
   };
 
   const updateLine = (index: number, patch: Partial<SalesLine>) => {
@@ -98,7 +135,10 @@ export function DocumentEntry({
 
   const chooseItem = (index: number, sku: string) => {
     const item = SALES_CATALOG.find((candidate) => candidate.sku === sku);
-    updateLine(index, item ? { sku, desc: item.name, rate: item.rate, tax: item.tax, uom: item.uom } : { sku: "", uom: "Each" });
+    // The price list is in PKR; a foreign-currency document converts it at the entered rate.
+    const fx = docRate(draft);
+    const rate = item && fx > 0 ? Number((item.rate / fx).toFixed(currencyDigits(docCurrency(draft)))) : 0;
+    updateLine(index, item ? { sku, desc: item.name, rate, tax: item.tax, uom: item.uom } : { sku: "", uom: "Each" });
   };
 
   const save = () => {
@@ -118,9 +158,9 @@ export function DocumentEntry({
     nav.notify(
       isNew
         ? kind === "invoice"
-          ? `Invoice ${code} saved. Click it in the list to record payments.`
+          ? `Invoice ${code} saved${sourceOrder ? ` from ${sourceOrder.code}` : ""}. Click it in the list to record payments.`
           : kind === "quotation"
-            ? `Quotation ${code} saved. Next: Submit for Approval.`
+            ? `Quotation ${code} saved as draft. Next: ${draft.approver ? `Submit for Approval to ${draft.approver}` : "Approve"}.`
             : `${meta.label} ${code} saved. Next: Confirm Order.`
         : `${code} updated.`,
     );
@@ -128,15 +168,35 @@ export function DocumentEntry({
   };
 
   // Only open quotations and saved orders are editable, and neither counts in exposure yet.
-  const after = customer ? exposure(state, customer.id) + (kind === "invoice" ? 0 : totals.total) : 0;
+  // Exposure and the credit limit are in PKR; the document converts at its own rate.
+  const after = customer ? exposure(state, customer.id) + (kind === "invoice" ? 0 : toBase(totals.total, draft)) : 0;
+  const docAmount = (value: number) => docMoney(value, draft);
   const overLimit = Boolean(customer && customer.creditLimit && after > customer.creditLimit);
   const errorCount = Object.keys(errors).length;
+
+  if (source.error) {
+    return (
+      <div className="grid min-w-0 grid-cols-1 gap-3.5 text-foreground">
+        <PageHead
+          eyebrow={`Sales · ${meta.label}`}
+          title="Create Invoice"
+          actions={<Button type="button" variant="outline" onClick={onCancel ?? nav.back}>Close</Button>}
+        />
+        <Card>
+          <div className="grid gap-1 p-5" role="alert">
+            <strong className="text-sm font-bold">This invoice cannot be created</strong>
+            <p className="m-0 text-[0.8125rem] text-muted-foreground">{source.error} It may already have been invoiced, or its delivery is not saved yet.</p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-3.5 text-foreground">
       <PageHead
         eyebrow={`Sales · ${meta.label}`}
-        title={isNew ? `New ${meta.label}` : `Edit ${draft.code}`}
+        title={sourceOrder ? `Create Invoice · ${sourceOrder.code}` : isNew ? `New ${meta.label}` : `Edit ${draft.code}`}
         actions={<Button type="button" variant="outline" onClick={cancel}>Close</Button>}
       />
       <EntryActionBar
@@ -152,18 +212,24 @@ export function DocumentEntry({
           <div>
             <span className="text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted-foreground">{meta.label}</span>
             <h2 className="m-0 mt-0.5 text-lg font-bold">{isNew ? `New ${meta.label}` : draft.code}</h2>
-            <p className="m-0 mt-0.5 text-xs text-muted-foreground">{isNew ? "The number is assigned when you save." : "Changes apply when you save."}</p>
+            <p className="m-0 mt-0.5 text-xs text-muted-foreground">
+              {sourceOrder
+                ? `Prefilled from ${sourceOrder.code}. Review and edit any field; the invoice number is assigned when you save.`
+                : isNew
+                  ? "The number is assigned when you save."
+                  : "Changes apply when you save."}
+            </p>
           </div>
           <div className="grid justify-items-end gap-1">
             <StatusPill status={isNew ? "Draft" : displayStatus(draft)} />
-            <strong className="text-lg font-bold tabular-nums">{money(totals.total)}</strong>
+            <strong className="text-lg font-bold tabular-nums">{docAmount(totals.total)}</strong>
           </div>
         </header>
 
         <section className="grid grid-cols-1 gap-x-6 gap-y-3.5 border-b border-border p-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
           <div className="grid min-w-0 content-start gap-3 sm:grid-cols-2 [&>*:first-child]:sm:col-span-2">
-            <Field label="Customer" required error={errors.customerId}>
-              <select className={selectClass} value={draft.customerId} aria-invalid={Boolean(errors.customerId)} onChange={(event) => chooseCustomer(event.target.value)}>
+            <Field label="Customer" required error={errors.customerId} hint={sourceOrder ? `Billed to the customer of ${sourceOrder.code}.` : undefined}>
+              <select className={selectClass} value={draft.customerId} disabled={Boolean(sourceOrder)} aria-invalid={Boolean(errors.customerId)} onChange={(event) => chooseCustomer(event.target.value)}>
                 <option value="">Select customer</option>
                 {state.customers
                   .filter((item) => item.status === "Active" || item.id === draft.customerId)
@@ -172,11 +238,26 @@ export function DocumentEntry({
                   ))}
               </select>
             </Field>
-            {kind !== "quotation" ? (
+            {kind === "quotation" ? (
+              <Field label="Approver" hint={draft.approver ? `Saved as draft, then submitted to ${draft.approver} for approval.` : "Optional. Leave empty when no manager approval is needed; you approve it yourself."}>
+                <SearchableSelect
+                  label="Approver"
+                  value={draft.approver ?? ""}
+                  options={approverOptions}
+                  onValueChange={(value) => update({ approver: value })}
+                  placeholder="No approver"
+                  searchLabel="Search employees"
+                  searchPlaceholder="Search by name or role…"
+                  valueLabel={(option) => (option.value ? option.value : "No approver")}
+                />
+              </Field>
+            ) : (
               <ReadField label={kind === "order" ? "From quotation" : "From sales order"}>
                 {(kind === "order" ? draft.links.quotation : draft.links.order) ?? "Direct, no source document"}
+                {sourceOrder?.delivery ? ` · Delivery ${sourceOrder.delivery.no}` : ""}
+                {sourceOrder && draft.links.quotation ? ` · ${draft.links.quotation}` : ""}
               </ReadField>
-            ) : null}
+            )}
             <Field label={meta.referenceLabel}>
               <Input value={draft.reference} placeholder="Optional" onChange={(event) => update({ reference: event.target.value })} />
             </Field>
@@ -202,9 +283,15 @@ export function DocumentEntry({
                   {SALES_WAREHOUSES.map((warehouse) => <option key={warehouse}>{warehouse}</option>)}
                 </select>
               </Field>
-            ) : (
-              <ReadField label="Currency">PKR · Pakistani Rupee</ReadField>
-            )}
+            ) : null}
+            <CurrencyFields
+              value={{ currency: docCurrency(draft), fxRate: draft.fxRate ?? 1 }}
+              errors={errors}
+              onChange={update}
+              disabled={Boolean(sourceOrder)}
+              amount={totals.total}
+              hint={customer && customer.currency !== docCurrency(draft) ? `${customer.display} prefers ${customer.currency}.` : undefined}
+            />
           </div>
         </section>
 
@@ -234,13 +321,16 @@ export function DocumentEntry({
           {tab === "lines" ? (
             <>
               <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground">Prices come from the Standard price list. Sales tax: 18% goods, 16% services.</span>
+                <span className="text-xs text-muted-foreground">{docCurrency(draft) === "PKR"
+                    ? "Prices come from the Standard price list."
+                    : `Prices come from the Standard price list (PKR), converted to ${docCurrency(draft)} at the exchange rate.`}{" "}
+                  Sales tax: 18% goods, 16% services.</span>
                 <Button type="button" size="sm" variant="outline" onClick={() => setDraft((current) => ({ ...current, lines: [...current.lines, blankLine()] }))}>
                   + Add line
                 </Button>
               </div>
               {errors.lines ? <p className="mt-0 mb-2 text-xs font-semibold text-[var(--nx-danger)]">{errors.lines}</p> : null}
-              <div className="overflow-x-auto">
+              <div className="relative overflow-x-auto">
                 <table className={cn(tableClass, "min-w-210 [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2")}>
                   <thead>
                     <tr>
@@ -274,12 +364,12 @@ export function DocumentEntry({
                           </td>
                           <td className="text-muted-foreground">{item.uom || "Each"}</td>
                           <td className="w-32">
-                            <Input className="h-8.5 text-right" type="number" min={0} step={0.01} value={item.rate} aria-label={`Rate, line ${index + 1}`} onChange={(event) => updateLine(index, { rate: Number(event.target.value) })} />
+                            <AmountInput className="h-8.5" value={item.rate} aria-label={`Rate, line ${index + 1}`} onValueChange={(_, rate) => updateLine(index, { rate })} />
                           </td>
                           <td className="w-20">
                             <Input className="h-8.5 text-right" type="number" min={0} max={100} step={1} value={item.tax} aria-label={`Tax percent, line ${index + 1}`} onChange={(event) => updateLine(index, { tax: Number(event.target.value) })} />
                           </td>
-                          <td className="text-right font-semibold tabular-nums whitespace-nowrap">{money(lineAmount(item))}</td>
+                          <td className="text-right font-semibold tabular-nums whitespace-nowrap">{docAmount(lineAmount(item))}</td>
                           <td>
                             <Button type="button" size="icon-sm" variant="ghost" aria-label={`Remove line ${index + 1}`} onClick={() => setDraft((current) => ({ ...current, lines: current.lines.filter((_, i) => i !== index) }))}>
                               <X />
@@ -311,14 +401,24 @@ export function DocumentEntry({
         <footer className="grid grid-cols-1 gap-4 rounded-b-lg border-t border-border bg-muted p-4 md:grid-cols-[minmax(0,1fr)_minmax(15rem,20rem)]">
           <p className="m-0 text-xs text-muted-foreground">
             {kind === "invoice"
-              ? "Saving issues the invoice and opens it in the invoice panel, where payments are recorded."
+              ? sourceOrder
+                ? `Saving issues the invoice, links it to ${sourceOrder.code}${draft.links.quotation ? ` and ${draft.links.quotation}` : ""}, and returns to Invoices, where payments are recorded. Close without saving to leave the order uninvoiced.`
+                : "Saving issues the invoice and opens it in the invoice panel, where payments are recorded."
               : kind === "quotation"
-                ? "After saving, submit the quotation to Management. Approval confirms the sales order automatically."
+                ? "Saving keeps the quotation as a draft. With an approver, submit it for approval; without one, approve it yourself. Confirm Order is a separate step once it is approved."
                 : "After saving, Confirm Order appears on the sales order."}
           </p>
-          <TotalsSummary rows={[["Untaxed amount", money(totals.sub)], ["Sales tax", money(totals.tax)]]} total={["Total", money(totals.total)]} />
+          <TotalsSummary
+            rows={[
+              ["Untaxed amount", docAmount(totals.sub)],
+              ["Sales tax", docAmount(totals.tax)],
+              ...(docCurrency(draft) !== "PKR" && (draft.fxRate ?? 0) > 0 ? ([["Total in PKR", money(toBase(totals.total, draft))]] as [string, string][]) : []),
+            ]}
+            total={["Total", docAmount(totals.total)]}
+          />
         </footer>
       </Card>
+      {dialog}
     </div>
   );
 }

@@ -1,5 +1,173 @@
 # Remaining UI migration checklist
 
+## 2026-11-11 — Thousands separators on money entry fields
+
+- Added shared `AmountInput` (`app/shared/ui/amount-input.tsx`) and helpers
+  (`app/shared/model/amount-format.ts`, tests in `tests/unit/amount-format.test.ts`).
+  Money fields group thousands while typing (1,000 · 10,000 · 1,000,000), keep the
+  caret in place, accept pasted "PKR 12,500.00", and emit the unformatted raw value
+  via `onValueChange(raw, amount)`. With `name`, a hidden input posts the raw value.
+  Negatives only with `allowNegative`; precision via `decimals` (default 2).
+- Converted: Sales (receipt/payment amount, allocations, bulk receipts, opening
+  balance, credit limit, line rate, FX rate); Banking (18 fields: entry line amounts,
+  transfer amount/charge, reconciliation balances, statement filters, overdraft, rates);
+  Finance (currency rates, journal debit/credit, FX rounding tolerance); HR (salary
+  bands, requisition salary, offer gross, settlement rates/corrections, payroll
+  statutory money fields, adjustments, loans, structure amounts, learning cost);
+  Commerce rates/freight/expenses; Master-data limits, cost, prices, MRP; shell
+  prototype rate line; shared module-view amount filters.
+- Preserved: raw values reach validation/API unchanged (no commas), existing decimal
+  limits (8 for bank amounts, 18 for currency rates, 4 for HR money), labels/ids/aria.
+- Deliberately left as numeric inputs: quantities, percentages, days, minutes, counts.
+- Verification: tsc 0 errors; unit tests 1105 passed, 2 failing in
+  `user-management-components.test.ts` (security users — untouched, pre-existing);
+  lint counts unchanged versus HEAD on touched files; theme audit clean; `build:web` passed.
+- Resume point: browser check of each converted screen in light/dark at
+  desktop/tablet/mobile widths.
+
+## 2026-11-11 — Sales UI audit fixes (Sales, Revenue, Customers)
+
+Browser walkthrough of every Sales/Revenue/Customers screen at 1440, 820 and
+390 px plus dark mode (`tmp/sales-ui-audit/audit.mjs`, screenshots in
+`tmp/sales-ui-audit/shots`).
+
+- **Receipt Preview/Print opened off-centre** (reported): the voucher viewer
+  was rendered inside the receipt side panel, so it lived in the panel's z-50
+  stacking context under the shell sidebar (z 60), which covered its left half
+  and the toolbar title. New `components/document-viewer.tsx`
+  (`DocumentViewerFrame`) is a portalled Base UI dialog used by both the
+  receipt voucher and the invoice/quotation PDF viewer: centred over the whole
+  window, focus moves to Close, Escape closes only the viewer and leaves the
+  panel open, `data-print-viewer` print rules unchanged. The voucher now
+  scales to fit phones like the invoice PDF.
+- **Side panels and dialogs under the sidebar**: Sales sheets, dialogs and
+  discard prompts used the primitives' default z-50, so the sidebar stayed
+  undimmed and clickable. `salesLayer` in `sales-ui.tsx` sets panels to
+  z-160/161 (shell modal layer), dialogs over panels to 170/171, viewer 175;
+  toasts (180) stay on top.
+- **Panel header gap**: `SheetTitle`/`SheetDescription` and dialog titles kept
+  the browser's default h2/p margins (~15 px each). Sales usages now pass
+  `m-0` (HR already uses `m-0!`). The shared primitives were not changed.
+- **New Invoice / New Quotation scrolled sideways on tablet and phone**: an
+  `sr-only` table header escaped its `overflow-x-auto` wrapper. All Sales
+  table scroll wrappers are now `relative`.
+- **Lists**: money and date cells no longer break onto two lines
+  (`ListColumn.nowrap`; right-aligned columns never wrap). Invoices list: Issued
+  by and Received are optional in Filter so Status fits at 1440 px. Batch
+  sheets are wider (`max-w-5xl`) so their grid is not clipped. Page headers sit
+  beside their actions only from `xl`, so action buttons no longer stack.
+- Preserved: routes, panels, handlers, discard guard, auto-print, print
+  output, column chooser storage, all mock workflows (no posting).
+- Verified: browser checks above (preview centred/covers shell/Escape,
+  delete dialog above panel, invoice PDF covers shell, no horizontal page
+  overflow, no console errors), `tsc`, eslint (sales), sales unit tests 16/16,
+  `git diff --check`, UI theme audit 0 exceptions, `npm run build:web`.
+- Not changed (outside Sales scope): the shared `Sheet`/`Dialog` primitives
+  still default to z-50 and browser heading margins; other features override
+  locally. The Nexora AI launcher (z 1350) floats above all overlays by design.
+
+## 2026-11-11 — Sales document currencies
+
+- `app/shared/constants/countries.ts`: `CURRENCIES` is now the full active
+  ISO 4217 list (154 codes, checked against `Intl.supportedValuesOf`), plus
+  `currencyDigits` (ISO minor units: JPY 0, KWD 3), `currencyName` and
+  `currencyLabel`. Customer preferred/bank currency selects use it unchanged.
+- Quotations, orders, invoices and Receipts documents carry optional
+  `currency` + `fxRate` (PKR per 1 unit). Missing = PKR, so existing records
+  and fixtures are unchanged. New `components/currency-fields.tsx` (searchable
+  currency + rate) is used by the document form and the receipt form.
+- Rules (`model/sales-currency.ts`, `sales-workflow.ts`): a document's amounts
+  stay in its currency; exposure, open balance, money on account, credit limits
+  and list metric tiles are PKR at each document's rate. Receipts allocate and
+  offset only within the same currency; returns use the original's currency;
+  an invoice from an order keeps the order's currency. Batch Receipts/Payments
+  rows are PKR; Batch Invoice Receipts posts one receipt per customer and
+  currency at the invoice rate. Catalogue (PKR) prices convert at the rate.
+- Verified: tsc, eslint (sales + shared constants), sales unit tests 16/16,
+  full unit suite (2 pre-existing failures in
+  `tests/unit/user-management-components.test.ts`, Security, untouched),
+  `git diff --check`, UI audit 0 exceptions, `npm run build:web`.
+- Remaining: browser evidence (light/dark, mobile) for the currency fields;
+  rates are typed by hand in the prototype — the live flow should default them
+  from the Finance currency-rate API for the document date and post FX
+  gains/losses on settlement server-side.
+
+## 2026-11-11 — Sales Create Invoice form and list pagination
+
+- Create Invoice (fulfilment panel, Pick, Pack & Delivery "Delivered" tab,
+  sales order record) now opens `DocumentEntry` prefilled from the delivered
+  order via `invoiceDraftFromOrder`; the invoice is saved and linked only on
+  Save (`saveDocument` → `linkInvoiceToOrder`). `createInvoiceFromOrder` is
+  kept as draft + save for tests. Customer is locked to the order's customer.
+- `list-view-options.tsx`: finalized pager (`ListPager` + `usePagedRows` with
+  a filter reset key) under all six Sales lists; rows per page moved from the
+  Filter menu into the pager; default 10 rows.
+- Verified: `tsc --noEmit`, eslint on `app/features/sales`, sales unit tests
+  (12 passed, one new), `git diff --check`, UI audit `--write`/`--check`
+  (0 exceptions), `npm run build:web`. Browser evidence still to capture:
+  light/dark and mobile width for the pager and the prefilled invoice form.
+- Still mock: Sales has no API; invoice creation remains session-only.
+
+## 2026-11-11 — Sales review decisions (quotation approval, receipts, sale return, filter)
+
+From the Sales Module Quotation and Invoice Review (11 Nov 2026) and the reference
+screenshots. All Tailwind + shadcn primitives; no stylesheet added or retired.
+Workflow detail: `docs/architecture/sales-simplified-workflow.md`.
+
+- **Model** (`app/features/sales/model`): quotation `Open` → `Draft`, optional
+  `approver`, self-approval, named-approver decisions (reason only for reject /
+  changes), no auto order on approval, Confirm Order, Reset to Draft, delete
+  drafts only. Orders are `Draft | Confirmed`; Packed/Delivered/Invoiced are
+  derived fulfilment (`fulfilmentStage`). Receipts page documents typed
+  Receipt/Customer payment/Return receipt/Return payment (RCT/CPY/RRC/RPY) with
+  Draft/Posted, multi-invoice allocation, on-account money, reversals, offsets,
+  batch posting and duplicate detection. Sale returns are multi-line and credit
+  the invoice. New `sales-approvers.ts` directory. Fixtures migrated.
+- **New shared Sales components**: `list-view-options.tsx` (Filter: column
+  chooser + rows per page + pager, applied to every Sales list),
+  `discard-guard.tsx` (discard prompt), `money-forms.tsx` (receipt/payment/return
+  forms and batch sheets), `money-voucher.tsx` (Print/Preview voucher).
+- **Views**: Receipts rebuilt (Add New ▾ / Batch ▾ hover menus, record action
+  bar, Draft → Posted stepper, ribbon, duplicate warning); invoice panel is
+  read-only with no header actions and a **Receive Payment** footer button
+  (payment form removed); Sale Return moved to **Add New ▾** on the Invoices
+  page (shared `components/action-menu.tsx`, also used by Receipts); quotation record (Approve/Submit/approver decisions, Confirm Order,
+  Reset to Draft, Delete, Preview/Download PDF/Print, quotation band); order
+  record (Draft/Confirmed + fulfilment pill, order band, delete draft); entry
+  form Approver field; delivery, customers and recurring lists use the Filter.
+  Add New/Batch menus moved from Recurring Bills to Receipts.
+- **Retired**: `views/sales-control-views.tsx` (Sales Returns, Pricing &
+  Discounts, Sales Approvals, Sales Reports) after `rg` confirmed no other
+  users; the Returns & Control menu group; redirects added for the old ids.
+- **Verified**: `tsc --noEmit` (0 errors); ESLint on `app/features/sales`,
+  `app/shell/config/prototype-data.ts` and the new test (clean);
+  `vitest tests/unit/sales-workflow.test.ts` (11 passed); `git diff --check`;
+  `node scripts/audit-ui-theme.mjs --write` and `--check` (0 font / 0 colour
+  exceptions); `npm.cmd run build:web` passed (after disk space was freed).
+  Not yet browser-checked: login needs the local API, database and credentials.
+- **Resume point**: browser-check Quotations,
+  Sales Orders, Pick Pack & Delivery, Invoices (Add New › Sale Return), Receipts (Add New,
+  Batch, record actions) and the Filter menu at desktop/tablet/mobile in light
+  and dark. Access & Control page (per-module User/Manager/Admin) is still to
+  design. Everything remains mock data; nothing posts to ledger, stock or bank.
+
+## 2026-11-11 — Sales Receipts page under Invoices
+
+- New `app/features/sales/views/sales-receipts-view.tsx` (Tailwind + shadcn
+  Sheet/Button, no stylesheet): Receipts list with metrics, search and
+  customer/method/source filters; receipt side panel; New Receipt side panel.
+- Menu: `sales/receipts` added after Invoices; Invoices page header gains a
+  **Receipts** button. `RCT-` codes route to the receipt panel. Retired
+  customer-receipt deep links now redirect to Receipts instead of Invoices.
+- Shared `components/payment-fields.tsx` now renders the payment inputs for both
+  the invoice panel and New Receipt; `patchPayment`, `openInvoices` and a
+  `source` argument added to `recordInvoicePayment` (default "Invoice", so
+  existing Save Receipt behaviour is unchanged).
+- Verified: `tsc --noEmit`, ESLint on `app/features/sales`, `git diff --check`,
+  theme audit --write/--check (0 exceptions), `npm run build:web`.
+  Not yet browser-checked (light/dark, mobile widths).
+- Still mock data; nothing posts to the ledger or bank. No stylesheets retired.
+
 ## 2026-11-10 — International customer form, customer panel, panel close on save
 
 - Customer form rebuilt (`app/features/sales/components/customer-*.tsx`,

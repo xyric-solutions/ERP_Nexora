@@ -4,29 +4,79 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  clickableRow,
   EmptyState,
   EntryActionBar,
   EntryTabs,
   FilterSelect,
-  ListFooter,
   ListToolbar,
   MetricTiles,
   PageHead,
-  rowKeyHandler,
   SearchBox,
   StatusPill,
-  tableClass,
 } from "../components/sales-ui";
+import { ListPager, ListTable, ListViewMenu, usePagedRows, useListView, type ListColumn } from "../components/list-view-options";
+import { useDiscardGuard } from "../components/discard-guard";
 import { CustomerPanel } from "../components/customer-panel";
 import { CustomerSectionBody, useCustomerEditor } from "../components/customer-sections";
 import type { SalesNav } from "../components/sales-nav";
-import { CUSTOMER_SECTIONS, customerPhone, onCreditHold } from "../model/customer-model";
+import { CUSTOMER_SECTIONS, customerPhone, onCreditHold, termsLabel } from "../model/customer-model";
 import { CUSTOMER_TYPES } from "../model/sales-constants";
 import { moneyWhole } from "../model/sales-format";
 import { useSalesState } from "../model/sales-store";
-import { exposure, newCustomerDraft, openBalance } from "../model/sales-workflow";
-import type { SalesCustomer } from "../model/sales-types";
+import { exposure, newCustomerDraft, onAccountCredit, openBalance } from "../model/sales-workflow";
+import type { SalesCustomer, SalesState } from "../model/sales-types";
+
+function customerColumns(state: SalesState): ListColumn<SalesCustomer>[] {
+  return [
+    { id: "code", label: "Code", required: true, cell: (customer) => <span className="font-mono font-semibold">{customer.code}</span> },
+    {
+      id: "name",
+      label: "Customer",
+      required: true,
+      cell: (customer) => (
+        <>
+          <strong>{customer.display || customer.name}</strong>
+          {customer.display && customer.display !== customer.name ? <small>{customer.name}</small> : null}
+        </>
+      ),
+    },
+    { id: "type", label: "Type", cell: (customer) => customer.type },
+    {
+      id: "contact",
+      label: "Contact",
+      cell: (customer) => {
+        const phone = customerPhone(customer);
+        return customer.contactName || phone || customer.email ? (
+          <>
+            {customer.contactName || "—"}
+            <small>{[phone, customer.email].filter(Boolean).join(" · ")}</small>
+          </>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        );
+      },
+    },
+    { id: "city", label: "City", optional: true, cell: (customer) => customer.billing.city || "—" },
+    { id: "salesperson", label: "Salesperson", optional: true, cell: (customer) => customer.salesperson || "—" },
+    { id: "terms", label: "Payment terms", optional: true, cell: (customer) => termsLabel(customer) },
+    { id: "ntn", label: "NTN", optional: true, cell: (customer) => customer.ntn || "—" },
+    { id: "opening", label: "Opening balance", align: "right", cell: (customer) => moneyWhole(customer.openingBalance) },
+    { id: "onAccount", label: "On account", align: "right", optional: true, cell: (customer) => moneyWhole(onAccountCredit(state, customer.id)) },
+    { id: "outstanding", label: "Outstanding", align: "right", cell: (customer) => <span className="font-semibold">{moneyWhole(openBalance(state, customer.id))}</span> },
+    { id: "limit", label: "Credit limit", align: "right", cell: (customer) => (customer.creditLimit ? moneyWhole(customer.creditLimit) : "No limit") },
+    {
+      id: "status",
+      label: "Status",
+      required: true,
+      cell: (customer) => (
+        <span className="flex flex-wrap gap-1">
+          <StatusPill status={customer.status} />
+          {onCreditHold(customer) ? <StatusPill status={`Credit ${customer.creditStatus.toLowerCase()}`} /> : null}
+        </span>
+      ),
+    },
+  ];
+}
 
 /** Customers list. `selected` opens that customer in the right-side panel. */
 export function CustomerList({ nav, selected }: { nav: SalesNav; selected?: string }) {
@@ -34,6 +84,8 @@ export function CustomerList({ nav, selected }: { nav: SalesNav; selected?: stri
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [type, setType] = useState("");
+  const columns = useMemo(() => customerColumns(state), [state]);
+  const view = useListView("customers", columns);
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return state.customers.filter(
@@ -47,6 +99,7 @@ export function CustomerList({ nav, selected }: { nav: SalesNav; selected?: stri
             .includes(needle)),
     );
   }, [query, state.customers, status, type]);
+  const paging = usePagedRows(view, rows, [query, status, type].join("|"));
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-3.5 text-foreground">
@@ -55,12 +108,17 @@ export function CustomerList({ nav, selected }: { nav: SalesNav; selected?: stri
         title="Customers"
         status={<StatusPill status="Prototype only" />}
         description="Every customer in one list. Click a customer to view and edit it, change its status or update its opening balance."
-        actions={<Button type="button" onClick={() => nav.openNew("customers")}>+ New Customer</Button>}
+        actions={
+          <>
+            <ListViewMenu view={view} />
+            <Button type="button" onClick={() => nav.openNew("customers")}>+ New Customer</Button>
+          </>
+        }
       />
       <MetricTiles
         metrics={[
           { label: "Customers", value: state.customers.length, hint: `${state.customers.filter((item) => item.status === "Active").length} active` },
-          { label: "Outstanding", value: moneyWhole(state.customers.reduce((sum, item) => sum + openBalance(state, item.id), 0)), hint: "Opening balances + unpaid invoices" },
+          { label: "Outstanding", value: moneyWhole(state.customers.reduce((sum, item) => sum + openBalance(state, item.id), 0)), hint: "Opening balances + unpaid invoices − money on account" },
           {
             label: "Over 80% of credit limit",
             value: state.customers.filter((item) => item.creditLimit && exposure(state, item.id) / item.creditLimit > 0.8).length,
@@ -76,62 +134,8 @@ export function CustomerList({ nav, selected }: { nav: SalesNav; selected?: stri
         </ListToolbar>
         {rows.length ? (
           <>
-            <div className="overflow-x-auto">
-              <table className={tableClass}>
-                <thead>
-                  <tr>
-                    <th>Code</th>
-                    <th>Customer</th>
-                    <th>Type</th>
-                    <th>Contact</th>
-                    <th className="text-right!">Opening balance</th>
-                    <th className="text-right!">Outstanding</th>
-                    <th className="text-right!">Credit limit</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((customer) => {
-                    const open = () => nav.open(customer.code, true);
-                    const phone = customerPhone(customer);
-                    return (
-                      <tr
-                        key={customer.id}
-                        className={clickableRow}
-                        tabIndex={0}
-                        aria-selected={customer.code === selected}
-                        onClick={open}
-                        onKeyDown={rowKeyHandler(open)}
-                      >
-                        <td><span className="font-mono font-semibold">{customer.code}</span></td>
-                        <td><strong>{customer.display || customer.name}</strong>{customer.display && customer.display !== customer.name ? <small>{customer.name}</small> : null}</td>
-                        <td>{customer.type}</td>
-                        <td>
-                          {customer.contactName || phone || customer.email ? (
-                            <>
-                              {customer.contactName || "—"}
-                              <small>{[phone, customer.email].filter(Boolean).join(" · ")}</small>
-                            </>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="text-right tabular-nums">{moneyWhole(customer.openingBalance)}</td>
-                        <td className="text-right font-semibold tabular-nums">{moneyWhole(openBalance(state, customer.id))}</td>
-                        <td className="text-right tabular-nums">{customer.creditLimit ? moneyWhole(customer.creditLimit) : "No limit"}</td>
-                        <td>
-                          <span className="flex flex-wrap gap-1">
-                            <StatusPill status={customer.status} />
-                            {onCreditHold(customer) ? <StatusPill status={`Credit ${customer.creditStatus.toLowerCase()}`} /> : null}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <ListFooter>Showing {rows.length} of {state.customers.length} customers</ListFooter>
+            <ListTable view={view} rows={paging.pageRows} rowKey={(customer) => customer.code} onOpen={(customer) => nav.open(customer.code, true)} selected={selected ?? ""} />
+            <ListPager view={view} paging={paging} of={state.customers.length} noun="customers" />
           </>
         ) : (
           <EmptyState
@@ -153,13 +157,15 @@ export function CustomerList({ nav, selected }: { nav: SalesNav; selected?: stri
 
 function NewCustomerEditor({ initial, nav, onSaved }: { initial: SalesCustomer; nav: SalesNav; onSaved: (code: string) => void }) {
   const editor = useCustomerEditor(initial, nav, onSaved);
+  const { guard, dialog } = useDiscardGuard(editor.dirty);
+  const close = () => guard(nav.back);
   return (
     <div className="grid min-w-0 grid-cols-1 gap-3.5 text-foreground">
       <PageHead
         eyebrow="Customers · Customer"
         title="New Customer"
         description="Only the Overview is required. Contact, address, tax, payment, bank and notes sections are optional and can be completed later."
-        actions={<Button type="button" variant="outline" onClick={nav.back}>Close</Button>}
+        actions={<Button type="button" variant="outline" onClick={close}>Close</Button>}
       />
       <EntryActionBar
         saveLabel="Save customer"
@@ -167,7 +173,7 @@ function NewCustomerEditor({ initial, nav, onSaved }: { initial: SalesCustomer; 
         state="Not saved yet"
         error={Object.keys(editor.errors).length ? "Some details need fixing. Sections with a red dot have errors." : undefined}
         onSave={editor.save}
-        onDiscard={nav.back}
+        onDiscard={close}
       />
       <Card>
         <EntryTabs label="Customer sections" tabs={CUSTOMER_SECTIONS} active={editor.section} onChange={editor.setSection} errors={editor.errorSections} />
@@ -175,6 +181,7 @@ function NewCustomerEditor({ initial, nav, onSaved }: { initial: SalesCustomer; 
           <CustomerSectionBody section={editor.section} customer={editor.draft} errors={editor.errors} update={editor.update} nav={nav} />
         </div>
       </Card>
+      {dialog}
     </div>
   );
 }

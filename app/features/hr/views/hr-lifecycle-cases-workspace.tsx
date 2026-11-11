@@ -11,6 +11,7 @@ import { SettlementLineCalculation } from "../components/settlement-line-calcula
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
 import {
@@ -371,15 +372,15 @@ function LifecycleCaseForm({
                   </select>
                 </Field>
                 <Field title={"Line " + (index + 1) + " amount in minor units"}>
-                  <Input
-                    inputMode="numeric"
-                    pattern="(0|[1-9][0-9]{0,14})"
+                  <AmountInput
+                    decimals={0}
+                    maxLength={19}
                     value={line.amount_minor}
                     readOnly={!!line.calculation}
                     disabled={busy || !!(line.encashment_source_id || line.benefit_source_id)}
                     required
-                    onChange={(e) =>
-                      setLines((v) => v.map((x, i) => (i === index ? { ...x, amount_minor: e.target.value } : x)))
+                    onValueChange={(raw) =>
+                      setLines((v) => v.map((x, i) => (i === index ? { ...x, amount_minor: raw } : x)))
                     }
                   />
                 </Field>

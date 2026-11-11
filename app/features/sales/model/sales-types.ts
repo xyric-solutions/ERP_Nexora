@@ -7,12 +7,21 @@
 export type SalesDocumentKind = "quotation" | "order" | "invoice";
 
 /**
- * Quotation lifecycle: Open → Pending approval → Approved → Ordered.
- * A reviewer can instead reject it or send it back with Changes requested.
+ * Quotation lifecycle (meeting of 11 Nov 2026):
+ * Draft → (optional) Pending approval → Approved → Ordered (Confirm Order).
+ * A named approver can instead reject it or send it back with Changes requested.
+ * Without an approver the creator approves it. Only drafts can be deleted;
+ * approved, rejected or returned quotations go back to Draft with Reset to Draft.
  */
-export type QuotationStatus = "Open" | "Pending approval" | "Changes requested" | "Approved" | "Rejected" | "Ordered";
-/** Saved (direct orders only) → Confirmed → Packed → Delivered → Invoiced. No order-level approval. */
-export type OrderStatus = "Saved" | "Confirmed" | "Packed" | "Delivered" | "Invoiced";
+export type QuotationStatus = "Draft" | "Pending approval" | "Changes requested" | "Approved" | "Rejected" | "Ordered";
+/**
+ * A sales order only shows whether the customer's order is confirmed. Picking,
+ * packing, delivery and invoicing are fulfilment progress (see FulfilmentStage),
+ * not order statuses.
+ */
+export type OrderStatus = "Draft" | "Confirmed";
+/** Fulfilment progress of a confirmed order, derived from its pick & pack, delivery and invoice. */
+export type FulfilmentStage = "Not started" | "Packed" | "Delivered" | "Invoiced";
 export type InvoiceStatus = "Unpaid" | "Partially paid" | "Paid";
 export type SalesDocumentStatus = QuotationStatus | OrderStatus | InvoiceStatus;
 
@@ -85,12 +94,18 @@ export interface SalesDocument {
   terms: string;
   reference: string;
   warehouse: string;
+  /** ISO 4217 currency of the amounts. Missing means the base currency (PKR). */
+  currency?: string;
+  /** PKR per 1 unit of `currency` (1 for PKR). Converts amounts for customer balances and credit. */
+  fxRate?: number;
   lines: SalesLine[];
   notes: string;
   status: SalesDocumentStatus;
   links: SalesDocumentLinks;
   pickPack?: SalesPickPack;
   delivery?: SalesDelivery;
+  /** Quotations only: optional named approver. Empty means the creator approves it. */
+  approver?: string;
   /** Quotations only: submissions and approval decisions, oldest first. */
   approval?: ApprovalEntry[];
   history: SalesHistoryEntry[];
@@ -224,31 +239,76 @@ export interface ReceiptAllocation {
   amount: number;
 }
 
+export type ReceiptSource = "Invoice" | "Manual" | "Batch";
+
+/**
+ * Money documents on the Receipts page (Add New menu):
+ * - Receipt (RCT-): money received from a customer, allocated to invoices;
+ *   any amount not allocated stays on account.
+ * - Customer payment (CPY-): money paid to a customer, e.g. a security deposit,
+ *   an advance or a tender fee.
+ * - Return receipt (RRC-): refunds or reverses part of a posted receipt.
+ * - Return payment (RPY-): the customer returns part of a customer payment.
+ */
+export type MoneyDocType = "Receipt" | "Customer payment" | "Return receipt" | "Return payment";
+export type MoneyDocStatus = "Draft" | "Posted";
+
 export interface CustomerReceipt {
   id: string;
   code: string;
+  type: MoneyDocType;
   customerId: string;
   owner: string;
   date: string;
   method: string;
   account: string;
   reference: string;
+  /** Amount in `currency`. */
   amount: number;
+  /** ISO 4217 currency of the amount and allocations; allocations go only to invoices in the same currency. Missing means the base currency (PKR). */
+  currency?: string;
+  /** PKR per 1 unit of `currency` (1 for PKR). Converts amounts for customer balances and credit. */
+  fxRate?: number;
+  /**
+   * Receipt: amounts applied to invoices. Return receipt: allocations it
+   * reverses (the rest of its amount comes off the on-account balance).
+   */
   alloc: ReceiptAllocation[];
-  status: "Recorded";
+  /** Return receipt / return payment: the receipt or customer payment it returns. */
+  against?: string;
+  /** Customer payment: why the money was paid, e.g. Security deposit. */
+  purpose?: string;
+  note?: string;
+  /** Only posted documents change invoice balances. */
+  status: MoneyDocStatus;
+  /**
+   * Where the document was recorded: "Invoice" for receipts created from an
+   * invoice, "Manual" on the Receipts page, "Batch" from a Batch entry.
+   */
+  source?: ReceiptSource;
   history: SalesHistoryEntry[];
 }
 
+/** One returned line of a sales return, priced as on the invoice. */
+export interface SalesReturnLine {
+  sku: string;
+  desc: string;
+  qty: number;
+  rate: number;
+  tax: number;
+  uom: string;
+}
+
+/** Sale Return recorded from an opened invoice. Its value is credited to that invoice. */
 export interface SalesReturn {
   id: string;
   code: string;
   customerId: string;
   invoice: string;
   date: string;
-  item: string;
-  qty: number;
+  lines: SalesReturnLine[];
   reason: string;
-  status: "Pending approval" | "Approved" | "Rejected";
+  status: "Recorded";
   history: SalesHistoryEntry[];
 }
 

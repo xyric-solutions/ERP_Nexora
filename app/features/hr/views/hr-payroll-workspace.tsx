@@ -6,6 +6,7 @@ import { useMemo, useRef, useState } from "react";
 import { Wallet, Plus, RefreshCw, ArrowRight, ChevronLeft, ChevronRight, ShieldCheck, Layers3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
@@ -185,16 +186,25 @@ function RecordEditor({
   const change = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const field = (key: string, title: string, type = "text", required = true) => (
     <Field title={key === "code" || key === "reference" ? `${title} (automatic)` : title}>
-      <Input
-        className="box-border! w-full min-w-0! max-w-full! font-normal!"
-        type={type}
-        inputMode={["amount", "principal"].includes(key) ? "decimal" : undefined}
-        value={key === "code" || key === "reference" ? "Assigned on save" : form[key]}
-        readOnly={key === "code" || key === "reference"}
-        required={required}
-        onChange={(e) => change(key, e.target.value)}
-        maxLength={type === "text" ? 160 : undefined}
-      />
+      {key === "amount" || key === "principal" ? (
+        <AmountInput
+          className="box-border! w-full min-w-0! max-w-full! font-normal!"
+          decimals={4}
+          value={form[key]}
+          required={required}
+          onValueChange={(raw) => change(key, raw)}
+        />
+      ) : (
+        <Input
+          className="box-border! w-full min-w-0! max-w-full! font-normal!"
+          type={type}
+          value={key === "code" || key === "reference" ? "Assigned on save" : form[key]}
+          readOnly={key === "code" || key === "reference"}
+          required={required}
+          onChange={(e) => change(key, e.target.value)}
+          maxLength={type === "text" ? 160 : undefined}
+        />
+      )}
     </Field>
   );
   async function submit(e: React.FormEvent) {
@@ -447,17 +457,24 @@ function RecordEditor({
                     options={options?.components ?? []}
                   />
                   <Field title={method === "formula" ? "Formula " + (index + 1) : "Amount " + (index + 1)}>
-                    <Input
-                      value={method === "formula" ? item.formula : item.amount}
-                      required
-                      onChange={(e) =>
-                        setItems((s) =>
-                          s.map((i, n) =>
-                            n === index ? { ...i, [method === "formula" ? "formula" : "amount"]: e.target.value } : i,
-                          ),
-                        )
-                      }
-                    />
+                    {method === "formula" ? (
+                      <Input
+                        value={item.formula}
+                        required
+                        onChange={(e) =>
+                          setItems((s) => s.map((i, n) => (n === index ? { ...i, formula: e.target.value } : i)))
+                        }
+                      />
+                    ) : (
+                      <AmountInput
+                        decimals={4}
+                        value={item.amount}
+                        required
+                        onValueChange={(raw) =>
+                          setItems((s) => s.map((i, n) => (n === index ? { ...i, amount: raw } : i)))
+                        }
+                      />
+                    )}
                   </Field>
                   <Button
                     type="button"

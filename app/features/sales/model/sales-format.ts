@@ -1,18 +1,25 @@
 /** Formatting and date helpers for the sales prototype. */
 
+import { currencyDigits } from "@/shared/constants/countries";
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 const pad2 = (value: number) => String(value).padStart(2, "0");
 
-export function money(value: number): string {
-  return `PKR ${(Number(value) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+/** Base (reporting) currency: credit limits, opening balances and customer totals are kept in it. */
+export const BASE_CURRENCY = "PKR";
+
+/** "USD 1,250.00" — the currency's ISO decimal places (JPY 0, KWD 3). */
+export function money(value: number, currency: string = BASE_CURRENCY): string {
+  return `${currency} ${figure(value, currency)}`;
 }
 
-export function moneyWhole(value: number): string {
-  return `PKR ${Math.round(Number(value) || 0).toLocaleString("en-US")}`;
+export function moneyWhole(value: number, currency: string = BASE_CURRENCY): string {
+  return `${currency} ${Math.round(Number(value) || 0).toLocaleString("en-US")}`;
 }
 
-export function figure(value: number): string {
-  return (Number(value) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export function figure(value: number, currency: string = BASE_CURRENCY): string {
+  const digits = currencyDigits(currency);
+  return (Number(value) || 0).toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
 export function formatDate(iso: string | undefined): string {
@@ -61,10 +68,11 @@ function underThousand(value: number): string {
   return parts.join(" ");
 }
 
-/** Same wording as the commerce document template: "PKR ... only". */
-export function amountInWords(value: number): string {
+/** Same wording as the commerce document template: "PKR ... only". Other currencies show the fraction as NN/100. */
+export function amountInWords(value: number, currency: string = BASE_CURRENCY): string {
+  const digits = currencyDigits(currency);
   const whole = Math.floor(Math.abs(value) + 1e-9);
-  const paisa = Math.round((Math.abs(value) - whole) * 100);
+  const fraction = Math.round((Math.abs(value) - whole) * 10 ** digits);
   let rest = whole;
   const parts: string[] = [];
   for (const [size, name] of [[1e9, "Billion"], [1e6, "Million"], [1e3, "Thousand"]] as const) {
@@ -74,5 +82,8 @@ export function amountInWords(value: number): string {
     }
   }
   if (rest > 0) parts.push(underThousand(rest));
-  return `PKR ${parts.join(" ") || "Zero"}${paisa ? ` and ${underThousand(paisa)} Paisa` : ""} only`;
+  const words = parts.join(" ") || "Zero";
+  if (!fraction) return `${currency} ${words} only`;
+  if (currency === BASE_CURRENCY) return `${currency} ${words} and ${underThousand(fraction)} Paisa only`;
+  return `${currency} ${words} and ${String(fraction).padStart(digits, "0")}/${10 ** digits} only`;
 }

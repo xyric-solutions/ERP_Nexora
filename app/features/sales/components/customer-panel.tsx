@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,11 +26,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "cn";
 import { CustomerSectionBody, useCustomerEditor } from "./customer-sections";
-import { clickableRow, EntryTabs, Field, rowKeyHandler, StatusPill, tableClass } from "./sales-ui";
+import { clickableRow, EntryTabs, Field, rowKeyHandler, salesLayer, StatusPill, tableClass } from "./sales-ui";
 import type { SalesNav } from "./sales-nav";
 import { CUSTOMER_SECTIONS, onCreditHold } from "../model/customer-model";
 import { SALES_KINDS } from "../model/sales-constants";
-import { formatDate, money, moneyWhole } from "../model/sales-format";
+import { formatDate, moneyWhole } from "../model/sales-format";
+import { docMoney } from "../model/sales-currency";
 import { useSalesState } from "../model/sales-store";
 import { displayStatus, documentTotal, exposure, invoicedBalance } from "../model/sales-workflow";
 import type { SalesCustomer } from "../model/sales-types";
@@ -57,7 +59,7 @@ function RecentDocuments({ customer, nav }: { customer: SalesCustomer; nav: Sale
         </Button>
       </div>
       {docs.length ? (
-        <div className="overflow-x-auto rounded border border-border">
+        <div className="relative overflow-x-auto rounded border border-border">
           <table className={tableClass}>
             <thead>
               <tr>
@@ -83,7 +85,7 @@ function RecentDocuments({ customer, nav }: { customer: SalesCustomer; nav: Sale
                       <span className="text-muted-foreground">{SALES_KINDS[doc.kind].label}</span>
                     </td>
                     <td>{formatDate(doc.date)}</td>
-                    <td className="text-right tabular-nums">{money(documentTotal(doc))}</td>
+                    <td className="text-right tabular-nums">{docMoney(documentTotal(doc), doc)}</td>
                     <td>
                       <StatusPill status={displayStatus(doc)} />
                     </td>
@@ -136,13 +138,13 @@ function CustomerPanelBody({
     <>
       <SheetHeader className="border-b border-border pr-12">
         <div className="flex flex-wrap items-center gap-2">
-          <SheetTitle className="text-lg font-bold">{customer.display || customer.name}</SheetTitle>
+          <SheetTitle className="m-0 text-lg font-bold">{customer.display || customer.name}</SheetTitle>
           <span className="font-mono text-[0.8125rem] text-muted-foreground">{customer.code}</span>
           <StatusPill
             status={onCreditHold(customer) ? `Credit ${customer.creditStatus.toLowerCase()}` : customer.status}
           />
         </div>
-        <SheetDescription>
+        <SheetDescription className="m-0">
           {customer.name} · {customer.type}
           {customer.salesperson ? ` · ${customer.salesperson}` : ""}
         </SheetDescription>
@@ -174,16 +176,11 @@ function CustomerPanelBody({
             </RadioGroup>
           </div>
           <Field label="Opening balance (PKR)" error={errors.openingBalance}>
-            <Input
-              type="number"
-              inputMode="decimal"
-              step={0.01}
-              className="text-right tabular-nums"
+            <AmountInput
+              allowNegative
               value={draft.openingBalance}
               aria-invalid={Boolean(errors.openingBalance)}
-              onChange={(event) =>
-                update({ openingBalance: event.target.value === "" ? 0 : Number(event.target.value) })
-              }
+              onValueChange={(_, openingBalance) => update({ openingBalance })}
             />
           </Field>
           <Field label="Opening balance as of">
@@ -248,10 +245,10 @@ function CustomerPanelBody({
       </SheetFooter>
 
       <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
-        <AlertDialogContent>
+        <AlertDialogContent overlayClassName={salesLayer.dialogOverlay} className={salesLayer.dialog}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="m-0">Discard unsaved changes?</AlertDialogTitle>
+            <AlertDialogDescription className="m-0">
               Your changes to {customer.display || customer.name} have not been saved.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -283,7 +280,7 @@ export function CustomerPanel({
   const requestClose = useRef<(() => void) | null>(null);
   return (
     <Sheet open={Boolean(customer)} onOpenChange={(open) => !open && (requestClose.current ?? onClose)()}>
-      <SheetContent side="right" className="w-full gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-2xl">
+      <SheetContent side="right" overlayClassName={salesLayer.sheetOverlay} className={cn("w-full gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-2xl", salesLayer.sheet)}>
         {customer ? (
           <CustomerPanelBody
             key={customer.code}
