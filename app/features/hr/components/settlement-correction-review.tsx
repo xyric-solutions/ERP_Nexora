@@ -1,4 +1,6 @@
 "use client";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { calculateHrSettlementMinor } from "@nexora/contracts";
 import { useState } from "react";
 import type { HrLifecycleCaseAction, HrLifecycleCaseRecord } from "@nexora/contracts";
@@ -66,7 +68,7 @@ export function SettlementCorrectionReview({
         </p>
       )}
       {editing && workspace.can_request && (
-        <form
+        <WorkForm
           aria-label="Propose settlement financial correction"
           className="space-y-4"
           onSubmit={async (event) => {
@@ -171,7 +173,7 @@ export function SettlementCorrectionReview({
               Cancel proposal
             </Button>
           </div>
-        </form>
+        </WorkForm>
       )}
       {workspace.records.length === 0 && !editing && (
         <p className="text-sm text-muted-foreground">No financial correction reviews recorded.</p>
@@ -258,7 +260,7 @@ export function SettlementCorrectionReview({
             )}
           </div>
           {decision?.id === review.id && (decision.decision === "approve" ? review.can_approve : review.can_reject) && (
-            <form
+            <WorkForm
               className="space-y-3"
               onSubmit={async (event) => {
                 event.preventDefault();
@@ -291,7 +293,7 @@ export function SettlementCorrectionReview({
                   Cancel decision
                 </Button>
               </div>
-            </form>
+            </WorkForm>
           )}
         </article>
       ))}

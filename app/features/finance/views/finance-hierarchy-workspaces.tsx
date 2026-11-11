@@ -1,4 +1,5 @@
 "use client";
+import { WorkForm, WorkFormLayout } from "@/shared/ui/work-form";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -923,20 +924,20 @@ export function FinanceHierarchyForm({
     }
   }
 
-  if (sessionLoading || loading) return <p role="status">Loading {kind} master data…</p>;
+  if (sessionLoading || loading) return <WorkFormLayout><p role="status">Loading {kind} master data…</p></WorkFormLayout>;
   if (!canRead)
     return (
-      <Alert>
+      <WorkFormLayout><Alert>
         <AlertDescription>Permission required: finance.nominal.read.</AlertDescription>
-      </Alert>
+      </Alert></WorkFormLayout>
     );
   if (!canManage)
     return (
-      <Alert>
+      <WorkFormLayout><Alert>
         <AlertDescription>
           Only a global Super Admin with live company authority can manage Chart of Accounts masters.
         </AlertDescription>
-      </Alert>
+      </Alert></WorkFormLayout>
     );
 
   const categories = rows.filter((row) => !row.parent_id && row.status === "active");
@@ -945,7 +946,7 @@ export function FinanceHierarchyForm({
     !["pending_approval", "rejected"].includes(state) &&
     permissions.includes(selected ? "finance.nominal.update" : "finance.nominal.create");
   return (
-    <Card>
+    <WorkFormLayout><Card>
       <CardHeader className="border-b border-border bg-muted/30">
         <CardTitle>
           {selected ? (needsReview(selected) ? "" : "Edit") : "New"} {kind === "category" ? "Category" : "Section"}
@@ -968,7 +969,7 @@ export function FinanceHierarchyForm({
             Close
           </Button>
         ) : (
-          <form
+          <WorkForm
             className="grid gap-5 md:grid-cols-2"
             onSubmit={(event) => {
               event.preventDefault();
@@ -1156,9 +1157,9 @@ export function FinanceHierarchyForm({
                 Close
               </Button>
             </div>
-          </form>
+          </WorkForm>
         )}
       </CardContent>
-    </Card>
+    </Card></WorkFormLayout>
   );
 }

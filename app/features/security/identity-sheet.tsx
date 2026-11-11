@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../components/ui/sheet";
+import { WorkFormLayout } from "@/shared/ui/work-form";
 
 /** Presentation only: each security workflow owns its authority, request and draft state. */
 export function IdentitySheet({
@@ -43,7 +44,7 @@ export function IdentitySheet({
           </div>
           <SheetDescription>Review the details. Existing permissions and approval requirements apply.</SheetDescription>
         </SheetHeader>
-        <div
+        <WorkFormLayout
           aria-busy={busy}
           className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-4 [overflow-wrap:anywhere] [&_label]:min-w-0 [&_input]:min-w-0 [&_select]:min-w-0 [&_select]:max-w-full [&_select]:rounded-md [&_select]:border [&_select]:border-input [&_select]:bg-background [&_select]:px-2 [&_select]:py-2 [&_select]:text-foreground [&_textarea]:min-w-0"
         >
@@ -53,7 +54,7 @@ export function IdentitySheet({
             </Alert>
           ) : null}
           {children}
-        </div>
+        </WorkFormLayout>
       </SheetContent>
     </Sheet>
   );

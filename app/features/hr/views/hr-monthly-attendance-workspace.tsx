@@ -1,4 +1,8 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { useEffect, useMemo, useState } from "react";
 import type { HrMonthlyAttendanceDirectory, HrMonthlyAttendanceRow } from "@nexora/contracts";
@@ -10,8 +14,6 @@ import {
   CheckCircle2,
   TriangleAlert,
   Clock3,
-  ChevronLeft,
-  ChevronRight,
   ArrowUpRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -238,6 +240,7 @@ export function HrMonthlyAttendanceWorkspace({
   initialReference?: string;
   onNavigate: Navigate;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const initialScope = useMemo(() => readHrOperationsScope(initialReference), [initialReference]);
   const { api, session, loading: sessionLoading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]),
@@ -287,7 +290,7 @@ export function HrMonthlyAttendanceWorkspace({
     setError("");
     setLoading(true);
     client
-      .monthlyAttendance({ company_id: company, month: month + "-01", search: applied || undefined, limit: 25, offset })
+      .monthlyAttendance({ company_id: company, month: month + "-01", search: applied || undefined, limit: workPageSize, offset })
       .then((result) => {
         if (active) setData(result);
       })
@@ -301,7 +304,7 @@ export function HrMonthlyAttendanceWorkspace({
     return () => {
       active = false;
     };
-  }, [client, company, month, applied, offset, revision, canRead]);
+  }, [client, company, month, applied, offset, revision, canRead, workPageSize]);
   const totals = useMemo(
     () => ({
       present: data?.items.reduce((n, r) => n + r.counts.present, 0) ?? 0,
@@ -357,7 +360,7 @@ export function HrMonthlyAttendanceWorkspace({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <form
+      <WorkForm
         className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1.2fr_0.7fr_1fr_auto] sm:p-5"
         onSubmit={(e) => {
           e.preventDefault();
@@ -429,7 +432,7 @@ export function HrMonthlyAttendanceWorkspace({
             Clear
           </Button>
         </div>
-      </form>
+      </WorkForm>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {[
           { name: "Employees in this page", value: data?.items.length ?? 0, icon: Users },
@@ -464,7 +467,7 @@ export function HrMonthlyAttendanceWorkspace({
         <>
           <div className="hidden min-w-0 overflow-hidden rounded-xl border border-border bg-card md:block">
             <div className="max-h-[38rem] overflow-auto">
-              <table className="w-full min-w-[1050px] text-left text-sm">
+              <WorkTable paging={false} tableId="app/features/hr/views/hr-monthly-attendance-workspace:1" className="w-full min-w-[1050px] text-left text-sm">
                 <thead className="sticky top-0 z-10 bg-muted">
                   <tr>
                     {[
@@ -505,7 +508,7 @@ export function HrMonthlyAttendanceWorkspace({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           </div>
           <div className="grid gap-3 md:hidden">
@@ -545,29 +548,7 @@ export function HrMonthlyAttendanceWorkspace({
           </p>
         </div>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-xs text-muted-foreground">
-          {data?.items.length ? `${offset + 1}–${offset + data.items.length} of ${data.total}` : "0 results"}
-        </span>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            disabled={loading || offset === 0}
-            onClick={() => setOffset((v) => Math.max(0, v - 25))}
-          >
-            <ChevronLeft className="size-4" />
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            disabled={loading || !data || offset + 25 >= data.total}
-            onClick={() => setOffset((v) => v + 25)}
-          >
-            Next
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
-      </div>
+      <WorkOffsetPagination busy={!!(loading || data)} total={data?.total ?? 0} offset={offset} size={workPageSize} previousDisabled={!!(loading || offset === 0)} nextDisabled={!!(loading || !data || offset + workPageSize >= data.total)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
       {detail && data && (
         <EmployeeMonth
           key={`${data.company_id}:${data.month}:${detail.employee_id}`}

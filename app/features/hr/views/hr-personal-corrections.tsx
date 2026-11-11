@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useRef, useState } from "react";
 import { RefreshCw, UserRound } from "lucide-react";
@@ -40,6 +43,7 @@ export function HrPersonalCorrections({
   mode?: "mine" | "review";
   onBusy?: (busy: boolean) => void;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const { api, csrfToken } = useSession(),
     client = new HrApiClient(api);
   const [revision, setRevision] = useState(0),
@@ -56,7 +60,7 @@ export function HrPersonalCorrections({
     [reference, setReference] = useState("");
   const guard = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null),
-    q = { company_id: company, mode, state: "all" as const, limit: 10, offset };
+    q = { company_id: company, mode, state: "all" as const, limit: workPageSize, offset };
   const read = useAttendanceRead(JSON.stringify([q, revision]), () => client.personalCorrections(q)),
     w = read.data;
   async function command(input: unknown, operation: (key: string) => Promise<HrAttendanceCompletionResult>) {
@@ -197,7 +201,7 @@ export function HrPersonalCorrections({
           error={error}
           notice={notice}
         >
-          <form onSubmit={submit} className={panel + " space-y-4"} aria-label="Request personal data correction">
+          <WorkForm onSubmit={submit} className={panel + " space-y-4"} aria-label="Request personal data correction">
             <h3 className="font-semibold">Proposed personal details</h3>
             <div className="grid gap-4 sm:grid-cols-2">
               {fields.map(([key, label]) => (
@@ -261,7 +265,7 @@ export function HrPersonalCorrections({
                 Close correction form
               </Button>
             </div>
-          </form>
+          </WorkForm>
         </HrRecordDrawer>
       )}
       {w && !w.items.length && (
@@ -340,29 +344,7 @@ export function HrPersonalCorrections({
         </article>
       ))}
       {w && (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <span>
-            {w.total ? offset + 1 : 0}–{Math.min(offset + w.limit, w.total)} of {w.total} correction requests
-          </span>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy || offset === 0}
-              onClick={() => setOffset((v) => Math.max(0, v - 10))}
-            >
-              Previous corrections
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy || offset + 10 >= w.total}
-              onClick={() => setOffset((v) => v + 10)}
-            >
-              Next corrections
-            </Button>
-          </div>
-        </div>
+        <WorkOffsetPagination busy={!!(busy)} total={w.total} offset={offset} size={workPageSize} previousDisabled={!!(busy || offset === 0)} nextDisabled={!!(busy || offset + workPageSize >= w.total)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
       )}
       <HrRecordDrawer
         title="Personal data correction decision"
@@ -371,7 +353,7 @@ export function HrPersonalCorrections({
         busy={busy}
         error={error}
       >
-        <form onSubmit={decide} className="space-y-4">
+        <WorkForm onSubmit={decide} className="space-y-4">
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
@@ -410,7 +392,7 @@ export function HrPersonalCorrections({
           >
             Confirm correction decision
           </Button>
-        </form>
+        </WorkForm>
       </HrRecordDrawer>
     </section>
   );

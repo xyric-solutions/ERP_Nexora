@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CreateHrJobGradeRequest, HrJobGradeDirectory } from "@nexora/contracts";
@@ -184,13 +185,13 @@ export function HrJobGradesWorkspace() {
       {loading ? <Skeleton className="h-72 w-full" /> : (
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(38rem,1.5fr)_minmax(21rem,.8fr)]">
           <div className="overflow-x-auto rounded-lg border bg-card">
-            <table className="w-full text-sm">
+            <WorkTable tableId="app/features/hr/views/hr-job-grades-workspace:1" className="w-full text-sm">
               <thead className="border-b bg-muted/60"><tr><th className="px-4 py-3 text-left">Level</th><th className="px-4 py-3 text-left">Code</th><th className="px-4 py-3 text-left">Job grade</th><th className="px-4 py-3 text-left">Compensation band</th><th className="px-4 py-3 text-left">Status</th></tr></thead>
               <tbody>
                 {filtered.map((record) => <tr className={`cursor-pointer border-b last:border-0 ${selectedId === record.id ? "bg-accent" : ""}`} key={record.id} onClick={() => { setSelectedId(record.id); setEditor(null); }}><td className="px-4 py-3 font-semibold">{record.grade_level}</td><td className="px-4 py-3">{record.code}</td><td className="px-4 py-3">{record.name}</td><td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{record.band_minimum === null ? "Not configured" : `${amount(record.band_minimum, record.currency_code)} – ${amount(record.band_maximum, record.currency_code)}`}</td><td className="px-4 py-3"><span className={`nx-status nx-status-${record.status}`}>{record.status}</span></td></tr>)}
                 {filtered.length === 0 ? <tr><td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>No job grades are configured for this company.</td></tr> : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           {editor ? (
             <aside className="grid gap-3 rounded-lg border bg-card p-4">

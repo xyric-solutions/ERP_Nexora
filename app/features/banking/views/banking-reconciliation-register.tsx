@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useEffect, useMemo, useState } from "react";
 import type {
@@ -326,7 +327,7 @@ export function BankingReconciliationRegister({ onAction, onOpen }: BankingRecon
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1050px] border-collapse text-sm">
+          <WorkTable continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loading),loadMore:() => void loadMore()}} tableId="app/features/banking/views/banking-reconciliation-register:1" className="w-full min-w-[1050px] border-collapse text-sm">
             <thead className="bg-primary text-primary-foreground">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Reconciliation</th>
@@ -394,15 +395,11 @@ export function BankingReconciliationRegister({ onAction, onOpen }: BankingRecon
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
         <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 text-xs text-muted-foreground">
           <span>{records.length} reconciliation record(s) loaded</span>
-          {nextCursor ? (
-            <Button type="button" size="sm" variant="outline" disabled={loading} onClick={() => void loadMore()}>
-              Load more
-            </Button>
-          ) : null}
+
         </div>
       </section>
     </div>

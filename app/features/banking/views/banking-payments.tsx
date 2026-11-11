@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -445,7 +446,7 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
 
         {rows.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
+            <WorkTable continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loading || loadingMore),loadMore:() => void load(nextCursor ?? undefined, true)}} tableId="app/features/banking/views/banking-payments:1" className="w-full min-w-[1120px] border-collapse text-left text-sm">
               <caption className="sr-only">Persisted bank payments for the selected company</caption>
               <thead className="bg-muted/50 text-xs uppercase tracking-[0.08em] text-muted-foreground">
                 <tr>
@@ -498,7 +499,7 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         ) : null}
 
@@ -506,11 +507,7 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
           <span aria-live="polite">
             Showing {rows.length} persisted payment{rows.length === 1 ? "" : "s"}
           </span>
-          {nextCursor ? (
-            <Button variant="outline" type="button" disabled={loadingMore} onClick={() => void load(nextCursor, true)}>
-              {loadingMore ? "Loading…" : "Load more"}
-            </Button>
-          ) : null}
+
         </footer>
       </section>
     </div>

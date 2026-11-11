@@ -1,4 +1,6 @@
 "use client";
+import { WorkForm, WorkFormLayout } from "@/shared/ui/work-form";
+
 import { useCallback, useState } from "react";
 import { stockTransferInputSchema, type StockTransferInput } from "@nexora/contracts";
 import { Plus, Trash2 } from "lucide-react";
@@ -94,10 +96,10 @@ export function StockTransferForm({
       ),
     );
   }
-  if (form.loading) return <p role="status">Loading stock transfer…</p>;
+  if (form.loading) return <WorkFormLayout><p role="status">Loading stock transfer…</p></WorkFormLayout>;
   if (form.loadFailed)
     return (
-      <Alert variant="destructive">
+      <WorkFormLayout><Alert variant="destructive">
         <AlertDescription>
           {form.error}
           <div className="mt-3 flex gap-2">
@@ -109,10 +111,10 @@ export function StockTransferForm({
             </Button>
           </div>
         </AlertDescription>
-      </Alert>
+      </Alert></WorkFormLayout>
     );
   return (
-    <form
+    <WorkForm
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
@@ -283,6 +285,6 @@ export function StockTransferForm({
           ) : null}
         </div>
       </footer>
-    </form>
+    </WorkForm>
   );
 }

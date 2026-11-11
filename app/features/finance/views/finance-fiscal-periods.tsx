@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+
 import { useEffect, useRef, useState } from "react";
 import {
   monthlyFiscalPeriods,
@@ -404,11 +406,7 @@ function CompanyPeriods({ company, onMutating }: { company: string; onMutating: 
               </option>
             ))}
           </select>
-          {cursor && (
-            <Button variant="outline" disabled={busy} onClick={() => void more()}>
-              Load more fiscal years
-            </Button>
-          )}
+
           {!canReadPeriods && (
             <Alert>
               <AlertDescription>Period detail requires platform.accounting_period.read.</AlertDescription>
@@ -434,7 +432,7 @@ function CompanyPeriods({ company, onMutating }: { company: string; onMutating: 
                 </Alert>
               )}
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[620px] text-left text-sm">
+                <WorkTable continuation={{cursor:cursor,hasMore:!!(cursor),busy:!!(busy),loadMore:() => void more()}} tableId="app/features/finance/views/finance-fiscal-periods:1" className="w-full min-w-[620px] text-left text-sm">
                   <caption className="sr-only">Persisted monthly Finance periods</caption>
                   <thead>
                     <tr>
@@ -478,7 +476,7 @@ function CompanyPeriods({ company, onMutating }: { company: string; onMutating: 
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </WorkTable>
               </div>
               <div className="flex flex-wrap gap-2">
                 {canOpen && (

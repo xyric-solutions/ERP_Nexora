@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
@@ -259,7 +260,7 @@ export function FinanceCurrencies() {
           </p>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-[680px] w-full text-sm">
+          <WorkTable tableId="app/features/finance/views/finance-currencies:1" className="min-w-[680px] w-full text-sm">
             <thead className="bg-muted/50 text-left">
               <tr>
                 {["Code", "Name", "Decimals", "Base", "Status", "Action"].map((item) => (
@@ -312,7 +313,7 @@ export function FinanceCurrencies() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       </section>
       <section className="rounded-lg border border-border bg-card">
@@ -447,7 +448,7 @@ export function FinanceCurrencies() {
           </div>
         ) : null}
         <div className="overflow-x-auto">
-          <table className="min-w-[720px] w-full text-sm">
+          <WorkTable tableId="app/features/finance/views/finance-currencies:2" className="min-w-[720px] w-full text-sm">
             <thead className="bg-muted/50 text-left">
               <tr>
                 {["Pair", "Rate", "Effective date", "Status", "Revision", "Action"].map((item) => (
@@ -518,7 +519,7 @@ export function FinanceCurrencies() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       </section>
       {canReadPolicy ? (

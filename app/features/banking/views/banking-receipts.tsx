@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -426,7 +427,7 @@ export function BankingReceipts({ onOpenReceipt, onCreateReceipt }: BankingRecei
 
         {rows.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1240px] border-collapse text-left text-sm">
+            <WorkTable continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loading || loadingMore),loadMore:() => void load(nextCursor ?? undefined, true)}} tableId="app/features/banking/views/banking-receipts:1" className="w-full min-w-[1240px] border-collapse text-left text-sm">
               <caption className="sr-only">Persisted bank receipts for the selected company</caption>
               <thead className="bg-muted/50 text-xs uppercase tracking-[0.08em] text-muted-foreground">
                 <tr>
@@ -490,18 +491,14 @@ export function BankingReceipts({ onOpenReceipt, onCreateReceipt }: BankingRecei
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         ) : null}
         <footer className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm text-muted-foreground">
           <span aria-live="polite">
             Showing {rows.length} persisted receipt{rows.length === 1 ? "" : "s"}
           </span>
-          {nextCursor ? (
-            <Button variant="outline" type="button" disabled={loadingMore} onClick={() => void load(nextCursor, true)}>
-              {loadingMore ? "Loading…" : "Load more"}
-            </Button>
-          ) : null}
+
         </footer>
       </section>
     </div>

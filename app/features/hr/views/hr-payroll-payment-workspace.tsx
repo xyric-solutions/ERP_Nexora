@@ -1,4 +1,7 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useMemo, useRef, useState } from "react";
 import { ArrowRight, RefreshCw, ShieldCheck, Landmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -287,7 +290,7 @@ export function HrPayrollPaymentWorkspace({
               </p>
             ) : (
               <div className="max-w-full overflow-x-auto">
-                <table className="w-full min-w-[820px] text-left text-sm">
+                <WorkTable tableId="app/features/hr/views/hr-payroll-payment-workspace:1" className="w-full min-w-[820px] text-left text-sm">
                   <caption className="sr-only">Salary obligations and their confirmed Banking evidence</caption>
                   <thead className="border-b text-muted-foreground">
                     <tr>
@@ -356,7 +359,7 @@ export function HrPayrollPaymentWorkspace({
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </WorkTable>
               </div>
             )}
           </section>
@@ -369,7 +372,7 @@ export function HrPayrollPaymentWorkspace({
               error={error}
               onClose={() => setReview(null)}
             >
-              <form onSubmit={act} className="space-y-4" aria-label="Salary payment review">
+              <WorkForm onSubmit={act} className="space-y-4" aria-label="Salary payment review">
                 <h3 className="text-lg font-semibold">{titles[review.action]}</h3>
                 <p className="text-sm text-muted-foreground">
                   Company and month are frozen for this review. The server rechecks current permissions, the posted
@@ -466,7 +469,7 @@ export function HrPayrollPaymentWorkspace({
                     Cancel review
                   </Button>
                 </div>
-              </form>
+              </WorkForm>
             </HrRecordDrawer>
           )}
           <section className={panel}>

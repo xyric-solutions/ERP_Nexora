@@ -1,4 +1,5 @@
 "use client";
+import { WorkPagination } from "@/shared/ui/work-table";
 import { IdentitySheet } from "./identity-sheet";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -78,8 +79,9 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
       : workspace === "users"
         ? ["records", "assignments", "approvals", "audit"]
         : ["records", "permissions", "assignments", "approvals", "audit"];
+  const [workPageSize, setWorkPageSize] = useState(25);
   const cursor = location.cursor;
-  const viewKey = `${workspace}:${tab}:${approvalType}:${userId}:${rolePolicyId}:${cursor}`;
+  const viewKey = `${workspace}:${tab}:${approvalType}:${userId}:${rolePolicyId}:${cursor}:${workPageSize}`;
   const [data, setData] = useState<SecurityPage>({ items: [], next_cursor: null });
   const [loadedView, setLoadedView] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -101,12 +103,12 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
 
   const fetchPage = useCallback(() => {
     if (!session) return Promise.resolve<SecurityPage>({ items: [], next_cursor: null });
-    const query = new URLSearchParams({ cursor });
+    const query = new URLSearchParams({ cursor, limit: String(workPageSize) });
     if (userId) query.set("user_id", userId);
     if (rolePolicyId) query.set("role_policy_id", rolePolicyId);
     const suffix = `?${query}`;
     return tab === "roles"
-      ? api.listSecurityRoles(`?cursor=${encodeURIComponent(cursor)}`)
+      ? api.listSecurityRoles(`?cursor=${encodeURIComponent(cursor)}&limit=${workPageSize}`)
       : tab === "assignments"
         ? api.listSecurityAssignments(suffix)
         : tab === "approvals"
@@ -116,7 +118,7 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
             : tab === "audit"
               ? api.listSecurityAudit(`${suffix}&workspace=${workspace}`)
               : Promise.resolve({ items: [], next_cursor: null });
-  }, [api, approvalType, cursor, rolePolicyId, session, tab, userId, workspace]);
+  }, [api, approvalType, cursor, rolePolicyId, session, tab, userId, workspace, workPageSize]);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -490,7 +492,7 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
             tab === "approvals" ||
             tab === "permissions" ||
             tab === "audit" ? (
-            <GovernedTable
+            <GovernedTable paging={tab === "permissions"}
               key={`${tab}:${approvalType}:${userId}:${rolePolicyId}:${cursor}`}
               tab={tab}
               rows={data.items}
@@ -512,28 +514,7 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
             />
           ) : null}
           {tab !== "users" && tab !== "permissions" && tab !== "policies" && !busy && loadedView === viewKey ? (
-            <div
-              className="flex flex-wrap items-center gap-3 border-t border-border px-5 py-3 text-sm"
-              aria-label="Record pagination"
-            >
-              <span>Page {Math.floor(Number(cursor) / 50) + 1}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={cursor === "0"}
-                onClick={() => choose({ ...location, cursor: String(Math.max(0, Number(cursor) - 50)) })}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!data.next_cursor}
-                onClick={() => choose({ ...location, cursor: data.next_cursor ?? "0" })}
-              >
-                Next
-              </Button>
-            </div>
+            <WorkPagination size={workPageSize} start={data.items.length ? Number(cursor) + 1 : 0} end={Number(cursor) + data.items.length} total={data.next_cursor ? undefined : Number(cursor) + data.items.length} hasMore={!!data.next_cursor} page={Math.floor(Number(cursor) / workPageSize)} previous={cursor !== "0"} next={!!data.next_cursor} busy={busy} onPrevious={() => choose({ ...location, cursor: String(Math.max(0, Number(cursor) - workPageSize)) })} onNext={() => choose({ ...location, cursor: data.next_cursor ?? "0" })} onSizeChange={(size) => { setWorkPageSize(size); choose({ ...location, cursor: "0" }); }} />
           ) : null}
         </section>
       </section>

@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -291,7 +292,7 @@ export function HrEmployeeHistoryWorkspace({ initialEmployeeId }: { initialEmplo
             )}
             {statusState === "ready" && (
               <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-                <table className="w-full min-w-[760px] text-left text-sm">
+                <WorkTable tableId="app/features/hr/views/hr-employee-history-workspace:1" className="w-full min-w-[760px] text-left text-sm">
                   <thead className="border-b bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     <tr>
                       <th className="px-4 py-3">Effective date</th>
@@ -321,7 +322,7 @@ export function HrEmployeeHistoryWorkspace({ initialEmployeeId }: { initialEmplo
                       </tr>
                     )}
                   </tbody>
-                </table>
+                </WorkTable>
               </div>
             )}
           </TabsContent>
@@ -337,7 +338,7 @@ export function HrEmployeeHistoryWorkspace({ initialEmployeeId }: { initialEmplo
             {lifecycleState === "ready" && (
               <>
                 <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-                  <table className="w-full min-w-[1080px] text-left text-sm">
+                  <WorkTable tableId="app/features/hr/views/hr-employee-history-workspace:2" className="w-full min-w-[1080px] text-left text-sm">
                     <thead className="border-b bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       <tr>
                         <th className="px-4 py-3">Effective</th>
@@ -381,7 +382,7 @@ export function HrEmployeeHistoryWorkspace({ initialEmployeeId }: { initialEmplo
                         </tr>
                       )}
                     </tbody>
-                  </table>
+                  </WorkTable>
                 </div>
                 {lifecycleOlderError && (
                   <Alert variant="destructive">
@@ -416,7 +417,7 @@ export function HrEmployeeHistoryWorkspace({ initialEmployeeId }: { initialEmplo
             {profileState === "ready" && (
               <>
                 <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-                  <table className="w-full min-w-[1040px] text-left text-sm">
+                  <WorkTable tableId="app/features/hr/views/hr-employee-history-workspace:3" className="w-full min-w-[1040px] text-left text-sm">
                     <thead className="border-b bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       <tr>
                         <th className="px-4 py-3">Revision</th>
@@ -462,7 +463,7 @@ export function HrEmployeeHistoryWorkspace({ initialEmployeeId }: { initialEmplo
                         </tr>
                       )}
                     </tbody>
-                  </table>
+                  </WorkTable>
                 </div>
                 {profileOlderError && (
                   <Alert variant="destructive">

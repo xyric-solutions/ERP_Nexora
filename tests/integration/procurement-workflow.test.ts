@@ -196,6 +196,92 @@ suite("Database-backed Purchase and Supplier workflow", () => {
     await approved(terms("receipt", po, supplier, quantity));
     return approved(terms("bill", po, supplier, quantity));
   }
+  it("filters supplier bills before pagination and binds cursors to the supplier", async () => {
+    const first = await bill(supplierA),
+      other = await bill(supplierB),
+      second = await bill(supplierA);
+    const query = {
+      company_id: company,
+      kind: "bill" as const,
+      state: "approved" as const,
+      supplier_id: supplierA,
+      search: "",
+      limit: 1,
+    };
+    const ids: string[] = [];
+    let page = await repo.list(maker, query);
+    expect(page.next_cursor).toBeTruthy();
+    await expect(
+      repo.list(maker, { ...query, supplier_id: supplierB, cursor: page.next_cursor! }),
+    ).rejects.toMatchObject({ status: 400 });
+    for (;;) {
+      expect(page.items.every((item) => item.supplier_id === supplierA)).toBe(true);
+      ids.push(...page.items.map((item) => item.id));
+      if (!page.next_cursor) break;
+      page = await repo.list(maker, { ...query, cursor: page.next_cursor });
+    }
+    expect(ids).toEqual(expect.arrayContaining([first.id, second.id]));
+    expect(ids).not.toContain(other.id);
+    expect((await repo.list(maker, { ...query, supplier_id: "unknown-supplier" })).items).toEqual([]);
+  });
+  it("persists bill dates and computes payment terms on the server through approval and legacy edits", async () => {
+    const po = await order();
+    await approved(terms("receipt", po));
+    const input = {
+      ...terms("bill", po),
+      document_date: "2026-11-11",
+      bill_date: "2026-10-01",
+      payment_term: "days_15" as const,
+      due_date: "2099-01-01",
+    };
+    const draft = await save(input);
+    expect(draft).toMatchObject({ bill_date: "2026-10-01", payment_term: "days_15", due_date: "2026-10-16" });
+    const legacy: SavePurchaseRequest = { ...input, due_date: draft.due_date, expected_version: draft.version };
+    delete legacy.bill_date;
+    delete legacy.payment_term;
+    const updated = (await repo.save(maker, draft.id, legacy, key(), key())).record;
+    expect(updated).toMatchObject({ bill_date: "2026-10-01", payment_term: "days_15", due_date: "2026-10-16" });
+    const result = await approve(await submit(updated));
+    expect(result).toMatchObject({
+      state: "approved",
+      bill_date: "2026-10-01",
+      due_date: "2026-10-16",
+      payment_term: "days_15",
+    });
+    const snapshot = await pool.query(
+      "select snapshot from procurement_change where tenant_id=$1 and entity_id=$2 and action='approve'",
+      [tenant, result.id],
+    );
+    expect(snapshot.rows[0].snapshot).toMatchObject({
+      bill_date: "2026-10-01",
+      payment_term: "days_15",
+      due_date: "2026-10-16",
+    });
+  });
+  it("validates manual bill due dates against bill date and rejects bill terms on other documents", async () => {
+    const po = await order();
+    await approved(terms("receipt", po));
+    const input = {
+      ...terms("bill", po),
+      document_date: "2026-11-11",
+      bill_date: "2026-10-01",
+      due_date: "2026-10-02",
+      payment_term: null,
+    };
+    expect(await save(input)).toMatchObject({ bill_date: "2026-10-01", due_date: "2026-10-02", payment_term: null });
+    await expect(save({ ...input, reference: `INV-${key()}`, due_date: "2026-09-30" })).rejects.toThrow(
+      "before the bill date",
+    );
+    await expect(save({ ...terms("request", undefined, null), bill_date: "2026-11-11" })).rejects.toMatchObject({
+      code: "INVALID_BILL_PAYMENT_TERM",
+    });
+    const split = await save({ ...input, reference: `INV-${key()}`, payment_term: "percent_30_now_balance_60_days" });
+    expect(split).toMatchObject({
+      bill_date: "2026-10-01",
+      due_date: "2026-11-30",
+      payment_term: "percent_30_now_balance_60_days",
+    });
+  });
   it("keeps a single RFQ supplier on downstream Orders and rejects a different supplier", async () => {
     const request = await approved(terms("request"));
     const rfq = await approved({ ...terms("rfq", request), supplier_id: supplierA, invited_supplier_ids: [supplierA] });

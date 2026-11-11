@@ -1,4 +1,8 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { PerformanceParticipation, PersonalPerformanceInbox } from "./hr-performance-participation";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -218,7 +222,7 @@ function PerformanceForm({
     onSave(terms, reason);
   }
   return (
-    <form className={panel + " space-y-4"} onSubmit={submit} aria-label="Performance editor">
+    <WorkForm className={panel + " space-y-4"} onSubmit={submit} aria-label="Performance editor">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-lg font-semibold">
           {initial ? "Edit draft" : "Create"} {kind}
@@ -519,7 +523,7 @@ function PerformanceForm({
           Cancel editing
         </Button>
       </div>
-    </form>
+    </WorkForm>
   );
 }
 export function HrPerformanceWorkspace({
@@ -529,6 +533,7 @@ export function HrPerformanceWorkspace({
   page: keyof typeof performancePages;
   onNavigate: (module: string, page: string, reference?: string) => void;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const section = performancePages[page],
     { api, session, csrfToken, loading } = useSession(),
     client = new HrApiClient(api),
@@ -558,7 +563,7 @@ export function HrPerformanceWorkspace({
     ...(cycleChoice ? { cycle_id: cycleChoice } : {}),
     search: filter,
     employee_search: employeeFilter,
-    limit: 25,
+    limit: workPageSize,
     offset,
   };
   const data = useAttendanceRead(canRead && company ? JSON.stringify([query, revision]) : null, () =>
@@ -692,7 +697,7 @@ export function HrPerformanceWorkspace({
             </select>
           </Field>
         </div>
-        <form
+        <WorkForm
           className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end"
           onSubmit={(e) => {
             e.preventDefault();
@@ -725,9 +730,9 @@ export function HrPerformanceWorkspace({
           >
             Refresh
           </Button>
-        </form>
+        </WorkForm>
         {section !== "cycles" && (
-          <form
+          <WorkForm
             className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end"
             onSubmit={(e) => {
               e.preventDefault();
@@ -748,7 +753,7 @@ export function HrPerformanceWorkspace({
             <Button type="submit" variant="outline" disabled={busy || !!editor || !!decision}>
               Find employee
             </Button>
-          </form>
+          </WorkForm>
         )}
       </section>
       {(error || data.error || companies.error) && (
@@ -803,7 +808,7 @@ export function HrPerformanceWorkspace({
               </p>
             ) : (
               <div className="max-w-full overflow-x-auto">
-                <table className="w-full min-w-[720px] text-left text-sm">
+                <WorkTable paging={false} tableId="app/features/hr/views/hr-performance-workspace:1" className="w-full min-w-[720px] text-left text-sm">
                   <caption className="sr-only">Company Performance records and available governed actions</caption>
                   <thead className="border-b text-muted-foreground">
                     <tr>
@@ -865,32 +870,10 @@ export function HrPerformanceWorkspace({
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </WorkTable>
               </div>
             )}
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span className="text-muted-foreground">
-                {w.total ? offset + 1 : 0}–{Math.min(offset + 25, w.total)} of {w.total}
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={offset === 0 || !!editor || !!decision}
-                  onClick={() => setOffset((v) => Math.max(0, v - 25))}
-                >
-                  Previous
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={offset + 25 >= w.total || !!editor || !!decision}
-                  onClick={() => setOffset((v) => v + 25)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+            <WorkOffsetPagination busy={!!(editor || decision)} total={w.total} offset={offset} size={workPageSize} previousDisabled={!!(offset === 0 || !!editor || !!decision)} nextDisabled={!!(offset + workPageSize >= w.total || !!editor || !!decision)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
           </section>
           {editor ? (
             <HrRecordDrawer
@@ -922,7 +905,7 @@ export function HrPerformanceWorkspace({
             </HrRecordDrawer>
           ) : null}
           {decision && (
-            <form
+            <WorkForm
               className={panel + " space-y-4"}
               aria-label="Performance decision review"
               onSubmit={(e) => {
@@ -965,7 +948,7 @@ export function HrPerformanceWorkspace({
                   Cancel review
                 </Button>
               </div>
-            </form>
+            </WorkForm>
           )}
           {r && (
             <section className={panel + " space-y-3"} aria-label="Performance record detail">

@@ -1,4 +1,6 @@
 "use client";
+import { WorkForm, WorkFormLayout } from "@/shared/ui/work-form";
+
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
@@ -121,36 +123,36 @@ export function HrEmployeeDraftForm({
 
   if (unavailable) {
     return (
-      <Alert>
+      <WorkFormLayout><Alert>
         <AlertTitle>Live employee draft creation is unavailable</AlertTitle>
         <AlertDescription>
           Your account does not currently have HR draft-create access, or the live API is unavailable. No mock employee
           form is shown.
         </AlertDescription>
-      </Alert>
+      </Alert></WorkFormLayout>
     );
   }
 
   if (loading) {
     return (
-      <div className="grid gap-3 rounded-lg border border-border bg-card p-4" aria-live="polite">
+      <WorkFormLayout><div className="grid gap-3 rounded-lg border border-border bg-card p-4" aria-live="polite">
         <Skeleton className="h-5 w-56" />
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-10 w-full" />
-      </div>
+      </div></WorkFormLayout>
     );
   }
 
   return (
-    <HrRecordDrawer
+    <WorkFormLayout><HrRecordDrawer
       title="Add Employee"
       open
       onClose={onClose}
       busy={saving}
       description="Create an employee draft for review and approval."
     >
-      <form
+      <WorkForm
         className="grid max-w-4xl gap-5 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6"
         onSubmit={submit}
       >
@@ -278,7 +280,7 @@ export function HrEmployeeDraftForm({
             {saving ? "Creating draft…" : "Create draft"}
           </Button>
         </div>
-      </form>
-    </HrRecordDrawer>
+      </WorkForm>
+    </HrRecordDrawer></WorkFormLayout>
   );
 }

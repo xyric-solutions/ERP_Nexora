@@ -14,6 +14,7 @@ import {
   supplierInputSchema,
   supplierProfileSchema,
   supplierMailingAddress,
+  billPaymentSchedule,
   type PurchaseDocument,
   type PurchaseKind,
   type SavePurchaseRequest,
@@ -79,6 +80,7 @@ function digest(value: unknown): string {
 
 const documentProjection = `d.id,d.company_id,d.kind,d.code,d.supplier_id,d.approver_id,coalesce(nullif(btrim(approver.display_name),''),approver.id) as approver_name,d.source_id,d.invited_supplier_ids,
  to_char(d.document_date,'YYYY-MM-DD') as document_date,to_char(d.due_date,'YYYY-MM-DD') as due_date,
+ to_char(d.bill_date,'YYYY-MM-DD') as bill_date,d.payment_term,
  d.currency,d.reference,d.notes,d.lines,d.allocations,d.payment_details,d.total_amount::text,d.state,d.row_version as version,
  d.created_by,d.updated_by,d.created_at::text,d.updated_at::text,s.name as supplier_name,source.code as source_code,
  coalesce((select sum((a->>'amount')::numeric+coalesce((a->>'discount')::numeric,0)) from procurement_document payment cross join lateral jsonb_array_elements(payment.allocations) a
@@ -185,7 +187,7 @@ export class SourceProcurementRepository {
         `select ${documentProjection} ${documentJoins}
        where d.tenant_id=$1 and d.company_id=$2 and ($3::text is null or d.kind=$3) and ($4::text is null or d.state=$4)
        and (d.code ilike $5 escape '\\' or d.reference ilike $5 escape '\\' or s.name ilike $5 escape '\\')
-       and ($6::text is null or d.id>$6) order by d.id limit $7`,
+       and ($6::text is null or d.id>$6) and ($8::text is null or d.supplier_id=$8) order by d.id limit $7`,
         [
           context.tenantId,
           query.company_id,
@@ -194,6 +196,7 @@ export class SourceProcurementRepository {
           `%${query.search.replace(/[\\%_]/g, "\\$&")}%`,
           cursor,
           query.limit + 1,
+          query.supplier_id ?? null,
         ],
       );
       const items = result.rows.slice(0, query.limit).map((row) => purchaseDocumentSchema.parse(row));
@@ -633,11 +636,15 @@ export class SourceProcurementRepository {
         let approverId = parsed.approver_id ?? null;
         let previousApprover: string | null = null;
         let paymentDetails = parsed.payment_details;
+        let billDate = parsed.bill_date;
+        let paymentTerm = parsed.payment_term;
         let makers = [context.actor.userId];
         if (id) {
           const before = await this.load(client, context.tenantId, parsed.company_id, id, true);
           previousApprover = before.approver_id ?? null;
           if (paymentDetails === undefined) paymentDetails = before.payment_details;
+          if (billDate === undefined) billDate = before.bill_date;
+          if (paymentTerm === undefined) paymentTerm = before.payment_term;
           if (parsed.approver_id === undefined) approverId = before.approver_id ?? null;
           makers = [
             ...makers,
@@ -691,7 +698,29 @@ export class SourceProcurementRepository {
         const details = paymentDetails
           ? await this.paymentSnapshots(client, context.tenantId, parsed.company_id, parsed.currency, paymentDetails)
           : null;
-        const terms = { ...parsed, lines, payment_details: details };
+        const terms = {
+          ...parsed,
+          lines,
+          payment_details: details,
+          bill_date: billDate ?? null,
+          payment_term: paymentTerm ?? null,
+        };
+        if (terms.kind === "bill") {
+          terms.bill_date ??= terms.document_date;
+          if (terms.payment_term) {
+            try {
+              terms.due_date = billPaymentSchedule(terms.bill_date, terms.payment_term, documentTotal(lines)).at(
+                -1,
+              )!.due_date;
+            } catch {
+              fail(
+                "The bill date or payment schedule is outside the supported range.",
+                "INVALID_BILL_PAYMENT_TERM",
+                400,
+              );
+            }
+          }
+        }
         const total = await this.validate(client, context.tenantId, id, terms, false);
         const documentId = id ?? `purchase-${randomUUID()}`;
         const values = [
@@ -704,7 +733,7 @@ export class SourceProcurementRepository {
           parsed.source_id,
           JSON.stringify(parsed.invited_supplier_ids),
           parsed.document_date,
-          parsed.due_date,
+          terms.due_date,
           parsed.currency,
           parsed.reference,
           parsed.notes,
@@ -714,15 +743,17 @@ export class SourceProcurementRepository {
           context.actor.userId,
           approverId,
           details ? JSON.stringify(details) : null,
+          terms.bill_date,
+          terms.payment_term,
         ];
         if (id)
           await client.query(
-            `update procurement_document set supplier_id=$6,source_id=$7,invited_supplier_ids=$8,document_date=$9,due_date=$10,currency=$11,reference=$12,notes=$13,lines=$14,allocations=$15,total_amount=$16,updated_by=$17,approver_id=$18,payment_details=$19,updated_at=clock_timestamp(),row_version=row_version+1,state='draft' where tenant_id=$1 and company_id=$2 and id=$3 and kind=$4 and code=$5`,
+            `update procurement_document set supplier_id=$6,source_id=$7,invited_supplier_ids=$8,document_date=$9,due_date=$10,currency=$11,reference=$12,notes=$13,lines=$14,allocations=$15,total_amount=$16,updated_by=$17,approver_id=$18,payment_details=$19,bill_date=$20,payment_term=$21,updated_at=clock_timestamp(),row_version=row_version+1,state='draft' where tenant_id=$1 and company_id=$2 and id=$3 and kind=$4 and code=$5`,
             values,
           );
         else
           await client.query(
-            `insert into procurement_document(tenant_id,company_id,id,kind,code,supplier_id,source_id,invited_supplier_ids,document_date,due_date,currency,reference,notes,lines,allocations,total_amount,created_by,updated_by,approver_id,payment_details) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$17,$18,$19)`,
+            `insert into procurement_document(tenant_id,company_id,id,kind,code,supplier_id,source_id,invited_supplier_ids,document_date,due_date,currency,reference,notes,lines,allocations,total_amount,created_by,updated_by,approver_id,payment_details,bill_date,payment_term) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$17,$18,$19,$20,$21)`,
             values,
           );
         const record = await this.load(client, context.tenantId, parsed.company_id, documentId);
@@ -751,8 +782,25 @@ export class SourceProcurementRepository {
     terms: SavePurchaseRequest,
     committing: boolean,
   ): Promise<string> {
-    if (terms.due_date && terms.due_date < terms.document_date)
-      fail("The due date cannot be before the document date.");
+    if (terms.kind !== "bill" && (terms.bill_date || terms.payment_term))
+      fail("Bill dates and payment terms belong to supplier bills.", "INVALID_BILL_PAYMENT_TERM", 400);
+    const dateBasis = terms.kind === "bill" ? (terms.bill_date ?? terms.document_date) : terms.document_date;
+    if (terms.due_date && terms.due_date < dateBasis)
+      fail(
+        terms.kind === "bill"
+          ? "The due date cannot be before the bill date."
+          : "The due date cannot be before the document date.",
+      );
+    if (terms.kind === "bill" && terms.payment_term) {
+      let dueDate: string;
+      try {
+        dueDate = billPaymentSchedule(dateBasis, terms.payment_term, documentTotal(terms.lines)).at(-1)!.due_date;
+      } catch {
+        return fail("Enter a valid bill payment schedule.", "INVALID_BILL_PAYMENT_TERM", 400);
+      }
+      if (terms.due_date !== dueDate)
+        fail("The bill due date does not match its payment term.", "INVALID_BILL_PAYMENT_TERM", 400);
+    }
     const currency = await client.query(
       "select 1 from currency c join company_currency cc on cc.tenant_id=c.tenant_id and cc.currency_code=c.code where c.tenant_id=$2 and c.code=$1 and c.status='active' and c.decimal_places=2 and cc.company_id=$3 and cc.status='active'",
       [terms.currency, tenant, terms.company_id],

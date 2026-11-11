@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -516,7 +517,7 @@ export function BankAccountApprovals() {
             <GovernanceState title="Queue clear" detail="No bank account is awaiting approval for this company." />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <WorkTable tableId="app/features/banking/views/banking-account-governance:1" className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
                     <th className="p-3">Reference</th>
@@ -550,7 +551,7 @@ export function BankAccountApprovals() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           )}
         </CardContent>

@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 /**
  * Period comparison panel.
@@ -65,7 +66,7 @@ export function DashboardComparison({
       </header>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-180 border-collapse text-sm tabular-nums">
+        <WorkTable tableId="app/features/dashboard/views/dashboard-comparison:1" className="w-full min-w-180 border-collapse text-sm tabular-nums">
           <caption className="nx-sr-only">
             Each measure across {periods.length} {unit} periods, with the change against {periods[0].longLabel}.
           </caption>
@@ -113,7 +114,7 @@ export function DashboardComparison({
               );
             })}
           </tbody>
-        </table>
+        </WorkTable>
       </div>
 
       <footer className="border-t border-border px-5 py-4 text-xs leading-relaxed text-muted-foreground">

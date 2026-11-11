@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 /**
  * HR Phase 4 presentation: recruitment, performance/development and the
@@ -267,10 +268,10 @@ export function HrLifecycleScreen({ pageId, onAction, onNavigate }: { pageId: st
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2.5"><div><strong className="text-sm">{visible.length}</strong><span className="text-xs text-muted-foreground"> records</span></div><div className="flex gap-2"><Button variant="outline" type="button" onClick={() => onAction("Saved views", model.title)}>Saved views</Button><Button variant="outline" type="button" onClick={() => onAction("More filters", model.title)}>More filters</Button></div></div>
           <div className="nx-table-wrap">
-            <table className="nx-data-table min-w-230">
+            <WorkTable tableId="app/features/hr/views/hr-lifecycle-screens:1" className="nx-data-table min-w-230">
               <thead><tr><th>Reference</th><th>Employee / subject</th><th>Context</th><th>Status</th><th>Owner</th><th>Date</th><th aria-label="Open record" /></tr></thead>
               <tbody>{visible.map((row) => <tr key={row.id} className={`cursor-pointer hover:bg-muted ${selected?.id === row.id ? "bg-muted" : ""}`} onClick={() => { setSelectedId(row.id); setDetailOpen(true); }}><td><button type="button" className="border-0 bg-transparent p-0 text-sm font-bold text-primary underline underline-offset-2" onClick={(event) => { event.stopPropagation(); setSelectedId(row.id); setDetailOpen(true); }}>{row.reference}</button></td><td><strong>{row.title}</strong></td><td>{row.subtitle}</td><td><Status value={row.status} tone={row.tone} /></td><td>{row.owner ?? "—"}</td><td>{row.date ?? "—"}</td><td>›</td></tr>)}</tbody>
-            </table>
+            </WorkTable>
           </div>
           {visible.length === 0 ? <div className="grid min-h-45 place-items-center gap-1 p-7.5 text-center text-muted-foreground"><strong className="text-foreground">No matching records</strong><span className="text-sm">Clear filters or search a different reference, person, owner or status.</span></div> : null}
         </div>

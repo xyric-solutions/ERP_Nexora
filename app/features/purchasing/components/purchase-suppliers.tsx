@@ -1,4 +1,7 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useEffect, useRef, useState } from "react";
 import { supplierInputSchema, supplierProfileSchema, type Supplier } from "@nexora/contracts";
 import { useSession } from "@/lib/session/session-provider";
@@ -217,7 +220,7 @@ export function PurchaseSuppliers({
         </Alert>
       ) : null}
       {editing !== undefined ? (
-        <form
+        <WorkForm
           ref={formRef}
           noValidate
           aria-label="Supplier form"
@@ -280,7 +283,7 @@ export function PurchaseSuppliers({
               </Button>
             </div>
           </footer>
-        </form>
+        </WorkForm>
       ) : null}
       {editing === undefined ? (
         <>
@@ -288,7 +291,7 @@ export function PurchaseSuppliers({
             className="min-w-0 overflow-x-auto rounded-lg border border-border bg-card"
             aria-busy={busy || searching}
           >
-            <table className="w-full min-w-[600px] border-collapse text-sm">
+            <WorkTable continuation={{cursor:cursor,hasMore:!!((search.trim() ? !!cursor : canLoadMore)),busy:!!(busy || searching),loadMore:() => void more()}} tableId="app/features/purchasing/components/purchase-suppliers:1" className="w-full min-w-[600px] border-collapse text-sm">
               <thead className="bg-muted text-left">
                 <tr>
                   {["Code", "Name", "Tax ID", "Contact", "Status", ""].map((heading) => (
@@ -329,19 +332,9 @@ export function PurchaseSuppliers({
                   </tr>
                 ) : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
-          {(search.trim() ? !!cursor : canLoadMore) ? (
-            <Button
-              className="w-fit"
-              type="button"
-              variant="outline"
-              disabled={busy || searching}
-              onClick={() => void more()}
-            >
-              Load more suppliers
-            </Button>
-          ) : null}
+
         </>
       ) : null}
     </div>

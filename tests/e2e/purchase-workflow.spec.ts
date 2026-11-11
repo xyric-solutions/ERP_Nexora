@@ -383,8 +383,12 @@ test.describe("Persisted unified Purchase workflow", () => {
             "SUP-001 · Synthetic vendor A",
           );
         }
-        if (stage === "bill")
+        if (stage === "bill") {
           await page.getByLabel("Supplier invoice reference *", { exact: true }).fill("GUIDED-SYNTHETIC-INVOICE");
+          await page.getByLabel("Bill date *", { exact: true }).fill("2026-11-01");
+          await page.getByLabel("Payment term", { exact: true }).selectOption("days_30");
+          await expect(page.getByLabel("Due date", { exact: true })).toHaveValue("2026-12-01");
+        }
         if (stage === "request") {
           await page.getByLabel("Purchase approver", { exact: true }).click();
           await page.getByRole("option", { name: `${makerName} (you)`, exact: true }).click();
@@ -443,6 +447,10 @@ test.describe("Persisted unified Purchase workflow", () => {
         if (stage !== "bill") await expect(page.getByLabel("Line 1 quantity", { exact: true })).toHaveValue("1");
       }
       await expect(page).toHaveURL(/#\/purchases\/add-purchase-bill\/purchase-/);
+      await page.reload();
+      await expect(page.getByLabel("Bill date *", { exact: true })).toHaveValue("2026-11-01");
+      await expect(page.getByLabel("Payment term", { exact: true })).toHaveValue("days_30");
+      await expect(page.getByLabel("Due date", { exact: true })).toHaveValue("2026-12-01");
       const progress = page.getByRole("region", { name: "Purchase workflow progress", exact: true });
       await expect(page.locator('[aria-label="Document status"] [aria-current="step"]')).toHaveText("Approved");
       await expect(progress).toContainText("Latest stage with records: Bill");

@@ -1,3 +1,4 @@
+import { readWorkPage } from "./read-work-page";
 import type {HrLearningQuery,HrLearningAction} from "@nexora/contracts";
 import type {HrPersonalCorrectionQuery,CreateHrPersonalCorrection,HrPersonalCorrectionAction,HrReportGovernanceQuery,HrReportGovernanceAction,HrReportGovernanceResult} from '@nexora/contracts';
 import type {HrSelfLeaveContextQuery,CreateHrSelfLeaveRequest,HrSelfLeaveAction} from '@nexora/contracts';
@@ -186,60 +187,60 @@ export class HrApiClient {
   interviewAction(input: HrInterviewActionRequest, csrfToken: string, key: string): Promise<HrInterviewActionResult> {return this.api.performHrInterviewAction(input,csrfToken,key);}
   offerEmployeeWorkspace(companyId:string,id:string):Promise<HrOfferEmployeeWorkspace> {return this.api.getHrOfferEmployeeWorkspace(id,query({company_id:companyId}));}
   createOfferEmployee(id:string,input:CreateHrOfferEmployeeRequest,csrf:string,key:string):Promise<HrOfferEmployeeResult> {return this.api.createHrOfferEmployee(id,input,csrf,key);}
-  listOvertime(input:HrOvertimeQuery):Promise<HrOvertimeDirectory>{return this.api.attendanceListOvertime(query(input));}
+  listOvertime(input:HrOvertimeQuery):Promise<HrOvertimeDirectory>{ return readWorkPage(input, (bounded) => this.api.attendanceListOvertime(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   overtimeContext(input:HrOvertimeContextQuery):Promise<HrOvertimeContext>{return this.api.attendanceOvertimeContext(query(input));}
   getOvertime(company:string,id:string):Promise<HrOvertimeDetail>{return this.api.attendanceGetOvertime(id,query({company_id:company}));}
   createOvertime(input:CreateHrOvertimeRequest,key:string,csrf:string):Promise<HrAttendanceCompletionResult>{return this.api.attendanceCreateOvertime(input,csrf,key);}
   createOvertimeRule(input:HrOvertimeRuleRequest,key:string,csrf:string):Promise<HrAttendanceCompletionResult>{return this.api.attendanceCreateOvertimeRule(input,csrf,key);}
   actOnOvertime(id:string,input:HrOvertimeActionRequest,key:string,csrf:string):Promise<HrAttendanceCompletionResult>{return this.api.attendanceActOnOvertime(id,input,csrf,key);}
-  periodWorkspace(input:HrAttendancePeriodQuery):Promise<HrAttendancePeriodWorkspace>{return this.api.attendancePeriodWorkspace(query(input));}
-  payrollInputs(input:HrAttendancePeriodQuery):Promise<HrAttendancePayrollInputs>{return this.api.attendancePayrollInputs(query(input));}
+  periodWorkspace(input:HrAttendancePeriodQuery):Promise<HrAttendancePeriodWorkspace>{ return readWorkPage(input, (bounded) => this.api.attendancePeriodWorkspace(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
+  payrollInputs(input:HrAttendancePeriodQuery):Promise<HrAttendancePayrollInputs>{ return readWorkPage(input, (bounded) => this.api.attendancePayrollInputs(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   actOnPeriod(input:HrAttendancePeriodActionRequest,key:string,csrf:string):Promise<HrAttendanceCompletionResult>{return this.api.attendanceActOnPeriod(input,csrf,key);}
-  listLeaveTypes(input:HrLeaveQuery):Promise<HrLeaveTypeDirectory>{return this.api.timeLeaveListLeaveTypes(query(input));}
+  listLeaveTypes(input:HrLeaveQuery):Promise<HrLeaveTypeDirectory>{ return readWorkPage(input, (bounded) => this.api.timeLeaveListLeaveTypes(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   createLeaveType(input:CreateHrLeaveTypeRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.api.timeLeaveCreateLeaveType(input,csrf,key);}
   updateLeavePolicy(id:string,input:UpdateHrLeavePolicyRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.api.timeLeaveUpdateLeavePolicy(id,input,csrf,key);}
   changeLeaveTypeStatus(id:string,input:HrLeaveTypeStatusRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.api.timeLeaveChangeLeaveTypeStatus(id,input,csrf,key);}
-  listLeaveBalances(input:HrLeaveBalanceQuery):Promise<HrLeaveBalanceDirectory>{return this.api.timeLeaveListLeaveBalances(query(input));}
-  leaveLedger(input:HrLeaveLedgerQuery):Promise<HrLeaveLedger>{return this.api.timeLeaveLeaveLedger(query(input));}
+  listLeaveBalances(input:HrLeaveBalanceQuery):Promise<HrLeaveBalanceDirectory>{ return readWorkPage(input, (bounded) => this.api.timeLeaveListLeaveBalances(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
+  leaveLedger(input:HrLeaveLedgerQuery):Promise<HrLeaveLedger>{ return readWorkPage(input, (bounded) => this.api.timeLeaveLeaveLedger(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   postLeaveBalance(input:HrLeaveBalancePostingRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.api.timeLeavePostLeaveBalance(input,csrf,key);}
   leaveContext(input:HrLeaveContextQuery):Promise<HrLeaveContext>{return this.api.timeLeaveLeaveContext(query(input));}
-  listLeaveRequests(input:HrLeaveRequestQuery):Promise<HrLeaveRequestDirectory>{return this.api.timeLeaveListLeaveRequests(query(input));}
+  listLeaveRequests(input:HrLeaveRequestQuery):Promise<HrLeaveRequestDirectory>{ return readWorkPage(input, (bounded) => this.api.timeLeaveListLeaveRequests(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   getLeaveRequest(company:string,id:string):Promise<HrLeaveRequestDetail>{return this.api.timeLeaveGetLeaveRequest(id,query({company_id:company}));}
   createLeaveRequest(input:CreateHrLeaveRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.api.timeLeaveCreateLeaveRequest(input,csrf,key);}
   actOnLeaveRequest(id:string,input:HrLeaveRequestActionRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.api.timeLeaveActOnLeaveRequest(id,input,csrf,key);}
-  payrollLocalization(input:HrLocalizationQuery):Promise<HrLocalizationWorkspace>{return this.api.payrollLocalization(query(input));}
+  payrollLocalization(input:HrLocalizationQuery):Promise<HrLocalizationWorkspace>{ return readWorkPage(input, (bounded) => this.api.payrollLocalization(query(bounded)), (first, second) => ({...first,limit:input.limit,items:[...first.items,...second.items]})); }
   createPayrollLocalization(input:CreateHrLocalization,csrf:string,key:string):Promise<HrPayrollMutationResult>{return this.api.createPayrollLocalization(input,csrf,key);}
   decidePayrollLocalization(id:string,input:HrLocalizationDecision,csrf:string,key:string):Promise<HrPayrollMutationResult>{return this.api.decidePayrollLocalization(id,input,csrf,key);}
-  overtimeMoneyWorkspace(input:HrOvertimeMoneyQuery):Promise<HrOvertimeMoneyWorkspace>{return this.api.overtimeMoneyWorkspace(query(input));}
+  overtimeMoneyWorkspace(input:HrOvertimeMoneyQuery):Promise<HrOvertimeMoneyWorkspace>{ return readWorkPage(input, (bounded) => this.api.overtimeMoneyWorkspace(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   createOvertimeMoney(input:CreateHrOvertimeMoney,csrf:string,key:string):Promise<HrPayrollMutationResult>{return this.api.createOvertimeMoney(input,csrf,key);}
   decideOvertimeMoney(id:string,input:HrOvertimeMoneyDecision,csrf:string,key:string):Promise<HrPayrollMutationResult>{return this.api.decideOvertimeMoney(id,input,csrf,key);}
   payrollPaymentWorkspace(input:HrPayrollPaymentQuery):Promise<HrPayrollPaymentWorkspace>{return this.api.payrollPaymentWorkspace(query(input));}
   actOnPayrollPayment(input:HrPayrollPaymentAction,csrf:string,key:string){return this.api.actOnPayrollPayment(input,csrf,key);}
-  learning(q:HrLearningQuery){return this.api.learning('?'+new URLSearchParams(Object.entries(q).filter(([,v])=>v!==undefined).map(([k,v])=>[k,String(v)])));}
+  learning(q:HrLearningQuery){ return readWorkPage(q, (bounded) => this.api.learning(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: q.limit} : {}),items:[...first.items,...second.items]})); }
   actOnLearning(input:HrLearningAction,csrf:string,key:string){return this.api.actOnLearning(input,csrf,key);}
   learningCertificate(company:string,id:string){return this.api.learningCertificate(company,id);}
-  personalCorrections(q:HrPersonalCorrectionQuery){return this.api.personalCorrections('?'+new URLSearchParams(Object.entries(q).map(([k,v])=>[k,String(v)])));}
+  personalCorrections(q:HrPersonalCorrectionQuery){ return readWorkPage(q, (bounded) => this.api.personalCorrections(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: q.limit} : {}),items:[...first.items,...second.items]})); }
   createPersonalCorrection(input:CreateHrPersonalCorrection,csrf:string,key:string){return this.api.createPersonalCorrection(input,csrf,key);}
   actOnPersonalCorrection(id:string,input:HrPersonalCorrectionAction,csrf:string,key:string){return this.api.actOnPersonalCorrection(id,input,csrf,key);}
-  reportGovernance(q:HrReportGovernanceQuery){return this.api.reportGovernance('?'+new URLSearchParams(Object.entries(q).map(([k,v])=>[k,String(v)])));}
+  reportGovernance(q:HrReportGovernanceQuery){ return readWorkPage(q, (bounded) => this.api.reportGovernance(query(bounded)), (first, second) => ({...first,limit:q.limit,policies:[...first.policies,...second.policies],exports:[...first.exports,...second.exports],events:[...first.events,...second.events]})); }
   actOnReportGovernance(input:HrReportGovernanceAction,csrf:string,key:string){return this.api.actOnReportGovernance(input,csrf,key);}
   selfLeaveContext(q:HrSelfLeaveContextQuery){return this.api.selfLeaveContext('?'+new URLSearchParams(Object.entries(q).filter(([,v])=>v!==undefined).map(([k,v])=>[k,String(v)])));}
   selfLeaveRequest(company:string,id:string){return this.api.selfLeaveRequest(company,id);}
   createSelfLeaveRequest(input:CreateHrSelfLeaveRequest,csrf:string,key:string){return this.api.createSelfLeaveRequest(input,csrf,key);}
   actOnSelfLeaveRequest(id:string,input:HrSelfLeaveAction,csrf:string,key:string){return this.api.actOnSelfLeaveRequest(id,input,csrf,key);}
-  selfService(q:HrSelfServiceQuery):Promise<HrSelfServiceWorkspace>{return this.api.selfService('?'+new URLSearchParams(Object.entries(q).filter(([,v])=>v!==undefined).map(([k,v])=>[k,String(v)])));}
+  selfService(q:HrSelfServiceQuery):Promise<HrSelfServiceWorkspace>{ return readWorkPage(q, (bounded) => this.api.selfService(query(bounded)), (first, second) => ({...first,limit: q.limit,payslips:[...first.payslips,...second.payslips],requests:[...first.requests,...second.requests],loans:[...first.loans,...second.loans]})); }
   selfServicePayslip(company:string,id:string){return this.api.selfServicePayslip(company,id);}
-  payslipWorkspace(input:HrPayslipQuery):Promise<HrPayslipWorkspace>{return this.api.payslipWorkspace(query(input));}
+  payslipWorkspace(input:HrPayslipQuery):Promise<HrPayslipWorkspace>{ return readWorkPage(input, (bounded) => this.api.payslipWorkspace(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   payslipDetail(company:string,id:string):Promise<HrPayslipDetail>{return this.api.payslipDetail(company,id);}
   releasePayslips(input:HrPayslipRelease,csrf:string,key:string){return this.api.releasePayslips(input,csrf,key);}
-  performanceWorkspace(input:HrPerformanceQuery):Promise<HrPerformanceWorkspace>{return this.api.performanceWorkspace(query(input));}
-  policyUpgradeWorkspace(input:HrPolicyUpgradeQuery):Promise<HrPolicyUpgradeWorkspace>{return this.api.policyUpgradeWorkspace(query(input));}
-  settlementEntitlements(q:HrSettlementEntitlementQuery){return this.api.settlementEntitlements('?'+new URLSearchParams(Object.entries(q).filter(([,v])=>v!==undefined).map(([k,v])=>[k,String(v)])));}
+  performanceWorkspace(input:HrPerformanceQuery):Promise<HrPerformanceWorkspace>{ return readWorkPage(input, (bounded) => this.api.performanceWorkspace(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
+  policyUpgradeWorkspace(input:HrPolicyUpgradeQuery):Promise<HrPolicyUpgradeWorkspace>{ return readWorkPage(input, (bounded) => this.api.policyUpgradeWorkspace(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
+  settlementEntitlements(q:HrSettlementEntitlementQuery){ return readWorkPage(q, (bounded) => this.api.settlementEntitlements(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: q.limit} : {}),items:[...first.items,...second.items]})); }
   actOnSettlementEntitlement(input:HrSettlementEntitlementAction,csrf:string,key:string){return this.api.actOnSettlementEntitlement(input,csrf,key);}
-  settlementBenefits(q:HrSettlementBenefitQuery){return this.api.settlementBenefits('?'+new URLSearchParams(Object.entries(q).filter(([,v])=>v!==undefined).map(([k,v])=>[k,String(v)])));}
+  settlementBenefits(q:HrSettlementBenefitQuery){ return readWorkPage(q, (bounded) => this.api.settlementBenefits(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: q.limit} : {}),items:[...first.items,...second.items]})); }
   actOnSettlementBenefit(input:HrSettlementBenefitAction,csrf:string,key:string){return this.api.actOnSettlementBenefit(input,csrf,key);}
   actOnPolicyUpgrade(input:HrPolicyUpgradeAction,csrf:string,key:string){return this.api.actOnPolicyUpgrade(input,csrf,key);}
-  lifecycleCaseWorkspace(input:HrLifecycleCaseQuery):Promise<HrLifecycleCaseWorkspace>{return this.api.lifecycleCaseWorkspace(query(input));}
+  lifecycleCaseWorkspace(input:HrLifecycleCaseQuery):Promise<HrLifecycleCaseWorkspace>{ return readWorkPage(input, (bounded) => this.api.lifecycleCaseWorkspace(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   actOnLifecycleCase(input:HrLifecycleCaseAction,csrf:string,key:string){return this.api.actOnLifecycleCase(input,csrf,key);}
   performanceInbox():Promise<HrPerformanceInbox>{return this.api.performanceInbox();}
   performanceParticipation(input:HrPerformanceParticipationQuery):Promise<HrPerformanceParticipation>{return this.api.performanceParticipation(query(input));}
@@ -247,21 +248,21 @@ export class HrApiClient {
   actOnPerformance(input:HrPerformanceCommand,csrf:string,key:string){return this.api.actOnPerformance(input,csrf,key);}
   payrollJournalWorkspace(input:HrPayrollJournalQuery):Promise<HrPayrollJournalWorkspace>{return this.api.payrollJournalWorkspace(query(input));}
   actOnPayrollJournal(input:HrPayrollJournalAction,csrf:string,key:string){return this.api.actOnPayrollJournal(input,csrf,key);}
-  payrollRunComparison(input:HrPayrollRunComparisonQuery):Promise<HrPayrollRunComparison>{return this.api.payrollRunComparison(query(input));}
-  payrollRunWorkspace(input:HrPayrollRunQuery):Promise<HrPayrollRunWorkspace>{return this.api.payrollRunWorkspace(query(input));}
+  payrollRunComparison(input:HrPayrollRunComparisonQuery):Promise<HrPayrollRunComparison>{ return readWorkPage({...input,limit:input.limit ?? 25,offset:input.offset ?? 0}, (bounded) => this.api.payrollRunComparison(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit ?? 25} : {}),items:[...first.items,...second.items]})); }
+  payrollRunWorkspace(input:HrPayrollRunQuery):Promise<HrPayrollRunWorkspace>{ return readWorkPage({...input,limit:input.limit ?? 25,offset:input.offset ?? 0}, (bounded) => this.api.payrollRunWorkspace(query(bounded)), (first, second) => ({...first,limit:input.limit ?? 25,employees:[...first.employees,...second.employees]})); }
   actOnPayrollRun(input:HrPayrollRunAction,csrf:string,key:string):Promise<HrPayrollMutationResult>{return this.api.actOnPayrollRun(input,csrf,key);}
-  payrollWorkspace(input:HrPayrollWorkspaceQuery):Promise<HrPayrollWorkspace>{return this.api.payrollWorkspace(query(input));}
+  payrollWorkspace(input:HrPayrollWorkspaceQuery):Promise<HrPayrollWorkspace>{ return readWorkPage(input, (bounded) => this.api.payrollWorkspace(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   payrollOptions(input:HrPayrollOptionsQuery):Promise<HrPayrollOptions>{return this.api.payrollOptions(query(input));}
   createPayrollRecord(input:CreateHrPayrollRecord,csrf:string,key:string):Promise<HrPayrollMutationResult>{return this.api.createPayrollRecord(input,csrf,key);}
   actOnPayrollRecord(id:string,input:HrPayrollRecordAction,csrf:string,key:string):Promise<HrPayrollMutationResult>{return this.api.actOnPayrollRecord(id,input,csrf,key);}
-  corrections(input:HrCorrectionQuery):Promise<HrCorrectionDirectory>{return this.api.listHrCorrections(query(input));}
+  corrections(input:HrCorrectionQuery):Promise<HrCorrectionDirectory>{ return readWorkPage(input, (bounded) => this.api.listHrCorrections(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   correctionContext(input:HrCorrectionContextQuery):Promise<HrCorrectionContext>{return this.api.getHrCorrectionContext(query(input));}
   correction(companyId:string,id:string):Promise<HrCorrectionDetail>{return this.api.getHrCorrection(id,query({company_id:companyId}));}
   createCorrection(input:CreateHrCorrectionRequest,csrf:string,key:string):Promise<HrCorrectionResult>{return this.api.createHrCorrection(input,csrf,key);}
   updateCorrection(id:string,input:UpdateHrCorrectionRequest,csrf:string,key:string):Promise<HrCorrectionResult>{return this.api.updateHrCorrection(id,input,csrf,key);}
   correctionAction(id:string,input:HrCorrectionActionRequest,csrf:string,key:string):Promise<HrCorrectionResult>{return this.api.actOnHrCorrection(id,input,csrf,key);}
-  monthlyAttendance(input:HrMonthlyAttendanceQuery):Promise<HrMonthlyAttendanceDirectory>{return this.api.listHrMonthlyAttendance(query(input));}
-  dailyAttendance(input:HrDailyAttendanceQuery):Promise<HrDailyAttendanceDirectory>{return this.api.listHrDailyAttendance(query(input));}
+  monthlyAttendance(input:HrMonthlyAttendanceQuery):Promise<HrMonthlyAttendanceDirectory>{ return readWorkPage(input, (bounded) => this.api.listHrMonthlyAttendance(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
+  dailyAttendance(input:HrDailyAttendanceQuery):Promise<HrDailyAttendanceDirectory>{ return readWorkPage(input, (bounded) => this.api.listHrDailyAttendance(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   shiftAllocationContext(input:{companyId:string;scope:CreateHrShiftAllocationRequest["scope"];onDate:string;search?:string}):Promise<HrShiftAllocationContext> {return this.api.getHrShiftAllocationContext(query({company_id:input.companyId,scope:input.scope,on_date:input.onDate,search:input.search}));}
   shiftAllocations(input:{companyId:string;search?:string;scope?:CreateHrShiftAllocationRequest["scope"];scopeId?:string;onDate?:string;state?:string;limit?:number;offset?:number}):Promise<HrShiftAllocationDirectory> {return this.api.listHrShiftAllocations(query({company_id:input.companyId,search:input.search,scope:input.scope,scope_id:input.scopeId,on_date:input.onDate,state:input.state,limit:input.limit??50,offset:input.offset??0}));}
   shiftAllocation(companyId:string,id:string):Promise<HrShiftAllocationDetail> {return this.api.getHrShiftAllocation(id,query({company_id:companyId}));}
@@ -275,7 +276,7 @@ export class HrApiClient {
   updateShift(id:string,input:UpdateHrShiftRequest,csrf:string,key:string):Promise<HrShiftResult> {return this.api.updateHrShift(id,input,csrf,key);}
   shiftStatus(id:string,input:ChangeHrShiftStatusRequest,csrf:string,key:string):Promise<HrShiftResult> {return this.api.changeHrShiftStatus(id,input,csrf,key);}
   offerContext(companyId: string, applicationId: string): Promise<HrOfferContext> {return this.api.getHrOfferContext(query({company_id:companyId,application_id:applicationId}));}
-  offers(input: {companyId: string; search?: string; state?: string; offset?: number}): Promise<HrOfferDirectory> {return this.api.listHrOffers(query({company_id:input.companyId,search:input.search,state:input.state,offset:input.offset??0,limit:50}));}
+  offers(input: {companyId: string; search?: string; state?: string; offset?: number; limit?: number}): Promise<HrOfferDirectory> {return this.api.listHrOffers(query({company_id:input.companyId,search:input.search,state:input.state,offset:input.offset??0,limit:input.limit??50}));}
   offer(companyId: string,id: string): Promise<HrOfferDetail> {return this.api.getHrOffer(id,query({company_id:companyId}));}
   createOffer(input: CreateHrOfferRequest,csrf: string,key: string): Promise<HrOfferResult> {return this.api.createHrOffer(input,csrf,key);}
   updateOffer(id: string,input: UpdateHrOfferRequest,csrf: string,key: string): Promise<HrOfferResult> {return this.api.updateHrOffer(id,input,csrf,key);}

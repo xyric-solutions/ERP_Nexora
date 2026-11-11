@@ -1,4 +1,5 @@
 "use client";
+import { WorkForm } from "@/shared/ui/work-form";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createSecurityRoleRequestSchema, type CreateSecurityRoleRequest } from "@nexora/contracts";
@@ -136,7 +137,7 @@ export default function RoleForm({
   }
   const unavailable = selected.filter((key) => !catalogue.some((item) => item.key === key));
   return (
-    <form
+    <WorkForm
       className="border-b border-border bg-muted/50 px-5 py-6"
       onSubmit={(event) => void submit(event)}
       aria-label={initial ? "Edit role draft" : "Create role"}
@@ -271,6 +272,6 @@ export default function RoleForm({
           Save draft
         </Button>
       </footer>
-    </form>
+    </WorkForm>
   );
 }

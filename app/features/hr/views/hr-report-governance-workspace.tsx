@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useId, useRef, useState } from "react";
 import { Download, FileText, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +35,7 @@ function ReportGovernanceBody({
   onBusy: (busy: boolean) => void;
   onNavigate: Navigate;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const { api, csrfToken } = useSession(),
     client = new HrApiClient(api),
     ids = useId();
@@ -58,7 +62,7 @@ function ReportGovernanceBody({
     [decisionReason, setDecisionReason] = useState("");
   const guard = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null),
-    q = { company_id: company, section, limit: 10, offset },
+    q = { company_id: company, section, limit: workPageSize, offset },
     read = useAttendanceRead(JSON.stringify([q, revision]), () => client.reportGovernance(q)),
     w = read.data;
   async function command(input: unknown) {
@@ -281,7 +285,7 @@ function ReportGovernanceBody({
               notice={notice}
               onClose={() => setPolicyForm(false)}
             >
-              <form aria-label="Propose report disclosure policy" className="space-y-4" onSubmit={policy}>
+              <WorkForm aria-label="Propose report disclosure policy" className="space-y-4" onSubmit={policy}>
                 <h3 className="font-semibold">New disclosure policy</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field title="Maximum rows per export">
@@ -346,7 +350,7 @@ function ReportGovernanceBody({
                     Close policy form
                   </Button>
                 </div>
-              </form>
+              </WorkForm>
             </HrRecordDrawer>
           ) : null}
           {w.policies.map(policyCard)}
@@ -391,7 +395,7 @@ function ReportGovernanceBody({
                 notice={notice}
                 onClose={() => setExportForm(false)}
               >
-                <form aria-label="Create governed report export" onSubmit={createExport} className="space-y-4">
+                <WorkForm aria-label="Create governed report export" onSubmit={createExport} className="space-y-4">
                   <Field title="Report">
                     <select
                       className={selectClass}
@@ -436,7 +440,7 @@ function ReportGovernanceBody({
                   <Button type="submit" disabled={busy || !w.active_policy || !report || purpose.trim().length < 12}>
                     Create reviewed export
                   </Button>
-                </form>
+                </WorkForm>
               </HrRecordDrawer>
             ) : null}
           </div>
@@ -519,29 +523,7 @@ function ReportGovernanceBody({
         </div>
       )}
       {w && (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <span>
-            {w.total ? offset + 1 : 0}–{Math.min(offset + w.limit, w.total)} of {w.total} records
-          </span>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy || offset === 0}
-              onClick={() => setOffset((v) => Math.max(0, v - 10))}
-            >
-              Previous report records
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy || offset + 10 >= w.total}
-              onClick={() => setOffset((v) => v + 10)}
-            >
-              Next report records
-            </Button>
-          </div>
-        </div>
+        <WorkOffsetPagination busy={!!(busy)} total={w.total} offset={offset} size={workPageSize} previousDisabled={!!(busy || offset === 0)} nextDisabled={!!(busy || offset + workPageSize >= w.total)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
       )}
       <Dialog
         open={!!dialog}
@@ -564,7 +546,7 @@ function ReportGovernanceBody({
                 : "A policy author cannot review their own proposal. Confirm the permitted reports, row limit and authorization period."}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={confirm} className="space-y-4">
+          <WorkForm onSubmit={confirm} className="space-y-4">
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
@@ -583,7 +565,7 @@ function ReportGovernanceBody({
             <Button type="submit" disabled={busy || decisionReason.trim().length < 12}>
               {dialog?.action === "download" ? "Confirm authorized download" : "Confirm policy decision"}
             </Button>
-          </form>
+          </WorkForm>
         </DialogContent>
       </Dialog>
     </section>

@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { supplierProfileSchema } from "./supplier-profile.js";
+import { billPaymentTermSchema } from "./bill-payment-terms.js";
+export { billPaymentTermSchema, billPaymentTerms, billPaymentSchedule } from "./bill-payment-terms.js";
+export type { BillPaymentTerm } from "./bill-payment-terms.js";
 export {
   supplierProfileSchema,
   supplierBankAccountSchema,
@@ -69,6 +72,13 @@ export const purchaseTermsSchema = z.strictObject({
   invited_supplier_ids: z.array(identity).max(50).default([]),
   source_id: identity.nullable().default(null),
   document_date: date,
+  bill_date: date.nullable().optional(),
+  payment_term: billPaymentTermSchema
+    .nullable()
+    .optional()
+    .describe(
+      "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Null selects a manual due date.",
+    ),
   due_date: date.nullable().default(null),
   currency: z.string().regex(/^[A-Z]{3}$/),
   reference: z.string().trim().max(128).default(""),
@@ -161,6 +171,7 @@ export type PurchaseFlowQuery = z.infer<typeof purchaseFlowQuerySchema>;
 export const purchaseQuerySchema = z.strictObject({
   company_id: identity,
   kind: purchaseKindSchema.optional(),
+  supplier_id: identity.optional(),
   search: z.string().trim().max(160).default(""),
   state: purchaseStateSchema.optional(),
   cursor: z.string().max(512).optional(),

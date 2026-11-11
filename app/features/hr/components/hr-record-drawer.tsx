@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { HrMasterSheet } from "./hr-master-sheet";
+import { WorkFormLayout } from "@/shared/ui/work-form";
 
 /** Shared record editor presentation; the owning workspace retains its API and form state. */
 export function HrRecordDrawer({
@@ -69,7 +70,7 @@ export function HrRecordDrawer({
           </Button>
         }
       >
-        <div
+        <WorkFormLayout
           aria-busy={busy}
           className="grid min-w-0 gap-4 text-foreground [&>aside]:border-0! [&>aside]:bg-transparent! [&>aside]:p-0! [&>aside]:shadow-none! [&>section]:border-0! [&>section]:bg-transparent! [&>section]:p-0! [&>section]:shadow-none! [&>form]:border-0! [&>form]:bg-transparent! [&>form]:p-0! [&>form]:shadow-none! [&_label]:min-w-0 [&_input]:min-w-0 [&_textarea]:min-w-0 [&_select]:min-w-0 [&_select]:w-full [&_h2]:mt-0! [&_h3]:mt-0!"
         >
@@ -84,7 +85,7 @@ export function HrRecordDrawer({
             </p>
           ) : null}
           {children}
-        </div>
+        </WorkFormLayout>
       </HrMasterSheet>
     </>
   );

@@ -1,5 +1,145 @@
 # Remaining UI migration checklist
 
+## 2026-11-11 — One continuous payment form
+
+- `purchase-payment-details.tsx` now uses one Payment details heading and a
+  uniform surface. Removed the supplier-panel tint, supplier/payment headings,
+  column/mobile dividers and the separator below Bank. Supplier fields remain
+  left and payment fields right on desktop, stacking on mobile. Accessible group
+  names, shared controls, disabled states and every callback remain intact.
+- Fully allocated supplier bills remain visible with status and zero open
+  balance; their selection stays disabled. No paid/settled-bank state was invented
+  for the instruction-only workflow. Existing allocations, WHT, bank-driven
+  currency, partial payments and same-currency bank changes are preserved.
+- Targeted ESLint/Prettier, theme audit write/check, design detector and
+  `git diff --check` passed. `npm.cmd run build:web` passed with
+  `NEXT_DIST_DIR=tmp/purchase-unified-form-build`, including TypeScript. No new
+  API, database, dependency, stylesheet or font change was required.
+- `npm.cmd exec playwright -- test tests/e2e/purchase-payment-layout.spec.ts
+  --workers=1 --output tmp/purchase-unified-form-results` passed all six
+  light/dark 1440/768/390px cases, including the single heading, uniform
+  borderless groups, visible fully allocated zero-balance rows, disabled selection,
+  axe, overflow, partial allocations and bank-currency transitions. Screenshots:
+  `tmp/purchase-payment-evidence/`. Refreshed web on 3000 only; readiness and all
+  22 web assets passed. API/database and live business data were untouched.
+
+## 2026-11-11 — Payment currency follows the bank
+
+- Removed due/expected date, currency selection and external reference from
+  `purchase-payment-details.tsx`. Payment-specific Ref. No., date, amounts,
+  withholding and allocation controls remain. Bill dates/terms are unchanged.
+- The bank selector lists eligible company accounts across supported currencies.
+  `purchase-document-form.tsx` updates bank and currency atomically. A currency
+  change clears allocations, old entry amounts and manual-amount overrides;
+  switching banks in the same currency preserves allocations and entered values.
+  Inactive/unsupported-currency and historical unavailable-bank safeguards remain.
+  Existing hidden metadata is preserved; editing document date clears its unused
+  legacy due date so a hidden value cannot block payment editing. The server's
+  bank/currency and company/tenant validation remain authoritative. No API,
+  schema, dependency or stylesheet change was needed for this refinement.
+- Verification: 30 tests passed with `npm.cmd run test:unit --
+  tests/unit/purchase-document-form.test.tsx tests/unit/purchase-payment-amounts.test.ts
+  --maxWorkers=1`; targeted ESLint/Prettier, theme audit write/check, design detector
+  and `git diff --check` passed. `npm.cmd run build:web` passed with
+  `NEXT_DIST_DIR=tmp/purchase-bank-currency-build`, including TypeScript.
+- `npm.cmd exec playwright -- test tests/e2e/purchase-payment-layout.spec.ts
+  --workers=1 --output tmp/purchase-bank-currency-results` passed all six light/dark
+  1440/768/390px cases, including absent controls, USD/EUR switching, incompatible
+  allocation clearing, same-currency preservation and unsupported-bank exclusion.
+  Axe and overflow checks passed; screenshots remain under
+  `tmp/purchase-payment-evidence/`. Refreshed local web on 3000 only; API/database
+  were not restarted or migrated. Readiness and all 22 web assets passed.
+
+## 2026-11-11 — Bill dates, payment terms and compact voucher forms
+
+- Added `purchase-bill-details.tsx` and feature-scoped `purchase-form-field.tsx`.
+  Bill and payment forms now share aligned label/control rows, supplier details
+  on the left and compact transaction fields on the right. Bills retain their
+  approved-order selector/search, inherited approval, line editing and print
+  behavior. Existing payment selection, partial allocations, WHT and bank
+  snapshots remain. No CSS files, fonts, dependencies or palettes were added.
+- Bills now persist separate document/bill dates and either a manual due date
+  or a payment term. Presets match the supplied reference: immediate; 15/21/30/45
+  days; following month end; ten days after next month end; and 30% now/balance
+  60 days. Shared UTC calendar/decimal helpers display exact installment dates
+  and amounts. The server recalculates due dates and validates them on approval;
+  the saved final due date cannot be spoofed by a client. Manual dates use bill
+  date as their lower bound, allowing overdue invoices entered later.
+- Procurement migration 5 adds nullable bill date/term columns and preserves
+  historical records. Older clients retain saved values when omitting the new
+  fields; new legacy bills fall back to document date. Non-bill date rules,
+  tenant/company permissions, audit, versions and idempotency remain. Updated
+  contract/OpenAPI, payment bill-date column and CSV date/term/schedule exports.
+  Installment schedules do not execute or schedule bank transfers. For rollback,
+  retain the additive columns and historical data rather than dropping them.
+- Verification passed: `npm.cmd run test:unit --
+  tests/unit/purchase-document-form.test.tsx tests/unit/purchase-payment-amounts.test.ts
+  tests/unit/purchase-bill-payment-terms.test.ts tests/unit/purchase-export.test.ts
+  --maxWorkers=1` (45 tests); `npm.cmd run test:integration --
+  tests/integration/procurement-workflow.test.ts tests/integration/postgres-migrations.test.ts`
+  (39 tests); `npm.cmd run test:contract -- tests/contract/openapi.test.ts
+  --maxWorkers=1 --testTimeout=15000` (7 tests). Typecheck, targeted ESLint/Prettier,
+  API generation/check, theme audit write/check, design detector and diff checks
+  passed. Build: `NEXT_DIST_DIR=tmp/purchase-bill-terms-build npm.cmd run build:web`.
+- The isolated production browser run passed 12 tests across
+  `purchase-payment-layout.spec.ts`, `purchase-flow-layout.spec.ts` and
+  `purchase-workflow.spec.ts`, filtered to `Supplier-driven|creates suppliers|
+  guides an authorized creator|Purchase stage context`. Includes axe, light/dark,
+  1440/768/390px payment layouts, 1440/390px bill layouts, real single/multi
+  payment approval and saving/approving/reopening a bill with 30-day terms.
+  Evidence remains under `tmp/purchase-payment-evidence/` and
+  `tmp/purchase-flow-evidence/`; results under `tmp/purchase-bill-terms-results/`.
+- Applied only procurement migration 5 to the existing local ERP and refreshed
+  web/API on 3000/4000 with automatic migrations disabled. Readiness and all
+  22 referenced web assets passed. No live business bill/payment was created or
+  approved during deployment. Receipt/return semantics remain separate pending work.
+
+## 2026-11-11 — Supplier-driven payment allocation and layout
+
+- Updated `purchase-document-form.tsx` and `purchase-payment-details.tsx`:
+  removed the payment bill-search field; supplier selection loads its approved
+  bills, including fully reserved bills. Checkboxes allocate open balances and
+  keep automatic gross totals; an explicitly entered gross amount caps subsequent
+  selections to its remaining amount. Partial amounts and discounts stay editable.
+  Fully reserved and incompatible-currency bills remain visible but cannot be
+  newly allocated. Supplier/currency changes clear incompatible selections, and
+  old pagination responses cannot replace the current supplier's bills.
+- Desktop now places approver, supplier and mailing address on the left, with
+  dates, currency, references, bank, mode and amounts on the right. Tablet/mobile
+  stack the panels above a keyboard-scrollable bill table. Added selected-row
+  emphasis, a selected count and a semantic net-bank summary. Scoped important
+  utilities counter legacy address-height and hovered-cell overrides. Existing
+  typography/theme tokens and shared controls remain; no stylesheet was retired.
+- Added optional `supplier_id` to the validated document-directory contract and
+  repository query, filtering before pagination under existing tenant/company
+  authorization. Documented the parameter and regenerated OpenAPI/client output
+  (the generic client signature remains unchanged). No migration, dependency,
+  permission grant or bank posting was added. Saved snapshots, approval/audit,
+  idempotency, multi-supplier minimums and the instruction-only boundary remain.
+  Status labels describe reservations accurately rather than asserting bank payment.
+- Verification passed: `npm.cmd run test:unit --
+  tests/unit/purchase-document-form.test.tsx tests/unit/purchase-payment-amounts.test.ts
+  --maxWorkers=1` (29 tests); `npm.cmd run test:integration --
+  tests/integration/procurement-workflow.test.ts` (22 tests, isolated database);
+  `npm.cmd run test:contract -- tests/contract/openapi.test.ts --maxWorkers=1
+  --testTimeout=15000` (7 tests); `npm.cmd run typecheck`; targeted ESLint/Prettier;
+  `npm.cmd run api:check`; `git diff --check`; and `npm.cmd run build:web` with
+  `NEXT_DIST_DIR=tmp/purchase-payment-layout-build`. Theme audit `--write` and
+  `--check` passed with no feature-view exceptions; the Impeccable scan was clear.
+- Browser checks passed: the six new `purchase-payment-layout.spec.ts` cases
+  cover light/dark at 1440/768/390px, automatic/partial/capped allocations,
+  disabled fully reserved/currency rows, supplier switching, pagination,
+  accessible labels, axe and overflow. Existing stage-layout checks passed four
+  cases; real isolated single/multi approval and guided Purchase workflows passed
+  two cases. An initial overlapping browser run collided in the default trace
+  output; a separate run also hit the existing route-handler cleanup race. The
+  final eight-case run passed using `--output tmp/purchase-payment-layout-results`.
+  Final screenshots: `tmp/purchase-payment-evidence/allocation-{light,dark}-{1440,768,390}.png`.
+- Refreshed the existing local web on 3000 and API on 4000 with their preserved
+  process configuration and automatic migrations disabled. Both are ready; web
+  assets were verified. No live business document was created or approved.
+  Receipt/return party semantics remain the separate pending design decision.
+
 ## 2026-11-10 — Build and GitHub snapshot verification
 
 - User requested a production build, commit and push of the current ERP work to
@@ -5175,3 +5315,56 @@ Company Chart adoption/review checkpoint (2026-10-20):
   build. A read-only database comparison confirmed all 14 approved Categories
   and 78 approved Sections for the UAT company. Safe resume point: authenticated
   desktop and narrow-width visual sampling of Category and Section expansion.
+
+
+## 2026-11-11 - Shared work-page filters, columns, pagination and forms
+
+- Added shared `WorkTable`, `WorkPagination`, `WorkOffsetPagination`, `WorkForm`
+  and `WorkFormLayout` presentation, with route-scoped column/page-size preferences.
+  Updated shared labeled fields and the HR/Identity record drawers for consistent
+  create/edit presentation. The user confirmed that form styling is in scope.
+- Migrated 142 existing table declarations, 117 native forms and 34 governed
+  editor layouts. These are source declarations, not a count or percentage of
+  menu screens. Banking, Purchasing, Inventory, Finance, HR, Security, shared
+  module lists and prototype work views consume the shared controls.
+- Added text and field filters, a checkbox column menu, reset, and a bottom pager
+  with 10/25/50/100 rows (default 25). Preserved existing company/status/date/server
+  search, domain row actions, selection state, group headings and footer totals.
+  Removed duplicate and inert pagers; Nominal cards and table views share one
+  server pager. Cursor directories show known counts with `+` while more exist.
+- HR APIs capped at 50 rows compose a 100-row page through two bounded authorized
+  reads in the existing feature adapter. Failed second batches reject the page;
+  changed source hashes require refresh. No API contracts, schemas, migrations,
+  authorization rules or financial posting behavior changed in this batch.
+- Deliberate exclusions: editable transaction lines, complete print/source
+  documents, hidden chart tables and the assistant chat composer. Form inputs are
+  never paginated. Matching loaded records print across screen page boundaries.
+  Existing feature CSS remains because active selectors still depend on it.
+- Additional column/text filters on server-backed lists explicitly cover loaded
+  rows; existing API search remains available for the full authorized directory.
+  No background scan attempts to load the entire company dataset.
+- Verification: `npm.cmd run test:unit -- --maxWorkers=4` passed 1,287 tests in
+  167 files. The final shared-control/HR-page checks passed 14 tests. Repository
+  `npm.cmd run typecheck` and `npm.cmd run build:web` passed (isolated output:
+  `tmp/work-pages-final-build`). New shared files passed ESLint/Prettier; a
+  comparison of 141 affected source files found no new lint regressions against
+  252 existing errors. This does not claim a clean repository-wide lint run.
+- Theme audit `--write` and `--check` passed: 114 feature-view source files with
+  zero direct font/colour exceptions; the existing shared colour exception is
+  unchanged. Structural comparison retained every original table/form and all
+  domain functions; only two superseded local Pagination helpers were retired.
+- Browser evidence: `tests/e2e/work-list-controls.spec.ts` and
+  `tests/e2e/purchase-payment-layout.spec.ts` cover 10 read-only scenarios using
+  synthetic API fixtures. Lists are checked at 1440/390px in light/dark; payment
+  allocation also covers 768px. The tests exercise sizes, next/previous, cursor
+  boundaries, field/text filters, columns, allocation, bank currency, zero writes,
+  zero page errors, no page overflow, and zero scoped axe violations. Screenshots:
+  `tmp/work-list-light-1440.png`, `tmp/work-list-light-390.png`,
+  `tmp/work-list-dark-1440.png`, `tmp/work-list-dark-390.png`.
+- Remaining: this is representative route-level browser coverage, not visual
+  certification of every menu route. Existing prototype data sources, server
+  filter capabilities and documented migration exceptions remain in place.
+- Local handoff: refreshed web port 3000 from the final isolated build. HTTP
+  200, all 22 referenced Next.js assets HTTP 200, and API readiness on port 4000
+  HTTP 200. Stopped the temporary port-3200 preview; retained evidence under
+  `tmp/`. No business-data writes were performed during browser verification.

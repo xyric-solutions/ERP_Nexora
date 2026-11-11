@@ -101,7 +101,7 @@ async function change(element: HTMLInputElement | HTMLSelectElement, value: stri
 }
 
 async function click(label: string) {
-  const button = [...container.querySelectorAll("button")].find((item) => item.textContent?.trim() === label);
+  const button = [...container.querySelectorAll("button")].find((item) => item.textContent?.trim() === label || item.getAttribute("aria-label") === label);
   if (!button) throw new Error(`Missing button: ${label}`);
   await act(async () => button.click());
   await settle();
@@ -211,7 +211,7 @@ describe("BankingPayments", () => {
     expect(filtered).toContain("sort_by=total_amount");
     expect(filtered).toContain("sort_direction=asc");
 
-    await click("Load more");
+    await click("Next page");
     expect(state.api.listBankPayments.mock.calls.at(-1)?.[0]).toContain("cursor=cursor-2");
   });
 

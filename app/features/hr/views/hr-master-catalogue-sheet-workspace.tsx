@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { HrMasterDirectory, HrMasterType } from "@nexora/contracts";
@@ -249,7 +250,7 @@ export function HrMasterCatalogueSheetWorkspace({
       ) : (
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="overflow-x-auto">
-            <table className="min-w-180 w-full text-sm">
+            <WorkTable tableId="app/features/hr/views/hr-master-catalogue-sheet-workspace:1" className="min-w-180 w-full text-sm">
               <thead className="border-b border-border bg-muted/60">
                 <tr>
                   <th className="px-4 py-3 text-left">Code</th>
@@ -295,7 +296,7 @@ export function HrMasterCatalogueSheetWorkspace({
                   </tr>
                 ) : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         </div>
       )}

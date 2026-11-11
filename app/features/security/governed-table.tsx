@@ -1,4 +1,7 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { IdentitySheet } from "./identity-sheet";
 
 import { useMemo, useState, type FormEvent } from "react";
@@ -55,6 +58,7 @@ export default function GovernedTable({
   onChanged,
   onCredential,
   onOpenRoleSection,
+  paging = true,
 }: {
   tab: Tab;
   rows: Row[];
@@ -63,6 +67,7 @@ export default function GovernedTable({
   onChanged(): Promise<void>;
   onCredential(password: string): void;
   onOpenRoleSection?(section: IdentitySection, policyId: string): void;
+  paging?: boolean;
 }) {
   const { api, csrfToken, session } = useSession();
   const [selected, setSelected] = useState<string[]>([]);
@@ -383,7 +388,7 @@ export default function GovernedTable({
         onClose={() => setPending(null)}
       >
         {pending ? (
-          <form
+          <WorkForm
             className="border-b border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] px-5 py-5"
             onSubmit={(event) => void confirm(event)}
             aria-label="Confirm administration action"
@@ -442,11 +447,11 @@ export default function GovernedTable({
                 Confirm{tab === "approvals" ? " decision" : " and submit"}
               </Button>
             </div>
-          </form>
+          </WorkForm>
         ) : null}
       </IdentitySheet>
       <div className="min-w-0 overflow-auto">
-        <table className="w-full min-w-180 border-collapse text-sm">
+        <WorkTable paging={paging} tableId="app/features/security/governed-table:1" className="w-full min-w-180 border-collapse text-sm">
           <thead className="bg-muted/60">
             <tr>
               <th
@@ -516,7 +521,7 @@ export default function GovernedTable({
               </tr>
             ))}
           </tbody>
-        </table>
+        </WorkTable>
         {visible.length === 0 ? (
           <p className="p-9 text-center text-sm text-muted-foreground">
             No current records. Enable historical records to view retained entries.

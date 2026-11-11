@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -404,7 +406,7 @@ export function FinanceCurrencies() {
           </Button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-sm">
+          <WorkTable continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loading),loadMore:() => void loadCompany(companyId, nextCursor ?? undefined)}} tableId="app/features/finance/views/company-currencies-workspace:1" className="w-full min-w-[980px] text-sm">
             <thead className="bg-[var(--nx-info-soft)] text-left text-[var(--nx-emphasis-text)]">
               <tr>
                 {[
@@ -490,15 +492,11 @@ export function FinanceCurrencies() {
                 </tr>
               ) : null}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
         <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-sm text-muted-foreground">{currencies.length} currency record(s) loaded</span>
-          {nextCursor ? (
-            <Button variant="outline" onClick={() => void loadCompany(companyId, nextCursor)}>
-              Load more
-            </Button>
-          ) : null}
+
         </div>
       </section>
 
@@ -529,7 +527,7 @@ export function FinanceCurrencies() {
             </Button>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
+            <WorkTable tableId="app/features/finance/views/company-currencies-workspace:2" className="w-full min-w-[720px] text-sm">
               <thead className="bg-muted/50 text-left">
                 <tr>
                   {["Rate", "Effective date", "Status", "Revision", "Action"].map((heading) => (
@@ -598,7 +596,7 @@ export function FinanceCurrencies() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         </section>
       ) : null}
@@ -665,7 +663,7 @@ export function FinanceCurrencies() {
 
       <Dialog open={formMode !== null} onOpenChange={(open) => !open && setFormMode(null)}>
         <DialogContent className="sm:max-w-2xl">
-          <form
+          <WorkForm
             className="grid gap-4"
             onSubmit={(event) => {
               event.preventDefault();
@@ -765,7 +763,7 @@ export function FinanceCurrencies() {
                 {busy ? "Saving…" : "Save and Close"}
               </Button>
             </DialogFooter>
-          </form>
+          </WorkForm>
         </DialogContent>
       </Dialog>
     </div>

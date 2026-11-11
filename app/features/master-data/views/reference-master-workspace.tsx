@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable, WorkPagination } from "@/shared/ui/work-table";
+import { WorkForm, WorkFormLayout } from "@/shared/ui/work-form";
 
 import { useEffect, useRef, useState } from "react";
 import type { ReferenceMaster, ReferenceMasterDirectory, ReferenceMasterKind } from "@nexora/contracts";
@@ -58,6 +60,7 @@ function Directory({ kind, onDirtyChange }: Props) {
   const [company, setCompany] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [workPageSize, setWorkPageSize] = useState(25);
   const [history, setHistory] = useState<string[]>([""]);
   const [page, setPage] = useState<ReferenceMasterDirectory>({ items: [], next_cursor: null });
   const [loading, setLoading] = useState(true);
@@ -97,7 +100,7 @@ function Directory({ kind, onDirtyChange }: Props) {
     const timer = setTimeout(() => {
       const query = new URLSearchParams({
         company_id: company,
-        limit: "50",
+        limit: String(workPageSize),
         ...(search ? { search } : {}),
         ...(status ? { status } : {}),
         ...(cursor ? { cursor } : {}),
@@ -118,7 +121,7 @@ function Directory({ kind, onDirtyChange }: Props) {
       active = false;
       clearTimeout(timer);
     };
-  }, [api, canRead, company, kind, search, status, cursor, refresh]);
+  }, [api, canRead, company, kind, search, status, cursor, refresh, workPageSize]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   function reset() {
     setPage({ items: [], next_cursor: null });
@@ -241,7 +244,7 @@ function Directory({ kind, onDirtyChange }: Props) {
             <Notice>{company ? "No records match this selection." : "No authorized company is available."}</Notice>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <WorkTable paging={false} tableId="app/features/master-data/views/reference-master-workspace:1" className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b">
                     <th className="p-3">Code</th>
@@ -268,31 +271,16 @@ function Directory({ kind, onDirtyChange }: Props) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           )}
         </CardContent>
-        <CardFooter className="flex flex-wrap justify-between gap-3">
-          <span className="text-sm text-muted-foreground">
-            Page {history.length} · {page.items.length} records
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={loading || history.length === 1}
-              onClick={() => {
+        <WorkPagination size={workPageSize} start={page.items.length ? (history.length - 1) * workPageSize + 1 : 0} end={(history.length - 1) * workPageSize + page.items.length} page={history.length - 1} total={page.next_cursor ? undefined : (history.length - 1) * workPageSize + page.items.length} hasMore={!!page.next_cursor} previous={history.length > 1} next={!!page.next_cursor} busy={loading} onPrevious={() => {
                 setPage({ items: [], next_cursor: null });
                 setLoading(true);
                 setError("");
                 setHistory((value) => value.slice(0, -1));
-              }}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              disabled={loading || !page.next_cursor}
-              onClick={() => {
+              }} onNext={() => {
                 const next = page.next_cursor;
                 if (next) {
                   setPage({ items: [], next_cursor: null });
@@ -300,12 +288,7 @@ function Directory({ kind, onDirtyChange }: Props) {
                   setError("");
                   setHistory((value) => [...value, next]);
                 }
-              }}
-            >
-              Next
-            </Button>
-          </div>
-        </CardFooter>
+              }} onSizeChange={(size) => { setWorkPageSize(size); setLoading(true); setPage({items: [], next_cursor: null}); setHistory([""]); }} />
       </Card>
       {selection !== null &&
         (detailLoading ? (
@@ -438,14 +421,14 @@ function ReferenceEditor({
   }
   if (!record) {
     return (
-      <Dialog
+      <WorkFormLayout><Dialog
         open
         onOpenChange={(open) => {
           if (!open && !locked.current) onClose();
         }}
       >
         <DialogContent initialFocus={nameInput} showCloseButton={!busy}>
-          <form
+          <WorkForm
             onSubmit={(event) => {
               event.preventDefault();
               void save();
@@ -486,13 +469,13 @@ function ReferenceEditor({
                 {busy ? "Creating…" : kind === "projects" ? "Create Project" : "Create Location"}
               </Button>
             </DialogFooter>
-          </form>
+          </WorkForm>
         </DialogContent>
-      </Dialog>
+      </Dialog></WorkFormLayout>
     );
   }
   return (
-    <Card aria-label="Reference detail">
+    <WorkFormLayout><Card aria-label="Reference detail">
       <CardHeader>
         <CardTitle>
           {record
@@ -562,6 +545,6 @@ function ReferenceEditor({
             </>
           ))}
       </CardFooter>
-    </Card>
+    </Card></WorkFormLayout>
   );
 }

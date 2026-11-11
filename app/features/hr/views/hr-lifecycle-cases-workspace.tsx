@@ -1,4 +1,8 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { SettlementCorrectionExecution } from "../components/settlement-correction-execution";
 import { SettlementCorrectionReview } from "../components/settlement-correction-review";
 import { SettlementCountryEvidence } from "../components/settlement-country-controls";
@@ -161,7 +165,7 @@ function LifecycleCaseForm({
     onSave(terms, reason);
   }
   return (
-    <form
+    <WorkForm
       className={panel + " space-y-4"}
       aria-label="Lifecycle case editor"
       onSubmit={(e) => {
@@ -484,7 +488,7 @@ function LifecycleCaseForm({
           Cancel editing
         </Button>
       </div>
-    </form>
+    </WorkForm>
   );
 }
 export function HrLifecycleCasesWorkspace({
@@ -494,6 +498,7 @@ export function HrLifecycleCasesWorkspace({
   page: keyof typeof lifecycleCasePages;
   onNavigate: (module: string, page: string, reference?: string) => void;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const { api, session, loading, csrfToken } = useSession(),
     client = new HrApiClient(api),
     canRead = session?.user.permissions.includes("hr.employment_history.read"),
@@ -515,7 +520,7 @@ export function HrLifecycleCasesWorkspace({
     retry = useRef<{ fingerprint: string; key: string } | null>(null),
     companies = useAttendanceRead(canRead ? "lifecycle-companies:" + companyRevision : null, () => client.companies()),
     company = companies.data?.items.some((c) => c.id === choice) ? choice : (companies.data?.items[0]?.id ?? ""),
-    q = { company_id: company, section, search: filter, offset, limit: 25 },
+    q = { company_id: company, section, search: filter, offset, limit: workPageSize },
     result = useAttendanceRead(company && canRead ? JSON.stringify([q, revision]) : null, () =>
       client.lifecycleCaseWorkspace(q),
     ),
@@ -672,7 +677,7 @@ export function HrLifecycleCasesWorkspace({
             No companies are assigned to your account. Ask your administrator to review company access.
           </p>
         )}
-        <form
+        <WorkForm
           className="flex flex-wrap items-end gap-3"
           onSubmit={(e) => {
             e.preventDefault();
@@ -703,7 +708,7 @@ export function HrLifecycleCasesWorkspace({
           >
             Refresh
           </Button>
-        </form>
+        </WorkForm>
       </section>
       {(error || result.error || companies.error) && (
         <div role="alert" className={panel + " border-destructive text-destructive"}>
@@ -750,7 +755,7 @@ export function HrLifecycleCasesWorkspace({
               </p>
             ) : (
               <div className="max-w-full overflow-x-auto">
-                <table className="w-full min-w-[700px] text-left text-sm">
+                <WorkTable paging={false} tableId="app/features/hr/views/hr-lifecycle-cases-workspace:1" className="w-full min-w-[700px] text-left text-sm">
                   <caption className="sr-only">Governed employee lifecycle cases</caption>
                   <thead className="border-b text-muted-foreground">
                     <tr>
@@ -806,32 +811,10 @@ export function HrLifecycleCasesWorkspace({
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </WorkTable>
               </div>
             )}
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span>
-                {w.total ? offset + 1 : 0}–{Math.min(offset + 25, w.total)} of {w.total}
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={offset === 0 || !!editor || !!decision}
-                  onClick={() => setOffset((v) => Math.max(0, v - 25))}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={offset + 25 >= w.total || !!editor || !!decision}
-                  onClick={() => setOffset((v) => v + 25)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+            <WorkOffsetPagination busy={!!(editor || decision)} total={w.total} offset={offset} size={workPageSize} previousDisabled={!!(offset === 0 || !!editor || !!decision)} nextDisabled={!!(offset + workPageSize >= w.total || !!editor || !!decision)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
           </section>
           {editor ? (
             <HrRecordDrawer
@@ -863,7 +846,7 @@ export function HrLifecycleCasesWorkspace({
             </HrRecordDrawer>
           ) : null}
           {decision && (
-            <form
+            <WorkForm
               className={panel + " space-y-4"}
               aria-label="Lifecycle decision review"
               onSubmit={(e) => {
@@ -945,7 +928,7 @@ export function HrLifecycleCasesWorkspace({
                   Cancel review
                 </Button>
               </div>
-            </form>
+            </WorkForm>
           )}
           {r && (
             <section className={panel + " space-y-4"} aria-label="Lifecycle case detail">

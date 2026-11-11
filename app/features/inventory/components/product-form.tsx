@@ -1,4 +1,6 @@
 "use client";
+import { WorkForm, WorkFormLayout } from "@/shared/ui/work-form";
+
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { productInputSchema, type Product, type ProductInput, type InventoryOptions } from "@nexora/contracts";
 import { useSession } from "@/lib/session/session-provider";
@@ -189,13 +191,13 @@ export function ProductForm({
   }
   if (loading)
     return (
-      <p role="status" className="p-4">
+      <WorkFormLayout><p role="status" className="p-4">
         Loading product…
-      </p>
+      </p></WorkFormLayout>
     );
   if (loadFailed)
     return (
-      <Alert variant="destructive">
+      <WorkFormLayout><Alert variant="destructive">
         <AlertDescription>
           {error}
           <div className="mt-3 flex gap-2">
@@ -214,10 +216,10 @@ export function ProductForm({
             </Button>
           </div>
         </AlertDescription>
-      </Alert>
+      </Alert></WorkFormLayout>
     );
   return (
-    <form
+    <WorkForm
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
@@ -638,6 +640,6 @@ export function ProductForm({
           ) : null}
         </div>
       </footer>
-    </form>
+    </WorkForm>
   );
 }

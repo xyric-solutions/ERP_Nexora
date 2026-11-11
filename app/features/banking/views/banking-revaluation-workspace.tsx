@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkFormLayout } from "@/shared/ui/work-form";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type {
@@ -382,7 +384,7 @@ function RevaluationRegister({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1120px] text-sm">
+          <WorkTable continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loadingMore),loadMore:() => void loadMore()}} tableId="app/features/banking/views/banking-revaluation-workspace:1" className="w-full min-w-[1120px] text-sm">
             <thead className="bg-[var(--nx-info-soft)] text-left text-[var(--nx-emphasis-text)]">
               <tr>
                 {[
@@ -451,15 +453,11 @@ function RevaluationRegister({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
         <div className="flex items-center justify-between border-t border-border px-4 py-3 text-sm text-muted-foreground">
           <span>{rows.length} revaluation record(s) loaded</span>
-          {nextCursor ? (
-            <Button type="button" variant="outline" disabled={loadingMore} onClick={() => void loadMore()}>
-              {loadingMore ? "Loading more..." : "Load more"}
-            </Button>
-          ) : null}
+
         </div>
       </section>
     </div>
@@ -712,7 +710,7 @@ function RevaluationForm({
   const sameMaker = detail?.maker_user_id === currentUserId;
 
   return (
-    <div className="space-y-4" aria-busy={loading || Boolean(busy)}>
+    <WorkFormLayout><div className="space-y-4" aria-busy={loading || Boolean(busy)}>
       <header className="flex flex-col gap-4 border-b border-border pb-4 md:flex-row md:items-end md:justify-between">
         <div>
           <button
@@ -1095,7 +1093,7 @@ function RevaluationForm({
           </Button>
         ) : null}
       </footer>
-    </div>
+    </div></WorkFormLayout>
   );
 }
 

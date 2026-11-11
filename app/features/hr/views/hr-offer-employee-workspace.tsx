@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -45,7 +48,7 @@ function HandoffForm({
   const [email, setEmail] = useState("");
   const [reason, setReason] = useState("");
   return (
-    <form
+    <WorkForm
       className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4"
       onSubmit={(e) => {
         e.preventDefault();
@@ -104,7 +107,7 @@ function HandoffForm({
         <UserRoundPlus className="size-4" />
         {busy ? "Creating draft…" : "Create employee draft"}
       </Button>
-    </form>
+    </WorkForm>
   );
 }
 
@@ -164,6 +167,7 @@ function OfferHirePreparation({
 }
 
 export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const { api, session, csrfToken, loading: sessionLoading } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
   const permissions = session?.user.permissions ?? [];
@@ -218,7 +222,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
     let current = true;
     setLoading(true);
     client
-      .offers({ companyId: company, state: "accepted", search: applied || undefined, offset })
+      .offers({ limit: workPageSize, companyId: company, state: "accepted", search: applied || undefined, offset })
       .then((result) => {
         if (current) {
           setOffers(result);
@@ -236,7 +240,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
     return () => {
       current = false;
     };
-  }, [client, company, canRead, applied, offset, revision]);
+  }, [client, company, canRead, applied, offset, revision, workPageSize]);
   useEffect(() => {
     if (!selected || !company) {
       setWorkspace(null);
@@ -378,7 +382,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
           {notice}
         </div>
       )}
-      <form
+      <WorkForm
         className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
         onSubmit={(e) => {
           e.preventDefault();
@@ -425,7 +429,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
           <Search className="size-4" />
           Search
         </Button>
-      </form>
+      </WorkForm>
       {!company && !loading && (
         <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
           No authorized company is available. Ask your administrator to review company access.
@@ -475,27 +479,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate }: { onNavigate: Navigate 
                 </Button>
               </div>
             )}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border p-3">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={offset === 0 || loading || busy}
-                onClick={() => setOffset(Math.max(0, offset - 50))}
-              >
-                Previous
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                {offers.total ? `${offset + 1}–${Math.min(offset + 50, offers.total)}` : "0"} of {offers.total}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={offset + 50 >= offers.total || loading || busy}
-                onClick={() => setOffset(offset + 50)}
-              >
-                Next
-              </Button>
-            </div>
+            <WorkOffsetPagination busy={!!(loading || busy)} total={offers.total} offset={offset} size={workPageSize} previousDisabled={!!(offset === 0 || loading || busy)} nextDisabled={!!(offset + workPageSize >= offers.total || loading || busy)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset(Math.max(0, offset - workPageSize))} onNext={() => setOffset(offset + workPageSize)} />
           </section>
           <div className="grid min-w-0 gap-5" aria-busy={detailLoading || busy}>
             {detailLoading && !data ? (

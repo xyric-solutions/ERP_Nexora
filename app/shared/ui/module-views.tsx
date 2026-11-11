@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+
 import { FilterBar } from "./filter-bar";
 import { featuredMetricClass } from "./metric-appearance";
 import { ArrowUpRight } from "lucide-react";
@@ -353,7 +355,7 @@ export function ModuleDataTable({
   const isInteractiveTarget = (target: EventTarget | null) => target instanceof HTMLElement && Boolean(target.closest("button, input, select, textarea, a, label"));
   return (
     <div className="relative min-w-0 overflow-x-auto">
-      <table className="w-full min-w-180 border-collapse text-left text-sm">
+      <WorkTable tableId="app/shared/ui/module-views:1" className="w-full min-w-180 border-collapse text-left text-sm">
         <thead>
           <tr className="border-y border-border bg-muted/50">
             <th className="px-4 py-3"><Checkbox aria-label="Select all rows" /></th>
@@ -392,7 +394,7 @@ export function ModuleDataTable({
             </tr>
           ))}
         </tbody>
-      </table>
+      </WorkTable>
     </div>
   );
 }

@@ -19,6 +19,41 @@ below need the user's answers before implementation.
 
 ## Single-entry form
 
+The follow-up bill/payment refinement uses compact aligned label/control rows
+inside the same supplier-left, transaction-right composition. Bills retain their
+approved-order source and inherited approver. The bill form now records separate
+document and supplier bill dates, a manual due date or a selected payment term,
+currency and supplier invoice reference. Payment allocation lists show both dates.
+
+Payment instructions omit the due-date, currency and external-reference controls.
+Supplier and payment fields share one Payment details heading and a continuous
+surface, with no contrasting supplier panel or internal dividers. Keep the
+supplier-left/payment-right alignment on desktop and stack fields on mobile;
+accessible group labels remain available without separate visible headings.
+The bank dropdown includes all eligible company accounts and sets currency from
+the chosen bank atomically. Switching currencies clears incompatible allocations
+and entered gross amounts; switching banks within the same currency retains them.
+Document date and the payment-specific Ref. No. remain. Existing hidden reference
+and due-date metadata remain compatible; editing payment date clears its unused
+due date so a hidden legacy value cannot prevent the edit. Bill dates, terms and
+currency controls remain on the bill form.
+
+Bill terms are Immediate Payment; 15, 21, 30 or 45 days; End of Following Month;
+10 Days after End of Next Month; and 30% Now, Balance 60 Days. All calculations use
+the bill date and UTC calendar arithmetic. For split terms, round the first 30%
+half-up to cents and retain the exact remaining balance, showing both amounts
+and dates. The stored due date is the final installment date. These schedules
+describe the invoice obligation; they do not schedule a bank transfer.
+
+The server recalculates term dates on save and checks them on submit/approval.
+Manual bill due dates cannot precede the bill date, but may precede document
+entry for overdue invoices. Existing non-bill date rules stay unchanged.
+Procurement migration 5 adds nullable bill date/term fields without rewriting
+historical records. Older clients may omit them: existing values survive edits;
+new legacy bills use document date as their bill date. Explicit null clears the
+term for a manual date. Approval/audit snapshots and CSV exports retain the terms.
+Rollback should keep the additive columns and existing bill data in place.
+
 Use the current compact ERP controls and semantic theme. Search exists inside
 supplier and bank selectors. The form contains:
 
@@ -38,6 +73,23 @@ The submitted form must retain the chosen bank/mode/tax/address snapshots when
 reopened; decorative or browser-only controls are insufficient.
 
 ## Allocations
+
+The supplier-driven layout refinement removes the separate approved-bill search.
+Selecting a supplier loads that supplier's approved bills through a company- and
+tenant-authorized API filter before pagination. Include fully reserved bills in
+the list, with allocation status and open balance; their checkboxes are disabled.
+The instruction-only domain records reservations rather than bank settlement, so
+the interface must not describe a fully reserved bill as a confirmed bank payment.
+Checkboxes allocate available balances automatically and update gross amounts
+until the user explicitly enters a gross amount. After that, allocate only its
+remaining amount. Keep editable partial allocations and discounts. Supplier or
+currency changes clear incompatible selections and stale pagination responses.
+
+On desktop, approver, supplier and the supplier mailing address occupy the left
+panel; dates, currency, references, bank, mode, amount and withholding occupy the
+right. Stack these panels on tablet/mobile and retain a keyboard-scrollable bill
+table. Preserve saved address/bank/tax snapshots, multi-supplier minimums and all
+existing lifecycle, permission, audit and no-posting boundaries.
 
 Retain existing bill selection, allocation amounts, outstanding-balance checks
 and partial allocation. Extend the table with date, bill ID/code, due date,

@@ -1,4 +1,5 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
 import { HrPersonalLearning } from "./hr-learning-workspace";
 import { HrCompanyScope as CompanyScope } from "../components/hr-company-scope";
 import { HrPersonalCorrections } from "./hr-personal-corrections";
@@ -52,6 +53,7 @@ function BenefitRules({ company }: { company: string }) {
 }
 
 function EmployeeSelfService({ onNavigate }: { onNavigate: Navigate }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const { api } = useSession(),
     client = new HrApiClient(api);
   const [company, setCompany] = useState(""),
@@ -64,7 +66,7 @@ function EmployeeSelfService({ onNavigate }: { onNavigate: Navigate }) {
     [leaveNotice, setLeaveNotice] = useState("");
   const [opened, setOpened] = useState(""),
     [exportError, setExportError] = useState("");
-  const q = { ...(company ? { company_id: company } : {}), month: month + "-01", limit: 25, offset };
+  const q = { ...(company ? { company_id: company } : {}), month: month + "-01", limit: workPageSize, offset };
   const read = useAttendanceRead(month ? JSON.stringify([q, revision]) : null, () => client.selfService(q)),
     w = read.data;
   const detail = useAttendanceRead(
@@ -354,35 +356,13 @@ function EmployeeSelfService({ onNavigate }: { onNavigate: Navigate }) {
             </TabsContent>
           </Tabs>
           {tab !== "balances" && tab !== "profile" && tab !== "learning" && (
-            <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-              <span>
-                {total ? `${Math.min(offset + 1, total)}–${Math.min(offset + 25, total)} of ${total}` : "0 records"}
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={offset === 0 || read.loading}
-                  onClick={() => {
-                    setOffset((v) => Math.max(0, v - 25));
+            <WorkOffsetPagination busy={!!(read.loading)} total={total} offset={offset} size={workPageSize} previousDisabled={!!(offset === 0 || read.loading)} nextDisabled={!!(offset + workPageSize >= total || read.loading)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => {
+                    setOffset((v) => Math.max(0, v - workPageSize));
                     setOpened("");
-                  }}
-                >
-                  Previous
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={offset + 25 >= total || read.loading}
-                  onClick={() => {
-                    setOffset((v) => v + 25);
+                  }} onNext={() => {
+                    setOffset((v) => v + workPageSize);
                     setOpened("");
-                  }}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+                  }} />
           )}
         </>
       )}

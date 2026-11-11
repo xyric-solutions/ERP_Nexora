@@ -1,4 +1,5 @@
 "use client";
+import { WorkFormLayout } from "@/shared/ui/work-form";
 
 /**
  * Banking transaction entry for the isolated Nexora UI/UX prototype.
@@ -210,7 +211,7 @@ export function BankingTransactionForm({
   };
 
   return (
-    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(20rem,23.75rem)] items-start gap-4 max-xl:grid-cols-1">
+    <WorkFormLayout><div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(20rem,23.75rem)] items-start gap-4 max-xl:grid-cols-1">
       <div className="grid min-w-0 gap-3.5">
         {savedState ? (
           <div
@@ -850,6 +851,6 @@ export function BankingTransactionForm({
           )}
         </section>
       </aside>
-    </div>
+    </div></WorkFormLayout>
   );
 }

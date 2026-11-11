@@ -1,9 +1,12 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkForm, WorkFormLayout } from "@/shared/ui/work-form";
+
 import { payrollNavigationContext } from "../components/payroll-navigation";
 import { HrPayrollLocalizationSetup } from "./hr-payroll-localization-setup";
 import { HrPayrollOvertimeSetup } from "./hr-payroll-overtime-setup";
 import { useMemo, useRef, useState } from "react";
-import { Wallet, Plus, RefreshCw, ArrowRight, ChevronLeft, ChevronRight, ShieldCheck, Layers3 } from "lucide-react";
+import { Wallet, Plus, RefreshCw, ArrowRight, ShieldCheck, Layers3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -267,7 +270,7 @@ function RecordEditor({
     if (await save(parsed.data, (key) => client.createPayrollRecord(parsed.data, csrf(), key))) onClose();
   }
   return (
-    <section className={panel + " border-primary/30"} aria-label="New Payroll record">
+    <WorkFormLayout><section className={panel + " border-primary/30"} aria-label="New Payroll record">
       <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wide text-primary">New record</div>
@@ -280,7 +283,7 @@ function RecordEditor({
           Close editor
         </Button>
       </header>
-      <form className="grid gap-5" onSubmit={submit}>
+      <WorkForm className="grid gap-5" onSubmit={submit}>
         <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0! md:grid-cols-2">
           {["components", "structures"].includes(section) && (
             <>
@@ -512,8 +515,8 @@ function RecordEditor({
               : "Save " + (section === "components" || section === "structures" ? "configuration" : "draft")}
           </Button>
         </div>
-      </form>
-    </section>
+      </WorkForm>
+    </section></WorkFormLayout>
   );
 }
 function RecordDetail({
@@ -692,7 +695,7 @@ function RecordDetail({
         </p>
       )}
       {actions.length > 0 && (
-        <form onSubmit={decide} className="mt-6 grid gap-4 border-t border-border pt-5">
+        <WorkForm onSubmit={decide} className="mt-6 grid gap-4 border-t border-border pt-5">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <ShieldCheck className="h-4 w-4 text-primary" />
             Controlled action
@@ -813,7 +816,7 @@ function RecordDetail({
           <p className="text-xs text-muted-foreground">
             This decision uses the version and evidence shown above. Refreshing the list does not replace this review.
           </p>
-        </form>
+        </WorkForm>
       )}
     </section>
   );
@@ -827,6 +830,7 @@ export function HrPayrollWorkspace({
   onNavigate: Navigate;
   initialReference?: string | undefined;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const initial = payrollNavigationContext(initialReference);
   const { api, session, csrfToken, loading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]),
@@ -846,7 +850,7 @@ export function HrPayrollWorkspace({
     [notice, setNotice] = useState("");
   const companies = useAttendanceRead(canRead ? "payroll-companies" : null, () => client.companies()),
     company = companies.data?.items.some((c) => c.id === choice) ? choice : (companies.data?.items[0]?.id ?? ""),
-    query = { company_id: company, section, month, search, limit: 25, offset },
+    query = { company_id: company, section, month, search, limit: workPageSize, offset },
     records = useAttendanceRead(canRead && company ? JSON.stringify([query, revision]) : null, () =>
       client.payrollWorkspace(query),
     );
@@ -1142,30 +1146,8 @@ export function HrPayrollWorkspace({
           ))}
         </div>
       )}
-      {records.data && records.data.total > 25 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <span>
-            {offset + 1}–{Math.min(offset + 25, records.data.total)} of {records.data.total}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={offset === 0 || busy || records.loading}
-              onClick={() => setOffset((v) => Math.max(0, v - 25))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              disabled={offset + 25 >= records.data.total || busy || records.loading}
-              onClick={() => setOffset((v) => v + 25)}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+      {records.data && (
+        <WorkOffsetPagination busy={!!(busy || records.loading)} total={records.data.total} offset={offset} size={workPageSize} previousDisabled={!!(offset === 0 || busy || records.loading)} nextDisabled={!!(offset + workPageSize >= records.data.total || busy || records.loading)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
       )}
     </div>
   );

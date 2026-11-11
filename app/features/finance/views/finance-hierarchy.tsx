@@ -1,4 +1,7 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useEffect, useRef, useState } from "react";
 import type {
   FinanceHierarchyItem,
@@ -223,7 +226,7 @@ function HierarchyWorkspace() {
         {loading && <p role="status">Loading company masters…</p>}
         {!loading && !rows.length && !error && <p>No company categories or sections are available.</p>}
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[42rem] text-sm">
+          <WorkTable tableId="app/features/finance/views/finance-hierarchy:1" className="w-full min-w-[42rem] text-sm">
             <thead>
               <tr>
                 {["Code", "Name", "Kind", "Type", "Status", "Version"].map((h) => (
@@ -260,7 +263,7 @@ function HierarchyWorkspace() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
         {cursor && (
           <Button variant="outline" disabled={loading || busy} onClick={() => void more()}>
@@ -268,7 +271,7 @@ function HierarchyWorkspace() {
           </Button>
         )}
         {company && admin && (
-          <form
+          <WorkForm
             onSubmit={(e) => {
               e.preventDefault();
               void save();
@@ -369,7 +372,7 @@ function HierarchyWorkspace() {
                 Clear selection
               </Button>
             </div>
-          </form>
+          </WorkForm>
         )}
       </CardContent>
     </Card>

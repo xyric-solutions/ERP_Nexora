@@ -1,4 +1,5 @@
 "use client";
+import { WorkFormLayout } from "@/shared/ui/work-form";
 
 /**
  * Multi-line bank payment / receipt entry for the isolated Nexora UI/UX
@@ -149,7 +150,7 @@ export function BankingBatchEntry({
   };
 
   return (
-    <div className="grid min-w-0 gap-3.5">
+    <WorkFormLayout><div className="grid min-w-0 gap-3.5">
       {savedState ? (
         <div className="grid gap-1 rounded-md border border-[var(--nx-success)] bg-[var(--nx-success-soft)] p-3" role="status">
           <strong>{savedState === "approved" ? "Approved and closed" : "Draft saved"}</strong>
@@ -399,6 +400,6 @@ export function BankingBatchEntry({
           <Button type="button" onClick={approve}>Approve and Close</Button>
         </div>
       </footer>
-    </div>
+    </div></WorkFormLayout>
   );
 }

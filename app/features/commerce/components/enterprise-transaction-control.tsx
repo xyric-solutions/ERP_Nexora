@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -148,7 +149,7 @@ export function EnterpriseTransactionControl({
 
         {tab === "Accounting" ? <div className="p-3">
           <div className="mb-2.5 flex items-center gap-2 overflow-x-auto [&_button]:min-w-max [&_button]:border [&_button]:border-border [&_button]:bg-primary/10 [&_button]:px-2.5 [&_button]:py-1.5 [&_button]:text-[0.6875rem] [&_button]:font-bold [&_button]:text-primary [&_i]:not-italic [&_i]:text-muted-foreground"><button type="button" onClick={() => onAction("Open source document", reference)}>Source document</button><i>→</i><button type="button" onClick={() => onAction("Open subledger", subject)}>Subledger</button><i>→</i><button type="button" onClick={() => onAction("Open journal", "JE-2026-009184")}>JE-2026-009184</button><i>→</i><button type="button" onClick={() => onAction("Open general ledger", reference)}>General ledger</button></div>
-          <div className="nx-table-wrap"><table><thead><tr><th>Account</th><th>Posting description</th><th>Company / dimension</th><th className="amount">Debit</th><th className="amount">Credit</th></tr></thead><tbody>{lines.map(([account, label, debit, credit]) => <tr key={account}><td><button type="button" onClick={() => onAction("Drill to account", account)}>{account}</button></td><td>{label}</td><td>Demo Company · Head Office</td><td className="amount">{debit}</td><td className="amount">{credit}</td></tr>)}</tbody><tfoot><tr><th colSpan={3}>Balanced control total</th><th className="amount">PKR 42,482.00</th><th className="amount">PKR 42,482.00</th></tr></tfoot></table></div>
+          <div className="nx-table-wrap"><WorkTable tableId="app/features/commerce/components/enterprise-transaction-control:1"><thead><tr><th>Account</th><th>Posting description</th><th>Company / dimension</th><th className="amount">Debit</th><th className="amount">Credit</th></tr></thead><tbody>{lines.map(([account, label, debit, credit]) => <tr key={account}><td><button type="button" onClick={() => onAction("Drill to account", account)}>{account}</button></td><td>{label}</td><td>Demo Company · Head Office</td><td className="amount">{debit}</td><td className="amount">{credit}</td></tr>)}</tbody><tfoot><tr><th colSpan={3}>Balanced control total</th><th className="amount">PKR 42,482.00</th><th className="amount">PKR 42,482.00</th></tr></tfoot></WorkTable></div>
           <p>Preview uses the {companyMode} posting profile. Reversals mirror the original accounts and dimensions and remain linked to the source transaction.</p>
         </div> : null}
 

@@ -9,6 +9,17 @@ import {
 } from "../../packages/contracts/src/hr/index.js";
 
 describe("OpenAPI contract", () => {
+  it("documents the supplier filter only on the purchase document directory", () => {
+    const paths = buildOpenApiDocument().paths;
+    expect(paths["/procurement/documents"].get.parameters).toContainEqual({
+      in: "query",
+      name: "supplier_id",
+      schema: { type: "string", minLength: 1, maxLength: 128 },
+    });
+    for (const path of ["/procurement/products", "/procurement/approvers", "/procurement/suppliers"] as const)
+      expect(paths[path].get.parameters.map((parameter) => parameter.name)).not.toContain("supplier_id");
+  });
+
   it("matches the committed snapshot and versioned paths", async () => {
     const generated = `${JSON.stringify(buildOpenApiDocument(), null, 2)}\n`;
     expect(await readFile(new URL("../../openapi-v1.json", import.meta.url), "utf8")).toBe(generated);

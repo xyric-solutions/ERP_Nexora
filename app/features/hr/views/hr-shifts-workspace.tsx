@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -194,7 +197,7 @@ function ShiftEditor({
     void onSave(result.data, initial && !editor.copy ? initial.id : undefined);
   };
   return (
-    <form
+    <WorkForm
       aria-label="Shift rules editor"
       className="grid min-w-0 gap-4 rounded-xl border border-primary/30 bg-card p-4"
       onSubmit={(e) => {
@@ -590,7 +593,7 @@ function ShiftEditor({
           Cancel
         </Button>
       </div>
-    </form>
+    </WorkForm>
   );
 }
 
@@ -601,6 +604,7 @@ export function HrShiftsWorkspace({
   initialReference?: string;
   onNavigate: (moduleId: string, pageId: string) => void;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const initialScope = useMemo(() => readHrOperationsScope(initialReference), [initialReference]);
   const { api, session, loading: sessionLoading, csrfToken } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
@@ -655,7 +659,7 @@ export function HrShiftsWorkspace({
     let current = true;
     setLoading(true);
     client
-      .shifts({ companyId: company, search: applied || undefined, status: status || undefined, offset })
+      .shifts({ limit: workPageSize, companyId: company, search: applied || undefined, status: status || undefined, offset })
       .then((result) => {
         if (current) {
           setDirectory(result);
@@ -672,7 +676,7 @@ export function HrShiftsWorkspace({
     return () => {
       current = false;
     };
-  }, [client, company, canRead, applied, status, offset, revision]);
+  }, [client, company, canRead, applied, status, offset, revision, workPageSize]);
   useEffect(() => {
     if (!company || !selected) {
       setDetail(null);
@@ -834,7 +838,7 @@ export function HrShiftsWorkspace({
           {notice}
         </div>
       )}
-      <form
+      <WorkForm
         className="grid gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem_auto]"
         onSubmit={(e) => {
           e.preventDefault();
@@ -898,7 +902,7 @@ export function HrShiftsWorkspace({
           <Search className="size-4" />
           Search
         </Button>
-      </form>
+      </WorkForm>
       {editor && (
         <HrRecordDrawer
           title={editor?.copy ? "Copy shift" : editor?.detail ? "Edit shift rules" : "Add shift"}
@@ -975,27 +979,7 @@ export function HrShiftsWorkspace({
                 </p>
               </div>
             )}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border p-3">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={busy || loading || !!editor || offset === 0}
-                onClick={() => setOffset(Math.max(0, offset - 50))}
-              >
-                Previous
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                {directory.total ? `${offset + 1}–${Math.min(offset + 50, directory.total)}` : "0"} of {directory.total}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={busy || loading || !!editor || offset + 50 >= directory.total}
-                onClick={() => setOffset(offset + 50)}
-              >
-                Next
-              </Button>
-            </div>
+            <WorkOffsetPagination busy={!!(busy || loading || editor)} total={directory.total} offset={offset} size={workPageSize} previousDisabled={!!(busy || loading || !!editor || offset === 0)} nextDisabled={!!(busy || loading || !!editor || offset + workPageSize >= directory.total)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset(Math.max(0, offset - workPageSize))} onNext={() => setOffset(offset + workPageSize)} />
           </section>
           <div className="grid min-w-0 gap-5" aria-busy={detailLoading || busy}>
             {detailLoading && !current ? (
@@ -1163,7 +1147,7 @@ export function HrShiftsWorkspace({
                     notice={notice}
                     completionKey={notice}
                   >
-                    <form
+                    <WorkForm
                       className="grid gap-3 rounded-xl border border-border bg-card p-5"
                       onSubmit={(e) => {
                         e.preventDefault();
@@ -1195,7 +1179,7 @@ export function HrShiftsWorkspace({
                       >
                         {current.status === "active" ? "Deactivate shift" : "Reactivate shift"}
                       </Button>
-                    </form>
+                    </WorkForm>
                   </HrRecordDrawer>
                 )}
                 <section className="rounded-xl border border-border bg-card p-5">

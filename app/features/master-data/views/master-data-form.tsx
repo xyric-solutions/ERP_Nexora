@@ -1,4 +1,5 @@
 "use client";
+import { WorkFormLayout } from "@/shared/ui/work-form";
 
 import { Children, cloneElement, isValidElement, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -137,7 +138,7 @@ export function MasterDataForm({ context, onAction, onNavigate }: MasterDataForm
     onAction(close ? "Save and close" : "Save and new", noun);
     if (close) onNavigate(context.moduleId, backPage);
   };
-  return <div className="grid gap-3 pb-18 text-foreground">
+  return <WorkFormLayout><div className="grid gap-3 pb-18 text-foreground">
     <header className="flex flex-col items-start justify-between gap-4 border-b border-border pb-4 xl:flex-row xl:items-end xl:gap-6">
       <div className="min-w-0"><div className="flex items-center gap-2.5"><h1 className="text-2xl leading-none font-semibold tracking-tight text-foreground">Add New {noun}</h1><span className="nx-status nx-status-draft">Draft</span></div></div>
       <div className="flex w-full flex-wrap gap-2 xl:w-auto"><Button variant="outline" type="button" onClick={() => onNavigate(context.moduleId, backPage)}>Cancel</Button><Button variant="outline" type="button" onClick={() => save(false)}>Save & add another</Button><Button type="button" onClick={() => save(true)}>Save & close</Button></div>
@@ -154,5 +155,5 @@ export function MasterDataForm({ context, onAction, onNavigate }: MasterDataForm
       </aside>
     </div>
     <footer className="fixed right-5 bottom-3 left-[calc(var(--nx-sidebar-width)+1.375rem)] z-35 flex items-center gap-2 rounded-lg border border-border bg-background/90 px-3 py-2 shadow-lg backdrop-blur max-md:right-3 max-md:left-3"><div className="mr-auto max-md:hidden"><strong className="block text-xs">{noun} master</strong><span className="mt-0.5 block text-xs text-muted-foreground">{name || "Unsaved record"} · {completion}% complete</span></div><Button variant="outline" type="button" onClick={() => onNavigate(context.moduleId, backPage)}>Cancel</Button><Button variant="outline" type="button" onClick={() => save(false)}>Save & add another</Button><Button type="button" onClick={() => save(true)}>Save & close</Button></footer>
-  </div>;
+  </div></WorkFormLayout>;
 }

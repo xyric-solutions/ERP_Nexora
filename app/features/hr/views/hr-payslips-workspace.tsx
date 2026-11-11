@@ -1,4 +1,8 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { Download, Printer, RefreshCw, FileText, ArrowRight } from "lucide-react";
@@ -24,6 +28,7 @@ export function HrPayslipsWorkspace({
 }: {
   onNavigate: (module: string, page: string, reference?: string) => void;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const { api, session, csrfToken, loading } = useSession(),
     client = new HrApiClient(api),
     canRead = ["hr.payroll.payslip.read", "hr.payroll.result.read"].every((p) => session?.user.permissions.includes(p));
@@ -45,7 +50,7 @@ export function HrPayslipsWorkspace({
     retry = useRef<{ fingerprint: string; key: string } | null>(null);
   const companies = useAttendanceRead(canRead ? "payslip-companies" : null, () => client.companies()),
     company = companies.data?.items.some((c) => c.id === choice) ? choice : (companies.data?.items[0]?.id ?? "");
-  const query = { company_id: company, month: month + "-01", search: filter, state, limit: 25, offset };
+  const query = { company_id: company, month: month + "-01", search: filter, state, limit: workPageSize, offset };
   const data = useAttendanceRead(canRead && company ? JSON.stringify([query, revision]) : null, () =>
     client.payslipWorkspace(query),
   );
@@ -189,7 +194,7 @@ export function HrPayslipsWorkspace({
             />
           </Field>
         </div>
-        <form
+        <WorkForm
           className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,180px)_auto_auto]"
           onSubmit={(e) => {
             e.preventDefault();
@@ -237,7 +242,7 @@ export function HrPayslipsWorkspace({
             <RefreshCw className="size-4" />
             Refresh
           </Button>
-        </form>
+        </WorkForm>
       </section>
       {(error || companies.error || data.error || detail.error) && (
         <div role="alert" className={panel + " border-destructive text-destructive"}>
@@ -299,7 +304,7 @@ export function HrPayslipsWorkspace({
                 role="region"
                 aria-label="Payslip table; scroll horizontally for all columns"
               >
-                <table className="w-full min-w-[780px] text-left text-sm">
+                <WorkTable paging={false} tableId="app/features/hr/views/hr-payslips-workspace:1" className="w-full min-w-[780px] text-left text-sm">
                   <caption className="sr-only">Posted employee salary results and publication status</caption>
                   <thead className="border-b text-muted-foreground">
                     <tr>
@@ -353,41 +358,19 @@ export function HrPayslipsWorkspace({
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </WorkTable>
               </div>
             )}
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <p className="text-muted-foreground">
-                {w.total ? offset + 1 : 0}–{Math.min(offset + 25, w.total)} of {w.total}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={offset === 0 || !!review}
-                  onClick={() => {
-                    setOffset((v) => Math.max(0, v - 25));
+            <WorkOffsetPagination busy={!!(review)} total={w.total} offset={offset} size={workPageSize} previousDisabled={!!(offset === 0 || !!review)} nextDisabled={!!(offset + workPageSize >= w.total || !!review)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => {
+                    setOffset((v) => Math.max(0, v - workPageSize));
                     setSelected([]);
-                  }}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={offset + 25 >= w.total || !!review}
-                  onClick={() => {
-                    setOffset((v) => v + 25);
+                  }} onNext={() => {
+                    setOffset((v) => v + workPageSize);
                     setSelected([]);
-                  }}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+                  }} />
           </section>
           {review && (
-            <form className={panel + " space-y-4"} onSubmit={release} aria-label="Release payslips review">
+            <WorkForm className={panel + " space-y-4"} onSubmit={release} aria-label="Release payslips review">
               <h3 className="text-lg font-semibold">Confirm payslip publication</h3>
               <p className="text-sm">
                 Release {selected.length} employee payslip(s) for {review.month.slice(0, 7)}. Names, company labels,
@@ -424,7 +407,7 @@ export function HrPayslipsWorkspace({
                   Cancel review
                 </Button>
               </div>
-            </form>
+            </WorkForm>
           )}
         </>
       )}
@@ -466,7 +449,7 @@ export function HrPayslipsWorkspace({
                 : "Preview only; labels freeze on release."}
           </p>
           <div className="max-w-full overflow-x-auto">
-            <table className="w-full min-w-[430px] text-left text-sm">
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-payslips-workspace:2" className="w-full min-w-[430px] text-left text-sm">
               <caption className="sr-only">Payslip component breakdown</caption>
               <thead className="border-b text-muted-foreground">
                 <tr>
@@ -492,7 +475,7 @@ export function HrPayslipsWorkspace({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Metric title="Net pay" value={d.document.result.net} hint={d.document.result.currency} />

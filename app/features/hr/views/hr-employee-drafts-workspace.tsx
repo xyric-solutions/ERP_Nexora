@@ -1,4 +1,7 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useEffect, useMemo, useState } from "react";
@@ -154,7 +157,7 @@ export function HrEmployeeDraftsWorkspace({ onAction }: { onAction: (action: str
             ))}
           </select>
         </label>
-        <form
+        <WorkForm
           className="flex min-w-0 basis-full flex-wrap items-end gap-2 sm:basis-65 sm:flex-1"
           onSubmit={(event) => {
             event.preventDefault();
@@ -172,7 +175,7 @@ export function HrEmployeeDraftsWorkspace({ onAction }: { onAction: (action: str
           <Button type="submit" variant="outline">
             Search
           </Button>
-        </form>
+        </WorkForm>
         <Button type="button" variant="outline" onClick={reload}>
           Refresh
         </Button>
@@ -202,7 +205,7 @@ export function HrEmployeeDraftsWorkspace({ onAction }: { onAction: (action: str
       {state === "ready" ? (
         <div className="grid min-w-0 grid-cols-1 gap-4">
           <div className="relative min-w-0 w-full overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-            <table className="w-full min-w-180 text-left text-sm">
+            <WorkTable tableId="app/features/hr/views/hr-employee-drafts-workspace:1" className="w-full min-w-180 text-left text-sm">
               <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">Employee</th>
@@ -242,7 +245,7 @@ export function HrEmployeeDraftsWorkspace({ onAction }: { onAction: (action: str
                   </tr>
                 ) : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
 
           <HrRecordDrawer

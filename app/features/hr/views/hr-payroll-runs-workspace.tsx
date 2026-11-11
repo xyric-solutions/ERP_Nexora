@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useMemo, useRef, useState } from "react";
 import {
   Calculator,
@@ -7,9 +10,7 @@ import {
   ArrowRight,
   LockKeyhole,
   Wallet,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+  } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,6 +54,7 @@ export function HrPayrollRunsWorkspace({
   review?: boolean;
   onNavigate: (module: string, page: string, reference?: string) => void;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const { api, session, csrfToken, loading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]),
     permissions = session?.user.permissions ?? [],
@@ -67,7 +69,7 @@ export function HrPayrollRunsWorkspace({
     [busy, setBusy] = useState(false);
   const companies = useAttendanceRead(canRead ? "payroll-run-companies" : null, () => client.companies()),
     company = companies.data?.items.some((c) => c.id === choice) ? choice : (companies.data?.items[0]?.id ?? ""),
-    query = { company_id: company, month: month + "-01", limit: 25, offset },
+    query = { company_id: company, month: month + "-01", limit: workPageSize, offset },
     state = useAttendanceRead(company && canRead ? JSON.stringify([query, revision]) : null, () =>
       client.payrollRunWorkspace(query),
     ),
@@ -382,7 +384,7 @@ export function HrPayrollRunsWorkspace({
           notice={notice}
           onClose={() => setDraft(null)}
         >
-          <form onSubmit={save} className="grid gap-4">
+          <WorkForm onSubmit={save} className="grid gap-4">
             <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0! md:grid-cols-2">
               {draft.action === "policy" && (
                 <>
@@ -492,7 +494,7 @@ export function HrPayrollRunsWorkspace({
             <Button type="submit" className="justify-self-start text-primary-foreground!" disabled={busy}>
               {busy ? "Saving…" : "Confirm " + actionTitle[draft.action].toLowerCase()}
             </Button>
-          </form>
+          </WorkForm>
         </HrRecordDrawer>
       ) : null}
       {data?.period && data.period.run_number > 0 && permissions.includes("hr.payroll.result.read") && (
@@ -717,30 +719,8 @@ export function HrPayrollRunsWorkspace({
           ))}
         </div>
       )}
-      {data && data.total > 25 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <span>
-            {offset + 1}–{Math.min(offset + 25, data.total)} of {data.total}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={offset === 0 || state.loading || busy || !!draft}
-              onClick={() => setOffset((v) => Math.max(0, v - 25))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              disabled={offset + 25 >= data.total || state.loading || busy || !!draft}
-              onClick={() => setOffset((v) => v + 25)}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+      {data && (
+        <WorkOffsetPagination busy={!!(state.loading || busy || draft)} total={data.total} offset={offset} size={workPageSize} previousDisabled={!!(offset === 0 || state.loading || busy || !!draft)} nextDisabled={!!(offset + workPageSize >= data.total || state.loading || busy || !!draft)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
       )}
       {!!data?.history.length && (
         <details className={panel}>

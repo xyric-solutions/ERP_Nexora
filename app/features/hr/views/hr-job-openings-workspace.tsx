@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { HrJobOpeningDirectory } from "@nexora/contracts";
@@ -202,7 +204,7 @@ export function HrJobOpeningsWorkspace() {
       ) : (
         <div className="grid min-w-0 items-start gap-4 ">
           <div className="relative min-w-0 overflow-x-auto rounded-lg border bg-card border-border">
-            <table className="w-full min-w-190 text-sm">
+            <WorkTable tableId="app/features/hr/views/hr-job-openings-workspace:1" className="w-full min-w-190 text-sm">
               <thead className="border-b bg-muted/60 border-border">
                 <tr>
                   <th className="px-4 py-3 text-left">Reference</th>
@@ -259,7 +261,7 @@ export function HrJobOpeningsWorkspace() {
                   </tr>
                 ) : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           {editor ? (
             <HrRecordDrawer

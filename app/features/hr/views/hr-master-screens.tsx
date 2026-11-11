@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 /**
  * Core HR foundation screens: the organisation structure and the six HR
@@ -158,7 +159,7 @@ export function HrMasterScreen({
 
         {view.tab === "History" ? (
           <div className="nx-table-wrap">
-            <table className="nx-data-table">
+            <WorkTable tableId="app/features/hr/views/hr-master-screens:1" className="nx-data-table">
               <thead><tr><th>Effective</th><th>Change</th><th>From</th><th>To</th><th>By</th></tr></thead>
               <tbody>
                 <tr><td>{record.createdOn}</td><td>Created</td><td>—</td><td>{record.name}</td><td>{record.createdBy}</td></tr>
@@ -166,13 +167,13 @@ export function HrMasterScreen({
                   <tr><td>02 Sep 2026</td><td>Status change</td><td>Active</td><td>Inactive</td><td>Sana Iqbal</td></tr>
                 ) : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         ) : null}
 
         {view.tab === "Audit trail" ? (
           <div className="nx-table-wrap">
-            <table className="nx-data-table">
+            <WorkTable tableId="app/features/hr/views/hr-master-screens:2" className="nx-data-table">
               <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Field</th><th>Old value</th><th>New value</th></tr></thead>
               <tbody>
                 <tr><td>{record.createdOn} 09:14</td><td>{record.createdBy}</td><td>Created</td><td>—</td><td>—</td><td>{record.code}</td></tr>
@@ -180,7 +181,7 @@ export function HrMasterScreen({
                   <tr><td>02 Sep 2026 16:02</td><td>Sana Iqbal</td><td>Updated</td><td>status</td><td>Active</td><td>Inactive</td></tr>
                 ) : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         ) : null}
       </section>

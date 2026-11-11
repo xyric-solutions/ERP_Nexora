@@ -1,4 +1,11 @@
-import { money, scaled, paymentTotals, type PurchaseDocument } from "@nexora/contracts";
+import {
+  money,
+  scaled,
+  paymentTotals,
+  billPaymentTerms,
+  billPaymentSchedule,
+  type PurchaseDocument,
+} from "@nexora/contracts";
 
 export const PURCHASE_EXPORT_EVENT = "nexora:purchase-export";
 
@@ -35,6 +42,7 @@ export function purchaseExportRows(records: readonly PurchaseDocument[]) {
     ],
   ];
   for (const record of records) {
+    const firstRow = rows.length;
     const prefix = [record.code, record.document_date, record.supplier_name ?? "", record.state, record.currency];
     for (const line of record.lines)
       rows.push([
@@ -100,7 +108,22 @@ export function purchaseExportRows(records: readonly PurchaseDocument[]) {
         "Supplier payment",
       ]);
     }
+    const billValues = [
+      record.kind === "bill" ? (record.bill_date ?? record.document_date) : "",
+      record.due_date ?? "",
+      billPaymentTerms.find((term) => term.value === record.payment_term)?.label ?? "",
+      record.kind === "bill" && record.payment_term
+        ? billPaymentSchedule(record.bill_date ?? record.document_date, record.payment_term, record.total_amount)
+            .map((item) => `${item.due_date}: ${item.amount} ${record.currency}`)
+            .join("; ")
+        : "",
+    ];
+    for (let index = firstRow; index < rows.length; index++) {
+      while (rows[index].length < rows[0].length) rows[index].push("");
+      rows[index].push(...billValues);
+    }
   }
+  rows[0].push("Bill Date", "Due Date", "Payment Term", "Payment Schedule");
   return rows.map((row) => [...row, ...Array<string>(rows[0].length - row.length).fill("")]);
 }
 

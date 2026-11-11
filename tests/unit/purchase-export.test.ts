@@ -33,6 +33,21 @@ const record = () =>
     ],
   });
 describe("Purchase exports", () => {
+  it("exports persisted bill dates, terms and exact installment schedules", () => {
+    const invoice = record();
+    invoice.kind = "bill";
+    invoice.bill_date = "2026-11-01";
+    invoice.due_date = "2026-12-31";
+    invoice.payment_term = "percent_30_now_balance_60_days";
+    const rows = purchaseExportRows([invoice]);
+    expect(rows[1].slice(-4)).toEqual([
+      "2026-11-01",
+      "2026-12-31",
+      "30% Now, Balance 60 Days",
+      "2026-11-01: 3.00 USD; 2026-12-31: 7.00 USD",
+    ]);
+    expect(rows[1]).toHaveLength(rows[0].length);
+  });
   it("exports payment tax details once per supplier and preserves separate allocation discounts", () => {
     const document = record();
     document.kind = "payment";

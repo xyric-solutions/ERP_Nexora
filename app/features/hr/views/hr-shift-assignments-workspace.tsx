@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -273,7 +276,7 @@ function AllocationEditor({
     void onSave(result.data);
   };
   return (
-    <form
+    <WorkForm
       aria-label="Shift assignment editor"
       className="grid min-w-0 gap-4 rounded-xl border border-primary/30 bg-card p-4"
       onSubmit={(e) => {
@@ -443,7 +446,7 @@ function AllocationEditor({
           Cancel
         </Button>
       </div>
-    </form>
+    </WorkForm>
   );
 }
 
@@ -464,7 +467,7 @@ function EndAllocation({
     [error, setError] = useState("");
   if (["ended", "cancelled"].includes(detail.state)) return null;
   return (
-    <form
+    <WorkForm
       aria-label="End shift assignment"
       className="grid gap-4 rounded-xl border border-border bg-card p-5"
       onSubmit={(e) => {
@@ -541,7 +544,7 @@ function EndAllocation({
       >
         {busy ? "Saving…" : action === "cancel" ? "Cancel allocation" : "Close allocation"}
       </Button>
-    </form>
+    </WorkForm>
   );
 }
 
@@ -717,6 +720,7 @@ export function HrShiftAssignmentsWorkspace({
   initialReference?: string;
   onNavigate: Navigate;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const initialScope = useMemo(() => readHrOperationsScope(initialReference), [initialReference]);
   const { api, session, csrfToken, loading: sessionLoading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]);
@@ -772,7 +776,7 @@ export function HrShiftAssignmentsWorkspace({
     let current = true;
     setLoading(true);
     client
-      .shiftAllocations({
+      .shiftAllocations({ limit: workPageSize,
         companyId: company,
         search: applied || undefined,
         scope: (scope as Scope) || undefined,
@@ -803,7 +807,7 @@ export function HrShiftAssignmentsWorkspace({
     return () => {
       current = false;
     };
-  }, [client, company, canRead, applied, scope, state, offset, revision]);
+  }, [client, company, canRead, applied, scope, state, offset, revision, workPageSize]);
   useEffect(() => {
     if (!selected || !company) {
       setDetail(null);
@@ -988,7 +992,7 @@ export function HrShiftAssignmentsWorkspace({
             <EmployeePreview key={company} client={client} companyId={company} revision={revision} />
           ) : (
             <>
-              <form
+              <WorkForm
                 className="grid gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_10rem_10rem_auto]"
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -1049,7 +1053,7 @@ export function HrShiftAssignmentsWorkspace({
                   <Search className="size-4" />
                   Search
                 </Button>
-              </form>
+              </WorkForm>
               {editor && (
                 <HrRecordDrawer
                   title="Add shift assignment"
@@ -1117,29 +1121,7 @@ export function HrShiftAssignmentsWorkspace({
                       </p>
                     </div>
                   )}
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border p-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy || loading || editor || !offset}
-                      onClick={() => setOffset(Math.max(0, offset - 50))}
-                    >
-                      Previous
-                    </Button>
-                    <span className="text-xs text-muted-foreground">
-                      {items.total ? `${offset + 1}–${Math.min(offset + 50, items.total)}` : "0"} of {items.total}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy || loading || editor || offset + 50 >= items.total}
-                      onClick={() => setOffset(offset + 50)}
-                    >
-                      Next
-                    </Button>
-                  </div>
+                  <WorkOffsetPagination busy={!!(busy || loading || editor)} total={items.total} offset={offset} size={workPageSize} previousDisabled={!!(busy || loading || editor || !offset)} nextDisabled={!!(busy || loading || editor || offset + workPageSize >= items.total)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset(Math.max(0, offset - workPageSize))} onNext={() => setOffset(offset + workPageSize)} />
                 </section>
                 <div className="grid min-w-0 gap-5" aria-busy={busy || detailLoading}>
                   {detailLoading && !current ? (

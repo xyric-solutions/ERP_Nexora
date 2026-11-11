@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -135,7 +137,7 @@ export function HrPositionsOrganizationWorkspace({ onNavigate }: { onNavigate: N
             ))}
           </select>
         </label>
-        <form
+        <WorkForm
           className="flex min-w-72 flex-[1.4] items-end gap-2"
           onSubmit={(event) => {
             event.preventDefault();
@@ -148,7 +150,7 @@ export function HrPositionsOrganizationWorkspace({ onNavigate }: { onNavigate: N
           </label>
           <Button type="submit" variant="outline">Search</Button>
           <Button type="button" variant="outline" onClick={() => { setQuery(""); setAppliedQuery(""); }}>Clear</Button>
-        </form>
+        </WorkForm>
         <Button type="button" variant="outline" disabled={loading || !companyId} onClick={() => void load(companyId, appliedQuery)}>
           {loading ? "Refreshing..." : "Refresh"}
         </Button>
@@ -193,7 +195,7 @@ export function HrPositionsOrganizationWorkspace({ onNavigate }: { onNavigate: N
               <p className="mt-1 text-sm text-muted-foreground">Showing up to 100 authorized current assignments.</p>
             </header>
             <div className="relative overflow-x-auto">
-              <table className="w-full min-w-260 text-left text-sm">
+              <WorkTable tableId="app/features/hr/views/hr-positions-organization-workspace:1" className="w-full min-w-260 text-left text-sm">
                 <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3">Employee</th>
@@ -219,7 +221,7 @@ export function HrPositionsOrganizationWorkspace({ onNavigate }: { onNavigate: N
                   ))}
                   {summary.items.length === 0 ? <tr><td className="px-4 py-8 text-center text-muted-foreground" colSpan={7}>No current assignments match this search.</td></tr> : null}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           </article>
           <p className="text-right text-xs text-muted-foreground">Updated {new Date(summary.generated_at).toLocaleString()}</p>

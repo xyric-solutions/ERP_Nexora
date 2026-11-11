@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkForm, WorkFormLayout } from "@/shared/ui/work-form";
+
 import { useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -70,33 +73,7 @@ function Message({ error }: { error: string }) {
 function Empty({ text }: { text: string }) {
   return <div className={panel + " py-8 text-center text-sm text-muted-foreground"}>{text}</div>;
 }
-function Pagination({
-  total,
-  offset,
-  setOffset,
-  loading,
-}: {
-  total: number;
-  offset: number;
-  setOffset: (v: number) => void;
-  loading: boolean;
-}) {
-  return total > 25 ? (
-    <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-      <span>
-        {offset + 1}–{Math.min(offset + 25, total)} of {total}
-      </span>
-      <div className="flex gap-2">
-        <Button variant="outline" disabled={!offset || loading} onClick={() => setOffset(Math.max(0, offset - 25))}>
-          Previous
-        </Button>
-        <Button variant="outline" disabled={offset + 25 >= total || loading} onClick={() => setOffset(offset + 25)}>
-          Next
-        </Button>
-      </div>
-    </div>
-  ) : null;
-}
+
 const newPolicy = (date: string): HrLeavePolicyInput => ({
   effective_from: date,
   annual_entitlement_days: "20",
@@ -125,7 +102,7 @@ function PolicyEditor({
   const update = <K extends keyof HrLeavePolicyInput>(key: K, value: HrLeavePolicyInput[K]) =>
     setPolicy({ ...policy, [key]: value });
   return (
-    <fieldset disabled={busy} className="m-0! min-w-0 border-0! p-0! grid min-w-0 gap-4">
+    <WorkFormLayout><fieldset disabled={busy} className="m-0! min-w-0 border-0! p-0! grid min-w-0 gap-4">
       <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Field title="Effective from">
           <Input
@@ -247,10 +224,11 @@ function PolicyEditor({
         Entitlement, accrual, carry-forward and expiry are authorized ledger postings from Leave Balances. Saving a
         policy does not silently credit balances. A later version preserves all existing request dates.
       </p>
-    </fieldset>
+    </fieldset></WorkFormLayout>
   );
 }
 function LeaveTypes(props: Shared) {
+ const [workPageSize, setWorkPageSize] = useState(25);
   const { client, company, date, revision, busy, save, csrf, permissions, onEditing } = props;
   const [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
@@ -264,8 +242,8 @@ function LeaveTypes(props: Shared) {
     [error, setError] = useState(""),
     [statusTarget, setStatusTarget] = useState<HrLeaveType | null>(null),
     [statusReason, setStatusReason] = useState("");
-  const query = useAttendanceRead(JSON.stringify([company, date, revision, offset, applied]), () =>
-    client.listLeaveTypes({ company_id: company, as_of: date, search: applied || undefined, limit: 25, offset }),
+  const query = useAttendanceRead(JSON.stringify([company, date, revision, offset, applied, workPageSize]), () =>
+    client.listLeaveTypes({ company_id: company, as_of: date, search: applied || undefined, limit: workPageSize, offset }),
   );
   useEffect(() => {
     onEditing(!!editor || !!statusTarget);
@@ -391,7 +369,7 @@ function LeaveTypes(props: Shared) {
                 Close editor
               </Button>
             </div>
-            <form
+            <WorkForm
               className="mt-4 grid gap-5"
               onSubmit={(e) => {
                 e.preventDefault();
@@ -444,7 +422,7 @@ function LeaveTypes(props: Shared) {
                   {busy ? "Saving…" : editor === "new" ? "Create leave type" : "Save policy version"}
                 </Button>
               </div>
-            </form>
+            </WorkForm>
           </section>
         </HrRecordDrawer>
       )}
@@ -456,7 +434,7 @@ function LeaveTypes(props: Shared) {
           busy={busy}
           error={error || props.saveError}
         >
-          <form
+          <WorkForm
             className={panel + " grid gap-4"}
             onSubmit={(e) => {
               e.preventDefault();
@@ -484,10 +462,10 @@ function LeaveTypes(props: Shared) {
                 Cancel
               </Button>
             </div>
-          </form>
+          </WorkForm>
         </HrRecordDrawer>
       )}
-      <form
+      <WorkForm
         className="flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
@@ -504,7 +482,7 @@ function LeaveTypes(props: Shared) {
         <Button variant="outline" type="submit">
           Search
         </Button>
-      </form>
+      </WorkForm>
       {query.loading ? (
         <Skeleton className="h-40" />
       ) : !query.data?.items.length ? (
@@ -577,11 +555,13 @@ function LeaveTypes(props: Shared) {
           ))}
         </div>
       )}
-      <Pagination total={query.data?.total ?? 0} offset={offset} setOffset={setOffset} loading={query.loading} />
+      <WorkOffsetPagination busy={!!(query.loading)} total={query.data?.total ?? 0} offset={offset} size={workPageSize} previousDisabled={offset === 0 || query.loading} nextDisabled={offset + workPageSize >= (query.data?.total ?? 0) || query.loading} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
     </div>
   );
 }
 function LeaveBalances(props: Shared) {
+ const [workPageSize, setWorkPageSize] = useState(25);
+ const [ledgerPageSize, setLedgerPageSize] = useState(25);
   const { client, company, date, revision, busy, save, csrf, permissions, onEditing, onNavigate } = props;
   const [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
@@ -596,12 +576,12 @@ function LeaveBalances(props: Shared) {
     [reason, setReason] = useState(""),
     [error, setError] = useState(""),
     [ledgerOffset, setLedgerOffset] = useState(0);
-  const query = useAttendanceRead(JSON.stringify([company, date, revision, offset, applied]), () =>
-    client.listLeaveBalances({ company_id: company, as_of: date, search: applied || undefined, limit: 25, offset }),
+  const query = useAttendanceRead(JSON.stringify([company, date, revision, offset, applied, workPageSize]), () =>
+    client.listLeaveBalances({ company_id: company, as_of: date, search: applied || undefined, limit: workPageSize, offset }),
   );
   const ledger = useAttendanceRead(
     selected
-      ? JSON.stringify([company, selected.employee_id, selected.leave_type_id, effective, revision, ledgerOffset])
+      ? JSON.stringify([company, selected.employee_id, selected.leave_type_id, effective, revision, ledgerOffset, ledgerPageSize])
       : null,
     () =>
       client.leaveLedger({
@@ -609,7 +589,7 @@ function LeaveBalances(props: Shared) {
         employee_id: selected!.employee_id,
         leave_type_id: selected!.leave_type_id,
         as_of: effective,
-        limit: 25,
+        limit: ledgerPageSize,
         offset: ledgerOffset,
       }),
   );
@@ -654,7 +634,7 @@ function LeaveBalances(props: Shared) {
           adjustments with evidence and a reason.
         </p>
       </div>
-      <form
+      <WorkForm
         className="flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
@@ -671,7 +651,7 @@ function LeaveBalances(props: Shared) {
         <Button variant="outline" type="submit">
           Search
         </Button>
-      </form>
+      </WorkForm>
       {query.loading ? (
         <Skeleton className="h-40" />
       ) : !query.data?.items.length ? (
@@ -721,7 +701,7 @@ function LeaveBalances(props: Shared) {
           ))}
         </div>
       )}
-      <Pagination total={query.data?.total ?? 0} offset={offset} setOffset={setOffset} loading={query.loading} />
+      <WorkOffsetPagination busy={!!(query.loading)} total={query.data?.total ?? 0} offset={offset} size={workPageSize} previousDisabled={offset === 0 || query.loading} nextDisabled={offset + workPageSize >= (query.data?.total ?? 0) || query.loading} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
       {selected && (
         <section className={panel} aria-label="Leave balance ledger">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -759,7 +739,7 @@ function LeaveBalances(props: Shared) {
               busy={busy}
               error={error || props.saveError}
             >
-              <form
+              <WorkForm
                 className="mt-4 grid gap-4 rounded-lg border border-border bg-background p-4"
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -847,7 +827,7 @@ function LeaveBalances(props: Shared) {
                     </Button>
                   </div>
                 )}
-              </form>
+              </WorkForm>
             </HrRecordDrawer>
           )}
           {ledger.loading ? (
@@ -903,12 +883,7 @@ function LeaveBalances(props: Shared) {
                     <p className="text-sm text-muted-foreground">No ledger entries recorded.</p>
                   )}
                 </div>
-                <Pagination
-                  total={ledger.data.total}
-                  offset={ledgerOffset}
-                  setOffset={setLedgerOffset}
-                  loading={ledger.loading}
-                />
+                <WorkOffsetPagination busy={!!(ledger.loading)} total={ledger.data.total} offset={ledgerOffset} size={ledgerPageSize} previousDisabled={ledgerOffset === 0 || ledger.loading} nextDisabled={ledgerOffset + ledgerPageSize >= (ledger.data.total) || ledger.loading} onSizeChange={(size) => { setLedgerPageSize(size); setLedgerOffset(0); }} onPrevious={() => setLedgerOffset((v) => Math.max(0, v - ledgerPageSize))} onNext={() => setLedgerOffset((v) => v + ledgerPageSize)} />
                 <Button
                   className="mt-4"
                   variant="outline"
@@ -992,7 +967,7 @@ function RequestEditor(props: Shared) {
     if (r) onNavigate("hr", "leave-requests", JSON.stringify({ company_id: company, as_of: date, request_id: r.id }));
   }
   return (
-    <HrRecordDrawer
+    <WorkFormLayout><HrRecordDrawer
       title="Add Leave Request"
       open
       onClose={() => onNavigate("hr", "leave-requests", JSON.stringify({ company_id: company, as_of: date }))}
@@ -1018,7 +993,7 @@ function RequestEditor(props: Shared) {
         <Message
           error={error || query.error || (!validRange ? "Choose an ordered date range of up to 62 calendar days." : "")}
         />
-        <form
+        <WorkForm
           className="mt-5 grid min-w-0 gap-5"
           onSubmit={(e) => {
             e.preventDefault();
@@ -1247,12 +1222,13 @@ function RequestEditor(props: Shared) {
               View leave policies
             </Button>
           </div>
-        </form>
+        </WorkForm>
       </section>
-    </HrRecordDrawer>
+    </HrRecordDrawer></WorkFormLayout>
   );
 }
 function LeaveRequests(props: Shared & { queue: boolean }) {
+ const [workPageSize, setWorkPageSize] = useState(25);
   const { client, company, date, revision, busy, save, csrf, permissions, onNavigate, onEditing, initial, queue } =
     props;
   const [search, setSearch] = useState(""),
@@ -1266,14 +1242,14 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
     [version, setVersion] = useState(0),
     [hash, setHash] = useState<string | undefined>(),
     [error, setError] = useState("");
-  const list = useAttendanceRead(JSON.stringify([company, date, revision, offset, applied, status, queue]), () =>
+  const list = useAttendanceRead(JSON.stringify([company, date, revision, offset, applied, status, queue, workPageSize]), () =>
     client.listLeaveRequests({
       company_id: company,
       as_of: date,
       search: applied || undefined,
       status: (status || undefined) as Parameters<HrApiClient["listLeaveRequests"]>[0]["status"],
       queue_only: queue ? "true" : "false",
-      limit: 25,
+      limit: workPageSize,
       offset,
     }),
   );
@@ -1326,7 +1302,7 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
           </Button>
         )}
       </div>
-      <form
+      <WorkForm
         className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_180px_auto]"
         onSubmit={(e) => {
           e.preventDefault();
@@ -1359,7 +1335,7 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
         <Button variant="outline" type="submit">
           Search
         </Button>
-      </form>
+      </WorkForm>
       {list.loading ? (
         <Skeleton className="h-40" />
       ) : !list.data?.items.length ? (
@@ -1403,7 +1379,7 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
           ))}
         </div>
       )}
-      <Pagination total={list.data?.total ?? 0} offset={offset} setOffset={setOffset} loading={list.loading} />
+      <WorkOffsetPagination busy={!!(list.loading)} total={list.data?.total ?? 0} offset={offset} size={workPageSize} previousDisabled={offset === 0 || list.loading} nextDisabled={offset + workPageSize >= (list.data?.total ?? 0) || list.loading} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
       {selected && detail.loading ? (
         <Skeleton className="h-40" />
       ) : (
@@ -1514,7 +1490,7 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
                 busy={busy}
                 error={error || props.saveError}
               >
-                <form
+                <WorkForm
                   className="mt-4 grid gap-4 rounded-lg border border-border bg-background p-4"
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -1556,7 +1532,7 @@ function LeaveRequests(props: Shared & { queue: boolean }) {
                       Back
                     </Button>
                   </div>
-                </form>
+                </WorkForm>
               </HrRecordDrawer>
             )}
             <div className="mt-4">

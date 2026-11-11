@@ -1,4 +1,6 @@
 "use client";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { IdentitySheet } from "./identity-sheet";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
@@ -209,7 +211,7 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
         onClose={() => setShowCreate(false)}
       >
         {showCreate ? (
-          <form className="grid gap-4 border-b border-border bg-muted/40 p-5 md:grid-cols-2" onSubmit={create}>
+          <WorkForm className="grid gap-4 border-b border-border bg-muted/40 p-5 md:grid-cols-2" onSubmit={create}>
             <Label className="grid gap-2 text-sm">
               Delegate to
               <select value={delegateeId} onChange={(event) => setDelegateeId(event.target.value)} required>
@@ -278,7 +280,7 @@ export default function DelegationPanel({ permissions }: { permissions: Readonly
                 Create draft
               </Button>
             </div>
-          </form>
+          </WorkForm>
         ) : null}
       </IdentitySheet>
       {loading ? (

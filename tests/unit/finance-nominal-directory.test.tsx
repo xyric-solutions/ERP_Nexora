@@ -142,7 +142,7 @@ describe("Company Chart of Accounts directory isolation", () => {
     act(render);
     await settle(0);
     await settle();
-    const button = [...container.querySelectorAll("button")].find((item) => item.textContent === "Next page")!;
+    const button = [...container.querySelectorAll("button")].find((item) => item.getAttribute("aria-label") === "Next page")!;
     act(() => button.click());
     change("Nominal status", "active");
     await settle();

@@ -1,4 +1,6 @@
 "use client";
+import { WorkFormLayout } from "@/shared/ui/work-form";
+
 import { BankWorkflowControls, emptyBankWorkflowSelection } from "../components/bank-workflow-controls";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -785,7 +787,7 @@ export function BankingReceiptEntry({
     );
 
   return (
-    <div className="grid min-w-0 gap-3.5" aria-busy={busy}>
+    <WorkFormLayout><div className="grid min-w-0 gap-3.5" aria-busy={busy}>
       <nav className="flex items-center gap-2 text-xs text-muted-foreground" aria-label="Breadcrumb">
         <button
           className="text-primary hover:underline"
@@ -1369,7 +1371,7 @@ export function BankingReceiptEntry({
           onApprove={() => void submit(true)}
         />
       </footer>
-    </div>
+    </div></WorkFormLayout>
   );
 }
 

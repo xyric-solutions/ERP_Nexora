@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import {
@@ -219,6 +222,7 @@ function Overtime({
   onNavigate: Navigate;
   canCreate: boolean;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const [selected, setSelected] = useState(""),
     [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
@@ -245,8 +249,8 @@ function Overtime({
     [ruleTo, setRuleTo] = useState(""),
     [ruleReason, setRuleReason] = useState("");
   const listRead = useAttendanceRead<HrOvertimeDirectory>(
-    JSON.stringify([company, month, revision, offset, applied]),
-    () => client.listOvertime({ company_id: company, month, limit: 25, offset, search: applied || undefined }),
+    JSON.stringify([company, month, revision, offset, applied, workPageSize]),
+    () => client.listOvertime({ company_id: company, month, limit: workPageSize, offset, search: applied || undefined }),
   );
   const detailRead = useAttendanceRead<HrOvertimeDetail>(
     selected ? JSON.stringify([company, selected, revision]) : null,
@@ -416,7 +420,7 @@ function Overtime({
               )}
             </div>
             {context?.can_manage_rules && (
-              <form
+              <WorkForm
                 className="mt-4 grid gap-4"
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -483,7 +487,7 @@ function Overtime({
                     Create effective rule
                   </Button>
                 </div>
-              </form>
+              </WorkForm>
             )}
           </section>
         </HrRecordDrawer>
@@ -503,7 +507,7 @@ function Overtime({
                 Close
               </Button>
             </div>
-            <form
+            <WorkForm
               className="mt-4 grid gap-4"
               onSubmit={(e) => {
                 e.preventDefault();
@@ -626,11 +630,11 @@ function Overtime({
                   Save overtime draft
                 </Button>
               </div>
-            </form>
+            </WorkForm>
           </section>
         </HrRecordDrawer>
       )}
-      <form
+      <WorkForm
         className="flex min-w-0 gap-2"
         onSubmit={(e) => {
           e.preventDefault();
@@ -647,7 +651,7 @@ function Overtime({
         <Button variant="outline" type="submit">
           Search
         </Button>
-      </form>
+      </WorkForm>
       {loading ? (
         <Skeleton className="h-32" />
       ) : data?.items.length ? (
@@ -689,28 +693,8 @@ function Overtime({
           <p className="text-sm text-muted-foreground">No overtime requests match this month and search.</p>
         </div>
       )}
-      {data && data.total > 25 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span>
-            {offset + 1}–{Math.min(offset + 25, data.total)} of {data.total}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={!offset || loading}
-              onClick={() => setOffset((v) => Math.max(0, v - 25))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              disabled={offset + 25 >= data.total || loading}
-              onClick={() => setOffset((v) => v + 25)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+      {data && (
+        <WorkOffsetPagination busy={!!(loading)} total={data.total} offset={offset} size={workPageSize} previousDisabled={!!(!offset || loading)} nextDisabled={!!(offset + workPageSize >= data.total || loading)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
       )}
       {!editor && selected && !detail && <Skeleton className="h-36" />}
       {!editor && detail && (
@@ -786,7 +770,7 @@ function Overtime({
               busy={busy}
               error={error || saveError}
             >
-              <form
+              <WorkForm
                 className="mt-4 grid gap-4 rounded-lg border border-border bg-background p-4"
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -838,7 +822,7 @@ function Overtime({
                     Back
                   </Button>
                 </div>
-              </form>
+              </WorkForm>
             </HrRecordDrawer>
           )}
           <div className="mt-4">
@@ -874,6 +858,7 @@ function CloseAndInputs({
   csrf: () => string;
   onNavigate: Navigate;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const [error, setError] = useState(""),
     [offset, setOffset] = useState(0),
     [action, setAction] = useState<"open" | "process" | "lock" | "">(""),
@@ -882,9 +867,9 @@ function CloseAndInputs({
     [reviewVersion, setReviewVersion] = useState(0),
     [reviewHash, setReviewHash] = useState<string | undefined>();
   const periodRead = useAttendanceRead<HrAttendancePeriodWorkspace | HrAttendancePayrollInputs>(
-    JSON.stringify([company, month, mode, revision, offset]),
+    JSON.stringify([company, month, mode, revision, offset, workPageSize]),
     () => {
-      const q = { company_id: company, month, limit: 25, offset };
+      const q = { company_id: company, month, limit: workPageSize, offset };
       return mode === "attendance-period" ? client.periodWorkspace(q) : client.payrollInputs(q);
     },
   );
@@ -1022,7 +1007,7 @@ function CloseAndInputs({
           busy={busy}
           error={error || saveError}
         >
-          <form
+          <WorkForm
             className={panel + " grid gap-4"}
             onSubmit={(e) => {
               e.preventDefault();
@@ -1069,7 +1054,7 @@ function CloseAndInputs({
                 Cancel
               </Button>
             </div>
-          </form>
+          </WorkForm>
         </HrRecordDrawer>
       )}
       {loading ? (
@@ -1087,28 +1072,8 @@ function CloseAndInputs({
           </p>
         </div>
       )}
-      {data && data.total > 25 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span>
-            {offset + 1}–{Math.min(offset + 25, data.total)} of {data.total} employees
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={!offset || loading}
-              onClick={() => setOffset((v) => Math.max(0, v - 25))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              disabled={offset + 25 >= data.total || loading}
-              onClick={() => setOffset((v) => v + 25)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+      {data && (
+        <WorkOffsetPagination busy={!!(loading)} total={data.total} offset={offset} size={workPageSize} previousDisabled={!!(!offset || loading)} nextDisabled={!!(offset + workPageSize >= data.total || loading)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
       )}
       {workspace && <History items={workspace.history} />}
     </div>

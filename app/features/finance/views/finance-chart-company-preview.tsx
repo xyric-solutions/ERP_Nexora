@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChartCompanyPreview, FinanceNominalOptions } from "@nexora/contracts";
 import { useSession } from "@/lib/session/session-provider";
@@ -314,7 +316,7 @@ export function FinanceChartCompanyPreview({ templateId, onClose }: { templateId
                   )
                 )}
                 <div className="overflow-x-auto rounded-md border border-border">
-                  <table className="w-full text-left text-sm">
+                  <WorkTable tableId="app/features/finance/views/finance-chart-company-preview:1" className="w-full text-left text-sm">
                     <caption className="sr-only">Company adoption preview definitions</caption>
                     <thead className="bg-muted">
                       <tr>
@@ -337,7 +339,7 @@ export function FinanceChartCompanyPreview({ templateId, onClose }: { templateId
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </WorkTable>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <Button

@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { InventoryCompanies, Warehouse, StockTransfer } from "@nexora/contracts";
 import { Plus } from "lucide-react";
@@ -307,7 +309,7 @@ export function InventoryOperationsWorkspace({
             </section>
           ) : (
             <div className="max-w-full overflow-x-auto rounded-xl border border-border bg-card">
-              <table className="w-full min-w-[720px] text-left text-sm">
+              <WorkTable continuation={{cursor:cursor,hasMore:!!(cursor && loadedScope === scope),busy:!!(busy),loadMore:() => void more()}} tableId="app/features/inventory/views/inventory-operations-workspace:1" className="w-full min-w-[720px] text-left text-sm">
                 <thead className="bg-muted text-muted-foreground">
                   <tr>
                     {(warehouse
@@ -355,16 +357,10 @@ export function InventoryOperationsWorkspace({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           )}
-          {cursor && loadedScope === scope ? (
-            <div className="flex justify-center">
-              <Button type="button" variant="outline" disabled={busy} onClick={() => void more()}>
-                Load more
-              </Button>
-            </div>
-          ) : null}
+
         </>
       )}
     </div>

@@ -1,4 +1,8 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useHrOperationsScope } from "../components/hr-operations-scope";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -14,9 +18,7 @@ import {
   ShieldCheck,
   Users,
   TriangleAlert,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+  } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -63,6 +65,7 @@ export function HrDailyAttendanceWorkspace({
   onNavigate: (moduleId: string, pageId: string, recordRef?: string) => void;
   initialReference?: string;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const initial = useMemo(() => readInitialReference(initialReference), [initialReference]);
   const { api, session, loading: sessionLoading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]);
@@ -110,7 +113,7 @@ export function HrDailyAttendanceWorkspace({
     setData(null);
     setSelected("");
     client
-      .dailyAttendance({ company_id: company, on_date: date, search: applied || undefined, limit: 50, offset })
+      .dailyAttendance({ company_id: company, on_date: date, search: applied || undefined, limit: workPageSize, offset })
       .then((result) => {
         if (active) setData(result);
       })
@@ -123,7 +126,7 @@ export function HrDailyAttendanceWorkspace({
     return () => {
       active = false;
     };
-  }, [client, company, date, applied, offset, revision, canRead]);
+  }, [client, company, date, applied, offset, revision, canRead, workPageSize]);
   const counts = useMemo(
     () => ({
       present: data?.items.filter((r) => ["present", "half_day", "official_duty"].includes(r.status)).length ?? 0,
@@ -169,7 +172,7 @@ export function HrDailyAttendanceWorkspace({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <form
+      <WorkForm
         className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1.2fr_0.7fr_1fr_auto] sm:p-5"
         onSubmit={(e) => {
           e.preventDefault();
@@ -238,7 +241,7 @@ export function HrDailyAttendanceWorkspace({
             Clear
           </Button>
         </div>
-      </form>
+      </WorkForm>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {[
           { name: "Employees in this page", value: data?.items.length ?? 0, icon: Users },
@@ -275,7 +278,7 @@ export function HrDailyAttendanceWorkspace({
           </div>
         ) : data?.items.length ? (
           <div className="hidden max-h-[38rem] overflow-auto md:block">
-            <table className="w-full min-w-[950px] text-left text-sm">
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-daily-attendance-workspace:1" className="w-full min-w-[950px] text-left text-sm">
               <thead className="sticky top-0 z-10 bg-muted">
                 <tr>
                   {["Employee", "Shift / department", "In / out", "Worked", "Late", "Status", ""].map((h, i) => (
@@ -326,7 +329,7 @@ export function HrDailyAttendanceWorkspace({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         ) : (
           <div className="grid justify-items-center gap-2 px-5 py-12 text-center">
@@ -379,29 +382,7 @@ export function HrDailyAttendanceWorkspace({
           ))}
         </div>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-xs text-muted-foreground">
-          {data?.total ? `${offset + 1}–${offset + data.items.length} of ${data.total}` : "0 results"}
-        </span>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            disabled={loading || offset === 0}
-            onClick={() => setOffset((v) => Math.max(0, v - 50))}
-          >
-            <ChevronLeft className="size-4" />
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            disabled={loading || !data || offset + 50 >= data.total}
-            onClick={() => setOffset((v) => v + 50)}
-          >
-            Next
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
-      </div>
+      <WorkOffsetPagination busy={!!(loading || data)} total={data?.total ?? 0} offset={offset} size={workPageSize} previousDisabled={!!(loading || offset === 0)} nextDisabled={!!(loading || !data || offset + workPageSize >= data.total)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
       {detail && (
         <section
           aria-label="Attendance evidence"

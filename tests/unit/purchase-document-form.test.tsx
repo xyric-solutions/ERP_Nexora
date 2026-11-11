@@ -136,6 +136,61 @@ afterEach(async () => {
   container.remove();
 });
 describe("Persisted Purchase creation and approval form", () => {
+  it("reopens bill dates, recalculates terms from bill date and saves manual due dates", async () => {
+    const invoice = {
+      ...record(),
+      kind: "bill",
+      supplier_id: "supplier-a",
+      supplier_name: "Supplier A",
+      reference: "INV-1",
+      bill_date: "2026-11-01",
+      payment_term: "days_15",
+      due_date: "2026-11-16",
+    };
+    harness.api.getPurchaseDocument.mockResolvedValue(invoice);
+    harness.api.savePurchaseDocument.mockResolvedValue({ record: { ...invoice, version: 2 } });
+    await act(async () => root.render(<PurchaseDocumentForm {...props} kind="bill" reference="purchase-one" />));
+    await settle();
+    function field(label: string) {
+      const element = [...container.querySelectorAll("label")].find((item) => item.textContent === label)!;
+      return container.querySelector(`[id="${element.htmlFor}"]`)!;
+    }
+    expect(field("Document date *")).toHaveProperty("value", "2026-11-05");
+    expect(field("Bill date *")).toHaveProperty("value", "2026-11-01");
+    act(() => {
+      const term = field("Payment term") as HTMLSelectElement;
+      term.value = "days_30";
+      term.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(field("Due date")).toHaveProperty("value", "2026-12-01");
+    expect(field("Due date")).toHaveProperty("readOnly", true);
+    await click("Save Draft");
+    expect(harness.api.savePurchaseDocument.mock.calls[0][1]).toMatchObject({
+      bill_date: "2026-11-01",
+      payment_term: "days_30",
+      due_date: "2026-12-01",
+    });
+    act(() => {
+      const term = field("Payment term") as HTMLSelectElement;
+      term.value = "";
+      term.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(field("Due date")).toHaveProperty("readOnly", false);
+    act(() => {
+      const term = field("Payment term") as HTMLSelectElement;
+      term.value = "percent_30_now_balance_60_days";
+      term.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(container.querySelector('[aria-label="Bill payment schedule"]')?.textContent).toContain("3.00 USD");
+    expect(container.querySelector('[aria-label="Bill payment schedule"]')?.textContent).toContain("7.00 USD");
+    act(() => {
+      const term = field("Payment term") as HTMLSelectElement;
+      term.value = "";
+      term.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await click("Save Draft");
+    expect(harness.api.savePurchaseDocument.mock.calls.at(-1)![1].payment_term).toBeNull();
+  });
   it("reopens saved bank, method and WHT details and persists changes with discounts", async () => {
     const bill = {
       ...record(),

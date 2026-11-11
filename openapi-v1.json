@@ -34566,6 +34566,15 @@
               "maximum": 100,
               "default": 50
             }
+          },
+          {
+            "in": "query",
+            "name": "supplier_id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -69746,6 +69755,39 @@
             "format": "date",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
           },
+          "bill_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payment_term": {
+            "description": "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Null selects a manual due date.",
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "immediate",
+                  "days_15",
+                  "days_21",
+                  "days_30",
+                  "days_45",
+                  "end_following_month",
+                  "days_10_after_end_next_month",
+                  "percent_30_now_balance_60_days"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "due_date": {
             "default": null,
             "anyOf": [
@@ -70429,6 +70471,39 @@
             "format": "date",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
           },
+          "bill_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payment_term": {
+            "description": "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Null selects a manual due date.",
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "immediate",
+                  "days_15",
+                  "days_21",
+                  "days_30",
+                  "days_45",
+                  "end_following_month",
+                  "days_10_after_end_next_month",
+                  "percent_30_now_balance_60_days"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "due_date": {
             "default": null,
             "anyOf": [
@@ -70888,6 +70963,39 @@
                   "type": "string",
                   "format": "date",
                   "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "bill_date": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "payment_term": {
+                  "description": "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Null selects a manual due date.",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "immediate",
+                        "days_15",
+                        "days_21",
+                        "days_30",
+                        "days_45",
+                        "end_following_month",
+                        "days_10_after_end_next_month",
+                        "percent_30_now_balance_60_days"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "due_date": {
                   "default": null,
@@ -71358,6 +71466,39 @@
             "format": "date",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
           },
+          "bill_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payment_term": {
+            "description": "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Null selects a manual due date.",
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "immediate",
+                  "days_15",
+                  "days_21",
+                  "days_30",
+                  "days_45",
+                  "end_following_month",
+                  "days_10_after_end_next_month",
+                  "percent_30_now_balance_60_days"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "due_date": {
             "default": null,
             "anyOf": [
@@ -71731,6 +71872,39 @@
                 "type": "string",
                 "format": "date",
                 "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "bill_date": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "payment_term": {
+                "description": "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Null selects a manual due date.",
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "immediate",
+                      "days_15",
+                      "days_21",
+                      "days_30",
+                      "days_45",
+                      "end_following_month",
+                      "days_10_after_end_next_month",
+                      "percent_30_now_balance_60_days"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "due_date": {
                 "default": null,

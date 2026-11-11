@@ -1,4 +1,6 @@
 "use client";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { IdentitySheet } from "./identity-sheet";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
@@ -252,7 +254,7 @@ export default function AccessReviewPanel({ permissions }: { permissions: Readon
         onClose={() => setShowCreate(false)}
       >
         {showCreate ? (
-          <form className="grid gap-4 border-b border-border bg-muted/40 p-5 md:grid-cols-2" onSubmit={createCampaign}>
+          <WorkForm className="grid gap-4 border-b border-border bg-muted/40 p-5 md:grid-cols-2" onSubmit={createCampaign}>
             <Label className="grid gap-2 text-sm">
               Campaign name
               <Input value={name} onChange={(event) => setName(event.target.value)} required maxLength={160} />
@@ -306,7 +308,7 @@ export default function AccessReviewPanel({ permissions }: { permissions: Readon
                 Save draft
               </Button>
             </div>
-          </form>
+          </WorkForm>
         ) : null}
       </IdentitySheet>
       {loading ? <p className="p-9 text-center text-sm text-muted-foreground">Loading access reviews…</p> : null}

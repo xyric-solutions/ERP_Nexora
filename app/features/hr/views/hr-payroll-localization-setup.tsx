@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useMemo, useRef, useState } from "react";
 import { Plus, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -131,6 +134,7 @@ type Form = {
   values: Record<string, string>;
 };
 export function HrPayrollLocalizationSetup({ company, onDate }: { company: string; onDate: string }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const { api, session, csrfToken } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]),
     permissions = session?.user.permissions ?? [];
@@ -153,7 +157,7 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
     on_date: onDate,
     country_code: referenceCountry || undefined,
     search,
-    limit: 25,
+    limit: workPageSize,
     offset,
   };
   const state = useAttendanceRead(company && canRead ? JSON.stringify([query, revision]) : null, () =>
@@ -425,28 +429,8 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
               ))}
             </div>
           )}
-          {!!data && data.total > 25 && (
-            <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-              <span>
-                {offset + 1}–{Math.min(offset + 25, data.total)} of {data.total}
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  disabled={!offset || !!form || busy || state.loading}
-                  onClick={() => setOffset((v) => Math.max(0, v - 25))}
-                >
-                  Previous setup
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={offset + 25 >= data.total || !!form || busy || state.loading}
-                  onClick={() => setOffset((v) => v + 25)}
-                >
-                  Next setup
-                </Button>
-              </div>
-            </div>
+          {!!data && (
+            <WorkOffsetPagination busy={!!(form || busy || state.loading)} total={data.total} offset={offset} size={workPageSize} previousDisabled={!!(!offset || !!form || busy || state.loading)} nextDisabled={!!(offset + workPageSize >= data.total || !!form || busy || state.loading)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
           )}
         </>
       )}
@@ -463,7 +447,7 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
         notice={notice}
       >
         {form && (
-          <form onSubmit={save} className="grid min-w-0 grid-cols-1 gap-4">
+          <WorkForm onSubmit={save} className="grid min-w-0 grid-cols-1 gap-4">
             {error && (
               <p role="alert" className="break-words text-sm text-[var(--nx-danger)]">
                 {error}
@@ -760,7 +744,7 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
             >
               Close statutory setup
             </Button>
-          </form>
+          </WorkForm>
         )}
       </HrRecordDrawer>
     </section>

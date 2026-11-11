@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BankReceiptDetail, DecideBankReceiptRequest } from "@nexora/contracts";
@@ -439,7 +440,7 @@ export function BankingReceiptDetail({ receiptId, onBack, onEdit }: BankingRecei
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[920px] text-left text-sm">
+                <WorkTable tableId="app/features/banking/views/banking-receipt-detail:1" className="w-full min-w-[920px] text-left text-sm">
                   <thead className="bg-card text-xs uppercase tracking-wider text-muted-foreground">
                     <tr>
                       <th scope="col" className="px-4 py-3">
@@ -504,7 +505,7 @@ export function BankingReceiptDetail({ receiptId, onBack, onEdit }: BankingRecei
                       </td>
                     </tr>
                   </tfoot>
-                </table>
+                </WorkTable>
               </div>
             </CardContent>
           </Card>
@@ -723,7 +724,7 @@ function AccountingPreview({ receipt }: { receipt: BankReceiptDetail }) {
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[680px] text-left text-sm">
+          <WorkTable tableId="app/features/banking/views/banking-receipt-detail:2" className="w-full min-w-[680px] text-left text-sm">
             <thead className="bg-[var(--nx-warning-soft)] text-xs uppercase tracking-wider text-[var(--nx-warning)]/65">
               <tr>
                 <th scope="col" className="px-4 py-3">
@@ -757,7 +758,7 @@ function AccountingPreview({ receipt }: { receipt: BankReceiptDetail }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       </CardContent>
     </Card>

@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 /**
  * Reconciliation worksheet — what `+ Add New` opens on Bank > Reconciliation.
@@ -344,7 +345,7 @@ export function BankingReconciliationWorksheet({
               </div>
 
               <div className="nx-table-wrap">
-                <table className="nx-data-table [&_tbody_tr.is-ticked_td]:bg-primary/10 [&_tbody_tr.is-adjustment_td]:bg-[var(--nx-warning-soft)] [&_tbody_tr.is-adjustment_td]:italic">
+                <WorkTable tableId="app/features/banking/views/banking-reconciliation-worksheet:1" className="nx-data-table [&_tbody_tr.is-ticked_td]:bg-primary/10 [&_tbody_tr.is-adjustment_td]:bg-[var(--nx-warning-soft)] [&_tbody_tr.is-adjustment_td]:italic">
                   <thead>
                     <tr>
                       <th>Date</th>
@@ -401,7 +402,7 @@ export function BankingReconciliationWorksheet({
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </WorkTable>
               </div>
 
               <div className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border bg-muted p-3.5 [&>div:first-child]:min-w-70 [&>div:first-child]:flex-1 [&_strong]:block [&_strong]:text-xs [&_small]:mt-1 [&_small]:block [&_small]:max-w-prose [&_small]:text-xs [&_small]:leading-relaxed [&_small]:text-muted-foreground [&_label]:grid [&_label]:min-w-37.5 [&_label]:gap-1.5 [&_label>span]:text-xs [&_label>span]:font-semibold [&_select]:min-h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-border [&_select]:bg-card [&_select]:px-2.5">

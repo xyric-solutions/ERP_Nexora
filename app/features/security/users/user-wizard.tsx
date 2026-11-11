@@ -1,4 +1,5 @@
 "use client";
+import { WorkForm } from "@/shared/ui/work-form";
 
 import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import type { CreateSecurityUserRequest, SecurityUserOptions } from "@nexora/contracts";
@@ -133,7 +134,7 @@ export default function UserWizard({
   }
 
   return (
-    <form className="border-b border-border bg-muted/50" onSubmit={submit} aria-labelledby="new-user-title">
+    <WorkForm className="border-b border-border bg-muted/50" onSubmit={submit} aria-labelledby="new-user-title">
       <header className="flex flex-wrap items-center justify-between gap-4 px-5 py-5">
         <div>
           <span className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
@@ -399,6 +400,6 @@ export default function UserWizard({
           {busy ? "Saving…" : step === steps.length - 1 ? "Save and submit" : "Continue"}
         </Button>
       </footer>
-    </form>
+    </WorkForm>
   );
 }

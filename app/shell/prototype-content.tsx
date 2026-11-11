@@ -1,4 +1,8 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+import { WorkSurfaceContext } from "@/shared/ui/work-surface-context";
+
 import { FilterBar } from "../shared/ui/filter-bar";
 import { HrLearningWorkspace, learningPages } from "@prototype/features/hr/views/hr-learning-workspace";
 import {
@@ -763,7 +767,7 @@ function ListView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
           </div>
         ) : null}
         <div className="nx-table-wrap">
-          <table className="nx-data-table">
+          <WorkTable tableId="app/shell/prototype-content:1" className="nx-data-table">
             <thead>
               <tr>
                 <th>
@@ -828,7 +832,7 @@ function ListView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
         <div className="nx-pagination">
           <span>Showing 1–{filtered.length} of 128 records</span>
@@ -1003,7 +1007,7 @@ function DetailView({ context, rows, onAction }: Omit<PrototypeContentProps, "vi
             <AuditTimeline />
           ) : (
             <div className="nx-line-items">
-              <table>
+              <WorkTable tableId="app/shell/prototype-content:2">
                 <thead>
                   <tr>
                     <th>Line</th>
@@ -1026,7 +1030,7 @@ function DetailView({ context, rows, onAction }: Omit<PrototypeContentProps, "vi
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           )}
         </section>
@@ -1173,7 +1177,7 @@ function FormView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
         family={blueprint.family}
         onAction={onAction}
       />
-      <form
+      <WorkForm
         className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(16.875rem,19.375rem)] items-start gap-3.5 max-xl:grid-cols-1"
         onSubmit={(event) => {
           event.preventDefault();
@@ -1526,7 +1530,7 @@ function FormView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
           </Button>
           <Button type="submit">Validate &amp; submit</Button>
         </footer>
-      </form>
+      </WorkForm>
     </>
   );
 }
@@ -1892,7 +1896,7 @@ function ReportView({ context, rows, onAction }: Omit<PrototypeContentProps, "vi
           </div>
         </div>
         <div className="nx-table-wrap">
-          <table className="nx-data-table">
+          <WorkTable tableId="app/shell/prototype-content:4" className="nx-data-table">
             <thead>
               <tr>
                 <th>Date</th>
@@ -1925,7 +1929,7 @@ function ReportView({ context, rows, onAction }: Omit<PrototypeContentProps, "vi
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       </section>
     </>
@@ -2752,6 +2756,10 @@ function BankingReconciliationPage({
 }
 
 export function PrototypeContent(props: PrototypeContentProps) {
+  return <WorkSurfaceContext.Provider value={`${props.context.moduleId}:${props.context.pageId}`}><PrototypeContentBody {...props} /></WorkSurfaceContext.Provider>;
+}
+
+function PrototypeContentBody(props: PrototypeContentProps) {
   const { context, viewState, onAction } = props;
   const [selectedBankingRecord, setSelectedBankingRecord] = useState<{
     pageId: string;

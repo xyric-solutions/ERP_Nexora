@@ -76,7 +76,7 @@ describe("BankingTransfers", () => {
     await settle();
     expect(container.textContent).toContain("TRF-001");
     const loadMore = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent?.trim() === "Load more",
+      (button) => button.getAttribute("aria-label") === "Next page",
     );
     expect(loadMore).toBeDefined();
     await act(async () => loadMore?.click());
@@ -84,7 +84,7 @@ describe("BankingTransfers", () => {
     expect(container.textContent).toContain("TRF-001");
     expect(container.textContent).toContain("TRF-002");
     expect(harness.api.listBankTransfers).toHaveBeenLastCalledWith(expect.stringContaining("cursor=cursor-2"));
-    expect(container.textContent).not.toContain("Load more");
+    expect(loadMore?.disabled).toBe(true);
   });
 
   it("shows submitted Transfers as waiting for approval", async () => {

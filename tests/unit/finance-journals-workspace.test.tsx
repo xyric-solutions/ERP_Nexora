@@ -124,7 +124,7 @@ async function settle() {
 }
 
 function click(label: string) {
-  const button = [...document.body.querySelectorAll("button")].find((item) => item.textContent?.trim() === label);
+  const button = [...document.body.querySelectorAll("button")].find((item) => item.textContent?.trim() === label || item.getAttribute("aria-label") === label);
   if (!button) throw new Error(`Missing button: ${label}`);
   act(() => button.click());
 }
@@ -360,7 +360,7 @@ describe("Finance Journal screens", () => {
 
     expect(harness.api.listJournals).toHaveBeenLastCalledWith(expect.stringContaining("reference=PAY-26"));
     expect(harness.api.listJournals).toHaveBeenLastCalledWith(expect.stringContaining("date_from=2026-10-01"));
-    click("Next");
+    click("Next page");
     await settle();
     expect(harness.api.listJournals).toHaveBeenLastCalledWith(expect.stringContaining("cursor=next-page"));
   });

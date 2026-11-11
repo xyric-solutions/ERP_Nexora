@@ -1,4 +1,6 @@
 "use client";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useRef, useState } from "react";
 import { useSession } from "@/lib/session/session-provider";
 import { Button } from "@/components/ui/button";
@@ -28,7 +30,7 @@ function ContributionForm({
     [reason, setReason] = useState(""),
     [ratings, setRatings] = useState<Record<string, { rating: number; evidence: string }>>({});
   return (
-    <form
+    <WorkForm
       className={panel + " space-y-4"}
       onSubmit={(e) => {
         e.preventDefault();
@@ -117,7 +119,7 @@ function ContributionForm({
           Cancel
         </Button>
       </div>
-    </form>
+    </WorkForm>
   );
 }
 export function PerformanceParticipation({
@@ -241,7 +243,7 @@ export function PerformanceParticipation({
           notice={notice}
           onClose={() => setInviteOpen(false)}
         >
-          <form
+          <WorkForm
             className="space-y-3 rounded-lg border border-border p-3"
             aria-label="Invite Performance contributor"
             onSubmit={(e) => {
@@ -318,7 +320,7 @@ export function PerformanceParticipation({
             <Button type="submit" disabled={busy} className="text-primary-foreground!">
               Invite contributor
             </Button>
-          </form>
+          </WorkForm>
         </HrRecordDrawer>
       )}
       {!result.loading && !data?.items.length && (
@@ -454,7 +456,7 @@ export function PerformanceParticipation({
         </div>
       )}
       {decision && (
-        <form
+        <WorkForm
           className="space-y-3 rounded-lg border border-border p-3"
           aria-label="Contribution decision"
           onSubmit={(e) => {
@@ -495,7 +497,7 @@ export function PerformanceParticipation({
               Cancel
             </Button>
           </div>
-        </form>
+        </WorkForm>
       )}
       {data?.truncated && (
         <p role="status" className="text-sm">

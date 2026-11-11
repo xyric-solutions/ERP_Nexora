@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable, WorkPagination } from "@/shared/ui/work-table";
+import { WorkFormLayout } from "@/shared/ui/work-form";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
@@ -477,6 +479,7 @@ function JournalRegister({
   refreshToken,
   initialView = "all",
 }: Common & { initialView?: JournalRegisterView }) {
+ const [workPageSize, setWorkPageSize] = useState(25);
   const [items, setItems] = useState<JournalSummary[]>([]);
   const [view, setView] = useState<JournalRegisterView>(initialView);
   const [state, setState] = useState(
@@ -514,7 +517,7 @@ function JournalRegister({
         ...(filters.dateFrom ? { date_from: filters.dateFrom } : {}),
         ...(filters.dateTo ? { date_to: filters.dateTo } : {}),
         approval_queue: filters.view === "approval",
-        limit: 25,
+        limit: workPageSize,
         ...(cursor ? { cursor } : {}),
       });
       setItems(result.items);
@@ -524,7 +527,7 @@ function JournalRegister({
     } finally {
       setBusy(false);
     }
-  }, [client, companyId, cursor, filters, refreshToken, setError]);
+  }, [client, companyId, cursor, filters, refreshToken, setError, workPageSize]);
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
@@ -650,21 +653,15 @@ function JournalRegister({
         displayDecimalPlaces={displayDecimalPlaces}
         onOpen={(item) => onNavigate("finance", "journal-detail", item.id)}
       />
-      <Pagination
-        busy={busy}
-        hasPrevious={cursorHistory.length > 0}
-        hasNext={Boolean(nextCursor)}
-        onPrevious={() => {
+      <WorkPagination size={workPageSize} page={cursorHistory.length} start={items.length ? cursorHistory.length * workPageSize + 1 : 0} end={cursorHistory.length * workPageSize + items.length} total={nextCursor ? undefined : cursorHistory.length * workPageSize + items.length} hasMore={Boolean(nextCursor)} previous={cursorHistory.length > 0} next={Boolean(nextCursor)} busy={busy} onPrevious={() => {
           const previous = cursorHistory.at(-1);
           setCursorHistory((value) => value.slice(0, -1));
           setCursor(previous);
-        }}
-        onNext={() => {
+        }} onNext={() => {
           if (!nextCursor) return;
           setCursorHistory((value) => [...value, cursor]);
           setCursor(nextCursor);
-        }}
-      />
+        }} onSizeChange={(size) => { setWorkPageSize(size); setCursor(undefined); setCursorHistory([]); }} />
     </section>
   );
 }
@@ -682,7 +679,7 @@ function JournalTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[920px] text-sm">
+      <WorkTable paging={false} tableId="app/features/finance/views/finance-journals-workspace:1" className="w-full min-w-[920px] text-sm">
         <thead className="bg-primary text-left text-primary-foreground">
           <tr>
             {["Journal ID", "Date", "Reference", "Source", "State", "Total", "Action"].map((label) => (
@@ -727,7 +724,7 @@ function JournalTable({
             </tr>
           ) : null}
         </tbody>
-      </table>
+      </WorkTable>
     </div>
   );
 }
@@ -846,7 +843,7 @@ function ManualJournalForm({
   const editable = !detail || detail.state === "draft";
   if (loadingDetail) return <Notice title="Loading Journal" detail="Reading the draft and its current version." />;
   return (
-    <section className="grid min-w-0 gap-4 rounded-lg border border-border bg-card p-3 sm:p-4">
+    <WorkFormLayout><section className="grid min-w-0 gap-4 rounded-lg border border-border bg-card p-3 sm:p-4">
       <div className="grid min-w-0 gap-4 sm:grid-cols-2">
         <div className="grid gap-2">
           <Label htmlFor="journal-date">Date *</Label>
@@ -958,7 +955,7 @@ function ManualJournalForm({
           ) : null}
         </div>
       </div>
-    </section>
+    </section></WorkFormLayout>
   );
 }
 
@@ -994,7 +991,7 @@ function LineEditor({
       label: `${item.code} · ${item.name}${item.kind === "bank" ? " · Bank" : ""}`,
     }));
   return (
-    <div className="min-w-0">
+    <WorkFormLayout><div className="min-w-0">
       <table className="block w-full table-fixed text-sm xl:table">
         <caption className="sr-only">Journal lines</caption>
         <thead className="sr-only bg-primary text-left text-primary-foreground xl:not-sr-only">
@@ -1119,7 +1116,7 @@ function LineEditor({
           ＋ Add More
         </Button>
       ) : null}
-    </div>
+    </div></WorkFormLayout>
   );
 }
 
@@ -1172,7 +1169,7 @@ function JournalDetailView({
       </section>
       <section className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
+          <WorkTable tableId="app/features/finance/views/finance-journals-workspace:3" className="w-full min-w-[760px] text-sm">
             <thead className="bg-primary text-left text-primary-foreground">
               <tr>
                 {["Nominal Account", "Description", "Dimensions", "Debit", "Credit"].map((value) => (
@@ -1205,7 +1202,7 @@ function JournalDetailView({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
         <div className="border-t border-border bg-muted/30 px-4 py-3 text-right font-semibold">
           Total · {money(detail.total, detail.currency, displayDecimalPlaces)}
@@ -1246,6 +1243,7 @@ function JournalApproval({
   embedded = false,
   onComplete,
 }: Common & { initialId?: string; embedded?: boolean; onComplete?: (id: string) => void }) {
+ const [workPageSize, setWorkPageSize] = useState(25);
   const [items, setItems] = useState<JournalSummary[]>([]);
   const [selected, setSelected] = useState(initialId ?? "");
   const [detail, setDetail] = useState<JournalDetail | null>(null);
@@ -1264,7 +1262,7 @@ function JournalApproval({
       const result = await client.list({
         company_id: companyId,
         approval_queue: true,
-        limit: 25,
+        limit: workPageSize,
         ...(cursor ? { cursor } : {}),
       });
       setItems(result.items);
@@ -1275,7 +1273,7 @@ function JournalApproval({
     } finally {
       setLoading(false);
     }
-  }, [client, companyId, cursor, setError]);
+  }, [client, companyId, cursor, setError, workPageSize]);
   useEffect(() => {
     if (embedded) return;
     const timer = window.setTimeout(() => void load(), 0);
@@ -1341,24 +1339,18 @@ function JournalApproval({
             </button>
           ))}
           {items.length === 0 ? <p className="p-6 text-sm text-muted-foreground">No Journals await approval.</p> : null}
-          <Pagination
-            busy={loading}
-            hasPrevious={cursorHistory.length > 0}
-            hasNext={Boolean(nextCursor)}
-            onPrevious={() => {
+          <WorkPagination size={workPageSize} page={cursorHistory.length} start={items.length ? cursorHistory.length * workPageSize + 1 : 0} end={cursorHistory.length * workPageSize + items.length} total={nextCursor ? undefined : cursorHistory.length * workPageSize + items.length} hasMore={Boolean(nextCursor)} previous={cursorHistory.length > 0} next={Boolean(nextCursor)} busy={loading} onPrevious={() => {
               setSelected("");
               setDetail(null);
               setCursorHistory((value) => value.slice(0, -1));
               setCursor(cursorHistory.at(-1));
-            }}
-            onNext={() => {
+            }} onNext={() => {
               if (!nextCursor) return;
               setSelected("");
               setDetail(null);
               setCursorHistory((value) => [...value, cursor]);
               setCursor(nextCursor);
-            }}
-          />
+            }} onSizeChange={(size) => { setWorkPageSize(size); setCursor(undefined); setCursorHistory([]); }} />
         </aside>
       ) : null}
       <section className="rounded-lg border border-border bg-card p-4">
@@ -1462,6 +1454,7 @@ function JournalReversal({
   embedded = false,
   onComplete,
 }: Common & { initialId?: string; embedded?: boolean; onComplete?: (id: string) => void }) {
+ const [workPageSize, setWorkPageSize] = useState(25);
   const [items, setItems] = useState<JournalSummary[]>([]);
   const [selected, setSelected] = useState(initialId ?? "");
   const [detail, setDetail] = useState<JournalDetail | null>(null);
@@ -1482,7 +1475,7 @@ function JournalReversal({
         source: "manual",
         state: "posted",
         approval_queue: false,
-        limit: 25,
+        limit: workPageSize,
         ...(cursor ? { cursor } : {}),
       });
       setItems(result.items);
@@ -1493,7 +1486,7 @@ function JournalReversal({
     } finally {
       setLoading(false);
     }
-  }, [client, companyId, cursor, setError]);
+  }, [client, companyId, cursor, setError, workPageSize]);
   useEffect(() => {
     if (embedded) return;
     const timer = window.setTimeout(() => void load(), 0);
@@ -1551,24 +1544,18 @@ function JournalReversal({
             ))}
           </select>
           {loading ? <p className="mt-3 text-sm text-muted-foreground">Loading posted Journals…</p> : null}
-          <Pagination
-            busy={loading}
-            hasPrevious={cursorHistory.length > 0}
-            hasNext={Boolean(nextCursor)}
-            onPrevious={() => {
+          <WorkPagination size={workPageSize} page={cursorHistory.length} start={items.length ? cursorHistory.length * workPageSize + 1 : 0} end={cursorHistory.length * workPageSize + items.length} total={nextCursor ? undefined : cursorHistory.length * workPageSize + items.length} hasMore={Boolean(nextCursor)} previous={cursorHistory.length > 0} next={Boolean(nextCursor)} busy={loading} onPrevious={() => {
               setSelected("");
               setDetail(null);
               setCursorHistory((value) => value.slice(0, -1));
               setCursor(cursorHistory.at(-1));
-            }}
-            onNext={() => {
+            }} onNext={() => {
               if (!nextCursor) return;
               setSelected("");
               setDetail(null);
               setCursorHistory((value) => [...value, cursor]);
               setCursor(nextCursor);
-            }}
-          />
+            }} onSizeChange={(size) => { setWorkPageSize(size); setCursor(undefined); setCursorHistory([]); }} />
         </section>
       ) : null}
       <section className="rounded-lg border border-border bg-card p-4">
@@ -1648,6 +1635,8 @@ function RecurringJournals({
   displayDecimalPlaces,
   onDirtyChange,
 }: Common & { onDirtyChange?: (dirty: boolean) => void }) {
+ const [workPageSize, setWorkPageSize] = useState(25);
+ const [occurrencePageSize, setOccurrencePageSize] = useState(25);
   const [items, setItems] = useState<RecurringJournalTemplate[]>([]);
   const [selected, setSelected] = useState<RecurringJournalTemplate | null>(null);
   const [status, setStatus] = useState<"" | "active" | "inactive">("");
@@ -1690,7 +1679,7 @@ function RecurringJournals({
       const result = await client.recurring({
         company_id: companyId,
         ...(status ? { status } : {}),
-        limit: 25,
+        limit: workPageSize,
         ...(cursor ? { cursor } : {}),
       });
       setItems(result.items);
@@ -1700,17 +1689,17 @@ function RecurringJournals({
     } finally {
       setLoading(false);
     }
-  }, [client, companyId, cursor, setError, status]);
+  }, [client, companyId, cursor, setError, status, workPageSize]);
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
 
   const loadOccurrences = useCallback(
-    async (item: RecurringJournalTemplate, next?: string) => {
+    async (item: RecurringJournalTemplate, next?: string, requestedSize = occurrencePageSize) => {
       setOccurrenceLoading(true);
       try {
-        const result = await client.occurrences(item.id, { limit: 25, ...(next ? { cursor: next } : {}) });
+        const result = await client.occurrences(item.id, { limit: requestedSize, ...(next ? { cursor: next } : {}) });
         setOccurrences(result.items);
         setOccurrenceNext(result.next_cursor);
         setHistoryTemplate(item);
@@ -1720,7 +1709,7 @@ function RecurringJournals({
         setOccurrenceLoading(false);
       }
     },
-    [client, setError],
+    [client, setError, occurrencePageSize],
   );
   const openHistory = (item: RecurringJournalTemplate) => {
     setOccurrenceCursor(undefined);
@@ -1857,7 +1846,7 @@ function RecurringJournals({
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
+          <WorkTable paging={false} tableId="app/features/finance/views/finance-journals-workspace:4" className="w-full min-w-[820px] text-sm">
             <thead className="bg-primary text-left text-primary-foreground">
               <tr>
                 {["Template", "Schedule", "Next draft", "Last generated", "Status", "Action"].map((value) => (
@@ -1914,23 +1903,17 @@ function RecurringJournals({
                 </tr>
               ) : null}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
-        <Pagination
-          busy={loading}
-          hasPrevious={cursorHistory.length > 0}
-          hasNext={Boolean(nextCursor)}
-          onPrevious={() => {
+        <WorkPagination size={workPageSize} page={cursorHistory.length} start={items.length ? cursorHistory.length * workPageSize + 1 : 0} end={cursorHistory.length * workPageSize + items.length} total={nextCursor ? undefined : cursorHistory.length * workPageSize + items.length} hasMore={Boolean(nextCursor)} previous={cursorHistory.length > 0} next={Boolean(nextCursor)} busy={loading} onPrevious={() => {
             setCursorHistory((value) => value.slice(0, -1));
             setCursor(cursorHistory.at(-1));
-          }}
-          onNext={() => {
+          }} onNext={() => {
             if (nextCursor) {
               setCursorHistory((value) => [...value, cursor]);
               setCursor(nextCursor);
             }
-          }}
-        />
+          }} onSizeChange={(size) => { setWorkPageSize(size); setCursor(undefined); setCursorHistory([]); }} />
       </section>
 
       {pendingStatus ? (
@@ -1995,7 +1978,7 @@ function RecurringJournals({
                   </p>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[720px] text-sm">
+                  <WorkTable paging={false} tableId="app/features/finance/views/finance-journals-workspace:5" className="w-full min-w-[720px] text-sm">
                     <thead className="bg-muted">
                       <tr>
                         {["Scheduled date", "State", "Attempts", "Draft", "Last error", "Updated"].map((value) => (
@@ -2041,26 +2024,20 @@ function RecurringJournals({
                         </tr>
                       ) : null}
                     </tbody>
-                  </table>
+                  </WorkTable>
                 </div>
-                <Pagination
-                  busy={occurrenceLoading}
-                  hasPrevious={occurrenceHistory.length > 0}
-                  hasNext={Boolean(occurrenceNext)}
-                  onPrevious={() => {
+                <WorkPagination size={occurrencePageSize} page={occurrenceHistory.length} start={occurrences.length ? occurrenceHistory.length * occurrencePageSize + 1 : 0} end={occurrenceHistory.length * occurrencePageSize + occurrences.length} total={occurrenceNext ? undefined : occurrenceHistory.length * occurrencePageSize + occurrences.length} hasMore={Boolean(occurrenceNext)} previous={occurrenceHistory.length > 0} next={Boolean(occurrenceNext)} busy={occurrenceLoading} onPrevious={() => {
                     const previous = occurrenceHistory.at(-1);
                     setOccurrenceHistory((value) => value.slice(0, -1));
                     setOccurrenceCursor(previous);
                     void loadOccurrences(historyTemplate, previous);
-                  }}
-                  onNext={() => {
+                  }} onNext={() => {
                     if (occurrenceNext) {
                       setOccurrenceHistory((value) => [...value, occurrenceCursor]);
                       setOccurrenceCursor(occurrenceNext);
                       void loadOccurrences(historyTemplate, occurrenceNext);
                     }
-                  }}
-                />
+                  }} onSizeChange={(size) => { setOccurrencePageSize(size); setOccurrenceCursor(undefined); setOccurrenceHistory([]); if (historyTemplate) void loadOccurrences(historyTemplate, undefined, size); }} />
               </section>
             ) : null}
 
@@ -2241,31 +2218,7 @@ function ReadOnlyLines({ detail, displayDecimalPlaces }: { detail: JournalDetail
     </div>
   );
 }
-function Pagination({
-  busy,
-  hasPrevious,
-  hasNext,
-  onPrevious,
-  onNext,
-}: {
-  busy: boolean;
-  hasPrevious: boolean;
-  hasNext: boolean;
-  onPrevious: () => void;
-  onNext: () => void;
-}) {
-  if (!hasPrevious && !hasNext) return null;
-  return (
-    <nav className="flex items-center justify-end gap-2 border-t border-border p-3" aria-label="Pagination">
-      <Button type="button" size="sm" variant="outline" disabled={busy || !hasPrevious} onClick={onPrevious}>
-        Previous
-      </Button>
-      <Button type="button" size="sm" variant="outline" disabled={busy || !hasNext} onClick={onNext}>
-        Next
-      </Button>
-    </nav>
-  );
-}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid gap-2">

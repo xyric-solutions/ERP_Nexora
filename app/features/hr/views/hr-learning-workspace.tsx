@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { learningCertificateHtml } from "../components/learning-certificate";
 import { attendanceLabel as label } from "../components/attendance-status";
 import { useId, useRef, useState } from "react";
@@ -76,6 +79,7 @@ export function HrLearningBody({
   onBusy?: (busy: boolean) => void;
   onNavigate?: Navigate;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const mandatoryId = useId();
   const { api, csrfToken } = useSession(),
     client = new HrApiClient(api);
@@ -110,7 +114,7 @@ export function HrLearningBody({
       mode,
       search,
       state,
-      limit: 10,
+      limit: workPageSize,
       offset,
       ...(selected ? { record_id: selected } : {}),
     },
@@ -360,7 +364,7 @@ export function HrLearningBody({
           </AlertDescription>
         </Alert>
       )}
-      <form
+      <WorkForm
         className={panel + " flex flex-col gap-3 sm:flex-row sm:items-end"}
         onSubmit={(e) => {
           e.preventDefault();
@@ -410,7 +414,7 @@ export function HrLearningBody({
         <Button type="submit" disabled={busy}>
           Search
         </Button>
-      </form>
+      </WorkForm>
       {editor ? (
         <HrRecordDrawer
           title={`${editor.id ? "Edit" : "New"} ${editor.terms.kind}`}
@@ -421,7 +425,7 @@ export function HrLearningBody({
           notice={notice}
           onClose={() => setEditor(null)}
         >
-          <form
+          <WorkForm
             className={panel + " space-y-4"}
             aria-label="Learning editor"
             onSubmit={(e) => {
@@ -814,7 +818,7 @@ export function HrLearningBody({
                 Close editor
               </Button>
             </div>
-          </form>
+          </WorkForm>
         </HrRecordDrawer>
       ) : null}
       {w && !w.items.length && (
@@ -861,29 +865,7 @@ export function HrLearningBody({
         ))}
       </div>
       {w && (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <span>
-            {w.total ? offset + 1 : 0}–{Math.min(offset + w.limit, w.total)} of {w.total} records
-          </span>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy || !offset}
-              onClick={() => setOffset((v) => Math.max(0, v - 10))}
-            >
-              Previous
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy || offset + 10 >= w.total}
-              onClick={() => setOffset((v) => v + 10)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+        <WorkOffsetPagination busy={!!(busy)} total={w.total} offset={offset} size={workPageSize} previousDisabled={!!(busy || !offset)} nextDisabled={!!(busy || offset + workPageSize >= w.total)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
       )}
       {current && (
         <article className={panel + " space-y-4"} aria-label="Learning record detail">
@@ -1008,7 +990,7 @@ export function HrLearningBody({
           )}
           {buttons(current)}
           {current.kind === "session" && current.state === "scheduled" && w?.can_manage && (
-            <form
+            <WorkForm
               aria-label="Enroll approved training request"
               className="space-y-3 rounded-lg border border-border p-4"
               onSubmit={(e) => {
@@ -1057,7 +1039,7 @@ export function HrLearningBody({
               <Button type="submit" disabled={busy || !enrollRequest || reason.trim().length < 12}>
                 Enroll employee
               </Button>
-            </form>
+            </WorkForm>
           )}
           {current.kind === "session" && (
             <div className="space-y-3">
@@ -1114,7 +1096,7 @@ export function HrLearningBody({
           notice={notice}
           onClose={() => setAttendance(null)}
         >
-          <form
+          <WorkForm
             aria-label="Record training attendance"
             className={panel + " space-y-4"}
             onSubmit={(e) => {
@@ -1225,7 +1207,7 @@ export function HrLearningBody({
                 Close attendance editor
               </Button>
             </div>
-          </form>
+          </WorkForm>
         </HrRecordDrawer>
       )}
       {section === "completions" && w && (
@@ -1289,7 +1271,7 @@ export function HrLearningBody({
                   : "Confirm the current record and record why this action is appropriate."}
             </DialogDescription>
           </DialogHeader>
-          <form
+          <WorkForm
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
@@ -1321,7 +1303,7 @@ export function HrLearningBody({
             <Button type="submit" disabled={busy || decisionReason.trim().length < 12}>
               Confirm Learning action
             </Button>
-          </form>
+          </WorkForm>
         </DialogContent>
       </Dialog>
     </section>

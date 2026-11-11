@@ -1,4 +1,5 @@
 "use client";
+import { WorkForm, WorkFormLayout } from "@/shared/ui/work-form";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -33,6 +34,7 @@ import { PurchaseDocumentActions, type PurchaseFormAction } from "./purchase-doc
 import { PurchaseRfqSupplier } from "./purchase-rfq-supplier";
 import { purchaseStateLabels } from "../model/purchase-flow";
 import { paymentEntries, PurchasePaymentDetailsForm } from "./purchase-payment-details";
+import { PurchaseBillDetailsForm } from "./purchase-bill-details";
 
 const newLine = (): PurchaseLine => ({
   id: `line-${crypto.randomUUID()}`,
@@ -72,6 +74,7 @@ export function PurchaseDocumentForm({
     step = purchaseSteps.find((item) => item.kind === kind)!;
   const payment = kind === "payment" || kind === "multi_payment";
   const [record, setRecord] = useState<PurchaseDocument | null>(null);
+  const [manualAmounts, setManualAmounts] = useState<Set<string>>(new Set());
   const [selectedPaymentSupplier, setSelectedPaymentSupplier] = useState<Supplier | null>(null);
   const [input, setInput] = useState<SavePurchaseRequest>({
     company_id: company,
@@ -81,6 +84,7 @@ export function PurchaseDocumentForm({
     invited_supplier_ids: [],
     source_id: null,
     document_date: new Date().toLocaleDateString("en-CA"),
+    ...(kind === "bill" ? { bill_date: new Date().toLocaleDateString("en-CA"), payment_term: null } : {}),
     due_date: null,
     currency: options.currencies[0]?.code ?? "",
     reference: "",
@@ -91,8 +95,11 @@ export function PurchaseDocumentForm({
   });
   const [sources, setSources] = useState<PurchaseDocument[]>([]),
     [sourceCursors, setSourceCursors] = useState<Partial<Record<PurchaseKind, string | null>>>({});
-  const [sourceSearch, setSourceSearch] = useState(""),
-    [loadedSearch, setLoadedSearch] = useState("");
+  const [sourceSearch, setSourceSearch] = useState("");
+  const sourceSupplierId = kind === "payment" ? input.supplier_id : null;
+  const sourceQuery = JSON.stringify([company, kind, payment ? "" : sourceSearch, sourceSupplierId]);
+  const [loadedSourceQuery, setLoadedSourceQuery] = useState("");
+  const sourceGeneration = useRef({ active: false });
   const [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(!!reference),
     [loadFailed, setLoadFailed] = useState(false),
@@ -237,6 +244,7 @@ export function PurchaseDocumentForm({
         } else {
           if (result.kind !== kind) throw new Error("Wrong Purchase form");
           setRecord(result);
+          setManualAmounts(new Set(result.payment_details?.entries.map((entry) => entry.supplier_id) ?? []));
           setApproverName(result.approver_name ?? "");
           setInput({
             company_id: company,
@@ -246,6 +254,8 @@ export function PurchaseDocumentForm({
             source_id: result.source_id,
             invited_supplier_ids: result.invited_supplier_ids,
             document_date: result.document_date,
+            bill_date: result.bill_date,
+            payment_term: result.payment_term,
             due_date: result.due_date,
             currency: result.currency,
             reference: result.reference,
@@ -280,15 +290,23 @@ export function PurchaseDocumentForm({
     };
   }, [api, company, reference, kind, reload, fromSource]);
   useEffect(() => {
+    const scope = { active: true };
+    sourceGeneration.current = scope;
     if (kind === "request") return;
     let active = true;
     const timer = setTimeout(() => {
+      setSourceCursors({});
+      if (kind === "payment" && !sourceSupplierId) {
+        setSources([]);
+        setSourcesLoading(false);
+        return;
+      }
       setSourcesLoading(true);
       Promise.all(
         step.source.map((source) =>
           api
             .listPurchaseDocuments(
-              `?${new URLSearchParams({ company_id: company, kind: source, state: "approved", search: sourceSearch, limit: "100" })}`,
+              `?${new URLSearchParams({ company_id: company, kind: source, state: "approved", search: payment ? "" : sourceSearch, ...(sourceSupplierId ? { supplier_id: sourceSupplierId } : {}), limit: "100" })}`,
             )
             .then((result) => ({ kind: source, result })),
         ),
@@ -307,7 +325,7 @@ export function PurchaseDocumentForm({
             ];
           });
           setSourceCursors(Object.fromEntries(results.map((item) => [item.kind, item.result.next_cursor])));
-          setLoadedSearch(sourceSearch);
+          setLoadedSourceQuery(sourceQuery);
         })
         .catch((caught) => {
           if (active) setError(purchaseError(caught));
@@ -318,9 +336,10 @@ export function PurchaseDocumentForm({
     }, 200);
     return () => {
       active = false;
+      scope.active = false;
       clearTimeout(timer);
     };
-  }, [api, company, kind, step, sourceSearch, reload]);
+  }, [api, company, kind, step, sourceSearch, payment, sourceSupplierId, sourceQuery, reload]);
   function change(patch: Partial<SavePurchaseRequest>) {
     setInput((current) => ({ ...current, ...patch }));
     setDirty(true);
@@ -362,6 +381,9 @@ export function PurchaseDocumentForm({
       lines: result.record.lines,
       approver_id: result.record.approver_id ?? null,
       payment_details: result.record.payment_details ?? null,
+      bill_date: result.record.bill_date,
+      payment_term: result.record.payment_term,
+      due_date: result.record.due_date,
     }));
     setDirty(false);
     onDirtyChange?.(false);
@@ -459,7 +481,8 @@ export function PurchaseDocumentForm({
     }
   }
   async function moreSources() {
-    if (sourcesLoading || loadedSearch !== sourceSearch) return;
+    if (sourcesLoading || loadedSourceQuery !== sourceQuery) return;
+    const scope = sourceGeneration.current;
     setSourcesLoading(true);
     try {
       const result = await Promise.all(
@@ -468,11 +491,12 @@ export function PurchaseDocumentForm({
           .map((source) =>
             api
               .listPurchaseDocuments(
-                `?${new URLSearchParams({ company_id: company, kind: source, state: "approved", search: loadedSearch, limit: "100", cursor: sourceCursors[source]! })}`,
+                `?${new URLSearchParams({ company_id: company, kind: source, state: "approved", search: payment ? "" : sourceSearch, ...(sourceSupplierId ? { supplier_id: sourceSupplierId } : {}), limit: "100", cursor: sourceCursors[source]! })}`,
               )
               .then((result) => ({ kind: source, result })),
           ),
       );
+      if (!scope.active) return;
       setSources((current) => [
         ...current,
         ...result
@@ -484,9 +508,9 @@ export function PurchaseDocumentForm({
         ...Object.fromEntries(result.map((item) => [item.kind, item.result.next_cursor])),
       }));
     } catch (caught) {
-      setError(purchaseError(caught));
+      if (scope.active) setError(purchaseError(caught));
     } finally {
-      setSourcesLoading(false);
+      if (scope.active) setSourcesLoading(false);
     }
   }
   let total = "—";
@@ -495,7 +519,17 @@ export function PurchaseDocumentForm({
     : suppliers;
   const details =
     payment && input.payment_details
-      ? { ...input.payment_details, entries: paymentEntries(input, sources, paymentSuppliers) }
+      ? {
+          ...input.payment_details,
+          entries: paymentEntries(input, sources, paymentSuppliers).map((entry) => ({
+            ...entry,
+            amount: manualAmounts.has(entry.supplier_id)
+              ? entry.amount
+              : (paymentEntries({ ...input, payment_details: null }, sources, paymentSuppliers).find(
+                  (item) => item.supplier_id === entry.supplier_id,
+                )?.amount ?? "0.00"),
+          })),
+        }
       : null;
   try {
     total = payment
@@ -515,15 +549,91 @@ export function PurchaseDocumentForm({
   const sourceLocked = kind === "receipt" || kind === "bill";
   const currentSupplier = record?.supplier_id && !suppliers.some((item) => item.id === record.supplier_id);
   const paymentBills = sources.filter(
-    (bill) =>
-      bill.kind === "bill" &&
-      bill.currency === input.currency &&
-      (kind === "multi_payment" || bill.supplier_id === input.supplier_id),
+    (bill) => bill.kind === "bill" && (kind === "multi_payment" || bill.supplier_id === input.supplier_id),
   );
-  if (loading) return <p role="status">Loading the persisted Purchase form…</p>;
+  const approverField =
+    (kind === "request" && canSave) || payment ? (
+      <div
+        className={
+          payment
+            ? "grid min-w-0 gap-2 sm:col-span-2 sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-center sm:gap-x-3"
+            : "grid min-w-0 gap-2 sm:col-span-2"
+        }
+      >
+        <span className="text-sm font-medium">Approver</span>
+        <SearchableSelect
+          label="Purchase approver"
+          value={input.approver_id ?? ""}
+          placeholder="Select approver"
+          disabled={!canSave || busy}
+          options={[
+            ...approvers.items.map((item) => ({
+              value: item.id,
+              label: item.id === session?.user.id ? `${item.name} (you)` : item.name,
+              disabled: item.id === session?.user.id && !options.can_self_approve && !canOverride,
+            })),
+            ...(input.approver_id && !approvers.items.some((item) => item.id === input.approver_id)
+              ? [
+                  {
+                    value: input.approver_id,
+                    label: approverName || record?.approver_name || "Selected approver",
+                  },
+                ]
+              : []),
+          ]}
+          search={approvers.search}
+          onSearchChange={approvers.setSearch}
+          loading={approvers.busy}
+          onValueChange={(value) => {
+            setApproverName(approvers.items.find((item) => item.id === value)?.name ?? "");
+            change({ approver_id: value || null });
+          }}
+          footer={
+            <div className="grid gap-1 text-sm">
+              {approvers.error ? (
+                <p role="alert" className="text-destructive">
+                  {approvers.error}{" "}
+                  <Button type="button" variant="link" onClick={approvers.retry}>
+                    Retry
+                  </Button>
+                </p>
+              ) : null}
+              {approvers.cursor ? (
+                <Button type="button" variant="outline" disabled={approvers.busy} onClick={() => void approvers.more()}>
+                  Load more approvers
+                </Button>
+              ) : null}
+            </div>
+          }
+        />
+      </div>
+    ) : null;
+  const paymentSupplierField =
+    kind === "payment" ? (
+      <div className="grid min-w-0 gap-1.5 sm:col-span-2 sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-center sm:gap-x-3">
+        <span className="text-sm font-medium">Supplier *</span>
+        <PurchaseRfqSupplier
+          company={company}
+          value={input.supplier_id ?? ""}
+          name={record?.supplier_name ?? null}
+          suppliers={suppliers}
+          disabled={!canSave || busy}
+          onValueChange={(supplier_id, supplier) => {
+            setSelectedPaymentSupplier(supplier ?? null);
+            setManualAmounts(new Set());
+            change({
+              supplier_id: supplier_id || null,
+              allocations: [],
+              payment_details: input.payment_details ? { ...input.payment_details, entries: [] } : null,
+            });
+          }}
+        />
+      </div>
+    ) : null;
+  if (loading) return <WorkFormLayout><p role="status">Loading the persisted Purchase form…</p></WorkFormLayout>;
   if (loadFailed)
     return (
-      <Alert variant="destructive">
+      <WorkFormLayout><Alert variant="destructive">
         <AlertDescription>
           {error}{" "}
           <Button
@@ -542,10 +652,10 @@ export function PurchaseDocumentForm({
             Close
           </Button>
         </AlertDescription>
-      </Alert>
+      </Alert></WorkFormLayout>
     );
   return (
-    <form
+    <WorkForm
       onSubmit={(event) => {
         event.preventDefault();
         void perform("save");
@@ -709,284 +819,7 @@ export function PurchaseDocumentForm({
           </AlertDescription>
         </Alert>
       ) : null}
-      <fieldset disabled={!editable || busy} className="contents">
-        <div className="grid items-start gap-3 rounded-lg border border-border bg-card p-3 sm:grid-cols-2 lg:grid-cols-4">
-          {(kind === "request" && canSave) || payment ? (
-            <div className="grid min-w-0 gap-2 sm:col-span-2">
-              <span className="text-sm font-medium">Approver</span>
-              <SearchableSelect
-                label="Purchase approver"
-                value={input.approver_id ?? ""}
-                placeholder="Select approver"
-                disabled={!canSave || busy}
-                options={[
-                  ...approvers.items.map((item) => ({
-                    value: item.id,
-                    label: item.id === session?.user.id ? `${item.name} (you)` : item.name,
-                    disabled: item.id === session?.user.id && !options.can_self_approve && !canOverride,
-                  })),
-                  ...(input.approver_id && !approvers.items.some((item) => item.id === input.approver_id)
-                    ? [
-                        {
-                          value: input.approver_id,
-                          label: approverName || record?.approver_name || "Selected approver",
-                        },
-                      ]
-                    : []),
-                ]}
-                search={approvers.search}
-                onSearchChange={approvers.setSearch}
-                loading={approvers.busy}
-                onValueChange={(value) => {
-                  setApproverName(approvers.items.find((item) => item.id === value)?.name ?? "");
-                  change({ approver_id: value || null });
-                }}
-                footer={
-                  <div className="grid gap-1 text-sm">
-                    {approvers.error ? (
-                      <p role="alert" className="text-destructive">
-                        {approvers.error}{" "}
-                        <Button type="button" variant="link" onClick={approvers.retry}>
-                          Retry
-                        </Button>
-                      </p>
-                    ) : null}
-                    {approvers.cursor ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={approvers.busy}
-                        onClick={() => void approvers.more()}
-                      >
-                        Load more approvers
-                      </Button>
-                    ) : null}
-                  </div>
-                }
-              />
-            </div>
-          ) : null}
-          <LabeledField label="Document date *">
-            <Input
-              required
-              type="date"
-              value={input.document_date}
-              onChange={(event) => change({ document_date: event.target.value })}
-            />
-          </LabeledField>
-          <LabeledField label="Due / expected date">
-            <Input
-              type="date"
-              value={input.due_date ?? ""}
-              onChange={(event) => change({ due_date: event.target.value || null })}
-            />
-          </LabeledField>
-          <LabeledField label="Currency *">
-            <select
-              className={purchaseSelectClass}
-              value={input.currency}
-              onChange={(event) =>
-                change({
-                  currency: event.target.value,
-                  ...(payment
-                    ? {
-                        allocations: [],
-                        payment_details: input.payment_details ? { bank_account_id: "", entries: [] } : null,
-                      }
-                    : {}),
-                })
-              }
-            >
-              <option value="">Select currency</option>
-              {options.currencies.map((item) => (
-                <option key={item.code} value={item.code}>
-                  {item.code} · {item.name}
-                </option>
-              ))}
-              {input.currency && !options.currencies.some((item) => item.code === input.currency) ? (
-                <option value={input.currency}>{input.currency} · saved currency</option>
-              ) : null}
-            </select>
-          </LabeledField>
-          <LabeledField label={kind === "bill" ? "Supplier invoice reference *" : "External reference"}>
-            <Input
-              required={kind === "bill"}
-              maxLength={128}
-              value={input.reference}
-              onChange={(event) => change({ reference: event.target.value })}
-            />
-          </LabeledField>
-          {kind === "payment" ? (
-            <div className="grid min-w-0 gap-1.5 lg:col-span-2">
-              <span className="text-sm font-medium">Supplier *</span>
-              <PurchaseRfqSupplier
-                company={company}
-                value={input.supplier_id ?? ""}
-                name={record?.supplier_name ?? null}
-                suppliers={suppliers}
-                disabled={!canSave || busy}
-                onValueChange={(supplier_id, supplier) => {
-                  setSelectedPaymentSupplier(supplier ?? null);
-                  change({
-                    supplier_id: supplier_id || null,
-                    allocations: [],
-                    payment_details: input.payment_details ? { ...input.payment_details, entries: [] } : null,
-                  });
-                }}
-              />
-            </div>
-          ) : null}
-          {["order", "receipt", "bill"].includes(kind) ? (
-            <LabeledField label="Supplier *" className="lg:col-span-2">
-              <select
-                className={purchaseSelectClass}
-                required
-                disabled={sourceLocked || !!sourceSupplier}
-                value={input.supplier_id ?? ""}
-                onChange={(event) =>
-                  change({ supplier_id: event.target.value || null, allocations: payment ? [] : input.allocations })
-                }
-              >
-                <option value="">Select supplier</option>
-                {suppliers.map((supplier) => (
-                  <option
-                    key={supplier.id}
-                    value={supplier.id}
-                    disabled={supplier.status !== "active" || supplier.risk_status === "blocked"}
-                  >
-                    {supplier.code} · {supplier.name}
-                    {supplier.status !== "active" ? " · inactive" : ""}
-                  </option>
-                ))}
-                {currentSupplier ? (
-                  <option value={record!.supplier_id!}>{record!.supplier_name ?? "Saved supplier"}</option>
-                ) : null}
-                {input.supplier_id && !suppliers.some((item) => item.id === input.supplier_id) && !currentSupplier ? (
-                  <option value={input.supplier_id}>{source?.supplier_name ?? "Selected supplier"}</option>
-                ) : null}
-              </select>
-            </LabeledField>
-          ) : null}
-          {kind === "rfq" ? (
-            <div className="grid min-w-0 gap-1.5 lg:col-span-2">
-              <span className="text-sm font-medium">Supplier *</span>
-              <PurchaseRfqSupplier
-                company={company}
-                value={
-                  input.supplier_id ?? (input.invited_supplier_ids.length === 1 ? input.invited_supplier_ids[0] : "")
-                }
-                name={record?.supplier_name ?? null}
-                suppliers={suppliers}
-                disabled={!canSave || busy}
-                onValueChange={(value) =>
-                  change({ supplier_id: value || null, invited_supplier_ids: value ? [value] : [] })
-                }
-              />
-              {input.invited_supplier_ids.length > 1 ? (
-                <p className="m-0 text-xs text-muted-foreground">
-                  Saved suppliers:{" "}
-                  {input.invited_supplier_ids
-                    .map((id) => suppliers.find((supplier) => supplier.id === id)?.name ?? id)
-                    .join(", ")}
-                  . Select one supplier to replace these saved selections.
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-          {kind !== "request" && kind !== "rfq" ? (
-            <LabeledField
-              label={payment ? "Search approved bills" : "Search approved source records"}
-              className="lg:col-span-2"
-            >
-              <Input
-                placeholder="Code, supplier or reference"
-                value={sourceSearch}
-                onChange={(event) => setSourceSearch(event.target.value)}
-              />
-            </LabeledField>
-          ) : null}
-          {kind === "rfq" ? (
-            <div className="grid min-w-0 gap-1.5 sm:col-span-2 lg:col-span-2">
-              <span className="text-sm font-medium">Purchase Request *</span>
-              <SearchableSelect
-                label="Purchase Request *"
-                required
-                value={input.source_id ?? ""}
-                placeholder="Select an approved Purchase Request"
-                disabled={!canSave || busy}
-                searchLabel="Search approved Purchase Requests"
-                search={sourceSearch}
-                onSearchChange={setSourceSearch}
-                loading={sourcesLoading}
-                options={sources
-                  .filter((item) => item.kind === "request")
-                  .map((item) => ({ value: item.id, label: `${item.code} · ${item.reference || item.document_date}` }))}
-                onValueChange={(value) => {
-                  const selected = sources.find((item) => item.id === value);
-                  if (selected) {
-                    fromSource(selected);
-                    setDirty(true);
-                  }
-                }}
-                footer={
-                  Object.values(sourceCursors).some(Boolean) ? (
-                    <Button type="button" variant="link" disabled={sourcesLoading} onClick={() => void moreSources()}>
-                      Load more Purchase Requests
-                    </Button>
-                  ) : null
-                }
-              />
-            </div>
-          ) : null}
-          {kind !== "request" && kind !== "rfq" && !payment ? (
-            <LabeledField label="Approved source *" className="sm:col-span-2 lg:col-span-2">
-              <select
-                className={purchaseSelectClass}
-                value={input.source_id ?? ""}
-                onChange={(event) => {
-                  const selected = sources.find((item) => item.id === event.target.value);
-                  if (selected) {
-                    fromSource(selected);
-                    setDirty(true);
-                  } else change({ source_id: null, lines: [], supplier_id: null });
-                }}
-              >
-                <option value="">
-                  {sourcesLoading ? "Loading approved records…" : "Select source to copy its lines"}
-                </option>
-                {sources
-                  .filter((item) => step.source.some((source) => source === item.kind))
-                  .map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.code} · {(item.supplier_name ?? item.reference) || item.document_date}
-                    </option>
-                  ))}
-              </select>
-            </LabeledField>
-          ) : null}
-          {kind !== "rfq" && (onMoreSuppliers || Object.values(sourceCursors).some(Boolean)) ? (
-            <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4">
-              {onMoreSuppliers ? (
-                <Button type="button" size="sm" variant="outline" onClick={onMoreSuppliers}>
-                  Load more suppliers
-                </Button>
-              ) : null}
-              {Object.values(sourceCursors).some(Boolean) ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={sourcesLoading}
-                  onClick={() => void moreSources()}
-                >
-                  Load more source records
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      </fieldset>
-      {details ? (
+      {payment ? (
         <PurchasePaymentDetailsForm
           input={input}
           value={details}
@@ -994,23 +827,288 @@ export function PurchaseDocumentForm({
           suppliers={paymentSuppliers}
           options={options}
           disabled={!canSave || busy}
+          approver={approverField}
+          supplier={paymentSupplierField}
           onChange={(payment_details) => change({ payment_details })}
+          onGrossChange={(supplier) => setManualAmounts((current) => new Set([...current, supplier]))}
+          onBankChange={(bankAccountId) => {
+            const bank = options.bank_accounts?.find((item) => item.id === bankAccountId);
+            if (bankAccountId && !bank) return;
+            const currency = bank?.currency ?? input.currency;
+            const currencyChanged = currency !== input.currency;
+            if (currencyChanged) setManualAmounts(new Set());
+            change({
+              currency,
+              ...(currencyChanged ? { allocations: [] } : {}),
+              payment_details: {
+                bank_account_id: bankAccountId,
+                entries: currencyChanged ? [] : (details?.entries ?? []),
+              },
+            });
+          }}
+          onTermsChange={(patch) => change({ ...patch, due_date: null })}
+          onEnableDetails={() => change({ payment_details: { bank_account_id: "", entries: [] } })}
         />
-      ) : payment && canSave ? (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => change({ payment_details: { bank_account_id: "", entries: [] } })}
-        >
-          Add bank and WHT details
-        </Button>
-      ) : null}
+      ) : kind === "bill" ? (
+        <PurchaseBillDetailsForm
+          input={input}
+          options={options}
+          disabled={!canSave || busy}
+          supplier={suppliers.find((supplier) => supplier.id === input.supplier_id)}
+          supplierName={record?.supplier_name ?? source?.supplier_name}
+          onChange={change}
+          sourceField={
+            <div className="grid min-w-0 gap-1.5 sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-center sm:gap-x-3">
+              <span className="text-sm font-medium">Purchase order *</span>
+              <SearchableSelect
+                label="Approved source *"
+                required
+                disabled={!canSave || busy}
+                value={input.source_id ?? ""}
+                placeholder="Select an approved purchase order"
+                searchLabel="Search approved purchase orders"
+                search={sourceSearch}
+                onSearchChange={setSourceSearch}
+                loading={sourcesLoading}
+                options={sources
+                  .filter((item) => item.kind === "order")
+                  .map((item) => ({ value: item.id, label: `${item.code} · ${item.supplier_name ?? item.reference}` }))}
+                onValueChange={(value) => {
+                  const selected = sources.find((item) => item.id === value);
+                  if (selected) {
+                    fromSource(selected);
+                    setDirty(true);
+                  } else change({ source_id: null, lines: [], supplier_id: null });
+                }}
+                footer={
+                  Object.values(sourceCursors).some(Boolean) ? (
+                    <Button type="button" variant="link" disabled={sourcesLoading} onClick={() => void moreSources()}>
+                      Load more source records
+                    </Button>
+                  ) : null
+                }
+              />
+            </div>
+          }
+        />
+      ) : (
+        <fieldset disabled={!editable || busy} className="contents">
+          <div className="grid items-start gap-3 rounded-lg border border-border bg-card p-3 sm:grid-cols-2 lg:grid-cols-4">
+            {approverField}
+            <LabeledField label="Document date *">
+              <Input
+                required
+                type="date"
+                value={input.document_date}
+                onChange={(event) => change({ document_date: event.target.value })}
+              />
+            </LabeledField>
+            <LabeledField label="Due / expected date">
+              <Input
+                type="date"
+                value={input.due_date ?? ""}
+                onChange={(event) => change({ due_date: event.target.value || null })}
+              />
+            </LabeledField>
+            <LabeledField label="Currency *">
+              <select
+                className={purchaseSelectClass}
+                value={input.currency}
+                onChange={(event) =>
+                  change({
+                    currency: event.target.value,
+                    ...(payment
+                      ? {
+                          allocations: [],
+                          payment_details: input.payment_details ? { bank_account_id: "", entries: [] } : null,
+                        }
+                      : {}),
+                  })
+                }
+              >
+                <option value="">Select currency</option>
+                {options.currencies.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.code} · {item.name}
+                  </option>
+                ))}
+                {input.currency && !options.currencies.some((item) => item.code === input.currency) ? (
+                  <option value={input.currency}>{input.currency} · saved currency</option>
+                ) : null}
+              </select>
+            </LabeledField>
+            <LabeledField label="External reference">
+              <Input
+                maxLength={128}
+                value={input.reference}
+                onChange={(event) => change({ reference: event.target.value })}
+              />
+            </LabeledField>
+            {["order", "receipt", "bill"].includes(kind) ? (
+              <LabeledField label="Supplier *" className="lg:col-span-2">
+                <select
+                  className={purchaseSelectClass}
+                  required
+                  disabled={sourceLocked || !!sourceSupplier}
+                  value={input.supplier_id ?? ""}
+                  onChange={(event) =>
+                    change({ supplier_id: event.target.value || null, allocations: payment ? [] : input.allocations })
+                  }
+                >
+                  <option value="">Select supplier</option>
+                  {suppliers.map((supplier) => (
+                    <option
+                      key={supplier.id}
+                      value={supplier.id}
+                      disabled={supplier.status !== "active" || supplier.risk_status === "blocked"}
+                    >
+                      {supplier.code} · {supplier.name}
+                      {supplier.status !== "active" ? " · inactive" : ""}
+                    </option>
+                  ))}
+                  {currentSupplier ? (
+                    <option value={record!.supplier_id!}>{record!.supplier_name ?? "Saved supplier"}</option>
+                  ) : null}
+                  {input.supplier_id && !suppliers.some((item) => item.id === input.supplier_id) && !currentSupplier ? (
+                    <option value={input.supplier_id}>{source?.supplier_name ?? "Selected supplier"}</option>
+                  ) : null}
+                </select>
+              </LabeledField>
+            ) : null}
+            {kind === "rfq" ? (
+              <div className="grid min-w-0 gap-1.5 lg:col-span-2">
+                <span className="text-sm font-medium">Supplier *</span>
+                <PurchaseRfqSupplier
+                  company={company}
+                  value={
+                    input.supplier_id ?? (input.invited_supplier_ids.length === 1 ? input.invited_supplier_ids[0] : "")
+                  }
+                  name={record?.supplier_name ?? null}
+                  suppliers={suppliers}
+                  disabled={!canSave || busy}
+                  onValueChange={(value) =>
+                    change({ supplier_id: value || null, invited_supplier_ids: value ? [value] : [] })
+                  }
+                />
+                {input.invited_supplier_ids.length > 1 ? (
+                  <p className="m-0 text-xs text-muted-foreground">
+                    Saved suppliers:{" "}
+                    {input.invited_supplier_ids
+                      .map((id) => suppliers.find((supplier) => supplier.id === id)?.name ?? id)
+                      .join(", ")}
+                    . Select one supplier to replace these saved selections.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {kind !== "request" && kind !== "rfq" ? (
+              <LabeledField label="Search approved source records" className="lg:col-span-2">
+                <Input
+                  placeholder="Code, supplier or reference"
+                  value={sourceSearch}
+                  onChange={(event) => setSourceSearch(event.target.value)}
+                />
+              </LabeledField>
+            ) : null}
+            {kind === "rfq" ? (
+              <div className="grid min-w-0 gap-1.5 sm:col-span-2 lg:col-span-2">
+                <span className="text-sm font-medium">Purchase Request *</span>
+                <SearchableSelect
+                  label="Purchase Request *"
+                  required
+                  value={input.source_id ?? ""}
+                  placeholder="Select an approved Purchase Request"
+                  disabled={!canSave || busy}
+                  searchLabel="Search approved Purchase Requests"
+                  search={sourceSearch}
+                  onSearchChange={setSourceSearch}
+                  loading={sourcesLoading}
+                  options={sources
+                    .filter((item) => item.kind === "request")
+                    .map((item) => ({
+                      value: item.id,
+                      label: `${item.code} · ${item.reference || item.document_date}`,
+                    }))}
+                  onValueChange={(value) => {
+                    const selected = sources.find((item) => item.id === value);
+                    if (selected) {
+                      fromSource(selected);
+                      setDirty(true);
+                    }
+                  }}
+                  footer={
+                    Object.values(sourceCursors).some(Boolean) ? (
+                      <Button type="button" variant="link" disabled={sourcesLoading} onClick={() => void moreSources()}>
+                        Load more Purchase Requests
+                      </Button>
+                    ) : null
+                  }
+                />
+              </div>
+            ) : null}
+            {kind !== "request" && kind !== "rfq" && !payment ? (
+              <LabeledField label="Approved source *" className="sm:col-span-2 lg:col-span-2">
+                <select
+                  className={purchaseSelectClass}
+                  value={input.source_id ?? ""}
+                  onChange={(event) => {
+                    const selected = sources.find((item) => item.id === event.target.value);
+                    if (selected) {
+                      fromSource(selected);
+                      setDirty(true);
+                    } else change({ source_id: null, lines: [], supplier_id: null });
+                  }}
+                >
+                  <option value="">
+                    {sourcesLoading ? "Loading approved records…" : "Select source to copy its lines"}
+                  </option>
+                  {sources
+                    .filter((item) => step.source.some((source) => source === item.kind))
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.code} · {(item.supplier_name ?? item.reference) || item.document_date}
+                      </option>
+                    ))}
+                </select>
+              </LabeledField>
+            ) : null}
+            {kind !== "rfq" && (onMoreSuppliers || Object.values(sourceCursors).some(Boolean)) ? (
+              <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4">
+                {onMoreSuppliers ? (
+                  <Button type="button" size="sm" variant="outline" onClick={onMoreSuppliers}>
+                    Load more suppliers
+                  </Button>
+                ) : null}
+                {Object.values(sourceCursors).some(Boolean) ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={sourcesLoading}
+                    onClick={() => void moreSources()}
+                  >
+                    Load more source records
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </fieldset>
+      )}
       {payment ? (
         <section
           className="min-w-0 overflow-hidden rounded-lg border border-border bg-card"
           aria-label="Bill allocations"
         >
-          <div className="border-b border-border px-3 py-2 text-sm font-semibold">Outstanding bills</div>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+            <div className="grid gap-1">
+              <h2 className="m-0 text-base font-semibold">Supplier bills</h2>
+              <p className="m-0 text-xs text-muted-foreground">Select open bills to allocate this payment.</p>
+            </div>
+            <Badge variant="outline" aria-live="polite">
+              {input.allocations.length} selected
+            </Badge>
+          </div>
           {/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- WCAG 2.1.1: labelled read-only scroll regions need keyboard focus even when fieldset controls are disabled. */}
           <div
             role="region"
@@ -1019,24 +1117,27 @@ export function PurchaseDocumentForm({
             className="overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
           >
             {/* eslint-enable jsx-a11y/no-noninteractive-tabindex */}
-            <fieldset disabled={!editable || busy} className="m-0 min-w-0 border-0 p-0">
+            <fieldset disabled={!canSave || busy} className="m-0 min-w-0 border-0 p-0">
               <table className="w-full min-w-[1100px] border-collapse text-sm">
                 <thead className="bg-muted text-left">
                   <tr>
                     {[
                       "Include",
-                      "Date",
+                      "Document date",
+                      "Bill date",
                       "Bill ID",
                       "Bill No.",
                       "Due date",
                       "Supplier",
+                      "Currency",
+                      "Allocation status",
                       "Original amount",
                       "Open balance",
                       "Discount",
                       "Payment",
                       "Total",
                     ].map((label) => (
-                      <th key={label} scope="col" className="px-3 py-2 font-medium">
+                      <th key={label} scope="col" className="whitespace-nowrap px-3 py-2 font-medium">
                         {label}
                       </th>
                     ))}
@@ -1047,26 +1148,67 @@ export function PurchaseDocumentForm({
                     const allocation = input.allocations.find((item) => item.bill_id === bill.id);
                     const available = money(scaled(bill.total_amount, 2) - scaled(bill.reserved_amount, 2));
                     return (
-                      <tr key={bill.id} className="border-t border-border">
+                      <tr
+                        key={bill.id}
+                        data-selected={allocation ? "true" : undefined}
+                        className="border-t border-border data-[selected=true]:[&>td]:bg-accent!"
+                      >
                         <td className="px-3 py-2">
                           <Checkbox
                             aria-label={`Include ${bill.code}`}
                             checked={!!allocation}
-                            disabled={!allocation && available === "0.00"}
-                            onCheckedChange={(checked) =>
+                            disabled={!allocation && (available === "0.00" || bill.currency !== input.currency)}
+                            onCheckedChange={(checked) => {
+                              let amount = scaled(available, 2);
+                              if (checked && bill.supplier_id && manualAmounts.has(bill.supplier_id)) {
+                                const gross = details?.entries.find(
+                                  (entry) => entry.supplier_id === bill.supplier_id,
+                                )?.amount;
+                                try {
+                                  const remaining =
+                                    scaled(gross ?? "0", 2) -
+                                    input.allocations.reduce(
+                                      (sum, item) =>
+                                        sources.find((source) => source.id === item.bill_id)?.supplier_id ===
+                                        bill.supplier_id
+                                          ? sum + scaled(item.amount, 2)
+                                          : sum,
+                                      0n,
+                                    );
+                                  if (remaining <= 0n) {
+                                    setError("Increase the gross payment amount before selecting another bill.");
+                                    return;
+                                  }
+                                  if (remaining < amount) amount = remaining;
+                                } catch {
+                                  setError("Enter a valid gross payment amount before selecting bills.");
+                                  return;
+                                }
+                              }
                               change({
                                 allocations: checked
-                                  ? [...input.allocations, { bill_id: bill.id, amount: available }]
+                                  ? [...input.allocations, { bill_id: bill.id, amount: money(amount) }]
                                   : input.allocations.filter((item) => item.bill_id !== bill.id),
-                              })
-                            }
+                              });
+                            }}
                           />
                         </td>
                         <td className="whitespace-nowrap px-3 py-2">{bill.document_date}</td>
-                        <td className="px-3 py-2">{bill.code}</td>
+                        <td className="whitespace-nowrap px-3 py-2">{bill.bill_date ?? bill.document_date}</td>
+                        <td className="whitespace-nowrap px-3 py-2">{bill.code}</td>
                         <td className="px-3 py-2">{bill.reference || "—"}</td>
                         <td className="whitespace-nowrap px-3 py-2">{bill.due_date ?? "—"}</td>
                         <td className="px-3 py-2">{bill.supplier_name}</td>
+                        <td className="px-3 py-2">{bill.currency}</td>
+                        <td className="px-3 py-2">
+                          <Badge variant="outline">
+                            {available === "0.00"
+                              ? "Fully allocated"
+                              : bill.reserved_amount !== "0.00"
+                                ? "Partially allocated"
+                                : "Unallocated"}
+                          </Badge>
+                        </td>
                         <td className="px-3 py-2 text-right tabular-nums">{bill.total_amount}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{available}</td>
                         <td className="px-3 py-2">
@@ -1117,17 +1259,19 @@ export function PurchaseDocumentForm({
                   })}
                   {!paymentBills.length ? (
                     <tr>
-                      <td colSpan={11} className="px-3 py-6 text-center text-muted-foreground">
+                      <td colSpan={14} className="px-3 py-6 text-center text-muted-foreground">
                         {sourcesLoading
-                          ? "Loading outstanding bills…"
-                          : "No matching approved bills. Select a supplier or adjust the search."}
+                          ? "Loading supplier bills…"
+                          : kind === "payment" && !input.supplier_id
+                            ? "Select a supplier to load its bills."
+                            : "No approved bills are available for this supplier."}
                       </td>
                     </tr>
                   ) : null}
                 </tbody>
                 <tfoot className="border-t border-border bg-muted font-medium">
                   <tr>
-                    <td colSpan={8} className="px-3 py-2">
+                    <td colSpan={11} className="px-3 py-2">
                       Totals · {input.currency}
                     </td>
                     {["discount", "amount", "total"].map((field) => (
@@ -1157,8 +1301,23 @@ export function PurchaseDocumentForm({
               </table>
             </fieldset>
           </div>
+          {Object.values(sourceCursors).some(Boolean) ? (
+            <div className="border-t border-border px-3 py-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={sourcesLoading || loadedSourceQuery !== sourceQuery}
+                onClick={() => void moreSources()}
+              >
+                {sourcesLoading ? "Loading bills…" : "Load more bills"}
+              </Button>
+            </div>
+          ) : null}
           <p className="m-0 border-t border-border px-3 py-2 text-xs text-muted-foreground">
-            Select approved bills in one currency. A multi-vendor payment requires at least two suppliers.
+            Select checkboxes to allocate open balances; edit Payment for a partial allocation. Fully allocated bills
+            remain visible. Only {input.currency} bills can be included.
+            {kind === "multi_payment" ? " A multi-vendor payment requires at least two suppliers." : ""}
           </p>
         </section>
       ) : (
@@ -1468,6 +1627,6 @@ export function PurchaseDocumentForm({
           Open source {record.source_code}
         </Button>
       ) : null}
-    </form>
+    </WorkForm>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { BankTransferState, BankTransferSummary, BankingCompanyDirectory } from "@nexora/contracts";
@@ -193,7 +194,7 @@ export function BankingTransfers({
           </div>
         ) : null}
         <div className="overflow-x-auto">
-          <table className="min-w-[980px] w-full text-sm">
+          <WorkTable continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loadingMore),loadMore:() => void loadMore()}} tableId="app/features/banking/views/banking-transfers:1" className="min-w-[980px] w-full text-sm">
             <thead className="bg-muted/50 text-left">
               <tr>
                 {["Reference", "Date", "From Bank", "To Bank", "Source amount", "Base total", "Lines", "State"].map(
@@ -246,15 +247,9 @@ export function BankingTransfers({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
-        {nextCursor ? (
-          <div className="flex justify-center border-t border-border p-4">
-            <Button type="button" variant="outline" disabled={loadingMore} onClick={() => void loadMore()}>
-              {loadingMore ? "Loading more…" : "Load more"}
-            </Button>
-          </div>
-        ) : null}
+
       </section>
     </div>
   );

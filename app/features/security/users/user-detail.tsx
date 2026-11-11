@@ -1,4 +1,5 @@
 "use client";
+import { WorkForm } from "@/shared/ui/work-form";
 
 import { useState, type FormEvent } from "react";
 import type {
@@ -177,7 +178,7 @@ export default function UserDetail({
       </section>
 
       {mode === "edit" ? (
-        <form className="grid gap-4 border-b border-border p-5" onSubmit={submitEdit}>
+        <WorkForm className="grid gap-4 border-b border-border p-5" onSubmit={submitEdit}>
           <h4 className="font-semibold">Edit name, username and email</h4>
           <Label className="grid gap-2 text-sm text-muted-foreground">
             Display name
@@ -220,9 +221,9 @@ export default function UserDetail({
               Submit change
             </Button>
           </div>
-        </form>
+        </WorkForm>
       ) : mode === "password" ? (
-        <form className="grid gap-4 border-b border-border p-5" onSubmit={submitPasswordReset}>
+        <WorkForm className="grid gap-4 border-b border-border p-5" onSubmit={submitPasswordReset}>
           <h4 className="font-semibold">Reset password</h4>
           <p className="text-sm text-muted-foreground">
             Submit a reset for an independent approver. After approval, a new one-time password is shown to the approver
@@ -246,9 +247,9 @@ export default function UserDetail({
               Submit password reset
             </Button>
           </div>
-        </form>
+        </WorkForm>
       ) : mode === "archive" ? (
-        <form
+        <WorkForm
           className="grid gap-4 border-b border-border p-5"
           onSubmit={(event) => {
             event.preventDefault();
@@ -284,9 +285,9 @@ export default function UserDetail({
               Submit soft delete
             </Button>
           </div>
-        </form>
+        </WorkForm>
       ) : mode === "companies" ? (
-        <form className="grid gap-4 border-b border-border p-5" onSubmit={submitCompanies}>
+        <WorkForm className="grid gap-4 border-b border-border p-5" onSubmit={submitCompanies}>
           <h4 className="font-semibold">Company boundary</h4>
           {options.companies.map((company) => {
             const selected = companyIds.includes(company.id);
@@ -327,9 +328,9 @@ export default function UserDetail({
               Submit change
             </Button>
           </div>
-        </form>
+        </WorkForm>
       ) : mode === "employee" ? (
-        <form className="grid gap-4 border-b border-border p-5" onSubmit={submitEmployee}>
+        <WorkForm className="grid gap-4 border-b border-border p-5" onSubmit={submitEmployee}>
           <h4 className="font-semibold">Employee link</h4>
           <select
             className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -360,7 +361,7 @@ export default function UserDetail({
               Submit change
             </Button>
           </div>
-        </form>
+        </WorkForm>
       ) : (
         <>
           <section className="grid gap-4 border-b border-border p-5">
@@ -490,7 +491,7 @@ export default function UserDetail({
               {user.roles.length === 0 ? <li>No active roles.</li> : null}
             </ul>
             {permissions.has("security.authorization.assignment.create") ? (
-              <form
+              <WorkForm
                 className="flex gap-2"
                 onSubmit={(event) => {
                   event.preventDefault();
@@ -523,7 +524,7 @@ export default function UserDetail({
                 <Button type="submit" disabled={busy}>
                   Create assignment request
                 </Button>
-              </form>
+              </WorkForm>
             ) : null}
           </section>
         </>

@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable, WorkPagination } from "@/shared/ui/work-table";
+import { WorkForm, WorkFormLayout } from "@/shared/ui/work-form";
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -90,6 +92,8 @@ function CompanyNominalDirectory({
   const [search, setSearch] = useState(""),
     [state, setState] = useState(""),
     [sort, setSort] = useState<FinanceNominalDirectoryQuery["sort_by"]>("code");
+  const [workPageSize, setWorkPageSize] = useState(25);
+  const [cursorHistory, setCursorHistory] = useState<(string | undefined)[]>([undefined]);
   const [cursor, setCursor] = useState<string | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
@@ -143,7 +147,7 @@ function CompanyNominalDirectory({
           search,
           sort_by: sort,
           sort_direction: "asc",
-          limit: 50,
+          limit: workPageSize,
           ...(approvals ? { nominal_kind: "bank" as const } : {}),
           ...(approvals
             ? { state: "pending_approval" as const }
@@ -164,11 +168,12 @@ function CompanyNominalDirectory({
         if (version === requestVersion.current) setLoading(false);
       }
     },
-    [client, company, search, sort, state, approvals],
+    [client, company, search, sort, state, approvals, workPageSize],
   );
   useEffect(() => {
     if (!company || !canRead) return;
     const timer = setTimeout(() => {
+      setCursorHistory([undefined]);
       void fetchRows();
     }, 250);
     return () => {
@@ -323,7 +328,7 @@ function CompanyNominalDirectory({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <WorkTable paging={false} tableId="app/features/finance/views/finance-nominals:1" className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b">
                   <th className="p-3">Code</th>
@@ -365,15 +370,11 @@ function CompanyNominalDirectory({
                   </Fragment>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         )}
-        {cursor && (
-          <Button variant="outline" disabled={loading} onClick={() => void fetchRows(cursor)}>
-            Next page
-          </Button>
-        )}
-      </CardContent>
+
+      </CardContent><WorkPagination size={workPageSize} page={cursorHistory.length - 1} start={rows.length ? (cursorHistory.length - 1) * workPageSize + 1 : 0} end={(cursorHistory.length - 1) * workPageSize + rows.length} total={cursor ? undefined : (cursorHistory.length - 1) * workPageSize + rows.length} hasMore={!!cursor} previous={cursorHistory.length > 1} next={!!cursor} busy={loading} onSizeChange={(size) => {setWorkPageSize(size); setLoading(true); setRows([]);}} onPrevious={() => { const previous=cursorHistory.at(-2); setCursorHistory((current) => current.slice(0,-1)); void fetchRows(previous); }} onNext={() => {if (!cursor) return; setCursorHistory((current) => [...current,cursor]); void fetchRows(cursor);}} />
     </Card>
   );
 }
@@ -728,7 +729,7 @@ export function FinanceNominalForm({
       <Notice text="You do not have the required Finance permissions (and Banking permissions for Bank accounts)." />
     );
   return (
-    <Card className="mx-auto w-full max-w-4xl">
+    <WorkFormLayout><Card className="mx-auto w-full max-w-4xl">
       <CardHeader>
         <CardTitle>
           {nominalId ? (editable ? "Edit" : "") : "New"} {isBank ? "Bank Nominal" : "Nominal Account"}
@@ -744,7 +745,7 @@ export function FinanceNominalForm({
         {!selected?.creation_enabled && !saved && (
           <Notice text="Section setup is required. Configure the company headers and an available nominal code policy before creating accounts." />
         )}
-        <form
+        <WorkForm
           onSubmit={(event) => {
             event.preventDefault();
             void save(false);
@@ -973,9 +974,9 @@ export function FinanceNominalForm({
               Close
             </Button>
           </div>
-        </form>
+        </WorkForm>
       </CardContent>
-    </Card>
+    </Card></WorkFormLayout>
   );
 }
 

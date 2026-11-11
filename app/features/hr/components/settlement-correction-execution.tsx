@@ -1,4 +1,6 @@
 "use client";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useId, useState } from "react";
 import type { HrLifecycleCaseAction, HrLifecycleCaseRecord } from "@nexora/contracts";
 import { Button } from "@/components/ui/button";
@@ -49,7 +51,7 @@ export function SettlementCorrectionExecution({
         remains with Banking.
       </p>
       {approved && !active && w.can_calculate && (
-        <form
+        <WorkForm
           aria-label="Calculate settlement Payroll supplement"
           className="space-y-4"
           onSubmit={async (event) => {
@@ -113,7 +115,7 @@ export function SettlementCorrectionExecution({
           <Button type="submit" disabled={busy || !reviewed}>
             Calculate Payroll supplement
           </Button>
-        </form>
+        </WorkForm>
       )}
       {approved && !active && !w.can_calculate && (
         <p className="text-sm text-muted-foreground">
@@ -203,7 +205,7 @@ export function SettlementCorrectionExecution({
             ))}
           </div>
           {decision?.id === x.id && x.allowed_actions.includes(decision.action) && (
-            <form
+            <WorkForm
               aria-label="Supplemental Payroll decision"
               className="space-y-3 rounded-md border border-border p-3"
               onSubmit={async (event) => {
@@ -239,7 +241,7 @@ export function SettlementCorrectionExecution({
                   Cancel supplemental review
                 </Button>
               </div>
-            </form>
+            </WorkForm>
           )}
         </article>
       ))}

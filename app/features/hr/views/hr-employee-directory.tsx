@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -103,7 +105,7 @@ export function HrEmployeeDirectory({ onOpenEmployee }: { onOpenEmployee: (emplo
             ))}
           </select>
         </LabeledField>
-        <form
+        <WorkForm
           className="flex min-w-0 flex-1 flex-wrap items-end gap-2 sm:min-w-65"
           onSubmit={(event) => {
             event.preventDefault();
@@ -131,7 +133,7 @@ export function HrEmployeeDirectory({ onOpenEmployee }: { onOpenEmployee: (emplo
           >
             Clear
           </Button>
-        </form>
+        </WorkForm>
         <Button type="button" onClick={reloadCompanies} variant="outline">
           Refresh
         </Button>
@@ -164,7 +166,7 @@ export function HrEmployeeDirectory({ onOpenEmployee }: { onOpenEmployee: (emplo
 
       {directoryState === "ready" ? (
         <div className="relative overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-          <table className="w-full min-w-230 border-collapse text-left text-sm">
+          <WorkTable tableId="app/features/hr/views/hr-employee-directory:1" className="w-full min-w-230 border-collapse text-left text-sm">
             <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3">Employee</th>
@@ -213,7 +215,7 @@ export function HrEmployeeDirectory({ onOpenEmployee }: { onOpenEmployee: (emplo
                 </tr>
               ) : null}
             </tbody>
-          </table>
+          </WorkTable>
           <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
             Live, permission-scoped HR directory · showing up to 50 records
           </p>

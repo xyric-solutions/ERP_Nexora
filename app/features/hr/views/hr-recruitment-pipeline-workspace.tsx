@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -110,6 +113,7 @@ export function HrRecruitmentPipelineWorkspace() {
     };
   }, [client, sessionLoading, canRead]);
 
+  const [workPageSize, setWorkPageSize] = useState(25);
   const load = useCallback(async () => {
     if (!companyId || !canRead) return;
     const sequence = ++requestSequence.current;
@@ -121,7 +125,7 @@ export function HrRecruitmentPipelineWorkspace() {
         search: filter.search,
         stage: filter.stage || undefined,
         offset: filter.offset,
-        limit: 50,
+        limit: workPageSize,
       });
       if (sequence !== requestSequence.current) return;
       setData(result);
@@ -136,7 +140,7 @@ export function HrRecruitmentPipelineWorkspace() {
     } finally {
       if (sequence === requestSequence.current) setLoading(false);
     }
-  }, [client, companyId, canRead, filter]);
+  }, [client, companyId, canRead, filter, workPageSize]);
   useEffect(() => {
     void load();
     return () => {
@@ -320,7 +324,7 @@ export function HrRecruitmentPipelineWorkspace() {
           {notice}
         </div>
       ) : null}
-      <form
+      <WorkForm
         className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1fr_1.2fr_.7fr_auto]"
         onSubmit={(event) => {
           event.preventDefault();
@@ -379,7 +383,7 @@ export function HrRecruitmentPipelineWorkspace() {
           <Search className="size-4" />
           Apply filters
         </Button>
-      </form>
+      </WorkForm>
       {editor ? (
         <HrRecordDrawer
           title="Add application"
@@ -389,7 +393,7 @@ export function HrRecruitmentPipelineWorkspace() {
           error={error}
           notice={notice}
         >
-          <form
+          <WorkForm
             onSubmit={create}
             className="grid min-w-0 gap-4 rounded-2xl border border-primary/30 bg-card p-5 shadow-sm"
           >
@@ -499,7 +503,7 @@ export function HrRecruitmentPipelineWorkspace() {
                 Cancel
               </Button>
             </div>
-          </form>
+          </WorkForm>
         </HrRecordDrawer>
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -625,7 +629,7 @@ export function HrRecruitmentPipelineWorkspace() {
                   error={error}
                   notice={notice}
                 >
-                  <form className="grid gap-3 border-t border-border pt-4" onSubmit={move}>
+                  <WorkForm className="grid gap-3 border-t border-border pt-4" onSubmit={move}>
                     <h4 className="text-sm font-semibold">Record a stage decision</h4>
                     <label className="grid gap-1.5 text-sm">
                       Next stage
@@ -663,7 +667,7 @@ export function HrRecruitmentPipelineWorkspace() {
                       {saving ? "Saving decision…" : "Save stage decision"}
                       <ArrowRight className="size-4" />
                     </Button>
-                  </form>
+                  </WorkForm>
                 </HrRecordDrawer>
               ) : null}
               <div className="border-t border-border pt-4">
@@ -690,24 +694,7 @@ export function HrRecruitmentPipelineWorkspace() {
           ) : null}
         </div>
       )}
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={loading || saving || filter.offset === 0}
-          onClick={() => setFilter((current) => ({ ...current, offset: Math.max(0, current.offset - 50) }))}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={loading || saving || filter.offset + 50 >= data.total}
-          onClick={() => setFilter((current) => ({ ...current, offset: current.offset + 50 }))}
-        >
-          Next
-        </Button>
-      </div>
+      <WorkOffsetPagination busy={!!(loading || saving)} total={data.total} offset={filter.offset} size={workPageSize} previousDisabled={loading || saving || filter.offset === 0} nextDisabled={loading || saving || filter.offset + workPageSize >= data.total} onSizeChange={(size) => { setWorkPageSize(size); setFilter((current) => ({ ...current, offset: 0 })); }} onPrevious={() => setFilter((current) => ({ ...current, offset: Math.max(0, current.offset - workPageSize) }))} onNext={() => setFilter((current) => ({ ...current, offset: current.offset + workPageSize }))} />
     </section>
   );
 }

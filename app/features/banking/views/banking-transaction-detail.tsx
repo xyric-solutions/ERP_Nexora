@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 /**
  * Banking transaction and bank account detail views for the isolated Nexora
@@ -526,7 +527,7 @@ export function BankingTransactionDetail({
           {tab === "Accounting effect" ? (
             <>
               <div className="nx-table-wrap">
-                <table className="nx-data-table [&_tbody_small]:block [&_tbody_small]:text-xs [&_tbody_small]:text-muted-foreground">
+                <WorkTable tableId="app/features/banking/views/banking-transaction-detail:1" className="nx-data-table [&_tbody_small]:block [&_tbody_small]:text-xs [&_tbody_small]:text-muted-foreground">
                   <thead>
                     <tr><th>Account</th><th>Description</th><th className="amount">Debit</th><th className="amount">Credit</th></tr>
                   </thead>
@@ -555,7 +556,7 @@ export function BankingTransactionDetail({
                       <td className="amount">{formatMoney(totalCredit, transaction.currency)}</td>
                     </tr>
                   </tfoot>
-                </table>
+                </WorkTable>
               </div>
               {transaction.exchangeRate !== 1 ? (
                 <p className="nx-role-section-note">
@@ -685,7 +686,7 @@ export function BankAccountDetail({
         <section className="nx-card nx-detail-main">
           <div className="nx-card-head"><div><span>Activity</span><h2>Recent transactions</h2></div></div>
           <div className="nx-table-wrap">
-            <table className="nx-data-table">
+            <WorkTable tableId="app/features/banking/views/banking-transaction-detail:2" className="nx-data-table">
               <thead><tr><th>Reference</th><th>Date</th><th>Party</th><th className="amount">Amount</th><th>Status</th></tr></thead>
               <tbody>
                 {related.length === 0 ? (
@@ -700,7 +701,7 @@ export function BankAccountDetail({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         </section>
 

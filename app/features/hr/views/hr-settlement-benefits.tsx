@@ -1,4 +1,8 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import {
   SettlementSalaryFactors,
   SettlementSalaryComponents,
@@ -58,6 +62,7 @@ export function HrSettlementBenefits({
   onBusy: (v: boolean) => void;
   onCalculated: () => void;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const factorsId = useId();
   const { api, session, csrfToken } = useSession(),
     client = new HrApiClient(api),
@@ -80,7 +85,7 @@ export function HrSettlementBenefits({
   const exit = record?.terms.kind === "settlement" ? record.terms.exit_case_id : undefined,
     q = {
       company_id: company,
-      limit: 25,
+      limit: workPageSize,
       offset,
       ...(exit ? { exit_case_id: exit } : {}),
       ...(exit && rule ? { rule_id: rule } : {}),
@@ -90,7 +95,7 @@ export function HrSettlementBenefits({
     ),
     countryRead = useAttendanceRead(
       canRead && company && country ? JSON.stringify(["country-options", company, country]) : null,
-      () => client.settlementBenefits({ company_id: company, country_code: country, limit: 1, offset: 0 }),
+      () => client.settlementBenefits({ company_id: company, country_code: country, limit: workPageSize, offset: 0 }),
     ),
     w = read.data,
     guard = useRef(false),
@@ -253,7 +258,7 @@ export function HrSettlementBenefits({
                         {b}
                       </p>
                     ))}
-                    <form
+                    <WorkForm
                       className="space-y-3"
                       aria-label="Add calculated company benefit"
                       onSubmit={(e) => {
@@ -287,7 +292,7 @@ export function HrSettlementBenefits({
                       <Button type="submit" disabled={busy || p.blockers.length > 0}>
                         Add or refresh benefit line
                       </Button>
-                    </form>
+                    </WorkForm>
                   </>
                 )}
               </>
@@ -324,7 +329,7 @@ export function HrSettlementBenefits({
                 notice={notice}
                 onClose={() => setCreate(false)}
               >
-                <form
+                <WorkForm
                   aria-label="New company benefit rule"
                   className="space-y-4"
                   onSubmit={(e) => {
@@ -555,12 +560,12 @@ export function HrSettlementBenefits({
                       Cancel benefit rule
                     </Button>
                   </div>
-                </form>
+                </WorkForm>
               </HrRecordDrawer>
             ) : null}
             {w.items.length > 0 ? (
               <div className="max-w-full overflow-x-auto">
-                <table className="w-full min-w-[640px] text-left text-sm">
+                <WorkTable paging={false} tableId="app/features/hr/views/hr-settlement-benefits:1" className="w-full min-w-[640px] text-left text-sm">
                   <caption className="sr-only">Company settlement benefit rules</caption>
                   <thead>
                     <tr>
@@ -648,7 +653,7 @@ export function HrSettlementBenefits({
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </WorkTable>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -656,7 +661,7 @@ export function HrSettlementBenefits({
               </p>
             )}
             {decision && (
-              <form
+              <WorkForm
                 className="space-y-3 rounded-lg border border-border p-4"
                 aria-label="Company benefit rule decision"
                 onSubmit={(e) => {
@@ -692,32 +697,10 @@ export function HrSettlementBenefits({
                     Cancel benefit decision
                   </Button>
                 </div>
-              </form>
+              </WorkForm>
             )}
           </TabsContent>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-            <span>
-              {w.total ? offset + 1 : 0}–{Math.min(offset + w.limit, w.total)} of {w.total} company benefit rules
-            </span>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busy || create || !!decision || offset === 0}
-                onClick={() => setOffset((v) => Math.max(0, v - 25))}
-              >
-                Previous benefit rules
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busy || create || !!decision || offset + 25 >= w.total}
-                onClick={() => setOffset((v) => v + 25)}
-              >
-                Next benefit rules
-              </Button>
-            </div>
-          </div>
+          <WorkOffsetPagination busy={!!(busy || create || decision)} total={w.total} offset={offset} size={workPageSize} previousDisabled={!!(busy || create || !!decision || offset === 0)} nextDisabled={!!(busy || create || !!decision || offset + workPageSize >= w.total)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
         </Tabs>
       )}
     </section>

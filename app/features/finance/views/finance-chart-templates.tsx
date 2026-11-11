@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable, WorkPagination } from "@/shared/ui/work-table";
 
 import { useEffect, useMemo, useState } from "react";
 import type { ChartTemplateNodes, ChartTemplateSummary } from "@nexora/contracts";
@@ -9,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -67,6 +68,7 @@ function CentralTemplateBrowser({ initialKind = "category", onCompanyAccounts }:
   });
   const [filters, setFilters] = useState({ kind: initialKind, category: "", section: "", search: "" });
   const [history, setHistory] = useState(["0"]);
+  const [workPageSize, setWorkPageSize] = useState(25);
   const [page, setPage] = useState<{ items: TemplateNode[]; next_cursor: string | null }>({
     items: [],
     next_cursor: null,
@@ -136,7 +138,7 @@ function CentralTemplateBrowser({ initialKind = "category", onCompanyAccounts }:
       client
         .nodes(revisionId, {
           kind: filters.kind,
-          limit: 50,
+          limit: workPageSize,
           ...(filters.search ? { search: filters.search } : {}),
           ...(filters.category ? { category_key: filters.category } : {}),
           ...(filters.section ? { parent_key: filters.section } : {}),
@@ -156,7 +158,7 @@ function CentralTemplateBrowser({ initialKind = "category", onCompanyAccounts }:
       active = false;
       clearTimeout(timer);
     };
-  }, [canRead, client, revisionId, headersReady, filters, cursor, refresh]);
+  }, [canRead, client, revisionId, headersReady, filters, cursor, refresh, workPageSize]);
 
   function changeFilters(patch: Partial<typeof filters>) {
     setFilters((current) => ({ ...current, ...patch }));
@@ -391,7 +393,7 @@ function CentralTemplateBrowser({ initialKind = "category", onCompanyAccounts }:
                           !error &&
                           !headerState.error && (
                             <div className="overflow-x-auto rounded-md border border-border">
-                              <table className="w-full text-left text-sm">
+                              <WorkTable paging={false} tableId="app/features/finance/views/finance-chart-templates:1" className="w-full text-left text-sm">
                                 <caption className="sr-only">
                                   Central {labels[kind].toLowerCase()} reference definitions
                                 </caption>
@@ -437,7 +439,7 @@ function CentralTemplateBrowser({ initialKind = "category", onCompanyAccounts }:
                                     </tr>
                                   )}
                                 </tbody>
-                              </table>
+                              </WorkTable>
                             </div>
                           )
                         )}
@@ -450,27 +452,12 @@ function CentralTemplateBrowser({ initialKind = "category", onCompanyAccounts }:
           </>
         )}
       </CardContent>
-      <CardFooter className="flex flex-wrap items-center justify-between gap-3">
-        <p role="status" className="text-sm text-muted-foreground">
-          {loading ? "Loading definitions…" : `Page ${history.length} · ${page.items.length} definitions shown`}
-        </p>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            disabled={loading || history.length === 1}
-            onClick={() => {
+      <WorkPagination size={workPageSize} start={page.items.length ? (history.length - 1) * workPageSize + 1 : 0} end={(history.length - 1) * workPageSize + page.items.length} page={history.length - 1} total={page.next_cursor ? undefined : (history.length - 1) * workPageSize + page.items.length} hasMore={!!page.next_cursor} previous={history.length > 1} next={!!page.next_cursor} busy={loading} onPrevious={() => {
               setBusy(true);
               setError("");
               setPage({ items: [], next_cursor: null });
               setHistory((current) => current.slice(0, -1));
-            }}
-          >
-            Previous page
-          </Button>
-          <Button
-            variant="outline"
-            disabled={loading || !page.next_cursor}
-            onClick={() => {
+            }} onNext={() => {
               const next = page.next_cursor;
               if (next) {
                 setBusy(true);
@@ -478,12 +465,7 @@ function CentralTemplateBrowser({ initialKind = "category", onCompanyAccounts }:
                 setPage({ items: [], next_cursor: null });
                 setHistory((current) => [...current, next]);
               }
-            }}
-          >
-            Next page
-          </Button>
-        </div>
-      </CardFooter>
+            }} onSizeChange={(size) => { setWorkPageSize(size); setBusy(true); setPage({items: [], next_cursor: null}); setHistory(["0"]); }} />
       <Dialog
         open={!!selected}
         onOpenChange={(open) => {

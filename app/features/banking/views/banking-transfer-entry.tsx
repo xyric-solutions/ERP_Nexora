@@ -1,4 +1,5 @@
 "use client";
+import { WorkFormLayout } from "@/shared/ui/work-form";
 
 import { BankEntryHeader } from "../components/bank-entry-header";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
@@ -435,7 +436,7 @@ export function BankingTransferEntry({
     return <TransferState title="Permission required" detail="banking.transfer.create is required." />;
 
   return (
-    <div className="grid min-w-0 gap-3.5" aria-busy={busy}>
+    <WorkFormLayout><div className="grid min-w-0 gap-3.5" aria-busy={busy}>
       <BankEntryHeader
         title={
           detail ? `Edit Transfer · ${detail.reference}` : creationKind === "fx" ? "Add FX Transfer" : "Add Transfer"
@@ -915,7 +916,7 @@ export function BankingTransferEntry({
           Bank Transfer has unsaved changes.
         </p>
       ) : null}
-    </div>
+    </div></WorkFormLayout>
   );
 }
 

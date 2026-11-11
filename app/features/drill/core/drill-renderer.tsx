@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 /**
  * THE dashboard renderer. There is exactly one.
@@ -23,7 +24,6 @@ import { DrillBars, DrillCumulative, DrillDonut, DrillTrend, bucketFromSeries } 
 import { SourceTransaction } from "./source-transaction.tsx";
 
 /** Leaf detail is paginated. Never ship a whole row set to sum in the browser. */
-const LEAF_PAGE_SIZE = 25;
 /** A donut stays readable to about this many children; beyond it, bars. */
 const DONUT_LIMIT = 7;
 
@@ -71,7 +71,6 @@ export function DrillRenderer(props: DrillRendererProps) {
     headlineNote,
     syncUrl,
   });
-  const [page, setPage] = useState(0);
   const [selectedTransaction, setSelectedTransaction] = useState<FactRow | null>(null);
 
   const dimensionCount = useMemo(() => {
@@ -108,8 +107,6 @@ export function DrillRenderer(props: DrillRendererProps) {
     () => [...layer.rows].sort((a, b) => b.date.localeCompare(a.date)),
     [layer.rows],
   );
-  const pageRows = leafRows.slice(page * LEAF_PAGE_SIZE, page * LEAF_PAGE_SIZE + LEAF_PAGE_SIZE);
-  const pageCount = Math.max(1, Math.ceil(leafRows.length / LEAF_PAGE_SIZE));
 
   const single = layer.buckets.length === 1;
 
@@ -252,11 +249,11 @@ export function DrillRenderer(props: DrillRendererProps) {
           <div className="nx-drill__leaf-head">
             <h3>Detail rows</h3>
             <span>
-              {leafRows.length.toLocaleString("en-US")} rows &middot; page {page + 1} of {pageCount}
+              {leafRows.length.toLocaleString("en-US")} rows
             </span>
           </div>
           <div className="nx-table-wrap">
-            <table className="nx-drill__table">
+            <WorkTable tableId="app/features/drill/core/drill-renderer:1" className="nx-drill__table">
               <thead>
                 <tr>
                   <th scope="col">Document</th>
@@ -267,7 +264,7 @@ export function DrillRenderer(props: DrillRendererProps) {
                 </tr>
               </thead>
               <tbody>
-                {pageRows.map((row) => (
+                {leafRows.map((row) => (
                   <tr key={row.id} onClick={() => setSelectedTransaction(row)}>
                     <td><button className="nx-drill__transaction-link" type="button" onClick={(event) => { event.stopPropagation(); setSelectedTransaction(row); }}>{row.documentId}</button></td>
                     <td>{row.documentType}</td>
@@ -277,18 +274,9 @@ export function DrillRenderer(props: DrillRendererProps) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
-          {pageCount > 1 ? (
-            <div className="nx-drill__pager">
-              <Button variant="outline" type="button" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>
-                Previous
-              </Button>
-              <Button variant="outline" type="button" onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))} disabled={page >= pageCount - 1}>
-                Next
-              </Button>
-            </div>
-          ) : null}
+
         </div>
       ) : null}
     </section>

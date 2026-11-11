@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -98,7 +101,7 @@ function OfferEditor({
     (decimalUnits(terms.proposed_gross)! < decimalUnits(context.salary_minimum)! ||
       decimalUnits(terms.proposed_gross)! > decimalUnits(context.salary_maximum)!);
   return (
-    <form
+    <WorkForm
       className="grid min-w-0 gap-4 rounded-2xl border border-primary/30 bg-card p-5 shadow-sm"
       onSubmit={async (e) => {
         e.preventDefault();
@@ -269,7 +272,7 @@ function OfferEditor({
           Cancel
         </Button>
       </div>
-    </form>
+    </WorkForm>
   );
 }
 
@@ -295,7 +298,7 @@ function OfferDecision({
     requiresEvidence = response || action === "record_sent";
   if (!allowed.length) return null;
   return (
-    <form
+    <WorkForm
       className="grid gap-3 rounded-xl border border-primary/20 bg-card p-4"
       onSubmit={async (e) => {
         e.preventDefault();
@@ -399,7 +402,7 @@ function OfferDecision({
       >
         {busy ? "Saving…" : action ? actions[action] : "Choose an action"}
       </Button>
-    </form>
+    </WorkForm>
   );
 }
 
@@ -458,12 +461,13 @@ export function HrOfferManagementWorkspace() {
       cancel = true;
     };
   }, [client, sessionLoading, canRead, session?.tenant_id, session?.user.id]);
+  const [workPageSize, setWorkPageSize] = useState(25);
   const loadList = useCallback(async () => {
     if (!companyId || !canRead) return;
     const seq = ++listSeq.current;
     setLoading(true);
     try {
-      const r = await client.offers({ companyId, ...filter });
+      const r = await client.offers({ companyId, ...filter, limit: workPageSize });
       if (seq === listSeq.current) {
         setDirectory(r);
         setSelectedId((id) => (r.items.some((item) => item.id === id) ? id : (r.items[0]?.id ?? "")));
@@ -476,7 +480,7 @@ export function HrOfferManagementWorkspace() {
     } finally {
       if (seq === listSeq.current) setLoading(false);
     }
-  }, [client, companyId, canRead, filter]);
+  }, [client, companyId, canRead, filter, workPageSize]);
   useEffect(() => {
     void loadList();
     return () => {
@@ -704,7 +708,7 @@ export function HrOfferManagementWorkspace() {
           {notice}
         </div>
       ) : null}
-      <form
+      <WorkForm
         className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_180px_auto]"
         onSubmit={(e) => {
           e.preventDefault();
@@ -770,7 +774,7 @@ export function HrOfferManagementWorkspace() {
           <Search className="size-4" />
           Apply filters
         </Button>
-      </form>
+      </WorkForm>
       <HrRecordDrawer
         title={editor === "edit" ? "Edit offer" : "Prepare offer"}
         open={!!editor}
@@ -794,7 +798,7 @@ export function HrOfferManagementWorkspace() {
                 <X className="size-4" />
               </Button>
             </div>
-            <form
+            <WorkForm
               className="flex flex-wrap items-end gap-2"
               onSubmit={(e) => {
                 e.preventDefault();
@@ -808,7 +812,7 @@ export function HrOfferManagementWorkspace() {
               <Button type="submit" variant="outline">
                 Find application
               </Button>
-            </form>
+            </WorkForm>
             <label className="grid gap-1.5 text-sm">
               Selected application
               <select
@@ -1092,24 +1096,7 @@ export function HrOfferManagementWorkspace() {
           )}
         </div>
       )}
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={busy || loading || filter.offset === 0}
-          onClick={() => setFilter((current) => ({ ...current, offset: Math.max(0, current.offset - 50) }))}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={busy || loading || filter.offset + 50 >= directory.total}
-          onClick={() => setFilter((current) => ({ ...current, offset: current.offset + 50 }))}
-        >
-          Next
-        </Button>
-      </div>
+      <WorkOffsetPagination busy={!!(busy || loading)} total={directory.total} offset={filter.offset} size={workPageSize} previousDisabled={busy || loading || filter.offset === 0} nextDisabled={busy || loading || filter.offset + workPageSize >= directory.total} onSizeChange={(size) => { setWorkPageSize(size); setFilter((current) => ({ ...current, offset: 0 })); }} onPrevious={() => setFilter((current) => ({ ...current, offset: Math.max(0, current.offset - workPageSize) }))} onNext={() => setFilter((current) => ({ ...current, offset: current.offset + workPageSize }))} />
     </section>
   );
 }

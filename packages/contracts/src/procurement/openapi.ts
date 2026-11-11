@@ -71,7 +71,10 @@ export function procurementPaths() {
       patch: write("updatePurchaseSupplier", "UpdateSupplierInput", "SupplierMutation"),
     },
     "/procurement/documents": {
-      get: read("listPurchaseDocuments", "PurchaseDirectory", filters),
+      get: read("listPurchaseDocuments", "PurchaseDirectory", [
+        ...filters,
+        { in: "query", name: "supplier_id", schema: { type: "string", minLength: 1, maxLength: 128 } },
+      ]),
       post: write("createPurchaseDocument", "SavePurchaseRequest", "PurchaseMutation", true),
     },
     "/procurement/documents/{id}": {

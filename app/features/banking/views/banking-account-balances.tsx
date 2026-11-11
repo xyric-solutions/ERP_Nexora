@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { BankAccountState, BankAccountSummary, BankingCompanyDirectory } from "@nexora/contracts";
@@ -257,7 +258,7 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
 
         {rows.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1050px] border-collapse text-left text-sm">
+            <WorkTable continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loading || loadingMore),loadMore:() => void load(nextCursor ?? undefined, true)}} tableId="app/features/banking/views/banking-account-balances:1" className="w-full min-w-[1050px] border-collapse text-left text-sm">
               <thead className="bg-muted/50 text-xs uppercase tracking-[0.08em] text-muted-foreground">
                 <tr>
                   {[
@@ -333,7 +334,7 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         ) : null}
 
@@ -341,11 +342,7 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
           <span>
             Showing {rows.length} persisted account{rows.length === 1 ? "" : "s"}
           </span>
-          {nextCursor ? (
-            <Button variant="outline" type="button" disabled={loadingMore} onClick={() => void load(nextCursor, true)}>
-              {loadingMore ? "Loading…" : "Load more"}
-            </Button>
-          ) : null}
+
         </div>
       </section>
     </div>

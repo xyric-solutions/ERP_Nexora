@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BankTransferDetail } from "@nexora/contracts";
@@ -195,7 +196,7 @@ export function BankingTransferDetail({
           <p className="text-sm text-muted-foreground">Resolved Bank controls and governed currency-rate evidence.</p>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-[1180px] w-full text-sm">
+          <WorkTable tableId="app/features/banking/views/banking-transfer-detail:1" className="min-w-[1180px] w-full text-sm">
             <thead className="bg-[var(--nx-info-soft)] text-left text-[var(--nx-emphasis-text)]">
               <tr>
                 {[
@@ -257,7 +258,7 @@ export function BankingTransferDetail({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       </section>
       <section className="grid gap-5 lg:grid-cols-2">

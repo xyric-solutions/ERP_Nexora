@@ -1,4 +1,7 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { formatHrMinor } from "../components/payroll-money";
 import { useState } from "react";
 import type { HrLifecycleCaseRecord, HrLifecycleCaseWorkspace, HrLifecycleCaseAction } from "@nexora/contracts";
@@ -81,7 +84,7 @@ export function SettlementPayrollHandoff({
       </div>
       {links.length > 0 ? (
         <div className="relative max-w-full overflow-x-auto">
-          <table className="w-full min-w-[660px] text-left text-sm">
+          <WorkTable tableId="app/features/hr/views/hr-settlement-payroll:1" className="w-full min-w-[660px] text-left text-sm">
             <caption className="sr-only">Latest settlement Payroll inputs and Finance progress</caption>
             <thead>
               <tr>
@@ -126,7 +129,7 @@ export function SettlementPayrollHandoff({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
@@ -138,7 +141,7 @@ export function SettlementPayrollHandoff({
         </p>
       )}
       {record.can_prepare_payroll && (
-        <form
+        <WorkForm
           className="min-w-0 space-y-4"
           aria-label="Prepare settlement Payroll inputs"
           onSubmit={(e) => {
@@ -254,7 +257,7 @@ export function SettlementPayrollHandoff({
           <Button type="submit" disabled={busy || !confirmed} className="text-primary-foreground!">
             Prepare draft Payroll inputs
           </Button>
-        </form>
+        </WorkForm>
       )}
     </section>
   );

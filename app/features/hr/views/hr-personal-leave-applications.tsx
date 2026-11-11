@@ -1,4 +1,6 @@
 "use client";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useRef, useState } from "react";
 import { Plus, RefreshCw, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -172,7 +174,7 @@ export function HrPersonalLeaveApplications({ company, items, opened, onOpen, on
         error={error}
         onClose={() => setCreate(false)}
       >
-        <form aria-label="Apply for personal leave" onSubmit={save} className="space-y-4">
+        <WorkForm aria-label="Apply for personal leave" onSubmit={save} className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="font-semibold">Review and save a leave draft</h3>
@@ -350,7 +352,7 @@ export function HrPersonalLeaveApplications({ company, items, opened, onOpen, on
           >
             {busy ? "Saving…" : "Save leave draft"}
           </Button>
-        </form>
+        </WorkForm>
       </HrRecordDrawer>
       {!create &&
         items.map((r) => (

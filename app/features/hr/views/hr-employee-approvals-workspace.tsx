@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -258,7 +260,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
       {canApproveDraft && state === "ready" && (
         <div className="grid gap-4 ">
           <div className="relative overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-            <table className="w-full min-w-160 text-left text-sm">
+            <WorkTable tableId="app/features/hr/views/hr-employee-approvals-workspace:1" className="w-full min-w-160 text-left text-sm">
               <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">Employee</th>
@@ -299,7 +301,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
                   </tr>
                 )}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           <HrRecordDrawer
             title="Employee approval"

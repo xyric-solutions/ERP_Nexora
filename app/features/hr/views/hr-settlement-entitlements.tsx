@@ -1,4 +1,8 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import {
   SettlementSalaryFactors,
   SettlementSalaryComponents,
@@ -51,6 +55,7 @@ export function HrSettlementEntitlements({
   onBusy: (value: boolean) => void;
   onCalculated: () => void;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const { api, session, csrfToken } = useSession(),
     client = new HrApiClient(api),
     permissions = session?.user.permissions ?? [];
@@ -70,7 +75,7 @@ export function HrSettlementEntitlements({
     exit = t?.kind === "settlement" ? t.exit_case_id : undefined;
   const query = {
     company_id: company,
-    limit: 25,
+    limit: workPageSize,
     offset,
     ...(exit ? { exit_case_id: exit } : {}),
     ...(rule && exit ? { rule_id: rule } : {}),
@@ -80,7 +85,7 @@ export function HrSettlementEntitlements({
     ),
     countryRead = useAttendanceRead(
       canRead && company && country ? JSON.stringify(["country-options", company, country]) : null,
-      () => client.settlementEntitlements({ company_id: company, country_code: country, limit: 1, offset: 0 }),
+      () => client.settlementEntitlements({ company_id: company, country_code: country, limit: workPageSize, offset: 0 }),
     ),
     w = read.data;
   const [name, setName] = useState(""),
@@ -252,7 +257,7 @@ export function HrSettlementEntitlements({
                       </ul>
                     </div>
                   ) : (
-                    <form
+                    <WorkForm
                       className="space-y-3"
                       aria-label="Add calculated leave encashment"
                       onSubmit={(e) => {
@@ -285,7 +290,7 @@ export function HrSettlementEntitlements({
                       <Button type="submit" disabled={busy} className="text-primary-foreground!">
                         Add or refresh calculated line
                       </Button>
-                    </form>
+                    </WorkForm>
                   )}
                 </>
               )}
@@ -321,7 +326,7 @@ export function HrSettlementEntitlements({
           </div>
           {w?.items.length ? (
             <div className="relative max-w-full overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left text-sm">
+              <WorkTable paging={false} tableId="app/features/hr/views/hr-settlement-entitlements:1" className="w-full min-w-[720px] text-left text-sm">
                 <caption className="sr-only">Governed company leave encashment rules</caption>
                 <thead>
                   <tr>
@@ -399,7 +404,7 @@ export function HrSettlementEntitlements({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           ) : (
             !read.loading && (
@@ -409,7 +414,7 @@ export function HrSettlementEntitlements({
             )
           )}
           {decision && (
-            <form
+            <WorkForm
               className="space-y-3 rounded-lg border border-border p-4"
               aria-label="Company encashment rule decision"
               onSubmit={(e) => {
@@ -442,7 +447,7 @@ export function HrSettlementEntitlements({
                   Cancel review
                 </Button>
               </div>
-            </form>
+            </WorkForm>
           )}
           {showCreate && w ? (
             <HrRecordDrawer
@@ -454,7 +459,7 @@ export function HrSettlementEntitlements({
               notice={notice}
               onClose={() => setShowCreate(false)}
             >
-              <form
+              <WorkForm
                 className="space-y-4"
                 aria-label="New company encashment rule"
                 onSubmit={(e) => {
@@ -641,44 +646,19 @@ export function HrSettlementEntitlements({
                     Cancel editing
                   </Button>
                 </div>
-              </form>
+              </WorkForm>
             </HrRecordDrawer>
           ) : null}
         </TabsContent>
       </Tabs>
       {w && (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <span>
-            {w.total ? offset + 1 : 0}–{Math.min(offset + w.limit, w.total)} of {w.total} company rules
-          </span>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy || offset === 0}
-              onClick={() => {
-                setOffset((v) => Math.max(0, v - 25));
+        <WorkOffsetPagination busy={!!(busy)} total={w.total} offset={offset} size={workPageSize} previousDisabled={!!(busy || offset === 0)} nextDisabled={!!(busy || offset + workPageSize >= w.total)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => {
+                setOffset((v) => Math.max(0, v - workPageSize));
                 setRule("");
-              }}
-            >
-              Previous rules
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy || offset + 25 >= w.total}
-              onClick={() => {
-                setOffset((v) => v + 25);
+              }} onNext={() => {
+                setOffset((v) => v + workPageSize);
                 setRule("");
-              }}
-            >
-              Next rules
-            </Button>
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => setRevision((v) => v + 1)}>
-              Refresh leave evidence
-            </Button>
-          </div>
-        </div>
+              }} />
       )}
     </section>
   );

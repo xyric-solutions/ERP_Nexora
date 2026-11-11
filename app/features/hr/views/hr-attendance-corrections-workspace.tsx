@@ -1,4 +1,8 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -22,8 +26,6 @@ import {
   Search,
   ShieldCheck,
   Clock3,
-  ChevronLeft,
-  ChevronRight,
   ArrowUpRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -268,7 +270,7 @@ function Editor({
   const iso = (value: string, offset: string) =>
     value ? `${value.length === 16 ? value + ":00" : value}${offset}` : null;
   return (
-    <form
+    <WorkForm
       aria-label="Correction draft editor"
       className="grid min-w-0 gap-4 rounded-xl border border-primary/25 bg-card p-4 sm:p-5"
       onSubmit={async (e) => {
@@ -439,7 +441,7 @@ function Editor({
           Cancel editing
         </Button>
       </div>
-    </form>
+    </WorkForm>
   );
 }
 function Decisions({
@@ -460,7 +462,7 @@ function Decisions({
   if (!detail.allowed_actions.length) return null;
   const decision = action.includes("approve") || action.includes("reject");
   return (
-    <form
+    <WorkForm
       aria-label="Correction workflow decision"
       className="grid gap-4 rounded-lg border border-border bg-background p-4"
       onSubmit={async (e) => {
@@ -540,7 +542,7 @@ function Decisions({
           {busy ? "Saving…" : label(action)}
         </Button>
       </div>
-    </form>
+    </WorkForm>
   );
 }
 export function HrAttendanceCorrectionsWorkspace({
@@ -550,6 +552,7 @@ export function HrAttendanceCorrectionsWorkspace({
   initialReference?: string;
   onNavigate: Navigate;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const initialScope = useMemo(() => readHrOperationsScope(initialReference), [initialReference]);
   const { api, session, csrfToken, loading: sessionLoading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]),
@@ -606,7 +609,7 @@ export function HrAttendanceCorrectionsWorkspace({
         company_id: company,
         status: (status || undefined) as Parameters<HrApiClient["corrections"]>[0]["status"],
         search: applied || undefined,
-        limit: 50,
+        limit: workPageSize,
         offset,
       })
       .then((result) => {
@@ -621,7 +624,7 @@ export function HrAttendanceCorrectionsWorkspace({
     return () => {
       active = false;
     };
-  }, [client, company, canRead, status, applied, offset, revision]);
+  }, [client, company, canRead, status, applied, offset, revision, workPageSize]);
   useEffect(() => {
     if (!selected || !company) {
       setDetail(null);
@@ -751,7 +754,7 @@ export function HrAttendanceCorrectionsWorkspace({
           {notice}
         </div>
       )}
-      <form
+      <WorkForm
         className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1fr_0.7fr_1fr_auto] sm:p-5"
         onSubmit={(e) => {
           e.preventDefault();
@@ -832,7 +835,7 @@ export function HrAttendanceCorrectionsWorkspace({
             Clear
           </Button>
         </div>
-      </form>
+      </WorkForm>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {[
           { name: "Requests in this page", value: data.items.length, icon: ClipboardCheck },
@@ -897,7 +900,7 @@ export function HrAttendanceCorrectionsWorkspace({
         <>
           <div className="hidden min-w-0 overflow-hidden rounded-xl border border-border bg-card md:block">
             <div className="max-h-[38rem] overflow-auto">
-              <table className="w-full min-w-[1000px] text-left text-sm">
+              <WorkTable paging={false} tableId="app/features/hr/views/hr-attendance-corrections-workspace:1" className="w-full min-w-[1000px] text-left text-sm">
                 <thead className="sticky top-0 z-10 bg-muted">
                   <tr>
                     {["Reference / employee", "Working date", "Type", "Requested by", "Status", ""].map((h, i) => (
@@ -932,7 +935,7 @@ export function HrAttendanceCorrectionsWorkspace({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           </div>
           <div className="grid gap-3 md:hidden">
@@ -960,29 +963,7 @@ export function HrAttendanceCorrectionsWorkspace({
           </p>
         </div>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-xs text-muted-foreground">
-          {data.items.length ? `${offset + 1}–${offset + data.items.length} of ${data.total}` : "0 results"}
-        </span>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            disabled={loading || offset === 0}
-            onClick={() => setOffset((v) => Math.max(0, v - 50))}
-          >
-            <ChevronLeft className="size-4" />
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            disabled={loading || offset + 50 >= data.total}
-            onClick={() => setOffset((v) => v + 50)}
-          >
-            Next
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
-      </div>
+      <WorkOffsetPagination busy={!!(loading)} total={data.total} offset={offset} size={workPageSize} previousDisabled={!!(loading || offset === 0)} nextDisabled={!!(loading || offset + workPageSize >= data.total)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
       {!editor &&
         (detailLoading ? (
           <Skeleton className="h-48 w-full" />

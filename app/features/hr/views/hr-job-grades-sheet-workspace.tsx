@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CreateHrJobGradeRequest, HrJobGradeDirectory } from "@nexora/contracts";
@@ -269,7 +270,7 @@ export function HrJobGradesSheetWorkspace() {
       ) : (
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="overflow-x-auto">
-            <table className="min-w-225 w-full text-sm">
+            <WorkTable tableId="app/features/hr/views/hr-job-grades-sheet-workspace:1" className="min-w-225 w-full text-sm">
               <thead className="border-b border-border bg-muted/60">
                 <tr>
                   <th className="px-4 py-3 text-left">Level</th>
@@ -321,7 +322,7 @@ export function HrJobGradesSheetWorkspace() {
                   </tr>
                 ) : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         </div>
       )}

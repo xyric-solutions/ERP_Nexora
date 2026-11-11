@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useEffect, useMemo, useState } from "react";
@@ -221,7 +223,7 @@ export function HrEmployeeContactsWorkspace({
       {employeeId && contactState === "ready" && (
         <div className="grid gap-4 ">
           <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-            <table className="w-full min-w-150 text-left text-sm">
+            <WorkTable tableId="app/features/hr/views/hr-employee-contacts-workspace:1" className="w-full min-w-150 text-left text-sm">
               <thead className="border-b bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">Channel</th>
@@ -256,7 +258,7 @@ export function HrEmployeeContactsWorkspace({
                   </tr>
                 )}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           <HrRecordDrawer
             title="Add contact"

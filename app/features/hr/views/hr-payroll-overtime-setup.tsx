@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useMemo, useRef, useState } from "react";
 import { Plus, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +28,7 @@ type Form = {
 };
 const label = (v: string) => v.replaceAll("_", " ");
 export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; onDate: string }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const { api, csrfToken, session } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]),
     permissions = session?.user.permissions ?? [],
@@ -38,7 +42,7 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false);
-  const query: HrOvertimeMoneyQuery = { company_id: company, on_date: onDate, section, search, limit: 25, offset },
+  const query: HrOvertimeMoneyQuery = { company_id: company, on_date: onDate, section, search, limit: workPageSize, offset },
     enabled = company && (section === "policies" ? canPolicy : canArrangement),
     state = useAttendanceRead(enabled ? JSON.stringify([query, revision]) : null, () =>
       client.overtimeMoneyWorkspace(query),
@@ -333,28 +337,8 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
           ))}
         </div>
       )}
-      {data && data.total > 25 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <span>
-            {offset + 1}–{Math.min(offset + 25, data.total)} of {data.total}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={!offset || state.loading}
-              onClick={() => setOffset((n) => Math.max(0, n - 25))}
-            >
-              Previous overtime
-            </Button>
-            <Button
-              variant="outline"
-              disabled={offset + 25 >= data.total || state.loading}
-              onClick={() => setOffset((n) => n + 25)}
-            >
-              Next overtime
-            </Button>
-          </div>
-        </div>
+      {data && (
+        <WorkOffsetPagination busy={!!(state.loading)} total={data.total} offset={offset} size={workPageSize} previousDisabled={!!(!offset || state.loading)} nextDisabled={!!(offset + workPageSize >= data.total || state.loading)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((n) => Math.max(0, n - workPageSize))} onNext={() => setOffset((n) => n + workPageSize)} />
       )}
       {data?.options.truncated && (
         <p className="text-xs text-muted-foreground">
@@ -382,7 +366,7 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
         notice={notice}
       >
         {form && (
-          <form onSubmit={save} className="grid min-w-0 gap-4">
+          <WorkForm onSubmit={save} className="grid min-w-0 gap-4">
             {error && (
               <p role="alert" className="text-sm text-destructive">
                 {error}
@@ -577,7 +561,7 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
                 </Button>
               </>
             )}
-          </form>
+          </WorkForm>
         )}
       </HrRecordDrawer>
     </section>

@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -330,7 +331,7 @@ function ReportDetail({ context, onNavigate, onAction }: ReportsWorkspaceProps) 
 
       <section className="nx-report-workspace__table">
         <header><div><span>Report detail</span><h2>Source-level records</h2></div><div><Input aria-label="Search report results" placeholder="Search results..." /><Button variant="outline" type="button" onClick={() => onAction("Columns", context.pageLabel)}>Columns</Button></div></header>
-        <div className="nx-report-workspace__table-scroll"><table><thead><tr><th>Date</th><th>Document</th><th>Customer / account</th><th>Description</th><th className="amount">Gross value</th><th className="amount">Outstanding</th><th>Status</th></tr></thead><tbody>{rows.map((row) => <tr key={row[1]} onClick={() => onAction("Drill down", row[1])}><td>{row[0]}</td><td><button type="button" onClick={(event) => { event.stopPropagation(); onAction("View source transaction", row[1]); }}>{row[1]}</button></td><td>{row[2]}</td><td>{row[3]}</td><td className="amount">{row[4]}</td><td className="amount">{row[5]}</td><td><span data-status={row[6].toLowerCase().replace(" ", "-")}>{row[6]}</span></td></tr>)}</tbody></table></div>
+        <div className="nx-report-workspace__table-scroll"><WorkTable tableId="app/features/reports/views/reports-workspace:1"><thead><tr><th>Date</th><th>Document</th><th>Customer / account</th><th>Description</th><th className="amount">Gross value</th><th className="amount">Outstanding</th><th>Status</th></tr></thead><tbody>{rows.map((row) => <tr key={row[1]} onClick={() => onAction("Drill down", row[1])}><td>{row[0]}</td><td><button type="button" onClick={(event) => { event.stopPropagation(); onAction("View source transaction", row[1]); }}>{row[1]}</button></td><td>{row[2]}</td><td>{row[3]}</td><td className="amount">{row[4]}</td><td className="amount">{row[5]}</td><td><span data-status={row[6].toLowerCase().replace(" ", "-")}>{row[6]}</span></td></tr>)}</tbody></WorkTable></div>
         <footer><span>Showing 1–6 of 128 records</span><div><Button variant="outline" type="button" disabled>Previous</Button><b>1</b><Button variant="outline" type="button" onClick={() => onAction("Next page", context.pageLabel)}>Next</Button></div></footer>
       </section>
     </div>

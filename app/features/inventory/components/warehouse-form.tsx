@@ -1,4 +1,6 @@
 "use client";
+import { WorkForm, WorkFormLayout } from "@/shared/ui/work-form";
+
 import { useCallback, useState } from "react";
 import { warehouseInputSchema, warehouseDraftSchema, type WarehouseInput } from "@nexora/contracts";
 import { useSession } from "@/lib/session/session-provider";
@@ -51,10 +53,10 @@ export function WarehouseForm({
   });
   const change = <K extends keyof WarehouseInput>(key: K, value: WarehouseInput[K]) =>
     form.change((current) => ({ ...current, [key]: value }));
-  if (form.loading) return <p role="status">Loading warehouse…</p>;
+  if (form.loading) return <WorkFormLayout><p role="status">Loading warehouse…</p></WorkFormLayout>;
   if (form.loadFailed)
     return (
-      <Alert variant="destructive">
+      <WorkFormLayout><Alert variant="destructive">
         <AlertDescription>
           {form.error}
           <div className="mt-3 flex gap-2">
@@ -66,10 +68,10 @@ export function WarehouseForm({
             </Button>
           </div>
         </AlertDescription>
-      </Alert>
+      </Alert></WorkFormLayout>
     );
   return (
-    <form
+    <WorkForm
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
@@ -204,6 +206,6 @@ export function WarehouseForm({
           ) : null}
         </div>
       </footer>
-    </form>
+    </WorkForm>
   );
 }

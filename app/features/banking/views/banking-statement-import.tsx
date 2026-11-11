@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -574,7 +575,7 @@ export function BankingStatementImport({
 
       {!detail ? (
         <div className="overflow-x-auto rounded-lg border border-border bg-card">
-          <table className="w-full min-w-[1080px] border-collapse text-sm">
+          <WorkTable tableId="app/features/banking/views/banking-statement-import:1" className="w-full min-w-[1080px] border-collapse text-sm">
             <thead className="bg-primary text-primary-foreground">
               <tr>
                 <th className="px-3 py-3 text-left font-medium">Date</th>
@@ -595,7 +596,7 @@ export function BankingStatementImport({
                 </td>
               </tr>
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       ) : null}
 
@@ -827,7 +828,7 @@ export function BankingStatementImport({
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-border bg-card">
-            <table className="w-full min-w-[1180px] border-collapse text-sm">
+            <WorkTable tableId="app/features/banking/views/banking-statement-import:2" className="w-full min-w-[1180px] border-collapse text-sm">
               <thead className="bg-primary text-primary-foreground">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">Include</th>
@@ -948,7 +949,7 @@ export function BankingStatementImport({
                   })
                 )}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
 
           <Alert>

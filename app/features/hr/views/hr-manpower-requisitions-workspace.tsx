@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -300,7 +302,7 @@ export function HrManpowerRequisitionsWorkspace() {
       ) : (
         <div className="grid min-w-0 items-start gap-4 ">
           <div className="relative min-w-0 overflow-x-auto rounded-lg border bg-card border-border">
-            <table className="w-full min-w-210 text-sm">
+            <WorkTable tableId="app/features/hr/views/hr-manpower-requisitions-workspace:1" className="w-full min-w-210 text-sm">
               <thead className="border-b bg-muted/60 border-border">
                 <tr>
                   <th className="px-4 py-3 text-left">Reference</th>
@@ -364,7 +366,7 @@ export function HrManpowerRequisitionsWorkspace() {
                   </tr>
                 ) : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           {editor ? (
             <HrRecordDrawer

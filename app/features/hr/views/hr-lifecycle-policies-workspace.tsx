@@ -1,4 +1,7 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { HrEmploymentPolicyUpgrades } from "./hr-employment-policy-upgrades";
 
 import { useEffect, useMemo, useState } from "react";
@@ -334,7 +337,7 @@ export function HrLifecyclePoliciesWorkspace() {
       {state === "ready" && companies.length > 0 && (
         <div className="grid min-w-0 grid-cols-1 gap-4">
           <div className="min-w-0 w-full overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <WorkTable tableId="app/features/hr/views/hr-lifecycle-policies-workspace:1" className="w-full min-w-[760px] text-left text-sm">
               <thead className="border-b bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">Policy</th>
@@ -418,7 +421,7 @@ export function HrLifecyclePoliciesWorkspace() {
                   </tr>
                 )}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         </div>
       )}
@@ -437,7 +440,7 @@ export function HrLifecyclePoliciesWorkspace() {
         onClose={() => setActionPolicy(null)}
       >
         {actionPolicy && (
-          <form
+          <WorkForm
             className="grid min-w-0 gap-4"
             onSubmit={(event) => {
               event.preventDefault();
@@ -511,7 +514,7 @@ export function HrLifecyclePoliciesWorkspace() {
                     ? "Approve policy"
                     : "Activate policy"}
             </Button>
-          </form>
+          </WorkForm>
         )}
       </HrRecordDrawer>
       <HrRecordDrawer

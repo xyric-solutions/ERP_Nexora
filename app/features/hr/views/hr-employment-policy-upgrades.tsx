@@ -1,4 +1,8 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +24,7 @@ export function HrEmploymentPolicyUpgrades({
   companyId: string;
   policyRevision: number;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const { api, session, csrfToken } = useSession(),
     client = new HrApiClient(api),
     canRead =
@@ -41,7 +46,7 @@ export function HrEmploymentPolicyUpgrades({
     [opened, setOpened] = useState("");
   const guard = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null),
-    query = { company_id: companyId, search: filter, limit: 25, offset },
+    query = { company_id: companyId, search: filter, limit: workPageSize, offset },
     result = useAttendanceRead(canRead && companyId ? JSON.stringify([query, revision, policyRevision]) : null, () =>
       client.policyUpgradeWorkspace(query),
     ),
@@ -107,7 +112,7 @@ export function HrEmploymentPolicyUpgrades({
           </Button>
         )}
       </div>
-      <form
+      <WorkForm
         className="flex flex-wrap items-end gap-3"
         onSubmit={(e) => {
           e.preventDefault();
@@ -138,7 +143,7 @@ export function HrEmploymentPolicyUpgrades({
         >
           Refresh upgrades
         </Button>
-      </form>
+      </WorkForm>
       {(error || result.error) && (
         <p role="alert" className="break-words text-sm text-destructive">
           {error || result.error}
@@ -166,7 +171,7 @@ export function HrEmploymentPolicyUpgrades({
           notice={notice}
           onClose={() => setRequesting(false)}
         >
-          <form
+          <WorkForm
             className="space-y-4 rounded-lg border border-border p-4"
             aria-label="Employment policy upgrade request"
             onSubmit={(e) => {
@@ -259,13 +264,13 @@ export function HrEmploymentPolicyUpgrades({
                 Cancel preparation
               </Button>
             </div>
-          </form>
+          </WorkForm>
         </HrRecordDrawer>
       )}
       {w && (
         <>
           <div className="relative max-w-full overflow-x-auto">
-            <table className="w-full min-w-[700px] text-left text-sm">
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-employment-policy-upgrades:1" className="w-full min-w-[700px] text-left text-sm">
               <caption className="sr-only">Employment policy upgrades and independent decisions</caption>
               <thead className="border-b text-muted-foreground">
                 <tr>
@@ -319,40 +324,18 @@ export function HrEmploymentPolicyUpgrades({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           {!w.items.length && (
             <p className="text-sm text-muted-foreground">
               No matching upgrades. Existing employment continues under its current approved policy.
             </p>
           )}
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <span>
-              {w.total ? offset + 1 : 0}–{Math.min(offset + 25, w.total)} of {w.total}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={offset === 0 || busy || requesting || !!decision}
-                onClick={() => setOffset((v) => Math.max(0, v - 25))}
-              >
-                Previous upgrades
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={offset + 25 >= w.total || busy || requesting || !!decision}
-                onClick={() => setOffset((v) => v + 25)}
-              >
-                Next upgrades
-              </Button>
-            </div>
-          </div>
+          <WorkOffsetPagination busy={!!(busy || requesting || decision)} total={w.total} offset={offset} size={workPageSize} previousDisabled={!!(offset === 0 || busy || requesting || !!decision)} nextDisabled={!!(offset + workPageSize >= w.total || busy || requesting || !!decision)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
         </>
       )}
       {decision && (
-        <form
+        <WorkForm
           className="space-y-4 rounded-lg border border-border p-4"
           aria-label="Policy upgrade decision"
           onSubmit={(e) => {
@@ -400,7 +383,7 @@ export function HrEmploymentPolicyUpgrades({
             </Button>
           </div>
           <UpgradeDetail record={decision.record} />
-        </form>
+        </WorkForm>
       )}
       {r && !decision && (
         <div className="space-y-3 rounded-lg border border-border p-4">

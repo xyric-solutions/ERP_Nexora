@@ -1,4 +1,7 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { payrollNavigationContext } from "../components/payroll-navigation";
 import { useMemo, useRef, useState } from "react";
 import { RefreshCw, ArrowRight, ShieldCheck, FileCheck2 } from "lucide-react";
@@ -262,7 +265,7 @@ export function HrPayrollJournalWorkspace({
               ))}
             </dl>
             <div className="mt-5 overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[580px] border-collapse text-sm">
+              <WorkTable tableId="app/features/hr/views/hr-payroll-journal-workspace:1" className="w-full min-w-[580px] border-collapse text-sm">
                 <thead className="bg-muted/60 text-xs text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 text-left">Account</th>
@@ -301,7 +304,7 @@ export function HrPayrollJournalWorkspace({
                     </tr>
                   )}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
             {shown.blocked.length > 0 && shown.proposal?.state !== "posted" && (
               <div
@@ -357,7 +360,7 @@ export function HrPayrollJournalWorkspace({
               </div>
             )}
             {review && (
-              <form
+              <WorkForm
                 className="mt-5 grid gap-4 rounded-lg border border-primary/30 bg-muted/20 p-4"
                 onSubmit={act}
                 aria-label="Confirm Payroll journal action"
@@ -466,7 +469,7 @@ export function HrPayrollJournalWorkspace({
                     Cancel review
                   </Button>
                 </div>
-              </form>
+              </WorkForm>
             )}
           </article>
           <details className={panel}>

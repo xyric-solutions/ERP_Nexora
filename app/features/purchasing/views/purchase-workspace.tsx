@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ProcurementCompanies, ProcurementOptions, PurchaseDocument, Supplier } from "@nexora/contracts";
@@ -330,7 +331,7 @@ export function PurchaseWorkspace({
           aria-busy={busy}
         >
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] border-collapse text-sm">
+            <WorkTable continuation={{cursor:cursor,hasMore:!!(cursor),busy:!!(busy),loadMore:() => void more()}} tableId="app/features/purchasing/views/purchase-workspace:1" className="w-full min-w-[760px] border-collapse text-sm">
               <thead className="bg-muted text-left">
                 <tr>
                   {["Code", "Date", "Supplier", "Source", "Amount", "Status", "Actions"].map((label) => (
@@ -401,15 +402,9 @@ export function PurchaseWorkspace({
                   </tr>
                 ) : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
-          {cursor ? (
-            <div className="border-t border-border p-3">
-              <Button variant="outline" disabled={busy} onClick={() => void more()}>
-                Load more records
-              </Button>
-            </div>
-          ) : null}
+
         </section>
       ) : null}
       {!editing && !supplierPage && ["payment", "multi_payment"].includes(step.kind) ? (
