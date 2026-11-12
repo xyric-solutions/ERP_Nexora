@@ -37400,6 +37400,100 @@
         }
       }
     },
+    "/auth/change-password": {
+      "post": {
+        "operationId": "changePassword",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed; every existing session was ended and a fresh server-side session is returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/select-tenant": {
       "post": {
         "operationId": "selectTenant",
@@ -37831,6 +37925,58 @@
             }
           },
           "403": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/modules": {
+      "get": {
+        "operationId": "adminModules",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Administration module catalogue and access level descriptions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminModuleCatalogueResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
             "description": "Safe structured error",
             "content": {
               "application/problem+json": {
@@ -81549,6 +81695,124 @@
         "required": [
           "ticket",
           "new_password"
+        ],
+        "additionalProperties": false
+      },
+      "ChangePasswordRequest": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "new_password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 1024
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "additionalProperties": false
+      },
+      "AdminModuleCatalogueResponse": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "modules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "enum": [
+                    "banking",
+                    "sales",
+                    "purchases",
+                    "inventory",
+                    "costing",
+                    "finance",
+                    "tax",
+                    "operations",
+                    "fleet",
+                    "manufacturing",
+                    "quality",
+                    "crm",
+                    "projects",
+                    "resources",
+                    "support",
+                    "hr",
+                    "assets",
+                    "expenses",
+                    "documents",
+                    "budget",
+                    "reports",
+                    "portals",
+                    "configuration",
+                    "approvals",
+                    "notifications",
+                    "integrations",
+                    "ai",
+                    "audit",
+                    "migration",
+                    "mobile"
+                  ]
+                },
+                "label": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "live": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "label",
+                "live"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "levels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "level": {
+                  "type": "string",
+                  "enum": [
+                    "view",
+                    "user",
+                    "admin"
+                  ]
+                },
+                "label": {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 500
+                }
+              },
+              "required": [
+                "level",
+                "label",
+                "description"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "modules",
+          "levels"
         ],
         "additionalProperties": false
       },

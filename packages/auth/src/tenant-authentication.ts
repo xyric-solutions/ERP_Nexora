@@ -1,6 +1,12 @@
 import { createHmac, randomBytes } from "node:crypto";
 
-import { hashPassword, passwordHashNeedsUpgrade, verifyCompatiblePassword } from "./passwords.js";
+import {
+  hashPassword,
+  passwordHashNeedsUpgrade,
+  PasswordPolicyError,
+  validatePassword,
+  verifyCompatiblePassword,
+} from "./passwords.js";
 import type { TenantSecurityPolicyAuthority } from "./security-policy.js";
 
 export interface LoginThrottleKey {
@@ -88,7 +94,26 @@ export interface TenantAuthenticationRepository {
     correlationId: string;
     changedAt: Date;
   }): Promise<boolean>;
+  /**
+   * Replaces an active user's password after the current password was verified. Must succeed only when the stored
+   * credential still has `expectedPasswordVersion`; bumps the password and session versions (ending every existing
+   * session) and appends an audit entry in the same transaction. Optional so older test doubles stay valid.
+   */
+  changePassword?(input: {
+    tenantId: string;
+    userId: string;
+    expectedPasswordVersion: number;
+    argon2Hash: string;
+    correlationId: string;
+    sourceReference: string;
+    changedAt: Date;
+  }): Promise<boolean>;
 }
+
+export type SelfServicePasswordChangeResult =
+  | { status: "changed"; account: AuthenticatedAccount }
+  | { status: "invalid_current_password" }
+  | { status: "throttled"; retryAfterSeconds: number };
 
 export interface LoginThrottleStore {
   findBlockedUntil(keys: readonly LoginThrottleKey[], now: Date): Promise<Date | null>;
@@ -306,6 +331,81 @@ export class TenantAuthenticationService {
     });
     if (!changed) return null;
     return this.repository.loadAuthenticatedAccount(input.tenantId, input.userId, this.clock());
+  }
+
+  /**
+   * Self-service password change for a signed-in user. Verifies the current password (throttled per user), applies
+   * the tenant password policy to the new one, stores a fresh Argon2id hash and invalidates every existing session by
+   * bumping the user's session version. Throws `PasswordPolicyError` when the new password breaks the policy.
+   */
+  async changePassword(input: {
+    tenantId: string;
+    userId: string;
+    currentPassword: string;
+    newPassword: string;
+    correlationId: string;
+  }): Promise<SelfServicePasswordChangeResult> {
+    const changePassword = this.repository.changePassword?.bind(this.repository);
+    if (!changePassword) throw new Error("PASSWORD_CHANGE_UNAVAILABLE");
+    const now = this.clock();
+    const keys = [
+      throttleKey(this.throttleSecret, "identifier", `password-change\0${input.tenantId}\0${input.userId}`),
+    ] as const;
+    const blockedUntil = await this.throttleStore.findBlockedUntil(keys, now);
+    if (blockedUntil) return this.throttledChange(blockedUntil, now);
+
+    const [credential, account] = await Promise.all([
+      this.repository.findPasswordCredential(input.tenantId, input.userId),
+      this.repository.loadAuthenticatedAccount(input.tenantId, input.userId, now),
+    ]);
+    const currentMatches = await verifyCompatiblePassword(
+      credential?.encodedPasswordHash ?? this.dummyPasswordHash,
+      input.currentPassword,
+    );
+    if (!credential || credential.status !== "active" || !account || !currentMatches) {
+      const newBlockedUntil = await this.throttleStore.recordFailure(keys, now, this.throttlePolicy);
+      return newBlockedUntil ? this.throttledChange(newBlockedUntil, now) : { status: "invalid_current_password" };
+    }
+    await this.throttleStore.clear(keys);
+
+    const policy = await this.securityPolicyAuthority?.loadEffectiveSecurityPolicy(input.tenantId);
+    validatePassword(
+      input.newPassword,
+      account.email,
+      policy
+        ? {
+            minimumLength: policy.passwordMinimumLength,
+            requireUppercase: policy.passwordRequireUppercase,
+            requireLowercase: policy.passwordRequireLowercase,
+            requireNumber: policy.passwordRequireNumber,
+            requireSymbol: policy.passwordRequireSymbol,
+          }
+        : undefined,
+    );
+    if (await verifyCompatiblePassword(credential.encodedPasswordHash, input.newPassword)) {
+      throw new PasswordPolicyError(["PASSWORD_REUSED"]);
+    }
+
+    const changed = await changePassword({
+      tenantId: input.tenantId,
+      userId: input.userId,
+      expectedPasswordVersion: credential.passwordVersion,
+      argon2Hash: await hashPassword(input.newPassword),
+      correlationId: input.correlationId,
+      sourceReference: "self_service_password_change",
+      changedAt: this.clock(),
+    });
+    if (!changed) return { status: "invalid_current_password" };
+    const refreshed = await this.repository.loadAuthenticatedAccount(input.tenantId, input.userId, this.clock());
+    if (!refreshed) return { status: "invalid_current_password" };
+    return { status: "changed", account: refreshed };
+  }
+
+  private throttledChange(blockedUntil: Date, now: Date): SelfServicePasswordChangeResult {
+    return {
+      status: "throttled",
+      retryAfterSeconds: Math.max(1, Math.ceil((blockedUntil.getTime() - now.getTime()) / 1_000)),
+    };
   }
 
   private throttled(blockedUntil: Date, now: Date): TenantPasswordAuthenticationResult {

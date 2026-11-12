@@ -23,6 +23,8 @@ import {
   type TenantSelectionApiService,
   type TenantSessionApiService,
 } from "./modules/auth/tenant-router.js";
+import { createAdministrationCatalogueRouter, createAdministrationRouter } from "./modules/administration/router.js";
+import type { AdministrationCredentialMailer, AdministrationRepository } from "./modules/administration/repository.js";
 import { createJobsRouter, type JobPublisher } from "./modules/jobs/router.js";
 import {
   createBankingRouter,
@@ -74,6 +76,12 @@ export interface AppDependencies {
   /** Lists the companies a user can choose after sign-in. */
   sessionCompanies?: SessionCompanyApiService;
   securityRepository?: SecurityAdministrationApiRepository;
+  /**
+   * Administration persistence (plan Phase 2, not built yet). Without it only `GET /api/v1/admin/modules` is
+   * mounted; with it the full `/api/v1/admin` API is.
+   */
+  administrationRepository?: AdministrationRepository;
+  administrationMailer?: AdministrationCredentialMailer;
   invalidateSecurityPolicy?: (tenantId: string) => void;
   bankingRepository?: BankingRepository;
   bankingPaymentRepository?: BankingPaymentRepository;
@@ -491,6 +499,24 @@ export function createApp(dependencies: AppDependencies): Express {
           ? { invalidateSecurityPolicy: dependencies.invalidateSecurityPolicy }
           : {}),
       }),
+    );
+  }
+  if (dependencies.authService && dependencies.sessionService) {
+    const administration = {
+      authentication: dependencies.authService,
+      sessions: dependencies.sessionService,
+      secureCookies: dependencies.config.nodeEnv === "production",
+      allowedOrigins: dependencies.config.allowedOrigins,
+    };
+    app.use(
+      "/api/v1/admin",
+      dependencies.administrationRepository
+        ? createAdministrationRouter({
+            ...administration,
+            repository: dependencies.administrationRepository,
+            ...(dependencies.administrationMailer ? { mailer: dependencies.administrationMailer } : {}),
+          })
+        : createAdministrationCatalogueRouter(administration),
     );
   }
   if (dependencies.hrRepository && dependencies.authService && dependencies.sessionService) {

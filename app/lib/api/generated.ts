@@ -61,6 +61,8 @@ import type {
   ChangeReferenceMasterStatusRequest,
   AuthenticationCompletionResponse,
   ChangeInitialPasswordRequest,
+  ChangePasswordRequest,
+  AdminModuleCatalogueResponse,
   HealthStatus,
   ImportChartTemplateRequest,
   PublishChartTemplateRequest,
@@ -533,6 +535,7 @@ export class NexoraApiClient {
           "/api/v1/auth/select-tenant",
           "/api/v1/auth/session/rotate",
           "/api/v1/auth/change-initial-password",
+          "/api/v1/auth/change-password",
         ].includes(path)
       )
         this.authenticationGeneration++;
@@ -564,6 +567,13 @@ export class NexoraApiClient {
   changeInitialPassword(payload: ChangeInitialPasswordRequest): Promise<SessionResponse> {
     return this.request("/api/v1/auth/change-initial-password", { method: "POST", body: JSON.stringify(payload) });
   }
+  changePassword(payload: ChangePasswordRequest, csrfToken: string): Promise<SessionResponse> {
+    return this.request("/api/v1/auth/change-password", {
+      method: "POST",
+      headers: { "x-csrf-token": csrfToken },
+      body: JSON.stringify(payload),
+    });
+  }
   cancelTenantSelection(payload: CancelTenantSelectionRequest): Promise<void> {
     return this.request("/api/v1/auth/cancel-tenant-selection", { method: "POST", body: JSON.stringify(payload) });
   }
@@ -591,6 +601,9 @@ export class NexoraApiClient {
   }
   logoutAll(csrfToken: string): Promise<void> {
     return this.request("/api/v1/auth/logout-all", { method: "POST", headers: { "x-csrf-token": csrfToken } });
+  }
+  adminModules(): Promise<AdminModuleCatalogueResponse> {
+    return this.request("/api/v1/admin/modules");
   }
   listSecurityPermissions(): Promise<SecurityPage> {
     return this.request("/api/v1/security/permissions");

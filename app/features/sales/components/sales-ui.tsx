@@ -11,13 +11,13 @@ import { cn } from "cn";
 type Tone = "success" | "warning" | "danger" | "info" | "purple" | "neutral";
 
 const STATUS_TONE: Record<string, Tone> = {
-  Open: "info", Saved: "neutral", Ordered: "success", Confirmed: "info", Packed: "info", Issued: "success",
+  Open: "info", Saved: "neutral", Ordered: "success", Confirmed: "info", Issued: "success",
   Delivered: "purple", Invoiced: "success", Unpaid: "warning", "Partially paid": "warning", Overdue: "danger",
   Paid: "success", Recorded: "success", Active: "success", Inactive: "neutral", Paused: "neutral",
   "Pending approval": "warning", Approved: "success", Rejected: "danger", "On credit hold": "danger",
   "Not invoiced": "warning", Draft: "neutral", "Prototype only": "neutral", "Changes requested": "warning",
   "Not submitted": "neutral", "Not started": "neutral", "Not applicable": "neutral", "Ready to confirm": "info",
-  "Ready for delivery": "info", "Ready to invoice": "info", "Ready to pick": "info", "Ready to deliver": "info",
+  "Ready for delivery": "info", "Ready to invoice": "info", "Ready to deliver": "info",
   Posted: "success", Allocated: "success", "Partly allocated": "warning", "On account": "info", Returned: "purple",
   "Partly returned": "warning", Outstanding: "warning",
 };

@@ -13,11 +13,9 @@ import { useSalesState } from "../model/sales-store";
 import { approvalOf, approverName, deliveryAddress, documentTotal, findCustomer, findDocument, fulfilmentStage } from "../model/sales-workflow";
 import type { SalesDocument, SalesState } from "../model/sales-types";
 
-type DeliveryTab = "pick" | "packed" | "done";
+type DeliveryTab = "pending" | "done";
 
-const NEXT_ACTION: Record<"pick" | "packed", string> = { pick: "Pick & Pack", packed: "Save Delivery" };
-
-function pendingColumns(state: SalesState, tab: "pick" | "packed"): ListColumn<SalesDocument>[] {
+function pendingColumns(state: SalesState): ListColumn<SalesDocument>[] {
   const today = todayIso();
   const source = (order: SalesDocument) => {
     const quotation = findDocument(state, "quotation", order.links.quotation);
@@ -39,10 +37,9 @@ function pendingColumns(state: SalesState, tab: "pick" | "packed"): ListColumn<S
     },
     { id: "warehouse", label: "Ship from", cell: (order) => order.warehouse },
     { id: "items", label: "Items", cell: (order) => order.lines.map((item, index) => <span key={`${item.sku}-${index}`} className="block">{item.qty} × {item.desc}</span>) },
-    { id: "packed", label: "Packed", optional: tab === "pick", cell: (order) => (order.pickPack ? `${order.pickPack.packages} pkg · ${order.pickPack.packedBy}` : "—") },
     { id: "amount", label: "Amount", align: "right", cell: (order) => moneyWhole(documentTotal(order), docCurrency(order)) },
     { id: "stage", label: "Fulfilment", cell: (order) => <StatusPill status={fulfilmentStage(order)} /> },
-    { id: "next", label: "Next action", required: true, cell: () => <span className="text-xs font-semibold whitespace-nowrap text-[var(--nx-brand)]">{NEXT_ACTION[tab]} →</span> },
+    { id: "next", label: "Next action", required: true, cell: () => <span className="text-xs font-semibold whitespace-nowrap text-[var(--nx-brand)]">Confirm Delivery →</span> },
   ];
 }
 
@@ -73,18 +70,17 @@ function deliveredColumns(state: SalesState, nav: SalesNav, createInvoice: (orde
 }
 
 /**
- * Confirmed orders arrive here. Click an order to pick, pack and save its
- * delivery in the side panel, then create the invoice. No approvals. The
- * order status stays Confirmed; fulfilment shows Packed / Delivered / Invoiced.
+ * Confirmed orders arrive here. Items are delivered directly: click an order
+ * to confirm its delivery in the side panel, then create the invoice. No
+ * approvals. The order status stays Confirmed; fulfilment shows Delivered / Invoiced.
  */
 export function DeliveryView({ nav }: { nav: SalesNav }) {
   const state = useSalesState();
-  const [tab, setTab] = useState<DeliveryTab>("pick");
+  const [tab, setTab] = useState<DeliveryTab>("pending");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const confirmed = state.order.filter((order) => order.status === "Confirmed");
-  const toPick = confirmed.filter((order) => fulfilmentStage(order) === "Not started");
-  const packed = confirmed.filter((order) => fulfilmentStage(order) === "Packed");
+  const toDeliver = confirmed.filter((order) => fulfilmentStage(order) === "Not started");
   const delivered = state.order
     .filter((order) => order.delivery)
     .sort((a, b) => (b.delivery?.no ?? "").localeCompare(a.delivery?.no ?? "", undefined, { numeric: true }));
@@ -93,13 +89,13 @@ export function DeliveryView({ nav }: { nav: SalesNav }) {
   // Opens the invoice form prefilled from the order; nothing is saved until the form is saved.
   const createInvoice = (order: SalesDocument) => nav.openNew("invoices", order.code);
 
-  const pendingCols = useMemo(() => pendingColumns(state, tab === "packed" ? "packed" : "pick"), [state, tab]);
+  const pendingCols = useMemo(() => pendingColumns(state), [state]);
   const doneCols = deliveredColumns(state, nav, createInvoice);
-  const pendingView = useListView(`delivery.${tab === "packed" ? "packed" : "pick"}`, pendingCols);
+  const pendingView = useListView("delivery.pending", pendingCols);
   const doneView = useListView("delivery.done", doneCols);
   const view = tab === "done" ? doneView : pendingView;
 
-  const source = tab === "pick" ? toPick : tab === "packed" ? packed : delivered;
+  const source = tab === "pending" ? toDeliver : delivered;
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return source.filter((order) => {
@@ -128,25 +124,22 @@ export function DeliveryView({ nav }: { nav: SalesNav }) {
   );
 
   const empty =
-    tab === "pick"
-      ? <EmptyState title="Nothing to pick" hint="Orders appear here once they are confirmed." />
-      : tab === "packed"
-        ? <EmptyState title="Nothing packed and waiting" hint="Picked and packed orders appear here until delivered." />
-        : <EmptyState title="No deliveries yet" />;
+    tab === "pending"
+      ? <EmptyState title="Nothing to deliver" hint="Orders appear here once they are confirmed." />
+      : <EmptyState title="No deliveries yet" />;
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-3.5 text-foreground">
       <PageHead
-        eyebrow="Sales · Pick, Pack & Delivery"
-        title="Pick, Pack & Delivery"
+        eyebrow="Sales · Delivery"
+        title="Delivery"
         status={<StatusPill status="Prototype only" />}
-        description="Confirmed sales orders appear here. Click an order to pick and pack it, save the delivery and create the invoice once delivered. No further approval is needed."
+        description="Confirmed sales orders appear here. Click an order to confirm its delivery, then create the invoice once delivered. No further approval is needed."
         actions={<ListViewMenu view={view} />}
       />
       <MetricTiles
         metrics={[
-          { label: "Ready to pick & pack", value: toPick.length, hint: "Confirmed orders", onSelect: () => setTab("pick"), selected: tab === "pick" },
-          { label: "Packed", value: packed.length, hint: "Next: Save Delivery", onSelect: () => setTab("packed"), selected: tab === "packed" },
+          { label: "Ready to deliver", value: toDeliver.length, hint: "Next: Confirm Delivery", onSelect: () => setTab("pending"), selected: tab === "pending" },
           { label: "Delivered", value: delivered.length, hint: "All deliveries", onSelect: () => setTab("done"), selected: tab === "done" },
           { label: "Delivered, not invoiced", value: notInvoiced, hint: "Next: Create Invoice" },
         ]}
@@ -154,8 +147,7 @@ export function DeliveryView({ nav }: { nav: SalesNav }) {
       <Card>
         <ListToolbar>
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="View">
-            {chip("pick", `Ready to pick & pack (${toPick.length})`)}
-            {chip("packed", `Packed (${packed.length})`)}
+            {chip("pending", `Ready to deliver (${toDeliver.length})`)}
             {chip("done", `Delivered (${delivered.length})`)}
           </div>
           <SearchBox value={query} onChange={setQuery} placeholder="Search order, delivery, customer or invoice" />

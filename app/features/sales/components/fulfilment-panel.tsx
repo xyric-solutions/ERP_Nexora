@@ -1,18 +1,17 @@
 "use client";
 
 /**
- * Pick, Pack & Delivery panel for one sales order (prototype).
+ * Delivery panel for one sales order (prototype).
  *
- * One right-side panel takes an approved order through pick, pack and
- * delivery, then offers Create Invoice, which opens the invoice form
- * prefilled from the order. No step here asks for approval:
- * Management approval happens once, on the quotation.
+ * Items are delivered directly, so there is no separate pick & pack. The
+ * right-side panel confirms the delivery of a confirmed order, then offers
+ * Create Invoice, which opens the invoice form prefilled from the order. No
+ * step here asks for approval: Management approval happens once, on the quotation.
  */
 
 import { useState, type ReactNode } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "cn";
@@ -24,18 +23,19 @@ import { commitSales, useSalesState } from "../model/sales-store";
 import {
   approvalOf,
   approverName,
+  contextErrors,
+  contextOf,
   deliveryAddress,
   findCustomer,
   findDocument,
   fulfilmentStage,
   nextDeliveryNumber,
   recordDelivery,
-  savePickPack,
-  validatePickPack,
   type DeliveryInput,
   type FieldErrors,
 } from "../model/sales-workflow";
-import type { SalesDocument } from "../model/sales-types";
+import type { SalesContextFields, SalesDocument } from "../model/sales-types";
+import { ProjectLocationFields, ProjectLocationRead } from "./project-location-fields";
 
 export const sidePanelClass = "w-full gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl";
 
@@ -63,10 +63,8 @@ function FulfilmentBody({ order, nav, onClose }: { order: SalesDocument; nav: Sa
   const customer = findCustomer(state, order.customerId);
   const quotation = findDocument(state, "quotation", order.links.quotation);
   const approved = quotation ? approvalOf(quotation) : undefined;
-  const [picked, setPicked] = useState<number[]>(() => (order.pickPack ? order.lines.map((_, index) => index) : []));
-  const [packages, setPackages] = useState(order.pickPack?.packages ?? 1);
-  const [packedBy, setPackedBy] = useState(order.pickPack?.packedBy ?? nav.actor);
-  const [packNotes, setPackNotes] = useState(order.pickPack?.notes ?? "");
+  // The delivery uses the order's project and location by default.
+  const [context, setContext] = useState<SalesContextFields>(() => contextOf(order));
   const [delivery, setDelivery] = useState<DeliveryInput>({
     date: todayIso(),
     warehouse: order.warehouse || SALES_WAREHOUSES[0],
@@ -75,10 +73,12 @@ function FulfilmentBody({ order, nav, onClose }: { order: SalesDocument; nav: Sa
   });
   const [errors, setErrors] = useState<FieldErrors>({});
 
-  const packed = Boolean(order.pickPack);
   const delivered = Boolean(order.delivery);
   const stage = fulfilmentStage(order);
-  const pickInput = { picked, packages, packedBy, notes: packNotes };
+  const chooseContext = (patch: SalesContextFields) => {
+    setContext((current) => ({ ...current, ...patch }));
+    setErrors((current) => ({ ...current, ...Object.fromEntries(Object.keys(patch).map((key) => [key, ""])) }));
+  };
 
   const run = (change: () => string) => {
     try {
@@ -88,32 +88,19 @@ function FulfilmentBody({ order, nav, onClose }: { order: SalesDocument; nav: Sa
     }
   };
 
-  const checkPickPack = () => {
-    const found = validatePickPack(order, pickInput);
-    setErrors(found);
-    return Object.keys(found).length === 0;
-  };
-
-  const savePack = () => {
-    if (!checkPickPack()) return;
-    run(() => {
-      commitSales((sales) => savePickPack(sales, order.code, nav.actor, pickInput));
-      return `${order.code} picked and packed. Next: Save Delivery.`;
-    });
-  };
-
-  const saveDelivery = () => {
-    if (!packed && !checkPickPack()) return;
+  const confirmDelivery = () => {
+    const missing = contextErrors(context);
+    if (Object.keys(missing).length) {
+      setErrors((current) => ({ ...current, ...missing }));
+      return;
+    }
     if (!delivery.date) {
       setErrors((current) => ({ ...current, date: "Enter the delivery date." }));
       return;
     }
     run(() => {
-      const no = commitSales((sales) => {
-        if (!packed) savePickPack(sales, order.code, nav.actor, pickInput);
-        return recordDelivery(sales, order.code, nav.actor, delivery);
-      });
-      return `Delivery ${no} saved. Next: Create Invoice.`;
+      const no = commitSales((sales) => recordDelivery(sales, order.code, nav.actor, { ...delivery, ...context }));
+      return `Delivery ${no} confirmed. Next: Create Invoice.`;
     });
   };
 
@@ -121,11 +108,6 @@ function FulfilmentBody({ order, nav, onClose }: { order: SalesDocument; nav: Sa
   const createInvoice = () => {
     onClose();
     nav.openNew("invoices", order.code);
-  };
-
-  const togglePick = (index: number, checked: boolean) => {
-    setPicked((current) => (checked ? [...new Set([...current, index])] : current.filter((item) => item !== index)));
-    setErrors((current) => ({ ...current, picked: "" }));
   };
 
   return (
@@ -147,59 +129,15 @@ function FulfilmentBody({ order, nav, onClose }: { order: SalesDocument; nav: Sa
           />
         </div>
 
-        <Step index={1} title="Pick items" done={packed}>
-          <ul className="m-0 grid list-none gap-1.5 p-0">
-            {order.lines.map((item, index) => {
-              const id = `pick-${order.code}-${index}`;
-              return (
-                <li key={id} className="flex items-center gap-2.5 rounded border border-border px-3 py-2">
-                  <Checkbox
-                    id={id}
-                    checked={picked.includes(index)}
-                    disabled={packed}
-                    aria-invalid={Boolean(errors.picked) && !picked.includes(index)}
-                    onCheckedChange={(checked) => togglePick(index, Boolean(checked))}
-                  />
-                  <label htmlFor={id} className="flex min-w-0 flex-1 justify-between gap-2 text-[0.8125rem]">
-                    <span className="truncate">{item.desc}</span>
-                    <strong className="whitespace-nowrap tabular-nums">{item.qty} {item.uom}</strong>
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
-          {!packed ? (
-            <div className="flex items-center justify-between gap-2">
-              {errors.picked ? <small className="text-xs font-semibold text-[var(--nx-danger)]">{errors.picked}</small> : <span />}
-              <Button type="button" size="sm" variant="outline" onClick={() => { setPicked(order.lines.map((_, index) => index)); setErrors((current) => ({ ...current, picked: "" })); }}>
-                Pick all
-              </Button>
-            </div>
-          ) : null}
-        </Step>
-
-        <Step index={2} title="Pack" done={packed}>
-          {packed && order.pickPack ? (
-            <p className="m-0 text-[0.8125rem] text-muted-foreground">
-              {order.pickPack.packages} package(s) packed by {order.pickPack.packedBy} · {order.pickPack.at}
-              {order.pickPack.notes ? ` · ${order.pickPack.notes}` : ""}
-            </p>
+        <section className="grid gap-3 border-b border-border px-4 py-4 sm:grid-cols-2" aria-label="Project and location">
+          {delivered && order.delivery ? (
+            <ProjectLocationRead value={order.delivery} />
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Packages" required error={errors.packages}>
-                <Input type="number" min={1} step={1} className="text-right" value={packages} aria-invalid={Boolean(errors.packages)} onChange={(event) => setPackages(Number(event.target.value))} />
-              </Field>
-              <Field label="Packed by" required error={errors.packedBy}>
-                <Input value={packedBy} aria-invalid={Boolean(errors.packedBy)} onChange={(event) => setPackedBy(event.target.value)} />
-              </Field>
-              <Field label="Packing notes" className="sm:col-span-2">
-                <Input value={packNotes} placeholder="Optional" onChange={(event) => setPackNotes(event.target.value)} />
-              </Field>
-            </div>
+            <ProjectLocationFields value={context} errors={errors} onChange={chooseContext} />
           )}
-        </Step>
+        </section>
 
-        <Step index={3} title="Delivery" done={delivered}>
+        <Step index={1} title="Delivery" done={delivered}>
           {delivered && order.delivery ? (
             <KeyValues
               rows={[
@@ -228,7 +166,7 @@ function FulfilmentBody({ order, nav, onClose }: { order: SalesDocument; nav: Sa
                   <Input value={delivery.notes} placeholder="Vehicle, driver or site notes" onChange={(event) => setDelivery({ ...delivery, notes: event.target.value })} />
                 </Field>
               </div>
-              <p className="m-0 text-xs text-muted-foreground">Delivery number {nextDeliveryNumber(state)} is assigned when you save. No approval is needed.</p>
+              <p className="m-0 text-xs text-muted-foreground">Delivery number {nextDeliveryNumber(state)} is assigned when you confirm. No approval is needed.</p>
             </>
           )}
         </Step>
@@ -236,12 +174,7 @@ function FulfilmentBody({ order, nav, onClose }: { order: SalesDocument; nav: Sa
 
       <SheetFooter className="flex-row flex-wrap justify-end border-t border-border bg-muted">
         {order.status !== "Confirmed" ? null : stage === "Not started" ? (
-          <>
-            <Button type="button" variant="outline" onClick={savePack}>Save Pick & Pack</Button>
-            <Button type="button" onClick={saveDelivery}>Save Delivery</Button>
-          </>
-        ) : stage === "Packed" ? (
-          <Button type="button" onClick={saveDelivery}>Save Delivery</Button>
+          <Button type="button" onClick={confirmDelivery}>Confirm Delivery</Button>
         ) : stage === "Delivered" ? (
           <Button type="button" onClick={createInvoice}>Create Invoice</Button>
         ) : order.links.invoice ? (
@@ -252,7 +185,7 @@ function FulfilmentBody({ order, nav, onClose }: { order: SalesDocument; nav: Sa
   );
 }
 
-/** Right-side panel: pick, pack, save delivery, then create the invoice. */
+/** Right-side panel: confirm the delivery, then create the invoice. */
 export function FulfilmentPanel({ orderCode, nav, onClose }: { orderCode: string | null; nav: SalesNav; onClose: () => void }) {
   const state = useSalesState();
   const order = orderCode ? findDocument(state, "order", orderCode) : undefined;
@@ -266,7 +199,7 @@ export function FulfilmentPanel({ orderCode, nav, onClose }: { orderCode: string
                 <SheetTitle className="m-0 font-mono text-lg font-bold">{order.code}</SheetTitle>
                 <StatusPill status={fulfilmentStage(order)} />
               </div>
-              <SheetDescription className="m-0">Pick, pack and deliver this order. Then create the invoice.</SheetDescription>
+              <SheetDescription className="m-0">Confirm the delivery of this order. Then create the invoice.</SheetDescription>
             </SheetHeader>
             <FulfilmentBody key={`${order.code}-${fulfilmentStage(order)}`} order={order} nav={nav} onClose={onClose} />
           </>

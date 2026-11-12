@@ -58,6 +58,15 @@ services:
         mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
         mc mb --ignore-existing local/nexora-private
         mc anonymous set none local/nexora-private
+  mailpit:
+    # Local SMTP sink for credential emails (plan Phase 4). Web UI: http://127.0.0.1:${MAILPIT_UI_EXPOSE_PORT:-58025}
+    image: axllent/mailpit:v1.21.0
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    ports:
+      - "127.0.0.1:${MAILPIT_SMTP_EXPOSE_PORT:-51025}:1025"
+      - "127.0.0.1:${MAILPIT_UI_EXPOSE_PORT:-58025}:8025"
   migration:
     build:
       context: .
@@ -92,6 +101,8 @@ services:
       AUTH_THROTTLE_SECRET: ${AUTH_THROTTLE_SECRET:?set AUTH_THROTTLE_SECRET}
       AUTH_LOGIN_DIRECTORY_SECRET: ${AUTH_LOGIN_DIRECTORY_SECRET:?set AUTH_LOGIN_DIRECTORY_SECRET}
       AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:?set AUTH_SESSION_SECRET}
+      BANKING_DATA_ENCRYPTION_KEY: ${BANKING_DATA_ENCRYPTION_KEY:?set BANKING_DATA_ENCRYPTION_KEY}
+      BANKING_DATA_ENCRYPTION_KEY_VERSION: ${BANKING_DATA_ENCRYPTION_KEY_VERSION:-v1}
       AUTH_SESSION_IDLE_MINUTES: ${AUTH_SESSION_IDLE_MINUTES:-30}
       AUTH_SESSION_ABSOLUTE_HOURS: ${AUTH_SESSION_ABSOLUTE_HOURS:-8}
       METRICS_BEARER_TOKEN: ${METRICS_BEARER_TOKEN:?set METRICS_BEARER_TOKEN}
@@ -125,6 +136,11 @@ services:
       BANK_STATEMENT_ORPHAN_GRACE_MS: ${BANK_STATEMENT_ORPHAN_GRACE_MS:-86400000}
       BANK_STATEMENT_CLEANUP_PAGE_SIZE: ${BANK_STATEMENT_CLEANUP_PAGE_SIZE:-100}
       BANK_STATEMENT_CLEANUP_MAX_OBJECTS: ${BANK_STATEMENT_CLEANUP_MAX_OBJECTS:-1000}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-nexora@localhost}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       migration: { condition: service_completed_successfully }

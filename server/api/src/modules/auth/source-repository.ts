@@ -10,6 +10,8 @@ import { encodePbkdf2Sha256Credential, verifyCompatiblePassword } from "@nexora/
 import type { DatabasePool } from "@nexora/db";
 import type { PoolClient } from "pg";
 
+import { appendSecurityAuditEvent } from "./security-audit.js";
+
 interface CredentialRow {
   tenant_id: string;
   user_id: string;
@@ -358,6 +360,96 @@ export class SourceTenantAuthenticationRepository implements TenantAuthenticatio
          values ($1,$2,$3,$4,'initial_password_changed',$5)`,
         [randomUUID(), input.tenantId, input.userId, input.correlationId, input.changedAt],
       );
+      await client.query("commit");
+      return true;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Self-service password change: swaps in the new Argon2id hash, bumps password_version and session_version (every
+   * existing session fails its version check on next use) and appends a hash-chained security_audit_event row, all
+   * in one serializable transaction. Uses only existing tables; the password hashes are never part of the audit.
+   */
+  async changePassword(input: {
+    tenantId: string;
+    userId: string;
+    expectedPasswordVersion: number;
+    argon2Hash: string;
+    correlationId: string;
+    sourceReference: string;
+    changedAt: Date;
+  }): Promise<boolean> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level serializable");
+      await client.query("select set_config('nexora.tenant_id', $1, true)", [input.tenantId]);
+      const selected = await client.query<{
+        account_status: string;
+        credential_status: string;
+        password_version: number;
+        session_version: number;
+      }>(
+        `select account.status as account_status, credential.credential_status,
+                credential.password_version, account.session_version
+           from security_user_account account
+           join security_password_credential credential
+             on credential.tenant_id=account.tenant_id and credential.user_id=account.id
+          where account.tenant_id=$1 and account.id=$2
+          for update of account,credential`,
+        [input.tenantId, input.userId],
+      );
+      const row = selected.rows[0];
+      if (
+        !row ||
+        row.account_status !== "active" ||
+        row.credential_status !== "active" ||
+        Number(row.password_version) !== input.expectedPasswordVersion
+      ) {
+        await client.query("rollback");
+        return false;
+      }
+      const credential = await client.query(
+        `update security_password_credential
+            set algorithm=null, iterations=null, salt=null, password_hash=null,
+                argon2_hash=$3, argon2_updated_at=$4,
+                password_version=password_version+1,
+                password_changed_at=$4, updated_at=$4
+          where tenant_id=$1 and user_id=$2 and password_version=$5`,
+        [input.tenantId, input.userId, input.argon2Hash, input.changedAt, input.expectedPasswordVersion],
+      );
+      if (credential.rowCount !== 1) {
+        await client.query("rollback");
+        return false;
+      }
+      await client.query(
+        `update security_user_account
+            set session_version=session_version+1, updated_at=$3
+          where tenant_id=$1 and id=$2`,
+        [input.tenantId, input.userId, input.changedAt],
+      );
+      await appendSecurityAuditEvent(client, {
+        tenantId: input.tenantId,
+        actorId: input.userId,
+        correlationId: input.correlationId,
+        action: "security.user.password.changed",
+        entityType: "security_user_account",
+        entityId: input.userId,
+        before: {
+          password_version: Number(row.password_version),
+          session_version: Number(row.session_version),
+        },
+        after: {
+          password_version: Number(row.password_version) + 1,
+          session_version: Number(row.session_version) + 1,
+        },
+        sourceReference: input.sourceReference,
+        occurredAt: input.changedAt,
+      });
       await client.query("commit");
       return true;
     } catch (error) {

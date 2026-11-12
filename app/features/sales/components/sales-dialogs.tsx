@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "cn";
 import { Field, KeyValues, salesLayer, selectClass, tableClass } from "./sales-ui";
 import { useDiscardGuard, useIsDirty } from "./discard-guard";
+import { ProjectLocationFields } from "./project-location-fields";
 import { formatDate, todayIso } from "../model/sales-format";
 import { docMoney } from "../model/sales-currency";
 import {
@@ -15,6 +16,7 @@ import {
   decisionNeedsNote,
   documentTotal,
   lineAmount,
+  contextOf,
   newReturnInput,
   returnedQty,
   validateReturn,
@@ -49,7 +51,8 @@ export function SaleReturnDialog({
 
   const chooseInvoice = (code: string) => {
     const chosen = invoices.find((item) => item.code === code);
-    setInput((current) => (chosen ? { ...newReturnInput(chosen), date: current.date, reason: current.reason } : { ...current, invoice: "", qty: [] }));
+    // The return takes the invoice project and location unless the user already chose them.
+    setInput((current) => (chosen ? { ...newReturnInput(chosen), date: current.date, reason: current.reason, ...contextOf(current) } : { ...current, invoice: "", qty: [] }));
     setErrors({});
   };
 
@@ -85,6 +88,16 @@ export function SaleReturnDialog({
             ))}
           </select>
         </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <ProjectLocationFields
+            value={input}
+            errors={errors}
+            onChange={(patch) => {
+              setInput((current) => ({ ...current, ...patch }));
+              setErrors((current) => ({ ...current, ...Object.fromEntries(Object.keys(patch).map((key) => [key, ""])) }));
+            }}
+          />
+        </div>
         {invoice ? (
           <div className="max-h-[45vh] overflow-auto">
             <table className={cn(tableClass, "[&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2")}>

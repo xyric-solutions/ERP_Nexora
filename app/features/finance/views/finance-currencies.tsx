@@ -191,7 +191,7 @@ export function FinanceCurrencies() {
   return (
     <div className="space-y-5" aria-busy={loading || Boolean(busy)}>
       <header className="rounded-lg border border-border bg-card p-5 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Finance &amp; Accounting</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Accounting</p>
         <h1 className="mt-1 text-2xl font-semibold">Currencies &amp; Transfer FX</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Adopt from the governed 20-currency catalog, maintain effective-dated rates, and connect Transfer differences

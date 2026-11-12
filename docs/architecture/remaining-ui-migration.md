@@ -1,5 +1,140 @@
 # Remaining UI migration checklist
 
+## 2026-11-12 — Administration UI review pass
+
+- Audited every Administration screen, the user/tenant drawers, the one-time password
+  dialog, the no-access panel and `/register` at 1440 / 820 / 390 px in light and dark
+  (84 screenshots, `tmp/admin-ui-audit/shots/`, script `tmp/admin-ui-audit/capture.spec.ts`).
+- Fixed: tables rendered unstyled (bare `WorkTable` with `tools={false}`) → shared
+  `AdminTable`/`AdminPanel`/`EmptyRow` in `components/admin-page.tsx`; page double-indented
+  against the breadcrumb (frame padding removed); oversized search icon and ragged filter
+  row on Users; KPI cards borrowed from module dashboards ("Open source detail") → plain
+  `StatTile`s; Access Levels module list overflowing at tablet → grouped single-column lists;
+  Users and Activity Log become card lists below `lg`; dashboard table fits 390 px; an
+  `sr-only` header label widened the page at tablet (scroll wrapper now `relative`);
+  drawers and dialogs opened under the tablet sidebar → `z-[1300/1301]` like other features;
+  register selects lost their background to the unlayered `.nx-prototype :where(select)`
+  rule and the Super Admin section was cramped.
+- Prototype notice is now one compact warning line. No horizontal page overflow at any
+  captured size. Theme audit 0 exceptions; no literal colours.
+- Not covered by screenshots: hover/focus states were checked in code only (shadcn
+  primitives and `focus-visible` rings), not visually.
+
+## 2026-11-12 — Simplified Administration module (prototype data)
+
+- Administration menu replaced with Dashboard, Tenant Directory, Organisation
+  (Companies, Structure) and Users & Access (Users, Access Levels, Activity Log).
+  Retired pages redirect; `/admin/identity` opens Administration → Users. The
+  Identity & Access sidebar button and its now-unused `.nx-sidebar__section--identity`
+  rule were removed (selector verified unused with `rg`). The governed security panels
+  stay in code behind `#/identity/access`.
+- New `app/features/administration/` built with Tailwind + shadcn primitives only, no
+  feature stylesheet. Users, access, tenant profile and activity log are **prototype**
+  browser-session data (notice shown on each screen); Companies and Structure are live.
+- Navigation now hides modules the session has no permission for and shows a
+  "You don't have access" panel for direct URLs. Mock modules stay visible.
+- Finance label → "Accounting" (id `finance` kept). `/register` page and account-menu
+  Change password added; login layout helpers moved to `app/login/auth-layout.tsx`.
+- Verification: see `docs/plans/administration-module-plan.md` §8 (typecheck, build,
+  theme audit 0 exceptions, unit + e2e). Manual light/dark and tablet/mobile visual
+  review not yet done.
+- Resume point: Administration API repository + migrations (plan Phase 2/3), then switch
+  `administration-client.ts` from the prototype store to the generated client.
+
+## 2026-11-12 — Required Project and Location on every Sales transaction
+
+- New `components/project-location-fields.tsx`: required Project and Location
+  searchable selects loading the signed-in company's **active** masters from
+  `/api/v1/master_data/{projects|locations}` (same records as Banking/HR), cached
+  per company, with loading, no-access (401/403) and retry states; a read-only
+  variant, `contextRows` for detail panels and a dialog for one-click actions.
+- Added to: quotation/order/invoice form (incl. from order and from template),
+  recurring template form, receipt/customer payment/return sheet, Batch › Invoice
+  Receipts, Batch › Receipts and Payments (one pair per batch), Sale Return
+  dialog, Pick & Pack / Delivery panel, and a prompt on Confirm Order for older
+  approved quotations. Derived records inherit from their source and stay editable.
+- Rules enforced in `sales-workflow.ts` (`contextErrors`/`requireContext`) on
+  every save, post, batch, confirm, delivery, return and template invoice, so no
+  path skips them. Records store `{ id, code, name }`. Shown on invoice, receipt,
+  order and quotation details and as optional list columns.
+- Not given the fields (no new transaction is created): Combined Accounts Offset
+  batches, approval decision and delete dialogs, and the Customer master form.
+- Seed records predate the rule: editable drafts/templates must be completed
+  before posting; Confirm Order on an approved seed quotation asks for both.
+- Verification: `tsc --noEmit`, ESLint, theme audit write/check, `git diff --check`,
+  `catalogue:check`, `npm.cmd run build:web` passed. Sales unit tests 29/29 (4 new
+  rule tests). `tests/e2e/sales-project-location.spec.ts` (10) and the updated
+  `sales-recurring-bills.spec.ts` (8) pass against dev server 3005 with installed
+  Chrome; screenshots in `tmp/project-location-evidence/`. Pre-existing axe findings
+  outside this change and excluded in the spec: shell AI trigger name, avatar,
+  search-shortcut and breadcrumb contrast, scrollable Document lifecycle strip.
+  Full `test:unit`: the 3 failures already present on HEAD, plus
+  `import-boundaries` timing out at 5 s under full-suite load (passes alone in <1 s).
+- Live API work still needed: the Sales API must re-validate both ids as active
+  masters of the company on the server.
+
+## 2026-11-12 — Recurring invoice templates (Sales › Recurring Bills)
+
+- `sales-recurring-view.tsx` rebuilt: template list with Due now / Active /
+  Batch / Paused tiles, + New Template (single or batch), template side sheet
+  (create, edit, Pause/Resume, activity) and a batch Create Invoices sheet.
+  Tailwind and shared primitives only; no new stylesheet.
+- `RecurringBill` now holds scope, customer list, lines, currency, reference,
+  notes, Weekly/Monthly frequency and per-period billed customers. The four
+  seeded templates (RB-001…004, including a batch) keep the old values.
+- Invoice form (`sales-document-entry.tsx`) gains a `fromTemplate` prefill
+  (route `sales/invoices/new:RB-…[@customerId]`) with a Save & Post button. Its
+  line table moved unchanged into `components/line-items-editor.tsx`, shared with
+  the template form. `saveDocument` marks template customers billed and advances
+  the period. `GuardedSheet`, `Section` and `useReportDirty` are now exported
+  from `money-forms.tsx` for reuse; Receipts behaviour is unchanged.
+- Verification: `tsc --noEmit`, ESLint on sales/shell/tests, theme audit
+  write/check, `git diff --check`, `catalogue:check` and `npm.cmd run build:web`
+  passed. `tests/unit/sales-recurring.test.ts` (8) and the existing sales workflow
+  tests pass. `tests/e2e/sales-recurring-bills.spec.ts` passed all 8 cases against
+  the dev server on 3005 with installed Chrome (single and batch flows; light/dark
+  at 1440/768/390 px with axe and overflow checks; no API writes). Screenshots:
+  `tmp/recurring-evidence/`. Full `test:unit` has 3 failures
+  (`prototype-shell-navigation` Banking group, two `finance-currencies-view`) that
+  fail identically on HEAD `eab35f7`; not caused by this batch.
+
+## 2026-11-12 — Recurring Bills and Customers moved into Sales
+
+- Sales menu is now: Quotations, Sales Orders, Pick, Pack & Delivery, Invoices,
+  Recurring Bills, Receipts, Customers. The Revenue and Customers modules were
+  removed from `prototype-data.ts`; page ids and views are unchanged.
+- `findPrototypePage` aliases `revenue:*` to `sales:recurring-bills` and
+  `customers:*` to `sales:customers` (after the retired-page redirect table, whose
+  customer entries now point at `sales`). `SALES_MODULE_PAGES`, `ROUTE_BY_KIND`
+  and the Sales workspace `go`/`openNew` now route both pages to `sales`.
+- Behaviour notes: Recurring Bills was limited to service/trading companies by the
+  old Revenue module; it now follows Sales (all company modes). Save toasts on these
+  pages read "Sales updated successfully".
+- `git diff --check`, `tsc --noEmit`, `catalogue:check`, theme audit `--check`,
+  route-resolution script `tmp/nav-audit/routes.cjs` and `npm.cmd run build:web` passed.
+  Not yet verified in a browser.
+
+## 2026-11-12 — Sales menu restored after the branch merge
+
+- Merge `eab35f7` changed `g()` in `app/shell/config/prototype-data.ts` to
+  `(id, label, pages, hiddenFromNavigation, inline)`. Revenue and Customers were
+  converted to `false, true`, but the Sales "selling" group kept a single `true`,
+  which now meant hidden. Quotations, Sales Orders, Pick, Pack & Delivery,
+  Invoices and Receipts therefore vanished from the sidebar, module drawer and
+  search (still reachable by URL). The group is now `false, true` (visible, inline).
+- `docs/parity/prototype-manifest.json` regenerated; only the Sales group's
+  `hiddenFromNavigation` flag changed.
+- Audit: a script (`tmp/nav-audit/audit.cjs`) compared navigation-visible pages
+  across merge bases, both branch parents and HEAD. Every other page that is no
+  longer visible was removed or hidden deliberately on its owning branch (Banking
+  sub-groups and the Chart of Accounts pages hidden in main, Sales/Revenue/Customers
+  sub-pages retired by the simplified Sales workflow, Purchases/Suppliers/Inventory
+  consolidated in main, HR Performance/Learning/Settlement removed on the HR branch).
+  No file present in either merge parent is missing from HEAD except those 20 HR files,
+  which `7010cad` had deleted.
+- `git diff --check`, `tsc --noEmit`, `catalogue:check`, theme audit `--check` and
+  `npm.cmd run build:web` passed.
+
 ## 2026-11-11 — One continuous payment form
 
 - `purchase-payment-details.tsx` now uses one Payment details heading and a
