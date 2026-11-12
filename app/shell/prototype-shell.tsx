@@ -297,12 +297,9 @@ export function PrototypeShell({
   const unreadSalesNotifications = salesNotifications.filter((item) => !item.read).length;
   const isCentralChartPage =
     current.module.id === "finance" && ["central-chart-template", "section-management"].includes(current.page.id);
-  const isFiscalPeriodPage =
-    current.module.id === "finance" && ["fiscal-periods", "period-close"].includes(current.page.id);
   const isReferenceMasterPage =
     current.module.id === "finance" && ["reporting-projects", "reporting-locations"].includes(current.page.id);
   const isLiveFinanceChartPage =
-    isFiscalPeriodPage ||
     isReferenceMasterPage ||
     isCentralChartPage ||
     (current.module.id === "finance" &&
@@ -820,7 +817,7 @@ export function PrototypeShell({
                                 {module.groups
                                   .filter((group) => !group.hiddenFromNavigation)
                                   .map((group) => {
-                                    if (["purchases", "inventory"].includes(module.id))
+                                    if (["purchases", "inventory"].includes(module.id) || (module.id === "finance" && group.id === "taxes"))
                                       return group.pages
                                         .filter((page) => !page.hiddenFromNavigation)
                                         .map((page) => (

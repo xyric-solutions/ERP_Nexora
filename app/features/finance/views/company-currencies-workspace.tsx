@@ -27,7 +27,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { AmountInput } from "@/shared/ui/amount-input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
@@ -55,7 +54,7 @@ function errorMessage(error: unknown) {
 
 type FormMode = "base" | "activate" | "rate" | null;
 
-export function FinanceCurrencies() {
+export function FinanceCurrencies({ embedded = false }: { embedded?: boolean }) {
   const { api, session, loading: sessionLoading, csrfToken } = useSession();
   const notify = useActionFeedback();
   const client = useMemo(() => new FinanceCurrenciesClient(api), [api]);
@@ -313,15 +312,17 @@ export function FinanceCurrencies() {
   const detailRates = rates.filter((item) => item.source_currency === detailCurrency);
   return (
     <div className="space-y-5" aria-busy={loading || Boolean(busy)}>
-      <header className="border-b border-border pb-4">
+      <header className={embedded ? "flex justify-end" : "border-b border-border pb-4"}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm text-primary">Home / Finance / Currencies</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight">Company currencies</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Maintain one reporting base currency and the foreign currencies used by this company’s bank accounts.
-            </p>
-          </div>
+          {!embedded && (
+            <div>
+              <p className="text-sm text-primary">Home / Accounting / Currencies</p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight">Company currencies</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Maintain one reporting base currency and the foreign currencies used by this company’s bank accounts.
+              </p>
+            </div>
+          )}
           {profile && canManageCurrency ? <Button onClick={() => resetForm("activate")}>＋ Add New</Button> : null}
         </div>
       </header>
@@ -395,8 +396,17 @@ export function FinanceCurrencies() {
           </Button>
         </div>
         <div className="overflow-x-auto">
-          <WorkTable continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loading),loadMore:() => void loadCompany(companyId, nextCursor ?? undefined)}} tableId="app/features/finance/views/company-currencies-workspace:1" className="w-full min-w-[980px] text-sm">
-            <thead className="bg-[var(--nx-info-soft)] text-left text-[var(--nx-emphasis-text)]">
+          <WorkTable
+            continuation={{
+              cursor: nextCursor,
+              hasMore: !!nextCursor,
+              busy: !!loading,
+              loadMore: () => void loadCompany(companyId, nextCursor ?? undefined),
+            }}
+            tableId="app/features/finance/views/company-currencies-workspace:1"
+            className="w-full min-w-[980px] text-sm"
+          >
+            <thead className="bg-muted text-left text-foreground">
               <tr>
                 {[
                   "Base Cur. Code",
@@ -485,7 +495,6 @@ export function FinanceCurrencies() {
         </div>
         <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-sm text-muted-foreground">{currencies.length} currency record(s) loaded</span>
-
         </div>
       </section>
 
@@ -516,7 +525,10 @@ export function FinanceCurrencies() {
             </Button>
           </div>
           <div className="overflow-x-auto">
-            <WorkTable tableId="app/features/finance/views/company-currencies-workspace:2" className="w-full min-w-[720px] text-sm">
+            <WorkTable
+              tableId="app/features/finance/views/company-currencies-workspace:2"
+              className="w-full min-w-[720px] text-sm"
+            >
               <thead className="bg-muted/50 text-left">
                 <tr>
                   {["Rate", "Effective date", "Status", "Revision", "Action"].map((heading) => (
@@ -606,11 +618,12 @@ export function FinanceCurrencies() {
           <div className="mt-4 grid gap-4 md:grid-cols-[1fr_2fr_auto] md:items-end">
             <div className="grid gap-2">
               <Label htmlFor="corrected-currency-rate">Corrected rate *</Label>
-              <AmountInput
+              <Input
                 id="corrected-currency-rate"
-                decimals={18}
+                type="text"
+                inputMode="decimal"
                 value={correctedRate}
-                onValueChange={(raw) => setCorrectedRate(raw)}
+                onChange={(event) => setCorrectedRate(event.target.value)}
               />
             </div>
             <div className="grid gap-2">
@@ -651,7 +664,10 @@ export function FinanceCurrencies() {
       <FinanceTransferFxPolicy companyId={companyId} />
 
       <Dialog open={formMode !== null} onOpenChange={(open) => !open && setFormMode(null)}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent
+          className="z-[161] max-h-[calc(100dvh-2rem)] overflow-y-auto font-sans sm:max-w-2xl"
+          overlayClassName="z-[160]"
+        >
           <WorkForm
             className="grid gap-4"
             onSubmit={(event) => {
@@ -720,14 +736,15 @@ export function FinanceCurrencies() {
                     <Label htmlFor="company-currency-rate">Exchange rate *</Label>
                     <div className="flex h-10 items-center rounded-md border border-input bg-background px-3">
                       <span className="whitespace-nowrap text-sm">1 {currencyCode || "FX"} =</span>
-                      <AmountInput
+                      <Input
                         id="company-currency-rate"
                         name="rate"
                         required
                         className="h-auto min-w-0 flex-1 rounded-none border-0 bg-transparent px-2 py-0 text-right shadow-none focus-visible:ring-0"
-                        decimals={18}
+                        type="text"
+                        inputMode="decimal"
                         value={rate}
-                        onValueChange={(raw) => setRate(raw)}
+                        onChange={(event) => setRate(event.target.value)}
                       />
                       <span className="text-sm">{profile?.base_currency}</span>
                     </div>

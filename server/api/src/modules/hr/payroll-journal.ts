@@ -1,3 +1,6 @@
+import { validatePayrollTaxes } from "../finance/taxes/payroll.js";
+import { recordTaxApplications, TaxError } from "../finance/taxes/resolver.js";
+import { taxSnapshotSchema } from "@nexora/contracts";
 import { resolvePayrollJournalDimensions, type PayrollJournalMapping } from "./payroll-journal-dimensions.js";
 import { paidThroughPayroll, payrollPlacements } from "./payroll-population.js";
 import { ExactPayrollAmount } from "./payroll-calculation.js";
@@ -19,10 +22,7 @@ import {
   FinancePostingError,
   createFinanceTransactionClient,
 } from "../finance/posting/index.js";
-import {
-  CompanyCurrencyAuthorityError,
-  resolveCompanyBaseCurrency,
-} from "../finance/currencies/company-authority.js";
+import { CompanyCurrencyAuthorityError, resolveCompanyBaseCurrency } from "../finance/currencies/company-authority.js";
 import { requireBankPaymentCompanyPermission } from "../banking/payments/source-repository.js";
 import { BankingApiError } from "../banking/source-repository.js";
 import type { StatutoryExecutionMode } from "./payroll-statutory.js";
@@ -158,6 +158,7 @@ export class PayrollJournal {
   }
   async workspace(c: HrActorContext, q: HrPayrollJournalQuery): Promise<HrPayrollJournalWorkspace> {
     return this.d.read(c, "hr.payroll.report.read", async (client) => {
+      await client.query("select set_config('nexora.user_id',$1,true)", [c.actor.userId]);
       await this.d.company(client, c, q.company_id);
       await this.authorize(client, c, q.company_id);
       return this.readIn(client, c, q);
@@ -211,6 +212,18 @@ export class PayrollJournal {
         ).rows
       : [];
     const blocked: string[] = [];
+    try {
+      await validatePayrollTaxes(client, {
+        tenant: c.tenantId,
+        company: q.company_id,
+        date: q.month,
+        taxes: items.filter((item) => item.tax_snapshot).map((item) => item.tax_snapshot),
+      });
+    } catch (error) {
+      if (error instanceof TaxError) blocked.push(error.message);
+      else throw error;
+    }
+
     let assembly: {
       lines: { account_id: string; debit: string; credit: string; dimensions?: Record<string, string> }[];
       debit: string;
@@ -743,6 +756,25 @@ export class PayrollJournal {
               if (error instanceof FinancePostingError) throw new HrApiError(error.status, error.code, error.message);
               throw error;
             }
+            const taxItems = (
+              await client.query<{ id: string; tax_snapshot: unknown }>(
+                "select i.id,i.tax_snapshot from hr_payroll_result_item i join hr_payroll_result r on r.tenant_id=i.tenant_id and r.id=i.result_id where r.tenant_id=$1 and r.company_id=$2 and r.period_id=$3 and r.run_number=$4 and i.tax_snapshot is not null order by i.id",
+                [c.tenantId, input.company_id, p!.id, p!.run_number],
+              )
+            ).rows;
+            await recordTaxApplications(client, {
+              tenant: c.tenantId,
+              company: input.company_id,
+              sourceType: "hr.payroll",
+              sourceId: String(p!.id),
+              date: String(j!.posting_date),
+              journal: posted.journalId,
+              taxes: taxItems.map((item) => ({
+                ...taxSnapshotSchema.parse(item.tax_snapshot),
+                source_item_id: item.id,
+              })),
+              rate: async () => ({ value: String(j!.exchange_rate), basePrecision: x.base!.decimal_places }),
+            });
             await client.query(
               `insert into hr_payroll_finance_approval_binding(id,tenant_id,company_id,proposal_id,finance_journal_id,created_by,evidence_hash) values($1,$2,$3,$4,$5,$6,$7)`,
               [

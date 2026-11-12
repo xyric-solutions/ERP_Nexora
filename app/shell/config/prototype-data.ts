@@ -177,8 +177,8 @@ export const prototypeModules = [
           p("quotations", "Quotations"),
           p("sales-orders", "Sales Orders"),
           p("pick-pack-delivery", "Pick, Pack & Delivery"),
-          p("invoices", "Invoices"),
-          p("receipts", "Receipts"),
+          p("invoices", "Invoices", "list", "live"),
+          p("receipts", "Receipts", "list", "live"),
         ],
         true,
       ),
@@ -202,7 +202,7 @@ export const prototypeModules = [
     description: "One customer list and one customer form with contact, tax, payment terms, credit limit and bank details.",
     category: "Finance & trade",
     modes: allModes,
-    groups: [g("customer-master", "Customers", [p("customers", "Customers")], false, true)],
+    groups: [g("customer-master", "Customers", [p("customers", "Customers", "list", "live"), p("currency-balances", "Currency Accounts", "list", "live")], false, true)],
   },
   {
     id: "purchases",
@@ -222,6 +222,7 @@ export const prototypeModules = [
         p("payments", "Payment", "list", "live"),
         p("multi-vendor-payments", "Multi-vendor Payment", "list", "live"),
         p("suppliers", "Suppliers", "list", "live"),
+        p("supplier-currency-accounts", "Supplier Currency Accounts", "list", "live"),
       ]),
       g(
         "purchase-records",
@@ -266,38 +267,11 @@ export const prototypeModules = [
     ],
   },
   {
-    id: "costing",
-    code: "CS",
-    label: "Costing & Landed Cost",
-    shortLabel: "Costing",
-    description: "Cost policies, landed-cost allocations, standards, variances and reconciliation.",
-    category: "Finance & trade",
-    modes: ["trading", "manufacturing"],
-    groups: [
-      g("landed-cost", "Landed Cost", [
-        p("costing-overview", "Costing Overview", "dashboard"),
-        p("cost-policies", "Cost Policies", "settings"),
-        p("landed-cost-shipments", "Landed-cost Shipments"),
-        p("charge-capture", "Charge Capture", "form"),
-        p("allocation-preview", "Allocation Preview", "detail"),
-        p("allocation-approval", "Allocation Approval & Posting", "approval"),
-      ]),
-      g("item-costs", "Item Costs", [
-        p("item-cost-history", "Item Cost History", "report"),
-        p("standard-cost", "Standard Cost Versions"),
-        p("standard-cost-editor", "Standard Cost Editor", "form"),
-        p("cost-variance", "Cost Variance", "report"),
-        p("cost-gl-reconciliation", "Cost to GL Reconciliation", "workflow"),
-        p("costing-reports", "Costing Reports", "report"),
-      ]),
-    ],
-  },
-  {
     id: "finance",
     code: "FN",
-    label: "Finance & Accounting",
-    shortLabel: "Finance",
-    description: "Chart of Accounts, journals, ledgers, close, consolidation and statutory statements.",
+    label: "Accounting",
+    shortLabel: "Accounting",
+    description: "Chart of Accounts, taxes, reporting master data, currencies and journals.",
     category: "Finance & trade",
     modes: allModes,
     groups: [
@@ -313,10 +287,12 @@ export const prototypeModules = [
         p("nominal-detail", "Nominal Account Detail", "detail", "prototype", true),
         p("add-nominal", "Add Nominal", "form", "prototype", true),
       ]),
+      g("taxes", "Taxes", [p("taxes", "Taxes", "list", "live")]),
+      { ...g("retired", "Unavailable", [p("retired-module", "Module unavailable", "detail", "live", true)]), hiddenFromNavigation: true },
       g("reporting-master-data", "Reporting Master Data", [
         p("reporting-projects", "Projects"),
         p("reporting-locations", "Locations / Cities"),
-        p("currencies-fx", "Currencies & Transfer FX", "settings"),
+        p("currencies-fx", "Currencies & Transfer FX", "settings", "live"),
       ]),
       g("journals", "Journals", [
         p("journal-register", "Journals"),
@@ -326,50 +302,7 @@ export const prototypeModules = [
         p("journal-reversal", "Journal Reversal", "form", "prototype", true),
         p("recurring-journals", "Recurring Journals", "list", "prototype", true),
       ]),
-      g("ledgers-close", "Ledgers & Close", [
-        p("accounting-events", "Accounting Event Ledger"),
-        p("general-ledger", "General Ledger", "report"),
-        p("fiscal-periods", "Fiscal Periods", "settings"),
-        p("period-close", "Period-close Workbench", "workflow"),
-        p("finance-revaluation", "FX Revaluation", "form"),
-      ]),
-      g("group-reporting", "Group & Reporting", [
-        p("intercompany", "Intercompany Transactions"),
-        p("consolidation", "Consolidation Workbench", "workflow"),
-        p("trial-balance", "Trial Balance", "report"),
-        p("financial-statements", "Financial Statements", "report"),
-        p("finance-drilldown", "Finance Drill-down", "detail"),
-        p("finance-audit", "Finance Audit Trail", "report"),
-      ]),
-    ],
-  },
-  {
-    id: "tax",
-    code: "TX",
-    label: "Taxation & Compliance",
-    shortLabel: "Tax",
-    description: "Jurisdictions, rules, transaction tax, returns, e-invoicing and evidence controls.",
-    category: "Finance & trade",
-    modes: allModes,
-    groups: [
-      g("setup", "Tax Setup", [
-        p("tax-overview", "Tax Overview", "dashboard"),
-        p("jurisdictions", "Jurisdictions & Registrations"),
-        p("tax-rules", "Tax Rule Catalogue"),
-        p("tax-code-editor", "Tax Code Editor", "form"),
-        p("withholding-setup", "Withholding Setup", "settings"),
-      ]),
-      g("transaction-tax", "Transaction Tax", [
-        p("tax-preview", "Transaction Tax Preview", "detail"),
-        p("tax-exceptions", "Tax Exception Queue", "approval"),
-        p("einvoice-monitor", "E-invoice Monitor", "workflow"),
-      ]),
-      g("returns", "Returns & Evidence", [
-        p("tax-returns", "Return Workbench", "workflow"),
-        p("tax-reconciliation", "Tax Reconciliation", "workflow"),
-        p("tax-certificates", "Certificates & Evidence"),
-        p("tax-reports", "Tax Reports", "report"),
-      ]),
+
     ],
   },
   {
@@ -891,7 +824,6 @@ export const prototypeModules = [
         p("sales-product-performance-report", "Sales by Product & Category", "report"),
         p("sales-customer-performance-report", "Sales by Customer & Territory", "report"),
         p("sales-margin-report", "Sales Margin & Discount Analysis", "report"),
-        p("sales-tax-report", "Sales Tax Analysis", "report"),
         p("sales-return-report", "Returns, Credit Notes & Adjustments", "report"),
       ]),
       g("revenue-reports", "Revenue Reports", [
@@ -933,14 +865,7 @@ export const prototypeModules = [
         p("inventory-reorder-report", "Reorder, Shortage & Availability", "report"),
         p("inventory-count-variance-report", "Stock Count Variance", "report"),
       ]),
-      g("costing-reports", "Costing Reports", [
-        p("cost-centre-report", "Cost Centre Performance", "report"),
-        p("job-cost-report", "Job & Work Order Cost", "report"),
-        p("standard-actual-cost-report", "Standard vs Actual Cost", "report"),
-        p("overhead-absorption-report", "Overhead Absorption", "report"),
-        p("cost-variance-report", "Material, Labour & Overhead Variance", "report"),
-      ]),
-      g("finance-reports", "Finance Reports", [
+      g("finance-reports", "Accounting Reports", [
         p("general-ledger-detail-report", "General Ledger Detail", "report"),
         p("trial-balance-report", "Trial Balance", "report"),
         p("profit-loss-report", "Profit & Loss Statement", "report"),
@@ -949,13 +874,6 @@ export const prototypeModules = [
         p("journal-register-report", "Journal Register & Posting Audit", "report"),
         p("budget-actual-finance-report", "Budget vs Actual by Account", "report"),
         p("financial-ratio-report", "Financial Ratios & Trends", "report"),
-      ]),
-      g("tax-reports", "Tax Reports", [
-        p("sales-tax-return-report", "Sales Tax Return Detail", "report"),
-        p("input-output-tax-report", "Input vs Output Tax Reconciliation", "report"),
-        p("withholding-tax-report", "Withholding Tax Register", "report"),
-        p("tax-liability-report", "Tax Liability & Payment Schedule", "report"),
-        p("tax-exception-report", "Tax Exceptions & Missing Evidence", "report"),
       ]),
       g("operations-reports", "Operations Reports", [
         p("operations-throughput-report", "Operational Throughput", "report"),
@@ -1046,7 +964,6 @@ export const prototypeModules = [
         p("branch-payroll-report", "Branch Payroll", "report"),
         p("earnings-summary-report", "Earnings Summary", "report"),
         p("deduction-summary-report", "Deduction Summary", "report"),
-        p("tax-summary-report", "Tax Summary", "report"),
         p("overtime-payroll-report", "Overtime Payroll", "report"),
         p("bonus-report", "Bonus Report", "report"),
         p("loan-recovery-report", "Loan Recovery", "report"),
@@ -1057,7 +974,6 @@ export const prototypeModules = [
       g("payroll-accounting-reports", "Payroll Accounting Reports", [
         p("payroll-general-ledger-report", "General Ledger", "report"),
         p("salary-payable-report", "Salary Payable", "report"),
-        p("tax-payable-report", "Tax Payable", "report"),
         p("employee-receivables-report", "Employee Receivables", "report"),
         p("employer-contributions-report", "Employer Contributions", "report"),
         p("cost-centre-expenses-report", "Cost Center Expenses", "report"),
@@ -1225,7 +1141,7 @@ export const prototypeModules = [
     groups: [
       g("core-setup", "Core Setup", [
         p("configuration-home", "Configuration Home", "dashboard"),
-        p("company-fiscal-currency", "Company, Fiscal & Currency", "settings"),
+        p("company-fiscal-currency", "Company Setup", "settings", "live"),
         p("numbering-sequences", "Numbering Sequences", "settings"),
         p("dimensions", "Dimensions", "settings"),
         p("custom-fields", "Custom Fields", "settings"),
@@ -1476,6 +1392,18 @@ export function findPrototypeModule(moduleId: string) {
  * instead of silently falling back to a module's first page.
  */
 const retiredPageRedirects: Record<string, readonly [moduleId: string, pageId: string, recordRef?: string]> = {
+  "finance:accounting-events": ["reports", "journal-register-report"],
+  "finance:general-ledger": ["reports", "general-ledger-detail-report"],
+  "finance:trial-balance": ["reports", "trial-balance-report"],
+  "finance:financial-statements": ["reports", "balance-sheet-report"],
+  "finance:finance-audit": ["reports", "journal-register-report"],
+  "finance:finance-drilldown": ["reports", "drilldown-explorer"],
+  "finance:intercompany": ["reports", "report-catalogue"],
+  "finance:consolidation": ["reports", "report-catalogue"],
+  "finance:fiscal-periods": ["configuration", "company-fiscal-currency", "fiscal"],
+  "finance:period-close": ["configuration", "company-fiscal-currency", "fiscal"],
+  "finance:finance-revaluation": ["finance", "currencies-fx", "revaluation"],
+  "finance:multi-currency": ["finance", "currencies-fx", "accounting"],
   "sales:add-quotation": ["sales", "quotations", "new"],
   "sales:quotation-detail": ["sales", "quotations"],
   "sales:add-sales-order": ["sales", "sales-orders", "new"],
@@ -1512,6 +1440,12 @@ export function findPrototypePage(
   moduleId: string,
   pageId?: string,
 ): { module: PrototypeModule; group: PrototypeMenuGroup; page: PrototypePage; redirectRecordRef?: string } {
+  if (moduleId === "tax" || (moduleId === "reports" && ["sales-tax-report","input-output-tax-report","sales-tax-return-report","withholding-tax-report","tax-liability-report","tax-exception-report","tax-summary-report","tax-payable-report"].includes(pageId ?? ""))) {
+    moduleId = "finance"; pageId = "taxes";
+  }
+  if (moduleId === "costing" || (moduleId === "reports" && ["cost-centre-report","job-cost-report","standard-actual-cost-report","overhead-absorption-report","cost-variance-report"].includes(pageId ?? ""))) {
+    moduleId = "finance"; pageId = "retired-module";
+  }
   const redirect = pageId ? retiredPageRedirects[`${moduleId}:${pageId}`] : undefined;
   if (redirect) return { ...findPrototypePage(redirect[0], redirect[1]), redirectRecordRef: redirect[2] };
   if (moduleId === "suppliers") {

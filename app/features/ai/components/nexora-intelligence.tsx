@@ -53,7 +53,7 @@ const roleWork: Record<string, { brief: string; focus: string; items: WorkItem[]
       { id: "fi-1", type: "Exception", severity: "critical", title: "Bank items remain unreconciled", detail: "Four movements need matching before the period can close.", metric: "PKR 724K", due: "Due today", moduleId: "banking", pageId: "bank-reconciliation" },
       { id: "fi-2", type: "Exception", severity: "high", title: "Supplier bill failed 3-way match", detail: "Receipt quantity and invoiced quantity differ.", metric: "PKR 32.6K", due: "3 hours left", moduleId: "purchases", pageId: "match-exceptions" },
       { id: "fi-3", type: "Approval", severity: "medium", title: "Journal batch awaiting approval", detail: "Recurring accrual batch passed validation.", metric: "18 journals", due: "Today", moduleId: "finance", pageId: "journal-register" },
-      { id: "fi-4", type: "Task", severity: "low", title: "Review tax validation queue", detail: "FBR and withholding profiles are ready for review.", metric: "7 documents", due: "Tomorrow", moduleId: "tax", pageId: "tax-exceptions" },
+      { id: "fi-4", type: "Task", severity: "low", title: "Review tax validation queue", detail: "FBR and withholding profiles are ready for review.", metric: "7 documents", due: "Tomorrow", moduleId: "finance", pageId: "taxes" },
     ],
   },
   sales: {

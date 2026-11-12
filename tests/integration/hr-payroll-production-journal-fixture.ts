@@ -1,4 +1,4 @@
-import type { BeforePayrollAttendanceClose } from "./hr-payroll-run-fixture.js";
+import type { BeforePayrollAttendanceClose, ConfigureTaxSalaryFixture } from "./hr-payroll-run-fixture.js";
 import { randomUUID } from "node:crypto";
 import type { DatabasePool } from "../../packages/db/src/index.js";
 import { createPublisherFixture, publisherActor } from "./hr-payroll-publisher-fixture.js";
@@ -34,8 +34,9 @@ export async function createProductionJournalFixture(
   pool: DatabasePool,
   beforeCalculate?: (fixture: Awaited<ReturnType<typeof createPublisherFixture>>) => Promise<void>,
   beforeAttendanceClose?: BeforePayrollAttendanceClose,
+  configureSalary?:ConfigureTaxSalaryFixture,
 ) {
-  const f = await createPublisherFixture(pool, beforeAttendanceClose),
+  const f = await createPublisherFixture(pool, beforeAttendanceClose, configureSalary),
     profile = await f.prepareCompany(),
     published = await publishApprovedStatutoryPack(
       pool,

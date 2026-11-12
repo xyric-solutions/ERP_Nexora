@@ -88,7 +88,7 @@ export const companyModeOptions = [
     label: "Production / manufacturing",
     shortLabel: "Manufacturing",
     description: "Demand, planning, materials, production, quality and maintenance.",
-    navigationFocus: ["manufacturing", "inventory", "quality", "maintenance", "costing"],
+    navigationFocus: ["manufacturing", "inventory", "quality", "maintenance"],
   },
 ] as const satisfies readonly CompanyModeOption[];
 
@@ -145,7 +145,7 @@ const warehouseModules = ["dashboard", "inventory", "warehousing", "purchases", 
 const crmModules = ["dashboard", "crm", "sales", "customers", "reports"];
 const receivablesModules = ["dashboard", "customers", "sales", "banking", "finance", "reports"];
 const payablesModules = ["dashboard", "suppliers", "purchases", "banking", "finance", "reports"];
-const taxModules = ["dashboard", "tax", "finance", "sales", "purchases", "reports", "audit"];
+const taxModules = ["dashboard", "finance", "sales", "purchases", "reports", "audit"];
 const auditModules = ["dashboard", "audit", "finance", "approvals", "reports"];
 
 export const roleOptions = [

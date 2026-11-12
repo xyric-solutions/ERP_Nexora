@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { taxSnapshotSchema } from "../finance/taxes.js";
 import { supplierProfileSchema } from "./supplier-profile.js";
 import { billPaymentTermSchema } from "./bill-payment-terms.js";
 export { billPaymentTermSchema, billPaymentTerms, billPaymentSchedule } from "./bill-payment-terms.js";
@@ -23,6 +24,8 @@ const quantity = z
 export const purchaseKindSchema = z.enum(["request", "rfq", "order", "receipt", "bill", "payment", "multi_payment"]);
 export const purchaseStateSchema = z.enum(["draft", "submitted", "approved", "rejected", "cancelled"]);
 export const purchaseLineSchema = z.strictObject({
+  tax_definition_id: identity.optional(),
+  tax_snapshot: taxSnapshotSchema.optional(),
   id: identity.optional(),
   source_line_id: identity.nullable().default(null),
   item_code: z.string().trim().max(64).default(""),

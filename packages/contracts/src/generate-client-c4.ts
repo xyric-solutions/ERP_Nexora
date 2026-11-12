@@ -13,7 +13,9 @@ const prettierConfig = await resolveConfig(clientPath);
 
 const openApi = `${JSON.stringify(buildOpenApiDocument(), null, 2)}\n`;
 const client = await format(
-  `import type {HrLearningWorkspace,HrLearningAction,HrLearningCertificate} from "@nexora/contracts";
+  `import type {TaxInput,TaxUpdate,TaxStatus,TaxDirectory,TaxDetail,TaxOptions} from "@nexora/contracts";
+import type {SubledgerWorkspace,SubledgerReport,SubledgerParty,SubledgerPartyInput,SubledgerPolicy,SubledgerPolicyInput,SubledgerInput,SubledgerOperation,SubledgerAction} from "@nexora/contracts";
+import type {HrLearningWorkspace,HrLearningAction,HrLearningCertificate} from "@nexora/contracts";
 import type {CreateHrPersonalCorrection,HrPersonalCorrectionAction,HrPersonalCorrectionWorkspace,HrReportGovernanceAction,HrReportGovernanceWorkspace,HrReportGovernanceResult} from '@nexora/contracts';
 import type {CreateHrSelfLeaveRequest,HrSelfLeaveAction} from '@nexora/contracts';
 import type {HrSelfServiceWorkspace} from '@nexora/contracts';
@@ -1246,6 +1248,26 @@ export class NexoraApiClient {
   }
   enqueueSampleJob(payload: SampleJobPayload): Promise<JobReceipt> {
     return this.request("/api/v1/jobs/sample", { method: "POST", body: JSON.stringify(payload) });
+  }
+  getTaxes(query: string): Promise<TaxDirectory> {return this.request("/api/v1/finance/taxes"+query);}
+  getTaxOptions(query: string): Promise<TaxOptions> {return this.request("/api/v1/finance/taxes/options"+query);}
+  getTax(id: string,query: string): Promise<TaxDetail> {return this.request("/api/v1/finance/taxes/"+encodeURIComponent(id)+query);}
+  createTax(payload:TaxInput,csrfToken:string,idempotencyKey:string):Promise<TaxDetail> {return this.request("/api/v1/finance/taxes",{method:"POST",headers:{"x-csrf-token":csrfToken,"idempotency-key":idempotencyKey},body:JSON.stringify(payload)});}
+  updateTax(id:string,payload:TaxUpdate,csrfToken:string,idempotencyKey:string):Promise<TaxDetail> {return this.request("/api/v1/finance/taxes/"+encodeURIComponent(id),{method:"PATCH",headers:{"x-csrf-token":csrfToken,"idempotency-key":idempotencyKey,"if-match":'"'+payload.expected_version+'"'},body:JSON.stringify(payload)});}
+  changeTaxStatus(id:string,payload:TaxStatus,csrfToken:string,idempotencyKey:string):Promise<TaxDetail> {return this.request("/api/v1/finance/taxes/"+encodeURIComponent(id)+"/status",{method:"POST",headers:{"x-csrf-token":csrfToken,"idempotency-key":idempotencyKey,"if-match":'"'+payload.expected_version+'"'},body:JSON.stringify(payload)});}
+  getSubledgerWorkspace(query: string): Promise<SubledgerWorkspace> { return this.request("/api/v1/finance/subledger/workspace" + query); }
+  getSubledgerReport(query: string): Promise<SubledgerReport> { return this.request("/api/v1/finance/subledger/reports" + query); }
+  createSubledgerParty(payload: SubledgerPartyInput, csrfToken: string, idempotencyKey: string): Promise<SubledgerParty> {
+    return this.request("/api/v1/finance/subledger/parties", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  configureSubledgerPolicy(payload: SubledgerPolicyInput, csrfToken: string, idempotencyKey: string): Promise<SubledgerPolicy> {
+    return this.request("/api/v1/finance/subledger/policy", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey, "if-match": '"' + payload.expected_version + '"' }, body: JSON.stringify(payload) });
+  }
+  createSubledgerOperation(payload: SubledgerInput, csrfToken: string, idempotencyKey: string): Promise<SubledgerOperation> {
+    return this.request("/api/v1/finance/subledger/operations", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  actOnSubledgerOperation(id: string, payload: SubledgerAction, csrfToken: string, idempotencyKey: string): Promise<SubledgerOperation> {
+    return this.request("/api/v1/finance/subledger/operations/" + encodeURIComponent(id) + "/actions", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey, "if-match": '"' + payload.expected_version + '"' }, body: JSON.stringify(payload) });
   }
 }
 `,

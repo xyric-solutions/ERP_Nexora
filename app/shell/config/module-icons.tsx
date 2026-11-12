@@ -8,7 +8,6 @@ import {
   ClipboardList,
   Truck,
   Package,
-  Calculator,
   BookOpen,
   Shield,
   Factory,
@@ -31,7 +30,6 @@ import {
   Database,
   Smartphone,
   Layers,
-  Percent,
   Lock,
 } from "lucide-react";
 
@@ -44,9 +42,7 @@ const moduleIcons = {
   customers: Users,
   purchases: ClipboardList,
   suppliers: Truck,
-  costing: Calculator,
   finance: BookOpen,
-  tax: Percent,
   assets: Building2,
   budget: Target,
   inventory: Package,

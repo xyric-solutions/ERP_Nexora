@@ -1,4 +1,4 @@
-import type { BeforePayrollAttendanceClose } from "./hr-payroll-run-fixture.js";
+import type { BeforePayrollAttendanceClose, ConfigureTaxSalaryFixture } from "./hr-payroll-run-fixture.js";
 import { randomUUID } from "node:crypto";
 import type { DatabasePool } from "../../packages/db/src/index.js";
 import {
@@ -71,8 +71,8 @@ export function syntheticStatutoryBundle(jurisdiction = "pk-national", from = "2
     ],
   };
 }
-export async function createPublisherFixture(pool: DatabasePool, beforeAttendanceClose?: BeforePayrollAttendanceClose) {
-  const f = await createPayrollRunFixture(pool, [], { beforeAttendanceClose }),
+export async function createPublisherFixture(pool: DatabasePool, beforeAttendanceClose?: BeforePayrollAttendanceClose, configureSalary?:ConfigureTaxSalaryFixture) {
+  const f = await createPayrollRunFixture(pool, [], { beforeAttendanceClose, configureSalary }),
     repo = new SourceHrRepository(pool),
     jurisdiction = "pub-region-" + randomUUID();
   await pool.query(

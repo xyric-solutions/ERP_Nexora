@@ -1,3 +1,4 @@
+import { resolveTax, TaxError } from "../finance/taxes/resolver.js";
 import { companyAuthoritySql as companyAuthority } from "../security/company-authority.js";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -675,6 +676,35 @@ export class SourceProcurementRepository {
         }
         await this.requireApprover(client, context.tenantId, parsed.company_id, approverId, makers);
         const lines = parsed.lines.map((line) => ({ ...line, id: line.id ?? `purchase-line-${randomUUID()}` }));
+        for (const line of lines) {
+          if (!line.tax_definition_id) {
+            delete line.tax_snapshot;
+            continue;
+          }
+          try {
+            const basis = money((scaled(line.quantity, 4) * scaled(line.unit_price, 2) + 5000n) / 10000n);
+            const snapshot = await resolveTax(client, {
+              tenant: context.tenantId,
+              company: parsed.company_id,
+              definition: line.tax_definition_id,
+              date: parsed.bill_date ?? parsed.document_date,
+              module: "purchases",
+              trigger: "recognition",
+              currency: parsed.currency,
+              precision: 2,
+              basis,
+            });
+            if (snapshot.treatment !== "recoverable")
+              fail(
+                "Purchase document lines support recoverable input tax; supplier withholding belongs in the accounting recognition or settlement workflow.",
+              );
+            line.tax_snapshot = snapshot;
+            line.tax_percent = snapshot.rate;
+          } catch (error) {
+            if (error instanceof TaxError) fail(error.message, error.code, error.status);
+            throw error;
+          }
+        }
         if (parsed.kind === "request") {
           const productIds = [...new Set(lines.flatMap((line) => (line.product_id ? [line.product_id] : [])))];
           if (productIds.length) {
@@ -821,6 +851,34 @@ export class SourceProcurementRepository {
     if (terms.payment_details) fail("Payment details belong to payment instructions.");
     if (terms.allocations.length) fail("Bill allocations belong to Payment forms.");
     if (!terms.lines.length) fail("Enter at least one product or service line.");
+    for (const line of terms.lines) {
+      if (!line.tax_definition_id) continue;
+      try {
+        const basis = money((scaled(line.quantity, 4) * scaled(line.unit_price, 2) + 5000n) / 10000n);
+        const resolved = await resolveTax(client, {
+          tenant,
+          company: terms.company_id,
+          definition: line.tax_definition_id,
+          date: terms.bill_date ?? terms.document_date,
+          module: "purchases",
+          trigger: "recognition",
+          currency: terms.currency,
+          precision: 2,
+          basis,
+        });
+        if (
+          !line.tax_snapshot ||
+          resolved.revision !== line.tax_snapshot.revision ||
+          resolved.account_id !== line.tax_snapshot.account_id ||
+          resolved.amount !== line.tax_snapshot.amount ||
+          resolved.rate !== line.tax_percent
+        )
+          fail("The governed purchase tax changed. Save a refreshed draft before approval.", "TAX_SNAPSHOT_CHANGED");
+      } catch (error) {
+        if (error instanceof TaxError) fail(error.message, error.code, error.status);
+        throw error;
+      }
+    }
     if (new Set(terms.lines.map((line) => line.id)).size !== terms.lines.length)
       fail("Each document line needs a unique identity.");
     if (["order", "receipt", "bill"].includes(terms.kind) && !terms.supplier_id) fail("Select the supplier.");
@@ -911,7 +969,8 @@ export class SourceProcurementRepository {
         if (terms.kind === "receipt" || terms.kind === "bill") {
           if (
             scaled(line.unit_price, 2) !== scaled(sourceLine.unit_price, 2) ||
-            scaled(line.tax_percent, 2) !== scaled(sourceLine.tax_percent, 2)
+            scaled(line.tax_percent, 2) !== scaled(sourceLine.tax_percent, 2) ||
+            (line.tax_definition_id ?? null) !== (sourceLine.tax_definition_id ?? null)
           )
             fail("Receipt and bill prices and tax must match the approved Purchase Order.", "PURCHASE_PRICE_MISMATCH");
         }

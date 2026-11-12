@@ -13,6 +13,8 @@
  */
 
 import { useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { MultiCurrencyWorkspace } from "@/features/finance/views/multi-currency-workspace";
 import { useSession } from "@/lib/session/session-provider";
 import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { kindOfCode, ROUTE_BY_KIND, type SalesNav } from "../components/sales-nav";
@@ -37,7 +39,64 @@ interface SalesWorkspaceProps {
 
 const NEW_KIND_BY_PAGE = { quotations: "quotation", "sales-orders": "order", invoices: "invoice" } as const;
 
-export function SalesWorkspace({ context, onNavigate }: SalesWorkspaceProps) {
+/** Financial pages use the persistent API. Legacy sample flows require an explicit prototype route. */
+export function SalesWorkspace(props: SalesWorkspaceProps) {
+  const { context, onNavigate } = props;
+  const financial =
+    (context.moduleId === "sales" && ["invoices", "receipts"].includes(context.pageId)) ||
+    (context.moduleId === "customers" && context.pageId === "customers");
+  const prototype = context.recordRef?.startsWith("prototype:") ?? false;
+  if (financial && !prototype)
+    return (
+      <div className="grid gap-3">
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => onNavigate(context.moduleId, context.pageId, "prototype:")}
+          >
+            View sample sales workflow
+          </Button>
+        </div>
+        <MultiCurrencyWorkspace
+          key={context.pageId}
+          initialTab={
+            context.pageId === "invoices" ? "documents" : context.pageId === "receipts" ? "settlement" : "balances"
+          }
+        />
+      </div>
+    );
+  const prototypeContext = prototype
+    ? { ...context, recordRef: context.recordRef?.slice("prototype:".length) || undefined }
+    : context;
+  const prototypeNavigate: SalesWorkspaceProps["onNavigate"] = (moduleId, pageId, reference, options) => {
+    const targetFinancial =
+      (moduleId === "sales" && ["invoices", "receipts"].includes(pageId)) ||
+      (moduleId === "customers" && pageId === "customers");
+    onNavigate(moduleId, pageId, targetFinancial ? `prototype:${reference ?? ""}` : reference, options);
+  };
+  return (
+    <div className="grid gap-3">
+      {financial && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted p-3 text-sm">
+          <span>Sample workflow only. These records do not change posted balances or financial reports.</span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => onNavigate(context.moduleId, context.pageId)}
+          >
+            Open persistent currency accounts
+          </Button>
+        </div>
+      )}
+      <PrototypeSalesWorkspace context={prototypeContext} onNavigate={prototypeNavigate} />
+    </div>
+  );
+}
+
+function PrototypeSalesWorkspace({ context, onNavigate }: SalesWorkspaceProps) {
   const { session } = useSession();
   const notify = useActionFeedback();
   const { moduleId, pageId, recordRef } = context;
@@ -46,9 +105,11 @@ export function SalesWorkspace({ context, onNavigate }: SalesWorkspaceProps) {
     () => ({
       actor: session?.user.display_name ?? "You",
       notify,
-      go: (target) => onNavigate(target === "customers" ? "customers" : target === "recurring-bills" ? "revenue" : "sales", target),
+      go: (target) =>
+        onNavigate(target === "customers" ? "customers" : target === "recurring-bills" ? "revenue" : "sales", target),
       back: () => onNavigate(moduleId, pageId),
-      openNew: (target, preset) => onNavigate(target === "customers" ? "customers" : "sales", target, preset ? `new:${preset}` : "new"),
+      openNew: (target, preset) =>
+        onNavigate(target === "customers" ? "customers" : "sales", target, preset ? `new:${preset}` : "new"),
       open: (code, keepPage) => {
         const kind = kindOfCode(code);
         if (!kind) return;

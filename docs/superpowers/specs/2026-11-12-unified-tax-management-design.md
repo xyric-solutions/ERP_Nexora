@@ -1,7 +1,7 @@
 # Accounting navigation and unified tax management
 
 Date: 2026-11-12
-Status: Proposed for user review before implementation
+Status: Approved by user; implemented and verified locally
 
 ## Goal
 
@@ -73,7 +73,7 @@ journal independently of its source transaction.
 Create `TaxManagementConsole` in the Finance feature and a focused
 `TaxDefinitionForm` using existing shadcn Dialog, Input, Button and table controls.
 
-The work page title is **Unified Tax Management Console**. A prominent blue
+The work page title is **Unified Tax Management Console**. A prominent ERP-themed
 **Add New Tax Definition** button opens the modal. Dense rows show Tax Name, Tax
 Type, Tax Rate (%), Associated Nominal (GL) Account, Applicable ERP Module,
 Active/Inactive Status, and Edit/Deactivate actions. Include stable read-only
@@ -97,11 +97,14 @@ The modal contains:
 5. Reason for change and a concise impact summary. Show server validation errors
    inline, preserve entered values on conflict and prevent duplicate submission.
 
-Use the global font, neutral surfaces and shared semantic console-blue tokens
-added centrally for light/dark themes. Use restrained glow on the primary action
-and textual status badges with indicators. Preserve keyboard focus, modal focus
-management, accessible labels, responsive table scrolling and loading/error/empty
-states. No feature stylesheet or independent hardcoded palette.
+Per the user's subsequent theme correction, use the global font, neutral surfaces
+and existing ERP primary/brand semantic tokens in both themes. The primary action
+uses the shared Button styling; no separate blue palette or glow. Present textual
+status badges with indicators. The tax form uses a bounded dialog above the ERP
+shell, with a fixed header/action area and independently scrolling fields. Use two
+field columns where space permits and one on narrow screens; wrap account pager
+actions. Preserve focus management, accessible labels, responsive table scrolling
+and loading/error/empty states. No feature stylesheet or independent palette.
 
 ## Relational model and integrity
 
@@ -245,9 +248,18 @@ live authority during local implementation. Validate source migrations against
 disposable databases. Preserve populated audit/application evidence on rollback;
 disable entry points rather than dropping financial history.
 
-## Approval requested
+## Implementation and verification
 
-Approve this design, including explicit tax treatments/triggers, versioned mapping
-evidence, Payroll integration that preserves statutory execution, and the honest
-Fixed Assets source boundary. After approval, implement and verify the components,
-API and posting integrations as one coherent delivery.
+The user approved this design. The console/form, persistent versioned API,
+company-scoped relational mappings, source resolver, purchase/sales accounting,
+withholding, Payroll snapshots/accrual and source-bound immutable applications are
+implemented. Tax and control nominal roles cannot be reused in either direction.
+
+Verification and browser evidence are recorded in
+`docs/architecture/remaining-ui-migration.md`. Activation steps, permissions and
+supported boundaries are in `docs/migrations/FIN-PG-01-finance-postgresql.md`.
+Standalone financial documents select one governed definition; approved bills
+retain independent definitions and mappings per line. Payroll definitions use an
+explicit earning/deduction pair at the monthly run boundary. Fixed Assets context
+configuration does not create an asset posting module. Existing manual and sample
+flows remain explicitly identified. No operating financial data was migrated.

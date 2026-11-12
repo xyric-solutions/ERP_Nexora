@@ -39,6 +39,7 @@ export async function grantRunReviewFixtureAuthority(pool: DatabasePool, company
       );
     }
 }
+export type ConfigureTaxSalaryFixture = (context:{company:string;month:string;earning:string;liability:string;create:(data:Record<string,unknown>)=>Promise<{id:string}>})=>Promise<{component_id:string;amount:string|null;formula:string|null}[]>;
 export async function createPayrollRunFixture(
   pool: DatabasePool,
   extraUsers: string[] = [],
@@ -48,6 +49,7 @@ export async function createPayrollRunFixture(
     overtimeDays?: number;
     overtimeMinutes?: number;
     beforeAttendanceClose?: BeforePayrollAttendanceClose | undefined;
+    configureSalary?: ConfigureTaxSalaryFixture | undefined;
   } = {},
 ) {
   const f = await createShiftAllocationFixture(pool, ["r06.maker", "r06.checker", ...extraUsers]),
@@ -88,13 +90,14 @@ export async function createPayrollRunFixture(
     account_id: expense,
     position: 1,
   });
+  const additional=await options.configureSalary?.({company:f.companyId,month,earning:component.id,liability,create})??[];
   const structure = await create({
     kind: "structure",
     code: "MONTHLY",
     name: "Run acceptance monthly salary",
     description: "Synthetic compensation authority",
     currency_code: "PKR",
-    items: [{ component_id: component.id, amount: "31000", formula: null }],
+    items: [{ component_id: component.id, amount: "31000", formula: null },...additional],
   });
   const salary = await create({
     kind: "salary",

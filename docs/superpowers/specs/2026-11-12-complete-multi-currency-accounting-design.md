@@ -1,8 +1,22 @@
 # Complete multi-currency accounting
 
 Date: 2026-11-12
-Status: Draft for required written-design review; implementation has not started.
+Status: User-approved design; implemented locally. Environment activation is separate.
 Repository: Nexora ERP, resolved from the root AGENTS.md.
+
+## User-requested navigation consolidation
+
+The user requested one currency submenu, retaining the existing Currencies &
+Transfer FX design. Use `FinanceCurrencyConsole` at the existing `currencies-fx`
+route, defaulting to the unchanged company currency/rate forms and transfer policy.
+An internal Balances & transactions view embeds `MultiCurrencyWorkspace` with its
+existing controls and state. Each embedded view suppresses only its duplicate
+page heading; there is one outer title. Remove the separate finance/multi-currency
+menu leaf and retain it as an alias to the accounting view. Currency accounting
+in other feature/report entry points remains compatible. Backend calculations,
+contracts, lifecycle, tenant/company boundaries and independent posting controls
+remain unchanged. Local activation and explicit role grants are recorded in the
+remaining UI migration checklist.
 
 ## Request and acceptance baseline
 
@@ -285,3 +299,45 @@ interaction, UI cutover, security, verification and operational boundaries. It
 contains no placeholder account IDs, credentials or invented environment values.
 The release is decomposed into ordered workstreams while retaining one complete
 acceptance gate. Written-design review is required before implementation.
+
+## Implementation and operating limits
+
+Finance migration 0037 and security migration 0021 add persistent customer/vendor
+currency accounts, immutable open-item effects, approval operations and explicit
+permissions. Existing Finance posting and company currency authority remain the
+posting/rate boundaries. Amounts use exact decimal strings and integer arithmetic;
+reports use a consistent read-only database snapshot.
+
+Sales invoices/receipts/customer financial accounts, supplier currency accounts,
+approved-bill accounting preparation and core report routes use the API. Original
+quotation/order/customer-profile demonstrations remain accessible via explicitly
+labelled sample workflows. Sample records are not imported or posted automatically.
+The financial document form captures gross, tax, due date and source reference;
+this does not make every legacy Sales demonstration persistent.
+
+AR/AP valuation remains in carrying value until settlement or explicit reversal.
+Banking valuation retains its existing next-period reversal policy. Settlement
+releases prior unrealized gain/loss and recognizes lifetime realized FX without
+counting that release as new economic income. Bank deals require an explicit
+payment-units-per-invoice-unit rate and evidence reference. Fees, FX and conversion
+rounding have separate evidence. Reversals check bank balance, overdraft and dates.
+
+Posted valuations permanently protect historical cutoffs, including when later
+reversed. Use current-dated compensating documents for historical mistakes;
+retrospective rebuilding of already reported history is not exposed. Allocations
+accept up to 40 items; valuation accepts 500 eligible items per operation within
+the shared 1,000 journal-line boundary. Split larger work by party. Reports reject
+source ranges above 100,000 rows/groups instead of returning incomplete totals.
+Currency balances and ageing aggregate before database pagination. Lookup lists
+contain the permitted company's setup data.
+
+Party statements/FX accept party, side and original-currency filters. Company
+GL/TB/P&L/balance-sheet reports cover the complete ledger; incompatible API filters
+are rejected and the UI explains scope. GL running balances include opening
+activity. Presentation views preserve functional books. Cash-flow, budgets,
+consolidation/eliminations, hedging and functional-currency changes remain outside
+this approved multicurrency scope.
+
+See `docs/migrations/FIN-PG-01-finance-postgresql.md` for activation and verification
+commands and `docs/architecture/remaining-ui-migration.md` for browser evidence.
+No shared database, real role grants, environment secrets or deployment changed.

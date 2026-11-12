@@ -23,7 +23,18 @@ const s3AccessKeyId = process.env.TEST_S3_ACCESS_KEY_ID ?? "nexora-test";
 const s3SecretAccessKey = process.env.TEST_S3_SECRET_ACCESS_KEY ?? "nexora-test-secret";
 const bootstrap = new URL(bootstrapUrl);
 const revaluationAcceptance = process.env.NEXORA_BANK_REVALUATION_E2E === "true";
-const acceptanceName = revaluationAcceptance ? "Bank Revaluation" : "Bank Reconciliation";
+const subledgerAcceptance = process.env.NEXORA_SUBLEDGER_E2E === "true";
+const taxAcceptance = process.env.NEXORA_TAX_E2E === "true";
+const fiscalAcceptance = process.env.NEXORA_FINANCE_CALENDAR_E2E === "true";
+const acceptanceName = fiscalAcceptance
+  ? "Company financial setup"
+  : taxAcceptance
+    ? "Unified tax management"
+    : subledgerAcceptance
+      ? "Multi-currency accounting"
+      : revaluationAcceptance
+        ? "Bank Revaluation"
+        : "Bank Reconciliation";
 if (!["127.0.0.1", "localhost", "[::1]"].includes(bootstrap.hostname)) {
   throw new Error("The reconciliation E2E bootstrap database must be local.");
 }
@@ -153,9 +164,15 @@ try {
     [
       "test",
       "--workers=1",
-      ...(revaluationAcceptance
-        ? ["tests/e2e/bank-revaluations.spec.ts"]
-        : ["tests/e2e/bank-reconciliation.spec.ts", "tests/e2e/bank-statement-import.spec.ts"]),
+      ...(fiscalAcceptance
+        ? ["tests/e2e/company-financial-setup.spec.ts"]
+        : taxAcceptance
+          ? ["tests/e2e/tax-management.spec.ts"]
+          : subledgerAcceptance
+            ? ["tests/e2e/multi-currency-accounting.spec.ts"]
+            : revaluationAcceptance
+              ? ["tests/e2e/bank-revaluations.spec.ts"]
+              : ["tests/e2e/bank-reconciliation.spec.ts", "tests/e2e/bank-statement-import.spec.ts"]),
     ],
     {
       ...sharedEnv,

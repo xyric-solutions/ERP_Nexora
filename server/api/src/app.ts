@@ -44,6 +44,10 @@ import {
   type FinanceNominalRepository,
 } from "./modules/finance/router.js";
 import { createCompanyCurrencyRouter } from "./modules/finance/currencies/company-router.js";
+import { createTaxRouter } from "./modules/finance/taxes/router.js";
+import type { SourceTaxRepository } from "./modules/finance/taxes/source-repository.js";
+import { createSubledgerRouter } from "./modules/finance/subledger/router.js";
+import type { SourceSubledgerRepository } from "./modules/finance/subledger/source-repository.js";
 import { createChartTemplateRouter } from "./modules/finance/templates/router.js";
 import type { ChartTemplateRepository } from "./modules/finance/templates/service.js";
 import { createReferenceMasterRouter } from "./modules/master-data/router.js";
@@ -87,6 +91,8 @@ export interface AppDependencies {
   financeNominalRepository?: FinanceNominalRepository;
   financeCurrencyRepository?: FinanceCurrencyRepository;
   financeJournalRepository?: FinanceJournalRepository;
+  subledgerRepository?: SourceSubledgerRepository;
+  taxRepository?: SourceTaxRepository;
   financeHierarchyRepository?: import("./modules/finance/coa-hierarchy-repository.js").SourceCoaHierarchyRepository;
   chartTemplateRepository?: ChartTemplateRepository;
   referenceMasterRepository?: ReferenceMasterRepository;
@@ -403,6 +409,18 @@ export function createApp(dependencies: AppDependencies): Express {
         allowedOrigins: dependencies.config.allowedOrigins,
       }),
     );
+  }
+
+  if (dependencies.taxRepository && dependencies.authService && dependencies.sessionService) {
+    app.use("/api/v1/finance/taxes", createTaxRouter({ repository: dependencies.taxRepository,
+      authentication: dependencies.authService, sessions: dependencies.sessionService,
+      secureCookies: dependencies.config.nodeEnv === "production", allowedOrigins: dependencies.config.allowedOrigins }));
+  }
+
+  if (dependencies.subledgerRepository && dependencies.authService && dependencies.sessionService) {
+    app.use("/api/v1/finance/subledger", createSubledgerRouter({ repository: dependencies.subledgerRepository,
+      authentication: dependencies.authService, sessions: dependencies.sessionService,
+      secureCookies: dependencies.config.nodeEnv === "production", allowedOrigins: dependencies.config.allowedOrigins }));
   }
 
   if (dependencies.financeCurrencyRepository && dependencies.authService && dependencies.sessionService) {

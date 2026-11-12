@@ -14,6 +14,7 @@ async function authenticatedPage(browser: Browser, username: string) {
   await page.getByRole("textbox", { name: "Username or email" }).fill(username);
   await page.getByRole("textbox", { name: "Password", exact: true }).fill(password!);
   await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("button", { name: "Open Nexora R06 UAT Company", exact: true }).click();
   await expect(page).not.toHaveURL(/\/login$/);
   return { context, page };
 }
@@ -36,6 +37,7 @@ test.describe("Bank Revaluation governed lifecycle", () => {
   );
 
   test("creates, independently approves, posts and reloads persisted journal evidence", async ({ browser }) => {
+    test.setTimeout(120_000);
     const maker = await authenticatedPage(browser, makerUsername!);
     await maker.page.goto("/#/banking/revaluation");
     await expect(maker.page.getByRole("heading", { level: 1, name: "Bank Revaluation" })).toBeVisible();

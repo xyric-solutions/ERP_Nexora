@@ -63,6 +63,7 @@ import {
   FinanceNominalDetail,
   BankNominalDetailBridge,
 } from "@/features/finance/views/finance-nominals";
+import { TaxManagementConsole } from "@/features/finance/views/tax-management-console";
 import { FinanceChartTemplates } from "@/features/finance/views/finance-chart-templates";
 import {
   encodeHierarchyRouteReference,
@@ -70,8 +71,8 @@ import {
   FinanceHierarchyForm,
   FinanceSections,
 } from "@/features/finance/views/finance-hierarchy-workspaces";
-import { FinanceFiscalPeriods } from "@/features/finance/views/finance-fiscal-periods";
-import { FinanceCurrencies } from "@/features/finance/views/company-currencies-workspace";
+import { CompanyFinancialSetup } from "@/features/finance/views/company-financial-setup";
+import { FinanceCurrencyConsole } from "@/features/finance/views/finance-currency-console";
 import {
   FinanceJournalWorkspace,
   financeJournalPages,
@@ -150,6 +151,7 @@ import { ProductsWorkspace } from "@prototype/features/inventory/views/products-
 import { PurchaseWorkspace } from "@prototype/features/purchasing/views/purchase-workspace";
 import { CommercialWorkspace, isCommercialMaturityPage } from "@prototype/features/commerce/views/commercial-workspace";
 import { isSalesWorkspacePage, SalesWorkspace } from "@prototype/features/sales/views/sales-workspace";
+import { MultiCurrencyWorkspace } from "@prototype/features/finance/views/multi-currency-workspace";
 import { MasterDataForm, isMatureMasterDataForm } from "@prototype/features/master-data/views/master-data-form";
 import { RecordPreviewDrawer } from "@prototype/features/commerce/components/record-preview-drawer";
 import { isReportsWorkspacePage, ReportsWorkspace } from "@prototype/features/reports/views/reports-workspace";
@@ -2892,11 +2894,14 @@ function PrototypeContentBody(props: PrototypeContentProps) {
         }
       />
     );
-  if (context.moduleId === "finance" && context.pageId === "currencies-fx") return <FinanceCurrencies />;
-  if (context.moduleId === "configuration" && context.pageId === "company-fiscal-currency")
-    return <FinanceCurrencies />;
-  if (context.moduleId === "finance" && ["fiscal-periods", "period-close"].includes(context.pageId))
-    return <FinanceFiscalPeriods closeWorkbench={context.pageId === "period-close"} />;
+  if (context.moduleId === "finance" && context.pageId === "taxes") return <TaxManagementConsole />;
+  if (context.moduleId === "finance" && context.pageId === "retired-module") return <section className="rounded-xl border border-border bg-card p-6"><h1 className="text-xl font-semibold">Module unavailable</h1><p className="mt-2 text-muted-foreground">The Costing module has been removed from this ERP workspace.</p></section>;
+  if (context.moduleId === "finance" && context.pageId === "currencies-fx") {
+    return <FinanceCurrencyConsole section={context.recordRef} onSectionChange={(section) => props.onNavigate("finance", "currencies-fx", section)} />;
+  }
+  if (context.moduleId === "configuration" && context.pageId === "company-fiscal-currency") {
+    return <CompanyFinancialSetup section={context.recordRef} onSectionChange={(section) => props.onNavigate("configuration", "company-fiscal-currency", section)} />;
+  }
   if (isLiveJournalPage)
     return (
       <FinanceJournalWorkspace
@@ -3123,6 +3128,20 @@ function PrototypeContentBody(props: PrototypeContentProps) {
 
   if (["hr", "reports"].includes(context.moduleId) && isHrReportingPage(context.pageId)) {
     return <HrReportingWorkspace context={context} onAction={onAction} onNavigate={props.onNavigate} />;
+  }
+
+  const currencyReports: Record<string, "statement" | "general_ledger" | "trial_balance" | "profit_loss" | "balance_sheet"> = {
+    "customer-statement-report": "statement", "supplier-statement-report": "statement",
+    "general-ledger-detail-report": "general_ledger", "trial-balance-report": "trial_balance",
+    "profit-loss-report": "profit_loss", "balance-sheet-report": "balance_sheet",
+    "customer-ageing-report": "statement", "supplier-ageing-report": "statement",
+  };
+  const currencyReport = currencyReports[context.pageId];
+  if (context.moduleId === "reports" && currencyReport) {
+    return <MultiCurrencyWorkspace key={context.pageId} initialTab={context.pageId.includes("ageing") ? "balances" : "reports"} initialSide={context.pageId.startsWith("supplier") ? "payable" : "receivable"} initialReport={currencyReport} />;
+  }
+  if ((context.moduleId === "customers" && context.pageId === "currency-balances") || (context.moduleId === "purchases" && context.pageId === "supplier-currency-accounts")) {
+    return <MultiCurrencyWorkspace key={`${context.pageId}:${context.recordRef ?? ""}`} initialSide={context.moduleId === "purchases" ? "payable" : "receivable"} initialTab={context.recordRef ? "documents" : "balances"} sourceDocumentId={context.moduleId === "purchases" ? context.recordRef : undefined} />;
   }
 
   if (context.moduleId === "reports" && isReportsWorkspacePage(context.pageId)) {

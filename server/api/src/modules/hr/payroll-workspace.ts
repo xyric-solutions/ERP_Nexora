@@ -492,7 +492,10 @@ export class PayrollWorkspace {
     const client = await this.d.pool.connect();
     try {
       await client.query("begin");
-      await client.query("select set_config('nexora.tenant_id',$1,true)", [c.tenantId]);
+      await client.query("select set_config('nexora.tenant_id',$1,true),set_config('nexora.user_id',$2,true)", [
+        c.tenantId,
+        c.actor.userId,
+      ]);
       await this.company(client, c, company);
       await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
         "nexora:payroll:" + c.tenantId + ":" + company,

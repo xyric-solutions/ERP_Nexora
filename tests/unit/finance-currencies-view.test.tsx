@@ -527,6 +527,23 @@ describe("FinanceCurrencies", { timeout: 15_000 }, () => {
     );
   });
 
+  it("keeps the existing activation form available in the combined workspace", async () => {
+    await act(async () => root.render(<FinanceCurrencies embedded />));
+    await settle();
+    expect(container.querySelector("h1")).toBeNull();
+    expect(container.textContent).toContain("Financial reporting base");
+    const add = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Add New"));
+    expect(add).toBeDefined();
+    await act(async () => add?.click());
+    await settle();
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain("Add New Currency");
+    expect(dialog?.querySelector("#company-currency-rate")).not.toBeNull();
+    expect(
+      [...document.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Save and Close"),
+    ).toBe(true);
+  });
+
   it("keeps company currency mutations hidden from a read-only user", async () => {
     const original = [...harness.session.user.permissions];
     harness.session.user.permissions = original.filter((permission) => !permission.endsWith(".manage"));
