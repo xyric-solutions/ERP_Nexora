@@ -5341,3 +5341,46 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Pre-existing/unrelated failures left as found: recruitment fixtures lack an
   HR136 project/hiring basis; drafts-status and transfer-status filters from
   parallel uncommitted work; master-delete message/org-unit cases.
+
+## 2026-11-11 — Employee Lifecycle status filters
+
+- Onboarding: removed the "Offer" status tab (hired offers are still listed
+  first in the create picker); onboarding has no Cancelled outcome, so the
+  draft delete (cancel) action is hidden and legacy cancelled cases are not
+  listed — an unwanted case is Rejected instead. API unchanged.
+- Resignation / Termination / Exit Clearance: added a Submitted tab
+  (All, Draft, Submitted, Approved, Cancelled).
+- Lifecycle Policies: tabs are All records, Pending (draft, pending approval,
+  approved-not-activated), Active, Deactivated.
+- Verification: `build:web`, eslint on both views, theme audit `--check`,
+  `git diff --check`. Data checked via the API repositories; no browser pass yet.
+- Known gap (not fixed): DEMO employee assignments still reference archived
+  Employment Setup ES-001 (HR149), so approving any promotion or transfer fails
+  in `validate_hr_assignment_scope()` with a generic "context is no longer
+  valid" message. Assignments need re-pointing (or the approval path must stop
+  copying `employment_setup_id`).
+- Remaining: Termination and Exit Clearance have no Rejected tab, although
+  rejected cases exist (visible under All).
+
+## 2026-11-11 — Loan / Advance Requests: edit drafts, status tabs (HR152)
+
+- Backend: migration `hr/0152_draft_loan_revision` lets a draft loan/advance
+  change employee, principal, currency, start month, instalments and recovery
+  component while it stays a draft (version +1); code, kind, creator and
+  approval evidence stay immutable, and approved/active/settled loans remain
+  locked. New `POST /api/v1/hr/payroll_records/{recordId}/revision`
+  (`reviseHrPayrollLoanSchema`, preparer only, idempotent, audited as
+  `revise`). `GET /hr/payroll_workspace` accepts `state`
+  (draft/submitted/approved/rejected; loans only; approved includes
+  active/settled). Contract, OpenAPI JSON and generated client regenerated.
+- UI (`hr-benefits-workspace.tsx`): status tabs All / Draft / Submitted /
+  Approved / Rejected; edit icon beside delete on drafts opens the same form
+  pre-filled; edit and delete are enabled only for the request's preparer
+  (delete previously showed for everyone and failed on the server).
+- Verification: HR152 applied locally and on a fresh test DB; integration
+  `hr-payroll-loan-revision` (new, 4), `hr-payroll-loans`, `hr-payroll-workspace`
+  40/40; unit `hr-payroll-api` 37/37; `api:check`; API + web `tsc`;
+  `build:web`; theme audit; `git diff --check`. No browser pass yet.
+- Pre-existing/unrelated: `tests/contract/openapi.test.ts` snapshot lists 204
+  paths vs 352 generated (finance journals etc. missing); 24 unused-import
+  lint errors in `app/features/hr/api/hr-client.ts`.

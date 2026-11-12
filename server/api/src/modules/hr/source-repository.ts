@@ -41,7 +41,7 @@ import {PayrollRunComparison} from './payroll-run-comparison.js';
 import type {HrPayrollRunComparisonQuery} from '@nexora/contracts';
 import type {HrPayrollRunQuery,HrPayrollRunAction,HrPayrollRunWorkspace} from '@nexora/contracts';
 import {PayrollWorkspace,type PayrollWorkspaceDependencies} from './payroll-workspace.js';
-import type {HrPayrollSection,HrPayrollWorkspaceQuery,HrPayrollWorkspace,HrPayrollItem,HrPayrollOptionsQuery,HrPayrollOptions,CreateHrPayrollRecord,HrPayrollRecordAction,HrPayrollMutationResult} from '@nexora/contracts';
+import type {HrPayrollSection,HrPayrollWorkspaceQuery,HrPayrollWorkspace,HrPayrollItem,HrPayrollOptionsQuery,HrPayrollOptions,CreateHrPayrollRecord,HrPayrollRecordAction,ReviseHrPayrollLoan,HrPayrollMutationResult} from '@nexora/contracts';
 import {TimeLeave} from './time-leave.js';
 import {SelfAttendance} from './self-attendance.js';
 import type {AttendanceCompletionDependencies} from './attendance-completion.js';
@@ -639,6 +639,7 @@ export class SourceHrRepository {
   async getPayrollOptions(c:HrActorContext,q:HrPayrollOptionsQuery){return this.payrollWorkspace().options(c,q);}
   async createPayrollRecord(c:HrActorContext,input:CreateHrPayrollRecord,key:string,corr:string){return this.payrollWorkspace().create(c,input,key,corr);}
   async actOnPayrollRecord(c:HrActorContext,id:string,input:HrPayrollRecordAction,key:string,corr:string){return this.payrollWorkspace().action(c,id,input,key,corr);}
+  async revisePayrollLoan(c:HrActorContext,id:string,input:ReviseHrPayrollLoan,key:string,corr:string){return this.payrollWorkspace().reviseLoan(c,id,input,key,corr);}
   async getLearning(c:HrActorContext,q:HrLearningQuery){return new LearningDevelopment(this.governanceDependencies()).workspace(c,q);}
   async actOnLearning(c:HrActorContext,input:HrLearningAction,key:string,corr:string){return new LearningDevelopment(this.governanceDependencies()).action(c,input,key,corr);}
   async getLearningCertificate(c:HrActorContext,company:string,id:string){return new LearningDevelopment(this.governanceDependencies()).certificate(c,company,id);}

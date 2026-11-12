@@ -48731,6 +48731,20 @@
           },
           {
             "in": "query",
+            "name": "state",
+            "description": "Loans only. approved also includes disbursed (active) and settled loans.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "submitted",
+                "approved",
+                "rejected"
+              ]
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "schema": {
               "type": "integer",
@@ -49125,6 +49139,121 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/HrPayrollRecordAction"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/hr/payroll_records/{recordId}/revision": {
+      "post": {
+        "description": "Revise the terms of a draft loan or salary advance. Only its preparer may revise it, the reference code and kind stay fixed, and the version advances once per revision.",
+        "operationId": "revisePayrollLoan",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recordId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "HrPayrollMutationResult",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrPayrollMutationResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviseHrPayrollLoan"
               }
             }
           }
@@ -88581,6 +88710,15 @@
               "advance"
             ]
           },
+          "state": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "submitted",
+              "approved",
+              "rejected"
+            ]
+          },
           "limit": {
             "default": 25,
             "type": "integer",
@@ -89531,6 +89669,77 @@
           "source_hash",
           "action",
           "confirm_override"
+        ],
+        "additionalProperties": false
+      },
+      "ReviseHrPayrollLoan": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "reason": {
+            "default": "",
+            "type": "string",
+            "maxLength": 500
+          },
+          "action": {
+            "type": "string",
+            "const": "revise"
+          },
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "source_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "employee_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "component_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "currency_code": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "start_month": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "principal": {
+            "type": "string",
+            "pattern": "^\\d{1,16}(\\.\\d{1,4})?$"
+          },
+          "instalment_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 600
+          }
+        },
+        "required": [
+          "company_id",
+          "reason",
+          "action",
+          "expected_version",
+          "source_hash",
+          "employee_id",
+          "component_id",
+          "currency_code",
+          "start_month",
+          "principal",
+          "instalment_count"
         ],
         "additionalProperties": false
       },

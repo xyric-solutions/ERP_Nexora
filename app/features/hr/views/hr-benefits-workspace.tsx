@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createHrPayrollRecordSchema,
   hrPayrollRecordActionSchema,
+  reviseHrPayrollLoanSchema,
   type HrPayrollItem,
   type HrPayrollRecordAction,
+  type HrPayrollWorkspaceQuery,
 } from "@nexora/contracts";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -29,7 +31,9 @@ import {
   hrDisplayDate,
 } from "../components/hr-detail-tile";
 import { HrDrawerActions } from "../components/hr-drawer-context";
+import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrSearchField } from "../components/hr-list-controls";
+import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { hrCell } from "../components/hr-table";
 import { Field, selectClass, useAttendanceRead, localDate } from "../components/hr-workspace-controls";
@@ -49,7 +53,19 @@ const decisionLabel: Record<Decision, string> = {
   reject: "Reject",
   confirm_disbursement: "Confirm disbursement",
 };
+type StatusFilter = "all" | NonNullable<HrPayrollWorkspaceQuery["state"]>;
+/** Approved also lists disbursed (active) and fully recovered loans; cancelled requests appear under All. */
+const statusFilters: readonly { value: StatusFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "draft", label: "Draft" },
+  { value: "submitted", label: "Submitted" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+];
 const monthStart = () => localDate().slice(0, 8) + "01";
+/** "150000.0000" → "150000" for editing; keeps meaningful decimals. */
+const plainAmount = (value: string | null | undefined) =>
+  value ? (value.includes(".") ? value.replace(/\.?0+$/, "") : value) : "";
 const money = (amount: string | null | undefined, currency: string | null | undefined) =>
   amount ? `${amount} ${currency ?? ""}`.trim() : "";
 
@@ -68,7 +84,8 @@ function useIdempotency() {
   };
 }
 
-function NewLoanForm({
+/** New loan/advance form; with `record` it edits that draft's terms (code and kind stay fixed). */
+function LoanForm({
   kind,
   company,
   client,
@@ -76,6 +93,8 @@ function NewLoanForm({
   busy,
   onSaved,
   setBusy,
+  record,
+  onCancel,
 }: {
   kind: LoanKind;
   company: string;
@@ -84,13 +103,18 @@ function NewLoanForm({
   busy: boolean;
   setBusy: (busy: boolean) => void;
   onSaved: (message: string, id: string) => void;
+  record?: HrPayrollItem;
+  onCancel?: () => void;
 }) {
-  const [employee, setEmployee] = useState("");
-  const [component, setComponent] = useState("");
-  const [currency, setCurrency] = useState("");
-  const [principal, setPrincipal] = useState("");
-  const [startMonth, setStartMonth] = useState(monthStart());
-  const [instalments, setInstalments] = useState(kind === "advance" ? "1" : "12");
+  const editing = !!record;
+  const [employee, setEmployee] = useState(record?.employee_id ?? "");
+  const [component, setComponent] = useState(record?.details.component_id ?? "");
+  const [currency, setCurrency] = useState(record?.currency_code ?? "");
+  const [principal, setPrincipal] = useState(plainAmount(record?.amount));
+  const [startMonth, setStartMonth] = useState(record?.effective_from?.slice(0, 10) ?? monthStart());
+  const [instalments, setInstalments] = useState(
+    record?.details.instalment_count ?? (kind === "advance" ? "1" : "12"),
+  );
   const [reason, setReason] = useState("");
   const [typed, setTyped] = useState("");
   const [search, setSearch] = useState("");
@@ -109,11 +133,46 @@ function NewLoanForm({
   const recoveryComponents = (options.data?.components ?? []).filter(
     (item) => item.kind === "deduction" && item.method === "fixed",
   );
-  const code = options.data?.code_previews?.[kind] ?? "";
+  const code = record?.reference ?? options.data?.code_previews?.[kind] ?? "";
+  // Keep the draft's current employee selectable even when the search list does not include it.
+  const employeeOptions = (options.data?.employees ?? []).map((item) => ({ value: item.id, label: item.label }));
+  if (record?.employee_id && !employeeOptions.some((item) => item.value === record.employee_id))
+    employeeOptions.unshift({ value: record.employee_id, label: record.employee_name ?? record.employee_id });
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setError("");
+    if (record) {
+      const revision = reviseHrPayrollLoanSchema.safeParse({
+        company_id: company,
+        action: "revise",
+        reason,
+        expected_version: record.version,
+        source_hash: record.source_hash,
+        employee_id: employee,
+        component_id: component,
+        currency_code: currency.trim().toUpperCase(),
+        principal: principal.trim(),
+        start_month: startMonth,
+        instalment_count: Number(instalments),
+      });
+      if (!revision.success) {
+        setError(revision.error.issues.map((issue) => issue.message).join(" "));
+        return;
+      }
+      const attempt = idempotency({ id: record.id, ...revision.data });
+      setBusy(true);
+      try {
+        await client.revisePayrollLoan(record.id, revision.data, csrf(), attempt.key);
+        attempt.done();
+        onSaved(`${label[kind].one} updated.`, record.id);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : `The ${label[kind].one.toLowerCase()} could not be updated.`);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     const parsed = createHrPayrollRecordSchema.safeParse({
       company_id: company,
       kind: "loan",
@@ -145,7 +204,11 @@ function NewLoanForm({
   }
 
   return (
-    <form className="grid min-w-0 gap-4" aria-label={`New ${label[kind].one.toLowerCase()}`} onSubmit={submit}>
+    <form
+      className="grid min-w-0 gap-4"
+      aria-label={`${editing ? "Edit" : "New"} ${label[kind].one.toLowerCase()}`}
+      onSubmit={submit}
+    >
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -167,7 +230,7 @@ function NewLoanForm({
           searchPlaceholder="Search by name or employee number…"
           search={typed}
           onSearchChange={setTyped}
-          options={(options.data?.employees ?? []).map((item) => ({ value: item.id, label: item.label }))}
+          options={employeeOptions}
           onValueChange={setEmployee}
         />
       </div>
@@ -238,8 +301,13 @@ function NewLoanForm({
         <Textarea rows={2} value={reason} maxLength={500} disabled={busy} onChange={(e) => setReason(e.target.value)} />
       </Field>
       <HrDrawerActions>
+        {onCancel ? (
+          <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>
+            Cancel
+          </Button>
+        ) : null}
         <Button type="submit" disabled={busy}>
-          {busy ? "Saving…" : "Save draft"}
+          {busy ? "Saving…" : editing ? "Save changes" : "Save draft"}
         </Button>
       </HrDrawerActions>
     </form>
@@ -251,6 +319,7 @@ function LoanDetail({
   company,
   record,
   permissions,
+  userId,
   client,
   csrf,
   busy,
@@ -262,6 +331,7 @@ function LoanDetail({
   company: string;
   record: HrPayrollItem;
   permissions: readonly string[];
+  userId: string;
   client: HrApiClient;
   csrf: () => string;
   busy: boolean;
@@ -270,6 +340,7 @@ function LoanDetail({
   onNavigate: Navigate;
 }) {
   const [decision, setDecision] = useState<Decision | null>(null);
+  const [editing, setEditing] = useState(false);
   const [reason, setReason] = useState("");
   const [paymentLine, setPaymentLine] = useState("");
   const [bankReference, setBankReference] = useState("");
@@ -286,7 +357,31 @@ function LoanDetail({
     if (record.status === "approved" && canApprove && permissions.includes("banking.payment.read"))
       decisions.push("confirm_disbursement");
   }
-  const canDelete = record.workflow_managed && canManage && ["draft", "submitted"].includes(record.status);
+  // Only the preparer may edit or delete a request (the server enforces the same rule), which keeps
+  // the approver independent of everyone who shaped the terms.
+  const isPreparer = record.created_by === userId;
+  const canDelete =
+    record.workflow_managed && canManage && isPreparer && ["draft", "submitted"].includes(record.status);
+  const isDraft = record.workflow_managed && canManage && record.status === "draft";
+  const canEdit = isDraft && isPreparer;
+
+  if (editing)
+    return (
+      <LoanForm
+        kind={kind}
+        company={company}
+        client={client}
+        csrf={csrf}
+        busy={busy}
+        setBusy={setBusy}
+        record={record}
+        onCancel={() => setEditing(false)}
+        onSaved={(message) => {
+          setEditing(false);
+          onChanged(message, true);
+        }}
+      />
+    );
 
   async function act(action: HrPayrollRecordAction["action"]) {
     setError("");
@@ -480,6 +575,16 @@ function LoanDetail({
               onConfirm={() => act("cancel")}
             />
           ) : null}
+          {isDraft ? (
+            <HrEditButton
+              label={canEdit ? `Edit ${record.reference}` : "Only the person who prepared this draft can edit it"}
+              disabled={busy || !canEdit}
+              onClick={() => {
+                setError("");
+                setEditing(true);
+              }}
+            />
+          ) : null}
           {decisions.map((action) => (
             <Button
               key={action}
@@ -506,9 +611,11 @@ function LoanRegister({ kind, onNavigate }: { kind: LoanKind; onNavigate: Naviga
   const permissions = session?.user.permissions ?? [];
   const canRead = permissions.includes("hr.payroll.loan.read");
   const canManage = permissions.includes("hr.payroll.loan.manage");
+  const userId = session?.user.id ?? "";
   const company = activeCompany?.id ?? "";
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("all");
   const [offset, setOffset] = useState(0);
   const [revision, setRevision] = useState(0);
   const [creating, setCreating] = useState(false);
@@ -524,12 +631,13 @@ function LoanRegister({ kind, onNavigate }: { kind: LoanKind; onNavigate: Naviga
     return () => window.clearTimeout(timer);
   }, [search]);
 
-  const query = {
+  const query: HrPayrollWorkspaceQuery = {
     company_id: company,
-    section: "loans" as const,
+    section: "loans",
     month: monthStart(),
     search: filter,
     loan_kind: kind,
+    ...(status === "all" ? {} : { state: status }),
     limit: PAGE_SIZE,
     offset,
   };
@@ -570,6 +678,16 @@ function LoanRegister({ kind, onNavigate }: { kind: LoanKind; onNavigate: Naviga
           </Button>
         ) : null}
       </div>
+      <HrMasterStatusFilter<StatusFilter>
+        label={`${label[kind].one} status`}
+        value={status}
+        options={statusFilters}
+        onChange={(next) => {
+          setStatus(next);
+          setOffset(0);
+          setOpenedId("");
+        }}
+      />
       {!company ? (
         <Alert>
           <AlertDescription>Choose a company at sign-in to see these records.</AlertDescription>
@@ -633,8 +751,8 @@ function LoanRegister({ kind, onNavigate }: { kind: LoanKind; onNavigate: Naviga
                 {!items.length ? (
                   <tr>
                     <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                      {filter
-                        ? `No ${label[kind].many.toLowerCase()} match this search.`
+                      {filter || status !== "all"
+                        ? `No ${label[kind].many.toLowerCase()} match.`
                         : `No ${label[kind].many.toLowerCase()} yet.`}
                     </td>
                   </tr>
@@ -683,7 +801,7 @@ function LoanRegister({ kind, onNavigate }: { kind: LoanKind; onNavigate: Naviga
         onClose={() => setCreating(false)}
       >
         {creating ? (
-          <NewLoanForm
+          <LoanForm
             kind={kind}
             company={company}
             client={client}
@@ -693,6 +811,8 @@ function LoanRegister({ kind, onNavigate }: { kind: LoanKind; onNavigate: Naviga
             onSaved={(message, id) => {
               setNotice(message);
               setCreating(false);
+              // A new request is a draft; show it even if another status tab was selected.
+              if (status !== "all" && status !== "draft") setStatus("all");
               setOpenedId(id);
               setRevision((value) => value + 1);
             }}
@@ -715,6 +835,7 @@ function LoanRegister({ kind, onNavigate }: { kind: LoanKind; onNavigate: Naviga
             company={company}
             record={opened}
             permissions={permissions}
+            userId={userId}
             client={client}
             csrf={csrfToken}
             busy={busy}

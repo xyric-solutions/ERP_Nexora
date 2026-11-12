@@ -7,6 +7,7 @@ import { evaluateApprovalActor } from "@nexora/auth";
 import type {
   CreateHrPayrollRecord,
   HrPayrollRecordAction,
+  ReviseHrPayrollLoan,
   HrPayrollWorkspaceQuery,
   HrPayrollWorkspace,
   HrPayrollItem,
@@ -353,6 +354,11 @@ export class PayrollWorkspace {
       if (q.section === "loans" && q.loan_kind) {
         values.push(q.loan_kind);
         where.push(`r.loan_kind=$${values.length}`);
+      }
+      if (q.section === "loans" && q.state) {
+        // Approved covers every approved loan, including disbursed (active) and fully recovered (settled) ones.
+        values.push(q.state === "approved" ? ["approved", "active", "settled"] : [q.state]);
+        where.push(`r.state=any($${values.length}::text[])`);
       }
       if (q.search) {
         values.push("%" + q.search.replace(/[\\%_]/g, "\\$&") + "%");
@@ -835,6 +841,66 @@ export class PayrollWorkspace {
         }
         const after = await this.map(client, c, section, await this.load(client, c, section, company, id));
         return { id, status, version: 1, kind: input.kind, before: null, after };
+      },
+    );
+  }
+  /** Revise the terms of a draft loan or salary advance. Only its preparer may do so; code and kind stay fixed. */
+  async reviseLoan(
+    c: HrActorContext,
+    id: string,
+    input: ReviseHrPayrollLoan,
+    key: string,
+    corr: string,
+  ): Promise<HrPayrollMutationResult> {
+    input = { ...input, reason: input.reason || "Draft terms revised." };
+    return this.runWrite(
+      c,
+      input.company_id,
+      this.permission("loans", "manage"),
+      key,
+      corr,
+      "/api/v1/hr/payroll_records/" + id + "/revision",
+      input,
+      async (client) => {
+        const company = input.company_id,
+          row = await this.load(client, c, "loans", company, id),
+          before = await this.map(client, c, "loans", row);
+        if (!before.workflow_managed) fail("This legacy Payroll record is read-only.");
+        if (before.version !== input.expected_version || before.source_hash !== input.source_hash)
+          fail("Payroll source terms changed. Refresh and review again.");
+        if (before.status !== "draft") fail("Only draft requests can be edited.");
+        if (before.created_by !== c.actor.userId) deny();
+        await this.employee(client, c, company, input.employee_id, input.start_month);
+        await this.ensureUnfrozen(client, c, company, input.start_month);
+        const comp = await this.component(client, c, company, input.component_id);
+        if (comp.kind !== "deduction" || comp.method !== "fixed")
+          fail("Loan recovery requires an active fixed deduction component.");
+        const currency = (
+          await client.query("select decimal_places from currency where tenant_id=$1 and code=$2 and status='active'", [
+            c.tenantId,
+            input.currency_code,
+          ])
+        ).rows[0];
+        if (!currency || currency.decimal_places > 4) fail("Choose an active currency with supported precision.");
+        loanSchedule(input.principal, input.instalment_count, currency.decimal_places);
+        const updated = await client.query(
+          `update hr_employee_loan set employee_id=$4,principal=$5,currency_code=$6,start_month=$7,instalment_count=$8,component_id=$9,version=version+1 where tenant_id=$1 and company_id=$2 and id=$3 and state='draft' and version=$10`,
+          [
+            c.tenantId,
+            company,
+            id,
+            input.employee_id,
+            input.principal,
+            input.currency_code,
+            input.start_month,
+            input.instalment_count,
+            input.component_id,
+            input.expected_version,
+          ],
+        );
+        if (updated.rowCount !== 1) fail("Payroll source terms changed. Refresh and review again.");
+        const after = await this.map(client, c, "loans", await this.load(client, c, "loans", company, id));
+        return { id, status: after.status, version: after.version, kind: "loan", before, after };
       },
     );
   }

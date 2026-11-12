@@ -52,8 +52,21 @@ const decisionLabel: Record<Decision, string> = {
   deactivate: "Deactivate",
 };
 
-const filterMatches = (filter: HrMasterStatus, policy: Policy) =>
-  filter === "all" || (filter === "active" ? policy.status === "active" : policy.status === "inactive");
+type PolicyFilter = HrMasterStatus | "pending";
+
+/** Pending covers every policy that is not live yet: draft, awaiting approval, or approved but not activated. */
+const policyFilters: readonly { value: PolicyFilter; label: string }[] = [
+  { value: "all", label: "All records" },
+  { value: "pending", label: "Pending" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Deactivated" },
+];
+
+const filterMatches = (filter: PolicyFilter, policy: Policy) =>
+  filter === "all" ||
+  (filter === "pending"
+    ? policy.status === "draft" || policy.status === "pending_approval" || policy.status === "approved"
+    : policy.status === filter);
 
 /** Lifecycle policies: name and describe a company policy; drafts are edited or deleted, live ones deactivated. */
 export function HrLifecyclePoliciesWorkspace() {
@@ -65,7 +78,7 @@ export function HrLifecyclePoliciesWorkspace() {
   const [state, setState] = useState<LoadState>("loading");
   const [refreshKey, setRefreshKey] = useState(0);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<HrMasterStatus>("all");
+  const [filter, setFilter] = useState<PolicyFilter>("all");
   const [openedId, setOpenedId] = useState("");
   const [editor, setEditor] = useState<"new" | Policy | null>(null);
   const [name, setName] = useState("");
@@ -266,7 +279,12 @@ export function HrLifecyclePoliciesWorkspace() {
           </Button>
         ) : null}
       </div>
-      <HrMasterStatusFilter label="Policy status" value={filter} onChange={setFilter} />
+      <HrMasterStatusFilter<PolicyFilter>
+        label="Policy status"
+        value={filter}
+        options={policyFilters}
+        onChange={setFilter}
+      />
 
       {notice && !opened && !editor ? (
         <p role="status" className="m-0! text-sm text-muted-foreground">

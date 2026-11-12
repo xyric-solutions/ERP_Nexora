@@ -101,6 +101,7 @@ import {
   hrPayrollOptionsSchema,
   createHrPayrollRecordSchema,
   hrPayrollRecordActionSchema,
+  reviseHrPayrollLoanSchema,
   hrPayrollMutationResultSchema,
 } from "./hr/index.js";
 import {
@@ -4157,6 +4158,12 @@ export function buildOpenApiDocument() {
             },
             { in: "query", name: "month", required: true, schema: { type: "string", format: "date" } },
             { in: "query", name: "loan_kind", schema: { type: "string", enum: ["loan", "advance"] } },
+            {
+              in: "query",
+              name: "state",
+              description: "Loans only. approved also includes disbursed (active) and settled loans.",
+              schema: { type: "string", enum: ["draft", "submitted", "approved", "rejected"] },
+            },
             { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 50 } },
             { in: "query", name: "offset", schema: { type: "integer", minimum: 0, maximum: 100000 } },
           ],
@@ -4225,6 +4232,29 @@ export function buildOpenApiDocument() {
           requestBody: {
             required: true,
             content: { "application/json": { schema: { $ref: "#/components/schemas/HrPayrollRecordAction" } } },
+          },
+        },
+      },
+      "/hr/payroll_records/{recordId}/revision": {
+        post: {
+          description: "Revise the terms of a draft loan or salary advance. Only its preparer may revise it, the reference code and kind stay fixed, and the version advances once per revision.",
+          operationId: "revisePayrollLoan",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          responses: {
+            ...securityErrors,
+            "200": {
+              description: "HrPayrollMutationResult",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrPayrollMutationResult" } } },
+            },
+          },
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ReviseHrPayrollLoan" } } },
           },
         },
       },
@@ -8063,6 +8093,7 @@ export function buildOpenApiDocument() {
         HrPayrollOptions: schema(hrPayrollOptionsSchema),
         CreateHrPayrollRecord: schema(createHrPayrollRecordSchema),
         HrPayrollRecordAction: schema(hrPayrollRecordActionSchema),
+        ReviseHrPayrollLoan: schema(reviseHrPayrollLoanSchema),
         HrPayrollMutationResult: schema(hrPayrollMutationResultSchema),
         HrPayrollPaymentQuery: schema(hrPayrollPaymentQuerySchema),
         HrPayrollPaymentAction: schema(hrPayrollPaymentActionSchema),
