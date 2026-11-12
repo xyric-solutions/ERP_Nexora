@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/generated";
@@ -131,12 +132,11 @@ function OfferEditor({
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid content-start gap-1.5 text-sm">
             Proposed monthly gross ({context.currency_code})
-            <Input
+            <AmountInput
               required
-              inputMode="decimal"
-              pattern="[0-9]+(\.[0-9]{1,4})?"
+              decimals={4}
               value={terms.proposed_gross}
-              onChange={(e) => field("proposed_gross", e.target.value)}
+              onValueChange={(raw) => field("proposed_gross", raw)}
             />
           </label>
           <label className="grid content-start gap-1.5 text-sm">

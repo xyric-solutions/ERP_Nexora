@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { FinanceNominalSummary, TransferFxPolicy } from "@nexora/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
@@ -152,11 +153,11 @@ export function FinanceTransferFxPolicy({ companyId }: { companyId: string }) {
           ))}
           <div className="grid gap-2">
             <Label htmlFor="transfer-policy-tolerance">Rounding tolerance *</Label>
-            <Input
+            <AmountInput
               id="transfer-policy-tolerance"
-              inputMode="decimal"
+              decimals={8}
               value={form.tolerance}
-              onChange={(event) => setForm((current) => ({ ...current, tolerance: event.target.value }))}
+              onValueChange={(raw) => setForm((current) => ({ ...current, tolerance: raw }))}
             />
           </div>
           <div className="grid gap-2">

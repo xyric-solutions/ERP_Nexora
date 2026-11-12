@@ -32,6 +32,8 @@ export interface SearchableSelectProps {
   id?: string;
   className?: string;
   footer?: React.ReactNode;
+  /** Optional shorter text for the closed trigger, e.g. a calling code instead of the full country name. */
+  valueLabel?: (option: SearchableSelectOption) => string;
 }
 
 /**
@@ -57,6 +59,7 @@ export function SearchableSelect({
   id,
   className,
   footer,
+  valueLabel,
 }: SearchableSelectProps) {
   const [localSearch, setLocalSearch] = useState("");
   const query = search ?? localSearch;
@@ -115,7 +118,7 @@ export function SearchableSelect({
         title={selected?.label}
       >
         <span className={cn("min-w-0 truncate", !selected && "text-muted-foreground")}>
-          {selected?.label ?? placeholder}
+          {selected ? (valueLabel ? valueLabel(selected) : selected.label) : placeholder}
         </span>
         <ChevronDownIcon
           aria-hidden="true"

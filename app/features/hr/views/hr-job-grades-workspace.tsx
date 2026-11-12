@@ -7,6 +7,7 @@ import type { CreateHrJobGradeRequest, HrJobGradeDirectory } from "@nexora/contr
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
@@ -198,7 +199,7 @@ export function HrJobGradesWorkspace() {
               <label className="grid content-start gap-1 text-sm">Name<Input maxLength={160} value={editor.name} onChange={(event) => setEditor({ ...editor, name: event.target.value })} /></label>
               <label className="grid content-start gap-1 text-sm">Description<textarea className="min-h-20 rounded-md border border-input bg-background p-2" maxLength={1000} value={editor.description} onChange={(event) => setEditor({ ...editor, description: event.target.value })} /></label>
               <label className="grid content-start gap-1 text-sm">Currency<Input maxLength={3} value={editor.currencyCode} onChange={(event) => setEditor({ ...editor, currencyCode: event.target.value.toUpperCase() })} /></label>
-              <fieldset className="grid gap-2 rounded-md border p-3"><legend className="px-1 text-sm font-medium">Optional compensation band</legend><label className="grid content-start gap-1 text-sm">Minimum<Input inputMode="decimal" value={editor.bandMinimum} onChange={(event) => setEditor({ ...editor, bandMinimum: event.target.value })} /></label><label className="grid content-start gap-1 text-sm">Midpoint<Input inputMode="decimal" value={editor.bandMidpoint} onChange={(event) => setEditor({ ...editor, bandMidpoint: event.target.value })} /></label><label className="grid content-start gap-1 text-sm">Maximum<Input inputMode="decimal" value={editor.bandMaximum} onChange={(event) => setEditor({ ...editor, bandMaximum: event.target.value })} /></label></fieldset>
+              <fieldset className="grid gap-2 rounded-md border p-3"><legend className="px-1 text-sm font-medium">Optional compensation band</legend><label className="grid content-start gap-1 text-sm">Minimum<AmountInput decimals={4} value={editor.bandMinimum} onValueChange={(raw) => setEditor({ ...editor, bandMinimum: raw })} /></label><label className="grid content-start gap-1 text-sm">Midpoint<AmountInput decimals={4} value={editor.bandMidpoint} onValueChange={(raw) => setEditor({ ...editor, bandMidpoint: raw })} /></label><label className="grid content-start gap-1 text-sm">Maximum<AmountInput decimals={4} value={editor.bandMaximum} onValueChange={(raw) => setEditor({ ...editor, bandMaximum: raw })} /></label></fieldset>
               <div className="flex gap-2"><Button disabled={saving} onClick={() => void save()}>{saving ? "Saving..." : "Save"}</Button><Button variant="outline" onClick={() => setEditor(null)}>Cancel</Button></div>
             </aside>
           ) : selected ? (

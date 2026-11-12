@@ -3,8 +3,8 @@
   "source": "app/prototype-data.ts",
   "counts": {
     "modules": 34,
-    "groups": 135,
-    "pages": 765
+    "groups": 127,
+    "pages": 720
   },
   "modules": [
     {
@@ -390,133 +390,38 @@
       ],
       "groups": [
         {
-          "id": "quotations",
-          "label": "Quotations",
+          "id": "selling",
+          "label": "Sales",
+          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "quotations",
-              "label": "All Quotations",
+              "label": "Quotations",
               "archetype": "list",
               "status": "prototype"
             },
-            {
-              "id": "add-quotation",
-              "label": "Add Quotation",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "quotation-detail",
-              "label": "Quotation Detail",
-              "archetype": "detail",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "orders",
-          "label": "Sales Orders",
-          "pages": [
             {
               "id": "sales-orders",
-              "label": "All Sales Orders",
+              "label": "Sales Orders",
               "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "add-sales-order",
-              "label": "Add Sales Order",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "sales-order-detail",
-              "label": "Sales Order Detail",
-              "archetype": "detail",
               "status": "prototype"
             },
             {
               "id": "pick-pack-delivery",
               "label": "Pick, Pack & Delivery",
-              "archetype": "workflow",
+              "archetype": "list",
               "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "invoices",
-          "label": "Invoices",
-          "pages": [
+            },
             {
               "id": "invoices",
-              "label": "All Invoices",
+              "label": "Invoices",
               "archetype": "list",
               "status": "prototype"
             },
             {
-              "id": "add-invoice",
-              "label": "Add Invoice",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "invoice-detail",
-              "label": "Invoice Detail",
-              "archetype": "detail",
-              "status": "prototype"
-            },
-            {
-              "id": "credit-note",
-              "label": "Credit Note",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "debit-note",
-              "label": "Debit Note",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "batch-invoice",
-              "label": "Batch Invoice",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "proforma-invoice",
-              "label": "Proforma Invoice",
-              "archetype": "form",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "sales-control",
-          "label": "Returns & Control",
-          "pages": [
-            {
-              "id": "sales-returns",
-              "label": "Sales Returns",
+              "id": "receipts",
+              "label": "Receipts",
               "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "pricing",
-              "label": "Pricing & Discounts",
-              "archetype": "settings",
-              "status": "prototype"
-            },
-            {
-              "id": "sales-approvals",
-              "label": "Sales Approvals",
-              "archetype": "approval",
-              "status": "prototype"
-            },
-            {
-              "id": "sales-reports",
-              "label": "Sales Reports",
-              "archetype": "report",
               "status": "prototype"
             }
           ]
@@ -526,7 +431,7 @@
     {
       "id": "revenue",
       "code": "RV",
-      "label": "Revenue & Subscriptions",
+      "label": "Revenue",
       "category": "Finance & trade",
       "modes": [
         "service",
@@ -534,151 +439,13 @@
       ],
       "groups": [
         {
-          "id": "revenue-contracts",
-          "label": "Revenue Contracts",
-          "pages": [
-            {
-              "id": "revenue-contracts",
-              "label": "Contract Workspace",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "add-revenue-contract",
-              "label": "Add Revenue Contract",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "performance-obligations",
-              "label": "Performance Obligations",
-              "archetype": "detail",
-              "status": "prototype"
-            },
-            {
-              "id": "transaction-price",
-              "label": "Transaction Price Allocation",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "fulfilment-evidence",
-              "label": "Fulfilment Evidence",
-              "archetype": "detail",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "recognition",
-          "label": "Recognition",
-          "pages": [
-            {
-              "id": "recognition-schedules",
-              "label": "Recognition Schedules",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "recognition-run",
-              "label": "Recognition Run",
-              "archetype": "workflow",
-              "status": "prototype"
-            },
-            {
-              "id": "recognition-exceptions",
-              "label": "Exceptions & Holds",
-              "archetype": "approval",
-              "status": "prototype"
-            },
-            {
-              "id": "contract-modifications",
-              "label": "Contract Modifications",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "revenue-rollforward",
-              "label": "Revenue Roll-forward",
-              "archetype": "report",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "subscriptions",
-          "label": "Subscriptions",
-          "pages": [
-            {
-              "id": "plans",
-              "label": "Plan Catalogue",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "plan-editor",
-              "label": "Plan Editor",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "subscriptions",
-              "label": "Subscription Contracts",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "subscription-detail",
-              "label": "Subscription Detail",
-              "archetype": "detail",
-              "status": "prototype"
-            },
-            {
-              "id": "amend-subscription",
-              "label": "Amend, Pause or Cancel",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "usage-ingestion",
-              "label": "Usage Validation",
-              "archetype": "workflow",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
           "id": "recurring-billing",
-          "label": "Recurring Billing",
+          "label": "Recurring Bills",
           "pages": [
             {
-              "id": "billing-schedules",
-              "label": "Billing Schedules",
+              "id": "recurring-bills",
+              "label": "Recurring Bills",
               "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "billing-run",
-              "label": "Billing Run",
-              "archetype": "workflow",
-              "status": "prototype"
-            },
-            {
-              "id": "dunning",
-              "label": "Dunning & Recovery",
-              "archetype": "workflow",
-              "status": "prototype"
-            },
-            {
-              "id": "renewals",
-              "label": "Renewal & Churn Workspace",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "subscription-analytics",
-              "label": "MRR, ARR & Cohorts",
-              "archetype": "report",
               "status": "prototype"
             }
           ]
@@ -688,7 +455,7 @@
     {
       "id": "customers",
       "code": "AR",
-      "label": "Customers / Accounts Receivable",
+      "label": "Customers",
       "category": "Finance & trade",
       "modes": [
         "service",
@@ -702,92 +469,8 @@
           "pages": [
             {
               "id": "customers",
-              "label": "Customer Directory",
+              "label": "Customers",
               "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "add-customer",
-              "label": "Add Customer",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "customer-profile",
-              "label": "Customer Financial Profile",
-              "archetype": "detail",
-              "status": "prototype"
-            },
-            {
-              "id": "credit-limit-review",
-              "label": "Credit Limit Review",
-              "archetype": "approval",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "receivables",
-          "label": "Receivables",
-          "pages": [
-            {
-              "id": "open-items",
-              "label": "Open-item Ledger",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "customer-receipts",
-              "label": "Customer Receipts",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "add-customer-receipt",
-              "label": "Add Customer Receipt",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "receipt-allocation",
-              "label": "Receipt & Credit Allocation",
-              "archetype": "workflow",
-              "status": "prototype"
-            },
-            {
-              "id": "refund-writeoff",
-              "label": "Refunds & Write-offs",
-              "archetype": "form",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "collections",
-          "label": "Collections",
-          "pages": [
-            {
-              "id": "ar-ageing",
-              "label": "AR Ageing",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "collections-disputes",
-              "label": "Collections & Disputes",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "customer-statements",
-              "label": "Customer Statements",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "ar-reconciliation",
-              "label": "AR to GL Reconciliation",
-              "archetype": "workflow",
               "status": "prototype"
             }
           ]

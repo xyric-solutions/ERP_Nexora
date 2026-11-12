@@ -27,6 +27,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
@@ -605,11 +606,11 @@ export function FinanceCurrencies() {
           <div className="mt-4 grid gap-4 md:grid-cols-[1fr_2fr_auto] md:items-end">
             <div className="grid gap-2">
               <Label htmlFor="corrected-currency-rate">Corrected rate *</Label>
-              <Input
+              <AmountInput
                 id="corrected-currency-rate"
-                inputMode="decimal"
+                decimals={18}
                 value={correctedRate}
-                onChange={(event) => setCorrectedRate(event.target.value)}
+                onValueChange={(raw) => setCorrectedRate(raw)}
               />
             </div>
             <div className="grid gap-2">
@@ -719,14 +720,14 @@ export function FinanceCurrencies() {
                     <Label htmlFor="company-currency-rate">Exchange rate *</Label>
                     <div className="flex h-10 items-center rounded-md border border-input bg-background px-3">
                       <span className="whitespace-nowrap text-sm">1 {currencyCode || "FX"} =</span>
-                      <input
+                      <AmountInput
                         id="company-currency-rate"
                         name="rate"
                         required
-                        className="min-w-0 flex-1 bg-transparent px-2 text-right outline-none"
-                        inputMode="decimal"
+                        className="h-auto min-w-0 flex-1 rounded-none border-0 bg-transparent px-2 py-0 text-right shadow-none focus-visible:ring-0"
+                        decimals={18}
                         value={rate}
-                        onChange={(event) => setRate(event.target.value)}
+                        onValueChange={(raw) => setRate(raw)}
                       />
                       <span className="text-sm">{profile?.base_currency}</span>
                     </div>

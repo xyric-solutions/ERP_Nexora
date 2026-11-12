@@ -60,6 +60,31 @@
     display: table-header-group;
   }
 
+  /* Open document viewers (e.g. the sales invoice PDF) print only their sheet. */
+  html:has([data-print-viewer]) body * {
+    visibility: hidden;
+  }
+
+  [data-print-viewer] [data-print-sheet],
+  [data-print-viewer] [data-print-sheet] * {
+    visibility: visible;
+  }
+
+  [data-print-viewer] {
+    position: static !important;
+    background: none !important;
+  }
+
+  [data-print-viewer] [data-print-sheet] {
+    --z: 1 !important;
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100% !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
   [data-print-lines] tr,
   [data-print-close],
   [data-print-footer] {

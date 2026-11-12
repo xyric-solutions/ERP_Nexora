@@ -17,6 +17,7 @@ import { WorkFormLayout } from "@/shared/ui/work-form";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { customers } from "@prototype/shared/fixtures/mock-data";
 import { AccountSelect } from "../components/banking-account-select";
 import {
@@ -304,7 +305,7 @@ export function BankingBatchEntry({
                     <Input aria-label={`Line ${index + 1} details`} value={line.details} onChange={(event) => updateLine(line.id, { details: event.target.value })} placeholder="Narration for the statement and journal" />
                   </td>
                   <td className="amount">
-                    <Input aria-label={`Line ${index + 1} amount`} className="amount" inputMode="decimal" value={line.amount} onChange={(event) => updateLine(line.id, { amount: event.target.value })} placeholder="0.00" />
+                    <AmountInput aria-label={`Line ${index + 1} amount`} className="amount" value={line.amount} onValueChange={(raw) => updateLine(line.id, { amount: raw })} placeholder="0.00" />
                   </td>
                   <td>
                     <Button

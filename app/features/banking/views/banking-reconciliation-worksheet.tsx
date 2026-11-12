@@ -26,6 +26,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import {
   accountLabel,
   bankAccounts,
@@ -273,12 +274,11 @@ export function BankingReconciliationWorksheet({
             </label>
             <label>
               <span>Statement balance <b aria-hidden="true">*</b></span>
-              <Input
-                className="text-right tabular-nums"
-                inputMode="decimal"
+              <AmountInput
+                allowNegative
                 placeholder="0.00"
                 value={statementBalance}
-                onChange={(event) => { setStatementBalance(event.target.value); setError(""); }}
+                onValueChange={(raw) => { setStatementBalance(raw); setError(""); }}
               />
             </label>
             <Button type="button" onClick={loadTransactions}>Load transactions</Button>
@@ -418,7 +418,7 @@ export function BankingReconciliationWorksheet({
                 </label>
                 <label>
                   <span>Amount</span>
-                  <Input className="text-right tabular-nums" inputMode="decimal" placeholder="0.00" value={adjustmentAmount} onChange={(event) => setAdjustmentAmount(event.target.value)} />
+                  <AmountInput placeholder="0.00" value={adjustmentAmount} onValueChange={(raw) => setAdjustmentAmount(raw)} />
                 </label>
                 <label>
                   <span>Narrative</span>

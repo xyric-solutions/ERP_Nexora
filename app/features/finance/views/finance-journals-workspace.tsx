@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -2142,17 +2143,22 @@ function JournalAmountInput({
   onChange: (value: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  // Remount after editing so the field re-renders at the selected display precision.
+  const [views, setViews] = useState(0);
   const displayed = formatJournalDisplayAmount(value, displayDecimalPlaces);
   return (
-    <Input
+    <AmountInput
+      key={views}
       aria-label={label}
-      className="text-right tabular-nums"
-      inputMode="decimal"
+      decimals={8}
       value={editing || displayed === "—" ? value : displayed}
       disabled={disabled}
       onFocus={() => setEditing(true)}
-      onBlur={() => setEditing(false)}
-      onChange={(event) => onChange(event.target.value)}
+      onBlur={() => {
+        setEditing(false);
+        setViews((count) => count + 1);
+      }}
+      onValueChange={(raw) => onChange(raw)}
     />
   );
 }

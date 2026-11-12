@@ -15,6 +15,7 @@ import type {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
@@ -748,18 +749,18 @@ export function HrManpowerRequisitionsWorkspace() {
                     <div className="grid grid-cols-2 gap-3">
                       <label className="grid content-start min-w-0 gap-1 text-sm">
                         Minimum salary
-                        <Input
-                          inputMode="decimal"
+                        <AmountInput
+                          decimals={4}
                           value={editor.minimum}
-                          onChange={(event) => setEditor({ ...editor, minimum: event.target.value })}
+                          onValueChange={(raw) => setEditor({ ...editor, minimum: raw })}
                         />
                       </label>
                       <label className="grid content-start min-w-0 gap-1 text-sm">
                         Maximum salary
-                        <Input
-                          inputMode="decimal"
+                        <AmountInput
+                          decimals={4}
                           value={editor.maximum}
-                          onChange={(event) => setEditor({ ...editor, maximum: event.target.value })}
+                          onValueChange={(raw) => setEditor({ ...editor, maximum: raw })}
                         />
                       </label>
                     </div>

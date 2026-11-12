@@ -26,6 +26,8 @@ export interface PrototypeMenuGroup {
   label: string;
   pages: readonly PrototypePage[];
   hiddenFromNavigation?: boolean;
+  /** Renders the pages directly under the module, without a group header. */
+  inline?: boolean;
 }
 
 export interface PrototypeModule {
@@ -52,7 +54,9 @@ const g = (
   label: string,
   pages: readonly PrototypePage[],
   hiddenFromNavigation = false,
-): PrototypeMenuGroup => ({ id, label, pages, hiddenFromNavigation });
+  /** Renders the pages directly under the module, without a group header. */
+  inline = false,
+): PrototypeMenuGroup => ({ id, label, pages, hiddenFromNavigation, inline });
 
 export const prototypeModules = [
   {
@@ -159,107 +163,46 @@ export const prototypeModules = [
     code: "SL",
     label: "Sales & Billing",
     shortLabel: "Sales",
-    description: "Quotation-to-cash workspace for orders, fulfilment, invoicing, adjustments and commercial reporting.",
+    description: "Quotation-to-cash: quotations, sales orders, delivery, invoices and customer receipts.",
     category: "Finance & trade",
     modes: allModes,
+    // Simplified flow approved on 10 Nov 2026 and revised in the review of 11 Nov 2026
+    // (see docs/architecture/sales-simplified-workflow.md). Returns & Control was removed:
+    // Sale Return sits on the opened invoice, approvals on the quotation itself.
     groups: [
-      g("quotations", "Quotations", [
-        p("quotations", "All Quotations"),
-        p("add-quotation", "Add Quotation", "form"),
-        p("quotation-detail", "Quotation Detail", "detail"),
-      ]),
-      g("orders", "Sales Orders", [
-        p("sales-orders", "All Sales Orders"),
-        p("add-sales-order", "Add Sales Order", "form"),
-        p("sales-order-detail", "Sales Order Detail", "detail"),
-        p("pick-pack-delivery", "Pick, Pack & Delivery", "workflow"),
-      ]),
-      g("invoices", "Invoices", [
-        p("invoices", "All Invoices"),
-        p("add-invoice", "Add Invoice", "form"),
-        p("invoice-detail", "Invoice Detail", "detail"),
-        p("credit-note", "Credit Note", "form"),
-        p("debit-note", "Debit Note", "form"),
-        p("batch-invoice", "Batch Invoice", "form"),
-        p("proforma-invoice", "Proforma Invoice", "form"),
-      ]),
-      g("sales-control", "Returns & Control", [
-        p("sales-returns", "Sales Returns"),
-        p("pricing", "Pricing & Discounts", "settings"),
-        p("sales-approvals", "Sales Approvals", "approval"),
-        p("sales-reports", "Sales Reports", "report"),
-      ]),
+      g(
+        "selling",
+        "Sales",
+        [
+          p("quotations", "Quotations"),
+          p("sales-orders", "Sales Orders"),
+          p("pick-pack-delivery", "Pick, Pack & Delivery"),
+          p("invoices", "Invoices"),
+          p("receipts", "Receipts"),
+        ],
+        true,
+      ),
     ],
   },
   {
     id: "revenue",
     code: "RV",
-    label: "Revenue & Subscriptions",
+    label: "Revenue",
     shortLabel: "Revenue",
-    description: "Combined contract revenue, recurring billing, usage, renewals and revenue recognition prototype.",
+    description: "Recurring bills that create normal sales invoices on a fixed schedule.",
     category: "Finance & trade",
     modes: ["service", "trading"],
-    groups: [
-      g("revenue-contracts", "Revenue Contracts", [
-        p("revenue-contracts", "Contract Workspace"),
-        p("add-revenue-contract", "Add Revenue Contract", "form"),
-        p("performance-obligations", "Performance Obligations", "detail"),
-        p("transaction-price", "Transaction Price Allocation", "form"),
-        p("fulfilment-evidence", "Fulfilment Evidence", "detail"),
-      ]),
-      g("recognition", "Recognition", [
-        p("recognition-schedules", "Recognition Schedules"),
-        p("recognition-run", "Recognition Run", "workflow"),
-        p("recognition-exceptions", "Exceptions & Holds", "approval"),
-        p("contract-modifications", "Contract Modifications", "form"),
-        p("revenue-rollforward", "Revenue Roll-forward", "report"),
-      ]),
-      g("subscriptions", "Subscriptions", [
-        p("plans", "Plan Catalogue"),
-        p("plan-editor", "Plan Editor", "form"),
-        p("subscriptions", "Subscription Contracts"),
-        p("subscription-detail", "Subscription Detail", "detail"),
-        p("amend-subscription", "Amend, Pause or Cancel", "form"),
-        p("usage-ingestion", "Usage Validation", "workflow"),
-      ]),
-      g("recurring-billing", "Recurring Billing", [
-        p("billing-schedules", "Billing Schedules"),
-        p("billing-run", "Billing Run", "workflow"),
-        p("dunning", "Dunning & Recovery", "workflow"),
-        p("renewals", "Renewal & Churn Workspace"),
-        p("subscription-analytics", "MRR, ARR & Cohorts", "report"),
-      ]),
-    ],
+    groups: [g("recurring-billing", "Recurring Bills", [p("recurring-bills", "Recurring Bills")], false, true)],
   },
   {
     id: "customers",
     code: "AR",
-    label: "Customers / Accounts Receivable",
+    label: "Customers",
     shortLabel: "Customers",
-    description: "Customer master data, credit, open items, collections, statements and receivable control.",
+    description: "One customer list and one customer form with contact, tax, payment terms, credit limit and bank details.",
     category: "Finance & trade",
     modes: allModes,
-    groups: [
-      g("customer-master", "Customers", [
-        p("customers", "Customer Directory"),
-        p("add-customer", "Add Customer", "form"),
-        p("customer-profile", "Customer Financial Profile", "detail"),
-        p("credit-limit-review", "Credit Limit Review", "approval"),
-      ]),
-      g("receivables", "Receivables", [
-        p("open-items", "Open-item Ledger"),
-        p("customer-receipts", "Customer Receipts"),
-        p("add-customer-receipt", "Add Customer Receipt", "form"),
-        p("receipt-allocation", "Receipt & Credit Allocation", "workflow"),
-        p("refund-writeoff", "Refunds & Write-offs", "form"),
-      ]),
-      g("collections", "Collections", [
-        p("ar-ageing", "AR Ageing", "report"),
-        p("collections-disputes", "Collections & Disputes"),
-        p("customer-statements", "Customer Statements", "report"),
-        p("ar-reconciliation", "AR to GL Reconciliation", "workflow"),
-      ]),
-    ],
+    groups: [g("customer-master", "Customers", [p("customers", "Customers")], false, true)],
   },
   {
     id: "purchases",
@@ -1527,7 +1470,50 @@ export function findPrototypeModule(moduleId: string) {
   return prototypeModules.find((module) => module.id === moduleId) ?? prototypeModules[0];
 }
 
-export function findPrototypePage(moduleId: string, pageId?: string) {
+/**
+ * Pages retired by the simplified sales flow (10 Nov 2026). Old deep links
+ * from dashboards, AI insights and bookmarks open the page that replaced them
+ * instead of silently falling back to a module's first page.
+ */
+const retiredPageRedirects: Record<string, readonly [moduleId: string, pageId: string, recordRef?: string]> = {
+  "sales:add-quotation": ["sales", "quotations", "new"],
+  "sales:quotation-detail": ["sales", "quotations"],
+  "sales:add-sales-order": ["sales", "sales-orders", "new"],
+  "sales:sales-order-detail": ["sales", "sales-orders"],
+  "sales:add-invoice": ["sales", "invoices", "new"],
+  "sales:invoice-detail": ["sales", "invoices"],
+  "sales:credit-note": ["sales", "invoices"],
+  "sales:debit-note": ["sales", "invoices"],
+  "sales:batch-invoice": ["sales", "invoices"],
+  "sales:proforma-invoice": ["sales", "invoices"],
+  "customers:add-customer": ["customers", "customers", "new"],
+  "customers:customer-profile": ["customers", "customers"],
+  "customers:credit-limit-review": ["customers", "customers"],
+  "customers:open-items": ["sales", "invoices"],
+  // Customer receipts: listed and entered on Sales → Receipts (also saved from the invoice panel).
+  "sales:customer-receipts": ["sales", "receipts"],
+  "customers:customer-receipts": ["sales", "receipts"],
+  "customers:add-customer-receipt": ["sales", "receipts", "new"],
+  "customers:receipt-allocation": ["sales", "receipts"],
+  "customers:refund-writeoff": ["sales", "invoices"],
+  // Returns & Control removed in the sales review of 11 Nov 2026.
+  "sales:sales-returns": ["sales", "invoices"],
+  "sales:pricing": ["sales", "quotations"],
+  "sales:sales-approvals": ["sales", "quotations"],
+  "sales:sales-reports": ["reports", "sales-invoice-detail-report"],
+  "customers:ar-ageing": ["reports", "sales-invoice-detail-report"],
+  "customers:collections-disputes": ["reports", "sales-invoice-detail-report"],
+  "customers:collections-workbench": ["reports", "sales-invoice-detail-report"],
+  "customers:customer-statements": ["reports", "sales-invoice-detail-report"],
+  "customers:ar-reconciliation": ["reports", "sales-invoice-detail-report"],
+};
+
+export function findPrototypePage(
+  moduleId: string,
+  pageId?: string,
+): { module: PrototypeModule; group: PrototypeMenuGroup; page: PrototypePage; redirectRecordRef?: string } {
+  const redirect = pageId ? retiredPageRedirects[`${moduleId}:${pageId}`] : undefined;
+  if (redirect) return { ...findPrototypePage(redirect[0], redirect[1]), redirectRecordRef: redirect[2] };
   if (moduleId === "suppliers") {
     moduleId = "purchases";
     pageId = ["suppliers", "add-supplier", "supplier-profile", "supplier-onboarding", "bank-verification"].includes(

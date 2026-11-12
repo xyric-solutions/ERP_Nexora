@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api/generated";
@@ -278,22 +279,22 @@ export function BankAccountSetup({ onCreated }: { onCreated?: (accountId: string
             </select>
           </Field>
           <Field label="Opening balance">
-            <Input
+            <AmountInput
               disabled={saving}
-              inputMode="decimal"
+              decimals={8}
               value={openingBalance}
-              onChange={(event) => setOpeningBalance(event.target.value)}
+              onValueChange={(raw) => setOpeningBalance(raw)}
             />
             <small className="text-muted-foreground">
               Must remain zero until governed opening-balance posting is available.
             </small>
           </Field>
           <Field label="Overdraft limit">
-            <Input
+            <AmountInput
               disabled={saving}
-              inputMode="decimal"
+              decimals={8}
               value={overdraftLimit}
-              onChange={(event) => setOverdraftLimit(event.target.value)}
+              onValueChange={(raw) => setOverdraftLimit(raw)}
             />
           </Field>
           <div className="sm:col-span-2">

@@ -21,6 +21,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import type { CompanyMode } from "@prototype/shared/fixtures/mock-data";
 import { RoleDashboard } from "@prototype/features/dashboard/views/role-dashboard";
@@ -148,6 +149,7 @@ import { InventoryOperationsWorkspace } from "@prototype/features/inventory/view
 import { ProductsWorkspace } from "@prototype/features/inventory/views/products-workspace";
 import { PurchaseWorkspace } from "@prototype/features/purchasing/views/purchase-workspace";
 import { CommercialWorkspace, isCommercialMaturityPage } from "@prototype/features/commerce/views/commercial-workspace";
+import { isSalesWorkspacePage, SalesWorkspace } from "@prototype/features/sales/views/sales-workspace";
 import { MasterDataForm, isMatureMasterDataForm } from "@prototype/features/master-data/views/master-data-form";
 import { RecordPreviewDrawer } from "@prototype/features/commerce/components/record-preview-drawer";
 import { isReportsWorkspacePage, ReportsWorkspace } from "@prototype/features/reports/views/reports-workspace";
@@ -1289,9 +1291,8 @@ function FormView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
                         </select>
                       </td>
                       <td>
-                        <Input
+                        <AmountInput
                           defaultValue={row.amount.replace(/[^0-9.]/g, "")}
-                          inputMode="decimal"
                           aria-label={"Rate line " + (index + 1)}
                         />
                       </td>
@@ -3160,6 +3161,11 @@ function PrototypeContentBody(props: PrototypeContentProps) {
 
   if (isMatureMasterDataForm(context.pageId)) {
     return <MasterDataForm context={context} onAction={onAction} onNavigate={props.onNavigate} />;
+  }
+
+  // Simplified Sales, Revenue and Customers workspace (approved 10 Nov 2026).
+  if (isSalesWorkspacePage(context.moduleId, context.pageId)) {
+    return <SalesWorkspace context={context} onNavigate={props.onNavigate} />;
   }
 
   if (isCommercialMaturityPage(context.moduleId, context.pageId)) {

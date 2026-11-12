@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { SearchableSelect } from "@/shared/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api/generated";
@@ -1145,15 +1146,14 @@ export function BankingReceiptEntry({
                       />
                     </td>
                     <td className="min-w-32">
-                      <Input
+                      <AmountInput
                         aria-label={`Line ${index + 1} amount`}
-                        className="text-right tabular-nums"
-                        inputMode="decimal"
+                        decimals={8}
                         value={line.amount}
                         disabled={!editable || busy}
                         aria-invalid={showValidation && Boolean(lineError.amount)}
                         placeholder="0.00"
-                        onChange={(event) => updateLine(line.id, { amount: event.target.value })}
+                        onValueChange={(raw) => updateLine(line.id, { amount: raw })}
                       />
                     </td>
                     <td>

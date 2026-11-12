@@ -16,6 +16,7 @@ import { LiveBankStatement } from "./banking-statement-live";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import {
   AdvancedListFilters,
   ListFilterSelect,
@@ -302,11 +303,11 @@ export function BankStatementFixture({
         </div>
         <div className="grid min-w-42 gap-1.5 [&>label]:text-xs [&>label]:font-semibold [&>select]:min-h-10 [&>select]:w-full [&>select]:rounded-md [&>select]:border [&>select]:border-border [&>select]:bg-card [&>select]:px-3 [&>select]:text-sm">
           <label htmlFor="stmt-min">Minimum amount</label>
-          <Input id="stmt-min" inputMode="decimal" value={minAmount} onChange={(event) => setMinAmount(event.target.value)} placeholder="0.00" />
+          <AmountInput id="stmt-min" value={minAmount} onValueChange={(raw) => setMinAmount(raw)} placeholder="0.00" />
         </div>
         <div className="grid min-w-42 gap-1.5 [&>label]:text-xs [&>label]:font-semibold [&>select]:min-h-10 [&>select]:w-full [&>select]:rounded-md [&>select]:border [&>select]:border-border [&>select]:bg-card [&>select]:px-3 [&>select]:text-sm">
           <label htmlFor="stmt-max">Maximum amount</label>
-          <Input id="stmt-max" inputMode="decimal" value={maxAmount} onChange={(event) => setMaxAmount(event.target.value)} placeholder="No limit" />
+          <AmountInput id="stmt-max" value={maxAmount} onValueChange={(raw) => setMaxAmount(raw)} placeholder="No limit" />
         </div>
         <div className="flex flex-wrap gap-1.5">
           {[
