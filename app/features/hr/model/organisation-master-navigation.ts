@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, GraduationCap, Layers3, MapPin, Network, Tags, Users, Wallet } from "lucide-react";
+import { BriefcaseBusiness, GraduationCap, Layers3, MapPin, Network, Wallet } from "lucide-react";
 
 export const organisationMasterGroups = [
   {
@@ -9,7 +9,7 @@ export const organisationMasterGroups = [
       {
         id: "org-structure",
         label: "Organisation Structure",
-        description: "Companies, branches and departments in one hierarchy.",
+        description: "Company, projects, locations and departments in one hierarchy.",
         icon: Network,
         type: null,
       },
@@ -37,7 +37,7 @@ export const organisationMasterGroups = [
       {
         id: "designations",
         label: "Designations",
-        description: "Standard titles used across employee assignments.",
+        description: "Employee positions, such as Software Engineer or Community Handler.",
         icon: BriefcaseBusiness,
         type: "designation",
       },
@@ -51,38 +51,29 @@ export const organisationMasterGroups = [
       {
         id: "jobs",
         label: "Jobs",
-        description: "Reusable job definitions for hiring and placement.",
+        description: "Job titles linked to the department they belong to.",
         icon: Layers3,
         type: "job",
-      },
-    ],
-  },
-  {
-    id: "employment",
-    label: "Employment Setup",
-    description: "Set the employment categories behind your policies.",
-    items: [
-      {
-        id: "employment-types",
-        label: "Employment Types",
-        description: "Permanent, contract, internship and other arrangements.",
-        icon: Users,
-        type: "employment_type",
-      },
-      {
-        id: "employee-categories",
-        label: "Employee Categories",
-        description: "Group employees for policies, benefits and pay cycles.",
-        icon: Tags,
-        type: "employee_category",
       },
     ],
   },
 ] as const;
 
 export const organisationMasterPages = organisationMasterGroups.flatMap((group) => [...group.items]);
-export const isOrganisationMasterPage = (pageId: string) =>
-  pageId === "organisation-masters" || organisationMasterPages.some((page) => page.id === pageId);
+export type OrganisationMasterPage = (typeof organisationMasterPages)[number];
+
+/** Former page IDs that now open a merged page, so saved links keep working. */
+const legacyMasterPageAliases: Readonly<Record<string, string>> = {
+  "employment-types": "cost-centres",
+  "employee-categories": "cost-centres",
+  // Employment Setup merged into Cost Centre (HR149).
+  "employment-setup": "cost-centres",
+};
+export const resolveOrganisationMasterPageId = (pageId: string) => legacyMasterPageAliases[pageId] ?? pageId;
+export const isOrganisationMasterPage = (pageId: string) => {
+  const resolved = resolveOrganisationMasterPageId(pageId);
+  return resolved === "organisation-masters" || organisationMasterPages.some((page) => page.id === resolved);
+};
 
 const companyStorageKey = "nexora.hr.master.company";
 export function rememberMasterCompany(companyId: string) {

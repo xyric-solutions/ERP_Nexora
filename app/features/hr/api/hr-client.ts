@@ -1,5 +1,7 @@
 import { readWorkPage } from "./read-work-page";
+import { inActiveCompany } from "@/lib/session/active-company";
 import type {HrLearningQuery,HrLearningAction} from "@nexora/contracts";
+import type {DeleteHrMasterRequest,HrMasterDeleteResult} from "@nexora/contracts";
 import type {HrPersonalCorrectionQuery,CreateHrPersonalCorrection,HrPersonalCorrectionAction,HrReportGovernanceQuery,HrReportGovernanceAction,HrReportGovernanceResult} from '@nexora/contracts';
 import type {HrSelfLeaveContextQuery,CreateHrSelfLeaveRequest,HrSelfLeaveAction} from '@nexora/contracts';
 import type {HrSelfServiceQuery,HrSelfServiceWorkspace} from '@nexora/contracts';
@@ -16,11 +18,12 @@ import type {HrLocalizationQuery,CreateHrLocalization,HrLocalizationDecision,HrL
 import type {HrPayrollRunComparisonQuery,HrPayrollRunComparison,HrPayrollRunQuery,HrPayrollRunAction,HrPayrollRunWorkspace} from '@nexora/contracts';
 import type {HrPayrollSection,HrPayrollWorkspaceQuery,HrPayrollWorkspace,HrPayrollItem,HrPayrollOptionsQuery,HrPayrollOptions,CreateHrPayrollRecord,HrPayrollRecordAction,HrPayrollMutationResult} from '@nexora/contracts';
 import type {HrLeaveQuery,HrLeavePolicyInput,CreateHrLeaveTypeRequest,UpdateHrLeavePolicyRequest,HrLeaveTypeStatusRequest,HrLeavePolicy,HrLeaveType,HrLeaveTypeDirectory,HrLeaveAllocation,HrLeaveContextQuery,HrLeaveBalance,HrLeaveBalanceQuery,HrLeaveBalanceDirectory,HrLeaveLedgerQuery,HrLeaveLedger,HrLeaveBalancePostingRequest,HrLeaveContext,CreateHrLeaveRequest,HrLeaveRequestActionRequest,HrLeaveRequestQuery,HrLeaveRequestSummary,HrLeaveRequestDirectory,HrLeaveRequestDetail} from '@nexora/contracts';
-import type {HrOvertimeQuery,HrOvertimeContextQuery,HrOvertimeRuleRequest,HrOvertimeRule,HrOvertimeEvidence,HrOvertimeContext,CreateHrOvertimeRequest,HrOvertimeActionRequest,HrAttendanceCompletionResult,HrOvertimeSummary,HrOvertimeDetail,HrOvertimeDirectory,HrAttendancePeriodQuery,HrAttendancePeriodActionRequest,HrAttendanceCloseDay,HrAttendanceCloseEmployee,HrAttendancePeriod,HrAttendancePeriodWorkspace,HrAttendancePayrollInputs} from '@nexora/contracts';
+import type {HrOvertimeQuery,HrOvertimeContextQuery,HrOvertimeRuleRequest,HrOvertimeRule,HrOvertimeEvidence,HrOvertimeContext,CreateHrOvertimeRequest,ReplaceHrOvertimeRequest,HrOvertimeActionRequest,HrAttendanceCompletionResult,HrOvertimeSummary,HrOvertimeDetail,HrOvertimeDirectory,HrAttendancePeriodQuery,HrAttendancePeriodActionRequest,HrAttendanceCloseDay,HrAttendanceCloseEmployee,HrAttendancePeriod,HrAttendancePeriodWorkspace,HrAttendancePayrollInputs} from '@nexora/contracts';
 import type {
   HrCorrectionQuery,HrCorrectionContextQuery,HrCorrectionContext,CreateHrCorrectionRequest,UpdateHrCorrectionRequest,HrCorrectionActionRequest,HrCorrectionSummary,HrCorrectionDirectory,HrCorrectionDetail,HrCorrectionEvidence,HrCorrectionResult,
   HrMonthlyAttendanceQuery, HrMonthlyAttendanceDirectory,
   HrDailyAttendanceQuery, HrDailyAttendanceDirectory,
+  HrSelfAttendanceQuery, HrSelfAttendance, CreateHrSelfAttendancePunch, SaveHrSelfAttendanceDay, HrEmployeeAttendanceRecordsQuery, HrEmployeeAttendanceRecords,
   CreateHrEmployeeDraftRequest,
   HrEmployeeDetail,
   HrCompanyDirectory,
@@ -64,6 +67,16 @@ import type {
   CreateHrEmployeeEmergencyContactRequest,
   HrEmployeeEmergencyContactResult,
   HrEmployeeDocumentDirectory,
+  UploadHrEmployeeDocumentFields,
+  HrEmployeeRecordMutationResult,
+  HrRecruitmentMutationResult,
+  ChangeHrManpowerRequisitionStateRequest,
+  UpdateHrJobOpeningRequest,
+  UpdateHrCandidateRequest,
+  ChangeHrEmployeeStatusRequest,
+  HrEmployeeEmploymentHistoryDirectory,
+  HrEmployeeEmploymentHistoryRequest,
+  HrEmployeeNumberPreview,
   HrEmployeeAssignmentDirectory,
   HrEmployeeStatusHistoryDirectory,
   HrEmployeeLifecycleEventDirectory,
@@ -77,6 +90,11 @@ import type {
   HrEmploymentLifecyclePolicyApprovalResult,
   ActivateHrEmploymentLifecyclePolicyRequest,
   HrEmploymentLifecyclePolicyActivationResult,
+  UpdateHrEmploymentLifecyclePolicyRequest,
+  DeleteHrEmploymentLifecyclePolicyRequest,
+  HrEmploymentLifecyclePolicyDeleteResult,
+  DeactivateHrEmploymentLifecyclePolicyRequest,
+  HrEmploymentLifecyclePolicyDeactivationResult,
   HrMasterDirectory,
   HrMasterType,
   CreateHrMasterRequest,
@@ -84,6 +102,10 @@ import type {
   ChangeHrMasterStatusRequest,
   HrMasterMutationResult,
   HrJobGradeDirectory,
+  HrJobGradeCurrencyDirectory,
+  HrRequisitionProjectDirectory,
+  HrRequisitionWorkLocationDirectory,
+  HrCostCentreNominalDirectory,
   CreateHrJobGradeRequest,
   UpdateHrJobGradeRequest,
   CreateHrJobRequest,
@@ -146,7 +168,7 @@ export class HrApiClient {
   constructor(private readonly api: NexoraApiClient) {}
 
   companies(): Promise<HrCompanyDirectory> {
-    return this.api.listHrCompanies();
+    return this.api.listHrCompanies().then(inActiveCompany);
   }
 
   dashboard(companyId: string): Promise<HrDashboardSummary> {
@@ -193,6 +215,7 @@ export class HrApiClient {
   createOvertime(input:CreateHrOvertimeRequest,key:string,csrf:string):Promise<HrAttendanceCompletionResult>{return this.api.attendanceCreateOvertime(input,csrf,key);}
   createOvertimeRule(input:HrOvertimeRuleRequest,key:string,csrf:string):Promise<HrAttendanceCompletionResult>{return this.api.attendanceCreateOvertimeRule(input,csrf,key);}
   actOnOvertime(id:string,input:HrOvertimeActionRequest,key:string,csrf:string):Promise<HrAttendanceCompletionResult>{return this.api.attendanceActOnOvertime(id,input,csrf,key);}
+  replaceOvertime(id:string,input:ReplaceHrOvertimeRequest,key:string,csrf:string):Promise<HrAttendanceCompletionResult>{return this.api.attendanceReplaceOvertime(id,input,csrf,key);}
   periodWorkspace(input:HrAttendancePeriodQuery):Promise<HrAttendancePeriodWorkspace>{ return readWorkPage(input, (bounded) => this.api.attendancePeriodWorkspace(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   payrollInputs(input:HrAttendancePeriodQuery):Promise<HrAttendancePayrollInputs>{ return readWorkPage(input, (bounded) => this.api.attendancePayrollInputs(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   actOnPeriod(input:HrAttendancePeriodActionRequest,key:string,csrf:string):Promise<HrAttendanceCompletionResult>{return this.api.attendanceActOnPeriod(input,csrf,key);}
@@ -204,7 +227,7 @@ export class HrApiClient {
   leaveLedger(input:HrLeaveLedgerQuery):Promise<HrLeaveLedger>{ return readWorkPage(input, (bounded) => this.api.timeLeaveLeaveLedger(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   postLeaveBalance(input:HrLeaveBalancePostingRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.api.timeLeavePostLeaveBalance(input,csrf,key);}
   leaveContext(input:HrLeaveContextQuery):Promise<HrLeaveContext>{return this.api.timeLeaveLeaveContext(query(input));}
-  listLeaveRequests(input:HrLeaveRequestQuery):Promise<HrLeaveRequestDirectory>{ return readWorkPage(input, (bounded) => this.api.timeLeaveListLeaveRequests(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
+  listLeaveRequests(input:Omit<HrLeaveRequestQuery,"submitted_only"|"exclude_cancelled">&Partial<Pick<HrLeaveRequestQuery,"submitted_only"|"exclude_cancelled">>):Promise<HrLeaveRequestDirectory>{ return readWorkPage(input, (bounded) => this.api.timeLeaveListLeaveRequests(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   getLeaveRequest(company:string,id:string):Promise<HrLeaveRequestDetail>{return this.api.timeLeaveGetLeaveRequest(id,query({company_id:company}));}
   createLeaveRequest(input:CreateHrLeaveRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.api.timeLeaveCreateLeaveRequest(input,csrf,key);}
   actOnLeaveRequest(id:string,input:HrLeaveRequestActionRequest,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.api.timeLeaveActOnLeaveRequest(id,input,csrf,key);}
@@ -263,6 +286,10 @@ export class HrApiClient {
   correctionAction(id:string,input:HrCorrectionActionRequest,csrf:string,key:string):Promise<HrCorrectionResult>{return this.api.actOnHrCorrection(id,input,csrf,key);}
   monthlyAttendance(input:HrMonthlyAttendanceQuery):Promise<HrMonthlyAttendanceDirectory>{ return readWorkPage(input, (bounded) => this.api.listHrMonthlyAttendance(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   dailyAttendance(input:HrDailyAttendanceQuery):Promise<HrDailyAttendanceDirectory>{ return readWorkPage(input, (bounded) => this.api.listHrDailyAttendance(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
+  selfAttendance(input:HrSelfAttendanceQuery):Promise<HrSelfAttendance>{return this.api.selfAttendance(query(input));}
+  createSelfAttendancePunch(input:CreateHrSelfAttendancePunch,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.api.createSelfAttendancePunch(input,csrf,key);}
+  saveSelfAttendanceDay(input:SaveHrSelfAttendanceDay,csrf:string,key:string):Promise<HrAttendanceCompletionResult>{return this.api.saveSelfAttendanceDay(input,csrf,key);}
+  employeeAttendanceRecords(input:HrEmployeeAttendanceRecordsQuery):Promise<HrEmployeeAttendanceRecords>{return this.api.employeeAttendanceRecords(query(input));}
   shiftAllocationContext(input:{companyId:string;scope:CreateHrShiftAllocationRequest["scope"];onDate:string;search?:string}):Promise<HrShiftAllocationContext> {return this.api.getHrShiftAllocationContext(query({company_id:input.companyId,scope:input.scope,on_date:input.onDate,search:input.search}));}
   shiftAllocations(input:{companyId:string;search?:string;scope?:CreateHrShiftAllocationRequest["scope"];scopeId?:string;onDate?:string;state?:string;limit?:number;offset?:number}):Promise<HrShiftAllocationDirectory> {return this.api.listHrShiftAllocations(query({company_id:input.companyId,search:input.search,scope:input.scope,scope_id:input.scopeId,on_date:input.onDate,state:input.state,limit:input.limit??50,offset:input.offset??0}));}
   shiftAllocation(companyId:string,id:string):Promise<HrShiftAllocationDetail> {return this.api.getHrShiftAllocation(id,query({company_id:companyId}));}
@@ -276,12 +303,12 @@ export class HrApiClient {
   updateShift(id:string,input:UpdateHrShiftRequest,csrf:string,key:string):Promise<HrShiftResult> {return this.api.updateHrShift(id,input,csrf,key);}
   shiftStatus(id:string,input:ChangeHrShiftStatusRequest,csrf:string,key:string):Promise<HrShiftResult> {return this.api.changeHrShiftStatus(id,input,csrf,key);}
   offerContext(companyId: string, applicationId: string): Promise<HrOfferContext> {return this.api.getHrOfferContext(query({company_id:companyId,application_id:applicationId}));}
-  offers(input: {companyId: string; search?: string; state?: string; offset?: number; limit?: number}): Promise<HrOfferDirectory> {return this.api.listHrOffers(query({company_id:input.companyId,search:input.search,state:input.state,offset:input.offset??0,limit:input.limit??50}));}
+  offers(input: {companyId: string; search?: string; state?: string; stage?: "preparation" | "decided"; offset?: number; limit?: number}): Promise<HrOfferDirectory> {return this.api.listHrOffers(query({company_id:input.companyId,search:input.search,state:input.state,stage:input.stage,offset:input.offset??0,limit:input.limit??50}));}
   offer(companyId: string,id: string): Promise<HrOfferDetail> {return this.api.getHrOffer(id,query({company_id:companyId}));}
   createOffer(input: CreateHrOfferRequest,csrf: string,key: string): Promise<HrOfferResult> {return this.api.createHrOffer(input,csrf,key);}
   updateOffer(id: string,input: UpdateHrOfferRequest,csrf: string,key: string): Promise<HrOfferResult> {return this.api.updateHrOffer(id,input,csrf,key);}
   offerAction(id: string,input: HrOfferActionRequest,csrf: string,key: string): Promise<HrOfferResult> {return this.api.performHrOfferAction(id,input,csrf,key);}
-  applications(input: { companyId: string; search?: string; stage?: string; limit?: number; offset?: number }): Promise<HrApplicationDirectory> { return this.api.listHrApplications(query({company_id: input.companyId,search:input.search,stage:input.stage,limit:input.limit ?? 100,offset:input.offset ?? 0})); }
+  applications(input: { companyId: string; search?: string; stage?: string; availableForOffer?: boolean; limit?: number; offset?: number }): Promise<HrApplicationDirectory> { return this.api.listHrApplications(query({company_id: input.companyId,search:input.search,stage:input.stage,available_for_offer:input.availableForOffer ? "true" : undefined,limit:input.limit ?? 100,offset:input.offset ?? 0})); }
   createApplication(input: CreateHrApplicationRequest, csrfToken: string, key: string): Promise<HrApplicationResult> { return this.api.createHrApplication(input,csrfToken,key); }
   changeApplicationStage(id: string, input: ChangeHrApplicationStageRequest, csrfToken: string, key: string): Promise<HrApplicationResult> { return this.api.changeHrApplicationStage(id,input,csrfToken,key); }
   candidates(input: { companyId: string; search?: string; status?: string; limit?: number }): Promise<HrCandidateDirectory> { return this.api.listHrCandidates(query({ company_id: input.companyId, search: input.search, status: input.status, limit: input.limit ?? 50 })); }
@@ -311,6 +338,11 @@ export class HrApiClient {
     return this.api.changeHrOrganizationUnitStatus(unitId, input, csrfToken, idempotencyKey);
   }
 
+  /** Permanently deletes an inactive, unreferenced organization unit (no child units). */
+  deleteOrganizationUnit(unitId: string, input: DeleteHrMasterRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterDeleteResult> {
+    return this.api.deleteHrOrganizationUnit(unitId, input, csrfToken, idempotencyKey);
+  }
+
   employees(input: {
     companyId: string;
     search?: string;
@@ -326,9 +358,9 @@ export class HrApiClient {
     return this.api.getHrEmployee(employeeId);
   }
 
-  employeeDrafts(input: { companyId: string; search?: string; limit?: number }): Promise<HrEmployeeDraftDirectory> {
+  employeeDrafts(input: { companyId: string; search?: string; status?: "all" | "draft" | "submitted"; limit?: number }): Promise<HrEmployeeDraftDirectory> {
     return this.api.listHrEmployeeDrafts(
-      query({ company_id: input.companyId, search: input.search, limit: input.limit ?? 50 }),
+      query({ company_id: input.companyId, search: input.search, status: input.status, limit: input.limit ?? 50 }),
     );
   }
 
@@ -336,8 +368,8 @@ export class HrApiClient {
     return this.api.getHrEmployeeDraft(employeeId);
   }
 
-  employeeDraftApprovals(input: { companyId: string; limit?: number }): Promise<HrEmployeeDraftApprovalQueue> {
-    return this.api.listHrEmployeeDraftApprovals(query({ company_id: input.companyId, limit: input.limit ?? 50 }));
+  employeeDraftApprovals(input: { companyId: string; state?: "pending" | "approved" | "rejected" | "all"; limit?: number }): Promise<HrEmployeeDraftApprovalQueue> {
+    return this.api.listHrEmployeeDraftApprovals(query({ company_id: input.companyId, state: input.state, limit: input.limit ?? 50 }));
   }
 
   employeeDraftApproval(employeeId: string): Promise<HrEmployeeDraftApprovalDetail> {
@@ -418,6 +450,78 @@ export class HrApiClient {
     return this.api.listHrEmployeeDocuments(employeeId);
   }
 
+  // Recruitment record edits outside the approval decision.
+  updateManpowerRequisition(id: string, input: CreateHrManpowerRequisitionRequest, csrfToken: string, idempotencyKey: string): Promise<HrRecruitmentMutationResult> {
+    return this.api.updateHrManpowerRequisition(id, input, csrfToken, idempotencyKey);
+  }
+  changeManpowerRequisitionState(id: string, input: ChangeHrManpowerRequisitionStateRequest, csrfToken: string, idempotencyKey: string): Promise<HrRecruitmentMutationResult> {
+    return this.api.changeHrManpowerRequisitionState(id, input, csrfToken, idempotencyKey);
+  }
+  deleteManpowerRequisition(id: string, companyId: string, csrfToken: string, idempotencyKey: string): Promise<HrRecruitmentMutationResult> {
+    return this.api.deleteHrManpowerRequisition(id, { company_id: companyId }, csrfToken, idempotencyKey);
+  }
+  updateJobOpening(id: string, input: UpdateHrJobOpeningRequest, csrfToken: string, idempotencyKey: string): Promise<HrRecruitmentMutationResult> {
+    return this.api.updateHrJobOpening(id, input, csrfToken, idempotencyKey);
+  }
+  deleteJobOpening(id: string, companyId: string, csrfToken: string, idempotencyKey: string): Promise<HrRecruitmentMutationResult> {
+    return this.api.deleteHrJobOpening(id, { company_id: companyId }, csrfToken, idempotencyKey);
+  }
+  updateCandidate(id: string, input: UpdateHrCandidateRequest, csrfToken: string, idempotencyKey: string): Promise<HrRecruitmentMutationResult> {
+    return this.api.updateHrCandidate(id, input, csrfToken, idempotencyKey);
+  }
+  deleteCandidate(id: string, companyId: string, csrfToken: string, idempotencyKey: string): Promise<HrRecruitmentMutationResult> {
+    return this.api.deleteHrCandidate(id, { company_id: companyId }, csrfToken, idempotencyKey);
+  }
+  changeEmployeeStatus(employeeId: string, input: ChangeHrEmployeeStatusRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.changeHrEmployeeStatus(employeeId, input, csrfToken, idempotencyKey);
+  }
+  removeEmployee(employeeId: string, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.removeHrEmployee(employeeId, {}, csrfToken, idempotencyKey);
+  }
+
+  // Employee record satellites (HR139): drafts and active employees in company scope.
+  employeeNumberPreview(companyId: string): Promise<HrEmployeeNumberPreview> {
+    return this.api.getHrEmployeeNumberPreview(query({ company_id: companyId }));
+  }
+  withdrawEmployeeDraft(employeeId: string, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.withdrawHrEmployeeDraft(employeeId, {}, csrfToken, idempotencyKey);
+  }
+  updateEmployeeContact(employeeId: string, contactId: string, input: CreateHrEmployeeContactRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.updateHrEmployeeContact(employeeId, contactId, input, csrfToken, idempotencyKey);
+  }
+  removeEmployeeContact(employeeId: string, contactId: string, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.removeHrEmployeeContact(employeeId, contactId, {}, csrfToken, idempotencyKey);
+  }
+  updateEmployeeEmergencyContact(employeeId: string, contactId: string, input: CreateHrEmployeeEmergencyContactRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.updateHrEmployeeEmergencyContact(employeeId, contactId, input, csrfToken, idempotencyKey);
+  }
+  removeEmployeeEmergencyContact(employeeId: string, contactId: string, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.removeHrEmployeeEmergencyContact(employeeId, contactId, {}, csrfToken, idempotencyKey);
+  }
+  uploadEmployeeDocument(employeeId: string, fields: UploadHrEmployeeDocumentFields, file: File, csrfToken: string, idempotencyKey: string, replacesDocumentId?: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.uploadHrEmployeeDocument(employeeId, fields, file, csrfToken, idempotencyKey, replacesDocumentId);
+  }
+  downloadEmployeeDocument(employeeId: string, documentId: string): Promise<Blob> {
+    return this.api.downloadHrEmployeeDocument(employeeId, documentId);
+  }
+  employeeDocumentUrl(employeeId: string, documentId: string, disposition: "inline" | "attachment" = "inline"): string {
+    return this.api.hrEmployeeDocumentContentUrl(employeeId, documentId, disposition);
+  }
+  removeEmployeeDocument(employeeId: string, documentId: string, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.removeHrEmployeeDocument(employeeId, documentId, {}, csrfToken, idempotencyKey);
+  }
+  employmentHistory(employeeId: string): Promise<HrEmployeeEmploymentHistoryDirectory> {
+    return this.api.listHrEmployeeEmploymentHistory(employeeId);
+  }
+  saveEmploymentHistory(employeeId: string, historyId: string | undefined, input: HrEmployeeEmploymentHistoryRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return historyId
+      ? this.api.updateHrEmployeeEmploymentHistory(employeeId, historyId, input, csrfToken, idempotencyKey)
+      : this.api.createHrEmployeeEmploymentHistory(employeeId, input, csrfToken, idempotencyKey);
+  }
+  removeEmploymentHistory(employeeId: string, historyId: string, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
+    return this.api.removeHrEmployeeEmploymentHistory(employeeId, historyId, {}, csrfToken, idempotencyKey);
+  }
+
   employeeAssignments(employeeId: string): Promise<HrEmployeeAssignmentDirectory> {
     return this.api.listHrEmployeeAssignments(employeeId);
   }
@@ -485,6 +589,35 @@ export class HrApiClient {
     return this.api.activateHrEmploymentLifecyclePolicy(policyId, input, csrfToken, idempotencyKey);
   }
 
+  /** Draft-only: name and effective period; code and version are kept. */
+  updateEmploymentLifecyclePolicy(
+    policyId: string,
+    input: UpdateHrEmploymentLifecyclePolicyRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmploymentLifecyclePolicyResult> {
+    return this.api.updateHrEmploymentLifecyclePolicy(policyId, input, csrfToken, idempotencyKey);
+  }
+
+  /** Draft-only and unreferenced; the deleted code is never reissued. */
+  deleteEmploymentLifecyclePolicy(
+    policyId: string,
+    input: DeleteHrEmploymentLifecyclePolicyRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmploymentLifecyclePolicyDeleteResult> {
+    return this.api.deleteHrEmploymentLifecyclePolicy(policyId, input, csrfToken, idempotencyKey);
+  }
+
+  deactivateEmploymentLifecyclePolicy(
+    policyId: string,
+    input: DeactivateHrEmploymentLifecyclePolicyRequest,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<HrEmploymentLifecyclePolicyDeactivationResult> {
+    return this.api.deactivateHrEmploymentLifecyclePolicy(policyId, input, csrfToken, idempotencyKey);
+  }
+
   masters(input: {
     companyId: string;
     type?: HrMasterType;
@@ -517,8 +650,31 @@ export class HrApiClient {
     return this.api.changeHrMasterStatus(masterId, input, csrfToken, idempotencyKey);
   }
 
+  /** Permanently deletes an inactive, unreferenced HR master record. */
+  deleteMaster(masterId: string, input: DeleteHrMasterRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterDeleteResult> {
+    return this.api.deleteHrMaster(masterId, input, csrfToken, idempotencyKey);
+  }
+
   jobGrades(companyId: string): Promise<HrJobGradeDirectory> {
     return this.api.listHrJobGrades(query({ company_id: companyId }));
+  }
+
+  /** Active company currencies configured under Finance, available for job grades. */
+  jobGradeCurrencies(companyId: string): Promise<HrJobGradeCurrencyDirectory> {
+    return this.api.listHrJobGradeCurrencies(query({ company_id: companyId }));
+  }
+
+  /** Active Finance projects a manpower requisition can name. */
+  requisitionProjects(companyId: string): Promise<HrRequisitionProjectDirectory> {
+    return this.api.listHrRequisitionProjects(query({ company_id: companyId }));
+  }
+  /** Active work locations with their city, for the requisition Location field. */
+  requisitionWorkLocations(companyId: string): Promise<HrRequisitionWorkLocationDirectory> {
+    return this.api.listHrRequisitionWorkLocations(query({ company_id: companyId }));
+  }
+  /** Active Finance nominals offered as a cost centre's default nominal. */
+  costCentreNominals(companyId: string): Promise<HrCostCentreNominalDirectory> {
+    return this.api.listHrCostCentreNominals(query({ company_id: companyId }));
   }
 
   createJobGrade(input: CreateHrJobGradeRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
@@ -527,6 +683,11 @@ export class HrApiClient {
 
   updateJobGrade(gradeId: string, input: UpdateHrJobGradeRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterMutationResult> {
     return this.api.updateHrJobGrade(gradeId, input, csrfToken, idempotencyKey);
+  }
+
+  /** Permanently deletes an inactive, unreferenced job grade and its band detail. */
+  deleteJobGrade(gradeId: string, input: DeleteHrMasterRequest, csrfToken: string, idempotencyKey: string): Promise<HrMasterDeleteResult> {
+    return this.api.deleteHrJobGrade(gradeId, input, csrfToken, idempotencyKey);
   }
 
   createHireRequest(
@@ -567,10 +728,11 @@ export class HrApiClient {
   transferRequests(input: {
     companyId: string;
     search?: string;
+    status?: "pending" | "approved" | "rejected" | "all";
     limit?: number;
   }): Promise<HrEmployeeTransferRequestDirectory> {
     return this.api.listHrEmployeeTransferRequests(
-      query({ company_id: input.companyId, search: input.search, limit: input.limit ?? 50 }),
+      query({ company_id: input.companyId, search: input.search, status: input.status, limit: input.limit ?? 50 }),
     );
   }
 
@@ -600,10 +762,11 @@ export class HrApiClient {
   promotionRequests(input: {
     companyId: string;
     search?: string;
+    status?: "pending" | "approved" | "rejected" | "all";
     limit?: number;
   }): Promise<HrEmployeePromotionRequestDirectory> {
     return this.api.listHrEmployeePromotionRequests(
-      query({ company_id: input.companyId, search: input.search, limit: input.limit ?? 50 }),
+      query({ company_id: input.companyId, search: input.search, status: input.status, limit: input.limit ?? 50 }),
     );
   }
 

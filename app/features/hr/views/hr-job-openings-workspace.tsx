@@ -1,6 +1,7 @@
 "use client";
 import { WorkTable } from "@/shared/ui/work-table";
 
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { HrJobOpeningDirectory } from "@nexora/contracts";
@@ -10,6 +11,30 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import {
+  HrDetailAudit,
+  HrDetailCode,
+  HrDetailFigures,
+  HrDetailGroup,
+  HrDetailNote,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
+import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
+import { HrEditButton } from "../components/hr-icon-buttons";
+import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
+import { HrPagination, HrSearchField, matchesSearch, useHrPage } from "../components/hr-list-controls";
+
+/** Cancelled openings are no longer listed; All = open, on hold and closed. */
+type OpeningFilter = "all" | "open" | "on_hold" | "closed";
+const openingFilterOptions: readonly { value: OpeningFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "open", label: "Open" },
+  { value: "on_hold", label: "On hold" },
+  { value: "closed", label: "Closed" },
+];
 type Opening = HrJobOpeningDirectory["items"][number];
 export function HrJobOpeningsWorkspace() {
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -19,8 +44,7 @@ export function HrJobOpeningsWorkspace() {
     canRead = permissions.includes("hr.employee.read"),
     canCreate = permissions.includes("hr.employee.create"),
     canUpdate = permissions.includes("hr.employee.update");
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]),
-    [companyId, setCompanyId] = useState(""),
+  const [companyId, setCompanyId] = useState(""),
     [items, setItems] = useState<Opening[]>([]),
     [approved, setApproved] = useState<Awaited<ReturnType<HrApiClient["manpowerRequisitions"]>>["items"]>([]),
     [selectedId, setSelectedId] = useState(""),
@@ -32,7 +56,12 @@ export function HrJobOpeningsWorkspace() {
     [requisitionId, setRequisitionId] = useState(""),
     [headcount, setHeadcount] = useState("1"),
     [channels, setChannels] = useState("Company website"),
-    [closingOn, setClosingOn] = useState("");
+    [closingOn, setClosingOn] = useState(""),
+    /** Set while editing an existing opening. */
+    [editingId, setEditingId] = useState(""),
+    [openingState, setOpeningState] = useState<Opening["state"]>("open"),
+    [openingFilter, setOpeningFilter] = useState<OpeningFilter>("all"),
+    [search, setSearch] = useState("");
   const load = useCallback(
     async (company: string) => {
       if (!company) return;
@@ -63,9 +92,13 @@ export function HrJobOpeningsWorkspace() {
     client
       .companies()
       .then((result) => {
-        setCompanies(result.items);
         const first = result.items[0]?.id ?? "";
         setCompanyId(first);
+        if (!first) {
+          setMessage("No authorized company is available. Ask your administrator to review company access.");
+          setLoading(false);
+          return;
+        }
         return load(first);
       })
       .catch(() => {
@@ -74,11 +107,117 @@ export function HrJobOpeningsWorkspace() {
       });
   }, [canRead, client, load, sessionLoading]);
   const selected = items.find((item) => item.id === selectedId);
+  const visibleItems = items.filter(
+    (item) =>
+      (openingFilter === "all" ? item.state !== "cancelled" : item.state === openingFilter) &&
+      matchesSearch(search, [
+        item.reference,
+        item.title,
+        item.requisition_reference,
+        item.closing_on,
+        item.state.replaceAll("_", " "),
+        ...item.channels,
+      ]),
+  );
+  const openingsPage = useHrPage(visibleItems, `${companyId}:${openingFilter}:${search.trim()}`);
+  // Mirrors the server rule: non-cancelled openings draw down the requisition's approved headcount.
+  const chosenRequisition = approved.find((item) => item.id === requisitionId);
+  const raisedHeadcount = items
+    .filter((item) => item.requisition_id === requisitionId && item.state !== "cancelled")
+    .reduce((total, item) => total + item.positions_requested, 0);
+  const availableHeadcount = chosenRequisition
+    ? Math.max(0, chosenRequisition.positions_requested - raisedHeadcount)
+    : null;
+  const chooseRequisition = (id: string) => {
+    const requisition = approved.find((item) => item.id === id);
+    setRequisitionId(id);
+    // Start from the requisition's job title; recruiters can still adjust the advertised wording.
+    if (requisition && (!title.trim() || approved.some((item) => item.job_title === title)))
+      setTitle(requisition.job_title);
+  };
+  const startEdit = (opening: Opening) => {
+    setEditingId(opening.id);
+    setRequisitionId(opening.requisition_id);
+    setTitle(opening.title);
+    setHeadcount(String(opening.positions_requested));
+    setChannels(opening.channels.join(", "));
+    setClosingOn(opening.closing_on ?? "");
+    setOpeningState(opening.state);
+    setDetailsOpen(false);
+    setEditor(true);
+  };
+  const closeEditor = () => {
+    setEditor(false);
+    setEditingId("");
+  };
+  const remove = async (opening: Opening) => {
+    setSaving(true);
+    try {
+      await client.deleteJobOpening(opening.id, companyId, csrfToken(), crypto.randomUUID());
+      setMessage(`${opening.reference} was deleted.`);
+      setDetailsOpen(false);
+      setSelectedId("");
+      await load(companyId);
+      return true;
+    } catch (cause) {
+      setMessage(cause instanceof Error && cause.message ? cause.message : "The opening could not be deleted.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+  const saveEdit = async () => {
+    const count = Number(headcount);
+    const channelList = channels
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (!title.trim() || !Number.isInteger(count) || count < 1 || !channelList.length) {
+      setMessage("Provide a title, the number of positions to fill and at least one advertising channel.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await client.updateJobOpening(
+        editingId,
+        {
+          company_id: companyId,
+          title: title.trim(),
+          positions_requested: count,
+          channels: channelList,
+          closing_on: closingOn || null,
+          state: openingState,
+          reason: "",
+        },
+        csrfToken(),
+        crypto.randomUUID(),
+      );
+      setMessage("The job opening was saved.");
+      setSelectedId(editingId);
+      closeEditor();
+      await load(companyId);
+    } catch (cause) {
+      setMessage(cause instanceof Error && cause.message ? cause.message : "The opening could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  };
   const save = async () => {
     if (saving) return;
+    if (editingId) return saveEdit();
     const count = Number(headcount);
     if (!requisitionId || !title.trim() || !Number.isInteger(count) || count < 1) {
-      setMessage("Select an approved requisition and provide a title and valid headcount.");
+      setMessage("Select an approved requisition and provide a title and the number of positions to fill.");
+      return;
+    }
+    if (availableHeadcount !== null && count > availableHeadcount) {
+      setMessage(
+        `Only ${availableHeadcount} approved position${availableHeadcount === 1 ? " is" : "s are"} still unassigned on this requisition.`,
+      );
+      return;
+    }
+    if (!channels.split(",").some((value) => value.trim())) {
+      setMessage("Name at least one channel where this vacancy will be advertised.");
       return;
     }
     setSaving(true);
@@ -103,7 +242,9 @@ export function HrJobOpeningsWorkspace() {
       setSelectedId(result.id);
       await load(companyId);
     } catch {
-      setMessage("The opening was rejected. An approved requisition with enough unused headcount is required.");
+      setMessage(
+        "The opening was rejected. It needs an approved requisition with enough positions that are not already in another opening.",
+      );
     } finally {
       setSaving(false);
     }
@@ -167,38 +308,35 @@ export function HrJobOpeningsWorkspace() {
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4 border-border">
-        <label className="grid min-w-0 basis-full sm:basis-48 flex-1 gap-1 text-sm font-medium">
-          Company
-          <select
-            className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-            value={companyId}
-            onChange={(event) => {
-              setCompanyId(event.target.value);
-              void load(event.target.value);
-            }}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name} ({company.code})
-              </option>
-            ))}
-          </select>
-        </label>
-        <Button variant="outline" onClick={() => void load(companyId)}>
-          Refresh
-        </Button>
+      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,1fr)_auto] md:items-end">
+        <HrSearchField
+          id="hr-job-openings-search"
+          value={search}
+          onChange={setSearch}
+          placeholder="Search reference, opening, requisition or channel"
+        />
         {canCreate ? (
           <Button
+            className="w-full md:w-auto"
             onClick={() => {
+              setEditingId("");
+              setTitle("");
+              setHeadcount("1");
+              setClosingOn("");
               setEditor(true);
-              setRequisitionId(approved[0]?.id ?? "");
+              chooseRequisition(approved[0]?.id ?? "");
             }}
           >
             + Create opening
           </Button>
         ) : null}
       </div>
+      <HrMasterStatusFilter<OpeningFilter>
+        label="Opening state"
+        value={openingFilter}
+        options={openingFilterOptions}
+        onChange={setOpeningFilter}
+      />
       {loading ? (
         <Skeleton className="h-80 w-full" />
       ) : (
@@ -210,13 +348,13 @@ export function HrJobOpeningsWorkspace() {
                   <th className="px-4 py-3 text-left">Reference</th>
                   <th className="px-4 py-3 text-left">Opening</th>
                   <th className="px-4 py-3 text-left">Requisition</th>
-                  <th className="px-4 py-3 text-left">Headcount</th>
+                  <th className="px-4 py-3 text-left">Unfilled positions</th>
                   <th className="px-4 py-3 text-left">Closing</th>
                   <th className="px-4 py-3 text-left">State</th>
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
+                {openingsPage.pageRows.map((item) => (
                   <tr
                     className={`cursor-pointer border-b border-border ${item.id === selectedId ? "bg-accent" : ""}`}
                     key={item.id}
@@ -246,6 +384,7 @@ export function HrJobOpeningsWorkspace() {
                     <td className="px-4 py-3">{item.requisition_reference}</td>
                     <td className="px-4 py-3">
                       {item.remaining_positions} of {item.positions_requested}
+                      <span className="block text-xs text-muted-foreground">{item.filled_positions} hired</span>
                     </td>
                     <td className="px-4 py-3">{item.closing_on ?? "Not set"}</td>
                     <td className="px-4 py-3">
@@ -253,110 +392,185 @@ export function HrJobOpeningsWorkspace() {
                     </td>
                   </tr>
                 ))}
-                {items.length === 0 ? (
+                {visibleItems.length === 0 ? (
                   <tr>
                     <td className="px-4 py-10 text-center text-muted-foreground" colSpan={6}>
-                      No live job openings are recorded for this company.
+                      {search.trim() ? "No job openings match this search." : "No job openings match this state."}
                     </td>
                   </tr>
                 ) : null}
               </tbody>
             </WorkTable>
           </div>
+          <HrPagination
+            label="Job opening pages"
+            page={openingsPage.page}
+            pageCount={openingsPage.pageCount}
+            total={openingsPage.total}
+            onPageChange={openingsPage.setPage}
+          />
           {editor ? (
             <HrRecordDrawer
-              title="Create job opening"
+              title={editingId ? title || "Edit job opening" : "Create job opening"}
               open={editor}
-              onClose={() => setEditor(false)}
+              onClose={closeEditor}
               busy={saving}
               notice={message}
             >
-              <aside className="grid gap-3 rounded-lg border bg-card p-4 border-border">
-                {approved.length === 0 ? (
-                  <Alert>
-                    <AlertTitle>Approved requisition required</AlertTitle>
-                    <AlertDescription>
-                      Submit and independently approve a manpower requisition before creating an opening.
-                    </AlertDescription>
-                  </Alert>
-                ) : null}
-                <label className="grid gap-1 text-sm">
-                  Approved requisition
-                  <select
-                    className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                    value={requisitionId}
-                    onChange={(event) => setRequisitionId(event.target.value)}
-                  >
-                    <option value="">Select</option>
-                    {approved.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.reference} · {item.job_title} ({item.positions_requested})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-1 text-sm">
-                  Opening title
-                  <Input value={title} onChange={(event) => setTitle(event.target.value)} />
-                </label>
-                <label className="grid gap-1 text-sm">
-                  Headcount
-                  <Input inputMode="numeric" value={headcount} onChange={(event) => setHeadcount(event.target.value)} />
-                </label>
-                <label className="grid gap-1 text-sm">
-                  Channels (comma separated)
-                  <Input value={channels} onChange={(event) => setChannels(event.target.value)} />
-                </label>
-                <label className="grid gap-1 text-sm">
-                  Closing date
-                  <Input type="date" value={closingOn} onChange={(event) => setClosingOn(event.target.value)} />
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <Button disabled={saving || !approved.length} onClick={() => void save()}>
-                    Create opening
+              <aside className="grid gap-5 rounded-lg border bg-card p-4 border-border">
+                <HrDetailSection title="Source">
+                  {editingId ? (
+                    <label className="grid content-start gap-1 text-sm">
+                      Status
+                      <select
+                        className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
+                        value={openingState}
+                        onChange={(event) => setOpeningState(event.target.value as Opening["state"])}
+                      >
+                        {(openingState === "cancelled" ? (["open", "on_hold", "closed", "cancelled"] as const) : (["open", "on_hold", "closed"] as const)).map((state) => (
+                          <option key={state} value={state}>
+                            {state === "on_hold" ? "On hold" : state.charAt(0).toUpperCase() + state.slice(1)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                  {approved.length === 0 && !editingId ? (
+                    <Alert>
+                      <AlertTitle>Approved requisition required</AlertTitle>
+                      <AlertDescription>
+                        Submit and independently approve a manpower requisition before creating an opening.
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+                  <label className="grid content-start gap-1 text-sm">
+                    Approved requisition
+                    <select
+                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2 disabled:opacity-60"
+                      value={requisitionId}
+                      disabled={!!editingId}
+                      onChange={(event) => chooseRequisition(event.target.value)}
+                    >
+                      {editingId && !approved.some((item) => item.id === requisitionId) ? (
+                        <option value={requisitionId}>
+                          {items.find((item) => item.id === editingId)?.requisition_reference ?? "Current requisition"}
+                        </option>
+                      ) : null}
+                      <option value="">Select</option>
+                      {approved.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.reference} · {item.job_title} ({item.positions_requested} approved)
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </HrDetailSection>
+                <HrDetailSection title="Opening">
+                  <label className="grid content-start gap-1 text-sm">
+                    Opening title
+                    <Input value={title} onChange={(event) => setTitle(event.target.value)} />
+                  </label>
+                  <label className="grid content-start gap-1 text-sm">
+                    Positions to fill
+                    <Input
+                      inputMode="numeric"
+                      value={headcount}
+                      onChange={(event) => setHeadcount(event.target.value)}
+                    />
+                  </label>
+                  <label className="grid content-start gap-1 text-sm">
+                    Closing date
+                    <Input type="date" value={closingOn} onChange={(event) => setClosingOn(event.target.value)} />
+                  </label>
+                </HrDetailSection>
+                <HrDetailSection title="Advertising">
+                  <label className="grid content-start gap-1 text-sm">
+                    Advertising channels
+                    <Input
+                      value={channels}
+                      placeholder="Company website, LinkedIn, Employee referral"
+                      onChange={(event) => setChannels(event.target.value)}
+                    />
+                  </label>
+                </HrDetailSection>
+                <HrDrawerActions>
+                  <Button disabled={saving || (!editingId && !approved.length)} onClick={() => void save()}>
+                    {editingId ? "Save changes" : "Create opening"}
                   </Button>
-                  <Button variant="outline" onClick={() => setEditor(false)}>
-                    Cancel
-                  </Button>
-                </div>
+                </HrDrawerActions>
               </aside>
             </HrRecordDrawer>
           ) : selected ? (
             <HrRecordDrawer
-              title="Job opening details"
+              title={selected.title}
               open={detailsOpen && !editor}
               onClose={() => setDetailsOpen(false)}
               busy={saving}
               notice={message}
             >
               <aside className="grid min-w-0 gap-4 rounded-lg border bg-card p-5 border-border">
-                <div>
-                  <span className="nx-eyebrow">{selected.reference}</span>
-                  <h2 className="mt-1 text-xl font-semibold">{selected.title}</h2>
-                </div>
-                <dl className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <dt className="text-muted-foreground">Requisition</dt>
-                    <dd className="font-medium">{selected.requisition_reference}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Positions</dt>
-                    <dd className="font-medium">{selected.remaining_positions} remaining</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Channels</dt>
-                    <dd className="font-medium">{selected.channels.join(", ")}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Closing</dt>
-                    <dd className="font-medium">{selected.closing_on ?? "Not set"}</dd>
-                  </div>
-                </dl>
+                <HrDetailSummary code={selected.reference} status={selected.state}>
+                  From requisition <HrDetailCode>{selected.requisition_reference}</HrDetailCode>
+                  {selected.closing_on ? ` · closes ${hrDisplayDate(selected.closing_on)}` : ""}
+                </HrDetailSummary>
+                <HrDetailFigures
+                  items={[
+                    { label: "Positions", value: selected.positions_requested },
+                    { label: "Hired", value: selected.filled_positions },
+                    { label: "Unfilled", value: selected.remaining_positions },
+                  ]}
+                  progress={{
+                    value: selected.filled_positions,
+                    total: selected.positions_requested,
+                    label: `${selected.filled_positions} of ${selected.positions_requested} filled`,
+                  }}
+                />
+                <HrDetailGroup title="Opening">
+                  <HrDetailTile label="Opening title" value={selected.title} />
+                  <HrDetailTile label="Requisition" value={selected.requisition_reference} mono />
+                  <HrDetailTile
+                    label="Advertised on"
+                    value={
+                      selected.channels.length ? (
+                        <span className="flex flex-wrap gap-1.5">
+                          {selected.channels.map((channel) => (
+                            <span
+                              key={channel}
+                              className="rounded-[5px] border border-border bg-muted px-2 text-xs font-normal"
+                            >
+                              {channel}
+                            </span>
+                          ))}
+                        </span>
+                      ) : undefined
+                    }
+                  />
+                  <HrDetailTile
+                    label="Closing date"
+                    value={selected.closing_on ? hrDisplayDate(selected.closing_on) : "Not set"}
+                  />
+                </HrDetailGroup>
                 {selected.state_reason ? (
-                  <p className="text-sm text-muted-foreground">{selected.state_reason}</p>
+                  <HrDetailSection title="Latest change">
+                    <HrDetailNote>{selected.state_reason}</HrDetailNote>
+                  </HrDetailSection>
                 ) : null}
+                <HrDetailAudit items={[{ label: "Created", value: hrDisplayDate(selected.created_at, true) }]} />
                 {canUpdate ? (
-                  <div className="flex flex-wrap gap-2">
+                  <HrDrawerActions>
+                    <HrConfirmDeleteButton
+                      label={`Delete ${selected.reference}`}
+                      title={`Delete ${selected.reference}?`}
+                      description="Openings without applications can be deleted. The deletion is kept in the audit trail."
+                      variant="outline"
+                      disabled={saving}
+                      onConfirm={() => remove(selected)}
+                    />
+                    <HrEditButton
+                      label={`Edit ${selected.reference}`}
+                      disabled={saving}
+                      onClick={() => startEdit(selected)}
+                    />
                     {selected.state !== "on_hold" && selected.state !== "cancelled" ? (
                       <Button variant="outline" onClick={() => void change("on_hold")}>
                         Put on hold
@@ -368,12 +582,7 @@ export function HrJobOpeningsWorkspace() {
                         Close
                       </Button>
                     ) : null}
-                    {selected.state !== "cancelled" ? (
-                      <Button variant="outline" onClick={() => void change("cancelled")}>
-                        Cancel
-                      </Button>
-                    ) : null}
-                  </div>
+                  </HrDrawerActions>
                 ) : null}
               </aside>
             </HrRecordDrawer>

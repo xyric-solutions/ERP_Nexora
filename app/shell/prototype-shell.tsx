@@ -260,8 +260,9 @@ export function PrototypeShell({
   identityContent?: ReactNode;
 }) {
   const [route, setRoute] = useState<RouteState>(initialRoute);
-  const [expandedModule, setExpandedModule] = useState<string | null>(initialRoute.moduleId);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["dashboard:command-centres"]));
+  // The sidebar starts fully collapsed after sign-in/reload; menus open only when the user expands them or navigates.
+  const [expandedModule, setExpandedModule] = useState<string | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarQuery, setSidebarQuery] = useState("");
@@ -833,7 +834,7 @@ export function PrototypeShell({
                                       return (
                                         <li key={group.id}>
                                           <button
-                                            className={`nx-submenu-button${current.module.id === "hr" && current.group.id === group.id ? " bg-primary/15 font-semibold" : ""}`}
+                                            className={`nx-submenu-button${current.module.id === "hr" && current.group.id === group.id ? " bg-[color-mix(in_srgb,var(--nx-sidebar-accent)_22%,var(--nx-sidebar-surface))]! font-semibold text-[var(--nx-sidebar-accent)]! shadow-[inset_2px_0_0_var(--nx-sidebar-accent)]" : ""}`}
                                             type="button"
                                             aria-current={
                                               current.module.id === "hr" && current.group.id === group.id
@@ -848,7 +849,8 @@ export function PrototypeShell({
                                       );
                                     }
                                     const groupKey = `${module.id}:${group.id}`;
-                                    const groupOpen = expandedGroups.has(groupKey) || group.id === current.group.id;
+                                    // Navigating into a group adds it to expandedGroups, so its chevron can still close it.
+                                    const groupOpen = expandedGroups.has(groupKey);
                                     return (
                                       <li key={group.id}>
                                         <button
@@ -1177,7 +1179,7 @@ export function PrototypeShell({
 
       {drawerModule ? (
         <aside
-          className="nx-submenu-drawer rounded-2xl! [--nx-surface:var(--nx-sidebar-surface)] [--nx-surface-raised:var(--nx-sidebar)] [--nx-text:var(--nx-sidebar-text)] [--nx-text-strong:var(--nx-sidebar-text)] [--nx-text-muted:var(--nx-sidebar-muted)] [--nx-text-subtle:var(--nx-sidebar-muted)] [--nx-border:var(--nx-sidebar-line)] [--nx-brand-soft:var(--nx-sidebar-hover)] [--nx-brand-strong:var(--nx-sidebar-accent)]"
+          className={`nx-submenu-drawer rounded-2xl! ${drawerModule.id === "hr" ? "md:w-60!" : ""} [--nx-surface:var(--nx-sidebar-surface)] [--nx-surface-raised:var(--nx-sidebar)] [--nx-text:var(--nx-sidebar-text)] [--nx-text-strong:var(--nx-sidebar-text)] [--nx-text-muted:var(--nx-sidebar-muted)] [--nx-text-subtle:var(--nx-sidebar-muted)] [--nx-border:var(--nx-sidebar-line)] [--nx-brand-soft:var(--nx-sidebar-hover)] [--nx-brand-strong:var(--nx-sidebar-accent)]`}
           aria-label={`${drawerModule.label} pages`}
         >
           <div className="nx-submenu-drawer__header">

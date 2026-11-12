@@ -31,7 +31,7 @@ export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialE
   const { api, csrfToken, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
   const [companyRevision, setCompanyRevision] = useState(0);
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
+  const [noCompany, setNoCompany] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [employees, setEmployees] = useState<HrEmployeeDirectory["items"]>([]);
   const [employeeId, setEmployeeId] = useState("");
@@ -58,7 +58,7 @@ export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialE
     loadEmployeeRouteCompanies(client, initialEmployeeId)
       .then((result) => {
         if (!active) return;
-        setCompanies(result.items);
+        setNoCompany(result.items.length === 0);
         setCompanyId((current) =>
           result.items.some((company) => company.id === current) ? current : result.preferredCompanyId,
         );
@@ -119,45 +119,8 @@ export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialE
 
   return (
     <section className="grid min-w-0 gap-4" aria-label="Employee assignment timeline">
-      <Alert>
-        <AlertTitle>Effective-dated assignment history</AlertTitle>
-        <AlertDescription>
-          The timeline remains immutable. Authorized HR makers can prepare a profile-draft assignment and submit a
-          separate Hire request below; activation still requires an independent approval.
-        </AlertDescription>
-      </Alert>
-      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 shadow-sm md:grid-cols-2">
-        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
-          Company
-          <select
-            className="h-9 w-full min-w-0 rounded-md border border-input bg-background px-2.5 text-sm"
-            value={companyId}
-            onChange={(event) => {
-              setState("loading");
-              setEmployeeId("");
-              setAssignments([]);
-              setAssignmentState("ready");
-              setCompanyId(event.target.value);
-            }}
-            disabled={state === "loading" || !companies.length}
-          >
-            {!companies.length && (
-              <option value="">
-                {state === "loading"
-                  ? "Loading authorized companies…"
-                  : state === "error"
-                    ? "Companies could not be loaded"
-                    : "No authorized companies"}
-              </option>
-            )}
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name} ({company.code})
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
+      <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,28rem)]">
+        <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
           Employee
           <select
             className="h-9 w-full min-w-0 rounded-md border border-input bg-background px-2.5 text-sm"
@@ -181,10 +144,7 @@ export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialE
       {state === "error" && (
         <Alert variant="destructive">
           <AlertTitle>Live HR data unavailable</AlertTitle>
-          <AlertDescription>
-            Authorized companies or employees could not be loaded. Retry the request or select another authorized
-            company.
-          </AlertDescription>
+          <AlertDescription>Authorized companies or employees could not be loaded. Retry the request.</AlertDescription>
           <Button
             type="button"
             variant="outline"
@@ -198,6 +158,14 @@ export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialE
           </Button>
         </Alert>
       )}
+      {state === "ready" && noCompany ? (
+        <Alert>
+          <AlertTitle>Company access required</AlertTitle>
+          <AlertDescription>
+            Company access must be granted before employee assignments can be reviewed.
+          </AlertDescription>
+        </Alert>
+      ) : null}
       {state === "loading" && <Skeleton className="h-20 w-full" />}
       {employeeId && assignmentState === "loading" && <Skeleton className="h-32 w-full" />}
       {employeeId && assignmentState === "error" && (
@@ -210,9 +178,9 @@ export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialE
       )}
       {employeeId && assignmentState === "ready" && (
         <>
-          <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-            <WorkTable tableId="app/features/hr/views/hr-employee-assignments-workspace:1" className="w-full min-w-[920px] text-left text-sm">
-              <thead className="border-b bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
+            <WorkTable tableId="app/features/hr/views/hr-employee-assignments-workspace:1" className="w-full text-left text-sm">
+              <thead className="border-b border-border bg-muted/60 font-semibold">
                 <tr>
                   <th className="px-4 py-3">Effective period</th>
                   <th className="px-4 py-3">Role</th>
@@ -232,7 +200,7 @@ export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialE
                       {assignment.job && <p className="text-xs text-muted-foreground">{assignment.job}</p>}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {assignment.employment_type} · {assignment.job_grade} · {assignment.work_location}
+                      {[assignment.employment_setup, assignment.job_grade, assignment.work_location].filter(Boolean).join(" · ")}
                     </td>
                     <td className="px-4 py-3 capitalize text-muted-foreground">
                       {assignment.change_reason.replaceAll("_", " ")}
@@ -254,66 +222,68 @@ export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialE
               </tbody>
             </WorkTable>
           </div>
-          <HrHireMakerPanel
-            key={`${companyId}:${employeeId}`}
-            client={client}
-            csrfToken={csrfToken}
-            companyId={companyId}
-            employeeId={employeeId}
-            assignments={assignments}
-            canCreateAssignment={canCreateAssignment}
-            canRequestHire={canRequestHire}
-            onAssignmentCreated={() => {
-              setAssignmentState("loading");
-              setAssignmentRefreshKey((current) => current + 1);
-            }}
-          />
-          <HrTransferMakerPanel
-            key={`transfer:${companyId}:${employeeId}:${assignmentRefreshKey}`}
-            client={client}
-            csrfToken={csrfToken}
-            companyId={companyId}
-            employeeId={employeeId}
-            assignments={assignments}
-            canRequestTransfer={canRequestTransfer}
-          />
-          <HrPromotionMakerPanel
-            key={`promotion:${companyId}:${employeeId}:${assignmentRefreshKey}`}
-            client={client}
-            csrfToken={csrfToken}
-            companyId={companyId}
-            employeeId={employeeId}
-            assignments={assignments}
-            canRequestPromotion={canRequestPromotion}
-          />
-          <HrManagerChangeMakerPanel
-            key={`manager-change:${companyId}:${employeeId}:${assignmentRefreshKey}`}
-            client={client}
-            csrfToken={csrfToken}
-            companyId={companyId}
-            employeeId={employeeId}
-            employees={employees}
-            assignments={assignments}
-            canRequestManagerChange={canRequestManagerChange}
-          />
-          <HrWorkLocationChangeMakerPanel
-            key={`work-location-change:${companyId}:${employeeId}:${assignmentRefreshKey}`}
-            client={client}
-            csrfToken={csrfToken}
-            companyId={companyId}
-            employeeId={employeeId}
-            assignments={assignments}
-            canRequestWorkLocationChange={canRequestWorkLocationChange}
-          />
-          <HrOrganizationPlacementChangeMakerPanel
-            key={`organization-placement-change:${companyId}:${employeeId}:${assignmentRefreshKey}`}
-            client={client}
-            csrfToken={csrfToken}
-            companyId={companyId}
-            employeeId={employeeId}
-            assignments={assignments}
-            canRequest={canRequestOrganizationPlacementChange}
-          />
+          <div className="flex min-w-0 flex-wrap gap-2">
+            <HrHireMakerPanel
+              key={`${companyId}:${employeeId}`}
+              client={client}
+              csrfToken={csrfToken}
+              companyId={companyId}
+              employeeId={employeeId}
+              assignments={assignments}
+              canCreateAssignment={canCreateAssignment}
+              canRequestHire={canRequestHire}
+              onAssignmentCreated={() => {
+                setAssignmentState("loading");
+                setAssignmentRefreshKey((current) => current + 1);
+              }}
+            />
+            <HrTransferMakerPanel
+              key={`transfer:${companyId}:${employeeId}:${assignmentRefreshKey}`}
+              client={client}
+              csrfToken={csrfToken}
+              companyId={companyId}
+              employeeId={employeeId}
+              assignments={assignments}
+              canRequestTransfer={canRequestTransfer}
+            />
+            <HrPromotionMakerPanel
+              key={`promotion:${companyId}:${employeeId}:${assignmentRefreshKey}`}
+              client={client}
+              csrfToken={csrfToken}
+              companyId={companyId}
+              employeeId={employeeId}
+              assignments={assignments}
+              canRequestPromotion={canRequestPromotion}
+            />
+            <HrManagerChangeMakerPanel
+              key={`manager-change:${companyId}:${employeeId}:${assignmentRefreshKey}`}
+              client={client}
+              csrfToken={csrfToken}
+              companyId={companyId}
+              employeeId={employeeId}
+              employees={employees}
+              assignments={assignments}
+              canRequestManagerChange={canRequestManagerChange}
+            />
+            <HrWorkLocationChangeMakerPanel
+              key={`work-location-change:${companyId}:${employeeId}:${assignmentRefreshKey}`}
+              client={client}
+              csrfToken={csrfToken}
+              companyId={companyId}
+              employeeId={employeeId}
+              assignments={assignments}
+              canRequestWorkLocationChange={canRequestWorkLocationChange}
+            />
+            <HrOrganizationPlacementChangeMakerPanel
+              key={`organization-placement-change:${companyId}:${employeeId}:${assignmentRefreshKey}`}
+              client={client}
+              csrfToken={csrfToken}
+              companyId={companyId}
+              employeeId={employeeId}
+              assignments={assignments}
+              canRequest={canRequestOrganizationPlacementChange}
+            />
+          </div>
         </>
       )}
     </section>

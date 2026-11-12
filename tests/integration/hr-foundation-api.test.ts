@@ -88,8 +88,6 @@ run("HR foundation API repository", () => {
         "job_grade",
         "cost_center",
         "work_location",
-        "employment_type",
-        "employee_category",
       ]),
     );
     expect(result.items.every((item) => item.company_id === "nexora-r06-uat-company")).toBe(true);
@@ -509,6 +507,59 @@ run("HR foundation API repository", () => {
       await client.query("rollback").catch(() => undefined);
       client.release();
     }
+  });
+
+  it("edits and deletes only draft lifecycle policies, with audit and permission checks", async () => {
+    const suffix = randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase();
+    const companyId = "nexora-r06-uat-company";
+    const manager = context("r06.maker");
+    manager.actor.permissions = ["hr.employment_lifecycle_policy.manage"];
+    const create = (code: string) =>
+      repository.createEmploymentLifecyclePolicy(
+        manager,
+        { company_id: companyId, code, name: "Editable lifecycle", effective_from: "2026-10-15" },
+        `lifecycle-policy-create-${code}`,
+        "hr-test-correlation",
+      );
+    const draft = await create(`R06-EDIT-${suffix}`);
+    const update = { company_id: companyId, name: "Renamed lifecycle", effective_from: "2026-11-01", effective_to: "2027-10-31" };
+    const updated = await repository.updateEmploymentLifecyclePolicy(manager, draft.id, update, `lifecycle-policy-update-${suffix}`, "hr-test-correlation");
+    expect(updated).toMatchObject({ id: draft.id, code: draft.code, version: draft.version, name: "Renamed lifecycle", status: "draft", replayed: false });
+    expect(
+      await repository.updateEmploymentLifecyclePolicy(manager, draft.id, update, `lifecycle-policy-update-${suffix}`, "hr-test-correlation"),
+    ).toEqual({ ...updated, replayed: true });
+    const row = await pool.query<{ name: string; effective_from: string; effective_to: string | null }>(
+      "select name,effective_from::text as effective_from,effective_to::text as effective_to from hr_employment_lifecycle_policy where tenant_id=$1 and id=$2",
+      [sourceTestTenantId, draft.id],
+    );
+    expect(row.rows).toEqual([{ name: "Renamed lifecycle", effective_from: "2026-11-01", effective_to: "2027-10-31" }]);
+
+    await expect(
+      repository.deleteEmploymentLifecyclePolicy(context("r06.maker"), draft.id, { company_id: companyId }, `lifecycle-policy-delete-denied-${suffix}`, "hr-test-correlation"),
+    ).rejects.toMatchObject({ status: 403, code: "PERMISSION_DENIED" } satisfies Partial<HrApiError>);
+    const deleted = await repository.deleteEmploymentLifecyclePolicy(manager, draft.id, { company_id: companyId }, `lifecycle-policy-delete-${suffix}`, "hr-test-correlation");
+    expect(deleted).toMatchObject({ id: draft.id, code: draft.code, deleted: true, replayed: false });
+    const remaining = await pool.query(
+      `select 1 from hr_employment_lifecycle_policy where tenant_id=$1 and id=$2
+       union all select 1 from hr_employment_lifecycle_state where tenant_id=$1 and policy_id=$2
+       union all select 1 from hr_employment_lifecycle_transition where tenant_id=$1 and policy_id=$2`,
+      [sourceTestTenantId, draft.id],
+    );
+    expect(remaining.rowCount).toBe(0);
+    const audit = await pool.query<{ action: string }>(
+      "select action from platform_admin_audit_event where tenant_id=$1 and entity_id=$2 order by sequence desc limit 1",
+      [sourceTestTenantId, draft.id],
+    );
+    expect(audit.rows).toEqual([{ action: "hr.employment_lifecycle_policy.delete" }]);
+
+    const submitted = await create(`R06-LOCKED-${suffix}`);
+    await repository.submitEmploymentLifecyclePolicy(manager, submitted.id, { reason: "Ready." }, `lifecycle-policy-submit-locked-${suffix}`, "hr-test-correlation");
+    await expect(
+      repository.updateEmploymentLifecyclePolicy(manager, submitted.id, { ...update, name: "Too late" }, `lifecycle-policy-update-locked-${suffix}`, "hr-test-correlation"),
+    ).rejects.toMatchObject({ status: 409, code: "HR_LIFECYCLE_POLICY_NOT_DRAFT" } satisfies Partial<HrApiError>);
+    await expect(
+      repository.deleteEmploymentLifecyclePolicy(manager, submitted.id, { company_id: companyId }, `lifecycle-policy-delete-locked-${suffix}`, "hr-test-correlation"),
+    ).rejects.toMatchObject({ status: 409, code: "HR_LIFECYCLE_POLICY_NOT_DRAFT" } satisfies Partial<HrApiError>);
   });
 
   it("submits a lifecycle-policy draft idempotently without approving or activating it", async () => {
@@ -966,8 +1017,6 @@ run("HR foundation API repository", () => {
       job_grade_id: "r06-uat-grade",
       cost_center_id: "r06-uat-cost-center",
       work_location_id: "r06-uat-location",
-      employment_type_id: "r06-uat-employment-type",
-      employee_category_id: "r06-uat-category",
       effective_from: "2026-10-15",
     };
     const first = await repository.createProfileDraftAssignment(

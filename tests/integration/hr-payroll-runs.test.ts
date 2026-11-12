@@ -63,6 +63,76 @@ run("Persisted Payroll run lifecycle", () => {
     expect(evidence.payroll_input_evidence_version).toBe("attendance_close_v5");
     expect(evidence.execution_evidence.engine_version).toBe("monthly_fixed_v1");
   });
+  async function placement(f: Awaited<ReturnType<typeof fixture>>) {
+    return (
+      await pool.query(
+        "select id,employment_setup_id,cost_center_id from employee_assignment where tenant_id=$1 and employee_id=$2 and assignment_status in ('active','legacy_compatibility') order by effective_from desc limit 1",
+        [tenant, f.person.employeeId],
+      )
+    ).rows[0] as { id: string; employment_setup_id: string | null; cost_center_id: string };
+  }
+  it("keeps employees on the Accounts payable route out of the Payroll run", async () => {
+    const f = await fixture();
+    await configure(f);
+    const a = await placement(f);
+    // Since HR149 the cost centre carries the payment route.
+    await pool.query("update hr_master_record set payment_route='accounts_payable' where tenant_id=$1 and id=$2", [
+      tenant,
+      a.cost_center_id,
+    ]);
+    await expect(f.act("calculate")).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringContaining("Accounts payable route"),
+    });
+  });
+  it("posts earnings to the cost centre's default nominal and freezes the cost centre on the result", async () => {
+    const f = await fixture();
+    await configure(f);
+    const a = await placement(f);
+    const nominal = "run-direct-" + randomUUID(),
+      code = "DL" + nominal.slice(-6).toUpperCase();
+    await pool.query(
+      "insert into account(id,tenant_id,company_id,code,name,type,status,created_at) values($1,$2,$3,$4,'Direct labour','expense','active',now())",
+      [nominal, tenant, f.companyId, code],
+    );
+    await pool.query(
+      "update hr_master_record set configuration_key='default_nominal',configuration_value=$3 where tenant_id=$1 and id=$2",
+      [tenant, a.cost_center_id, code],
+    );
+    await f.act("calculate");
+    const state = await repo.getPayrollRunWorkspace(runActor(), f.query);
+    const result = (
+      await pool.query("select cost_center_id,execution_evidence from hr_payroll_result where tenant_id=$1 and id=$2", [
+        tenant,
+        state.employees[0]!.id,
+      ])
+    ).rows[0];
+    expect(result.cost_center_id).toBe(a.cost_center_id);
+    expect(result.execution_evidence.costing).toMatchObject({
+      cost_center_id: a.cost_center_id,
+      default_nominal_account_id: nominal,
+    });
+    const earnings = (
+      await pool.query(
+        "select distinct expense_account_id from hr_payroll_result_item where tenant_id=$1 and result_id=$2 and kind='earning'",
+        [tenant, state.employees[0]!.id],
+      )
+    ).rows;
+    expect(earnings).toEqual([{ expense_account_id: nominal }]);
+  });
+  it("stops the calculation when a cost centre's default nominal is not a postable expense account", async () => {
+    const f = await fixture();
+    await configure(f);
+    const a = await placement(f);
+    await pool.query(
+      "update hr_master_record set configuration_key='default_nominal',configuration_value='NOPE404' where tenant_id=$1 and id=$2",
+      [tenant, a.cost_center_id],
+    );
+    await expect(f.act("calculate")).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringContaining("default nominal NOPE404"),
+    });
+  });
   it("keeps recalculation as a new immutable run and preserves the old one", async () => {
     const f = await fixture();
     await configure(f);

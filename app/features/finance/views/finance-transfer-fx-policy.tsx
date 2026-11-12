@@ -15,15 +15,7 @@ function key() {
   return `web-transfer-fx-policy-${crypto.randomUUID()}`;
 }
 
-export function FinanceTransferFxPolicy({
-  companies,
-  companyId,
-  onCompanyChange,
-}: {
-  companies: ReadonlyArray<{ id: string; code: string; name: string }>;
-  companyId: string;
-  onCompanyChange: (companyId: string) => void;
-}) {
+export function FinanceTransferFxPolicy({ companyId }: { companyId: string }) {
   const { api, session, csrfToken } = useSession();
   const notify = useActionFeedback();
   const currencies = useMemo(() => new FinanceCurrenciesClient(api), [api]);
@@ -133,21 +125,6 @@ export function FinanceTransferFxPolicy({
           </p>
         ) : null}
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <div className="grid gap-2">
-            <Label htmlFor="transfer-policy-company">Company</Label>
-            <select
-              id="transfer-policy-company"
-              className="h-10 rounded-md border border-input bg-background px-3"
-              value={companyId}
-              onChange={(event) => onCompanyChange(event.target.value)}
-            >
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.code} · {company.name}
-                </option>
-              ))}
-            </select>
-          </div>
           {(
             [
               ["gain", "FX gain nominal"],

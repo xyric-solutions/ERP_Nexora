@@ -3,7 +3,7 @@ import { WorkOffsetPagination } from "@/shared/ui/work-table";
 import { WorkForm } from "@/shared/ui/work-form";
 
 import { useMemo, useRef, useState } from "react";
-import { Plus, RefreshCw, ShieldCheck } from "lucide-react";
+import { Plus, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -211,17 +211,13 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
         <div>
           <h3 className="flex items-center gap-2 text-lg font-semibold">
             <ShieldCheck className="h-5 w-5 text-primary" />
-            Monetary overtime
+            Overtime pay
           </h3>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Released company policy → approved employee arrangement → frozen attendance → Payroll calculation. Fixed
-            monthly salary authority is required. Rates and hours must come from your approved source.
-          </p>
         </div>
         {data?.can_create && (
           <Button onClick={() => open(null)} className="text-primary-foreground!">
             <Plus className="h-4 w-4" />
-            {section === "policies" ? "New monetary policy" : "New employee arrangement"}
+            {section === "policies" ? "New overtime policy" : "Assign employee to policy"}
           </Button>
         )}
       </header>
@@ -235,7 +231,7 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
             setOffset(0);
           }}
         >
-          Company policies
+          Overtime policies
         </Button>
         <Button
           variant={section === "arrangements" ? "secondary" : "outline"}
@@ -246,7 +242,7 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
             setOffset(0);
           }}
         >
-          Employee arrangements
+          Employee assignments
         </Button>
       </div>
       <div className="grid min-w-0 items-end gap-3 sm:grid-cols-[1fr_auto]">
@@ -261,10 +257,6 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
             }}
           />
         </Field>
-        <Button variant="outline" disabled={state.loading} onClick={() => setRevision((n) => n + 1)}>
-          <RefreshCw className="h-4 w-4" />
-          Refresh overtime
-        </Button>
       </div>
       {!form && (error || state.error) && (
         <p role="alert" className="rounded-lg border border-destructive/30 p-3 text-sm text-destructive">
@@ -293,7 +285,20 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
       ) : (
         <div className="grid min-w-0 gap-3 lg:grid-cols-2">
           {data.items.map((row) => (
-            <article key={row.id} className={panel + " grid gap-3"}>
+            <div
+              key={row.id}
+              role="button"
+              tabIndex={0}
+              aria-label={"Open " + row.reference}
+              onClick={() => open(row)}
+              onKeyDown={(e) => {
+                if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                  e.preventDefault();
+                  open(row);
+                }
+              }}
+              className={panel + " grid cursor-pointer gap-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"}
+            >
               <header className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="break-all text-xs text-muted-foreground">{row.reference}</p>
@@ -330,10 +335,7 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
               ) : (
                 <p className="text-xs text-muted-foreground">Historical terms retained read-only.</p>
               )}
-              <Button variant="outline" className="justify-self-start" onClick={() => open(row)}>
-                Review monetary record
-              </Button>
-            </article>
+            </div>
           ))}
         </div>
       )}
@@ -354,8 +356,8 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
           form?.row
             ? "Review monetary overtime"
             : form?.kind === "policy"
-              ? "New monetary overtime policy"
-              : "New employee overtime arrangement"
+              ? "New overtime policy"
+              : "Assign employee to overtime policy"
         }
         description={
           form?.row
@@ -521,10 +523,6 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
                     )}
                     {form.options.policies.find((p) => p.id === form.values.policy_version_id)?.terms?.basis_source ===
                       "direct_contractual_rate" && field("direct_rate", "Direct contractual hourly rate")}
-                    <p className="text-sm text-muted-foreground sm:col-span-2">
-                      The policy supplies the approved basis components, currency, multiplier and rounding. Employees
-                      are bounded by the current search and company placement on the Payroll month.
-                    </p>
                   </>
                 )}
               </fieldset>
@@ -542,21 +540,15 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
             )}
             {(!form.row || !!form.row.allowed_actions.length) && (
               <>
-                <Field title="Monetary change reason">
+                <Field title="Reason">
                   <Textarea
-                    required
-                    minLength={5}
                     maxLength={500}
                     disabled={busy}
                     value={form.values.reason}
                     onChange={(e) => change("reason", e.target.value)}
                   />
                 </Field>
-                <p className="text-xs text-muted-foreground">
-                  Submitted terms are locked for review. Released policies and approved arrangements preserve historical
-                  authority. Overlapping released ranges and calculated Payroll periods prevent retroactive changes.
-                </p>
-                <Button type="submit" disabled={busy} className="justify-self-start text-primary-foreground!">
+                <Button type="submit" disabled={busy} className="justify-self-end text-primary-foreground!">
                   {busy ? "Saving…" : form.row ? "Confirm monetary decision" : "Save monetary draft"}
                 </Button>
               </>

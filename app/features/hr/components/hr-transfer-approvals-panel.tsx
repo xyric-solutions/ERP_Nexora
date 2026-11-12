@@ -1,7 +1,10 @@
 "use client";
 import { WorkTable } from "@/shared/ui/work-table";
 
+import { HrPagination, matchesSearch, useHrPage } from "./hr-list-controls";
+import { HrDrawerActions } from "./hr-drawer-context";
 import { HrRecordDrawer } from "./hr-record-drawer";
+import { HrClickableRow } from "./hr-clickable-row";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -39,6 +42,7 @@ export function HrTransferApprovalsPanel({
   userId,
   canUseApprovalOverride,
   onAction,
+  search = "",
 }: {
   client: HrApiClient;
   csrfToken: () => string;
@@ -46,6 +50,8 @@ export function HrTransferApprovalsPanel({
   userId: string | undefined;
   canUseApprovalOverride: boolean;
   onAction: (action: string, subject?: string) => void;
+  /** Typed search from the approvals toolbar. */
+  search?: string;
 }) {
   const [queue, setQueue] = useState<Awaited<ReturnType<HrApiClient["transferRequests"]>>["items"]>([]);
   const [selected, setSelected] = useState<{ employeeId: string; requestId: string } | null>(null);
@@ -58,6 +64,10 @@ export function HrTransferApprovalsPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const visibleQueue = queue.filter((item) =>
+    matchesSearch(search, [item.employee_name, item.employee_number, item.proposed_branch, item.proposed_department, item.effective_on]),
+  );
+  const queuePage = useHrPage(visibleQueue, `${companyId}:${search.trim()}`);
   const retry = useRef<{ fingerprint: string; key: string } | null>(null);
   const approvalOverride = approvalOverrideReviewState(detail, detail?.requested_by === userId, canUseApprovalOverride);
 
@@ -148,7 +158,7 @@ export function HrTransferApprovalsPanel({
       setDecision(null);
       refresh();
     } catch (cause) {
-      setError(message(cause, "The Transfer decision could not be saved. Refresh the queue before trying again."));
+      setError(message(cause, "The Transfer decision could not be saved. Reload the page and try again."));
       setDecision(null);
     } finally {
       setSaving(false);
@@ -175,13 +185,7 @@ export function HrTransferApprovalsPanel({
             Maker / checker control
           </p>
           <h2 className="mt-1 text-lg font-semibold text-foreground">Transfer approvals</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Compare current and proposed placement before applying an immutable assignment change.
-          </p>
         </div>
-        <Button type="button" variant="outline" disabled={saving} onClick={refresh}>
-          Refresh Transfer queue
-        </Button>
       </div>
 
       {notice && (
@@ -205,20 +209,17 @@ export function HrTransferApprovalsPanel({
       {state === "ready" && (
         <div className="grid min-w-0 gap-4 ">
           <div className="relative min-w-0 overflow-x-auto rounded-md border border-border">
-            <WorkTable tableId="app/features/hr/components/hr-transfer-approvals-panel:1" className="w-full min-w-180 text-left text-sm">
+            <WorkTable paging={false} tableId="app/features/hr/components/hr-transfer-approvals-panel:1" className="w-full min-w-180 text-left text-sm">
               <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">Employee</th>
                   <th className="px-4 py-3">Proposed placement</th>
                   <th className="px-4 py-3">Effective</th>
-                  <th className="px-4 py-3">
-                    <span className="sr-only">Action</span>
-                  </th>
                 </tr>
               </thead>
               <tbody>
-                {queue.map((item) => (
-                  <tr className="border-b border-border/70 last:border-0" key={item.id}>
+                {queuePage.pageRows.map((item) => (
+                  <HrClickableRow key={item.id} disabled={saving} onOpen={() => review(item.employee_id, item.id)}>
                     <td className="px-4 py-3">
                       <p className="font-medium text-foreground">{item.employee_name}</p>
                       <p className="text-xs text-muted-foreground">{item.employee_number}</p>
@@ -228,23 +229,25 @@ export function HrTransferApprovalsPanel({
                       <p className="text-xs text-muted-foreground">{item.proposed_department || "No department"}</p>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{item.effective_on}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Button type="button" size="sm" variant="ghost" onClick={() => review(item.employee_id, item.id)}>
-                        Review
-                      </Button>
-                    </td>
-                  </tr>
+                    </HrClickableRow>
                 ))}
-                {queue.length === 0 && (
+                {visibleQueue.length === 0 && (
                   <tr>
-                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={4}>
-                      No pending Transfer approvals in this company.
+                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={3}>
+                      {queue.length > 0 ? "No requests match this search." : "No pending Transfer approvals in this company."}
                     </td>
                   </tr>
                 )}
               </tbody>
             </WorkTable>
           </div>
+          <HrPagination
+            label="Approval request pages"
+            page={queuePage.page}
+            pageCount={queuePage.pageCount}
+            total={queuePage.total}
+            onPageChange={queuePage.setPage}
+          />
           <HrRecordDrawer
             title="Review transfer request"
             open={!!selected}
@@ -255,7 +258,7 @@ export function HrTransferApprovalsPanel({
             <aside className="rounded-md border border-border p-4">
               {detailState === "loading" && selected && <Skeleton className="h-36 w-full" />}
               {detailState === "error" && selected && (
-                <p className="text-sm text-muted-foreground">Select another pending request or refresh the queue.</p>
+                <p className="text-sm text-muted-foreground">Select another pending request.</p>
               )}
               {!selected && (
                 <p className="text-sm text-muted-foreground">
@@ -303,7 +306,7 @@ export function HrTransferApprovalsPanel({
                     <>
                       <label
                         htmlFor="transfer-decision-reason"
-                        className="grid gap-1.5 text-sm font-medium text-foreground"
+                        className="grid content-start gap-1.5 text-sm font-medium text-foreground"
                       >
                         Decision reason
                         <Textarea
@@ -318,10 +321,10 @@ export function HrTransferApprovalsPanel({
                           placeholder="Explain the approval or rejection for the immutable audit record."
                         />
                       </label>
-                      <div className="flex flex-wrap gap-2">
+                      <HrDrawerActions>
                         <Button
                           type="button"
-                          disabled={saving || !reason.trim()}
+                          disabled={saving}
                           onClick={() => setDecision("approved")}
                         >
                           Approve Transfer
@@ -329,12 +332,12 @@ export function HrTransferApprovalsPanel({
                         <Button
                           type="button"
                           variant="destructive"
-                          disabled={saving || !reason.trim()}
+                          disabled={saving}
                           onClick={() => setDecision("rejected")}
                         >
                           Reject Transfer
                         </Button>
-                      </div>
+                      </HrDrawerActions>
                     </>
                   )}
                 </div>

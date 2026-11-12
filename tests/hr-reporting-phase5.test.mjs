@@ -121,7 +121,7 @@ test("Phase 5 navigation and screens are explicitly wired before generic reports
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
   ]);
   for (const pageId of reporting.phase5ReportIds) assert.match(navigation, new RegExp(`p\\(\\"${pageId}\\"`));
-  for (const pageId of ["hr-dashboard", "finance-payroll-dashboard", "hr-report-centre", "hr-compliance-configuration", "hr-report-audit-log", "hr-export-centre"]) {
+  for (const pageId of ["hr-dashboard", "finance-payroll-dashboard"]) {
     assert.match(navigation, new RegExp(`p\\(\\"${pageId}\\"`));
   }
   assert.match(content, /isHrReportingPage/);

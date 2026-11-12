@@ -19,13 +19,11 @@ export async function createShiftAllocationFixture(pool: DatabasePool, users = [
     "job_grade",
     "cost_center",
     "work_location",
-    "employment_type",
-    "employee_category",
   ]) {
     const id = `shift-master-${kind}-${suffix}`;
     masters[kind] = id;
     await pool.query(
-      "insert into hr_master_record (tenant_id,id,company_id,master_type,code,name,status,created_by,configuration_key,configuration_value) values ($1,$2,$3,$4,$5,$6,'active','r06.maker',$7,$8)",
+      "insert into hr_master_record (tenant_id,id,company_id,master_type,code,name,status,created_by,configuration_key,configuration_value,payment_route,pay_cycle) values ($1,$2,$3,$4,$5,$6,'active','r06.maker',$7,$8,$9,$10)",
       [
         sourceTestTenantId,
         id,
@@ -35,6 +33,9 @@ export async function createShiftAllocationFixture(pool: DatabasePool, users = [
         `Roster ${kind.replaceAll("_", " ")}`,
         kind === "work_location" ? "working_pattern" : null,
         kind === "work_location" ? "on_site" : null,
+        // Since HR149 the cost centre carries the payment route and pay cycle.
+        kind === "cost_center" ? "payroll" : null,
+        kind === "cost_center" ? "monthly" : null,
       ],
     );
   }
@@ -63,7 +64,7 @@ export async function createShiftAllocationFixture(pool: DatabasePool, users = [
     );
     const assignmentId = `roster-placement-${token}`;
     await pool.query(
-      "insert into employee_assignment (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_grade_id,cost_center_id,work_location_id,employment_type_id,employee_category_id,effective_from,effective_to,change_reason,created_by,assignment_status,source_reference,reporting_manager_id) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,current_date-365,$13,'initial_appointment','r06.maker','legacy_compatibility','isolated-roster-fixture',$14)",
+      "insert into employee_assignment (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_grade_id,cost_center_id,work_location_id,employment_setup_id,effective_from,effective_to,change_reason,created_by,assignment_status,source_reference,reporting_manager_id) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,current_date-365,$12,'initial_appointment','r06.maker','legacy_compatibility','isolated-roster-fixture',$13)",
       [
         assignmentId,
         sourceTestTenantId,
@@ -75,8 +76,7 @@ export async function createShiftAllocationFixture(pool: DatabasePool, users = [
         masters.job_grade,
         masters.cost_center,
         masters.work_location,
-        masters.employment_type,
-        masters.employee_category,
+        null,
         effectiveTo,
         reportingManagerId,
       ],

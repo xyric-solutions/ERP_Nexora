@@ -56,7 +56,7 @@ async function snapshot(client: PoolClient, c: HrActorContext, company: string, 
     today = (await client.query("select current_date::text today")).rows[0].today;
   const type = (
     await client.query(
-      "select t.id,t.name,t.paid,t.status,p.id policy_id,p.version_number,p.applicable_category_ids,p.applicable_genders,p.effective_from::text,p.effective_to::text from hr_leave_type t left join hr_leave_policy_version p on p.tenant_id=t.tenant_id and p.company_id=t.company_id and p.leave_type_id=t.id and p.effective_from<=$4::date and(p.effective_to is null or p.effective_to>=$4::date) where t.tenant_id=$1 and t.company_id=$2 and t.id=$3",
+      "select t.id,t.name,t.paid,t.status,p.id policy_id,p.version_number,p.applicable_cost_center_ids,p.applicable_genders,p.effective_from::text,p.effective_to::text from hr_leave_type t left join hr_leave_policy_version p on p.tenant_id=t.tenant_id and p.company_id=t.company_id and p.leave_type_id=t.id and p.effective_from<=$4::date and(p.effective_to is null or p.effective_to>=$4::date) where t.tenant_id=$1 and t.company_id=$2 and t.id=$3",
       [c.tenantId, company, rule.leave_type_id, asOf],
     )
   ).rows[0];
@@ -73,7 +73,7 @@ async function snapshot(client: PoolClient, c: HrActorContext, company: string, 
     .days;
   const placement = (
     await client.query(
-      "select employee_category_id from employee_assignment where tenant_id=$1 and company_id=$2 and employee_id=$3 and employment_relationship_id=$4 and assignment_status='active' and effective_from<=$5::date and(effective_to is null or effective_to>=$5::date)",
+      "select cost_center_id from employee_assignment where tenant_id=$1 and company_id=$2 and employee_id=$3 and employment_relationship_id=$4 and assignment_status='active' and effective_from<=$5::date and(effective_to is null or effective_to>=$5::date)",
       [c.tenantId, company, exit.employee_id, exit.relationship_id, asOf],
     )
   ).rows[0];
@@ -102,10 +102,10 @@ async function snapshot(client: PoolClient, c: HrActorContext, company: string, 
   if (!type?.paid || type.status !== "active" || !type.policy_id)
     blockers.push("An active paid leave type and effective leave policy are required.");
   if (
-    type?.applicable_category_ids?.length &&
-    !type.applicable_category_ids.includes(placement?.employee_category_id ?? "")
+    type?.applicable_cost_center_ids?.length &&
+    !type.applicable_cost_center_ids.includes(placement?.cost_center_id ?? "")
   )
-    blockers.push("The effective employee category is outside this leave policy.");
+    blockers.push("The employee's cost centre is outside this leave policy.");
   if (type?.applicable_genders?.length)
     blockers.push("Verified eligibility is required for this restricted legacy leave policy.");
   if (!currency) blockers.push("The rule currency must be active with supported precision.");

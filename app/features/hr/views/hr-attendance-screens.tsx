@@ -46,6 +46,7 @@ import {
   type DayStatus,
 } from "../model/hr-attendance-data";
 
+import { hrDataTableClass } from "../components/hr-table";
 export const HR_ATTENDANCE_PAGES = [
   "shifts",
   "shift-assignments",
@@ -219,7 +220,7 @@ function DailyAttendance({ onAction }: { onAction: (action: string, subject?: st
       </div>
 
       <div className="nx-table-wrap">
-        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:2" className="nx-data-table">
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:2" className={hrDataTableClass}>
           <thead>
             <tr>
               <th>Employee</th><th>Department</th><th>Shift</th><th>In</th><th>Out</th>
@@ -257,13 +258,9 @@ function Shifts({ onAction }: { onAction: (action: string, subject?: string) => 
 
   return (
     <div className="nx-recon">
-      <p className="m-0 max-w-275 rounded border border-border border-l-3 border-l-primary bg-muted px-3.5 py-2.5 text-sm leading-relaxed text-muted-foreground" role="note">
-        Every threshold below is configuration. The processing engine does not know that 09:00 or fifteen minutes is
-        special — it reads these numbers, which is why a new shift needs no code change.
-      </p>
 
       <div className="nx-table-wrap">
-        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:3" className="nx-data-table">
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:3" className={hrDataTableClass}>
           <thead>
             <tr><th>Code</th><th>Shift</th><th>Type</th><th>Hours</th><th className="amount">Grace in</th><th className="amount">Break</th><th className="amount">OT after</th><th>Weekly off</th><th>Status</th></tr>
           </thead>
@@ -319,13 +316,8 @@ function Shifts({ onAction }: { onAction: (action: string, subject?: string) => 
 function ShiftAssignments({ onAction }: { onAction: (action: string, subject?: string) => void }) {
   return (
     <div className="nx-recon">
-      <p className="m-0 max-w-275 rounded border border-border border-l-3 border-l-primary bg-muted px-3.5 py-2.5 text-sm leading-relaxed text-muted-foreground" role="note">
-        A shift is assigned to an employee, a department or a branch, from an effective date. The most specific
-        assignment wins, so a branch default never overrides an agreement made with one person — and the previous row
-        is closed rather than overwritten, so shift history stays readable.
-      </p>
       <div className="nx-table-wrap">
-        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:4" className="nx-data-table">
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:4" className={hrDataTableClass}>
           <thead><tr><th>Reference</th><th>Scope</th><th>Applies to</th><th>Shift</th><th>Effective from</th><th>Effective to</th><th>Assigned by</th><th>Note</th></tr></thead>
           <tbody>
             {[...shiftAssignments].sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom)).map((row) => (
@@ -360,14 +352,10 @@ function Corrections({ onAction }: { onAction: (action: string, subject?: string
         <article><span>Raw punches changed</span><strong>0</strong><small>Evidence is never edited</small></article>
       </div>
 
-      <p className="m-0 max-w-275 rounded border border-border border-l-3 border-l-primary bg-muted px-3.5 py-2.5 text-sm leading-relaxed text-muted-foreground" role="note">
-        Employee → manager → HR. An approved correction does not rewrite the device record: it is applied on top of it,
-        and the day is derived again. That is why the audit trail can still show what the device actually captured.
-      </p>
 
       <div className="nx-table-wrap">
-        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:5" className="nx-data-table">
-          <thead><tr><th>Reference</th><th>Employee</th><th>Date</th><th>Type</th><th>Stated in</th><th>Stated out</th><th>Reason</th><th>Manager</th><th>HR</th><th>Status</th><th /></tr></thead>
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:5" className={hrDataTableClass}>
+          <thead><tr><th>Reference</th><th>Employee</th><th>Date</th><th>Type</th><th>Check in</th><th>Check out</th><th>Reason</th><th>Manager</th><th>HR</th><th>Status</th><th /></tr></thead>
           <tbody>
             {attendanceCorrections.map((row) => (
               <tr key={row.id}>
@@ -426,14 +414,9 @@ function Overtime({ onAction }: { onAction: (action: string, subject?: string) =
         <article><span>Claims</span><strong>{claims.length}</strong><small>All require approval</small></article>
       </div>
 
-      <p className="m-0 max-w-275 rounded border border-border border-l-3 border-l-primary bg-muted px-3.5 py-2.5 text-sm leading-relaxed text-muted-foreground" role="note">
-        Overtime is calculated from attendance, then claimed and approved — it is never paid because a device recorded
-        a late exit. Hours flow to payroll only once the period is locked; this phase states the hours and the rate
-        multiplier, and Phase 3 decides what they are worth.
-      </p>
 
       <div className="nx-table-wrap">
-        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:6" className="nx-data-table">
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:6" className={hrDataTableClass}>
           <thead><tr><th>Employee</th><th>Date</th><th>Shift</th><th>In</th><th>Out</th><th className="amount">Overtime</th><th>Category</th><th className="amount">Rate</th><th>Status</th><th /></tr></thead>
           <tbody>
             {claims.map(({ day, name }) => {
@@ -465,12 +448,8 @@ function Overtime({ onAction }: { onAction: (action: string, subject?: string) =
 function LeaveTypesScreen() {
   return (
     <div className="nx-recon">
-      <p className="m-0 max-w-275 rounded border border-border border-l-3 border-l-primary bg-muted px-3.5 py-2.5 text-sm leading-relaxed text-muted-foreground" role="note">
-        Entitlement, accrual, carry forward, request limits and approval are configuration per leave type. The only
-        gender restriction is on maternity leave, where the law requires it — nothing else is restricted.
-      </p>
       <div className="nx-table-wrap">
-        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:7" className="nx-data-table">
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:7" className={hrDataTableClass}>
           <thead><tr><th>Code</th><th>Leave type</th><th>Paid</th><th className="amount">Entitlement</th><th>Accrual</th><th>Carry forward</th><th className="amount">Max balance</th><th>Request</th><th>HR approval</th><th>Applies to</th></tr></thead>
           <tbody>
             {leaveTypes.map((type) => (
@@ -504,13 +483,8 @@ function LeaveBalances({ onAction }: { onAction: (action: string, subject?: stri
 
   return (
     <div className="nx-recon">
-      <p className="m-0 max-w-275 rounded border border-border border-l-3 border-l-primary bg-muted px-3.5 py-2.5 text-sm leading-relaxed text-muted-foreground" role="note">
-        Available = Opening + Accrued + Carry forward + Adjustments − Expired − Approved used. A pending request is
-        shown beside the balance, not subtracted from it: a number that falls when someone submits and rises when they
-        are rejected cannot be reconciled against the transactions that produced it.
-      </p>
       <div className="nx-table-wrap">
-        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:8" className="nx-data-table">
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:8" className={hrDataTableClass}>
           <thead>
             <tr>
               <th>Employee</th><th>Leave type</th>
@@ -543,7 +517,7 @@ function LeaveBalances({ onAction }: { onAction: (action: string, subject?: stri
       <section className="grid min-w-0 gap-3 rounded border border-border bg-card p-4 shadow-xs">
         <header><div><span className="nx-eyebrow">Leave workflow</span><h2>Requests in flight</h2></div></header>
         <div className="nx-table-wrap">
-          <WorkTable tableId="app/features/hr/views/hr-attendance-screens:9" className="nx-data-table">
+          <WorkTable tableId="app/features/hr/views/hr-attendance-screens:9" className={hrDataTableClass}>
             <thead><tr><th>Reference</th><th>Employee</th><th>Type</th><th>From</th><th>To</th><th className="amount">Days</th><th>Balance then</th><th>Manager</th><th>HR</th><th>Status</th></tr></thead>
             <tbody>
               {leaveRequests.map((request) => {
@@ -603,14 +577,9 @@ function AttendancePeriodScreen({ onAction }: { onAction: (action: string, subje
         <article><span>Holidays</span><strong>{holidays.filter((row) => row.date.startsWith(ATTENDANCE_MONTH)).length}</strong><small>In the calendar</small></article>
       </div>
 
-      <p className="m-0 max-w-275 rounded border border-border border-l-3 border-l-primary bg-muted px-3.5 py-2.5 text-sm leading-relaxed text-muted-foreground" role="note">
-        Locking a period does not freeze a stored table — daily attendance stays derived. What the lock changes is
-        authority: after it, punches and corrections for the month can no longer alter the payroll inputs, and a
-        change must go through a controlled adjustment against the next open period.
-      </p>
 
       <div className="nx-table-wrap">
-        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:10" className="nx-data-table">
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:10" className={hrDataTableClass}>
           <thead><tr><th>Employee</th><th>Date</th><th>Status</th><th>Detail</th><th /></tr></thead>
           <tbody>
             {exceptions.length === 0 ? (
@@ -661,14 +630,9 @@ function PayrollInputs({ onAction }: { onAction: (action: string, subject?: stri
         <article className={releasable ? undefined : "warning"}><span>Releasable</span><strong>{releasable ? "Yes" : "No"}</strong><small>{releasable ? "Period locked" : "Period is not locked yet"}</small></article>
       </div>
 
-      <p className="m-0 max-w-275 rounded border border-border border-l-3 border-l-primary bg-muted px-3.5 py-2.5 text-sm leading-relaxed text-muted-foreground" role="note">
-        This is the whole of the Phase 2 to Phase 3 contract: days and hours, with no money anywhere. Payroll decides
-        what a day or an overtime hour is worth. Nothing is released until the attendance period is locked, so payroll
-        cannot consume figures that are still being corrected.
-      </p>
 
       <div className="nx-table-wrap">
-        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:11" className="nx-data-table">
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:11" className={hrDataTableClass}>
           <thead>
             <tr>
               <th>Employee</th><th>Period</th>

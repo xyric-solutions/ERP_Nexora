@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 
 import { HrApiClient } from "../api/hr-client";
+import { isWithinUnit } from "../model/organization-hierarchy";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -95,7 +96,8 @@ export function HrTransferMakerPanel({
 
   const branches = placements.filter((item) => item.type === "branch");
   const departments = placements.filter(
-    (item) => item.type === "department" && (!branchId || item.parent_id === branchId),
+    // A department may sit directly under the project or under one of its locations.
+    (item) => item.type === "department" && (!branchId || isWithinUnit(placements, item.id, branchId)),
   );
   const placementChanged = branchId !== (source.branch_id ?? "") || departmentId !== (source.department_id ?? "");
 
@@ -103,7 +105,7 @@ export function HrTransferMakerPanel({
     if (submitting) return;
     const trimmed = reason.trim();
     if (!branchId || !departmentId || !placementChanged || !trimmed || trimmed.length > 1000) {
-      setError("Select a different branch or department and enter a business reason of 1 to 1000 characters.");
+      setError("Select a different project or department and enter a business reason of 1 to 1000 characters.");
       return;
     }
     if (!source.job_id || !source.employment_relationship_id) {
@@ -120,8 +122,6 @@ export function HrTransferMakerPanel({
       job_grade_id: source.job_grade_id,
       cost_center_id: source.cost_center_id,
       work_location_id: source.work_location_id,
-      employment_type_id: source.employment_type_id,
-      employee_category_id: source.employee_category_id,
       ...(source.reporting_manager_id ? { reporting_manager_id: source.reporting_manager_id } : {}),
       effective_on: effectiveOn,
       reason: trimmed,
@@ -151,11 +151,6 @@ export function HrTransferMakerPanel({
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
-
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Propose a branch or department change for an independent checker. Job, grade, manager, and employment
-              context remain unchanged in this Transfer slice.
-            </p>
           </div>
           <Badge variant="outline">Same-day effective</Badge>
         </div>
@@ -176,15 +171,15 @@ export function HrTransferMakerPanel({
 
         {state === "ready" && (
           <div className="grid gap-4">
-            <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-2">
               <ContextField label="Current job" value={source.job || source.designation} />
               <ContextField label="Designation" value={source.designation} />
               <ContextField label="Grade" value={source.job_grade} />
               <ContextField label="Work location" value={source.work_location} />
             </dl>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
               <PlacementSelect
-                label="Proposed branch"
+                label="Proposed project"
                 value={branchId}
                 items={branches}
                 disabled={submitting}
@@ -204,12 +199,18 @@ export function HrTransferMakerPanel({
                   retry.current = null;
                 }}
               />
-              <label htmlFor="transfer-effective-on" className="grid gap-1.5 text-sm font-medium text-foreground">
+              <label
+                htmlFor="transfer-effective-on"
+                className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
+              >
                 Effective date
                 <Input id="transfer-effective-on" type="date" value={effectiveOn} disabled readOnly />
               </label>
             </div>
-            <label htmlFor="transfer-request-reason" className="grid gap-1.5 text-sm font-medium text-foreground">
+            <label
+              htmlFor="transfer-request-reason"
+              className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
+            >
               Business reason
               <Textarea
                 id="transfer-request-reason"
@@ -220,18 +221,14 @@ export function HrTransferMakerPanel({
                   setReason(event.target.value);
                   retry.current = null;
                 }}
-                placeholder="Explain the operational reason for this branch or department transfer."
+                placeholder="Explain the operational reason for this project or department transfer."
               />
             </label>
             <div>
-              <Button type="button" onClick={submit} disabled={submitting || !placementChanged || !reason.trim()}>
+              <Button type="button" onClick={submit} disabled={submitting || !placementChanged}>
                 {submitting ? "Submitting Transfer..." : "Submit Transfer request"}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Submission does not change the current assignment. Approval closes it and creates one new immutable
-              effective assignment in a single database transaction.
-            </p>
           </div>
         )}
       </section>
@@ -254,11 +251,11 @@ function PlacementSelect({
 }) {
   const id = `transfer-${label.toLowerCase().replaceAll(" ", "-")}`;
   return (
-    <label htmlFor={id} className="grid gap-1.5 text-sm font-medium text-foreground">
+    <label htmlFor={id} className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground">
       {label}
       <select
         id={id}
-        className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
+        className="h-9 w-full min-w-0 truncate rounded-md border border-input bg-background px-2.5 text-sm"
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}

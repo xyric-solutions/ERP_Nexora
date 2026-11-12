@@ -9,6 +9,11 @@ import type {
   HrEmploymentLifecyclePolicyApprovalResult,
   ActivateHrEmploymentLifecyclePolicyRequest,
   HrEmploymentLifecyclePolicyActivationResult,
+  UpdateHrEmploymentLifecyclePolicyRequest,
+  DeleteHrEmploymentLifecyclePolicyRequest,
+  HrEmploymentLifecyclePolicyDeleteResult,
+  DeactivateHrEmploymentLifecyclePolicyRequest,
+  HrEmploymentLifecyclePolicyDeactivationResult,
   CreateHrEmployeeHireRequest,
   HrEmployeeHireRequestResult,
   DecideHrEmployeeHireRequest,
@@ -30,6 +35,9 @@ export class HrLifecycleService {
       | "submitEmploymentLifecyclePolicy"
       | "approveEmploymentLifecyclePolicy"
       | "activateEmploymentLifecyclePolicy"
+      | "updateEmploymentLifecyclePolicy"
+      | "deleteEmploymentLifecyclePolicy"
+      | "deactivateEmploymentLifecyclePolicy"
       | "listEmployeeHireRequests"
       | "getEmployeeHireRequest"
       | "createEmployeeHireRequest"
@@ -80,6 +88,33 @@ export class HrLifecycleService {
     correlationId: string,
   ): Promise<HrEmploymentLifecyclePolicyActivationResult> {
     return this.repository.activateEmploymentLifecyclePolicy(context, policyId, input, idempotencyKey, correlationId);
+  }
+  updatePolicy(
+    context: HrActorContext,
+    policyId: string,
+    input: UpdateHrEmploymentLifecyclePolicyRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmploymentLifecyclePolicyResult> {
+    return this.repository.updateEmploymentLifecyclePolicy(context, policyId, input, idempotencyKey, correlationId);
+  }
+  deletePolicy(
+    context: HrActorContext,
+    policyId: string,
+    input: DeleteHrEmploymentLifecyclePolicyRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmploymentLifecyclePolicyDeleteResult> {
+    return this.repository.deleteEmploymentLifecyclePolicy(context, policyId, input, idempotencyKey, correlationId);
+  }
+  deactivatePolicy(
+    context: HrActorContext,
+    policyId: string,
+    input: DeactivateHrEmploymentLifecyclePolicyRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmploymentLifecyclePolicyDeactivationResult> {
+    return this.repository.deactivateEmploymentLifecyclePolicy(context, policyId, input, idempotencyKey, correlationId);
   }
   requestHire(
     context: HrActorContext,

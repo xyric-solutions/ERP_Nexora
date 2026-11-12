@@ -1,4 +1,5 @@
 "use client";
+import { inActiveCompany } from "@/lib/session/active-company";
 import { WorkForm, WorkFormLayout } from "@/shared/ui/work-form";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -159,13 +160,17 @@ function FinanceHierarchyDirectory({
     let active = true;
     api
       .listFinanceNominalOptions("")
-      .then((result) => {
+      .then((options) => {
         if (!active) return;
+        // Only the company chosen at sign-in is in scope; the API rejects any other company.
+        const result = { ...options, companies: inActiveCompany({ items: options.companies }).items };
         setOptions(result);
         setCompany((current) =>
           result.companies.some((candidate) => candidate.id === current)
             ? current
-            : (result.selected_company_id ?? result.companies[0]?.id ?? ""),
+            : (result.companies.find((candidate) => candidate.id === result.selected_company_id)?.id ??
+              result.companies[0]?.id ??
+              ""),
         );
       })
       .catch((cause) => {
@@ -770,13 +775,17 @@ export function FinanceHierarchyForm({
     let active = true;
     api
       .listFinanceNominalOptions("")
-      .then((result) => {
+      .then((options) => {
         if (!active) return;
+        // Only the company chosen at sign-in is in scope; the API rejects any other company.
+        const result = { ...options, companies: inActiveCompany({ items: options.companies }).items };
         setOptions(result);
         setCompany((current) =>
           result.companies.some((candidate) => candidate.id === current)
             ? current
-            : (result.selected_company_id ?? result.companies[0]?.id ?? ""),
+            : (result.companies.find((candidate) => candidate.id === result.selected_company_id)?.id ??
+              result.companies[0]?.id ??
+              ""),
         );
         if (!result.companies.length) setLoading(false);
       })

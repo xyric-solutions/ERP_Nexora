@@ -141,11 +141,6 @@ export function HrWorkLocationChangeMakerPanel({
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
-
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Select a different company work location. The API will require approved jurisdiction evidence effective
-              today; organization placement, role, manager, and compensation remain unchanged.
-            </p>
           </div>
           <Badge variant="outline">Same-day effective</Badge>
         </div>
@@ -173,15 +168,15 @@ export function HrWorkLocationChangeMakerPanel({
               <ContextField label="Current work location" value={source.work_location} />
               <ContextField label="Current assignment" value={source.id} />
             </dl>
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
               <label
                 htmlFor="work-location-change-proposed-location"
-                className="grid gap-1.5 text-sm font-medium text-foreground"
+                className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
               >
                 Proposed work location
                 <select
                   id="work-location-change-proposed-location"
-                  className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
+                  className="h-9 w-full min-w-0 truncate rounded-md border border-input bg-background px-2.5 text-sm"
                   value={locationId}
                   disabled={submitting}
                   onChange={(event) => {
@@ -199,7 +194,7 @@ export function HrWorkLocationChangeMakerPanel({
               </label>
               <label
                 htmlFor="work-location-change-effective-on"
-                className="grid gap-1.5 text-sm font-medium text-foreground"
+                className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
               >
                 Effective date
                 <Input id="work-location-change-effective-on" type="date" value={effectiveOn} disabled readOnly />
@@ -207,7 +202,7 @@ export function HrWorkLocationChangeMakerPanel({
             </div>
             <label
               htmlFor="work-location-change-request-reason"
-              className="grid gap-1.5 text-sm font-medium text-foreground"
+              className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
             >
               Business reason
               <Textarea
@@ -223,15 +218,12 @@ export function HrWorkLocationChangeMakerPanel({
               />
             </label>
             <div>
-              <Button type="button" onClick={submit} disabled={submitting || !changed || !reason.trim()}>
+              <Button type="button" onClick={submit} disabled={submitting || !changed}>
                 {submitting ? "Submitting location change..." : "Submit work-location-change request"}
               </Button>
             </div>
           </>
         )}
-        <p className="text-xs text-muted-foreground">
-          Submission and approval never create, update, or supersede salary-assignment records.
-        </p>
       </section>
     </HrRecordDrawer>
   );

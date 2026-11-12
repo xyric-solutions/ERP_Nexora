@@ -2,7 +2,10 @@ import { randomUUID } from "node:crypto";
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { createDatabasePool, type DatabasePool } from "../../packages/db/src/index.js";
 import { ensureSourceAuthorizationFixture, sourceTestTenantId as tenant } from "./source-security-fixture.js";
-import { createProductionJournalFixture } from "./hr-payroll-production-journal-fixture.js";
+import {
+  createProductionJournalFixture,
+  simulatePreCostCentreResults,
+} from "./hr-payroll-production-journal-fixture.js";
 import { journalActor } from "./hr-payroll-journal-fixture.js";
 import {
   hrPayrollJournalActionSchema,
@@ -20,9 +23,11 @@ const url = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL;
     for (const f of fixtures) await f.dispose();
     await pool?.end();
   });
-  async function fixture() {
+  /** `legacy` simulates results calculated before HR148, which use whole-account mappings (v1). */
+  async function fixture(legacy = true) {
     const f = await createProductionJournalFixture(pool);
     fixtures.push(f);
+    if (legacy) await simulatePreCostCentreResults(pool, f.companyId);
     const cc = (
       await pool.query(
         "select id,code,name from hr_master_record where tenant_id=$1 and company_id=$2 and master_type='cost_center' and status='active' order by id limit 1",
@@ -54,6 +59,65 @@ const url = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL;
     };
     return { ...f, cc, act, mapping: [{ account_id: f.expense, cost_center_id: cc.id }] };
   }
+  it("splits expense by each employee's frozen cost centre without a manual mapping and posts it to Finance (v2)", async () => {
+    const f = await fixture(false);
+    const frozen = (
+      await pool.query("select distinct cost_center_id from hr_payroll_result where tenant_id=$1 and company_id=$2", [
+        tenant,
+        f.companyId,
+      ])
+    ).rows;
+    expect(frozen.length).toBe(1);
+    const centre = frozen[0].cost_center_id as string;
+    expect(centre).toBeTruthy();
+    const before = hrPayrollJournalWorkspaceSchema.parse(await f.journalRead());
+    expect(before.blocked).toEqual([]);
+    await f.act("prepare");
+    let w = await f.journalRead();
+    expect(w.totals).toEqual(before.totals);
+    expect(w.proposal?.source_evidence.assembly_version).toBe("payroll_accrual_employee_cost_centres_v2");
+    expect(w.proposal?.source_evidence.cost_center_mappings).toEqual([]);
+    const expense = w.lines.filter((l) => l.account_id === f.expense);
+    expect(expense.length).toBeGreaterThan(0);
+    expect(expense.every((l) => l.dimensions.cost_center === centre && l.cost_center_label)).toBe(true);
+    expect(w.lines.filter((l) => l.debit === "0.0000").every((l) => Object.keys(l.dimensions).length === 0)).toBe(true);
+    // A defective writer cannot change the frozen split: the deferred check rejects it at commit.
+    const c = await pool.connect();
+    try {
+      await c.query("begin");
+      await c.query("select set_config('nexora.tenant_id',$1,true)", [tenant]);
+      await c.query("alter table hr_payroll_journal_proposal disable trigger hr_payroll_journal_governed");
+      await c.query("alter table hr_payroll_journal_proposal disable trigger hr_payroll_journal_provenance");
+      await c.query("alter table hr_payroll_journal_line disable trigger hr_payroll_journal_line_immutable");
+      await c.query(
+        "update hr_payroll_journal_line set dimensions='{}' where tenant_id=$1 and proposal_id=$2 and account_id=$3",
+        [tenant, w.proposal!.id, f.expense],
+      );
+      await c.query("update hr_payroll_journal_proposal set state=state where tenant_id=$1 and id=$2", [
+        tenant,
+        w.proposal!.id,
+      ]);
+      await expect(c.query("set constraints all immediate")).rejects.toThrow(
+        "Payroll journal lines must equal the frozen employee cost-centre split",
+      );
+    } finally {
+      await c.query("rollback");
+      c.release();
+    }
+    await f.act("accept", "r06.checker");
+    await f.act("post", "r06.target");
+    w = await f.journalRead();
+    expect(w.period?.state).toBe("posted");
+    const actual = (
+      await pool.query(
+        "select account_id,debit::text,credit::text,dimensions from journal_line where tenant_id=$1 and journal_id=$2",
+        [tenant, w.proposal!.external_journal_id],
+      )
+    ).rows;
+    expect(actual.filter((l) => l.account_id === f.expense).every((l) => l.dimensions.cost_center === centre)).toBe(
+      true,
+    );
+  });
   it("freezes canonical mappings, independently accepts and posts exact Finance dimensions through the normal executor", async () => {
     const f = await fixture(),
       before = hrPayrollJournalWorkspaceSchema.parse(await f.journalRead());
@@ -145,6 +209,7 @@ const url = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL;
   it("retains legacy dimension-free source hashes and canonical empty dimensions", async () => {
     const f = await createProductionJournalFixture(pool);
     fixtures.push(f);
+    await simulatePreCostCentreResults(pool, f.companyId);
     await f.journalAction("prepare");
     expect((await f.journalRead()).proposal?.source_evidence.assembly_version).toBe("payroll_accrual_v1");
     await f.journalAction("accept", "r06.checker");

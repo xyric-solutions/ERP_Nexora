@@ -141,11 +141,6 @@ export function HrPromotionMakerPanel({
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
-
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Propose a job, designation, or grade change for an independent checker. Promotion changes assignment role
-              details only; compensation requires a separately approved salary revision.
-            </p>
           </div>
           <Badge variant="outline">Same-day effective</Badge>
         </div>
@@ -169,7 +164,7 @@ export function HrPromotionMakerPanel({
               <ContextField label="Current designation" value={source.designation} />
               <ContextField label="Current grade" value={source.job_grade} />
             </dl>
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
               <MasterSelect
                 label="Proposed job"
                 value={jobId}
@@ -191,12 +186,18 @@ export function HrPromotionMakerPanel({
                 disabled={submitting}
                 onChange={setJobGradeId}
               />
-              <label htmlFor="promotion-effective-on" className="grid gap-1.5 text-sm font-medium text-foreground">
+              <label
+                htmlFor="promotion-effective-on"
+                className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
+              >
                 Effective date
                 <Input id="promotion-effective-on" type="date" value={effectiveOn} disabled readOnly />
               </label>
             </div>
-            <label htmlFor="promotion-request-reason" className="grid gap-1.5 text-sm font-medium text-foreground">
+            <label
+              htmlFor="promotion-request-reason"
+              className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
+            >
               Business reason
               <Textarea
                 id="promotion-request-reason"
@@ -211,13 +212,10 @@ export function HrPromotionMakerPanel({
               />
             </label>
             <div>
-              <Button type="button" onClick={submit} disabled={submitting || !roleChanged || !reason.trim()}>
+              <Button type="button" onClick={submit} disabled={submitting || !roleChanged}>
                 {submitting ? "Submitting Promotion..." : "Submit Promotion request"}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Submission and approval never create, update, or supersede salary-assignment records.
-            </p>
           </div>
         )}
       </section>
@@ -240,11 +238,11 @@ function MasterSelect({
 }) {
   const id = `promotion-${label.toLowerCase().replaceAll(" ", "-")}`;
   return (
-    <label htmlFor={id} className="grid gap-1.5 text-sm font-medium text-foreground">
+    <label htmlFor={id} className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground">
       {label}
       <select
         id={id}
-        className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
+        className="h-9 w-full min-w-0 truncate rounded-md border border-input bg-background px-2.5 text-sm"
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}

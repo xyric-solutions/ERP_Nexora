@@ -1,21 +1,11 @@
 "use client";
-import { WorkOffsetPagination } from "@/shared/ui/work-table";
-import { WorkTable } from "@/shared/ui/work-table";
+import { WorkOffsetPagination, WorkTable } from "@/shared/ui/work-table";
 import { WorkForm } from "@/shared/ui/work-form";
 
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import type { HrMonthlyAttendanceDirectory, HrMonthlyAttendanceRow } from "@nexora/contracts";
-import {
-  CalendarRange,
-  RefreshCw,
-  Search,
-  Users,
-  CheckCircle2,
-  TriangleAlert,
-  Clock3,
-  ArrowUpRight,
-} from "lucide-react";
+import { Users, ArrowUpRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,15 +13,20 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
   AttendanceStatusBadge,
   attendanceLabel,
   attendanceMinutes,
   attendanceStatusClass,
 } from "../components/attendance-status";
+import {
+  AttendanceRecordTable,
+  AttendanceRecordTiles,
+  exportAttendanceRecords,
+} from "../components/hr-attendance-records";
+import { useAttendanceRead } from "../components/hr-workspace-controls";
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
-const selectClass =
-  "h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
 const currentMonth = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -49,16 +44,68 @@ const dayCodes: Record<HrMonthlyAttendanceRow["days"][number]["status"], string>
   needs_review: "NR",
   official_duty: "OD",
 };
+/** The employee's own check-in / check-out records for the month (needs attendance punch read). */
+function EmployeeCheckIns({
+  client,
+  company,
+  employee,
+  from,
+  to,
+}: {
+  client: HrApiClient;
+  company: string;
+  employee: string;
+  from: string;
+  to: string;
+}) {
+  const q = { company_id: company, employee_id: employee, from, to };
+  const read = useAttendanceRead(JSON.stringify(q), () => client.employeeAttendanceRecords(q)),
+    records = read.data;
+  return (
+    <section aria-label="Check-in records" className="grid gap-4 rounded-lg border border-border bg-background p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">
+          Check-in records · {from} to {to}
+        </h3>
+        <Button
+          variant="outline"
+          disabled={!records}
+          onClick={() =>
+            records &&
+            exportAttendanceRecords(records.records, `attendance-${records.employee_number}-${from}-to-${to}.csv`)
+          }
+        >
+          <Download className="size-4" />
+          Export
+        </Button>
+      </div>
+      {read.error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {read.error}
+        </p>
+      ) : !records ? (
+        <Skeleton className="h-32 w-full" />
+      ) : (
+        <>
+          <AttendanceRecordTiles summary={records.summary} />
+          <AttendanceRecordTable records={records.records} />
+        </>
+      )}
+    </section>
+  );
+}
 function EmployeeMonth({
   item,
   data,
   onNavigate,
-  onClose,
+  client,
+  canReadPunches,
 }: {
   item: HrMonthlyAttendanceRow;
   data: HrMonthlyAttendanceDirectory;
   onNavigate: Navigate;
-  onClose: () => void;
+  client: HrApiClient;
+  canReadPunches: boolean;
 }) {
   const [date, setDate] = useState(item.days[0]?.on_date ?? "");
   const chosen = item.days.find((d) => d.on_date === date),
@@ -68,25 +115,7 @@ function EmployeeMonth({
     (_, i) => `${data.month.slice(0, 7)}-${String(i + 1).padStart(2, "0")}`,
   );
   return (
-    <section
-      aria-label="Employee monthly detail"
-      className="grid min-w-0 gap-4 rounded-xl border border-primary/25 bg-card p-4 sm:p-5"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="break-words text-lg font-semibold">{item.display_name}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {item.employee_number} · {item.covered_days} covered dates ·{" "}
-            {item.departments.join(" / ") || "No department"}
-          </p>
-        </div>
-        <Button variant="ghost" onClick={onClose}>
-          Close details
-        </Button>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        Choose a day to review its result. Dates without an operational placement are excluded from the totals.
-      </p>
+    <section aria-label="Employee monthly detail" className="grid min-w-0 gap-5">
       <div className="grid grid-cols-7 gap-1 sm:gap-2" aria-label="Attendance calendar">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
           <span
@@ -194,6 +223,15 @@ function EmployeeMonth({
           </div>
         </div>
       )}
+      {canReadPunches && (
+        <EmployeeCheckIns
+          client={client}
+          company={data.company_id}
+          employee={item.employee_id}
+          from={data.month}
+          to={data.through_date}
+        />
+      )}
       <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-4">
         <h3 className="text-sm font-semibold">Finalized attendance input</h3>
         {!data.snapshot_access ? (
@@ -202,9 +240,6 @@ function EmployeeMonth({
           </p>
         ) : item.finalized_input ? (
           <>
-            <p className="text-xs text-muted-foreground">
-              Stored separately from the operational calendar above. This summary does not indicate a payroll payment.
-            </p>
             <dl className="m-0 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
               {[
                 ["Calendar days", item.finalized_input.calendar_days],
@@ -244,7 +279,8 @@ export function HrMonthlyAttendanceWorkspace({
   const initialScope = useMemo(() => readHrOperationsScope(initialReference), [initialReference]);
   const { api, session, loading: sessionLoading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]),
-    canRead = session?.user.permissions.includes("hr.attendance.read") ?? false;
+    canRead = session?.user.permissions.includes("hr.attendance.read") ?? false,
+    canReadPunches = session?.user.permissions.includes("hr.attendance.punch.read") ?? false;
   const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]),
     [company, setCompany] = useState(initialScope.company_id ?? ""),
     [month, setMonth] = useState(
@@ -253,13 +289,21 @@ export function HrMonthlyAttendanceWorkspace({
     [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
     [offset, setOffset] = useState(0),
-    [revision, setRevision] = useState(0),
+    [revision] = useState(0),
     [selected, setSelected] = useState("");
   const [data, setData] = useState<HrMonthlyAttendanceDirectory | null>(null),
     [loading, setLoading] = useState(false),
     [companyLoading, setCompanyLoading] = useState(false),
     [error, setError] = useState("");
   useHrOperationsScope(company, month + "-01", month + "-01");
+  // Search as the user types, once typing pauses.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setApplied(search.trim());
+      setOffset(0);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [search]);
   useEffect(() => {
     if (!canRead) return;
     let active = true;
@@ -305,14 +349,6 @@ export function HrMonthlyAttendanceWorkspace({
       active = false;
     };
   }, [client, company, month, applied, offset, revision, canRead, workPageSize]);
-  const totals = useMemo(
-    () => ({
-      present: data?.items.reduce((n, r) => n + r.counts.present, 0) ?? 0,
-      review: data?.items.reduce((n, r) => n + r.counts.needs_review, 0) ?? 0,
-      worked: data?.items.reduce((n, r) => n + r.worked_minutes, 0) ?? 0,
-    }),
-    [data],
-  );
   const detail = data?.items.find((r) => r.employee_id === selected);
   if (sessionLoading) return <Skeleton className="h-64 w-full" />;
   if (!canRead)
@@ -322,76 +358,44 @@ export function HrMonthlyAttendanceWorkspace({
         <AlertDescription>Your role needs attendance read permission to open this workspace.</AlertDescription>
       </Alert>
     );
-  const reviewButton = (row: HrMonthlyAttendanceRow) => (
-    <Button
-      variant="outline"
-      size="sm"
-      aria-label={`Review ${row.employee_number}`}
-      onClick={() => setSelected(row.employee_id)}
-    >
-      Review month
-    </Button>
-  );
+  const openRow = (row: HrMonthlyAttendanceRow) => ({
+    role: "button" as const,
+    tabIndex: 0,
+    "aria-label": `Open ${row.display_name} (${row.employee_number}) monthly attendance`,
+    onClick: () => setSelected(row.employee_id),
+    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        setSelected(row.employee_id);
+      }
+    },
+  });
   return (
     <section
       aria-label="Monthly attendance workspace"
       className="grid min-w-0 gap-4 font-sans text-foreground [&_label]:gap-1.5 [&_label]:leading-tight [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_td]:font-sans!"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-4">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className="rounded-xl bg-primary/15 p-3 text-primary">
-            <CalendarRange className="size-6" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-xl font-semibold tracking-tight">Every day, one connected monthly view</h2>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Review employee coverage, attendance and exceptions before the next approval stage.
-            </p>
-          </div>
-        </div>
-        <Button variant="outline" disabled={loading || companyLoading} onClick={() => setRevision((v) => v + 1)}>
-          <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
-      </div>
       {error && (
         <Alert variant="destructive">
           <AlertTitle>Monthly attendance unavailable</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+      {!companyLoading && !error && !companies.length && (
+        <Alert>
+          <AlertTitle>No authorized company</AlertTitle>
+          <AlertDescription>Ask your administrator to review company access.</AlertDescription>
+        </Alert>
+      )}
       <WorkForm
-        className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1.2fr_0.7fr_1fr_auto] sm:p-5"
+        className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-[0.7fr_1fr] sm:p-5"
         onSubmit={(e) => {
           e.preventDefault();
           setOffset(0);
           setApplied(search.trim());
         }}
       >
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
-          Company
-          <select
-            aria-label="Company"
-            className={selectClass}
-            disabled={companyLoading}
-            value={company}
-            onChange={(e) => {
-              setCompany(e.target.value);
-              setOffset(0);
-              setData(null);
-            }}
-          >
-            {!companies.length && (
-              <option value="">{companyLoading ? "Loading companies…" : "No authorized company"}</option>
-            )}
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.code})
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Attendance month
           <Input
             required
@@ -406,7 +410,7 @@ export function HrMonthlyAttendanceWorkspace({
             }}
           />
         </label>
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Search employee
           <Input
             maxLength={160}
@@ -415,42 +419,9 @@ export function HrMonthlyAttendanceWorkspace({
             placeholder="Name or employee number"
           />
         </label>
-        <div className="flex items-end gap-2">
-          <Button type="submit" className="text-primary-foreground!" disabled={loading || !company || !month}>
-            <Search className="size-4" />
-            Search
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setSearch("");
-              setApplied("");
-              setOffset(0);
-            }}
-          >
-            Clear
-          </Button>
-        </div>
       </WorkForm>
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {[
-          { name: "Employees in this page", value: data?.items.length ?? 0, icon: Users },
-          { name: "Present days", value: totals.present, icon: CheckCircle2 },
-          { name: "Days needing review", value: totals.review, icon: TriangleAlert },
-          { name: "Recorded work", value: attendanceMinutes(totals.worked), icon: Clock3 },
-        ].map(({ name, value, icon: Icon }) => (
-          <div key={name} className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card p-4">
-            <Icon className="size-5 shrink-0 text-primary" />
-            <div className="min-w-0">
-              <p className="text-xs text-muted-foreground">{name}</p>
-              <div className="mt-1 break-words text-xl font-semibold tabular-nums">{loading ? "—" : value}</div>
-            </div>
-          </div>
-        ))}
-      </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span>Totals describe the current page. {data?.total ?? 0} employees match this month and search.</span>
+        <span>{data?.total ?? 0} employees match this month and search.</span>
         <span>
           {data
             ? `Period: ${data.period_state ? attendanceLabel(data.period_state) : "Not opened"} · Updated ${new Date(data.generated_at).toLocaleTimeString()}`
@@ -466,8 +437,8 @@ export function HrMonthlyAttendanceWorkspace({
       ) : data?.items.length ? (
         <>
           <div className="hidden min-w-0 overflow-hidden rounded-xl border border-border bg-card md:block">
-            <div className="max-h-[38rem] overflow-auto">
-              <WorkTable paging={false} tableId="app/features/hr/views/hr-monthly-attendance-workspace:1" className="w-full min-w-[1050px] text-left text-sm">
+            <div className="max-h-[38rem] overflow-y-auto">
+              <WorkTable paging={false} tableId="app/features/hr/views/hr-monthly-attendance-workspace:1" className="w-full text-left text-sm">
                 <thead className="sticky top-0 z-10 bg-muted">
                   <tr>
                     {[
@@ -476,12 +447,11 @@ export function HrMonthlyAttendanceWorkspace({
                       "Present / half",
                       "Absent",
                       "Leave days",
-                      "Review",
+                      "Needs review",
                       "Worked",
-                      "",
-                    ].map((h, i) => (
-                      <th key={i} scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">
-                        {h || <span className="sr-only">Actions</span>}
+                    ].map((h) => (
+                      <th key={h} scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">
+                        {h}
                       </th>
                     ))}
                   </tr>
@@ -490,21 +460,21 @@ export function HrMonthlyAttendanceWorkspace({
                   {data.items.map((row) => (
                     <tr
                       key={row.employee_id}
-                      className={`border-t border-border hover:bg-muted/40 ${selected === row.employee_id ? "bg-primary/5" : ""}`}
+                      {...openRow(row)}
+                      className={`cursor-pointer border-t border-border outline-none hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selected === row.employee_id ? "bg-primary/5" : ""}`}
                     >
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-3">
                         <strong className="block">{row.display_name}</strong>
                         <span className="mt-1 block text-xs text-muted-foreground">{row.employee_number}</span>
                       </td>
-                      <td className="px-4 py-4 tabular-nums">{row.covered_days}</td>
-                      <td className="px-4 py-4 tabular-nums">
+                      <td className="px-4 py-3 tabular-nums">{row.covered_days}</td>
+                      <td className="px-4 py-3 tabular-nums">
                         {row.counts.present} / {row.counts.half_day}
                       </td>
-                      <td className="px-4 py-4 tabular-nums">{row.counts.absent}</td>
-                      <td className="px-4 py-4 tabular-nums">{row.approved_leave_days}</td>
-                      <td className="px-4 py-4 tabular-nums">{row.counts.needs_review}</td>
-                      <td className="px-4 py-4 tabular-nums">{attendanceMinutes(row.worked_minutes)}</td>
-                      <td className="px-4 py-4">{reviewButton(row)}</td>
+                      <td className="px-4 py-3 tabular-nums">{row.counts.absent}</td>
+                      <td className="px-4 py-3 tabular-nums">{row.approved_leave_days}</td>
+                      <td className="px-4 py-3 tabular-nums">{row.counts.needs_review}</td>
+                      <td className="px-4 py-3 tabular-nums">{attendanceMinutes(row.worked_minutes)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -513,7 +483,11 @@ export function HrMonthlyAttendanceWorkspace({
           </div>
           <div className="grid gap-3 md:hidden">
             {data.items.map((row) => (
-              <article key={row.employee_id} className="grid min-w-0 gap-3 rounded-xl border border-border bg-card p-4">
+              <article
+                key={row.employee_id}
+                {...openRow(row)}
+                className="grid min-w-0 cursor-pointer gap-3 rounded-xl border border-border bg-card p-4 outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <div>
                   <h3 className="break-words text-sm font-semibold">{row.display_name}</h3>
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -533,7 +507,6 @@ export function HrMonthlyAttendanceWorkspace({
                     </div>
                   ))}
                 </dl>
-                {reviewButton(row)}
               </article>
             ))}
           </div>
@@ -548,21 +521,57 @@ export function HrMonthlyAttendanceWorkspace({
           </p>
         </div>
       )}
-      <WorkOffsetPagination busy={!!(loading || data)} total={data?.total ?? 0} offset={offset} size={workPageSize} previousDisabled={!!(loading || offset === 0)} nextDisabled={!!(loading || !data || offset + workPageSize >= data.total)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
-      {detail && data && (
-        <EmployeeMonth
-          key={`${data.company_id}:${data.month}:${detail.employee_id}`}
-          item={detail}
-          data={data}
-          onNavigate={onNavigate}
-          onClose={() => setSelected("")}
-        />
-      )}
-      <p className="rounded-lg border border-border bg-muted/30 p-4 text-xs leading-relaxed text-muted-foreground">
-        These are operational monthly results from the daily attendance rules. Present, half day, leave, official duty,
-        off days and unfinished shifts remain separate. This view does not calculate paid days or approve payroll.
-        Authorized users can compare a separately stored finalized input when the attendance period is locked.
-      </p>
+      <WorkOffsetPagination
+        busy={loading}
+        total={data?.total ?? 0}
+        offset={offset}
+        size={workPageSize}
+        previousDisabled={loading || offset === 0}
+        nextDisabled={loading || !data || offset + workPageSize >= data.total}
+        onSizeChange={(size) => {
+          setWorkPageSize(size);
+          setOffset(0);
+        }}
+        onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))}
+        onNext={() => setOffset((v) => v + workPageSize)}
+      />
+      <Dialog
+        open={Boolean(detail && data)}
+        onOpenChange={(open) => {
+          if (!open) setSelected("");
+        }}
+      >
+        <DialogContent
+          className="z-[1301]! flex max-h-[90vh] w-[min(72rem,calc(100vw-2rem))]! max-w-none! flex-col gap-0 overflow-hidden p-0"
+          overlayClassName="z-[1300]! backdrop-blur-sm!"
+        >
+          <div className="border-b border-border px-5 py-3 pr-14 sm:px-6">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+              Monthly Attendance
+            </span>
+            <DialogTitle className="m-0! mt-0.5 truncate text-lg font-semibold leading-snug">
+              {detail?.display_name ?? "Employee month"}
+            </DialogTitle>
+            <DialogDescription className="m-0! mt-0.5 text-xs text-muted-foreground">
+              {detail
+                ? `${detail.employee_number} · ${detail.covered_days} covered dates · ${detail.departments.join(" / ") || "No department"}`
+                : ""}
+            </DialogDescription>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+            {detail && data ? (
+              <EmployeeMonth
+                key={`${data.company_id}:${data.month}:${detail.employee_id}`}
+                item={detail}
+                data={data}
+                onNavigate={onNavigate}
+                client={client}
+                canReadPunches={canReadPunches}
+              />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

@@ -3,7 +3,7 @@ import { reviewSettlementSalaryHandoff } from "./settlement-benefits.js";
 import { requireHrCompanyPermission } from "./company-authority.js";
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
-import type { HrLifecycleCaseAction } from "@nexora/contracts";
+import { HR_DEFAULT_REASON, type HrLifecycleCaseAction } from "@nexora/contracts";
 import { HrApiError, type HrActorContext } from "./source-repository.js";
 import { attendanceHash } from "./attendance-completion.js";
 // Query projections are checked against retained approved source terms before insertion.
@@ -132,7 +132,12 @@ export async function prepareSettlementPayroll(
       "The employee needs an approved operational assignment on the Payroll month start; use governed Payroll corrections for other periods.",
     );
   let changes = 0;
-  for (const map of [...input.mappings].sort((a, b) => a.line_index - b.line_index)) {
+  for (const entered of [...input.mappings].sort((a, b) => a.line_index - b.line_index)) {
+    // The exclusion reason is optional; a blank one on an excluded line is recorded as the standard reason.
+    const map =
+      !entered.component_id && !entered.exclusion_reason.trim()
+        ? { ...entered, exclusion_reason: HR_DEFAULT_REASON }
+        : entered;
     const line = lines[map.line_index]!,
       old = existing.find((l) => l.line_index === map.line_index);
     if (old && !["rejected", "excluded"].includes(old.state)) {
@@ -195,7 +200,7 @@ export async function prepareSettlementPayroll(
           attendanceHash(record),
         ],
       );
-    } else if (map.exclusion_reason.trim().length < 5) fail("Record why each excluded line must not enter Payroll.");
+    } else if (map.exclusion_reason.trim().length < 1) fail("Record why each excluded line must not enter Payroll.");
     await client.query(
       "insert into hr_settlement_payroll_link(tenant_id,company_id,id,case_id,line_index,revision,adjustment_id,component_id,effective_month,source_version,source_terms,reason,exclusion_reason,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14)",
       [

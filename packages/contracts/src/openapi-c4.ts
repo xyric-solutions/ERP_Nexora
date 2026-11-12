@@ -38,6 +38,12 @@ import {
 import { hrSelfLeaveContextQuerySchema, createHrSelfLeaveRequestSchema, hrSelfLeaveActionSchema } from "./hr/index.js";
 import { hrSelfServiceQuerySchema, hrSelfServiceWorkspaceSchema } from "./hr/index.js";
 import {
+  hrSelfAttendanceSchema,
+  createHrSelfAttendancePunchSchema,
+  saveHrSelfAttendanceDaySchema,
+  hrEmployeeAttendanceRecordsSchema,
+} from "./hr/index.js";
+import {
   hrSettlementBenefitQuerySchema,
   hrSettlementBenefitActionSchema,
   hrSettlementBenefitWorkspaceSchema,
@@ -143,6 +149,7 @@ import {
   createHrOvertimeRequestSchema,
   hrOvertimeRuleRequestSchema,
   hrOvertimeActionRequestSchema,
+  replaceHrOvertimeRequestSchema,
   hrAttendancePeriodQuerySchema,
   hrAttendancePeriodActionRequestSchema,
   hrOvertimeDirectorySchema,
@@ -210,7 +217,9 @@ import {
   passwordLoginRequestSchema,
   passwordLoginResponseSchema,
   passwordChangeRequiredResponseSchema,
+  selectSessionCompanyRequestSchema,
   selectTenantRequestSchema,
+  sessionCompanyDirectorySchema,
   sessionResponseSchema,
   tenantSelectionRequiredResponseSchema,
 } from "./auth/index.js";
@@ -393,7 +402,25 @@ import {
   updateHrMasterRequestSchema,
   changeHrMasterStatusRequestSchema,
   hrMasterMutationResultSchema,
+  deleteHrMasterRequestSchema,
+  hrMasterDeleteResultSchema,
   hrJobGradeDirectorySchema,
+  hrJobGradeCurrencyDirectorySchema,
+  hrRequisitionProjectDirectorySchema,
+  hrRequisitionWorkLocationDirectorySchema,
+  hrEmployeeRecordMutationResultSchema,
+  hrRecruitmentMutationResultSchema,
+  deleteHrRecruitmentRecordRequestSchema,
+  changeHrManpowerRequisitionStateRequestSchema,
+  updateHrJobOpeningRequestSchema,
+  updateHrCandidateRequestSchema,
+  changeHrEmployeeStatusRequestSchema,
+  removeHrEmployeeRecordRequestSchema,
+  hrEmployeeEmploymentHistoryDirectorySchema,
+  hrEmployeeEmploymentHistoryRequestSchema,
+  hrEmployeeNumberPreviewSchema,
+  withdrawHrEmployeeDraftRequestSchema,
+  hrCostCentreNominalDirectorySchema,
   createHrJobGradeRequestSchema,
   updateHrJobGradeRequestSchema,
   hrEmployeeContactDirectorySchema,
@@ -416,6 +443,11 @@ import {
   hrEmploymentLifecyclePolicyApprovalResultSchema,
   activateHrEmploymentLifecyclePolicyRequestSchema,
   hrEmploymentLifecyclePolicyActivationResultSchema,
+  updateHrEmploymentLifecyclePolicyRequestSchema,
+  deleteHrEmploymentLifecyclePolicyRequestSchema,
+  deactivateHrEmploymentLifecyclePolicyRequestSchema,
+  hrEmploymentLifecyclePolicyDeactivationResultSchema,
+  hrEmploymentLifecyclePolicyDeleteResultSchema,
   createHrJobRequestSchema,
   hrJobResultSchema,
   createHrEmployeeHireRequestSchema,
@@ -1197,6 +1229,57 @@ export function buildOpenApiDocument() {
           responses: {
             "200": {
               description: "Session identifier and CSRF token rotated",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/SessionResponse" } } },
+            },
+            "401": problemResponse,
+            "403": problemResponse,
+            "503": problemResponse,
+          },
+        },
+      },
+      "/auth/companies": {
+        get: {
+          operationId: "listSessionCompanies",
+          security: [{ cookieAuth: [] }],
+          responses: {
+            "200": {
+              description: "Active companies the signed-in user can choose (their company access grants)",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/SessionCompanyDirectory" } } },
+            },
+            "401": problemResponse,
+            "503": problemResponse,
+          },
+        },
+      },
+      "/auth/session/company": {
+        put: {
+          operationId: "selectSessionCompany",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/SelectSessionCompanyRequest" } },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Company chosen for this session; company-scoped requests must use it",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/SessionResponse" } } },
+            },
+            "400": problemResponse,
+            "401": problemResponse,
+            "403": problemResponse,
+            "503": problemResponse,
+          },
+        },
+        delete: {
+          operationId: "leaveSessionCompany",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter],
+          responses: {
+            "200": {
+              description: "Company cleared; the session stays signed in so another company can be chosen",
               content: { "application/json": { schema: { $ref: "#/components/schemas/SessionResponse" } } },
             },
             "401": problemResponse,
@@ -3677,6 +3760,31 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/hr/attendance_overtime/{recordId}/replace": {
+        post: {
+          operationId: "attendanceReplaceOvertime",
+          summary: "Edit a draft overtime request (cancels the draft and creates the corrected draft atomically)",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          responses: {
+            ...securityErrors,
+            "200": {
+              description: "HrAttendanceCompletionResult",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrAttendanceCompletionResult" } },
+              },
+            },
+          },
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ReplaceHrOvertimeRequest" } } },
+          },
+        },
+      },
       "/hr/attendance_overtime/{recordId}/actions": {
         post: {
           operationId: "attendanceActOnOvertime",
@@ -3979,12 +4087,14 @@ export function buildOpenApiDocument() {
             { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 50 } },
             { in: "query", name: "offset", schema: { type: "integer", minimum: 0, maximum: 100000 } },
             { in: "query", name: "queue_only", schema: { type: "string", enum: ["true", "false"] } },
+            { in: "query", name: "submitted_only", schema: { type: "string", enum: ["true", "false"] } },
+            { in: "query", name: "exclude_cancelled", schema: { type: "string", enum: ["true", "false"] } },
             {
               in: "query",
               name: "status",
               schema: {
                 type: "string",
-                enum: ["draft", "pending_manager", "pending_hr", "approved", "rejected", "cancelled"],
+                enum: ["draft", "pending", "pending_manager", "pending_hr", "approved", "rejected", "cancelled"],
               },
             },
           ],
@@ -4089,6 +4199,7 @@ export function buildOpenApiDocument() {
               },
             },
             { in: "query", name: "month", required: true, schema: { type: "string", format: "date" } },
+            { in: "query", name: "loan_kind", schema: { type: "string", enum: ["loan", "advance"] } },
             { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 50 } },
             { in: "query", name: "offset", schema: { type: "integer", minimum: 0, maximum: 100000 } },
           ],
@@ -4344,6 +4455,87 @@ export function buildOpenApiDocument() {
             "200": {
               description: "Governed salary payment action",
               content: { "application/json": { schema: { $ref: "#/components/schemas/HrPayrollMutationResult" } } },
+            },
+          },
+        },
+      },
+      "/hr/self_service/attendance": {
+        get: {
+          operationId: "getSelfAttendance",
+          description: "Signed-in employee's check-in state, rules and check-in records for a date range",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "query", name: "company_id", required: true, schema: { type: "string", maxLength: 128 } },
+            { in: "query", name: "from", required: true, schema: { type: "string", format: "date" } },
+            { in: "query", name: "to", required: true, schema: { type: "string", format: "date" } },
+          ],
+          responses: {
+            ...securityErrors,
+            "200": {
+              description: "Signed-in employee's check-in state, rules and check-in records",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrSelfAttendance" } } },
+            },
+          },
+        },
+      },
+      "/hr/self_service/attendance/punches": {
+        post: {
+          operationId: "createSelfAttendancePunch",
+          description: "Record the signed-in employee's own check-in or check-out for today",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrSelfAttendancePunch" } } },
+          },
+          responses: {
+            ...securityErrors,
+            "200": {
+              description: "Audited self-service punch",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrAttendanceCompletionResult" } },
+              },
+            },
+          },
+        },
+      },
+      "/hr/self_service/attendance/day": {
+        post: {
+          operationId: "saveSelfAttendanceDay",
+          description: "Save the signed-in employee's check-in and check-out for today, replacing earlier self-recorded times",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SaveHrSelfAttendanceDay" } } },
+          },
+          responses: {
+            ...securityErrors,
+            "200": {
+              description: "Audited save of today's attendance",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrAttendanceCompletionResult" } },
+              },
+            },
+          },
+        },
+      },
+      "/hr/attendance_records": {
+        get: {
+          operationId: "getEmployeeAttendanceRecords",
+          description: "One employee's check-in records for a date range (attendance and punch read)",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "query", name: "company_id", required: true, schema: { type: "string", maxLength: 128 } },
+            { in: "query", name: "employee_id", required: true, schema: { type: "string", maxLength: 128 } },
+            { in: "query", name: "from", required: true, schema: { type: "string", format: "date" } },
+            { in: "query", name: "to", required: true, schema: { type: "string", format: "date" } },
+          ],
+          responses: {
+            ...securityErrors,
+            "200": {
+              description: "One employee's check-in records",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeAttendanceRecords" } } },
             },
           },
         },
@@ -5296,6 +5488,7 @@ export function buildOpenApiDocument() {
                 ],
               },
             },
+            { in: "query", name: "stage", schema: { type: "string", enum: ["preparation", "decided"] } },
             { in: "query", name: "offset", schema: { type: "integer", minimum: 0, maximum: 100000 } },
             { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 100 } },
           ],
@@ -5424,6 +5617,7 @@ export function buildOpenApiDocument() {
               },
             },
             { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 100 } },
+            { in: "query", name: "available_for_offer", schema: { type: "string", enum: ["true", "false"], default: "false" } },
             { in: "query", name: "offset", schema: { type: "integer", minimum: 0, maximum: 100000 } },
           ],
           responses: {
@@ -5621,6 +5815,28 @@ export function buildOpenApiDocument() {
               ...securityErrors,
             },
           },
+          delete: {
+            operationId: "deleteHrOrganizationUnit",
+            description:
+              "Permanently delete a deactivated organization unit that has no child units. Only an inactive record that nothing references can be deleted; active records return 409 HR_MASTER_DELETE_ACTIVE and referenced records return 409 HR_MASTER_IN_USE. The code is never reissued.",
+            security: [{ cookieAuth: [] }],
+            parameters: [
+              { in: "path", name: "unitId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+              csrfParameter,
+              idempotencyParameter,
+            ],
+            requestBody: {
+              required: true,
+              content: { "application/json": { schema: { $ref: "#/components/schemas/DeleteHrMasterRequest" } } },
+            },
+            responses: {
+              "200": {
+                description: "Record permanently deleted",
+                content: { "application/json": { schema: { $ref: "#/components/schemas/HrMasterDeleteResult" } } },
+              },
+              ...securityErrors,
+            },
+          },
         },
         "/hr/organization_units/{unitId}/status": {
           post: {
@@ -5683,6 +5899,7 @@ export function buildOpenApiDocument() {
               schema: { type: "string", minLength: 1, maxLength: 128 },
             },
             { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            { in: "query", name: "status", required: false, schema: { type: "string", enum: ["all", "draft", "submitted"], default: "draft" } },
             {
               in: "query",
               name: "limit",
@@ -5784,6 +6001,7 @@ export function buildOpenApiDocument() {
               required: true,
               schema: { type: "string", minLength: 1, maxLength: 128 },
             },
+            { in: "query", name: "state", required: false, schema: { type: "string", enum: ["pending", "approved", "rejected", "all"], default: "pending" } },
             {
               in: "query",
               name: "limit",
@@ -6009,6 +6227,321 @@ export function buildOpenApiDocument() {
             ...securityErrors,
           },
         },
+        post: {
+          operationId: "uploadHrEmployeeDocument",
+          description: "Uploads an employee document file to private storage (PDF, HTML, JPEG, PNG, JSON, CSV or text; at most 10 MB). Drafts and active employees in the actor's company scope. Requires hr.employee_document.manage.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "multipart/form-data": { schema: { type: "object", required: ["file", "document_type", "title"], properties: { file: { type: "string", format: "binary" }, document_type: { type: "string", maxLength: 80 }, title: { type: "string", maxLength: 200 }, reference: { type: "string", maxLength: 120 }, issued_on: { type: "string", format: "date" }, expires_on: { type: "string", format: "date" }, notes: { type: "string", maxLength: 1000 } } } } } },
+          responses: {
+            "201": { description: "Document stored", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/manpower_requisitions/{recordId}/update": {
+        post: {
+          operationId: "updateHrManpowerRequisition",
+          description: "Edits a draft manpower requisition. Requires hr.employee.create.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrManpowerRequisitionRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/manpower_requisitions/{recordId}/state": {
+        post: {
+          operationId: "changeHrManpowerRequisitionState",
+          description: "Moves a requisition outside the approval decision: Draft to Submitted, Submitted to Draft, Approved to Cancelled (no active openings), Rejected or Cancelled to Draft.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ChangeHrManpowerRequisitionStateRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/manpower_requisitions/{recordId}/delete": {
+        post: {
+          operationId: "deleteHrManpowerRequisition",
+          description: "Deletes a draft, rejected or cancelled requisition without job openings; audited.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/DeleteHrRecruitmentRecordRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/job_openings/{recordId}/update": {
+        post: {
+          operationId: "updateHrJobOpening",
+          description: "Edits a job opening, including its state (a cancelled opening can be reopened when headcount allows). Requires hr.employee.update.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateHrJobOpeningRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/job_openings/{recordId}/delete": {
+        post: {
+          operationId: "deleteHrJobOpening",
+          description: "Deletes a job opening without applications; audited.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/DeleteHrRecruitmentRecordRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/candidates/{recordId}/update": {
+        post: {
+          operationId: "updateHrCandidate",
+          description: "Edits a candidate, including Active/Deactivated status. Requires hr.employee.update.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateHrCandidateRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/candidates/{recordId}/delete": {
+        post: {
+          operationId: "deleteHrCandidate",
+          description: "Deletes a candidate without applications; audited.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/DeleteHrRecruitmentRecordRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/status": {
+        post: {
+          operationId: "changeHrEmployeeStatus",
+          description: "Moves an approved employee between Active, Probation, Confirmed and Suspended, writing status history. Exits stay in the lifecycle workflow.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ChangeHrEmployeeStatusRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/remove": {
+        post: {
+          operationId: "removeHrEmployee",
+          description: "Soft-deletes an approved employee without payroll history (status inactive, history and audit kept).",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } } },
+          responses: {
+            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employee_number_preview": {
+        get: {
+          operationId: "getHrEmployeeNumberPreview",
+          description: "Next automatic employee number for display before saving; the server reserves the final number on create. Requires hr.employee.create and company access.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "query", name: "company_id", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }],
+          responses: {
+            "200": { description: "Next employee number", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeNumberPreview" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employee_drafts/{employeeId}/withdraw": {
+        post: {
+          operationId: "withdrawHrEmployeeDraft",
+          description: "Deletes an unsubmitted employee draft by withdrawing it (status inactive); the audit trail is kept. Requires hr.employee.update.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/WithdrawHrEmployeeDraftRequest" } } } },
+          responses: {
+            "200": { description: "Draft withdrawn", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/contacts/{contactId}": {
+        post: {
+          operationId: "updateHrEmployeeContact",
+          description: "Edits a contact by closing the current version and starting its replacement today. Requires hr.employee_contact.manage.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "contactId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrEmployeeContactRequest" } } } },
+          responses: {
+            "200": { description: "Contact replaced", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/contacts/{contactId}/remove": {
+        post: {
+          operationId: "removeHrEmployeeContact",
+          description: "Closes an active contact; history is retained. Requires hr.employee_contact.manage.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "contactId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } } },
+          responses: {
+            "200": { description: "Contact closed", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/emergency_contacts/{contactId}": {
+        post: {
+          operationId: "updateHrEmployeeEmergencyContact",
+          description: "Edits an emergency contact by closing the current version and recording a superseding one. Requires hr.employee_emergency_contact.manage.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "contactId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrEmployeeEmergencyContactRequest" } } } },
+          responses: {
+            "200": { description: "Emergency contact replaced", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/emergency_contacts/{contactId}/remove": {
+        post: {
+          operationId: "removeHrEmployeeEmergencyContact",
+          description: "Closes an active emergency contact; history is retained. Requires hr.employee_emergency_contact.manage.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "contactId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } } },
+          responses: {
+            "200": { description: "Emergency contact closed", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/documents/{documentId}/replace": {
+        post: {
+          operationId: "replaceHrEmployeeDocument",
+          description: "Uploads a new file that supersedes and removes an active document (PDF, HTML, JPEG, PNG, JSON, CSV or text; at most 10 MB). Requires hr.employee_document.manage.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "documentId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "multipart/form-data": { schema: { type: "object", required: ["file", "document_type", "title"], properties: { file: { type: "string", format: "binary" }, document_type: { type: "string", maxLength: 80 }, title: { type: "string", maxLength: 200 }, reference: { type: "string", maxLength: 120 }, issued_on: { type: "string", format: "date" }, expires_on: { type: "string", format: "date" }, notes: { type: "string", maxLength: 1000 } } } } } },
+          responses: {
+            "201": { description: "Replacement document stored", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/documents/{documentId}/remove": {
+        post: {
+          operationId: "removeHrEmployeeDocument",
+          description: "Removes a document from the active record once; metadata and file are kept for audit. Requires hr.employee_document.manage.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "documentId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } } },
+          responses: {
+            "200": { description: "Document removed", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/documents/{documentId}/content": {
+        get: {
+          operationId: "downloadHrEmployeeDocument",
+          description: "Streams a stored document file. HTML is served with a sandboxing content security policy. Requires hr.employee_document.read.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "documentId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "query", name: "disposition", required: false, schema: { type: "string", enum: ["inline", "attachment"] } }],
+          responses: {
+            "200": { description: "Document file", content: { "application/octet-stream": { schema: { type: "string", format: "binary" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/employment_history": {
+        get: {
+          operationId: "listHrEmployeeEmploymentHistory",
+          description: "Active previous-employment entries of an employee. Requires hr.employee.read.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }],
+          responses: {
+            "200": { description: "Employment history", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeEmploymentHistoryDirectory" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+        post: {
+          operationId: "createHrEmployeeEmploymentHistory",
+          description: "Adds a previous-employment entry. Requires hr.employee.update.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeEmploymentHistoryRequest" } } } },
+          responses: {
+            "201": { description: "Employment history added", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/employment_history/{historyId}": {
+        post: {
+          operationId: "updateHrEmployeeEmploymentHistory",
+          description: "Edits a previous-employment entry. Requires hr.employee.update.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "historyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeEmploymentHistoryRequest" } } } },
+          responses: {
+            "200": { description: "Employment history updated", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employees/{employeeId}/employment_history/{historyId}/remove": {
+        post: {
+          operationId: "removeHrEmployeeEmploymentHistory",
+          description: "Removes a previous-employment entry (soft status change, audited). Requires hr.employee.update.",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "historyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } } },
+          responses: {
+            "200": { description: "Employment history removed", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "404": problemResponse,
+            ...securityErrors,
+          },
+        },
       },
       "/hr/employees/{employeeId}/assignments": {
         get: {
@@ -6186,6 +6719,28 @@ export function buildOpenApiDocument() {
             ...securityErrors,
           },
         },
+        delete: {
+          operationId: "deleteHrMaster",
+          description:
+            "Permanently delete a deactivated HR master record (designation, job, cost centre, work location or employment setup). Only an inactive record that nothing references can be deleted; active records return 409 HR_MASTER_DELETE_ACTIVE and referenced records return 409 HR_MASTER_IN_USE. The code is never reissued.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "masterId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/DeleteHrMasterRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Record permanently deleted",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrMasterDeleteResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
       },
       "/hr/masters/{masterId}/status": {
         post: {
@@ -6246,6 +6801,98 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/hr/job_grade_currencies": {
+        get: {
+          operationId: "listHrJobGradeCurrencies",
+          description:
+            "Active company currencies configured under Finance → Company currencies, read for job-grade maintenance. Base currency first, then by code. Requires hr.master.read and company access.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Active company currencies available for job grades",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrJobGradeCurrencyDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/requisition_work_locations": {
+        get: {
+          operationId: "listHrRequisitionWorkLocations",
+          description:
+            "Active work locations of a company with the city from their current approved address profile, read for manpower requisitions. Ordered by name, at most 500. Requires hr.employee.read and company access.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Active company work locations available for requisitions",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrRequisitionWorkLocationDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/cost_centre_nominals": {
+        get: {
+          operationId: "listHrCostCentreNominals",
+          description:
+            "Active Finance nominals of a company offered as a cost centre's default nominal: postable, non-bank accounts with an active general-nominal approval where one applies. Ordered by code, at most 500. Requires hr.master.read and company access.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Finance nominals available as cost-centre default nominals",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrCostCentreNominalDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/requisition_projects": {
+        get: {
+          operationId: "listHrRequisitionProjects",
+          description:
+            "Active Finance reporting projects of a company, read for manpower requisitions. Ordered by code, at most 500. Requires hr.employee.read and company access.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Active company projects available for requisitions",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrRequisitionProjectDirectory" } } },
+            },
+            ...securityErrors,
+          },
+        },
+      },
       "/hr/job_grades/{gradeId}": {
         patch: {
           operationId: "updateHrJobGrade",
@@ -6263,6 +6910,28 @@ export function buildOpenApiDocument() {
             "200": {
               description: "Job grade updated",
               content: { "application/json": { schema: { $ref: "#/components/schemas/HrMasterMutationResult" } } },
+            },
+            ...securityErrors,
+          },
+        },
+        delete: {
+          operationId: "deleteHrJobGrade",
+          description:
+            "Permanently delete a deactivated job grade and its band detail. Only an inactive record that nothing references can be deleted; active records return 409 HR_MASTER_DELETE_ACTIVE and referenced records return 409 HR_MASTER_IN_USE. The code is never reissued.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "gradeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/DeleteHrMasterRequest" } } },
+          },
+          responses: {
+            "200": {
+              description: "Record permanently deleted",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrMasterDeleteResult" } } },
             },
             ...securityErrors,
           },
@@ -6409,6 +7078,12 @@ export function buildOpenApiDocument() {
             { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
             {
               in: "query",
+              name: "status",
+              required: false,
+              schema: { type: "string", enum: ["pending", "approved", "rejected", "all"], default: "pending" },
+            },
+            {
+              in: "query",
               name: "limit",
               required: false,
               schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
@@ -6524,6 +7199,12 @@ export function buildOpenApiDocument() {
               schema: { type: "string", minLength: 1, maxLength: 128 },
             },
             { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
+            {
+              in: "query",
+              name: "status",
+              required: false,
+              schema: { type: "string", enum: ["pending", "approved", "rejected", "all"], default: "pending" },
+            },
             {
               in: "query",
               name: "limit",
@@ -7061,6 +7742,48 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/hr/employment_lifecycle_policies/{policyId}": {
+        patch: {
+          operationId: "updateHrEmploymentLifecyclePolicy",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "policyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/UpdateHrEmploymentLifecyclePolicyRequest" } },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Draft lifecycle policy name and effective period updated; code and version are kept",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyResult" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+        delete: {
+          operationId: "deleteHrEmploymentLifecyclePolicy",
+          security: [{ cookieAuth: [] }],
+          parameters: [{ in: "path", name: "policyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/DeleteHrEmploymentLifecyclePolicyRequest" } },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Unreferenced draft lifecycle policy deleted with its draft definition; the code is not reissued",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyDeleteResult" } },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
       "/hr/employment_lifecycle_policies/{policyId}/submit": {
         post: {
           operationId: "submitHrEmploymentLifecyclePolicy",
@@ -7112,6 +7835,36 @@ export function buildOpenApiDocument() {
               content: {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyApprovalResult" },
+                },
+              },
+            },
+            ...securityErrors,
+          },
+        },
+      },
+      "/hr/employment_lifecycle_policies/{policyId}/deactivate": {
+        post: {
+          operationId: "deactivateHrEmploymentLifecyclePolicy",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "path", name: "policyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/DeactivateHrEmploymentLifecyclePolicyRequest" },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Approved or active lifecycle policy deactivated",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyDeactivationResult" },
                 },
               },
             },
@@ -7269,6 +8022,8 @@ export function buildOpenApiDocument() {
         SelectTenantRequest: schema(selectTenantRequestSchema),
         CancelTenantSelectionRequest: schema(cancelTenantSelectionRequestSchema),
         SessionResponse: schema(sessionResponseSchema),
+        SessionCompanyDirectory: schema(sessionCompanyDirectorySchema),
+        SelectSessionCompanyRequest: schema(selectSessionCompanyRequestSchema),
         HealthStatus: schema(healthStatusSchema),
         BankingCompanyDirectory: schema(bankingCompanyDirectorySchema),
         BankingLedgerAccountDirectory: schema(bankingLedgerAccountDirectorySchema),
@@ -7351,6 +8106,7 @@ export function buildOpenApiDocument() {
         CreateHrOvertimeRequest: schema(createHrOvertimeRequestSchema),
         HrOvertimeRuleRequest: schema(hrOvertimeRuleRequestSchema),
         HrOvertimeActionRequest: schema(hrOvertimeActionRequestSchema),
+        ReplaceHrOvertimeRequest: schema(replaceHrOvertimeRequestSchema),
         HrAttendancePeriodQuery: schema(hrAttendancePeriodQuerySchema),
         HrAttendancePeriodActionRequest: schema(hrAttendancePeriodActionRequestSchema),
         HrOvertimeDirectory: schema(hrOvertimeDirectorySchema),
@@ -7372,6 +8128,10 @@ export function buildOpenApiDocument() {
         HrLeaveBalancePostingRequest: schema(hrLeaveBalancePostingRequestSchema),
         HrLeaveContextQuery: schema(hrLeaveContextQuerySchema),
         HrLeaveContext: schema(hrLeaveContextSchema),
+        HrSelfAttendance: schema(hrSelfAttendanceSchema),
+        CreateHrSelfAttendancePunch: schema(createHrSelfAttendancePunchSchema),
+        SaveHrSelfAttendanceDay: schema(saveHrSelfAttendanceDaySchema),
+        HrEmployeeAttendanceRecords: schema(hrEmployeeAttendanceRecordsSchema),
         HrLeaveRequestQuery: schema(hrLeaveRequestQuerySchema),
         HrLeaveRequestDirectory: schema(hrLeaveRequestDirectorySchema),
         HrLeaveRequestDetail: schema(hrLeaveRequestDetailSchema),
@@ -7509,7 +8269,13 @@ export function buildOpenApiDocument() {
         UpdateHrMasterRequest: schema(updateHrMasterRequestSchema),
         ChangeHrMasterStatusRequest: schema(changeHrMasterStatusRequestSchema),
         HrMasterMutationResult: schema(hrMasterMutationResultSchema),
+        DeleteHrMasterRequest: schema(deleteHrMasterRequestSchema),
+        HrMasterDeleteResult: schema(hrMasterDeleteResultSchema),
         HrJobGradeDirectory: schema(hrJobGradeDirectorySchema),
+        HrJobGradeCurrencyDirectory: schema(hrJobGradeCurrencyDirectorySchema),
+        HrRequisitionProjectDirectory: schema(hrRequisitionProjectDirectorySchema),
+        HrRequisitionWorkLocationDirectory: schema(hrRequisitionWorkLocationDirectorySchema),
+        HrCostCentreNominalDirectory: schema(hrCostCentreNominalDirectorySchema),
         CreateHrJobGradeRequest: schema(createHrJobGradeRequestSchema),
         UpdateHrJobGradeRequest: schema(updateHrJobGradeRequestSchema),
         HrEmployeeContactDirectory: schema(hrEmployeeContactDirectorySchema),
@@ -7519,6 +8285,18 @@ export function buildOpenApiDocument() {
         CreateHrEmployeeEmergencyContactRequest: schema(createHrEmployeeEmergencyContactRequestSchema),
         HrEmployeeEmergencyContactResult: schema(hrEmployeeEmergencyContactResultSchema),
         HrEmployeeDocumentDirectory: schema(hrEmployeeDocumentDirectorySchema),
+        HrEmployeeRecordMutationResult: schema(hrEmployeeRecordMutationResultSchema),
+        HrRecruitmentMutationResult: schema(hrRecruitmentMutationResultSchema),
+        DeleteHrRecruitmentRecordRequest: schema(deleteHrRecruitmentRecordRequestSchema),
+        ChangeHrManpowerRequisitionStateRequest: schema(changeHrManpowerRequisitionStateRequestSchema),
+        UpdateHrJobOpeningRequest: schema(updateHrJobOpeningRequestSchema),
+        UpdateHrCandidateRequest: schema(updateHrCandidateRequestSchema),
+        ChangeHrEmployeeStatusRequest: schema(changeHrEmployeeStatusRequestSchema),
+        RemoveHrEmployeeRecordRequest: schema(removeHrEmployeeRecordRequestSchema),
+        HrEmployeeEmploymentHistoryDirectory: schema(hrEmployeeEmploymentHistoryDirectorySchema),
+        HrEmployeeEmploymentHistoryRequest: schema(hrEmployeeEmploymentHistoryRequestSchema),
+        HrEmployeeNumberPreview: schema(hrEmployeeNumberPreviewSchema),
+        WithdrawHrEmployeeDraftRequest: schema(withdrawHrEmployeeDraftRequestSchema),
         HrEmployeeAssignmentDirectory: schema(hrEmployeeAssignmentDirectorySchema),
         HrEmployeeStatusHistoryDirectory: schema(hrEmployeeStatusHistoryDirectorySchema),
         HrEmployeeLifecycleEventDirectory: schema(hrEmployeeLifecycleEventDirectorySchema),
@@ -7532,6 +8310,11 @@ export function buildOpenApiDocument() {
         HrEmploymentLifecyclePolicyApprovalResult: schema(hrEmploymentLifecyclePolicyApprovalResultSchema),
         ActivateHrEmploymentLifecyclePolicyRequest: schema(activateHrEmploymentLifecyclePolicyRequestSchema),
         HrEmploymentLifecyclePolicyActivationResult: schema(hrEmploymentLifecyclePolicyActivationResultSchema),
+        UpdateHrEmploymentLifecyclePolicyRequest: schema(updateHrEmploymentLifecyclePolicyRequestSchema),
+        DeleteHrEmploymentLifecyclePolicyRequest: schema(deleteHrEmploymentLifecyclePolicyRequestSchema),
+        HrEmploymentLifecyclePolicyDeleteResult: schema(hrEmploymentLifecyclePolicyDeleteResultSchema),
+        DeactivateHrEmploymentLifecyclePolicyRequest: schema(deactivateHrEmploymentLifecyclePolicyRequestSchema),
+        HrEmploymentLifecyclePolicyDeactivationResult: schema(hrEmploymentLifecyclePolicyDeactivationResultSchema),
         CreateHrJobRequest: schema(createHrJobRequestSchema),
         HrJobResult: schema(hrJobResultSchema),
         CreateHrEmployeeHireRequest: schema(createHrEmployeeHireRequestSchema),

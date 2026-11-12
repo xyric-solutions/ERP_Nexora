@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { performanceScore } from "../../server/api/src/modules/hr/performance.js";
-import { hrPerformanceCommandSchema, hrPerformanceQuerySchema } from "../../packages/contracts/src/hr/index.js";
+import { HR_DEFAULT_REASON, hrPerformanceCommandSchema, hrPerformanceQuerySchema } from "../../packages/contracts/src/hr/index.js";
 describe("Exact bounded Performance ratings and strict commands", () => {
   it("weights integer basis points without monetary or Payroll effects", () =>
     expect(
@@ -58,13 +58,14 @@ describe("Exact bounded Performance ratings and strict commands", () => {
     reason: "Reviewed cycle activation",
   };
   it("accepts governed decisions", () => expect(hrPerformanceCommandSchema.safeParse(body).success).toBe(true));
+it("records the standard reason when the optional reason is blank", () => {    const parsed = hrPerformanceCommandSchema.parse({ ...body, reason: "   " });    expect(parsed.reason).toBe(HR_DEFAULT_REASON);  });
   it.each([
     { expected_version: 0 },
     { salary_increase: "100" },
     { confirm_override: true },
     { score: "5" },
     { employee_id: "foreign" },
-    { reason: "x" },
+    { reason: "x".repeat(501) },
     { action: "promote_employee" },
   ])("rejects hidden or unsafe inputs %j", (change) =>
     expect(hrPerformanceCommandSchema.safeParse({ ...body, ...change }).success).toBe(false),

@@ -100,7 +100,7 @@ run("Live interviews and evaluations", () => {
         job_title: "Pipeline integration vacancy",
         designation_id: "r06-uat-designation",
         job_grade_id: grade.id,
-        employment_type_id: "r06-uat-employment-type",
+        cost_center_id: "r06-uat-cost-center",
         branch_id: "nexora-r06-uat-branch",
         department_id: "nexora-r06-uat-department",
         positions_requested: 2,

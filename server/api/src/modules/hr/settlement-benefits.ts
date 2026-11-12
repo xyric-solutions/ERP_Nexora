@@ -62,7 +62,7 @@ async function snapshot(client: PoolClient, c: HrActorContext, company: string, 
   ).rows[0];
   const placement = (
     await client.query(
-      "select id,employee_category_id from employee_assignment where tenant_id=$1 and company_id=$2 and employee_id=$3 and employment_relationship_id=$4 and assignment_status='active' and effective_from<=$5::date and(effective_to is null or effective_to>=$5::date)",
+      "select id,employment_setup_id from employee_assignment where tenant_id=$1 and company_id=$2 and employee_id=$3 and employment_relationship_id=$4 and assignment_status='active' and effective_from<=$5::date and(effective_to is null or effective_to>=$5::date)",
       [c.tenantId, company, exit.employee_id, exit.relationship_id, date],
     )
   ).rows;

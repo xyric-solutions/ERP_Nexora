@@ -1,22 +1,23 @@
 "use client";
 import { WorkOffsetPagination } from "@/shared/ui/work-table";
-import { WorkForm, WorkFormLayout } from "@/shared/ui/work-form";
+import { WorkForm } from "@/shared/ui/work-form";
 
 import { payrollNavigationContext } from "../components/payroll-navigation";
 import { HrPayrollLocalizationSetup } from "./hr-payroll-localization-setup";
 import { HrPayrollOvertimeSetup } from "./hr-payroll-overtime-setup";
-import { useMemo, useRef, useState } from "react";
-import { Wallet, Plus, RefreshCw, ArrowRight, ShieldCheck, Layers3 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { SearchableSelect } from "@/shared/ui/searchable-select";
+import { Wallet, Plus, ArrowRight, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrDeleteButton } from "../components/hr-icon-buttons";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import {
   Field,
   State,
-  Metric,
   panel,
   selectClass,
   useAttendanceRead,
@@ -185,16 +186,28 @@ function RecordEditor({
     () => client.payrollOptions({ company_id: company, on_date: date, search }),
   );
   const options = available.data ?? (date === month && search === "" ? baseOptions : null);
+  // Typing in the Employee dropdown searches the server after a short pause.
+  const [typedEmployee, setTypedEmployee] = useState(search);
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(typedEmployee.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [typedEmployee, setSearch]);
   const change = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const automatic = (key: string) => key === "code" || key === "reference";
+  const preview =
+    options?.code_previews?.[section === "components" ? "component" : section === "structures" ? "structure" : "loan"];
+  // Currency on a salary revision comes from the chosen structure and cannot be typed.
+  const locked = (key: string) => automatic(key) || (section === "salaries" && key === "currency_code");
   const field = (key: string, title: string, type = "text", required = true) => (
-    <Field title={key === "code" || key === "reference" ? `${title} (automatic)` : title}>
+    <Field title={title}>
       <Input
-        className="box-border! w-full min-w-0! max-w-full! font-normal!"
+        className="box-border! w-full min-w-0! max-w-full! font-normal! read-only:bg-muted/40"
         type={type}
         inputMode={["amount", "principal"].includes(key) ? "decimal" : undefined}
-        value={key === "code" || key === "reference" ? "Assigned on save" : form[key]}
-        readOnly={key === "code" || key === "reference"}
-        required={required}
+        value={automatic(key) ? (preview ?? "") : form[key]}
+        readOnly={locked(key)}
+        aria-readonly={locked(key) || undefined}
+        required={required && !locked(key)}
         onChange={(e) => change(key, e.target.value)}
         maxLength={type === "text" ? 160 : undefined}
       />
@@ -219,17 +232,24 @@ function RecordEditor({
         position: Number(form.position),
       };
     else if (section === "structures")
+      // Every structure field is optional; rows without a component are left out and blank
+      // amounts or formulas fall back to the component's own terms on the server.
       input = {
         ...common,
         code: form.code,
         name: form.name,
         description: form.description,
-        currency_code: form.currency_code,
-        items: items.map((i) => ({
-          component_id: i.component_id,
-          amount: options?.components.find((c) => c.id === i.component_id)?.method === "fixed" ? i.amount : null,
-          formula: options?.components.find((c) => c.id === i.component_id)?.method === "formula" ? i.formula : null,
-        })),
+        currency_code: form.currency_code.trim().toUpperCase() || null,
+        items: items
+          .filter((i) => i.component_id)
+          .map((i) => {
+            const method = options?.components.find((c) => c.id === i.component_id)?.method;
+            return {
+              component_id: i.component_id,
+              amount: method === "fixed" && i.amount.trim() ? i.amount.trim() : null,
+              formula: method === "formula" && i.formula.trim() ? i.formula.trim() : null,
+            };
+          }),
       };
     else if (section === "salaries")
       input = {
@@ -270,25 +290,13 @@ function RecordEditor({
     if (await save(parsed.data, (key) => client.createPayrollRecord(parsed.data, csrf(), key))) onClose();
   }
   return (
-    <WorkFormLayout><section className={panel + " border-primary/30"} aria-label="New Payroll record">
-      <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-primary">New record</div>
-          <h2 className="mt-1 text-lg font-semibold">{name(kinds[section])}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Terms are preserved after saving. Use a successor record for revised terms.
-          </p>
-        </div>
-        <Button variant="outline" onClick={onClose} disabled={busy}>
-          Close editor
-        </Button>
-      </header>
+    <section className="grid min-w-0" aria-label="New Payroll record">
       <WorkForm className="grid gap-5" onSubmit={submit}>
         <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0! md:grid-cols-2">
           {["components", "structures"].includes(section) && (
             <>
               {field("code", "Code")}
-              {field("name", "Name")}
+              {field("name", "Name", "text", section !== "structures")}
             </>
           )}
           {section === "components" && (
@@ -345,22 +353,26 @@ function RecordEditor({
               />
             </>
           )}
-          {["structures", "salaries", "loans"].includes(section) && field("currency_code", "Currency (ISO code)")}
+          {["structures", "salaries", "loans"].includes(section) &&
+            field("currency_code", "Currency (ISO code)", "text", section !== "structures")}
           {["salaries", "adjustments", "loans"].includes(section) && (
             <>
-              <Field title="Find employee">
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Employee name or number"
+              <div className="grid min-w-0 content-start gap-2 text-sm font-medium">
+                <label htmlFor="hr-payroll-employee">Employee</label>
+                <SearchableSelect
+                  id="hr-payroll-employee"
+                  label="Employee"
+                  value={form.employee_id}
+                  placeholder="Choose employee"
+                  searchPlaceholder="Search by name or employee number…"
+                  loading={available.loading && !options}
+                  required
+                  search={typedEmployee}
+                  onSearchChange={setTypedEmployee}
+                  options={(options?.employees ?? []).map((e) => ({ value: e.id, label: e.label }))}
+                  onValueChange={(v) => change("employee_id", v)}
                 />
-              </Field>
-              <Pick
-                title="Employee"
-                value={form.employee_id}
-                change={(v) => change("employee_id", v)}
-                options={options?.employees ?? []}
-              />
+              </div>
             </>
           )}
           {section === "structures" && field("description", "Description", "text", false)}
@@ -443,6 +455,7 @@ function RecordEditor({
                 >
                   <Pick
                     title={"Component " + (index + 1)}
+                    required={false}
                     value={item.component_id}
                     change={(v) =>
                       setItems((s) => s.map((i, n) => (n === index ? { component_id: v, amount: "", formula: "" } : i)))
@@ -452,7 +465,6 @@ function RecordEditor({
                   <Field title={method === "formula" ? "Formula " + (index + 1) : "Amount " + (index + 1)}>
                     <Input
                       value={method === "formula" ? item.formula : item.amount}
-                      required
                       onChange={(e) =>
                         setItems((s) =>
                           s.map((i, n) =>
@@ -462,15 +474,13 @@ function RecordEditor({
                       }
                     />
                   </Field>
-                  <Button
-                    type="button"
+                  <HrDeleteButton
+                    label={`Remove component ${index + 1}`}
                     variant="outline"
                     className="self-end"
                     disabled={items.length === 1}
                     onClick={() => setItems((s) => s.filter((_, n) => n !== index))}
-                  >
-                    Remove
-                  </Button>
+                  />
                 </div>
               );
             })}
@@ -487,8 +497,6 @@ function RecordEditor({
         )}
         <Field title="Reason">
           <Textarea
-            required
-            minLength={5}
             maxLength={500}
             value={form.reason}
             disabled={busy}
@@ -503,20 +511,13 @@ function RecordEditor({
             records.
           </p>
         )}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">
-            {section === "components" || section === "structures"
-              ? "Configuration is saved with immutable terms."
-              : "Creates a draft. Submission and independent approval follow separately."}
-          </p>
+        <div className="flex justify-end">
           <Button className="text-primary-foreground!" type="submit" disabled={busy || !options}>
-            {busy
-              ? "Saving…"
-              : "Save " + (section === "components" || section === "structures" ? "configuration" : "draft")}
+            {busy ? "Saving…" : "Save"}
           </Button>
         </div>
       </WorkForm>
-    </section></WorkFormLayout>
+    </section>
   );
 }
 function RecordDetail({
@@ -602,9 +603,6 @@ function RecordDetail({
             <State value={record.status} />
           </div>
         </div>
-        <Button variant="outline" onClick={close} disabled={busy}>
-          Close details
-        </Button>
       </header>
       <dl className="mt-5 grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Object.entries(record.details)
@@ -711,8 +709,6 @@ function RecordDetail({
               <Textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                required
-                minLength={5}
                 maxLength={500}
                 disabled={busy}
               />
@@ -720,12 +716,6 @@ function RecordDetail({
           </div>
           {chosen === "confirm_disbursement" && (
             <div className="grid min-w-0 grid-cols-1 gap-4 rounded-lg border border-border bg-muted/30 p-4 md:grid-cols-2">
-              <p className="min-w-0 text-sm text-muted-foreground md:col-span-2">
-                Verify the actual transfer independently. The posted Bank Payment line must debit the employee-loan
-                receivable asset account, use this loan reference as its external reference and the employee ID as its
-                document reference. Amount and currency must match the principal. This action links evidence and enables
-                recovery.
-              </p>
               {(record.disbursement_options?.length ?? 0) > 0 && (
                 <Pick
                   title="Matching posted Bank Payment"
@@ -776,7 +766,6 @@ function RecordDetail({
                   value={bankReference}
                   onChange={(e) => setBankReference(e.target.value)}
                   required
-                  minLength={3}
                   maxLength={128}
                   disabled={busy}
                 />
@@ -813,9 +802,6 @@ function RecordDetail({
                 ? "Record disbursement confirmation"
                 : "Confirm " + name(chosen)}
           </Button>
-          <p className="text-xs text-muted-foreground">
-            This decision uses the version and evidence shown above. Refreshing the list does not replace this review.
-          </p>
         </WorkForm>
       )}
     </section>
@@ -837,7 +823,7 @@ export function HrPayrollWorkspace({
     [section, , group] = payrollPages[page],
     permissions = session?.user.permissions ?? [],
     canRead = permissions.includes("hr.payroll." + group + ".read");
-  const [choice, setCompany] = useState(initial?.company_id ?? ""),
+  const [choice] = useState(initial?.company_id ?? ""),
     [month, setMonth] = useState(initial?.month ?? localDate().slice(0, 7) + "-01"),
     [search, setSearch] = useState(""),
     [employeeSearch, setEmployeeSearch] = useState(""),
@@ -889,43 +875,8 @@ export function HrPayrollWorkspace({
       aria-label="Payroll workspace"
       className="grid min-w-0 gap-5 font-sans [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_select]:font-normal! [&_textarea]:font-normal! [&_input]:font-normal!"
     >
-      <nav className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5" aria-label="Payroll navigation">
-        {Object.entries(payrollPages).map(([id, [, title, g]]) => (
-          <Button
-            key={id}
-            variant="outline"
-            className={
-              "h-auto min-h-11 min-w-0 justify-start whitespace-normal px-3 py-2 text-left text-xs " +
-              (id === page ? "border-primary bg-primary/10 text-primary!" : "")
-            }
-            disabled={editing || busy || !permissions.includes("hr.payroll." + g + ".read")}
-            onClick={() => onNavigate("hr", id)}
-          >
-            <Wallet className="h-3.5 w-3.5 shrink-0" />
-            {title}
-          </Button>
-        ))}
-      </nav>
       <section className={panel}>
-        <div className="grid min-w-0 items-end gap-4 md:grid-cols-2 xl:grid-cols-[1.5fr_1fr_1.5fr_auto]">
-          <Field title="Company">
-            <select
-              className={selectClass}
-              value={company}
-              disabled={editing || !!selected || busy}
-              onChange={(e) => {
-                setCompany(e.target.value);
-                setOffset(0);
-              }}
-            >
-              <option value="">Select company</option>
-              {companies.data?.items.map((c) => (
-                <option value={c.id} key={c.id}>
-                  {c.name} ({c.code})
-                </option>
-              ))}
-            </select>
-          </Field>
+        <div className="grid min-w-0 items-end gap-4 md:grid-cols-[minmax(9.5rem,11rem)_minmax(0,1fr)_auto]">
           <Field title="Payroll month">
             <Input
               type="month"
@@ -951,29 +902,20 @@ export function HrPayrollWorkspace({
               maxLength={120}
             />
           </Field>
-          <Button variant="outline" disabled={busy || records.loading} onClick={() => setRevision((v) => v + 1)}>
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </Button>
+          {section in kinds && permissions.includes("hr.payroll." + group + ".manage") && (
+            <Button
+              className="w-full text-primary-foreground! md:w-auto"
+              disabled={editing || busy || !company || !!selected}
+              onClick={() => setEditing(true)}
+            >
+              <Plus className="h-4 w-4" />
+              {section === "components" ? "New pay component" : `New ${name(kinds[section as keyof typeof kinds])}`}
+            </Button>
+          )}
         </div>
       </section>
-      {section === "components" && company && (
-        <details className={panel}>
-          <summary className="cursor-pointer font-semibold">
-            Monetary overtime policies &amp; employee arrangements
-          </summary>
-          <div className="mt-5">
-            <HrPayrollOvertimeSetup key={company} company={company} onDate={month} />
-          </div>
-        </details>
-      )}
-      {section === "components" && company && (
-        <details className={panel}>
-          <summary className="cursor-pointer font-semibold">Statutory company &amp; employee setup</summary>
-          <div className="mt-5">
-            <HrPayrollLocalizationSetup key={company} company={company} onDate={month} />
-          </div>
-        </details>
+      {companies.data && !companies.data.items.length && (
+        <div className={panel}>No authorized company is available.</div>
       )}
       <Message error={companies.error || records.error || options.error || error} />
       {notice && (
@@ -984,59 +926,9 @@ export function HrPayrollWorkspace({
           {notice}
         </div>
       )}
-      {records.data?.notices.map((text, i) => (
-        <p
-          key={i}
-          className="rounded-lg border border-border bg-muted/40 p-3 text-sm leading-relaxed text-muted-foreground"
-        >
-          {text}
-        </p>
-      ))}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Metric title="Matching records" value={records.data?.total ?? "—"} hint="Authorized company records" />
-        <Metric
-          title="Current view"
-          value={payrollPages[page][1]}
-          hint={section in kinds ? "Connected configuration and workflow" : "Connected records · execution pending"}
-        />
-        <Metric
-          title="Payroll period"
-          value={month.slice(0, 7)}
-          hint="Attendance, salary and Finance share the same period"
-        />
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <Layers3 className="h-5 w-5 text-primary" />
-          {payrollPages[page][1]}
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {section === "adjustments" && (
-            <Button
-              variant="outline"
-              disabled={editing || busy}
-              onClick={() => onNavigate("hr", "attendance-payroll-inputs")}
-            >
-              Locked attendance inputs
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          )}
-          {section in kinds && permissions.includes("hr.payroll." + group + ".manage") && (
-            <Button
-              className="text-primary-foreground!"
-              disabled={editing || busy || !company || !!selected}
-              onClick={() => setEditing(true)}
-            >
-              <Plus className="h-4 w-4" />
-              New {name(kinds[section as keyof typeof kinds])}
-            </Button>
-          )}
-        </div>
-      </div>
       {editing ? (
         <HrRecordDrawer
-          title={`New ${name(kinds[section as keyof typeof kinds])}`}
-          description="Create the governed Payroll record without leaving the current register."
+          title={section === "components" ? "New pay component" : `New ${name(kinds[section as keyof typeof kinds])}`}
           open
           busy={busy}
           error={error}
@@ -1148,6 +1040,19 @@ export function HrPayrollWorkspace({
       )}
       {records.data && (
         <WorkOffsetPagination busy={!!(busy || records.loading)} total={records.data.total} offset={offset} size={workPageSize} previousDisabled={!!(offset === 0 || busy || records.loading)} nextDisabled={!!(offset + workPageSize >= records.data.total || busy || records.loading)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
+      )}
+      {section === "components" && company && (
+        <section className={panel} aria-label="Overtime pay">
+          <HrPayrollOvertimeSetup key={company} company={company} onDate={month} />
+        </section>
+      )}
+      {section === "components" && company && (
+        <details className={panel}>
+          <summary className="cursor-pointer font-semibold">Statutory company &amp; employee setup</summary>
+          <div className="mt-5">
+            <HrPayrollLocalizationSetup key={company} company={company} onDate={month} />
+          </div>
+        </details>
       )}
     </div>
   );

@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { HrLandingPage } from "../components/hr-landing";
+import { peopleLandingSummaries } from "../model/hr-landing-summaries";
+
+import type { ReactNode } from "react";
+import { HrSectionHeader } from "../components/hr-section-header";
 import { peopleGroups, peoplePages } from "../model/people-navigation";
+
+/** Landing cards are the People entry points; inner tabs use each group's pages. */
+const peopleLandingGroups = peopleGroups.map((group) => ({ ...group, pages: group.cards }));
 
 export function HrPeopleWorkspace({
   pageId,
@@ -17,11 +21,16 @@ export function HrPeopleWorkspace({
   onNavigate: (moduleId: string, pageId: string, recordRef?: string) => void;
   children?: ReactNode;
 }) {
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("all");
   const active = peoplePages.find((page) => page.id === pageId);
-  const dashboardHasHeading = pageId === "hr-dashboard" || pageId === "finance-payroll-dashboard";
   const currentGroup = peopleGroups.find((group) => group.pages.some((page) => page.id === pageId));
+  // Groups with `tabs` show only those pages as tabs; `tools` become header actions.
+  const groupTabs: readonly string[] | undefined =
+    currentGroup && "tabs" in currentGroup ? currentGroup.tabs : undefined;
+  const groupTools: readonly string[] = currentGroup && "tools" in currentGroup ? currentGroup.tools : [];
+  const sectionTabs = (currentGroup?.pages ?? []).filter((page) =>
+    groupTabs ? groupTabs.includes(page.id) : page.id !== "employee-record" || employeeId,
+  );
+  const groupToolsTab = currentGroup && "toolsTab" in currentGroup ? currentGroup.toolsTab : undefined;
   const go = (target: string) =>
     onNavigate(
       "hr",
@@ -30,132 +39,36 @@ export function HrPeopleWorkspace({
         ? employeeId
         : undefined,
     );
-  const filtered = peopleGroups
-    .filter((group) => category === "all" || group.id === category)
-    .map((group) => ({
-      ...group,
-        cards: group.cards.filter((card) =>
-          `${group.label} ${card.label} ${card.description}`.toLowerCase().includes(search.trim().toLowerCase()),
-      ),
-    }))
-    .filter((group) => group.cards.length);
 
   return (
     <section aria-label="People workspace" className="min-w-0">
-      <div
-        className={`mb-3 flex flex-wrap items-center gap-2 ${dashboardHasHeading ? "justify-end" : "justify-between"}`}
-      >
-        {!dashboardHasHeading ? (
-          <h1 className="m-0! text-2xl font-bold tracking-tight">{active?.label ?? "People"}</h1>
-        ) : null}
-        <div className="flex flex-wrap gap-2">
-          {pageId === "employees" ? <Button onClick={() => go("add-employee")}>+ Add Employee</Button> : null}
-          {active ? (
-            <Button variant="ghost" onClick={() => go("people-workspace")}>
-              <ArrowLeft />
-              All people
-            </Button>
-          ) : null}
-        </div>
-      </div>
       {active && currentGroup ? (
         <>
-          <nav aria-label="People sections" className="mb-2 flex flex-wrap gap-1">
-            {peopleGroups.map((group) => (
-              <Button
-                key={group.id}
-                variant={currentGroup.id === group.id ? "secondary" : "ghost"}
-                onClick={() => go(group.pages[0].id)}
-                aria-current={currentGroup.id === group.id ? "true" : undefined}
-              >
-                {group.label}
-              </Button>
-            ))}
-          </nav>
-          <nav aria-label="People pages" className="mb-4 flex gap-2 overflow-x-auto border-b border-border pb-2">
-            {currentGroup.pages
-              .filter((page) => page.id !== "employee-record" || employeeId)
-              .map((page) => (
-                <Button
-                  key={page.id}
-                  variant={page.id === pageId ? "default" : "outline"}
-                  aria-current={page.id === pageId ? "page" : undefined}
-                  onClick={() => go(page.id)}
-                >
-                  {page.label}
-                </Button>
-              ))}
-          </nav>
+          <HrSectionHeader
+            title={currentGroup.label}
+            backLabel="Back to all people"
+            onBack={() => go("people-workspace")}
+            pages={sectionTabs}
+            activeId={
+              sectionTabs.some((page) => page.id === pageId)
+                ? pageId
+                : groupTools.includes(pageId) && groupToolsTab
+                  ? groupToolsTab
+                  : (sectionTabs[0]?.id ?? pageId)
+            }
+            onSelect={go}
+            navLabel={`${currentGroup.label} pages`}
+          />
           {children}
         </>
       ) : (
-        <>
-          <div className="mb-5 grid gap-3 rounded-lg border border-border bg-card p-3 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
-              <Input
-                className="h-9 pl-10"
-                aria-label="Find a People page"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Find employee records, drafts, approvals…"
-              />
-            </div>
-            <div className="flex flex-wrap gap-1" aria-label="Filter People groups">
-              {[{ id: "all", label: "All people" }, ...peopleGroups].map((group) => (
-                <Button
-                  key={group.id}
-                  variant={category === group.id ? "default" : "ghost"}
-                  aria-pressed={category === group.id}
-                  onClick={() => setCategory(group.id)}
-                >
-                  {group.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-6">
-            {filtered.map((group) => (
-              <section key={group.id} aria-label={group.label}>
-                <div className="mb-3">
-                  <h2 className="m-0! text-lg font-semibold">{group.label}</h2>
-                  <p className="mb-0! mt-1! text-sm text-muted-foreground">{group.description}</p>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {group.cards.map((card) => (
-                    <button
-                      type="button"
-                      key={card.id}
-                      onClick={() => go(card.id)}
-                      className="group flex flex-col rounded-xl border border-border bg-card p-4 text-left text-foreground shadow-sm transition-colors hover:border-primary/50 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <card.icon className="mb-3 size-6 text-primary" />
-                      <span className="font-semibold group-hover:text-primary">{card.label}</span>
-                      <span className="mt-1 flex-1 text-sm leading-relaxed text-muted-foreground">
-                        {card.description}
-                      </span>
-                      <ArrowRight className="mt-4 size-4 self-end text-primary" />
-                    </button>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-          {!filtered.length ? (
-            <div className="rounded-lg border border-dashed border-border p-6 text-center">
-              <p>No People pages match your search.</p>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSearch("");
-                  setCategory("all");
-                }}
-              >
-                Clear filters
-              </Button>
-            </div>
-          ) : null}
-        </>
+        <HrLandingPage
+          title="People"
+          idPrefix="people-hub"
+          groups={peopleLandingGroups}
+          loaders={peopleLandingSummaries}
+          onOpen={go}
+        />
       )}
     </section>
   );

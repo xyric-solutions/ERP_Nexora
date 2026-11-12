@@ -1,11 +1,9 @@
 "use client";
-import { WorkOffsetPagination } from "@/shared/ui/work-table";
-import { WorkTable } from "@/shared/ui/work-table";
+import { WorkOffsetPagination, WorkTable } from "@/shared/ui/work-table";
 import { WorkForm } from "@/shared/ui/work-form";
 
-import Link from "next/link";
 import { useRef, useState } from "react";
-import { Download, Printer, RefreshCw, FileText, ArrowRight } from "lucide-react";
+import { Download, Printer, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,16 +11,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useSession } from "@/lib/session/session-provider";
 import { hrPayslipReleaseSchema, type HrPayslipWorkspace, type HrPayslipDetail } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
-import {
-  Field,
-  Metric,
-  State,
-  panel,
-  selectClass,
-  useAttendanceRead,
-  localDate,
-} from "../components/hr-workspace-controls";
+import { Field, State, panel, selectClass, useAttendanceRead, localDate } from "../components/hr-workspace-controls";
+import { HrClickableRow } from "../components/hr-clickable-row";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { payslipHtml } from "../components/payslip-print";
+
+const tableWrap = "relative overflow-x-auto rounded-lg border border-border bg-card shadow-sm";
+const tableClass = "w-full border-collapse text-left text-sm";
+const theadClass =
+  "border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground";
+const th = "whitespace-nowrap px-4 py-3";
+const td = "px-4 py-3";
+const releaseFormId = "payslip-release-form";
+
 export function HrPayslipsWorkspace({
   onNavigate,
 }: {
@@ -32,10 +33,8 @@ export function HrPayslipsWorkspace({
   const { api, session, csrfToken, loading } = useSession(),
     client = new HrApiClient(api),
     canRead = ["hr.payroll.payslip.read", "hr.payroll.result.read"].every((p) => session?.user.permissions.includes(p));
-  const [choice, setChoice] = useState(""),
-    [month, setMonth] = useState(localDate().slice(0, 7)),
+  const [month, setMonth] = useState(localDate().slice(0, 7)),
     [search, setSearch] = useState(""),
-    [filter, setFilter] = useState(""),
     [state, setState] = useState<"all" | "pending" | "released">("all"),
     [offset, setOffset] = useState(0),
     [revision, setRevision] = useState(0),
@@ -49,8 +48,8 @@ export function HrPayslipsWorkspace({
   const guard = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null);
   const companies = useAttendanceRead(canRead ? "payslip-companies" : null, () => client.companies()),
-    company = companies.data?.items.some((c) => c.id === choice) ? choice : (companies.data?.items[0]?.id ?? "");
-  const query = { company_id: company, month: month + "-01", search: filter, state, limit: workPageSize, offset };
+    company = companies.data?.items[0]?.id ?? "";
+  const query = { company_id: company, month: month + "-01", search, state, limit: workPageSize, offset };
   const data = useAttendanceRead(canRead && company ? JSON.stringify([query, revision]) : null, () =>
     client.payslipWorkspace(query),
   );
@@ -61,7 +60,8 @@ export function HrPayslipsWorkspace({
   const w = data.data,
     shown = new Set(w?.items.filter((i) => i.can_release).map((i) => i.result_id) ?? []),
     selection = selected.filter((id) => shown.has(id)),
-    d = detail.data;
+    d = detail.data,
+    locked = !!review || busy;
   function reset() {
     setSelected([]);
     setOpened("");
@@ -137,55 +137,16 @@ export function HrPayslipsWorkspace({
     return (
       <section className={panel}>Company-scoped Payslip and Payroll result read permissions are required.</section>
     );
+  const pageError = error || companies.error || data.error || detail.error;
   return (
-    <div className="min-w-0 space-y-5" data-payslips-workspace>
-      <p className="rounded-lg border border-border bg-muted p-3 text-sm text-muted-foreground">
-        Published payslips retain the original approved run. Posted settlement supplements are separate correction
-        statements in{" "}
-        <Link className="font-medium underline underline-offset-4" href="/#/hr/final-settlements">
-          Final Settlements
-        </Link>
-        ; they do not rewrite a published payslip or confirm payment.
-      </p>
-      <section className={panel + " space-y-4"}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="flex items-center gap-2 text-xl font-semibold">
-              <FileText className="size-5" />
-              Payslip publication
-            </h2>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Review posted salary calculations, release selected employees and open the frozen published payslip.
-              Publication does not confirm payment.
-            </p>
-          </div>
-          <Button variant="outline" onClick={() => onNavigate("hr", "payroll-journal")}>
-            Payroll Journal
-            <ArrowRight className="size-4" />
-          </Button>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field title="Company">
-            <select
-              className={selectClass}
-              disabled={!!review || busy}
-              value={company}
-              onChange={(e) => {
-                setChoice(e.target.value);
-                reset();
-              }}
-            >
-              {companies.data?.items.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.code})
-                </option>
-              ))}
-            </select>
-          </Field>
+    <div className="grid min-w-0 gap-4" data-payslips-workspace>
+      <section className={panel} aria-label="Payslip filters">
+        <div className="grid min-w-0 items-end gap-4 md:grid-cols-[1fr_1.5fr_1fr]">
           <Field title="Payroll month">
             <Input
               type="month"
-              disabled={!!review || busy}
+              className="box-border! min-w-0! max-w-full!"
+              disabled={locked}
               value={month}
               onChange={(e) => {
                 if (e.target.value) setMonth(e.target.value);
@@ -193,29 +154,23 @@ export function HrPayslipsWorkspace({
               }}
             />
           </Field>
-        </div>
-        <WorkForm
-          className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,180px)_auto_auto]"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setFilter(search);
-            reset();
-          }}
-        >
-          <Field title="Search employee">
+          <Field title="Search records">
             <Input
               value={search}
               maxLength={120}
-              disabled={!!review || busy}
+              disabled={locked}
               placeholder="Name or employee number"
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                reset();
+              }}
             />
           </Field>
           <Field title="Publication status">
             <select
               className={selectClass}
               value={state}
-              disabled={!!review || busy}
+              disabled={locked}
               onChange={(e) => {
                 setState(e.target.value as typeof state);
                 reset();
@@ -226,313 +181,366 @@ export function HrPayslipsWorkspace({
               <option value="released">Released</option>
             </select>
           </Field>
-          <Button className="self-end" type="submit" variant="outline" disabled={!!review || busy}>
-            Search
-          </Button>
-          <Button
-            className="self-end"
-            type="button"
-            variant="outline"
-            disabled={!!review || busy}
-            onClick={() => {
-              setRevision((v) => v + 1);
-              reset();
-            }}
-          >
-            <RefreshCw className="size-4" />
-            Refresh
-          </Button>
-        </WorkForm>
+        </div>
       </section>
-      {(error || companies.error || data.error || detail.error) && (
+      {companies.data && !companies.data.items.length && (
+        <div className={panel}>No authorized company is available.</div>
+      )}
+      {pageError && !review && !opened && (
         <div role="alert" className={panel + " border-destructive text-destructive"}>
-          {error || companies.error || data.error || detail.error}
+          {pageError}
         </div>
       )}
       {notice && (
-        <p role="status" className={panel}>
+        <p
+          role="status"
+          className="rounded-lg border border-[var(--nx-success-border)] bg-[var(--nx-success-soft)] p-3 text-sm text-[var(--nx-success-text)]"
+        >
           {notice}
         </p>
       )}
-      {data.loading && <p role="status">Loading posted Payroll results…</p>}
+      {data.loading && !w && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Loading posted Payroll results…
+        </p>
+      )}
       {w && (
         <>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Metric
-              title="Posted results"
-              value={w.counts.results}
-              hint={"Payroll " + (w.period?.state ?? "not posted")}
-            />
-            <Metric title="Released" value={w.counts.released} hint="Frozen publication evidence" />
-            <Metric title="Pending release" value={w.counts.pending} hint="Independent review required" />
-          </div>
           {w.blocked.length > 0 && (
-            <section className={panel + " border-[var(--nx-warning)]"}>
-              <h3 className="font-semibold">Publication checks</h3>
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+            <div
+              role="note"
+              className="rounded-lg border border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] p-3 text-sm"
+            >
+              <p className="font-semibold">Publication checks</p>
+              <ul className="mt-1 list-disc space-y-1 pl-5">
                 {w.blocked.map((t) => (
                   <li key={t}>{t}</li>
                 ))}
               </ul>
-            </section>
-          )}
-          <section className={panel + " space-y-3"}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-base font-semibold">Employee payslips</h3>
-              {w.can_release && (
-                <Button
-                  className="text-primary-foreground!"
-                  disabled={!selection.length || !!review || busy}
-                  onClick={() => {
-                    setSelected(selection);
-                    setReview(w);
-                    setReason("");
-                    setError("");
-                  }}
-                >
-                  Release selected ({selection.length})
-                </Button>
-              )}
             </div>
-            {!w.items.length ? (
-              <p className="py-4 text-sm text-muted-foreground">
-                No posted payslips match this company, month and filter.
-              </p>
-            ) : (
-              <div
-                className="max-w-full overflow-x-auto"
-                role="region"
-                aria-label="Payslip table; scroll horizontally for all columns"
+          )}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => onNavigate("hr", "payroll-journal")}>
+              Payroll Journal
+              <ArrowRight className="size-4" />
+            </Button>
+            {w.can_release && (
+              <Button
+                size="sm"
+                className="text-primary-foreground!"
+                disabled={!selection.length || locked}
+                onClick={() => {
+                  setSelected(selection);
+                  setReview(w);
+                  setReason("");
+                  setError("");
+                }}
               >
-                <WorkTable paging={false} tableId="app/features/hr/views/hr-payslips-workspace:1" className="w-full min-w-[780px] text-left text-sm">
-                  <caption className="sr-only">Posted employee salary results and publication status</caption>
-                  <thead className="border-b text-muted-foreground">
-                    <tr>
-                      <th className="px-3 py-3" scope="col">
-                        <Checkbox
-                          aria-label="Select eligible payslips on this page"
-                          disabled={!!review || !shown.size}
-                          checked={shown.size > 0 && selection.length === shown.size}
-                          onCheckedChange={(v) => setSelected(v ? Array.from(shown) : [])}
-                        />
-                      </th>
-                      {["Employee", "Gross", "Deductions", "Net pay", "Publication", "Action"].map((t) => (
-                        <th key={t} className="px-3 py-3 font-medium" scope="col">
-                          {t}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {w.items.map((i) => (
-                      <tr key={i.result_id} className="border-b last:border-0">
-                        <td className="px-3 py-4">
-                          <Checkbox
-                            aria-label={"Select " + i.employee_number}
-                            disabled={!i.can_release || !!review}
-                            checked={selection.includes(i.result_id)}
-                            onCheckedChange={(v) =>
-                              setSelected((ids) =>
-                                v ? [...new Set([...ids, i.result_id])] : ids.filter((id) => id !== i.result_id),
-                              )
-                            }
-                          />
-                        </td>
-                        <td className="px-3 py-4">
-                          <p className="font-medium">{i.employee_name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {i.employee_number} · {i.currency_code}
-                          </p>
-                        </td>
-                        <td className="px-3 py-4 tabular-nums">{i.gross}</td>
-                        <td className="px-3 py-4 tabular-nums">{i.deductions}</td>
-                        <td className="px-3 py-4 font-semibold tabular-nums">{i.net}</td>
-                        <td className="px-3 py-4">
-                          <State value={i.state} />
-                        </td>
-                        <td className="px-3 py-4">
-                          <Button size="sm" variant="outline" onClick={() => setOpened(i.result_id)}>
-                            {i.state === "released" ? "Open" : "Preview"}
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </WorkTable>
-              </div>
-            )}
-            <WorkOffsetPagination busy={!!(review)} total={w.total} offset={offset} size={workPageSize} previousDisabled={!!(offset === 0 || !!review)} nextDisabled={!!(offset + workPageSize >= w.total || !!review)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => {
-                    setOffset((v) => Math.max(0, v - workPageSize));
-                    setSelected([]);
-                  }} onNext={() => {
-                    setOffset((v) => v + workPageSize);
-                    setSelected([]);
-                  }} />
-          </section>
-          {review && (
-            <WorkForm className={panel + " space-y-4"} onSubmit={release} aria-label="Release payslips review">
-              <h3 className="text-lg font-semibold">Confirm payslip publication</h3>
-              <p className="text-sm">
-                Release {selected.length} employee payslip(s) for {review.month.slice(0, 7)}. Names, company labels,
-                result lines and accounting references will be frozen.
-              </p>
-              <ul className="list-disc space-y-1 pl-5 text-sm">
-                {review.items
-                  .filter((i) => selected.includes(i.result_id))
-                  .map((i) => (
-                    <li key={i.result_id}>
-                      {i.employee_name} ({i.employee_number}) · net {i.net} {i.currency_code}
-                    </li>
-                  ))}
-              </ul>
-              <Field title="Publication reason">
-                <Textarea
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  required
-                  minLength={5}
-                  maxLength={500}
-                  disabled={busy}
-                />
-              </Field>
-              <p className="text-sm text-muted-foreground">
-                Published documents are immutable. This action does not send email, transfer money or change Payroll
-                payment status.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button type="submit" disabled={busy} className="text-primary-foreground!">
-                  {busy ? "Publishing…" : "Confirm release"}
-                </Button>
-                <Button type="button" variant="outline" disabled={busy} onClick={() => setReview(null)}>
-                  Cancel review
-                </Button>
-              </div>
-            </WorkForm>
-          )}
-        </>
-      )}
-      {detail.loading && <p role="status">Opening payslip…</p>}
-      {d && (
-        <section className={panel + " space-y-4"} aria-label="Employee payslip document">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold">{d.document.employee.name}</h3>
-              <p className="text-sm text-muted-foreground">
-                {d.document.employee.number} · {d.document.period.month.slice(0, 7)} · {d.document.result.currency}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {d.release && (
-                <>
-                  <Button variant="outline" onClick={() => output(d)}>
-                    <Download className="size-4" />
-                    Download payslip
-                  </Button>
-                  <Button variant="outline" onClick={() => output(d, true)}>
-                    <Printer className="size-4" />
-                    Print
-                  </Button>
-                </>
-              )}
-              <Button variant="outline" onClick={() => setOpened("")}>
-                Close document
+                Release selected ({selection.length})
               </Button>
-            </div>
+            )}
           </div>
-          <State value={d.release ? "released" : "preview"} />
-          <p className="text-sm text-muted-foreground">
-            {d.document.company.name} · Payroll run {d.document.period.run_number}.{" "}
-            {d.release?.workflow_managed
-              ? "Published labels and amounts are frozen."
-              : d.release
-                ? "Historical release; labels are current."
-                : "Preview only; labels freeze on release."}
-          </p>
-          <div className="max-w-full overflow-x-auto">
-            <WorkTable paging={false} tableId="app/features/hr/views/hr-payslips-workspace:2" className="w-full min-w-[430px] text-left text-sm">
-              <caption className="sr-only">Payslip component breakdown</caption>
-              <thead className="border-b text-muted-foreground">
+          <div className={tableWrap} role="region" aria-label="Employee payslips">
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-payslips-workspace:1" className={tableClass + " min-w-[760px]"}>
+              <caption className="sr-only">Posted employee salary results and publication status</caption>
+              <thead className={theadClass}>
                 <tr>
-                  <th scope="col" className="p-3">
-                    Component
+                  <th className={th + " w-10"} scope="col">
+                    <Checkbox
+                      aria-label="Select eligible payslips on this page"
+                      disabled={!!review || !shown.size}
+                      checked={shown.size > 0 && selection.length === shown.size}
+                      onCheckedChange={(v) => setSelected(v ? Array.from(shown) : [])}
+                    />
                   </th>
-                  <th scope="col" className="p-3">
-                    Type
+                  <th className={th} scope="col">
+                    Employee
                   </th>
-                  <th scope="col" className="p-3 text-right">
-                    Amount
+                  <th className={th} scope="col">
+                    Employee No.
+                  </th>
+                  <th className={th + " text-right"} scope="col">
+                    Gross
+                  </th>
+                  <th className={th + " text-right"} scope="col">
+                    Deductions
+                  </th>
+                  <th className={th + " text-right"} scope="col">
+                    Net pay
+                  </th>
+                  <th className={th} scope="col">
+                    Publication
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {d.document.lines.map((l) => (
-                  <tr key={l.position} className="border-b">
-                    <td className="p-3">
-                      {l.name} <span className="text-xs text-muted-foreground">({l.code})</span>
+                {!w.items.length ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                      No posted payslips match this company, month and filter.
                     </td>
-                    <td className="p-3">{l.kind.replaceAll("_", " ")}</td>
-                    <td className="p-3 text-right tabular-nums">{l.amount}</td>
                   </tr>
-                ))}
+                ) : (
+                  w.items.map((i) => (
+                    <HrClickableRow key={i.result_id} disabled={!!review} onOpen={() => setOpened(i.result_id)}>
+                      <td className={td} onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          aria-label={"Select " + i.employee_number}
+                          disabled={!i.can_release || !!review}
+                          checked={selection.includes(i.result_id)}
+                          onCheckedChange={(v) =>
+                            setSelected((ids) =>
+                              v ? [...new Set([...ids, i.result_id])] : ids.filter((id) => id !== i.result_id),
+                            )
+                          }
+                        />
+                      </td>
+                      <td className={td + " font-medium"}>{i.employee_name}</td>
+                      <td className={td + " whitespace-nowrap text-muted-foreground"}>{i.employee_number}</td>
+                      <td className={td + " text-right tabular-nums"}>{i.gross}</td>
+                      <td className={td + " text-right tabular-nums"}>{i.deductions}</td>
+                      <td className={td + " whitespace-nowrap text-right font-semibold tabular-nums"}>
+                        {i.net} <span className="text-xs font-normal text-muted-foreground">{i.currency_code}</span>
+                      </td>
+                      <td className={td}>
+                        <State value={i.state} />
+                      </td>
+                    </HrClickableRow>
+                  ))
+                )}
               </tbody>
             </WorkTable>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Metric title="Net pay" value={d.document.result.net} hint={d.document.result.currency} />
-            <Metric
-              title="Employer contributions"
-              value={d.document.result.employer_contributions}
-              hint="Outside employee net pay"
-            />
+          <WorkOffsetPagination
+            busy={!!review}
+            total={w.total}
+            offset={offset}
+            size={workPageSize}
+            previousDisabled={offset === 0 || !!review}
+            nextDisabled={offset + workPageSize >= w.total || !!review}
+            onSizeChange={(size) => {
+              setWorkPageSize(size);
+              setOffset(0);
+              setSelected([]);
+            }}
+            onPrevious={() => {
+              setOffset((v) => Math.max(0, v - workPageSize));
+              setSelected([]);
+            }}
+            onNext={() => {
+              setOffset((v) => v + workPageSize);
+              setSelected([]);
+            }}
+          />
+          <div className={tableWrap} role="region" aria-label="Publication history">
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-payslips-workspace:2" className={tableClass}>
+              <caption className="sr-only">Publication history for this period</caption>
+              <thead className={theadClass}>
+                <tr>
+                  <th className={th} scope="col">
+                    Action
+                  </th>
+                  <th className={th} scope="col">
+                    Actor
+                  </th>
+                  <th className={th} scope="col">
+                    Reason
+                  </th>
+                  <th className={th} scope="col">
+                    Occurred
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {!w.history.length ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">
+                      No publication actions for this period.
+                    </td>
+                  </tr>
+                ) : (
+                  w.history.map((h, i) => (
+                    <tr key={h.occurred_at + i} className="border-b border-border/70 last:border-0">
+                      <td className={td + " font-medium"}>{h.action}</td>
+                      <td className={td + " break-all"}>{h.actor_id}</td>
+                      <td className={td + " break-words"}>{h.reason}</td>
+                      <td className={td + " whitespace-nowrap"}>{new Date(h.occurred_at).toLocaleString()}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </WorkTable>
           </div>
-          <p className="text-sm">
-            This payslip records Payroll calculation and publication. It does not confirm a bank transfer or payment.
+        </>
+      )}
+      <HrRecordDrawer
+        open={!!review}
+        onClose={() => setReview(null)}
+        busy={busy}
+        title="Confirm payslip publication"
+        description="Release the selected employee payslips; names, labels, result lines and accounting references are frozen."
+        error={review ? error : undefined}
+        footer={
+          <Button type="submit" form={releaseFormId} disabled={busy} className="text-primary-foreground!">
+            {busy ? "Publishing…" : "Confirm release"}
+          </Button>
+        }
+      >
+        {review && (
+          <WorkForm id={releaseFormId} className="grid gap-4" onSubmit={release} aria-label="Release payslips review">
+            <p className="text-sm">
+              Release {selected.length} employee payslip(s) for {review.month.slice(0, 7)}.
+            </p>
+            <div className={tableWrap}>
+              <WorkTable paging={false} tableId="app/features/hr/views/hr-payslips-workspace:3" className={tableClass}>
+                <caption className="sr-only">Payslips selected for release</caption>
+                <thead className={theadClass}>
+                  <tr>
+                    <th className={th} scope="col">
+                      Employee
+                    </th>
+                    <th className={th + " text-right"} scope="col">
+                      Net pay
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {review.items
+                    .filter((i) => selected.includes(i.result_id))
+                    .map((i) => (
+                      <tr key={i.result_id} className="border-b border-border/70 last:border-0">
+                        <td className={td}>
+                          {i.employee_name} <span className="text-muted-foreground">({i.employee_number})</span>
+                        </td>
+                        <td className={td + " whitespace-nowrap text-right tabular-nums"}>
+                          {i.net} {i.currency_code}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </WorkTable>
+            </div>
+            <Field title="Publication reason">
+              <Textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                maxLength={500}
+                disabled={busy}
+              />
+            </Field>
+          </WorkForm>
+        )}
+      </HrRecordDrawer>
+      <HrRecordDrawer
+        open={!!opened}
+        onClose={() => setOpened("")}
+        title={d ? d.document.employee.name : "Payslip"}
+        description="Payslip records Payroll calculation and publication; it does not confirm a bank transfer or payment."
+        error={opened ? error || detail.error : undefined}
+        footer={
+          d?.release ? (
+            <>
+              <Button variant="outline" onClick={() => output(d)}>
+                <Download className="size-4" />
+                Download payslip
+              </Button>
+              <Button variant="outline" onClick={() => output(d, true)}>
+                <Printer className="size-4" />
+                Print
+              </Button>
+            </>
+          ) : undefined
+        }
+      >
+        {detail.loading && !d && (
+          <p role="status" className="text-sm text-muted-foreground">
+            Opening payslip…
           </p>
-          {d.release && (
-            <dl className="grid gap-3 text-xs sm:grid-cols-2">
+        )}
+        {d && (
+          <section className="grid gap-4" aria-label="Employee payslip document">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground">
+                {d.document.employee.number} · {d.document.period.month.slice(0, 7)} · {d.document.result.currency}
+              </p>
+              <State value={d.release ? "released" : "preview"} />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {d.document.company.name} · Payroll run {d.document.period.run_number} ·{" "}
+              {d.release?.workflow_managed
+                ? "Published labels and amounts are frozen."
+                : d.release
+                  ? "Historical release; labels are current."
+                  : "Preview only; labels freeze on release."}
+            </p>
+            <div className={tableWrap}>
+              <WorkTable paging={false} tableId="app/features/hr/views/hr-payslips-workspace:4" className={tableClass}>
+                <caption className="sr-only">Payslip component breakdown</caption>
+                <thead className={theadClass}>
+                  <tr>
+                    <th scope="col" className={th}>
+                      Component
+                    </th>
+                    <th scope="col" className={th}>
+                      Type
+                    </th>
+                    <th scope="col" className={th + " text-right"}>
+                      Amount
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.document.lines.map((l) => (
+                    <tr key={l.position} className="border-b border-border/70 last:border-0">
+                      <td className={td}>
+                        {l.name} <span className="text-xs text-muted-foreground">({l.code})</span>
+                      </td>
+                      <td className={td + " capitalize"}>{l.kind.replaceAll("_", " ")}</td>
+                      <td className={td + " text-right tabular-nums"}>{l.amount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </WorkTable>
+            </div>
+            <dl className="grid gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-muted-foreground">Release</dt>
-                <dd className="break-all">{d.release.id}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Published by / at</dt>
-                <dd className="break-all">
-                  {d.release.released_by} · {new Date(d.release.released_at).toLocaleString()}
+                <dt className="text-muted-foreground">Net pay</dt>
+                <dd className="font-semibold tabular-nums">
+                  {d.document.result.net} {d.document.result.currency}
                 </dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Publication hash</dt>
-                <dd className="break-all">{d.release.publication_hash ?? "Legacy release"}</dd>
+                <dt className="text-muted-foreground">Employer contributions</dt>
+                <dd className="tabular-nums">{d.document.result.employer_contributions}</dd>
               </div>
-              <div>
-                <dt className="text-muted-foreground">Accrual journal</dt>
-                <dd className="break-all">{d.document.accrual?.entry_number ?? "Historical reference unavailable"}</dd>
-              </div>
+              {d.release && (
+                <>
+                  <div>
+                    <dt className="text-muted-foreground">Release</dt>
+                    <dd className="break-all">{d.release.id}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Published by / at</dt>
+                    <dd className="break-all">
+                      {d.release.released_by} · {new Date(d.release.released_at).toLocaleString()}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Publication hash</dt>
+                    <dd className="break-all">{d.release.publication_hash ?? "Legacy release"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Accrual journal</dt>
+                    <dd className="break-all">
+                      {d.document.accrual?.entry_number ?? "Historical reference unavailable"}
+                    </dd>
+                  </div>
+                </>
+              )}
             </dl>
-          )}
-        </section>
-      )}
-      {w && (
-        <section className={panel}>
-          <h3 className="font-semibold">Publication history</h3>
-          {!w.history.length ? (
-            <p className="mt-2 text-sm text-muted-foreground">No publication actions for this period.</p>
-          ) : (
-            <ol className="mt-3 divide-y">
-              {w.history.map((h, i) => (
-                <li key={h.occurred_at + i} className="py-3 text-sm">
-                  <p className="font-medium">
-                    {h.action} · {h.actor_id}
-                  </p>
-                  <p className="mt-1 break-words text-muted-foreground">
-                    {h.reason} · {new Date(h.occurred_at).toLocaleString()}
-                  </p>
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
-      )}
+          </section>
+        )}
+      </HrRecordDrawer>
     </div>
   );
 }

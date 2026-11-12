@@ -18,20 +18,12 @@ const hrNavigationPages = new Set([
   "attendance-workspace",
   "time-leave-workspace",
   "payroll-workspace",
-  "performance-workspace",
-  "learning-workspace",
   "employee-lifecycle-workspace",
-  "benefits-self-service-workspace",
-  "hr-compliance-workspace",
 ]);
 
 const reportingPageIds = new Set([
   "hr-dashboard",
   "finance-payroll-dashboard",
-  "hr-report-centre",
-  "hr-compliance-configuration",
-  "hr-report-audit-log",
-  "hr-export-centre",
   ...phase5ReportIds,
 ]);
 
@@ -100,23 +92,25 @@ function productionModuleFor(groupId, pageId) {
       : "M04 Employee Core";
   if (groupId === "recruitment")
     return pageId === "manpower-requisitions" ? "M05 Manpower Planning" : "M06 Recruitment";
-  if (groupId === "attendance-shifts") return "M11 Time & Attendance";
-  if (groupId === "time-leave") return pageId === "attendance" ? "M11 Time & Attendance" : "M12 Leave";
+  if (groupId === "attendance-leave")
+    return [
+      "time-leave-workspace",
+      "leave-types",
+      "leave-balances",
+      "leave-requests",
+      "leave-request",
+      "leave-approval",
+    ].includes(pageId)
+      ? "M12 Leave"
+      : "M11 Time & Attendance";
   if (groupId === "payroll")
     return ["payroll-journal", "payment-batch"].includes(pageId) ? "M15 Payments & Finance" : "M13 Payroll & Statutory";
-  if (["performance", "learning"].includes(groupId)) return "M08 Manage & Develop";
   if (groupId === "employee-lifecycle") {
     if (["onboarding", "probation-reviews"].includes(pageId)) return "M07 Hire, Onboard & Probation";
-    if (pageId === "employee-movements") return "M09 Move & Reward";
+    if (["employee-movements", "employee-promotions"].includes(pageId)) return "M09 Move & Reward";
+    if (pageId === "loans-benefits" || pageId === "advance-requests") return "M14 Benefits & Loans";
     return "M10 Separation & Settlement";
   }
-  if (groupId === "benefits-self-service") {
-    if (pageId === "employee-self-service") return "M16 Self-service";
-    if (pageId === "hr-report-centre") return "M17 Reporting & Compliance";
-    return "M14 Benefits & Loans";
-  }
-  if (groupId === "hr-compliance")
-    return pageId === "hr-report-audit-log" ? "M02 Workflow & Audit" : "M17 Reporting & Compliance";
   throw new Error(`No production module mapping for ${groupId}/${pageId}`);
 }
 
@@ -132,11 +126,7 @@ export async function buildHrParityRows() {
           "attendance-workspace",
           "time-leave-workspace",
           "payroll-workspace",
-          "performance-workspace",
-          "learning-workspace",
           "employee-lifecycle-workspace",
-          "benefits-self-service-workspace",
-          "hr-compliance-workspace",
         ].includes(page.id)
       )
         renderer = "HrOperationsWorkspace";
@@ -152,6 +142,7 @@ export async function buildHrParityRows() {
       else if (page.id === "manpower-requisitions") renderer = "HrManpowerRequisitionsWorkspace";
       else if (page.id === "job-openings") renderer = "HrJobOpeningsWorkspace";
       else if (page.id === "create-employee-from-offer") renderer = "HrOfferEmployeeWorkspace";
+      // attendance-payroll-inputs is a former address that now opens Attendance Period Close.
       else if (["overtime", "attendance-period", "attendance-payroll-inputs"].includes(page.id))
         renderer = "HrAttendanceCompletionWorkspace";
       else if (["leave-types", "leave-balances", "leave-requests", "leave-request", "leave-approval"].includes(page.id))
@@ -178,6 +169,8 @@ export async function buildHrParityRows() {
       else if (page.id === "attendance") renderer = "HrDailyAttendanceWorkspace";
       else if (page.id === "attendance-corrections") renderer = "HrAttendanceCorrectionsWorkspace";
       else if (page.id === "monthly-attendance") renderer = "HrMonthlyAttendanceWorkspace";
+      else if (page.id === "attendance-check-in") renderer = "HrAttendanceCheckInWorkspace";
+      else if (page.id === "my-attendance") renderer = "HrMyAttendanceWorkspace";
       else if (page.id === "daily-attendance") renderer = "HrDailyAttendanceWorkspace";
       else if (page.id === "shift-assignments") renderer = "HrShiftAssignmentsWorkspace";
       else if (page.id === "shifts") renderer = "HrShiftsWorkspace";
@@ -194,24 +187,17 @@ export async function buildHrParityRows() {
       else if (page.id === "employee-assignments") renderer = "HrEmployeeAssignmentsWorkspace";
       else if (page.id === "employee-status-history") renderer = "HrEmployeeHistoryWorkspace";
       else if (page.id === "lifecycle-policies") renderer = "HrLifecyclePoliciesWorkspace";
-      else if (
-        ["training-programs", "training-requests", "training-sessions", "training-completions"].includes(page.id)
-      )
-        renderer = "HrLearningWorkspace";
-      else if (
-        ["loans-benefits", "statutory-deductions", "employee-self-service", "hr-report-centre"].includes(page.id)
-      )
-        renderer = "HrBenefitsWorkspace";
-      else if (["hr-compliance-configuration", "hr-report-audit-log", "hr-export-centre"].includes(page.id))
-        renderer = "HrReportGovernanceWorkspace";
+      else if (["loans-benefits", "advance-requests"].includes(page.id)) renderer = "HrLoanBenefitsWorkspace";
       else if (page.id === "designations") renderer = "HrMasterCatalogueSheetWorkspace";
       else if (page.id === "job-grades") renderer = "HrJobGradesSheetWorkspace";
       else if (page.id === "jobs") renderer = "HrMasterCatalogueSheetWorkspace";
-      else if (["cost-centres", "work-locations", "employment-types", "employee-categories"].includes(page.id))
+      else if (
+        ["cost-centres", "work-locations", "employment-setup", "employment-types", "employee-categories"].includes(
+          page.id,
+        )
+      )
         renderer = "HrConfiguredMasterSheetWorkspace";
       else if (sets.masters.has(page.id)) renderer = "HrMasterScreen";
-      else if (["performance-cycles", "goals-kpis", "performance-reviews", "performance-outcomes"].includes(page.id))
-        renderer = "HrPerformanceWorkspace";
       else if (
         [
           "onboarding",
@@ -219,12 +205,10 @@ export async function buildHrParityRows() {
           "resignations",
           "terminations",
           "clearance",
-          "final-settlements",
-          "offboarding",
         ].includes(page.id)
       )
         renderer = "HrLifecycleCasesWorkspace";
-      else if (page.id === "employee-movements") renderer = "HrLifecycleMovementsWorkspace";
+      else if (["employee-movements", "employee-promotions"].includes(page.id)) renderer = "HrEmployeeChangesWorkspace";
       else if (sets.lifecycle.has(page.id)) renderer = "HrLifecycleScreen";
       else if (sets.payroll.has(page.id)) renderer = "HrPayrollScreen";
       else if (sets.attendance.has(page.id)) renderer = "HrAttendanceScreen";

@@ -1,4 +1,5 @@
 import { resolvePayrollJournalDimensions, type PayrollJournalMapping } from "./payroll-journal-dimensions.js";
+import { paidThroughPayroll, payrollPlacements } from "./payroll-population.js";
 import { ExactPayrollAmount } from "./payroll-calculation.js";
 import { convertFinanceAmountToBase, parseFinanceDecimal } from "../finance/posting/service.js";
 import { SourceFinancePostingRepository } from "../finance/posting/source-repository.js";
@@ -42,15 +43,22 @@ const actionPermission = {
   post: "finance.journal.post",
 } as const;
 
-/** Pure, exact accrual assembly; deductions credit liabilities or the verified loan receivable. */
+/**
+ * Pure, exact accrual assembly; deductions credit liabilities or the verified loan receivable.
+ * Expense debits are split by each result's frozen cost centre (tagged `dimensions.cost_center`);
+ * results without one produce the same untagged lines as before.
+ */
 export function assemblePayrollAccrual(results: Row[], items: Row[], netAccount: string) {
-  const grouped = new Map<string, { account_id: string; debit: string; credit: string }>();
-  const add = (account: unknown, amount: string, side: "debit" | "credit") => {
+  const grouped = new Map<
+    string,
+    { account_id: string; debit: string; credit: string; dimensions?: Record<string, string> }
+  >();
+  const add = (account: unknown, amount: string, side: "debit" | "credit", centre: string | null = null) => {
     const value = payrollUnits(amount);
     if (!value) return;
     if (typeof account !== "string" || !account)
       conflict("Every nonzero result requires its retained posting account.");
-    const key = String(account) + ":" + side,
+    const key = String(account) + ":" + side + (centre ? ":" + centre : ""),
       old = grouped.get(key),
       total = payrollUnits(old?.[side] ?? "0") + value;
     const formatted = payrollDecimal(total);
@@ -59,23 +67,25 @@ export function assemblePayrollAccrual(results: Row[], items: Row[], netAccount:
       account_id: String(account),
       debit: side === "debit" ? formatted : "0.0000",
       credit: side === "credit" ? formatted : "0.0000",
+      ...(centre ? { dimensions: { cost_center: centre } } : {}),
     });
   };
   for (const result of results) {
     const lines = items.filter((i) => i.result_id === result.id);
+    const centre = typeof result.cost_center_id === "string" && result.cost_center_id ? result.cost_center_id : null;
     let gross = 0n,
       deductions = 0n,
       employer = 0n;
     for (const line of lines) {
       if (line.kind === "earning") {
         gross += payrollUnits(line.amount);
-        add(line.expense_account_id, line.amount, "debit");
+        add(line.expense_account_id, line.amount, "debit", centre);
       } else if (line.kind === "deduction") {
         deductions += payrollUnits(line.amount);
         add(line.liability_account_id, line.amount, "credit");
       } else if (line.kind === "employer_contribution") {
         employer += payrollUnits(line.amount);
-        add(line.expense_account_id, line.amount, "debit");
+        add(line.expense_account_id, line.amount, "debit", centre);
         add(line.liability_account_id, line.amount, "credit");
       } else conflict("An unsupported result line cannot enter the Payroll journal.");
     }
@@ -89,7 +99,10 @@ export function assemblePayrollAccrual(results: Row[], items: Row[], netAccount:
     add(netAccount, result.net, "credit");
   }
   const lines = [...grouped.values()].sort(
-    (a, b) => a.account_id.localeCompare(b.account_id) || a.debit.localeCompare(b.debit),
+    (a, b) =>
+      a.account_id.localeCompare(b.account_id) ||
+      a.debit.localeCompare(b.debit) ||
+      (a.dimensions?.cost_center ?? "").localeCompare(b.dimensions?.cost_center ?? ""),
   );
   if (lines.length < 2 || lines.length > 1000)
     conflict("An accrual needs 2–1000 nonzero account lines; larger journals require worker execution.");
@@ -184,7 +197,7 @@ export class PayrollJournal {
     const results = p
       ? (
           await client.query(
-            `select r.id,r.employee_id,r.currency_code,r.gross::text,r.deductions::text,r.net::text,r.employer_contributions::text,r.calculation_hash,r.warnings,s.state as snapshot_state,s.calculation_engine_version,s.context_segments_json from hr_payroll_result r left join hr_payroll_statutory_snapshot s on s.tenant_id=r.tenant_id and s.company_id=r.company_id and s.payroll_result_id=r.id where r.tenant_id=$1 and r.company_id=$2 and r.period_id=$3 and r.run_number=$4 order by r.id collate "C" limit 501`,
+            `select r.id,r.employee_id,r.cost_center_id,r.currency_code,r.gross::text,r.deductions::text,r.net::text,r.employer_contributions::text,r.calculation_hash,r.warnings,s.state as snapshot_state,s.calculation_engine_version,s.context_segments_json from hr_payroll_result r left join hr_payroll_statutory_snapshot s on s.tenant_id=r.tenant_id and s.company_id=r.company_id and s.payroll_result_id=r.id where r.tenant_id=$1 and r.company_id=$2 and r.period_id=$3 and r.run_number=$4 order by r.id collate "C" limit 501`,
             [c.tenantId, q.company_id, p.id, p.run_number],
           )
         ).rows
@@ -231,14 +244,17 @@ export class PayrollJournal {
     )
       blocked.push("Every result requires matching sealed statutory execution and no unresolved calculation warnings.");
     if (p && p.state !== "posted") {
-      const count = (
-        await client.query(
-          `select count(*)::int as n from hr_payroll_input where tenant_id=$1 and company_id=$2 and period_id=$3`,
+      // Accounts-payable employees are excluded from Payroll runs, so they are excluded here too.
+      const employees = (
+        await client.query<{ employee_id: string }>(
+          `select employee_id from hr_payroll_input where tenant_id=$1 and company_id=$2 and period_id=$3`,
           [c.tenantId, q.company_id, p.attendance_period_id],
         )
-      ).rows[0].n;
+      ).rows.map((row) => row.employee_id);
+      const placements = await payrollPlacements(client, c.tenantId, q.company_id, employees, q.month);
+      const count = employees.filter((employee) => paidThroughPayroll(placements.get(employee))).length;
       if (count !== results.length)
-        blocked.push("The journal must include every frozen attendance employee exactly once.");
+        blocked.push("The journal must include every frozen attendance employee paid through Payroll exactly once.");
     }
     if (p && results.length && results.length <= 500 && items.length <= 10000)
       try {
@@ -270,6 +286,8 @@ export class PayrollJournal {
       if (account.status !== "active" || account.is_header)
         blocked.push("An accrual account is inactive or not postable: " + account.code);
 
+    // Lines tagged from frozen employee cost centres make this a v2 (employee split) assembly.
+    const employeeSplit = assembly.lines.some((line) => !!line.dimensions?.cost_center);
     const dimensioned = await resolvePayrollJournalDimensions(
       client,
       c.tenantId,
@@ -378,8 +396,12 @@ export class PayrollJournal {
     if (postingDate.slice(0, 7) !== q.month.slice(0, 7) || postingDate > today.today)
       blocked.push("Choose a posting date within this Payroll month and no later than today.");
     const sourceEvidence = {
-      assembly_version: dimensioned.mappings.length ? "payroll_accrual_cost_centres_v1" : "payroll_accrual_v1",
-      ...(dimensioned.mappings.length
+      assembly_version: employeeSplit
+        ? "payroll_accrual_employee_cost_centres_v2"
+        : dimensioned.mappings.length
+          ? "payroll_accrual_cost_centres_v1"
+          : "payroll_accrual_v1",
+      ...(employeeSplit || dimensioned.mappings.length
         ? { cost_center_mappings: dimensioned.mappings, cost_center_authority: dimensioned.authority }
         : {}),
       run_number: p?.run_number ?? 0,

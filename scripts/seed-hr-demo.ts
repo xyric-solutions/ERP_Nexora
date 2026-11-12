@@ -158,23 +158,28 @@ for (const [name, level, minimum, midpoint, maximum] of [
   };
   grades.push(await ensure("Grade " + name, payload, (key) => api.createHrJobGrade(payload, csrf, key)));
 }
-const configured = [];
-for (const [type, name, configuration_key, configuration_value] of [
-  ["work_location", "Karachi Office", "working_pattern", "on_site"],
-  ["employment_type", "Permanent Monthly", "payment_route", "payroll"],
-  ["employee_category", "Professional Staff", "pay_cycle", "monthly"],
-] as const) {
-  const payload = {
-    company_id: company,
-    type,
-    code: "AUTO",
-    name: name + " · Demo",
-    description: reason,
-    configuration_key,
-    configuration_value,
-  };
-  configured.push(await ensure(name, payload, (key) => api.createHrMaster(payload, csrf, key)));
-}
+const locationPayload = {
+  company_id: company,
+  type: "work_location" as const,
+  code: "AUTO",
+  name: "Karachi Office · Demo",
+  description: reason,
+  configuration_key: "working_pattern" as const,
+  configuration_value: "on_site",
+};
+const workLocation = await ensure("Karachi Office", locationPayload, (key) => api.createHrMaster(locationPayload, csrf, key));
+const setupPayload = {
+  company_id: company,
+  type: "employment_setup" as const,
+  code: "AUTO",
+  name: "Permanent Monthly Staff · Demo",
+  description: reason,
+  payment_route: "payroll" as const,
+  pay_cycle: "monthly" as const,
+};
+const employmentSetup = await ensure("Permanent Monthly Staff", setupPayload, (key) =>
+  api.createHrMaster(setupPayload, csrf, key),
+);
 const costCentres = await api.listHrMasters(query({ company_id: company, type: "cost_center", active_only: "true" }));
 if (!costCentres.items[0]) throw new Error("An active company cost centre is required for profile draft assignments.");
 const jobPayload = {
@@ -242,9 +247,8 @@ for (const [index, [first_name, last_name, designation, grade, department]] of p
     designation_id: designations[designation]!.id,
     job_grade_id: grades[grade]!.id,
     cost_center_id: costCentres.items[0].id,
-    work_location_id: configured[0]!.id,
-    employment_type_id: configured[1]!.id,
-    employee_category_id: configured[2]!.id,
+    work_location_id: workLocation.id,
+    employment_setup_id: employmentSetup.id,
     effective_from: date,
   };
   const placement = await ensure(`Assignment ${slug}`, assignment, (key) =>
@@ -318,7 +322,7 @@ for (const [name, annual] of [
       minimum_request_days: "0.5",
       maximum_request_days: "30",
       requires_hr_approval: true,
-      applicable_category_ids: [],
+      applicable_employment_setup_ids: [],
       applicable_genders: [],
       document_required_after_days: null,
     },
@@ -342,7 +346,7 @@ const shift = {
   weekly_off_days: [0, 6],
   breaks: [{ label: "Lunch", minutes: 60, paid: false }],
   time_zone: "Asia/Karachi",
-  work_location_id: configured[0]!.id,
+  work_location_id: workLocation.id,
   reason,
 };
 await ensure("Office shift", shift, (key) => api.createHrShift(shift, csrf, key));
@@ -444,7 +448,7 @@ for (const [title, designation, department, branch, submit] of [
     job_title: title + " · Demo",
     designation_id: designations[designation]!.id,
     job_grade_id: grades[1]!.id,
-    employment_type_id: configured[1]!.id,
+    employment_setup_id: employmentSetup.id,
     branch_id: branch,
     department_id: departments[department]!.id,
     positions_requested: 2,

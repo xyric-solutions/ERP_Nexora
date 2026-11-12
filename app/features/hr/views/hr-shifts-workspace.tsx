@@ -1,10 +1,11 @@
 "use client";
-import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkOffsetPagination, WorkTable } from "@/shared/ui/work-table";
 import { WorkForm } from "@/shared/ui/work-form";
 
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   createHrShiftRequestSchema,
   updateHrShiftRequestSchema,
@@ -15,7 +16,7 @@ import {
   type HrShiftContext,
   type HrShiftSummary,
 } from "@nexora/contracts";
-import { Clock3, Copy, Plus, RefreshCw, ShieldCheck, Trash2, Search, CheckCircle2, X } from "lucide-react";
+import { Plus, ShieldCheck, Trash2, CheckCircle2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,7 +27,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrEditButton } from "../components/hr-icon-buttons";
+import { HrMasterSheet } from "../components/hr-master-sheet";
+import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
+import {
+  HrDetailGroup,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
 
+import { SearchableSelect } from "@/shared/ui/searchable-select";
 const selectClass =
   "h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50";
 const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -41,14 +53,10 @@ const hours = (m: number) => `${Math.floor(m / 60)}h ${m % 60}m`;
 const fail = (e: unknown) =>
   e instanceof ApiError ? e.message : "Shift rules could not be loaded or saved. Please retry.";
 type Editor = { detail?: HrShiftDetail; copy: boolean };
-function Rule({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-lg border border-border/70 bg-background/60 p-3">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="m-0 mt-1 break-words text-sm font-semibold">{value}</dd>
-    </div>
-  );
-}
+const shiftWindow = (s: HrShiftSummary) =>
+  s.kind === "rotating"
+    ? "Weekly cycle"
+    : `${time(s.start_minute)}–${time(s.end_minute)}${s.end_minute >= 1440 ? " +1 day" : ""}`;
 
 function ShiftEditor({
   client,
@@ -91,6 +99,11 @@ function ShiftEditor({
   const [context, setContext] = useState<HrShiftContext | null>(null);
   const [locationSearch, setLocationSearch] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
+  // Typing in the Work location dropdown searches the server after a short pause.
+  useEffect(() => {
+    const timer = setTimeout(() => setLocationQuery(locationSearch.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [locationSearch]);
   const [choices, setChoices] = useState<HrShiftSummary[]>([]);
   const [choiceTotal, setChoiceTotal] = useState(0);
   const [choiceOffset, setChoiceOffset] = useState(0);
@@ -148,7 +161,7 @@ function ShiftEditor({
     (s) => s.configured && s.time_zone === zone && s.work_location_id === (location || null),
   );
   const numeric = (label: string, value: number, set: (n: number) => void, max = 720) => (
-    <label className="grid gap-2 text-sm font-medium">
+    <label className="grid content-start gap-2 text-sm font-medium">
       {label}
       <Input
         type="number"
@@ -199,7 +212,7 @@ function ShiftEditor({
   return (
     <WorkForm
       aria-label="Shift rules editor"
-      className="grid min-w-0 gap-4 rounded-xl border border-primary/30 bg-card p-4"
+      className="grid min-w-0 gap-5 rounded-lg border border-border bg-card p-4"
       onSubmit={(e) => {
         e.preventDefault();
         submit();
@@ -233,146 +246,116 @@ function ShiftEditor({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="grid gap-2 text-sm font-medium">
-          Shift code (automatic)
-          <Input
-            required
-            maxLength={32}
-            value={code === "AUTO" ? "Assigned on save · SHF-001…" : code}
-            readOnly
-            disabled={busy}
-            placeholder="GENERAL"
-          />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          Shift name
-          <Input
-            required
-            maxLength={160}
-            value={name}
-            disabled={busy}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="General office shift"
-          />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          Shift type
-          <select
-            className={selectClass}
-            value={kind}
-            disabled={busy}
-            onChange={(e) => {
-              const value = e.target.value as typeof kind;
-              setKind(value);
-              if (value === "night") {
-                setStart("22:00");
-                setEnd("06:00");
-                setNextDay(true);
-              }
-              if (value === "flexible") {
-                setStart("08:00");
-                setEnd("20:00");
-                setNextDay(false);
-                setGraceIn(0);
-                setGraceOut(0);
-              }
-            }}
-          >
-            {["fixed", "multiple", "night", "flexible", "rotating"].map((k) => (
-              <option key={k} value={k}>
-                {title(k)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          Time zone
-          <select
-            className={selectClass}
-            value={zone}
-            disabled={busy}
-            onChange={(e) => {
-              setZone(e.target.value);
-              setRotation([]);
-            }}
-          >
-            {Array.from(new Set([zone, ...(context?.time_zones ?? [])])).map((z) => (
-              <option key={z} value={z}>
-                {z}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div className="grid gap-3 rounded-lg border border-border bg-background/40 p-4">
-        <label className="grid gap-2 text-sm font-medium">
-          Work location
-          <select
-            className={selectClass}
-            value={location}
-            disabled={busy || contextBusy}
-            onChange={(e) => {
-              setLocation(e.target.value);
-              setRotation([]);
-            }}
-          >
-            <option value="">Company-wide</option>
-            {initial?.work_location_id && !context?.locations.some((l) => l.id === initial.work_location_id) && (
-              <option value={initial.work_location_id}>{initial.work_location} (current)</option>
-            )}
-            {context?.locations.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name} ({l.code})
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="grid min-w-0 flex-1 gap-2 text-xs text-muted-foreground">
-            Find work location
+      <HrDetailSection title="Shift">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid content-start gap-2 text-sm font-medium">
+            Shift code (automatic)
             <Input
-              value={locationSearch}
-              maxLength={160}
+              required
+              maxLength={32}
+              value={code === "AUTO" ? "Assigned on save · SHF-001…" : code}
+              readOnly
               disabled={busy}
-              onChange={(e) => setLocationSearch(e.target.value)}
-              placeholder="Search active locations"
+              placeholder="GENERAL"
             />
           </label>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy || contextBusy}
-            onClick={() => {
-              setError("");
-              setLocationQuery(locationSearch.trim());
-            }}
-          >
-            Find location
-          </Button>
+          <label className="grid content-start gap-2 text-sm font-medium">
+            Shift name
+            <Input
+              required
+              maxLength={160}
+              value={name}
+              disabled={busy}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="General office shift"
+            />
+          </label>
+          <label className="grid content-start gap-2 text-sm font-medium">
+            Shift type
+            <select
+              className={selectClass}
+              value={kind}
+              disabled={busy}
+              onChange={(e) => {
+                const value = e.target.value as typeof kind;
+                setKind(value);
+                if (value === "night") {
+                  setStart("22:00");
+                  setEnd("06:00");
+                  setNextDay(true);
+                }
+                if (value === "flexible") {
+                  setStart("08:00");
+                  setEnd("20:00");
+                  setNextDay(false);
+                  setGraceIn(0);
+                  setGraceOut(0);
+                }
+              }}
+            >
+              {["fixed", "multiple", "night", "flexible", "rotating"].map((k) => (
+                <option key={k} value={k}>
+                  {title(k)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid content-start gap-2 text-sm font-medium">
+            Time zone
+            <select
+              className={selectClass}
+              value={zone}
+              disabled={busy}
+              onChange={(e) => {
+                setZone(e.target.value);
+                setRotation([]);
+              }}
+            >
+              {Array.from(new Set([zone, ...(context?.time_zones ?? [])])).map((z) => (
+                <option key={z} value={z}>
+                  {z}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-        {context?.locations_capped && (
-          <p className="text-xs text-muted-foreground">
-            Showing the first 100 matches. Refine the location search to find another site.
-          </p>
-        )}
-      </div>
+      </HrDetailSection>
+      <HrDetailSection title="Work location">
+        <div className="grid content-start gap-2 text-sm font-medium">
+          <label htmlFor="hr-shift-work-location">Work location</label>
+          <SearchableSelect
+            id="hr-shift-work-location"
+            label="Work location"
+            value={location}
+            placeholder="Company-wide"
+            searchPlaceholder="Search active locations…"
+            disabled={busy}
+            loading={contextBusy && !context}
+            search={locationSearch}
+            onSearchChange={setLocationSearch}
+            options={[
+              { value: "", label: "Company-wide" },
+              ...(initial?.work_location_id && !context?.locations.some((l) => l.id === initial.work_location_id)
+                ? [{ value: initial.work_location_id, label: `${initial.work_location} (current)` }]
+                : []),
+              ...(context?.locations.map((l) => ({ value: l.id, label: `${l.name} (${l.code})` })) ?? []),
+            ]}
+            onValueChange={(next) => {
+              setLocation(next);
+              setRotation([]);
+            }}
+          />
+        </div>
+      </HrDetailSection>
       {kind === "rotating" ? (
-        <div className="grid gap-4 rounded-lg border border-border p-4">
-          <div>
-            <h3 className="text-base font-semibold">Weekly rotation</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Each week uses its member shift’s hours, breaks, thresholds and weekly off days. Members must share this
-              timezone and work location.
-            </p>
-          </div>
-          <label className="grid gap-2 text-sm font-medium">
+        <HrDetailSection title="Weekly rotation">
+          <label className="grid content-start gap-2 text-sm font-medium">
             Rotation starts on Monday
             <Input required type="date" value={anchor} disabled={busy} onChange={(e) => setAnchor(e.target.value)} />
           </label>
           {rotation.map((id, index) => (
             <div key={index} className="flex min-w-0 items-end gap-2">
-              <label className="grid min-w-0 flex-1 gap-2 text-sm font-medium">
+              <label className="grid content-start min-w-0 flex-1 gap-2 text-sm font-medium">
                 Week {index + 1}
                 <select
                   required
@@ -431,26 +414,27 @@ function ShiftEditor({
               without saving.
             </p>
           )}
-        </div>
+        </HrDetailSection>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="grid gap-2 text-sm font-medium">
-              Start time
-              <Input required type="time" value={start} disabled={busy} onChange={(e) => setStart(e.target.value)} />
+          <HrDetailSection title="Working hours">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="grid content-start gap-2 text-sm font-medium">
+                Start time
+                <Input required type="time" value={start} disabled={busy} onChange={(e) => setStart(e.target.value)} />
+              </label>
+              <label className="grid content-start gap-2 text-sm font-medium">
+                End time
+                <Input required type="time" value={end} disabled={busy} onChange={(e) => setEnd(e.target.value)} />
+              </label>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={nextDay} disabled={busy} onCheckedChange={(value) => setNextDay(value === true)} />
+              Ends on the following day
             </label>
-            <label className="grid gap-2 text-sm font-medium">
-              End time
-              <Input required type="time" value={end} disabled={busy} onChange={(e) => setEnd(e.target.value)} />
-            </label>
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={nextDay} disabled={busy} onCheckedChange={(value) => setNextDay(value === true)} />
-            Ends on the following day
-          </label>
-          <div className="grid gap-3 rounded-lg border border-border p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold">Breaks</h3>
+          </HrDetailSection>
+          <HrDetailSection title="Breaks">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -467,7 +451,7 @@ function ShiftEditor({
                 key={index}
                 className="grid min-w-0 items-end gap-3 rounded-lg bg-muted/40 p-3 sm:grid-cols-[minmax(0,1fr)_6rem_auto_auto]"
               >
-                <label className="grid gap-2 text-xs font-medium">
+                <label className="grid content-start gap-2 text-xs font-medium">
                   Break {index + 1} name
                   <Input
                     required
@@ -479,7 +463,7 @@ function ShiftEditor({
                     }
                   />
                 </label>
-                <label className="grid gap-2 text-xs font-medium">
+                <label className="grid content-start gap-2 text-xs font-medium">
                   Minutes
                   <Input
                     required
@@ -517,52 +501,54 @@ function ShiftEditor({
                 </Button>
               </div>
             ))}
-            <p className="text-xs text-muted-foreground">
-              Unpaid breaks reduce required work time. Paid breaks remain inside the shift’s paid time; actual
-              attendance and approved overtime are processed separately.
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="grid gap-2 text-sm font-medium">
-              Required work (minutes)
-              <Input
-                type="number"
-                required
-                min={1}
-                max={1440}
-                readOnly={kind !== "flexible"}
-                value={kind === "flexible" ? (Number.isNaN(required) ? "" : required) : Number.isFinite(net) ? net : ""}
-                disabled={busy}
-                onChange={(e) => setRequired(e.target.valueAsNumber)}
-              />
-            </label>
-            {numeric("Absent below (minutes)", minimum, setMinimum, 1439)}
-            {numeric("Half day below (minutes)", half, setHalf, 1439)}
-            {numeric("Overtime buffer (minutes)", overtime, setOvertime)}
-            {kind !== "flexible" && (
-              <>
-                {numeric("Arrival grace (minutes)", graceIn, setGraceIn)}
-                {numeric("Departure grace (minutes)", graceOut, setGraceOut)}
-              </>
-            )}
-          </div>
-          <fieldset className="m-0 min-w-0 rounded-lg border border-border p-4">
-            <legend className="px-1 text-sm font-semibold">Weekly off days</legend>
-            <div className="flex flex-wrap gap-4">
-              {days.map((day, index) => (
-                <label key={day} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={off.includes(index)}
-                    disabled={busy}
-                    onCheckedChange={(checked) =>
-                      setOff((values) => (checked ? [...values, index].sort() : values.filter((n) => n !== index)))
-                    }
-                  />
-                  {day}
-                </label>
-              ))}
+          </HrDetailSection>
+          <HrDetailSection title="Attendance rules">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="grid content-start gap-2 text-sm font-medium">
+                Required work (minutes)
+                <Input
+                  type="number"
+                  required
+                  min={1}
+                  max={1440}
+                  readOnly={kind !== "flexible"}
+                  value={
+                    kind === "flexible" ? (Number.isNaN(required) ? "" : required) : Number.isFinite(net) ? net : ""
+                  }
+                  disabled={busy}
+                  onChange={(e) => setRequired(e.target.valueAsNumber)}
+                />
+              </label>
+              {numeric("Absent below (minutes)", minimum, setMinimum, 1439)}
+              {numeric("Half day below (minutes)", half, setHalf, 1439)}
+              {numeric("Overtime buffer (minutes)", overtime, setOvertime)}
+              {kind !== "flexible" && (
+                <>
+                  {numeric("Arrival grace (minutes)", graceIn, setGraceIn)}
+                  {numeric("Departure grace (minutes)", graceOut, setGraceOut)}
+                </>
+              )}
             </div>
-          </fieldset>
+          </HrDetailSection>
+          <HrDetailSection title="Weekly off days">
+            <fieldset className="m-0 min-w-0 border-0 p-0">
+              <legend className="sr-only">Weekly off days</legend>
+              <div className="flex flex-wrap gap-4">
+                {days.map((day, index) => (
+                  <label key={day} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={off.includes(index)}
+                      disabled={busy}
+                      onCheckedChange={(checked) =>
+                        setOff((values) => (checked ? [...values, index].sort() : values.filter((n) => n !== index)))
+                      }
+                    />
+                    {day}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          </HrDetailSection>
           <div role="status" className="rounded-lg bg-primary/5 p-3 text-sm text-muted-foreground">
             Window: {Number.isFinite(span) && span > 0 ? hours(span) : "Review times"} · Net time:{" "}
             {Number.isFinite(net) && net > 0 ? hours(net) : "Review breaks"}
@@ -572,36 +558,33 @@ function ShiftEditor({
           </div>
         </>
       )}
-      <label className="grid gap-2 text-sm font-medium">
-        Change reason
-        <Textarea
-          required
-          minLength={8}
-          maxLength={1000}
-          rows={3}
-          value={reason}
-          disabled={busy}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Explain the company working arrangement and reason for these rules"
-        />
-      </label>
-      <div className="flex flex-wrap gap-2">
+      <HrDetailSection title="Change reason">
+        <label className="grid content-start gap-2 text-sm font-medium">
+          Change reason
+          <Textarea
+            maxLength={1000}
+            rows={3}
+            value={reason}
+            disabled={busy}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Explain the company working arrangement and reason for these rules"
+          />
+        </label>
+      </HrDetailSection>
+      <HrDrawerActions>
         <Button type="submit" className="text-primary-foreground!" disabled={busy || !context || contextBusy}>
           {busy ? "Saving…" : initial && !editor.copy ? "Save shift rules" : "Create shift"}
         </Button>
-        <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
-          Cancel
-        </Button>
-      </div>
+      </HrDrawerActions>
     </WorkForm>
   );
 }
 
 export function HrShiftsWorkspace({
-  onNavigate,
   initialReference,
 }: {
   initialReference?: string;
+  /** Kept for the shell's call signature; shift assignment is reached from the side menu. */
   onNavigate: (moduleId: string, pageId: string) => void;
 }) {
   const [workPageSize, setWorkPageSize] = useState(25);
@@ -610,14 +593,13 @@ export function HrShiftsWorkspace({
   const client = useMemo(() => new HrApiClient(api), [api]);
   const canRead = session?.user.permissions.includes("hr.attendance.shift.read") ?? false,
     canManage = session?.user.permissions.includes("hr.attendance.shift.manage") ?? false;
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]),
-    [company, setCompany] = useState(initialScope.company_id ?? "");
+  const [company, setCompany] = useState(initialScope.company_id ?? "");
   const [directory, setDirectory] = useState<HrShiftDirectory>({ items: [], total: 0 }),
     [selected, setSelected] = useState("");
   const [detail, setDetail] = useState<HrShiftDetail | null>(null);
   const [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
-    [status, setStatus] = useState(""),
+    [status, setStatus] = useState<HrMasterStatus>("active"),
     [offset, setOffset] = useState(0),
     [onDate, setOnDate] = useState("");
   const [loading, setLoading] = useState(false),
@@ -626,8 +608,7 @@ export function HrShiftsWorkspace({
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [editor, setEditor] = useState<Editor | null>(null),
-    [revision, setRevision] = useState(0),
-    [statusReason, setStatusReason] = useState("");
+    [revision, setRevision] = useState(0);
   const mutation = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null);
   useHrOperationsScope(company);
@@ -639,7 +620,6 @@ export function HrShiftsWorkspace({
       .companies()
       .then((result) => {
         if (current) {
-          setCompanies(result.items);
           setCompany((value) => (result.items.some((c) => c.id === value) ? value : (result.items[0]?.id ?? "")));
           setLoading(false);
         }
@@ -659,11 +639,11 @@ export function HrShiftsWorkspace({
     let current = true;
     setLoading(true);
     client
-      .shifts({ limit: workPageSize, companyId: company, search: applied || undefined, status: status || undefined, offset })
+      .shifts({ companyId: company, search: applied || undefined, status: status === "all" ? undefined : status, offset, limit: workPageSize })
       .then((result) => {
         if (current) {
           setDirectory(result);
-          setSelected((value) => (result.items.some((s) => s.id === value) ? value : (result.items[0]?.id ?? "")));
+          setSelected((value) => (result.items.some((s) => s.id === value) ? value : ""));
           setLoading(false);
         }
       })
@@ -721,7 +701,7 @@ export function HrShiftsWorkspace({
       setSearch(result.code);
       setApplied(result.code);
       setOffset(0);
-      setStatus("");
+      setStatus("all");
       setNotice(`Shift ${result.code} saved. Employee allocation and attendance processing remain separate steps.`);
       retry.current = null;
       reload();
@@ -733,24 +713,25 @@ export function HrShiftsWorkspace({
       mutation.current = false;
     }
   };
+  /** One-click deactivate/reactivate from the drawer footer; the API still records actor, time and this reason. */
   const changeStatus = async () => {
     if (!detail || mutation.current) return;
     mutation.current = true;
     setBusy(true);
     setError("");
     setNotice("");
+    const deactivating = detail.status === "active";
     const input = {
       company_id: company,
       expected_version: detail.version,
-      status: detail.status === "active" ? ("inactive" as const) : ("active" as const),
-      reason: statusReason,
+      status: deactivating ? ("inactive" as const) : ("active" as const),
+      reason: deactivating ? "Deactivated from Shifts & Rules." : "Reactivated from Shifts & Rules.",
     };
     const fingerprint = JSON.stringify([detail.id, input]);
     if (retry.current?.fingerprint !== fingerprint) retry.current = { fingerprint, key: crypto.randomUUID() };
     try {
       await client.shiftStatus(detail.id, input, csrfToken(), retry.current.key);
-      setStatusReason("");
-      setNotice(`Shift ${detail.code} is now ${input.status}. Rule history is preserved.`);
+      setNotice(`Shift ${detail.code} ${deactivating ? "deactivated" : "reactivated"}.`);
       retry.current = null;
       reload();
     } catch (e) {
@@ -772,74 +753,53 @@ export function HrShiftsWorkspace({
       </Alert>
     );
   const current = detail?.id === selected && detail.company_id === company ? detail : null;
+  const summary = directory.items.find((s) => s.id === selected);
+  const openShift = (id: string) => {
+    if (busy || editor) return;
+    setSelected(id);
+    setDetail(null);
+    setOnDate("");
+    setError("");
+    setNotice("");
+  };
+  const closeShift = () => {
+    if (busy) return;
+    setSelected("");
+    setDetail(null);
+    setOnDate("");
+  };
+  const openRow = (s: HrShiftSummary) => ({
+    role: "button" as const,
+    tabIndex: 0,
+    "aria-label": `Open ${s.name} (${s.code})`,
+    onClick: () => openShift(s.id),
+    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openShift(s.id);
+      }
+    },
+  });
   return (
     <section
       aria-label="Live shifts and rules"
       className="grid min-w-0 gap-4 font-sans text-foreground [&_label]:gap-1.5 [&_label]:leading-tight [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
-        <div className="flex min-w-0 gap-3">
-          <Clock3 className="mt-1 size-6 shrink-0 text-primary" />
-          <div>
-            <h2 className="text-lg font-semibold">Consistent working rules across the company</h2>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Define hours, breaks and attendance thresholds in the company’s timezone. Referenced rules stay protected
-              so historical attendance remains reliable. Creating a shift does not assign employees or approve overtime.
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy || loading}
-            onClick={() => {
-              setError("");
-              reload();
-            }}
-          >
-            <RefreshCw className="size-4" />
-            Refresh
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy || !!editor}
-            onClick={() => onNavigate("hr", "shift-assignments")}
-          >
-            Assign shifts
-          </Button>
-          {canManage && (
-            <Button
-              type="button"
-              className="text-primary-foreground!"
-              disabled={busy || !company || !!editor}
-              onClick={() => {
-                setEditor({ copy: false });
-                setError("");
-                setNotice("");
-              }}
-            >
-              <Plus className="size-4" />
-              New shift
-            </Button>
-          )}
-        </div>
-      </div>
-      {error && (
+      {error && !selected && (
         <Alert variant="destructive">
           <AlertTitle>Shift action needs attention</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      {notice && (
+      {notice && !selected && (
         <div role="status" className="flex gap-2 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm">
           <CheckCircle2 className="size-5 shrink-0 text-primary" />
           {notice}
         </div>
       )}
       <WorkForm
-        className="grid gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem_auto]"
+        aria-label="Find shifts"
+        className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,1fr)_auto] md:items-end"
         onSubmit={(e) => {
           e.preventDefault();
           setError("");
@@ -847,62 +807,40 @@ export function HrShiftsWorkspace({
           setOffset(0);
         }}
       >
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
-          Company
-          <select
-            className={selectClass}
-            value={company}
-            disabled={busy || !!editor}
-            onChange={(e) => {
-              setCompany(e.target.value);
-              setDirectory({ items: [], total: 0 });
-              setSelected("");
-              setDetail(null);
-              setOffset(0);
-              setError("");
-              setNotice("");
-              setStatusReason("");
-            }}
-          >
-            <option value="">Select an authorized company</option>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid min-w-0 gap-2 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Search shifts
           <Input
+            type="search"
             value={search}
             maxLength={160}
             disabled={busy || !!editor}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Code or name"
+            placeholder="Code or name, then press Enter"
           />
         </label>
-        <label className="grid gap-2 text-sm font-medium">
-          Status
-          <select
-            className={selectClass}
-            disabled={busy || !!editor}
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
-              setOffset(0);
+        {canManage && (
+          <Button
+            type="button"
+            className="text-primary-foreground!"
+            disabled={busy || !company || !!editor}
+            onClick={() => {
+              setEditor({ copy: false });
+              setError("");
+              setNotice("");
             }}
           >
-            <option value="">All statuses</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-        </label>
-        <Button className="self-end" type="submit" variant="outline" disabled={busy || !!editor || !company}>
-          <Search className="size-4" />
-          Search
-        </Button>
+            <Plus className="size-4" />
+            New shift
+          </Button>
+        )}
       </WorkForm>
+      <HrMasterStatusFilter
+        value={status}
+        onChange={(next) => {
+          setStatus(next);
+          setOffset(0);
+        }}
+      />
       {editor && (
         <HrRecordDrawer
           title={editor?.copy ? "Copy shift" : editor?.detail ? "Edit shift rules" : "Add shift"}
@@ -929,290 +867,276 @@ export function HrShiftsWorkspace({
         </p>
       )}
       {company && (
-        <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(15rem,0.8fr)_minmax(0,2fr)]">
-          <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-card">
-            <div className="flex items-center justify-between border-b border-border p-4">
-              <h3 className="text-sm font-semibold">Company shifts</h3>
-              <Badge variant="secondary">{directory.total}</Badge>
+        <div className="relative overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+          {loading && !directory.items.length ? (
+            <div className="grid gap-2 p-4" aria-live="polite">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
             </div>
-            {loading && !directory.items.length ? (
-              <Skeleton className="m-4 h-40" />
-            ) : directory.items.length ? (
-              <div className="grid max-h-80 gap-2 overflow-y-auto p-3 xl:max-h-[48rem]">
-                {directory.items.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    aria-pressed={selected === s.id}
-                    disabled={busy || !!editor}
-                    onClick={() => {
-                      setSelected(s.id);
-                      setDetail(null);
-                      setError("");
-                      setNotice("");
-                      setStatusReason("");
-                    }}
-                    className={`grid min-w-0 gap-2 rounded-lg border p-3 text-left text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 ${selected === s.id ? "border-primary bg-primary/10" : "border-border bg-background hover:bg-muted"}`}
-                  >
-                    <span className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-sm font-semibold">{s.code}</span>
-                      <Badge variant={s.status === "active" ? "secondary" : "outline"}>{title(s.status)}</Badge>
-                    </span>
-                    <span className="break-words text-sm">{s.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {title(s.kind)} ·{" "}
-                      {s.kind === "rotating"
-                        ? "Weekly cycle"
-                        : `${time(s.start_minute)}–${time(s.end_minute)}${s.end_minute >= 1440 ? " +1 day" : ""}`}
-                    </span>
-                    {!s.configured && (
-                      <span className="text-xs font-medium text-destructive">Configuration required</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="grid gap-2 p-5">
-                <h3 className="text-base font-semibold">No shifts to display</h3>
-                <p className="text-sm text-muted-foreground">
-                  Create a company shift or adjust the search and status filters. No sample shifts are substituted.
-                </p>
-              </div>
-            )}
-            <WorkOffsetPagination busy={!!(busy || loading || editor)} total={directory.total} offset={offset} size={workPageSize} previousDisabled={!!(busy || loading || !!editor || offset === 0)} nextDisabled={!!(busy || loading || !!editor || offset + workPageSize >= directory.total)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset(Math.max(0, offset - workPageSize))} onNext={() => setOffset(offset + workPageSize)} />
-          </section>
-          <div className="grid min-w-0 gap-5" aria-busy={detailLoading || busy}>
-            {detailLoading && !current ? (
-              <Skeleton className="h-96 w-full" />
-            ) : current ? (
-              <>
-                <section className="overflow-hidden rounded-xl border border-border bg-card">
-                  <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-5">
-                    <div>
-                      <div className="text-xs font-semibold uppercase tracking-wider text-primary">
-                        {current.code} · version {current.version}
-                      </div>
-                      <h2 className="mt-2 break-words text-xl font-semibold">{current.name}</h2>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {title(current.kind)} · {current.time_zone ?? "Timezone not configured"} ·{" "}
-                        {current.work_location ?? "Company-wide"}
-                      </p>
-                    </div>
-                    {canManage && (
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          disabled={busy || !!editor || detailLoading || current.rules_locked}
-                          onClick={() => {
-                            setEditor({ detail: current, copy: false });
-                            setError("");
-                          }}
-                        >
-                          Edit rules
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          disabled={busy || !!editor || detailLoading}
-                          onClick={() => {
-                            setEditor({ detail: current, copy: true });
-                            setError("");
-                          }}
-                        >
-                          <Copy className="size-4" />
-                          Copy to new shift
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  {!current.configured && (
-                    <div role="status" className="m-5 rounded-lg border border-border bg-muted/50 p-4 text-sm">
-                      This existing shift needs timezone and work-rule configuration before new assignments. Referenced
-                      legacy rules remain preserved; use a new shift code when editing is locked.
-                    </div>
-                  )}
-                  {current.rules_locked && (
-                    <div className="m-5 flex gap-2 rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
-                      <ShieldCheck className="size-5 shrink-0 text-primary" />
-                      Assignments or rotation references protect these rules. Copy to a new code when the working
-                      arrangement changes.
-                    </div>
-                  )}
-                  {current.kind !== "rotating" ? (
-                    <>
-                      <dl className="m-0 grid gap-3 p-5 sm:grid-cols-2">
-                        <Rule
-                          label="Working window"
-                          value={`${time(current.start_minute)}–${time(current.end_minute)}${current.end_minute >= 1440 ? " (following day)" : ""}`}
-                        />
-                        <Rule
-                          label="Required work"
-                          value={
-                            current.required_work_minutes ? hours(current.required_work_minutes) : "Needs configuration"
-                          }
-                        />
-                        <Rule
-                          label="Absent / half-day thresholds"
-                          value={`Below ${current.minimum_present_minutes}m / below ${current.half_day_minutes}m`}
-                        />
-                        <Rule
-                          label="Arrival / departure grace"
-                          value={
-                            current.kind === "flexible"
-                              ? "Flexible duration; no fixed-time penalties"
-                              : `${current.grace_in_minutes}m / ${current.grace_out_minutes}m`
-                          }
-                        />
-                        <Rule
-                          label="Overtime eligibility buffer"
-                          value={`${current.overtime_after_minutes}m beyond required work; separate approval`}
-                        />
-                        <Rule
-                          label="Weekly off"
-                          value={
-                            current.weekly_off_days.map((d) => days[d]).join(", ") || "No weekly off days configured"
-                          }
-                        />
-                      </dl>
-                      <div className="border-t border-border p-5">
-                        <h3 className="text-sm font-semibold">Break policy</h3>
-                        <div className="mt-3 grid gap-2">
-                          {current.breaks.length ? (
-                            current.breaks.map((b, i) => (
-                              <div
-                                key={i}
-                                className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 p-3 text-sm"
-                              >
-                                <span>
-                                  {b.label} · {b.minutes} minutes
-                                </span>
-                                <Badge variant="outline">{b.paid ? "Paid" : "Unpaid"}</Badge>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-sm text-muted-foreground">No scheduled breaks.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <WorkTable paging={false} tableId="app/features/hr/views/hr-shifts-workspace:1" className="w-full min-w-180 border-collapse text-left text-sm">
+                <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="w-px whitespace-nowrap px-4 py-3">Shift code</th>
+                    <th className="px-4 py-3">Shift</th>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Working hours</th>
+                    <th className="px-4 py-3">Time zone</th>
+                    <th className="px-4 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {directory.items.map((s) => (
+                    <tr
+                      key={s.id}
+                      aria-disabled={busy || !!editor}
+                      className={`cursor-pointer border-b border-border/70 transition-colors last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selected === s.id ? "bg-primary/5" : ""}`}
+                      {...openRow(s)}
+                    >
+                      <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold text-foreground">{s.code}</td>
+                      <td className="px-4 py-3 font-medium text-foreground">{s.name}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{title(s.kind)}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{shiftWindow(s)}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{s.time_zone ?? "Not configured"}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant={s.status === "active" ? "secondary" : "outline"}>
+                            {s.status === "active" ? "Active" : "Deactivated"}
+                          </Badge>
+                          {!s.configured && (
+                            <span className="text-xs font-medium text-destructive">Configuration required</span>
                           )}
                         </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="grid gap-4 p-5">
-                      <p className="text-sm text-muted-foreground">
-                        Week 1 starts Monday {current.rotation_anchor_date ?? "(anchor not configured)"}. The cycle
-                        repeats every {current.rotation.length} weeks; each member supplies its own rules.
-                      </p>
-                      <ol className="m-0 grid list-none gap-2 p-0">
-                        {current.rotation.map((r) => (
-                          <li key={r.position} className="flex min-w-0 gap-3 rounded-lg border border-border p-3">
-                            <Badge variant="secondary">Week {r.position}</Badge>
-                            <div className="min-w-0">
-                              <div className="break-words text-sm font-semibold">
-                                {r.shift.code} · {r.shift.name}
-                              </div>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                {time(r.shift.start_minute)}–{time(r.shift.end_minute)}
-                                {r.shift.end_minute >= 1440 ? " +1 day" : ""} ·{" "}
-                                {r.shift.required_work_minutes
-                                  ? hours(r.shift.required_work_minutes)
-                                  : "Needs configuration"}
-                              </p>
-                            </div>
-                          </li>
-                        ))}
-                      </ol>
-                      <label className="grid gap-2 text-sm font-medium">
-                        Preview working date
-                        <Input
-                          type="date"
-                          value={onDate || current.preview_date}
-                          disabled={busy || !!editor}
-                          onChange={(e) => setOnDate(e.target.value)}
-                        />
-                      </label>
-                      <div role="status" className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm">
-                        {current.resolved
-                          ? `${current.preview_date}: ${current.resolved.code} · ${time(current.resolved.start_minute)}–${time(current.resolved.end_minute)}${current.resolved.end_minute >= 1440 ? " (following day)" : ""}`
-                          : "Complete the cycle configuration before resolving a working date."}
-                      </div>
-                    </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {directory.items.length === 0 && (
+                    <tr>
+                      <td className="px-4 py-8 text-center text-muted-foreground" colSpan={6}>
+                        No shifts match this company, search and status. No sample shifts are substituted.
+                      </td>
+                    </tr>
                   )}
-                </section>
-                {canManage && !editor && (
-                  <HrRecordDrawer
-                    title="Change shift availability"
-                    triggerLabel="Change shift availability"
-                    busy={busy}
-                    error={error}
-                    notice={notice}
-                    completionKey={notice}
-                  >
-                    <WorkForm
-                      className="grid gap-3 rounded-xl border border-border bg-card p-5"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        void changeStatus();
-                      }}
-                    >
-                      <h3 className="text-sm font-semibold">Availability</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {title(current.status)}. Current/future assignments and active rotations must be moved before
-                        deactivation. Existing history is retained.
-                      </p>
-                      <label className="grid gap-2 text-sm font-medium">
-                        Status change reason
-                        <Textarea
-                          required
-                          minLength={8}
-                          maxLength={1000}
-                          rows={2}
-                          value={statusReason}
-                          disabled={busy}
-                          onChange={(e) => setStatusReason(e.target.value)}
-                        />
-                      </label>
-                      <Button
-                        type="submit"
-                        variant="outline"
-                        className="justify-self-start"
-                        disabled={busy || detailLoading || statusReason.trim().length < 8}
-                      >
-                        {current.status === "active" ? "Deactivate shift" : "Reactivate shift"}
-                      </Button>
-                    </WorkForm>
-                  </HrRecordDrawer>
-                )}
-                <section className="rounded-xl border border-border bg-card p-5">
-                  <h3 className="text-base font-semibold">Rule history</h3>
-                  <div className="mt-4 grid gap-3">
-                    {current.history.length ? (
-                      current.history.map((h) => (
-                        <div key={h.id} className="rounded-lg border border-border bg-background/50 p-3">
-                          <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-                            <span>
-                              Version {h.version} · {title(h.action)} · {h.actor_name}
-                            </span>
-                            <time dateTime={h.occurred_at}>{new Date(h.occurred_at).toLocaleString()}</time>
-                          </div>
-                          <p className="mt-2 break-words text-sm">{h.reason}</p>
+                </tbody>
+              </WorkTable>
+            </div>
+          )}
+          <WorkOffsetPagination
+            busy={busy || loading || !!editor}
+            total={directory.total}
+            offset={offset}
+            size={workPageSize}
+            previousDisabled={busy || loading || !!editor || offset === 0}
+            nextDisabled={busy || loading || !!editor || offset + workPageSize >= directory.total}
+            onSizeChange={(size) => {
+              setWorkPageSize(size);
+              setOffset(0);
+            }}
+            onPrevious={() => setOffset(Math.max(0, offset - workPageSize))}
+            onNext={() => setOffset(offset + workPageSize)}
+          />
+        </div>
+      )}
+      <HrMasterSheet
+        open={Boolean(selected)}
+        onOpenChange={(open) => {
+          if (!open) closeShift();
+        }}
+        eyebrow="Shifts & Rules"
+        title={current?.name ?? summary?.name ?? "Shift"}
+        description={
+          current
+            ? `${current.code} · version ${current.version} · ${title(current.kind)} · ${current.time_zone ?? "Timezone not configured"} · ${current.work_location ?? "Company-wide"}`
+            : summary
+              ? `${summary.code} · ${title(summary.kind)}`
+              : ""
+        }
+        footer={
+          canManage && current ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy || !!editor || detailLoading}
+                onClick={() => void changeStatus()}
+              >
+                {busy ? "Saving…" : current.status === "active" ? "Deactivate" : "Reactivate"}
+              </Button>
+              <HrEditButton
+                label="Edit rules"
+                disabled={busy || !!editor || detailLoading || current.rules_locked}
+                onClick={() => {
+                  setEditor({ detail: current, copy: false });
+                  setError("");
+                }}
+              />
+            </>
+          ) : undefined
+        }
+      >
+        <div className="grid min-w-0 gap-5" aria-busy={detailLoading || busy}>
+          {error && (
+            <Alert variant="destructive">
+              <AlertTitle>Shift action needs attention</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {notice && (
+            <div role="status" className="flex gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+              <CheckCircle2 className="size-5 shrink-0 text-primary" />
+              {notice}
+            </div>
+          )}
+          {detailLoading && !current ? (
+            <Skeleton className="h-80 w-full" />
+          ) : current ? (
+            <>
+              <HrDetailSummary code={current.code} status={current.status}>
+                {current.kind === "rotating" ? `${current.rotation.length}-week cycle` : shiftWindow(current)} ·{" "}
+                {current.work_location ?? "Company-wide"}
+              </HrDetailSummary>
+              {!current.configured && (
+                <div role="status" className="rounded-lg border border-border bg-muted/50 p-3 text-sm">
+                  This existing shift needs timezone and work-rule configuration before new assignments. Referenced
+                  legacy rules remain preserved; use a new shift code when editing is locked.
+                </div>
+              )}
+              {current.rules_locked && (
+                <div className="flex gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
+                  <ShieldCheck className="size-5 shrink-0 text-primary" />
+                  Assignments or rotation references lock these rules.
+                </div>
+              )}
+              <HrDetailGroup title="Details">
+                <HrDetailTile label="Shift type" value={title(current.kind)} />
+                <HrDetailTile label="Version" value={String(current.version)} />
+                <HrDetailTile label="Time zone" value={current.time_zone ?? "Timezone not configured"} />
+                <HrDetailTile label="Work location" value={current.work_location ?? "Company-wide"} />
+              </HrDetailGroup>
+              {current.kind !== "rotating" ? (
+                <>
+                  <HrDetailGroup title="Working rules">
+                    <HrDetailTile
+                      label="Working window"
+                      value={`${time(current.start_minute)}–${time(current.end_minute)}${current.end_minute >= 1440 ? " (following day)" : ""}`}
+                    />
+                    <HrDetailTile
+                      label="Required work"
+                      value={
+                        current.required_work_minutes ? hours(current.required_work_minutes) : "Needs configuration"
+                      }
+                    />
+                    <HrDetailTile
+                      label="Absent / half-day thresholds"
+                      value={`Below ${current.minimum_present_minutes}m / below ${current.half_day_minutes}m`}
+                    />
+                    <HrDetailTile
+                      label="Arrival / departure grace"
+                      value={
+                        current.kind === "flexible"
+                          ? "Flexible duration; no fixed-time penalties"
+                          : `${current.grace_in_minutes}m / ${current.grace_out_minutes}m`
+                      }
+                    />
+                    <HrDetailTile
+                      label="Overtime eligibility buffer"
+                      value={`${current.overtime_after_minutes}m beyond required work; separate approval`}
+                    />
+                    <HrDetailTile
+                      label="Weekly off"
+                      value={current.weekly_off_days.map((d) => days[d]).join(", ") || "No weekly off days configured"}
+                    />
+                  </HrDetailGroup>
+                  <HrDetailSection title="Break policy">
+                    {current.breaks.length ? (
+                      current.breaks.map((b, i) => (
+                        <div
+                          key={i}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/35 p-3 text-sm"
+                        >
+                          <span>
+                            {b.label} · {b.minutes} minutes
+                          </span>
+                          <Badge variant="outline">{b.paid ? "Paid" : "Unpaid"}</Badge>
                         </div>
                       ))
                     ) : (
-                      <p className="text-sm text-muted-foreground">
-                        This legacy shift has no recorded rule changes in the live workspace yet.
-                      </p>
+                      <p className="text-sm text-muted-foreground">No scheduled breaks.</p>
                     )}
+                  </HrDetailSection>
+                </>
+              ) : (
+                <HrDetailSection title="Weekly rotation">
+                  <p className="text-sm text-muted-foreground">
+                    Week 1 starts Monday{" "}
+                    {current.rotation_anchor_date
+                      ? hrDisplayDate(current.rotation_anchor_date)
+                      : "(anchor not configured)"}
+                    . The cycle repeats every {current.rotation.length} weeks; each member supplies its own rules.
+                  </p>
+                  <ol className="m-0 grid list-none gap-2 p-0">
+                    {current.rotation.map((r) => (
+                      <li
+                        key={r.position}
+                        className="flex min-w-0 gap-3 rounded-lg border border-border bg-muted/35 p-3"
+                      >
+                        <Badge variant="secondary">Week {r.position}</Badge>
+                        <div className="min-w-0">
+                          <div className="break-words text-sm font-semibold">
+                            {r.shift.code} · {r.shift.name}
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {time(r.shift.start_minute)}–{time(r.shift.end_minute)}
+                            {r.shift.end_minute >= 1440 ? " +1 day" : ""} ·{" "}
+                            {r.shift.required_work_minutes
+                              ? hours(r.shift.required_work_minutes)
+                              : "Needs configuration"}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                  <label className="grid content-start gap-2 text-sm font-medium">
+                    Preview working date
+                    <Input
+                      type="date"
+                      value={onDate || current.preview_date}
+                      disabled={busy || !!editor}
+                      onChange={(e) => setOnDate(e.target.value)}
+                    />
+                  </label>
+                  <div role="status" className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
+                    {current.resolved
+                      ? `${hrDisplayDate(current.preview_date)}: ${current.resolved.code} · ${time(current.resolved.start_minute)}–${time(current.resolved.end_minute)}${current.resolved.end_minute >= 1440 ? " (following day)" : ""}`
+                      : "Complete the cycle configuration before resolving a working date."}
                   </div>
-                </section>
-              </>
-            ) : (
-              <div className="rounded-xl border border-dashed border-border p-8 text-sm text-muted-foreground">
-                Select a shift to review its working rules and change history.
-              </div>
-            )}
-          </div>
+                </HrDetailSection>
+              )}
+              <HrDetailSection title="Rule history">
+                {current.history.length ? (
+                  current.history.map((h) => (
+                    <div key={h.id} className="rounded-lg border border-border bg-muted/35 p-3">
+                      <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
+                        <span>
+                          Version {h.version} · {title(h.action)} · {h.actor_name}
+                        </span>
+                        <time dateTime={h.occurred_at}>{hrDisplayDate(h.occurred_at, true)}</time>
+                      </div>
+                      <p className="mt-2 break-words text-sm">{h.reason}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    This legacy shift has no recorded rule changes in the live workspace yet.
+                  </p>
+                )}
+              </HrDetailSection>
+            </>
+          ) : null}
         </div>
-      )}
+      </HrMasterSheet>
     </section>
   );
 }

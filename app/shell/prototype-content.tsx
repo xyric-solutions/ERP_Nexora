@@ -4,18 +4,12 @@ import { WorkForm } from "@/shared/ui/work-form";
 import { WorkSurfaceContext } from "@/shared/ui/work-surface-context";
 
 import { FilterBar } from "../shared/ui/filter-bar";
-import { HrLearningWorkspace, learningPages } from "@prototype/features/hr/views/hr-learning-workspace";
-import {
-  HrReportGovernanceWorkspace,
-  hrGovernancePages,
-} from "@prototype/features/hr/views/hr-report-governance-workspace";
 
 import {
   HrLifecycleCasesWorkspace,
-  HrLifecycleMovementsWorkspace,
   lifecycleCasePages,
 } from "@prototype/features/hr/views/hr-lifecycle-cases-workspace";
-import { HrPerformanceWorkspace, performancePages } from "@prototype/features/hr/views/hr-performance-workspace";
+import { HrEmployeeChangesWorkspace } from "@prototype/features/hr/views/hr-employee-changes-workspace";
 import { HrPayslipsWorkspace } from "@prototype/features/hr/views/hr-payslips-workspace";
 import { HrPayrollJournalWorkspace } from "@prototype/features/hr/views/hr-payroll-journal-workspace";
 import { HrPayrollPaymentWorkspace } from "@prototype/features/hr/views/hr-payroll-payment-workspace";
@@ -93,14 +87,26 @@ import { HrPeopleWorkspace } from "@prototype/features/hr/views/hr-people-worksp
 import { isPeoplePage } from "@prototype/features/hr/model/people-navigation";
 import { HrRecruitmentWorkspace } from "@prototype/features/hr/views/hr-recruitment-workspace";
 import { isRecruitmentPage } from "@prototype/features/hr/model/recruitment-navigation";
-import { findTimeWorkspace } from "@prototype/features/hr/model/time-workspace-navigation";
-import { findHrSectionWorkspace } from "@prototype/features/hr/model/hr-section-navigation";
+import {
+  findTimeWorkspace,
+  resolveTimePageId,
+  timeNavigationPageId,
+} from "@prototype/features/hr/model/time-workspace-navigation";
+import {
+  findHrSectionWorkspace,
+  findHrSectionWorkspaceForPage,
+} from "@prototype/features/hr/model/hr-section-navigation";
+import { workArrangementOptions } from "@prototype/features/hr/model/work-arrangement";
 import { HrOperationsWorkspace } from "@prototype/features/hr/views/hr-operations-workspace";
-import { isOrganisationMasterPage } from "@prototype/features/hr/model/organisation-master-navigation";
+import {
+  isOrganisationMasterPage,
+  resolveOrganisationMasterPageId,
+} from "@prototype/features/hr/model/organisation-master-navigation";
 import {
   HrConfiguredMasterSheetWorkspace as HrConfiguredMasterWorkspace,
   type HrConfiguredMasterSheetDefinition as HrConfiguredMasterDefinition,
 } from "@prototype/features/hr/views/hr-configured-master-sheet-workspace";
+import { payCycleOptions, paymentRouteOptions } from "@prototype/features/hr/model/employment-setup";
 import { HrDashboardWorkspace } from "@prototype/features/hr/views/hr-dashboard-workspace";
 import { HrFinancePayrollDashboardWorkspace } from "@prototype/features/hr/views/hr-finance-payroll-dashboard-workspace";
 import { BankingRevaluationWorkspace } from "@prototype/features/banking/views/banking-revaluation-workspace";
@@ -114,6 +120,8 @@ import { HrTimeLeaveWorkspace } from "@prototype/features/hr/views/hr-time-leave
 import { HrAttendanceCompletionWorkspace } from "@prototype/features/hr/views/hr-attendance-completion-workspace";
 import { HrAttendanceCorrectionsWorkspace } from "@prototype/features/hr/views/hr-attendance-corrections-workspace";
 import { HrMonthlyAttendanceWorkspace } from "@prototype/features/hr/views/hr-monthly-attendance-workspace";
+import { HrAttendanceCheckInWorkspace } from "@prototype/features/hr/views/hr-attendance-check-in-workspace";
+import { HrMyAttendanceWorkspace } from "@prototype/features/hr/views/hr-my-attendance-workspace";
 import { HrDailyAttendanceWorkspace } from "@prototype/features/hr/views/hr-daily-attendance-workspace";
 import { HrShiftAssignmentsWorkspace } from "@prototype/features/hr/views/hr-shift-assignments-workspace";
 import { HrShiftsWorkspace } from "@prototype/features/hr/views/hr-shifts-workspace";
@@ -122,9 +130,10 @@ import { HrOfferManagementWorkspace } from "@prototype/features/hr/views/hr-offe
 import { HrInterviewsWorkspace } from "@prototype/features/hr/views/hr-interviews-workspace";
 import { HrRecruitmentPipelineWorkspace } from "@prototype/features/hr/views/hr-recruitment-pipeline-workspace";
 import { HrCandidateDirectoryWorkspace } from "@prototype/features/hr/views/hr-candidate-directory-workspace";
-import { HrEmployeeDraftForm } from "@prototype/features/hr/views/hr-employee-draft-form";
+import { HrAddEmployeeWorkspace } from "@prototype/features/hr/views/hr-add-employee-workspace";
+import { HrDrawerSectionProvider } from "@prototype/features/hr/components/hr-drawer-context";
 import { HrEmployeeDraftsWorkspace } from "@prototype/features/hr/views/hr-employee-drafts-workspace";
-import { HrPeopleApprovalsWorkspace as HrEmployeeApprovalsWorkspace } from "@prototype/features/hr/views/hr-personal-corrections";
+import { HrEmployeeApprovalsWorkspace } from "@prototype/features/hr/views/hr-employee-approvals-workspace";
 import { HrEmployeeContactsWorkspace } from "@prototype/features/hr/views/hr-employee-contacts-workspace";
 import { HrEmployeeEmergencyContactsWorkspace } from "@prototype/features/hr/views/hr-employee-emergency-contacts-workspace";
 import { HrEmployeeDocumentsWorkspace } from "@prototype/features/hr/views/hr-employee-documents-workspace";
@@ -133,7 +142,7 @@ import { HrEmployeeHistoryWorkspace } from "@prototype/features/hr/views/hr-empl
 import { HrAttendanceScreen, isHrAttendancePage } from "@prototype/features/hr/views/hr-attendance-screens";
 import { HrLifecycleScreen, isHrLifecyclePage } from "@prototype/features/hr/views/hr-lifecycle-screens";
 import { HrLifecyclePoliciesWorkspace } from "@prototype/features/hr/views/hr-lifecycle-policies-workspace";
-import { HrBenefitsWorkspace, benefitsPages } from "@prototype/features/hr/views/hr-benefits-workspace";
+import { HrLoanBenefitsWorkspace } from "@prototype/features/hr/views/hr-benefits-workspace";
 import { HrReportingWorkspace, isHrReportingPage } from "@prototype/features/hr/views/hr-reporting-workspace";
 import { InventoryOperationsWorkspace } from "@prototype/features/inventory/views/inventory-operations-workspace";
 import { ProductsWorkspace } from "@prototype/features/inventory/views/products-workspace";
@@ -199,11 +208,25 @@ const configuredHrMasters: Record<string, HrConfiguredMasterDefinition> = {
     label: "Cost Centres",
     singular: "Cost Centre",
     guidance:
-      "Cost centres are the shared company finance dimension used on employee assignments. They remain separate from the organisation tree because one cost centre can span branches. Finance confirms the default nominal before payroll posting is enabled.",
-    configurationKey: "default_nominal",
-    configurationLabel: "Default nominal",
-    configurationHelp: "Finance-owned nominal account code used as the proposed payroll allocation.",
-    configurationPlaceholder: "For example 60-01-00100",
+      "A cost centre is the business area that pays for its people: how they are paid (payment route and pay cycle) and which expense account their pay posts to (default nominal).",
+    fields: [
+      {
+        key: "payment_route",
+        label: "Payment route",
+        options: paymentRouteOptions,
+      },
+      {
+        key: "pay_cycle",
+        label: "Pay cycle",
+        options: payCycleOptions,
+      },
+      {
+        key: "default_nominal",
+        label: "Default nominal",
+        optionsSource: "cost_centre_nominals",
+        optional: true,
+      },
+    ],
   },
   "work-locations": {
     type: "work_location",
@@ -211,45 +234,12 @@ const configuredHrMasters: Record<string, HrConfiguredMasterDefinition> = {
     singular: "Work Location",
     guidance:
       "Work locations describe where an employee works and stay separate from legal branches. Location changes remain governed employee-assignment movements.",
-    configurationKey: "working_pattern",
-    configurationLabel: "Working pattern",
-    configurationHelp: "Default physical-working arrangement for assignments at this location.",
-    options: [
-      { value: "on_site", label: "On site" },
-      { value: "hybrid", label: "Hybrid" },
-      { value: "remote", label: "Remote" },
-      { value: "client_site", label: "Client site" },
-    ],
-  },
-  "employment-types": {
-    type: "employment_type",
-    label: "Employment Types",
-    singular: "Employment Type",
-    guidance:
-      "Employment types describe the contractual basis of work. The payment route guides downstream setup but does not create payroll or supplier transactions.",
-    configurationKey: "payment_route",
-    configurationLabel: "Payment route",
-    configurationHelp: "Downstream route expected for people using this employment type.",
-    options: [
-      { value: "payroll", label: "Payroll" },
-      { value: "stipend", label: "Stipend" },
-      { value: "accounts_payable", label: "Accounts payable" },
-    ],
-  },
-  "employee-categories": {
-    type: "employee_category",
-    label: "Employee Categories",
-    singular: "Employee Category",
-    guidance:
-      "Employee categories group people for policy, benefit and reporting rules. The pay cycle is configuration and does not release a payroll run.",
-    configurationKey: "pay_cycle",
-    configurationLabel: "Pay cycle",
-    configurationHelp: "Expected pay frequency for this employee category.",
-    options: [
-      { value: "monthly", label: "Monthly" },
-      { value: "fortnightly", label: "Fortnightly" },
-      { value: "weekly", label: "Weekly" },
-      { value: "stipend", label: "Stipend" },
+    fields: [
+      {
+        key: "working_pattern",
+        label: "Working pattern",
+        options: workArrangementOptions,
+      },
     ],
   },
 };
@@ -2756,7 +2746,26 @@ function BankingReconciliationPage({
 }
 
 export function PrototypeContent(props: PrototypeContentProps) {
-  return <WorkSurfaceContext.Provider value={`${props.context.moduleId}:${props.context.pageId}`}><PrototypeContentBody {...props} /></WorkSurfaceContext.Provider>;
+  const { context } = props;
+  // Inner HR operations pages open under their parent section's header and tabs.
+  const section = context.moduleId === "hr" ? findHrSectionWorkspaceForPage(context.pageId) : undefined;
+  const content = section ? (
+    <HrOperationsWorkspace key={section.id} definition={section} pageId={context.pageId} onNavigate={props.onNavigate}>
+      <PrototypeContentBody {...props} />
+    </HrOperationsWorkspace>
+  ) : (
+    <PrototypeContentBody {...props} />
+  );
+  return (
+    <WorkSurfaceContext.Provider value={`${context.moduleId}:${context.pageId}`}>
+      {/* Every HR & Payroll drawer shows the page it belongs to at the top of its header. */}
+      {context.moduleId === "hr" ? (
+        <HrDrawerSectionProvider section={context.pageLabel}>{content}</HrDrawerSectionProvider>
+      ) : (
+        content
+      )}
+    </WorkSurfaceContext.Provider>
+  );
 }
 
 function PrototypeContentBody(props: PrototypeContentProps) {
@@ -2951,7 +2960,11 @@ function PrototypeContentBody(props: PrototypeContentProps) {
 
   const timeWorkspace = context.moduleId === "hr" ? findTimeWorkspace(context.pageId) : undefined;
   if (timeWorkspace) {
+    // Former Time & Leave addresses resolve to their Attendance & Leave pages.
+    const timePageId = resolveTimePageId(context.pageId);
     const pages = {
+      "attendance-check-in": <HrAttendanceCheckInWorkspace />,
+      "my-attendance": <HrMyAttendanceWorkspace />,
       shifts: <HrShiftsWorkspace initialReference={context.recordRef} onNavigate={props.onNavigate} />,
       "shift-assignments": (
         <HrShiftAssignmentsWorkspace initialReference={context.recordRef} onNavigate={props.onNavigate} />
@@ -2959,7 +2972,6 @@ function PrototypeContentBody(props: PrototypeContentProps) {
       "daily-attendance": (
         <HrDailyAttendanceWorkspace initialReference={context.recordRef} onNavigate={props.onNavigate} />
       ),
-      attendance: <HrDailyAttendanceWorkspace initialReference={context.recordRef} onNavigate={props.onNavigate} />,
       "monthly-attendance": (
         <HrMonthlyAttendanceWorkspace initialReference={context.recordRef} onNavigate={props.onNavigate} />
       ),
@@ -2968,29 +2980,27 @@ function PrototypeContentBody(props: PrototypeContentProps) {
       ),
     };
     const page =
-      pages[context.pageId as keyof typeof pages] ??
-      (["overtime", "attendance-period", "attendance-payroll-inputs"].includes(context.pageId) ? (
+      pages[timePageId as keyof typeof pages] ??
+      (["overtime", "attendance-period"].includes(timePageId) ? (
         <HrAttendanceCompletionWorkspace
-          mode={context.pageId as "overtime" | "attendance-period" | "attendance-payroll-inputs"}
+          mode={timePageId as "overtime" | "attendance-period"}
           initialReference={context.recordRef}
           onNavigate={props.onNavigate}
         />
       ) : ["leave-types", "leave-balances", "leave-request", "leave-requests", "leave-approval"].includes(
-          context.pageId,
+          timePageId,
         ) ? (
         <HrTimeLeaveWorkspace
-          mode={
-            context.pageId as "leave-types" | "leave-balances" | "leave-request" | "leave-requests" | "leave-approval"
-          }
+          mode={timePageId as "leave-types" | "leave-balances" | "leave-request" | "leave-requests" | "leave-approval"}
           initialReference={context.recordRef}
           onNavigate={props.onNavigate}
         />
       ) : null);
     return (
       <HrOperationsWorkspace
-        key={context.pageId + (context.recordRef ?? "")}
+        key={timePageId + (context.recordRef ?? "")}
         definition={timeWorkspace}
-        pageId={context.pageId}
+        pageId={timeNavigationPageId(timePageId)}
         onNavigate={props.onNavigate}
       >
         {page}
@@ -3005,8 +3015,14 @@ function PrototypeContentBody(props: PrototypeContentProps) {
       candidates: <HrCandidateDirectoryWorkspace />,
       "recruitment-pipeline": <HrRecruitmentPipelineWorkspace />,
       interviews: <HrInterviewsWorkspace />,
-      offers: <HrOfferManagementWorkspace />,
-      "create-employee-from-offer": <HrOfferEmployeeWorkspace onNavigate={props.onNavigate} />,
+      offers: <HrOfferManagementWorkspace onNavigate={props.onNavigate} />,
+      "create-employee-from-offer": (
+        <HrOfferEmployeeWorkspace
+          key={context.recordRef ?? ""}
+          onNavigate={props.onNavigate}
+          initialOfferId={context.recordRef}
+        />
+      ),
     };
     return (
       <HrRecruitmentWorkspace key={context.pageId} pageId={context.pageId} onNavigate={props.onNavigate}>
@@ -3019,7 +3035,7 @@ function PrototypeContentBody(props: PrototypeContentProps) {
     const pages = {
       "hr-dashboard": <HrDashboardWorkspace onNavigate={props.onNavigate} />,
       "finance-payroll-dashboard": <HrFinancePayrollDashboardWorkspace onNavigate={props.onNavigate} />,
-      employees: <HrEmployeeDirectory onOpenEmployee={(id) => props.onNavigate("hr", "employee-record", id)} />,
+      employees: <HrEmployeeDirectory onNavigate={props.onNavigate} />,
       "employee-record": (
         <HrEmployeeRecordWorkspace employeeId={context.recordRef ?? ""} onNavigate={props.onNavigate} />
       ),
@@ -3030,12 +3046,7 @@ function PrototypeContentBody(props: PrototypeContentProps) {
       "employee-documents": <HrEmployeeDocumentsWorkspace initialEmployeeId={context.recordRef} />,
       "employee-assignments": <HrEmployeeAssignmentsWorkspace initialEmployeeId={context.recordRef} />,
       "employee-status-history": <HrEmployeeHistoryWorkspace initialEmployeeId={context.recordRef} />,
-      "add-employee": (
-        <>
-          <HrEmployeeDirectory onOpenEmployee={(id) => props.onNavigate("hr", "employee-record", id)} />
-          <HrEmployeeDraftForm onAction={onAction} onClose={() => props.onNavigate("hr", "employees")} />
-        </>
-      ),
+      "add-employee": <HrAddEmployeeWorkspace onAction={onAction} onNavigate={props.onNavigate} />,
       "employee-drafts": <HrEmployeeDraftsWorkspace onAction={onAction} />,
       "employee-approvals": <HrEmployeeApprovalsWorkspace onAction={onAction} />,
       "positions-org": <HrPositionsOrganizationWorkspace onNavigate={props.onNavigate} />,
@@ -3053,26 +3064,32 @@ function PrototypeContentBody(props: PrototypeContentProps) {
   }
 
   if (context.moduleId === "hr" && isOrganisationMasterPage(context.pageId)) {
-    const definition = configuredHrMasters[context.pageId];
+    const masterPageId = resolveOrganisationMasterPageId(context.pageId);
+    const definition = configuredHrMasters[masterPageId];
     return (
-      <HrOrganisationMastersWorkspace key={context.pageId} pageId={context.pageId} onNavigate={props.onNavigate}>
-        {context.pageId === "org-structure" ? (
+      <HrOrganisationMastersWorkspace key={masterPageId} pageId={masterPageId} onNavigate={props.onNavigate}>
+        {masterPageId === "org-structure" ? (
           <HrOrganizationStructureWorkspace />
-        ) : context.pageId === "job-grades" ? (
+        ) : masterPageId === "job-grades" ? (
           <HrJobGradesWorkspace />
-        ) : context.pageId === "designations" ? (
+        ) : masterPageId === "designations" ? (
           <HrMasterCatalogueWorkspace
             type="designation"
             label="Designations"
             singular="Designation"
-            guidance="Designations identify an employee's formal title. Deactivation prevents new assignments while preserving employment history."
+            nameLabel="Position"
+            namePlaceholder="For example Software Engineer"
+            guidance="Designations are employee positions, such as Software Engineer or Community Handler. Deactivation prevents new assignments while preserving employment history."
           />
-        ) : context.pageId === "jobs" ? (
+        ) : masterPageId === "jobs" ? (
           <HrMasterCatalogueWorkspace
             type="job"
             label="Jobs"
             singular="Job"
-            guidance="Jobs are reusable company master records. Creating one does not hire, assign, or activate an employee."
+            nameLabel="Job title"
+            namePlaceholder="For example Software Engineer – Development"
+            withDepartment
+            guidance="Jobs are specific job titles that belong to a department, such as Software Engineer in Development or Community Handler in Marketing. Creating one does not hire, assign, or activate an employee."
           />
         ) : definition ? (
           <HrConfiguredMasterWorkspace key={definition.type} definition={definition} />
@@ -3093,33 +3110,16 @@ function PrototypeContentBody(props: PrototypeContentProps) {
     );
   }
 
-  if (context.moduleId === "hr" && (benefitsPages as readonly string[]).includes(context.pageId)) {
+  if (context.moduleId === "hr" && (context.pageId === "loans-benefits" || context.pageId === "advance-requests")) {
     return (
-      <HrBenefitsWorkspace
+      <HrLoanBenefitsWorkspace
         key={context.pageId}
-        page={context.pageId as (typeof benefitsPages)[number]}
+        kind={context.pageId === "advance-requests" ? "advance" : "loan"}
         onNavigate={props.onNavigate}
       />
     );
   }
 
-  if (context.moduleId === "hr" && learningPages.includes(context.pageId as (typeof learningPages)[number]))
-    return (
-      <HrLearningWorkspace
-        key={context.pageId}
-        page={context.pageId as (typeof learningPages)[number]}
-        onNavigate={props.onNavigate}
-      />
-    );
-  if (context.moduleId === "hr" && hrGovernancePages.includes(context.pageId as (typeof hrGovernancePages)[number])) {
-    return (
-      <HrReportGovernanceWorkspace
-        key={context.pageId}
-        page={context.pageId as (typeof hrGovernancePages)[number]}
-        onNavigate={props.onNavigate}
-      />
-    );
-  }
   if (["hr", "reports"].includes(context.moduleId) && isHrReportingPage(context.pageId)) {
     return <HrReportingWorkspace context={context} onAction={onAction} onNavigate={props.onNavigate} />;
   }
@@ -3171,46 +3171,19 @@ function PrototypeContentBody(props: PrototypeContentProps) {
   // Core HR foundation: the organisation tree and the six HR masters. Every
   // master renders through one screen, so they cannot drift apart.
   if (context.moduleId === "hr") {
-    if (context.pageId === "lifecycle-policies") {
-      return (
-        <>
-          <PageIntro context={context} />
-          <HrLifecyclePoliciesWorkspace />
-        </>
-      );
-    }
+    // Employee Lifecycle pages open under their section tabs only (no second title or description).
+    if (context.pageId === "lifecycle-policies") return <HrLifecyclePoliciesWorkspace />;
     if (context.pageId in lifecycleCasePages) {
       return (
-        <>
-          <PageIntro context={context} statusLabel="Connected · governed employment cases" />
-          <HrLifecycleCasesWorkspace
-            key={context.pageId}
-            page={context.pageId as keyof typeof lifecycleCasePages}
-            onNavigate={props.onNavigate}
-          />
-        </>
+        <HrLifecycleCasesWorkspace
+          key={context.pageId}
+          page={context.pageId as keyof typeof lifecycleCasePages}
+          onNavigate={props.onNavigate}
+        />
       );
     }
-    if (context.pageId === "employee-movements") {
-      return (
-        <>
-          <PageIntro context={context} statusLabel="Connected · effective-dated movements" />
-          <HrLifecycleMovementsWorkspace onAction={onAction} />
-        </>
-      );
-    }
-    if (context.pageId in performancePages) {
-      return (
-        <>
-          <PageIntro context={context} statusLabel="Connected · governed Performance" />
-          <HrPerformanceWorkspace
-            key={context.pageId}
-            page={context.pageId as keyof typeof performancePages}
-            onNavigate={props.onNavigate}
-          />
-        </>
-      );
-    }
+    if (context.pageId === "employee-movements") return <HrEmployeeChangesWorkspace key="transfer" kind="transfer" />;
+    if (context.pageId === "employee-promotions") return <HrEmployeeChangesWorkspace key="promotion" kind="promotion" />;
     if (isHrLifecyclePage(context.pageId)) {
       return (
         <>
@@ -3224,70 +3197,45 @@ function PrototypeContentBody(props: PrototypeContentProps) {
         </>
       );
     }
+    // Payroll pages open under their section tabs only (no second title, status chip or description).
     if (["payroll-runs", "payroll-validation"].includes(context.pageId)) {
       return (
-        <>
-          <PageIntro context={context} statusLabel="Connected · payroll workflow" />
-          <HrPayrollRunsWorkspace
-            key={context.pageId}
-            review={context.pageId === "payroll-validation"}
-            onNavigate={props.onNavigate}
-          />
-        </>
+        <HrPayrollRunsWorkspace
+          key={context.pageId}
+          review={context.pageId === "payroll-validation"}
+          onNavigate={props.onNavigate}
+        />
       );
     }
     if (context.pageId === "payslips") {
-      return (
-        <>
-          <PageIntro context={context} statusLabel="Connected · controlled payslip publication" />
-          <HrPayslipsWorkspace onNavigate={props.onNavigate} />
-        </>
-      );
+      return <HrPayslipsWorkspace onNavigate={props.onNavigate} />;
     }
     if (context.pageId === "payroll-journal") {
       return (
-        <>
-          <PageIntro context={context} statusLabel="Connected · governed Finance accrual" />
-          <HrPayrollJournalWorkspace
-            key={context.recordRef}
-            initialReference={context.recordRef}
-            onNavigate={props.onNavigate}
-          />
-        </>
+        <HrPayrollJournalWorkspace
+          key={context.recordRef}
+          initialReference={context.recordRef}
+          onNavigate={props.onNavigate}
+        />
       );
     }
     if (context.pageId === "payment-batch") {
       return (
-        <>
-          <PageIntro context={context} statusLabel="Connected · governed Banking settlement" />
-          <HrPayrollPaymentWorkspace
-            key={context.recordRef}
-            initialReference={context.recordRef}
-            onNavigate={props.onNavigate}
-          />
-        </>
+        <HrPayrollPaymentWorkspace
+          key={context.recordRef}
+          initialReference={context.recordRef}
+          onNavigate={props.onNavigate}
+        />
       );
     }
     if (context.pageId in payrollPages) {
       return (
-        <>
-          <PageIntro
-            context={context}
-            statusLabel={
-              ["payroll-runs", "payroll-validation", "payroll-journal", "payment-batch", "payslips"].includes(
-                context.pageId,
-              )
-                ? "Connected · read only"
-                : undefined
-            }
-          />
-          <HrPayrollWorkspace
-            initialReference={context.recordRef}
-            key={context.pageId + context.recordRef}
-            page={context.pageId as keyof typeof payrollPages}
-            onNavigate={props.onNavigate}
-          />
-        </>
+        <HrPayrollWorkspace
+          initialReference={context.recordRef}
+          key={context.pageId + context.recordRef}
+          page={context.pageId as keyof typeof payrollPages}
+          onNavigate={props.onNavigate}
+        />
       );
     }
     if (isHrAttendancePage(context.pageId)) {

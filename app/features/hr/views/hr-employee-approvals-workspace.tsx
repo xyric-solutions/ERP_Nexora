@@ -1,7 +1,9 @@
 "use client";
 import { WorkTable } from "@/shared/ui/work-table";
 
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrDetailGroup, HrDetailSummary, HrDetailTile } from "../components/hr-detail-tile";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -19,13 +21,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ChevronDownIcon } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
-import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warning";
 
 import { HrApiClient } from "../api/hr-client";
 import { approvalOverrideReviewState } from "../approval-override-ui";
+import { HrClickableRow } from "../components/hr-clickable-row";
+import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
+import { HrPagination, HrSearchField, matchesSearch, useHrPage } from "../components/hr-list-controls";
 import { HrHireApprovalsPanel } from "../components/hr-hire-approvals-panel";
 import { HrTransferApprovalsPanel } from "../components/hr-transfer-approvals-panel";
 import { HrPromotionApprovalsPanel } from "../components/hr-promotion-approvals-panel";
@@ -36,10 +51,46 @@ import { HrOrganizationPlacementChangeApprovalsPanel } from "../components/hr-or
 type LoadState = "loading" | "ready" | "error";
 type Decision = DecideHrEmployeeDraftApprovalRequest["decision"];
 
+/** Employee draft approvals: All (pending and decided) / Approved / Rejected. */
+type DraftApprovalFilter = "all" | "approved" | "rejected";
+const draftApprovalFilterOptions: readonly { value: DraftApprovalFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+];
+const approvalStateLabel = { pending: "Pending", approved: "Approved", rejected: "Rejected" } as const;
+
+type ApprovalKind = "drafts" | "hire" | "transfer" | "promotion" | "manager" | "location" | "placement";
+/** Approval queues grouped by what they change; each kind shows one queue at a time. */
+const approvalCategories: readonly { label: string; kinds: readonly { kind: ApprovalKind; label: string }[] }[] = [
+  {
+    label: "Joining",
+    kinds: [
+      { kind: "drafts", label: "Employee drafts" },
+      { kind: "hire", label: "Hire" },
+    ],
+  },
+  {
+    label: "Movements",
+    kinds: [
+      { kind: "transfer", label: "Transfers" },
+      { kind: "promotion", label: "Promotions" },
+    ],
+  },
+  {
+    label: "Reporting & placement",
+    kinds: [
+      { kind: "manager", label: "Manager changes" },
+      { kind: "location", label: "Work locations" },
+      { kind: "placement", label: "Organisation placement" },
+    ],
+  },
+];
+
 export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: string, subject?: string) => void }) {
   const { api, csrfToken, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
+  const [noCompany, setNoCompany] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [queue, setQueue] = useState<Awaited<ReturnType<HrApiClient["employeeDraftApprovals"]>>["items"]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -49,9 +100,11 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
   const [refreshKey, setRefreshKey] = useState(0);
   const [reason, setReason] = useState("");
   const [decision, setDecision] = useState<Decision | null>(null);
+  const [draftFilter, setDraftFilter] = useState<DraftApprovalFilter>("all");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [search, setSearch] = useState("");
   const retry = useRef<{ fingerprint: string; key: string } | null>(null);
   const canApproveDraft = session?.user.permissions.includes("hr.employee.approve") ?? false;
   const canApproveHire = session?.user.permissions.includes("hr.employment_lifecycle.approve") ?? false;
@@ -74,6 +127,36 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
     canApproveWorkLocationChange ||
     canApproveOrganizationPlacementChange;
   const userId = session?.user.id;
+  const permittedKinds: Record<ApprovalKind, boolean> = {
+    drafts: canApproveDraft,
+    hire: canApproveHire,
+    transfer: canApproveTransfer,
+    promotion: canApprovePromotion,
+    manager: canApproveManagerChange,
+    location: canApproveWorkLocationChange,
+    placement: canApproveOrganizationPlacementChange,
+  };
+  const visibleCategories = approvalCategories
+    .map((category) => ({ ...category, kinds: category.kinds.filter((item) => permittedKinds[item.kind]) }))
+    .filter((category) => category.kinds.length);
+  const [chosenKind, setChosenKind] = useState<ApprovalKind | "">("");
+  const firstKind = visibleCategories[0]?.kinds[0]?.kind ?? "drafts";
+  const kind: ApprovalKind = chosenKind && permittedKinds[chosenKind] ? chosenKind : firstKind;
+  const kindCategory = visibleCategories.find((category) => category.kinds.some((item) => item.kind === kind));
+  const kindLabel = kindCategory?.kinds.find((item) => item.kind === kind)?.label ?? "";
+  const kindGroup = kindCategory?.label ?? "";
+  const [countsKey, setCountsKey] = useState(0);
+  const [counts, setCounts] = useState<{ key: string; values: Partial<Record<ApprovalKind, number | null>> }>({
+    key: "",
+    values: {},
+  });
+  const countsFor = `${companyId}:${refreshKey}:${countsKey}`;
+  const countValues = counts.key === countsFor ? counts.values : {};
+  // Decisions inside a queue panel refresh the pending counts.
+  const reportAction = (action: string, subject?: string) => {
+    setCountsKey((current) => current + 1);
+    onAction(action, subject);
+  };
   const draftOverride = approvalOverrideReviewState(
     detail,
     detail ? detail.submitted_by === userId || detail.created_by === userId : false,
@@ -87,7 +170,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
       .companies()
       .then((result) => {
         if (!active) return;
-        setCompanies(result.items);
+        setNoCompany(result.items.length === 0);
         setCompanyId((current) =>
           result.items.some((item) => item.id === current) ? current : (result.items[0]?.id ?? ""),
         );
@@ -102,6 +185,51 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
   }, [canApprove, client, sessionLoading]);
 
   useEffect(() => {
+    if (!companyId) return;
+    let active = true;
+    const reads: [ApprovalKind, boolean, () => Promise<{ items: readonly unknown[] }>][] = [
+      ["drafts", canApproveDraft, () => client.employeeDraftApprovals({ companyId, limit: 50 })],
+      ["hire", canApproveHire, () => client.hireRequests({ companyId, limit: 50 })],
+      ["transfer", canApproveTransfer, () => client.transferRequests({ companyId, limit: 50 })],
+      ["promotion", canApprovePromotion, () => client.promotionRequests({ companyId, limit: 50 })],
+      ["manager", canApproveManagerChange, () => client.managerChangeRequests({ companyId, limit: 50 })],
+      ["location", canApproveWorkLocationChange, () => client.workLocationChangeRequests({ companyId, limit: 50 })],
+      [
+        "placement",
+        canApproveOrganizationPlacementChange,
+        () => client.organizationPlacementChangeRequests({ companyId, limit: 50 }),
+      ],
+    ];
+    for (const [item, permitted, read] of reads) {
+      if (!permitted) continue;
+      read()
+        .then((result) => result.items.length)
+        .catch(() => null)
+        .then((value) => {
+          if (!active) return;
+          setCounts((current) => ({
+            key: countsFor,
+            values: { ...(current.key === countsFor ? current.values : {}), [item]: value },
+          }));
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [
+    canApproveDraft,
+    canApproveHire,
+    canApproveManagerChange,
+    canApproveOrganizationPlacementChange,
+    canApprovePromotion,
+    canApproveTransfer,
+    canApproveWorkLocationChange,
+    client,
+    companyId,
+    countsFor,
+  ]);
+
+  useEffect(() => {
     if (!canApproveDraft || !companyId) return;
     let active = true;
     setState("loading");
@@ -111,7 +239,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
     setDecision(null);
     setReason("");
     client
-      .employeeDraftApprovals({ companyId, limit: 50 })
+      .employeeDraftApprovals({ companyId, state: draftFilter, limit: 50 })
       .then((result) => {
         if (!active) return;
         setQueue(result.items);
@@ -123,7 +251,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
     return () => {
       active = false;
     };
-  }, [canApproveDraft, client, companyId, refreshKey]);
+  }, [canApproveDraft, client, companyId, draftFilter, refreshKey]);
 
   useEffect(() => {
     if (!selectedId || !companyId) return;
@@ -181,17 +309,22 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
         retry.current.key,
       );
       setNotice(`${result.employee_number} was ${decision}. This decision does not activate employment.`);
-      onAction(`Employee draft ${decision}`, result.employee_number);
+      reportAction(`Employee draft ${decision}`, result.employee_number);
       retry.current = null;
       setDecision(null);
       setRefreshKey((current) => current + 1);
     } catch {
-      setError("The decision could not be saved. Check your access and refresh the queue before trying again.");
+      setError("The decision could not be saved. Check your access, reload the page and try again.");
       setDecision(null);
     } finally {
       setSaving(false);
     }
   };
+
+  const visibleQueue = queue.filter((item) =>
+    matchesSearch(search, [item.employee_number, item.display_name, approvalStateLabel[item.state ?? "pending"]]),
+  );
+  const draftsPage = useHrPage(visibleQueue, `${companyId}:${draftFilter}:${search.trim()}`);
 
   if (sessionLoading) return <Skeleton className="h-32 w-full" />;
   if (!canApprove)
@@ -207,43 +340,80 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
   return (
     <section className="grid min-w-0 gap-4" aria-label="Employee and Hire approvals">
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
-        <label className="grid min-w-55 flex-1 gap-1.5 text-sm font-medium text-foreground">
-          Company
-          <select
-            className="h-9 rounded-md border border-input bg-background px-2.5 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-            value={companyId}
-            onChange={(event) => setCompanyId(event.target.value)}
-            disabled={saving || companies.length === 0}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name} ({company.code})
-              </option>
-            ))}
-          </select>
-        </label>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!companyId || saving}
-          onClick={() => setRefreshKey((current) => current + 1)}
-        >
-          Refresh queue
-        </Button>
+        <div className="grid min-w-55 flex-1 content-start gap-1.5 text-sm font-medium text-foreground sm:max-w-sm">
+          <span id="hr-approval-type-label">Approval type</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              disabled={saving}
+              aria-labelledby="hr-approval-type-label hr-approval-type-value"
+              className="group flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background px-2.5 text-left text-sm font-normal text-foreground outline-none hover:border-primary/50 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 data-popup-open:border-primary data-popup-open:ring-3 data-popup-open:ring-(--nx-focus-ring)"
+            >
+              <span id="hr-approval-type-value" className="min-w-0 flex-1 truncate">
+                {kindLabel}
+                <span className="text-muted-foreground"> · {kindGroup}</span>
+              </span>
+              <ApprovalCount value={countValues[kind]} />
+              <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-popup-open:rotate-180 group-data-popup-open:text-(--nx-brand)" aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="min-w-64 rounded-xl border border-border p-1.5 shadow-lg ring-0">
+              <DropdownMenuRadioGroup value={kind} onValueChange={(value) => setChosenKind(value as ApprovalKind)}>
+                {visibleCategories.map((category, index) => (
+                  <DropdownMenuGroup key={category.label}>
+                    {index > 0 ? <DropdownMenuSeparator /> : null}
+                    <DropdownMenuLabel className="px-3 text-[11px] font-semibold uppercase tracking-wide">
+                      {category.label}
+                    </DropdownMenuLabel>
+                    {category.kinds.map((item) => (
+                      <DropdownMenuRadioItem key={item.kind} value={item.kind}>
+                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        <ApprovalCount value={countValues[item.kind]} />
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuGroup>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <div className="min-w-55 flex-1">
+          <HrSearchField
+            id="hr-approvals-search"
+            value={search}
+            onChange={setSearch}
+            placeholder="Search employee name or number"
+          />
+        </div>
       </div>
-      {canApproveDraft && notice && (
+      {canApproveDraft && kind === "drafts" ? (
+        <HrMasterStatusFilter<DraftApprovalFilter>
+          label="Approval status"
+          value={draftFilter}
+          options={draftApprovalFilterOptions}
+          onChange={(value) => {
+            setDraftFilter(value);
+            setError("");
+          }}
+        />
+      ) : null}
+      {canApproveDraft && kind === "drafts" && notice && (
         <Alert>
           <AlertTitle>Decision recorded</AlertTitle>
           <AlertDescription>{notice}</AlertDescription>
         </Alert>
       )}
-      {canApproveDraft && error && (
+      {canApproveDraft && kind === "drafts" && error && (
         <Alert variant="destructive">
           <AlertTitle>Decision unavailable</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      {canApproveDraft && state === "error" && (
+      {noCompany ? (
+        <Alert>
+          <AlertTitle>Company access required</AlertTitle>
+          <AlertDescription>Company access must be granted before employee approvals can be reviewed.</AlertDescription>
+        </Alert>
+      ) : null}
+      {canApproveDraft && kind === "drafts" && state === "error" && (
         <Alert variant="destructive">
           <AlertTitle>Live approvals unavailable</AlertTitle>
           <AlertDescription>
@@ -251,58 +421,65 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           </AlertDescription>
         </Alert>
       )}
-      {canApproveDraft && state === "loading" && (
+      {canApproveDraft && kind === "drafts" && state === "loading" && (
         <div className="grid gap-2 rounded-lg border border-border bg-card p-4" aria-live="polite">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
         </div>
       )}
-      {canApproveDraft && state === "ready" && (
+      {canApproveDraft && kind === "drafts" && state === "ready" && (
         <div className="grid gap-4 ">
           <div className="relative overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
             <WorkTable tableId="app/features/hr/views/hr-employee-approvals-workspace:1" className="w-full min-w-160 text-left text-sm">
               <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
+                  <th className="w-px whitespace-nowrap px-4 py-3">Employee no.</th>
                   <th className="px-4 py-3">Employee</th>
                   <th className="px-4 py-3">Submitted</th>
-                  <th className="px-4 py-3">
-                    <span className="sr-only">Action</span>
-                  </th>
+                  <th className="px-4 py-3">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {queue.map((item) => (
-                  <tr className="border-b border-border/70 last:border-0" key={item.approval_id}>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-foreground">{item.display_name}</p>
-                      <p className="text-xs text-muted-foreground">{item.employee_number}</p>
-                    </td>
+                {draftsPage.pageRows.map((item) => (
+                  <HrClickableRow
+                    key={item.approval_id}
+                    disabled={saving}
+                    onOpen={() => {
+                      setError("");
+                      setSelectedId(item.employee_id);
+                    }}
+                  >
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold">{item.employee_number}</td>
+                    <td className="px-4 py-3 font-medium text-foreground">{item.display_name}</td>
                     <td className="px-4 py-3 text-muted-foreground">{new Date(item.submitted_at).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setError("");
-                          setSelectedId(item.employee_id);
-                        }}
-                      >
-                        Review
-                      </Button>
+                    <td className="px-4 py-3">
+                      <Badge variant={item.state === "rejected" ? "destructive" : item.state === "approved" ? "secondary" : "outline"}>
+                        {approvalStateLabel[item.state ?? "pending"]}
+                      </Badge>
                     </td>
-                  </tr>
+                  </HrClickableRow>
                 ))}
-                {queue.length === 0 && (
+                {visibleQueue.length === 0 && (
                   <tr>
-                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={3}>
-                      No pending approvals in this company.
+                    <td className="px-4 py-8 text-center text-muted-foreground" colSpan={4}>
+                      {queue.length > 0
+                        ? "No employee approvals match this search."
+                        : draftFilter === "all"
+                          ? "No employee approvals in this company."
+                          : `No ${draftFilter} employee approvals in this company.`}
                     </td>
                   </tr>
                 )}
               </tbody>
             </WorkTable>
           </div>
+          <HrPagination
+            label="Employee approval pages"
+            page={draftsPage.page}
+            pageCount={draftsPage.pageCount}
+            total={draftsPage.total}
+            onPageChange={draftsPage.setPage}
+          />
           <HrRecordDrawer
             title="Employee approval"
             open={!!selectedId}
@@ -332,33 +509,24 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
               )}
               {detail && detailState === "ready" && (
                 <div className="grid gap-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h2 className="font-semibold text-foreground">{detail.display_name}</h2>
-                      <p className="text-sm text-muted-foreground">{detail.employee_number}</p>
-                    </div>
-                    <Badge variant="secondary">Pending</Badge>
-                  </div>
-                  <dl className="grid gap-2 text-sm">
-                    <div>
-                      <dt className="text-muted-foreground">Work email</dt>
-                      <dd>{detail.work_email || "Not provided"}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">Phone</dt>
-                      <dd>{detail.phone || "Not provided"}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">Joined</dt>
-                      <dd>{detail.joined_on}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">Submitted</dt>
-                      <dd>{new Date(detail.submitted_at).toLocaleString()}</dd>
-                    </div>
-                  </dl>
-                  {draftOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
-                  {draftOverride.independentApproverRequired ? (
+                  <HrDetailSummary code={detail.employee_number} status={detail.approval_state ?? "pending"}>
+                    {detail.display_name}
+                  </HrDetailSummary>
+                  <HrDetailGroup title="Contact">
+                    <HrDetailTile label="Work email" value={detail.work_email} />
+                    <HrDetailTile label="Phone" value={detail.phone} />
+                  </HrDetailGroup>
+                  <HrDetailGroup title="Employment">
+                    <HrDetailTile label="Joined" value={detail.joined_on} />
+                    <HrDetailTile label="Submitted" value={new Date(detail.submitted_at).toLocaleString()} />
+                  </HrDetailGroup>
+                  {detail.approval_state && detail.approval_state !== "pending" ? (
+                    <HrDetailGroup title="Decision">
+                      <HrDetailTile label="Decision" value={approvalStateLabel[detail.approval_state]} />
+                      <HrDetailTile label="Decided" value={detail.decided_at ? new Date(detail.decided_at).toLocaleString() : ""} />
+                      <HrDetailTile label="Reason" value={detail.decision_reason ?? ""} />
+                    </HrDetailGroup>
+                  ) : draftOverride.independentApproverRequired ? (
                     <Alert>
                       <AlertTitle>Independent approver required</AlertTitle>
                       <AlertDescription>
@@ -367,7 +535,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
                     </Alert>
                   ) : (
                     <>
-                      <label className="grid gap-1.5 text-sm font-medium text-foreground">
+                      <label className="grid content-start gap-1.5 text-sm font-medium text-foreground">
                         Decision reason
                         <Textarea
                           value={reason}
@@ -380,10 +548,10 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
                           placeholder="Explain the approval or rejection for the audit record."
                         />
                       </label>
-                      <div className="flex flex-wrap gap-2">
+                      <HrDrawerActions>
                         <Button
                           type="button"
-                          disabled={saving || !reason.trim()}
+                          disabled={saving}
                           onClick={() => setDecision("approved")}
                         >
                           Approve draft
@@ -391,15 +559,12 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
                         <Button
                           type="button"
                           variant="destructive"
-                          disabled={saving || !reason.trim()}
+                          disabled={saving}
                           onClick={() => setDecision("rejected")}
                         >
                           Reject draft
                         </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Approving this draft does not activate employment or payroll access.
-                      </p>
+                      </HrDrawerActions>
                     </>
                   )}
                 </div>
@@ -435,7 +600,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {canApproveHire && (
+      {canApproveHire && kind === "hire" && (
         <HrHireApprovalsPanel
           key={companyId}
           client={client}
@@ -443,10 +608,11 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           companyId={companyId}
           userId={userId}
           canUseApprovalOverride={canUseApprovalOverride}
-          onAction={onAction}
+          onAction={reportAction}
+          search={search}
         />
       )}
-      {canApproveTransfer && (
+      {canApproveTransfer && kind === "transfer" && (
         <HrTransferApprovalsPanel
           key={`transfer:${companyId}`}
           client={client}
@@ -454,10 +620,11 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           companyId={companyId}
           userId={userId}
           canUseApprovalOverride={canUseApprovalOverride}
-          onAction={onAction}
+          onAction={reportAction}
+          search={search}
         />
       )}
-      {canApprovePromotion && (
+      {canApprovePromotion && kind === "promotion" && (
         <HrPromotionApprovalsPanel
           key={`promotion:${companyId}`}
           client={client}
@@ -465,10 +632,11 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           companyId={companyId}
           userId={userId}
           canUseApprovalOverride={canUseApprovalOverride}
-          onAction={onAction}
+          onAction={reportAction}
+          search={search}
         />
       )}
-      {canApproveManagerChange && (
+      {canApproveManagerChange && kind === "manager" && (
         <HrManagerChangeApprovalsPanel
           key={`manager-change:${companyId}`}
           client={client}
@@ -476,10 +644,11 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           companyId={companyId}
           userId={userId}
           canUseApprovalOverride={canUseApprovalOverride}
-          onAction={onAction}
+          onAction={reportAction}
+          search={search}
         />
       )}
-      {canApproveWorkLocationChange && (
+      {canApproveWorkLocationChange && kind === "location" && (
         <HrWorkLocationChangeApprovalsPanel
           key={`work-location-change:${companyId}`}
           client={client}
@@ -487,10 +656,11 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           companyId={companyId}
           userId={userId}
           canUseApprovalOverride={canUseApprovalOverride}
-          onAction={onAction}
+          onAction={reportAction}
+          search={search}
         />
       )}
-      {canApproveOrganizationPlacementChange && (
+      {canApproveOrganizationPlacementChange && kind === "placement" && (
         <HrOrganizationPlacementChangeApprovalsPanel
           key={`organization-placement-change:${companyId}`}
           client={client}
@@ -499,9 +669,24 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
           canApprove={canApproveOrganizationPlacementChange}
           userId={userId}
           canUseApprovalOverride={canUseApprovalOverride}
-          onAction={onAction}
+          onAction={reportAction}
+          search={search}
         />
       )}
     </section>
+  );
+}
+
+/** Pending count pill; "…" while loading, "–" when the queue could not be read. */
+function ApprovalCount({ value }: { value: number | null | undefined }) {
+  return (
+    <span
+      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${
+        value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+      }`}
+      aria-label={value == null ? "Pending count unavailable" : `${value} pending`}
+    >
+      {value === undefined ? "…" : value === null ? "–" : value >= 50 ? "50+" : value}
+    </span>
   );
 }

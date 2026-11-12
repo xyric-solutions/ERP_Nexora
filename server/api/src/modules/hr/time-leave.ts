@@ -43,10 +43,18 @@ const deny = (message: string): never => {
   throw new HrApiError(403, "PERMISSION_DENIED", message);
 };
 export { leaveUnits, leaveDecimal } from "./leave-balances.js";
-const policyColumns = `id,version_number,effective_from::text,effective_to::text,annual_entitlement_days::text,accrual_method,carry_forward,maximum_carry_forward_days::text,maximum_balance_days::text,minimum_request_days::text,maximum_request_days::text,requires_hr_approval,applicable_category_ids,applicable_genders,document_required_after_days::text,automation_ready`;
+const policyColumns = `id,version_number,effective_from::text,effective_to::text,annual_entitlement_days::text,accrual_method,carry_forward,maximum_carry_forward_days::text,maximum_balance_days::text,minimum_request_days::text,maximum_request_days::text,requires_hr_approval,applicable_cost_center_ids,applicable_employment_setup_ids,applicable_genders,document_required_after_days::text,automation_ready`;
 const requestColumns = `r.id,r.reference,r.company_id,r.employee_id,e.employee_number,concat_ws(' ',e.first_name,e.middle_name,e.last_name) as display_name,r.leave_type_id,t.name as leave_type,t.paid,r.from_date::text,r.to_date::text,r.requested_days::text,r.reason,r.document_id,r.status,r.version,r.workflow_managed,r.requested_by,r.submitted_by,r.manager_user_id,r.manager_decided_by,r.hr_decided_by,r.subject_user_ids,r.requires_hr_approval,r.review_source_hash`;
 const operational = (date: string) =>
   `((a.assignment_status='legacy_compatibility' or (a.assignment_status='ended' and a.employment_relationship_id is null)) or (a.assignment_status in ('active','ended') and er.approval_state='approved' and (er.status='active' or ${date}<current_date)))`;
+/** True when the actor is not the routed manager of a pending-manager request but may override on their behalf. */
+function leaveManagerOnBehalf(c: HrActorContext, r: Pick<HrLeaveRequestSummary, "status" | "manager_user_id">): boolean {
+  return (
+    r.status === "pending_manager" &&
+    r.manager_user_id !== c.actor.userId &&
+    c.actor.permissions.includes("platform.approval.override")
+  );
+}
 export class TimeLeave {
   private readonly writes: AttendanceCompletion;
   constructor(
@@ -173,9 +181,11 @@ export class TimeLeave {
             values,
           )
         ).rows[0]!.total,
-        categories: (
-          await client.query<{ id: string; code: string; name: string }>(
-            `select id,code,name from hr_master_record where tenant_id=$1 and company_id=$2 and master_type='employee_category' and status='active' order by name,id limit 101`,
+        // Employment setups are retired (HR149); eligibility is chosen from cost centres.
+        employment_setups: [],
+        cost_centres: (
+          await client.query<HrLeaveTypeDirectory["cost_centres"][number]>(
+            `select id,code,name,payment_route,pay_cycle from hr_master_record where tenant_id=$1 and company_id=$2 and master_type='cost_center' and status='active' order by name,id limit 101`,
             [c.tenantId, q.company_id],
           )
         ).rows,
@@ -195,14 +205,16 @@ export class TimeLeave {
       fail(
         "Gender-restricted policies require a verified employee gender authority. No gender eligibility is inferred from names or identity documents.",
       );
-    if (p.applicable_category_ids.length) {
+    if (p.applicable_employment_setup_ids?.length)
+      fail("Employment setups are retired. Choose the cost centres this leave applies to.");
+    if (p.applicable_cost_center_ids?.length) {
       const count = (
         await client.query<{ n: number }>(
-          `select count(*)::int as n from hr_master_record where tenant_id=$1 and company_id=$2 and master_type='employee_category' and status='active' and id=any($3::text[])`,
-          [c.tenantId, company, [...new Set(p.applicable_category_ids)]],
+          `select count(*)::int as n from hr_master_record where tenant_id=$1 and company_id=$2 and master_type='cost_center' and status='active' and id=any($3::text[])`,
+          [c.tenantId, company, [...new Set(p.applicable_cost_center_ids)]],
         )
       ).rows[0]!.n;
-      if (count !== new Set(p.applicable_category_ids).size) fail("Choose active employee categories in this company.");
+      if (count !== new Set(p.applicable_cost_center_ids).size) fail("Choose active cost centres in this company.");
     }
   }
   private async insertPolicy(
@@ -215,7 +227,7 @@ export class TimeLeave {
   ) {
     const id = `leave-policy-${randomUUID()}`;
     await client.query(
-      `insert into hr_leave_policy_version(tenant_id,id,company_id,leave_type_id,version_number,effective_from,annual_entitlement_days,accrual_method,carry_forward,maximum_carry_forward_days,maximum_balance_days,minimum_request_days,maximum_request_days,requires_hr_approval,applicable_category_ids,applicable_genders,document_required_after_days,automation_ready,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,false,$18)`,
+      `insert into hr_leave_policy_version(tenant_id,id,company_id,leave_type_id,version_number,effective_from,annual_entitlement_days,accrual_method,carry_forward,maximum_carry_forward_days,maximum_balance_days,minimum_request_days,maximum_request_days,requires_hr_approval,applicable_cost_center_ids,applicable_genders,document_required_after_days,automation_ready,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,false,$18)`,
       [
         c.tenantId,
         id,
@@ -231,7 +243,7 @@ export class TimeLeave {
         p.minimum_request_days,
         p.maximum_request_days,
         p.requires_hr_approval,
-        p.applicable_category_ids,
+        p.applicable_cost_center_ids ?? [],
         p.applicable_genders,
         p.document_required_after_days,
         c.actor.userId,
@@ -254,7 +266,7 @@ export class TimeLeave {
         const id = `leave-type-${randomUUID()}`,
           p = input.policy;
         await client.query(
-          `insert into hr_leave_type(tenant_id,id,company_id,code,name,paid,annual_entitlement_days,accrual_method,carry_forward,maximum_carry_forward_days,maximum_balance_days,minimum_request_days,maximum_request_days,requires_hr_approval,applicable_category_ids,applicable_genders,document_required_after_days,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+          `insert into hr_leave_type(tenant_id,id,company_id,code,name,paid,annual_entitlement_days,accrual_method,carry_forward,maximum_carry_forward_days,maximum_balance_days,minimum_request_days,maximum_request_days,requires_hr_approval,applicable_cost_center_ids,applicable_genders,document_required_after_days,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
           [
             c.tenantId,
             id,
@@ -270,7 +282,7 @@ export class TimeLeave {
             p.minimum_request_days,
             p.maximum_request_days,
             p.requires_hr_approval,
-            p.applicable_category_ids,
+            p.applicable_cost_center_ids ?? [],
             p.applicable_genders,
             p.document_required_after_days,
             c.actor.userId,
@@ -642,9 +654,9 @@ export class TimeLeave {
           on_date: string;
           id: string;
           reporting_manager_id: string | null;
-          employee_category_id: string;
+          cost_center_id: string;
         }>(
-          `select d.on_date::text,a.id,a.reporting_manager_id,a.employee_category_id from unnest($4::date[]) d(on_date) join employee_assignment a on a.tenant_id=$1 and a.company_id=$2 and a.employee_id=$3 and a.effective_from<=d.on_date and (a.effective_to is null or a.effective_to>=d.on_date) left join hr_employment_relationship er on er.tenant_id=a.tenant_id and er.id=a.employment_relationship_id where ${operational("d.on_date")} order by d.on_date,a.id`,
+          `select d.on_date::text,a.id,a.reporting_manager_id,a.cost_center_id from unnest($4::date[]) d(on_date) join employee_assignment a on a.tenant_id=$1 and a.company_id=$2 and a.employee_id=$3 and a.effective_from<=d.on_date and (a.effective_to is null or a.effective_to>=d.on_date) left join hr_employment_relationship er on er.tenant_id=a.tenant_id and er.id=a.employment_relationship_id where ${operational("d.on_date")} order by d.on_date,a.id`,
           [c.tenantId, q.company_id, q.employee_id, dates],
         )
       ).rows;
@@ -753,12 +765,10 @@ export class TimeLeave {
         const chargeable = !!row && !["off_day", "holiday"].includes(row.status);
         if (chargeable && type && !policy) issues.push("No leave policy covers this date.");
         if (
-          policy?.applicable_category_ids.length &&
-          !policy.applicable_category_ids.includes(
-            placements.find((p) => p.on_date === date)?.employee_category_id ?? "",
-          )
+          policy?.applicable_cost_center_ids.length &&
+          !policy.applicable_cost_center_ids.includes(placements.find((p) => p.on_date === date)?.cost_center_id ?? "")
         )
-          issues.push("The effective employee category is outside this policy.");
+          issues.push("The employee's cost centre is outside this policy.");
         if (policy?.applicable_genders.length)
           issues.push("Verified employee gender eligibility is required for this restricted legacy policy.");
         days.push({
@@ -884,7 +894,9 @@ export class TimeLeave {
         ...(["pending_hr", "approved"].includes(r.status) ? [r.manager_decided_by ?? ""] : []),
         ...(r.status === "approved" ? [r.hr_decided_by ?? ""] : []),
       ],
-      locked = context?.blockers.some((b) => b.includes("locked attendance")) ?? true;
+      locked = context?.blockers.some((b) => b.includes("locked attendance")) ?? true,
+      // HR141: a super administrator may decide the manager stage for the routed manager, as an audited override.
+      onBehalf = leaveManagerOnBehalf(c, r);
     if (r.workflow_managed && !locked) {
       if (r.status === "approved" && this.has(c, "hr.leave.request.cancel")) {
         const policy = evaluateApprovalActor({
@@ -909,26 +921,27 @@ export class TimeLeave {
         this.has(c, "hr.leave.request.submit")
       )
         actions.push("submit");
-      if ((r.status === "pending_manager" && r.manager_user_id === c.actor.userId) || r.status === "pending_hr")
+      if ((r.status === "pending_manager" && (r.manager_user_id === c.actor.userId || onBehalf)) || r.status === "pending_hr")
         for (const decision of ["approve", "reject"] as const) {
           const action = `${r.status === "pending_manager" ? "manager" : "hr"}_${decision}` as const,
             policy = evaluateApprovalActor({
               account: c.actor,
               normalDecisionPermission: `hr.leave.request.${action}`,
-              makerActorIds: makers,
+              // Deciding for the routed manager is always an audited override.
+              makerActorIds: onBehalf ? [...makers, c.actor.userId] : makers,
               impersonated: Boolean(c.impersonationRequestId || (c.realActorId && c.realActorId !== c.actor.userId)),
             });
           if (
             policy.kind !== "forbidden" &&
             (decision === "reject" ||
-              (context && !context.blockers.length && context.manager_user_id === r.manager_user_id))
+              (context && !context.blockers.length && (onBehalf || context.manager_user_id === r.manager_user_id)))
           )
             actions.push(action);
         }
     }
     return {
       allowed_actions: this.personal ? actions.filter((a) => a === "submit" || a === "cancel") : actions,
-      self_decision_requires_override: this.personal ? false : makers.includes(c.actor.userId),
+      self_decision_requires_override: this.personal ? false : makers.includes(c.actor.userId) || onBehalf,
     };
   }
   async listLeaveRequests(c: HrActorContext, q: HrLeaveRequestQuery): Promise<HrLeaveRequestDirectory> {
@@ -941,13 +954,16 @@ export class TimeLeave {
         q.search ? `%${q.search.replace(/[\\%_]/g, "\\$&")}%` : null,
         c.actor.userId,
         q.queue_only === "true",
+        // Submitted = has passed the submit step (pending, decided or cancelled after submission).
+        q.submitted_only === "true",
+        q.exclude_cancelled === "true",
       ];
       const from = `from hr_leave_request r join employee e on e.tenant_id=r.tenant_id and e.id=r.employee_id join hr_leave_type t on t.tenant_id=r.tenant_id and t.id=r.leave_type_id`;
-      const where = `r.tenant_id=$1 and r.company_id=$2 and ($3::text is null or r.status=$3) and ($4::text is null or r.reference ilike $4 escape '\\' or e.employee_number ilike $4 escape '\\' or concat_ws(' ',e.first_name,e.middle_name,e.last_name) ilike $4 escape '\\') and (not $6::boolean or ((r.status='pending_manager' and r.manager_user_id=$5) or r.status='pending_hr'))`;
+      const where = `r.tenant_id=$1 and r.company_id=$2 and ($3::text is null or r.status=$3 or ($3='pending' and r.status in ('pending_manager','pending_hr'))) and ($4::text is null or r.reference ilike $4 escape '\\' or e.employee_number ilike $4 escape '\\' or concat_ws(' ',e.first_name,e.middle_name,e.last_name) ilike $4 escape '\\') and (not $6::boolean or ((r.status='pending_manager' and r.manager_user_id=$5) or r.status='pending_hr')) and (not $7::boolean or r.submitted_by is not null) and (not $8::boolean or r.status<>'cancelled')`;
       return {
         items: (
           await client.query<HrLeaveRequestSummary>(
-            `select ${requestColumns} ${from} where ${where} order by r.created_at desc,r.id limit $7 offset $8`,
+            `select ${requestColumns} ${from} where ${where} order by r.created_at desc,r.id limit $9 offset $10`,
             [...values, q.limit, q.offset],
           )
         ).rows,
@@ -1209,6 +1225,7 @@ export class TimeLeave {
               ...before.subject_user_ids,
               ...context.subject_user_ids,
               ...(action.startsWith("hr_") ? [before.manager_decided_by ?? ""] : []),
+              ...(action.startsWith("manager_") && leaveManagerOnBehalf(c, before) ? [c.actor.userId] : []),
             ],
             permission = `hr.leave.request.${action}`,
             impersonated = Boolean(c.impersonationRequestId || (c.realActorId && c.realActorId !== c.actor.userId)),

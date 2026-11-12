@@ -83,8 +83,8 @@ export function HrManagerChangeMakerPanel({
   const submit = async () => {
     if (submitting) return;
     const trimmed = reason.trim();
-    if (!managerChoice || !changed || !trimmed || trimmed.length > 1000) {
-      setError("Choose a different reporting manager or explicitly choose no reporting manager, then enter a reason.");
+    if (!managerChoice || !changed || trimmed.length > 1000) {
+      setError("Choose a different reporting manager or explicitly choose no reporting manager.");
       return;
     }
     const input = {
@@ -123,11 +123,6 @@ export function HrManagerChangeMakerPanel({
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Employee movement</p>
-
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Propose another eligible reporting manager or explicitly clear the reporting line. All other assignment
-              details and compensation remain unchanged until and after independent approval.
-            </p>
           </div>
           <Badge variant="outline">Same-day effective</Badge>
         </div>
@@ -153,12 +148,15 @@ export function HrManagerChangeMakerPanel({
             value={employees.find((employee) => employee.id === employeeId)?.display_name ?? employeeId}
           />
         </dl>
-        <div className="grid gap-3 md:grid-cols-2">
-          <label htmlFor="manager-change-proposed-manager" className="grid gap-1.5 text-sm font-medium text-foreground">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <label
+            htmlFor="manager-change-proposed-manager"
+            className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
+          >
             Proposed reporting manager
             <select
               id="manager-change-proposed-manager"
-              className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
+              className="h-9 w-full min-w-0 truncate rounded-md border border-input bg-background px-2.5 text-sm"
               value={managerChoice}
               disabled={submitting}
               onChange={(event) => {
@@ -175,12 +173,18 @@ export function HrManagerChangeMakerPanel({
               ))}
             </select>
           </label>
-          <label htmlFor="manager-change-effective-on" className="grid gap-1.5 text-sm font-medium text-foreground">
+          <label
+            htmlFor="manager-change-effective-on"
+            className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
+          >
             Effective date
             <Input id="manager-change-effective-on" type="date" value={effectiveOn} disabled readOnly />
           </label>
         </div>
-        <label htmlFor="manager-change-request-reason" className="grid gap-1.5 text-sm font-medium text-foreground">
+        <label
+          htmlFor="manager-change-request-reason"
+          className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
+        >
           Business reason
           <Textarea
             id="manager-change-request-reason"
@@ -195,13 +199,10 @@ export function HrManagerChangeMakerPanel({
           />
         </label>
         <div>
-          <Button type="button" onClick={submit} disabled={submitting || !changed || !reason.trim()}>
+          <Button type="button" onClick={submit} disabled={submitting || !changed}>
             {submitting ? "Submitting manager change..." : "Submit manager-change request"}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Submission and approval never create, update, or supersede salary-assignment records.
-        </p>
       </section>
     </HrRecordDrawer>
   );

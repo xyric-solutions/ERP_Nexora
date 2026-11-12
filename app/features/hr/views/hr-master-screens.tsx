@@ -39,6 +39,7 @@ import {
 import type { ModuleColumn, ModuleRow } from "@prototype/shared/types/module-profile-types";
 import { ModuleSearchableTable } from "@prototype/shared/ui/module-views";
 
+import { hrDataTableClass } from "../components/hr-table";
 type MasterView = { kind: "list" } | { kind: "record"; recordId: string; tab: RecordTab };
 type RecordTab = "Details" | "History" | "Audit trail";
 
@@ -159,7 +160,7 @@ export function HrMasterScreen({
 
         {view.tab === "History" ? (
           <div className="nx-table-wrap">
-            <WorkTable tableId="app/features/hr/views/hr-master-screens:1" className="nx-data-table">
+            <WorkTable tableId="app/features/hr/views/hr-master-screens:1" className={hrDataTableClass}>
               <thead><tr><th>Effective</th><th>Change</th><th>From</th><th>To</th><th>By</th></tr></thead>
               <tbody>
                 <tr><td>{record.createdOn}</td><td>Created</td><td>—</td><td>{record.name}</td><td>{record.createdBy}</td></tr>
@@ -173,7 +174,7 @@ export function HrMasterScreen({
 
         {view.tab === "Audit trail" ? (
           <div className="nx-table-wrap">
-            <WorkTable tableId="app/features/hr/views/hr-master-screens:2" className="nx-data-table">
+            <WorkTable tableId="app/features/hr/views/hr-master-screens:2" className={hrDataTableClass}>
               <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Field</th><th>Old value</th><th>New value</th></tr></thead>
               <tbody>
                 <tr><td>{record.createdOn} 09:14</td><td>{record.createdBy}</td><td>Created</td><td>—</td><td>—</td><td>{record.code}</td></tr>
@@ -269,11 +270,6 @@ export function HrOrgStructure({
         <article><span>Inactive units</span><strong>{orgUnits.filter((unit) => unit.status === "Inactive").length}</strong><small>Closed, history retained</small></article>
       </div>
 
-      <p className="m-0 max-w-275 rounded border border-border border-l-3 border-l-primary bg-muted px-3.5 py-2.5 text-sm leading-relaxed text-muted-foreground" role="note">
-        Company, branch and department are one tree, not three lists. Finance and Operations read the same structure,
-        so a cost by department means the same thing in HR as it does in the ledger. Cost centres are deliberately
-        separate: a cost centre can span branches, so it is a finance dimension rather than a place in this chart.
-      </p>
 
       <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(17.5rem,.85fr)_minmax(0,1.6fr)]">
         <nav className="rounded-lg border border-border bg-card py-2.5 shadow-sm" aria-label="Organisation structure">

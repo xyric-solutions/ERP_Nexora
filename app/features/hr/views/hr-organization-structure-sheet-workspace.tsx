@@ -8,38 +8,50 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
+import {
+  HrDetailAudit,
+  HrDetailFigures,
+  HrDetailGroup,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import { nextGeneratedCode, organizationUnitPrefixes } from "../model/hr-master-code";
-import { HrMasterArchiveButton } from "../components/hr-master-archive-button";
+import { HrMasterStatusBadge } from "../components/hr-master-status-badge";
+import { HrMasterDeleteButton } from "../components/hr-master-delete-button";
+import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
-import { preferredMasterCompany, rememberMasterCompany } from "../model/organisation-master-navigation";
+import { HrPagination, HrSearchField, matchesSearch, useHrPage } from "../components/hr-list-controls";
+import { preferredMasterCompany } from "../model/organisation-master-navigation";
+import {
+  canReportTo,
+  defaultChildType,
+  organizationUnitTypeLabels as typeLabels,
+  selectableOrganizationUnitTypes,
+  type OrganizationUnitType as UnitType,
+} from "../model/organization-hierarchy";
 
 type Unit = HrOrganizationUnitDirectory["items"][number];
-type UnitType = Unit["type"];
-type Editor = { mode: "create" | "edit"; parentId: string; type: UnitType; code: string; name: string };
-const typeLabels: Record<UnitType, string> = {
-  business_unit: "Business unit",
-  division: "Division",
-  branch: "Branch",
-  department: "Department",
-  warehouse: "Warehouse",
+/**
+ * A Location reports into the company, a Project into a Location and a
+ * Department into a Project. `parentId` is derived from the Location/Project
+ * picks; on edit it starts as the unit's current parent so a rename never
+ * re-parents a unit placed under the earlier hierarchy.
+ */
+type Editor = {
+  mode: "create" | "edit";
+  parentId: string;
+  locationId: string;
+  projectId: string;
+  type: UnitType;
+  code: string;
+  name: string;
 };
-function initialChildType(parentType: UnitType | "company"): UnitType {
-  if (parentType === "branch") return "department";
-  if (parentType === "business_unit") return "division";
-  return "branch";
-}
-function canReportTo(childType: UnitType, parentType: UnitType | "company"): boolean {
-  const allowed: Record<UnitType, readonly (UnitType | "company")[]> = {
-    business_unit: ["company"],
-    division: ["company", "business_unit"],
-    branch: ["company", "business_unit", "division"],
-    department: ["company", "business_unit", "division", "branch"],
-    warehouse: ["company", "business_unit", "division", "branch"],
-  };
-  return allowed[childType].includes(parentType);
-}
+const selectClass =
+  "h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm font-normal disabled:cursor-not-allowed disabled:opacity-50";
 
 export function HrOrganizationStructureSheetWorkspace() {
   const { api, csrfToken, session, loading: sessionLoading, refresh: refreshSession } = useSession();
@@ -50,6 +62,7 @@ export function HrOrganizationStructureSheetWorkspace() {
   const [selectedId, setSelectedId] = useState("");
   const [editor, setEditor] = useState<Editor | null>(null);
   const [statusFilter, setStatusFilter] = useState<HrMasterStatus>("active");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true),
     [saving, setSaving] = useState(false),
     [message, setMessage] = useState("");
@@ -95,7 +108,13 @@ export function HrOrganizationStructureSheetWorkspace() {
     selected = units.find((item) => item.id === selectedId);
   const childrenOf = (parentId: string) => units.filter((item) => item.parent_id === parentId);
   const visibleIds = new Set(
-    units.filter((unit) => statusFilter === "all" || unit.status === statusFilter).map((unit) => unit.id),
+    units
+      .filter(
+        (unit) =>
+          (statusFilter === "all" || unit.status === statusFilter) &&
+          matchesSearch(search, [unit.name, unit.code, typeLabels[unit.type]]),
+      )
+      .map((unit) => unit.id),
   );
   for (const id of [...visibleIds]) {
     let parent = units.find((unit) => unit.id === id)?.parent_id;
@@ -107,11 +126,30 @@ export function HrOrganizationStructureSheetWorkspace() {
     }
   }
   const visibleChildrenOf = (parentId: string) => childrenOf(parentId).filter((unit) => visibleIds.has(unit.id));
+  /** Top-level branches (with everything beneath them) are paged 15 at a time. */
+  const topLevelPage = useHrPage(visibleChildrenOf(companyId), `${companyId}:${statusFilter}:${search.trim()}`);
   const generatedCode = (type: UnitType) =>
     nextGeneratedCode(
       organizationUnitPrefixes[type],
       units.map((unit) => unit.code),
     );
+  /** Nearest ancestor of `type`, including the unit itself. */
+  const ancestorOfType = (unitId: string, type: UnitType) => {
+    const visited = new Set<string>();
+    let current = units.find((unit) => unit.id === unitId);
+    while (current && !visited.has(current.id)) {
+      if (current.type === type) return current.id;
+      visited.add(current.id);
+      const parentId: string = current.parent_id;
+      current = units.find((unit) => unit.id === parentId);
+    }
+    return "";
+  };
+  /** Parent implied by the Location/Project picks for the levels this form manages. */
+  const derivedParent = (type: UnitType, locationId: string, projectId: string) =>
+    type === "division" ? companyId : type === "branch" ? locationId : type === "department" ? projectId : "";
+  const activeOfType = (type: UnitType) =>
+    units.filter((unit) => unit.type === type && unit.status === "active" && unit.id !== selected?.id);
   const closeSheet = () => {
     if (!saving) {
       setEditor(null);
@@ -122,8 +160,18 @@ export function HrOrganizationStructureSheetWorkspace() {
     parentId = selectedId || companyId,
     parentType: UnitType | "company" = selected?.type ?? "company",
   ) => {
-    const type = initialChildType(parentType);
-    setEditor({ mode: "create", parentId, type, code: generatedCode(type), name: "" });
+    const type = defaultChildType(parentType);
+    const locationId = parentType === "company" ? "" : ancestorOfType(parentId, "division");
+    const projectId = parentType === "company" ? "" : ancestorOfType(parentId, "branch");
+    setEditor({
+      mode: "create",
+      parentId: derivedParent(type, locationId, projectId),
+      locationId,
+      projectId,
+      type,
+      code: generatedCode(type),
+      name: "",
+    });
     setMessage("");
   };
   const openEdit = () =>
@@ -131,13 +179,22 @@ export function HrOrganizationStructureSheetWorkspace() {
     setEditor({
       mode: "edit",
       parentId: selected.parent_id,
+      locationId: ancestorOfType(selected.parent_id, "division"),
+      projectId: ancestorOfType(selected.parent_id, "branch"),
       type: selected.type,
       code: selected.code,
       name: selected.name,
     });
   const save = async () => {
-    if (!editor || !companyId || !editor.parentId || !editor.name.trim()) {
-      setMessage("Parent and name are required.");
+    if (!editor || !companyId) return;
+    const missing = [
+      !editor.parentId && editor.type === "branch" ? "location" : "",
+      !editor.parentId && editor.type === "department" ? (editor.locationId ? "project" : "location and project") : "",
+      !editor.parentId && !["branch", "department"].includes(editor.type) ? "parent" : "",
+      !editor.name.trim() ? "name" : "",
+    ].filter(Boolean);
+    if (missing.length) {
+      setMessage(`Choose or enter the ${missing.join(" and ")}.`);
       return;
     }
     setSaving(true);
@@ -200,26 +257,43 @@ export function HrOrganizationStructureSheetWorkspace() {
       setSaving(false);
     }
   };
+  const deleteUnit = async (unit: Unit) => {
+    setSaving(true);
+    try {
+      await client.deleteOrganizationUnit(unit.id, { company_id: companyId }, csrfToken(), crypto.randomUUID());
+      setMessage(`${unit.code} ${unit.name} was permanently deleted. Its code will not be reused.`);
+      setSelectedId("");
+      await refresh();
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `${unit.name} could not be deleted.`);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
   const renderUnit = (unit: Unit, depth: number) => (
     <li key={unit.id}>
-      <button
-        className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-0 bg-transparent px-3 py-3 text-left text-sm transition-colors hover:bg-muted sm:grid-cols-[minmax(6rem,.45fr)_minmax(10rem,1fr)_auto]"
-        style={{ paddingLeft: `${12 + depth * 18}px` }}
-        type="button"
-        onClick={() => {
-          setEditor(null);
-          setSelectedId(unit.id);
-        }}
-      >
-        <span className="col-span-2 text-xs font-bold uppercase tracking-wide text-muted-foreground sm:col-span-1">
-          {typeLabels[unit.type]}
-        </span>
-        <span className="min-w-0 truncate font-semibold">
-          {unit.name}
-          <small className="ml-2 font-normal text-muted-foreground">{unit.code}</small>
-        </span>
-        <span className={`nx-status nx-status-${unit.status}`}>{unit.status}</span>
-      </button>
+      <div className="flex items-center transition-colors hover:bg-muted">
+        <button
+          className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-0 bg-transparent px-3 py-3 text-left text-sm sm:grid-cols-[minmax(6rem,.45fr)_minmax(10rem,1fr)_auto]"
+          style={{ paddingLeft: `${12 + depth * 18}px` }}
+          type="button"
+          onClick={() => {
+            setEditor(null);
+            setSelectedId(unit.id);
+          }}
+        >
+          <span className="col-span-2 text-xs font-bold uppercase tracking-wide text-muted-foreground sm:col-span-1">
+            {typeLabels[unit.type]}
+          </span>
+          <span className="min-w-0 truncate font-semibold">
+            {unit.name}
+            <small className="ml-2 font-normal text-muted-foreground">{unit.code}</small>
+          </span>
+          <HrMasterStatusBadge status={unit.status} />
+        </button>
+      </div>
       {visibleChildrenOf(unit.id).length ? (
         <ul className="m-0 list-none border-l border-dashed border-border p-0">
           {visibleChildrenOf(unit.id).map((child) => renderUnit(child, depth + 1))}
@@ -257,27 +331,12 @@ export function HrOrganizationStructureSheetWorkspace() {
         </Alert>
       ) : null}
       <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,1fr)_auto] md:items-end">
-        <label className="grid gap-1 text-sm font-medium" htmlFor="organization-company">
-          Company
-          <select
-            id="organization-company"
-            className="h-10 min-w-0 rounded-md border border-input bg-background px-3"
-            value={companyId}
-            onChange={(event) => {
-              const id = event.target.value;
-              setCompanyId(id);
-              rememberMasterCompany(id);
-              closeSheet();
-              void refresh(id);
-            }}
-          >
-            {companies.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <HrSearchField
+          id="hr-organization-structure-search"
+          value={search}
+          onChange={setSearch}
+          placeholder="Search location, project or department by name or code"
+        />
         {canWrite && company ? (
           <Button className="w-full md:w-auto" onClick={() => openCreate(company.id, "company")}>
             + Add organization unit
@@ -313,14 +372,23 @@ export function HrOrganizationStructureSheetWorkspace() {
               <small className="ml-2 font-normal text-muted-foreground">{company.code}</small>
             </span>
           </button>
-          <ul className="m-0 list-none p-0">{visibleChildrenOf(company.id).map((unit) => renderUnit(unit, 1))}</ul>
+          <ul className="m-0 list-none p-0">{topLevelPage.pageRows.map((unit) => renderUnit(unit, 1))}</ul>
           {visibleIds.size === 0 ? (
             <p className="px-4 py-10 text-center text-sm text-muted-foreground">
-              No organization units match these filters.
+              {search.trim() ? "No organization units match this search." : "No organization units match these filters."}
             </p>
           ) : null}
         </nav>
       )}
+      {!loading && company ? (
+        <HrPagination
+          label="Organization structure pages"
+          page={topLevelPage.page}
+          pageCount={topLevelPage.pageCount}
+          total={topLevelPage.total}
+          onPageChange={topLevelPage.setPage}
+        />
+      ) : null}
       <HrMasterSheet
         message={message}
         open={Boolean(editor || selectedId)}
@@ -343,27 +411,22 @@ export function HrOrganizationStructureSheetWorkspace() {
         footer={
           editor ? (
             <>
-              <Button variant="outline" disabled={saving} onClick={closeSheet}>
-                Cancel
-              </Button>
               <Button disabled={saving} onClick={() => void save()}>
                 {saving ? "Saving…" : "Save changes"}
               </Button>
             </>
           ) : canWrite && selected ? (
             <>
-              {selected.status === "active" ? (
-                <HrMasterArchiveButton name={selected.name} saving={saving} onArchive={changeStatus} />
-              ) : null}
               <Button variant="outline" disabled={saving} onClick={() => void changeStatus()}>
                 {selected.status === "active" ? "Deactivate" : "Activate"}
               </Button>
-              {selected.status === "active" ? (
-                <Button variant="outline" onClick={() => openCreate(selected.id, selected.type)}>
-                  Add child
-                </Button>
-              ) : null}
-              <Button onClick={openEdit}>Edit unit</Button>
+              <HrEditButton label="Edit unit" onClick={openEdit} />
+              <HrMasterDeleteButton
+                name={selected.name}
+                code={selected.code}
+                saving={saving}
+                onDelete={() => deleteUnit(selected)}
+              />
             </>
           ) : canWrite && selectedId === companyId && company ? (
             <Button onClick={() => openCreate(company.id, "company")}>Add child unit</Button>
@@ -372,73 +435,155 @@ export function HrOrganizationStructureSheetWorkspace() {
       >
         {editor ? (
           <div className="grid gap-5">
-            {editor.mode === "create" ? (
-              <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-unit-type">
-                Unit type
-                <select
-                  id="organization-unit-type"
-                  className="h-10 rounded-md border border-input bg-background px-3"
-                  value={editor.type}
-                  onChange={(event) => {
-                    const type = event.target.value as UnitType;
-                    setEditor({
-                      ...editor,
-                      type,
-                      code: generatedCode(type),
-                      parentId: canReportTo(type, "company") ? companyId : "",
-                    });
-                  }}
-                >
-                  {Object.entries(typeLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-parent">
-              Reports into
-              <select
-                id="organization-parent"
-                className="h-10 rounded-md border border-input bg-background px-3"
-                value={editor.parentId}
-                onChange={(event) => setEditor({ ...editor, parentId: event.target.value })}
-              >
-                {canReportTo(editor.type, "company") && company ? (
-                  <option value={company.id}>{company.name}</option>
+            <HrDetailSection title="Unit">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {editor.mode === "create" ? (
+                  <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-unit-type">
+                    Unit type
+                    <select
+                      id="organization-unit-type"
+                      className={selectClass}
+                      value={editor.type}
+                      onChange={(event) => {
+                        const type = event.target.value as UnitType;
+                        // Location and Project picks carry over between types.
+                        setEditor({
+                          ...editor,
+                          type,
+                          code: generatedCode(type),
+                          parentId: derivedParent(type, editor.locationId, editor.projectId),
+                        });
+                      }}
+                    >
+                      {selectableOrganizationUnitTypes.map((value) => (
+                        <option key={value} value={value}>
+                          {typeLabels[value]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 ) : null}
-                {units
-                  .filter(
-                    (unit) =>
-                      unit.id !== selected?.id && unit.status === "active" && canReportTo(editor.type, unit.type),
-                  )
-                  .map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-code">
-              Auto-generated code
-              <Input id="organization-code" value={editor.code} disabled />
-            </label>
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor="organization-name">
-              Name
-              <Input
-                id="organization-name"
-                maxLength={200}
-                value={editor.name}
-                onChange={(event) => setEditor({ ...editor, name: event.target.value })}
-              />
-            </label>
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-code">
+                  Auto-generated code
+                  <Input id="organization-code" value={editor.code} disabled />
+                </label>
+              </div>
+              <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-name">
+                Name
+                <Input
+                  id="organization-name"
+                  maxLength={200}
+                  value={editor.name}
+                  onChange={(event) => setEditor({ ...editor, name: event.target.value })}
+                />
+              </label>
+            </HrDetailSection>
+            {editor.type === "branch" || editor.type === "department" ? (
+              <HrDetailSection title="Hierarchy">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-location">
+                    Location
+                    <select
+                      id="organization-location"
+                      className={selectClass}
+                      value={editor.locationId}
+                      onChange={(event) => {
+                        const locationId = event.target.value;
+                        const projectId =
+                          units.find((unit) => unit.id === editor.projectId)?.parent_id === locationId
+                            ? editor.projectId
+                            : "";
+                        setEditor({
+                          ...editor,
+                          locationId,
+                          projectId,
+                          parentId: derivedParent(editor.type, locationId, projectId),
+                        });
+                      }}
+                    >
+                      <option value="" disabled>
+                        Select a location
+                      </option>
+                      {activeOfType("division").map((unit) => (
+                        <option key={unit.id} value={unit.id}>
+                          {unit.name} · {unit.code}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {editor.type === "department" ? (
+                    <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-project">
+                      Project
+                      <select
+                        id="organization-project"
+                        className={selectClass}
+                        value={editor.projectId}
+                        disabled={!editor.locationId}
+                        onChange={(event) => {
+                          const projectId = event.target.value;
+                          setEditor({ ...editor, projectId, parentId: projectId });
+                        }}
+                      >
+                        <option value="" disabled>
+                          {editor.locationId ? "Select a project" : "Choose a location first"}
+                        </option>
+                        {activeOfType("branch")
+                          .filter((unit) => unit.parent_id === editor.locationId)
+                          .map((unit) => (
+                            <option key={unit.id} value={unit.id}>
+                              {unit.name} · {unit.code}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                  ) : null}
+                </div>
+              </HrDetailSection>
+            ) : editor.type !== "division" ? (
+              <HrDetailSection title="Hierarchy">
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-parent">
+                  Reports into
+                  <select
+                    id="organization-parent"
+                    className={selectClass}
+                    value={editor.parentId}
+                    onChange={(event) => setEditor({ ...editor, parentId: event.target.value })}
+                  >
+                    {canReportTo(editor.type, "company") && company ? (
+                      <option value={company.id}>{company.name}</option>
+                    ) : null}
+                    {units
+                      .filter(
+                        (unit) =>
+                          unit.id !== selected?.id && unit.status === "active" && canReportTo(editor.type, unit.type),
+                      )
+                      .map((unit) => (
+                        <option key={unit.id} value={unit.id}>
+                          {typeLabels[unit.type]} · {unit.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              </HrDetailSection>
+            ) : null}
           </div>
         ) : (
-          <div className="grid gap-5">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Detail label="Status" value={selected?.status ?? "active"} status />
-              <Detail
+          <div className="grid min-w-0 gap-4">
+            <HrDetailSummary code={selected?.code ?? company?.code} status={selected?.status ?? "active"}>
+              {selected ? typeLabels[selected.type] : "Company"}
+            </HrDetailSummary>
+            <HrDetailFigures
+              items={[
+                { label: "Direct children", value: childrenOf(selectedId).length },
+                { label: "Employees here", value: selected?.employee_count ?? 0 },
+              ]}
+            />
+            <HrDetailGroup title="Details">
+              <HrDetailTile label="Name" value={selected?.name ?? company?.name ?? "—"} />
+              <HrDetailTile label="Type" value={selected ? typeLabels[selected.type] : "Company"} />
+            </HrDetailGroup>
+            <HrDetailGroup title="Hierarchy">
+              <HrDetailTile
                 label="Reports into"
                 value={
                   selected
@@ -446,29 +591,32 @@ export function HrOrganizationStructureSheetWorkspace() {
                     : "Top of the tree"
                 }
               />
-              <Detail label="Direct children" value={String(childrenOf(selectedId).length)} />
-              <Detail label="Employees here" value={String(selected?.employee_count ?? 0)} />
-              <Detail label="Head" value={selected?.head_name ?? "Not assigned"} />
-              <Detail
-                label="Created"
-                value={selected ? new Date(selected.created_at).toLocaleDateString() : "Platform record"}
-              />
-            </div>
+              <HrDetailTile label="Head" value={selected?.head_name ?? "Not assigned"} />
+            </HrDetailGroup>
+            {selected ? (
+              <RecordStamps record={selected} />
+            ) : (
+              <HrDetailAudit items={[{ label: "Created", value: "Platform record" }]} />
+            )}
           </div>
         )}
       </HrMasterSheet>
     </section>
   );
 }
-function Detail({ label, value, status = false }: { label: string; value: string; status?: boolean }) {
+/** "Created by", "Created" and "Last updated" line, shown when the API provides them. */
+function RecordStamps({
+  record,
+}: {
+  record: { created_by_name?: string | null; created_at?: string; updated_at?: string };
+}) {
   return (
-    <div className="rounded-lg border border-border bg-muted/35 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      {status ? (
-        <span className={`mt-2 inline-flex nx-status nx-status-${value}`}>{value}</span>
-      ) : (
-        <p className="mt-1 font-semibold capitalize">{value}</p>
-      )}
-    </div>
+    <HrDetailAudit
+      items={[
+        { label: "Created by", value: record.created_by_name },
+        { label: "Created", value: hrDisplayDate(record.created_at, true) },
+        { label: "Last updated", value: hrDisplayDate(record.updated_at, true) },
+      ]}
+    />
   );
 }

@@ -46,7 +46,7 @@ export async function createEncashmentFixture(pool: DatabasePool, base?: Paramet
         minimum_request_days: "0.5",
         maximum_request_days: "30",
         requires_hr_approval: true,
-        applicable_category_ids: [],
+        applicable_employment_setup_ids: [],
         applicable_genders: [],
         document_required_after_days: null,
       },

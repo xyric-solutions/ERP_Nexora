@@ -4,18 +4,25 @@ import { WorkForm } from "@/shared/ui/work-form";
 
 import { useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrDeleteButton, HrEditButton } from "../components/hr-icon-buttons";
+import {
+  AttendanceEmployeeDetails,
+  AttendanceEmployeeTable,
+  AttendancePeriodBar,
+  AttendancePeriodDetails,
+  attendanceMonthLabel,
+  periodActionLabel,
+} from "../components/hr-attendance-month-end";
 import {
   useAttendanceRead,
   Field,
   State,
   Metric,
   History,
-  selectClass,
   panel,
-  dayValue,
 } from "../components/hr-workspace-controls";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Clock3, LockKeyhole, ArrowRight, RefreshCw, CheckCircle2, FileCheck2, ChevronDown } from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,11 +34,11 @@ import { HrApiClient } from "../api/hr-client";
 import {
   attendanceLabel as label,
   attendanceMinutes as minutes,
-  AttendanceStatusBadge,
 } from "../components/attendance-status";
 import {
   createHrOvertimeRequestSchema,
   hrOvertimeRuleRequestSchema,
+  replaceHrOvertimeRequestSchema,
   hrOvertimeActionRequestSchema,
   hrAttendancePeriodActionRequestSchema,
   hrAttendancePeriodQuerySchema,
@@ -41,162 +48,27 @@ import {
   type HrOvertimeDetail,
   type HrOvertimeActionRequest,
   type HrAttendancePeriodWorkspace,
-  type HrAttendancePayrollInputs,
-  type HrAttendanceCloseEmployee,
   type HrAttendanceCompletionResult,
 } from "@nexora/contracts";
+import { SearchableSelect } from "@/shared/ui/searchable-select";
 type Navigate = (module: string, page: string, record?: string) => void;
-type Mode = "overtime" | "attendance-period" | "attendance-payroll-inputs";
+type Mode = "overtime" | "attendance-period";
 const previousMonth = () => {
   const d = new Date();
   d.setDate(1);
   d.setMonth(d.getMonth() - 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 };
-function DailyTrace({
-  item,
-  onNavigate,
-  company,
-}: {
-  item: HrAttendanceCloseEmployee;
-  onNavigate: Navigate;
-  company: string;
-}) {
-  return (
-    <div className="grid min-w-0 gap-3">
-      <p className="break-all text-xs text-muted-foreground">Evidence hash: {item.source_hash}</p>
-      {item.days.map((d) => (
-        <div key={d.on_date} className="rounded-lg border border-border bg-background p-3 text-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <strong>{d.on_date}</strong>
-              <AttendanceStatusBadge status={d.status as Parameters<typeof AttendanceStatusBadge>[0]["status"]} />
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                onNavigate(
-                  "hr",
-                  "daily-attendance",
-                  JSON.stringify({ company_id: company, on_date: d.on_date, search: item.employee_number }),
-                )
-              }
-            >
-              View attendance <ArrowRight className="size-3" />
-            </Button>
-          </div>
-          <dl className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-            <div>
-              <dt className="text-muted-foreground">Paid / unpaid</dt>
-              <dd className="mt-1">
-                {dayValue(d.paid_days)} / {dayValue(d.unpaid_days)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Worked</dt>
-              <dd className="mt-1">{minutes(d.worked_minutes)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Leave / unpaid leave</dt>
-              <dd className="mt-1">
-                {dayValue(d.approved_leave_days)} / {dayValue(d.unpaid_leave_days)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Approved overtime</dt>
-              <dd className="mt-1">{minutes(d.overtime.reduce((n, o) => n + o.minutes, 0))}</dd>
-            </div>
-          </dl>
-          {d.issues.length > 0 && (
-            <ul className="mt-3 list-disc space-y-1 pl-5 text-[var(--nx-warning)]">
-              {d.issues.map((x) => (
-                <li key={x}>{x}</li>
-              ))}
-            </ul>
-          )}
-          {(d.correction_ids.length > 0 || d.leave_ids.length > 0 || d.overtime.length > 0) && (
-            <div className="mt-3 grid gap-1 break-all text-xs text-muted-foreground">
-              {d.correction_ids.map((id) => (
-                <span key={id}>Correction: {id}</span>
-              ))}
-              {d.leave_ids.map((id) => (
-                <span key={id}>Leave: {id}</span>
-              ))}
-              {d.overtime.map((o) => (
-                <span key={o.id}>
-                  {label(o.category)} overtime: {o.id} · {minutes(o.minutes)} · Rule{" "}
-                  {o.operational_rule_id ?? "missing"}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-function EmployeeInputs({
-  items,
-  onNavigate,
-  company,
-}: {
-  items: HrAttendanceCloseEmployee[];
-  onNavigate: Navigate;
-  company: string;
-}) {
-  return (
-    <div className="grid min-w-0 gap-3">
-      {items.map((item) => (
-        <details key={item.employee_id} className={panel}>
-          <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <strong className="block break-words text-sm">{item.display_name}</strong>
-              <span className="text-xs text-muted-foreground">
-                {item.employee_number} · {dayValue(item.calendar_days)} covered days
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 text-xs">
-              <span>
-                Paid <strong>{dayValue(item.paid_days)}</strong>
-              </span>
-              <span>
-                Unpaid <strong>{dayValue(item.unpaid_days)}</strong>
-              </span>
-              <span>
-                OT{" "}
-                <strong>
-                  {minutes(
-                    item.overtime_regular_minutes + item.overtime_weekend_minutes + item.overtime_holiday_minutes,
-                  )}
-                </strong>
-              </span>
-              {item.exception_count > 0 ? (
-                <State value="exceptions" />
-              ) : (
-                <CheckCircle2 className="size-4 text-[var(--nx-success-text)]" />
-              )}
-              <ChevronDown className="size-4" />
-            </div>
-          </summary>
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Metric title="Regular overtime" value={minutes(item.overtime_regular_minutes)} hint="Approved minutes" />
-            <Metric title="Weekend overtime" value={minutes(item.overtime_weekend_minutes)} hint="Approved minutes" />
-            <Metric title="Holiday overtime" value={minutes(item.overtime_holiday_minutes)} hint="Approved minutes" />
-            <Metric title="Corrections" value={item.correction_count} hint="Final HR approvals" />
-          </div>
-          <div className="mt-4">
-            <DailyTrace item={item} onNavigate={onNavigate} company={company} />
-          </div>
-        </details>
-      ))}
-    </div>
-  );
-}
+const currentMonth = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+};
 type Save = (
   input: unknown,
   operation: (key: string) => Promise<HrAttendanceCompletionResult>,
 ) => Promise<HrAttendanceCompletionResult | undefined>;
+type OvertimeEditor = { mode: "new" } | { mode: "edit"; id: string; version: number; employeeName: string };
+
 function Overtime({
   client,
   company,
@@ -206,9 +78,12 @@ function Overtime({
   save,
   csrf,
   onNavigate,
-  canCreate,
   onEditing,
   saveError,
+  newRequest,
+  search,
+  openFirst = "",
+  onSaved,
 }: {
   onEditing: (value: boolean) => void;
   saveError?: string;
@@ -220,34 +95,55 @@ function Overtime({
   save: Save;
   csrf: () => string;
   onNavigate: Navigate;
-  canCreate: boolean;
+  /** Increments each time "New overtime request" is pressed in the page header. */
+  newRequest: number;
+  /** Request to open in the drawer when the list loads (e.g. one just saved). */
+  openFirst?: string;
+  /** Called after a draft is created or edited, with its working date. */
+  onSaved?: (id: string, workDate: string) => void;
+  /** Search text typed in the page header row. */
+  search: string;
 }) {
   const [workPageSize, setWorkPageSize] = useState(25);
-  const [selected, setSelected] = useState(""),
-    [search, setSearch] = useState(""),
-    [applied, setApplied] = useState(""),
+  const [selected, setSelected] = useState(openFirst),
+    [applied, setApplied] = useState(search.trim()),
     [offset, setOffset] = useState(0),
     [error, setError] = useState(""),
-    [editor, setEditor] = useState(false),
-    [rules, setRules] = useState(false),
+    [editor, setEditor] = useState<OvertimeEditor | null>(null),
+    [seenRequest, setSeenRequest] = useState(newRequest),
     [date, setDate] = useState(month),
     [employee, setEmployee] = useState(""),
     [employeeSearch, setEmployeeSearch] = useState(""),
     [lookup, setLookup] = useState(""),
     [requested, setRequested] = useState("60"),
+    [ruleMinimum, setRuleMinimum] = useState("0"),
+    [ruleCap, setRuleCap] = useState("240"),
     [reason, setReason] = useState(""),
     [decision, setDecision] = useState<HrOvertimeActionRequest["action"] | "">(""),
     [decisionReason, setDecisionReason] = useState(""),
     [decisionVersion, setDecisionVersion] = useState(0),
     [decisionHash, setDecisionHash] = useState<string | undefined>(),
     [approved, setApproved] = useState(""),
-    [override, setOverride] = useState(false),
-    [category, setCategory] = useState("regular"),
-    [minimum, setMinimum] = useState("30"),
-    [cap, setCap] = useState("240"),
-    [ruleFrom, setRuleFrom] = useState(month),
-    [ruleTo, setRuleTo] = useState(""),
-    [ruleReason, setRuleReason] = useState("");
+    [override, setOverride] = useState(false);
+  // The header button lives in the parent; open a blank request when it is pressed.
+  if (newRequest !== seenRequest) {
+    setSeenRequest(newRequest);
+    setEditor({ mode: "new" });
+    setSelected("");
+    setDecision("");
+    setEmployee("");
+    setEmployeeSearch("");
+    setLookup("");
+    setDate(month);
+    setRequested("60");
+    setReason("");
+    setError("");
+  }
+  // Typing in the Employee dropdown searches the server after a short pause.
+  useEffect(() => {
+    const timer = setTimeout(() => setLookup(employeeSearch.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [employeeSearch]);
   const listRead = useAttendanceRead<HrOvertimeDirectory>(
     JSON.stringify([company, month, revision, offset, applied, workPageSize]),
     () => client.listOvertime({ company_id: company, month, limit: workPageSize, offset, search: applied || undefined }),
@@ -257,7 +153,7 @@ function Overtime({
     () => client.getOvertime(company, selected),
   );
   const contextRead = useAttendanceRead<HrOvertimeContext>(
-    editor || rules ? JSON.stringify([company, date, employee, lookup, revision]) : null,
+    editor ? JSON.stringify([company, date, employee, lookup, revision]) : null,
     () =>
       client.overtimeContext({
         company_id: company,
@@ -273,12 +169,60 @@ function Overtime({
     evidenceBusy = contextRead.loading,
     loadError = listRead.error || detailRead.error || contextRead.error;
   useEffect(() => {
-    onEditing(editor || rules || !!decision);
+    onEditing(!!editor || !!decision);
     return () => onEditing(false);
-  }, [editor, rules, decision, onEditing]);
+  }, [editor, decision, onEditing]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setApplied(search.trim());
+      setOffset(0);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [search]);
   const evidence = context?.evidence;
-  async function create() {
+  const editing = editor?.mode === "edit" ? editor : null;
+  /** Adds the operational overtime rule a day needs before overtime can be saved. */
+  async function addRule(category: "regular" | "weekend" | "holiday") {
     setError("");
+    const parsed = hrOvertimeRuleRequestSchema.safeParse({
+      company_id: company,
+      category,
+      effective_from: date,
+      effective_to: null,
+      minimum_minutes: Number(ruleMinimum),
+      daily_cap_minutes: Number(ruleCap),
+      reason: "",
+    });
+    if (!parsed.success) {
+      setError("Use whole minutes, with the daily cap above the minimum.");
+      return;
+    }
+    await save(parsed.data, (key) => client.createOvertimeRule(parsed.data, key, csrf()));
+  }
+  async function saveRequest() {
+    setError("");
+    if (editing) {
+      const parsed = replaceHrOvertimeRequestSchema.safeParse({
+        company_id: company,
+        expected_version: editing.version,
+        work_date: date,
+        requested_minutes: Number(requested),
+        reason,
+        expected_evidence_hash: evidence?.hash,
+      });
+      if (!parsed.success) {
+        setError(parsed.error.issues[0]?.message ?? "Review the request.");
+        return;
+      }
+      const r = await save(parsed.data, (key) => client.replaceOvertime(editing.id, parsed.data, key, csrf()));
+      if (r) {
+        setEditor(null);
+        setSelected(r.id);
+        setReason("");
+        onSaved?.(r.id, parsed.data.work_date);
+      }
+      return;
+    }
     const parsed = createHrOvertimeRequestSchema.safeParse({
       company_id: company,
       employee_id: employee,
@@ -293,9 +237,10 @@ function Overtime({
     }
     const r = await save(parsed.data, (key) => client.createOvertime(parsed.data, key, csrf()));
     if (r) {
-      setEditor(false);
+      setEditor(null);
       setSelected(r.id);
       setReason("");
+      onSaved?.(r.id, parsed.data.work_date);
     }
   }
   async function decide() {
@@ -319,31 +264,34 @@ function Overtime({
       setDecision("");
       setDecisionReason("");
       setOverride(false);
+      if (decision === "cancel") setSelected("");
     }
   }
-  async function createRule() {
+  const startDecision = (action: HrOvertimeActionRequest["action"]) => {
+    if (!detail) return;
+    setDecision(action);
+    setDecisionReason("");
+    setDecisionVersion(detail.version);
+    setDecisionHash(detail.evidence?.hash);
+    setApproved(String(detail.requested_minutes));
+    setOverride(false);
+  };
+  const startEdit = () => {
+    if (!detail) return;
+    setEditor({ mode: "edit", id: detail.id, version: detail.version, employeeName: detail.display_name });
+    setEmployee(detail.employee_id);
+    setDate(detail.work_date);
+    setRequested(String(detail.requested_minutes));
+    setReason(detail.reason);
+    setDecision("");
     setError("");
-    const parsed = hrOvertimeRuleRequestSchema.safeParse({
-      company_id: company,
-      category,
-      effective_from: ruleFrom,
-      effective_to: ruleTo || null,
-      minimum_minutes: Number(minimum),
-      daily_cap_minutes: Number(cap),
-      reason: ruleReason,
-    });
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Review the rule.");
-      return;
-    }
-    const r = await save(parsed.data, (key) => client.createOvertimeRule(parsed.data, key, csrf()));
-    if (r) {
-      setRuleReason("");
-    }
-  }
+    setSelected("");
+  };
+  const workflowActions = detail?.allowed_actions.filter((action) => action !== "cancel") ?? [];
+  const canDelete = !!detail?.allowed_actions.includes("cancel");
   return (
     <div className="grid min-w-0 gap-4">
-      {(error || loadError) && (
+      {(error || loadError) && !editor && !selected && (
         <div
           role="alert"
           className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
@@ -351,341 +299,182 @@ function Overtime({
           {error || loadError}
         </div>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          Approve evidenced extra work through the reporting manager and HR. Only final approved minutes enter period
-          close.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" disabled={busy || editor} onClick={() => setRules((v) => !v)}>
-            Operational rules
-          </Button>
-          {canCreate && (
-            <Button
-              className="text-primary-foreground!"
-              disabled={busy || editor}
-              onClick={() => {
-                setEditor(true);
-                setRules(false);
-                setDecision("");
-                setEmployee("");
-                setDate(month);
-                setError("");
-              }}
-            >
-              New overtime request
-            </Button>
-          )}
-        </div>
-      </div>
-      {rules && (
-        <HrRecordDrawer
-          title="Overtime rules"
-          open={rules}
-          onClose={() => setRules(false)}
-          busy={busy}
-          error={error || loadError || saveError}
-        >
-          <section className={panel} aria-label="Operational overtime rules">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-base font-semibold">Operational overtime rules</h2>
-              <Button variant="ghost" disabled={busy} onClick={() => setRules(false)}>
-                Close
-              </Button>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Effective rules control eligible minutes. Monetary rates are handled by payroll policy. A later rule
-              closes the previous open-ended version on the preceding day. Existing claim dates stay covered and earlier
-              terms are preserved.
-            </p>
-            <div className="mt-4 grid gap-2">
-              {context?.rules.map((r) => (
-                <div
-                  key={r.id}
-                  className="flex flex-wrap justify-between gap-2 rounded-lg border border-border p-3 text-sm"
-                >
-                  <strong>
-                    {label(r.category)} · v{r.version_number}
-                  </strong>
-                  <span>
-                    Minimum {r.minimum_minutes} min · cap {r.daily_cap_minutes} min
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {r.effective_from} – {r.effective_to ?? "Open ended"}
-                  </span>
-                </div>
-              ))}
-              {context && !context.rules.length && (
-                <p className="text-sm text-muted-foreground">No active rules cover {date}.</p>
-              )}
-            </div>
-            {context?.can_manage_rules && (
-              <WorkForm
-                className="mt-4 grid gap-4"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void createRule();
-                }}
-              >
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <Field title="Category">
-                    <select value={category} onChange={(e) => setCategory(e.target.value)} className={selectClass}>
-                      <option value="regular">Regular</option>
-                      <option value="weekend">Weekend</option>
-                      <option value="holiday">Holiday</option>
-                    </select>
-                  </Field>
-                  <Field title="Effective from">
-                    <Input
-                      type="date"
-                      className="box-border! min-w-0! max-w-full!"
-                      value={ruleFrom}
-                      onChange={(e) => setRuleFrom(e.target.value)}
-                      required
-                    />
-                  </Field>
-                  <Field title="Effective to (optional)">
-                    <Input
-                      type="date"
-                      className="box-border! min-w-0! max-w-full!"
-                      value={ruleTo}
-                      onChange={(e) => setRuleTo(e.target.value)}
-                    />
-                  </Field>
-                  <Field title="Minimum overtime minutes">
-                    <Input
-                      type="number"
-                      min={0}
-                      max={1439}
-                      value={minimum}
-                      onChange={(e) => setMinimum(e.target.value)}
-                      required
-                    />
-                  </Field>
-                  <Field title="Daily cap in minutes">
-                    <Input
-                      type="number"
-                      min={1}
-                      max={1440}
-                      value={cap}
-                      onChange={(e) => setCap(e.target.value)}
-                      required
-                    />
-                  </Field>
-                </div>
-                <Field title="Rule change reason">
-                  <Textarea
-                    value={ruleReason}
-                    minLength={8}
-                    maxLength={1000}
-                    onChange={(e) => setRuleReason(e.target.value)}
-                    required
-                  />
-                </Field>
-                <div>
-                  <Button type="submit" className="text-primary-foreground!" disabled={busy}>
-                    Create effective rule
-                  </Button>
-                </div>
-              </WorkForm>
-            )}
-          </section>
-        </HrRecordDrawer>
-      )}
       {editor && (
         <HrRecordDrawer
-          title="New overtime request"
-          open={editor}
-          onClose={() => setEditor(false)}
+          title={editing ? "Edit overtime request" : "New overtime request"}
+          open={!!editor}
+          onClose={() => setEditor(null)}
           busy={busy}
           error={error || loadError || saveError}
-        >
-          <section className={panel} aria-label="New overtime request">
-            <div className="flex flex-wrap justify-between gap-2">
-              <h2 className="text-base font-semibold">New overtime request</h2>
-              <Button variant="ghost" disabled={busy} onClick={() => setEditor(false)}>
-                Close
-              </Button>
-            </div>
-            <WorkForm
-              className="mt-4 grid gap-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void create();
-              }}
+          footer={
+            <Button
+              type="submit"
+              form="overtime-request-form"
+              disabled={busy || evidenceBusy || !evidence || !evidence.rule}
             >
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field title="Working date">
-                  <Input
-                    type="date"
-                    className="box-border! min-w-0! max-w-full!"
-                    value={date}
-                    onChange={(e) => {
-                      setDate(e.target.value);
-                      setEmployee("");
-                    }}
-                    required
-                  />
-                </Field>
-                <Field title="Find employee">
-                  <div className="flex min-w-0 gap-2">
-                    <Input
-                      aria-label="Find employee"
-                      value={employeeSearch}
-                      onChange={(e) => setEmployeeSearch(e.target.value)}
-                      placeholder="Name or employee number"
-                    />
-                    <Button
-                      variant="outline"
-                      type="button"
-                      onClick={() => {
-                        setEmployee("");
-                        setLookup(employeeSearch);
-                      }}
-                    >
-                      Find
-                    </Button>
-                  </div>
-                </Field>
-                <Field title="Employee">
-                  <select
-                    className={selectClass}
-                    value={employee}
-                    onChange={(e) => setEmployee(e.target.value)}
-                    required
-                    disabled={evidenceBusy && !employee}
-                  >
-                    <option value="">Select employee</option>
-                    {context?.employees.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {e.code} · {e.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field title="Requested overtime minutes">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={evidence?.eligible_minutes || 1440}
-                    value={requested}
-                    onChange={(e) => setRequested(e.target.value)}
-                    required
-                  />
-                </Field>
-              </div>
-              {context?.employees_capped && (
-                <p className="text-xs text-muted-foreground">
-                  Showing the first 100 employees. Refine the employee search.
-                </p>
-              )}
-              {evidenceBusy ? (
-                <Skeleton className="h-24" />
-              ) : (
-                evidence && (
-                  <div className="rounded-lg border border-border bg-background p-4">
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                      <Metric title="Attendance" value={label(evidence.attendance.day.status)} hint={date} />
-                      <Metric
-                        title="Category"
-                        value={label(evidence.category)}
-                        hint={evidence.rule ? `Operational rule v${evidence.rule.version_number}` : "No rule"}
-                      />
-                      <Metric
-                        title="Eligible overtime"
-                        value={minutes(evidence.eligible_minutes)}
-                        hint="Shift evidence and daily cap"
-                      />
-                      <Metric
-                        title="Reporting manager"
-                        value={evidence.attendance.manager_name ?? "Unassigned"}
-                        hint="Active user binding required"
-                      />
-                    </div>
-                    {evidence.blockers.length > 0 && (
-                      <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-[var(--nx-warning)]">
-                        {evidence.blockers.map((b) => (
-                          <li key={b}>{b}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )
-              )}
-              <Field title="Business reason">
-                <Textarea
-                  minLength={8}
-                  maxLength={1000}
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
+              {editing ? "Save changes" : "Save overtime draft"}
+            </Button>
+          }
+        >
+          <WorkForm
+            id="overtime-request-form"
+            className="grid gap-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void saveRequest();
+            }}
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field title="Working date">
+                <Input
+                  type="date"
+                  className="box-border! min-w-0! max-w-full!"
+                  value={date}
+                  onChange={(e) => {
+                    setDate(e.target.value);
+                    if (!editing) setEmployee("");
+                  }}
                   required
                 />
               </Field>
-              <div>
-                <Button
-                  className="text-primary-foreground!"
-                  disabled={busy || evidenceBusy || !evidence || evidence.blockers.length > 0}
-                  type="submit"
-                >
-                  Save overtime draft
-                </Button>
-              </div>
-            </WorkForm>
-          </section>
+              {editing ? (
+                <Field title="Employee">
+                  <Input value={editing.employeeName} readOnly disabled />
+                </Field>
+              ) : (
+                <div className="grid min-w-0 content-start gap-2 text-sm font-medium">
+                  <label htmlFor="hr-overtime-employee">Employee</label>
+                  <SearchableSelect
+                    id="hr-overtime-employee"
+                    label="Employee"
+                    value={employee}
+                    placeholder="Select employee"
+                    searchPlaceholder="Search by name or employee number…"
+                    loading={evidenceBusy && !context}
+                    required
+                    search={employeeSearch}
+                    onSearchChange={setEmployeeSearch}
+                    options={context?.employees.map((e) => ({ value: e.id, label: `${e.code} · ${e.name}` })) ?? []}
+                    onValueChange={setEmployee}
+                  />
+                </div>
+              )}
+              <Field title="Requested overtime minutes">
+                <Input
+                  type="number"
+                  min={1}
+                  max={1440}
+                  value={requested}
+                  onChange={(e) => setRequested(e.target.value)}
+                  required
+                />
+              </Field>
+            </div>
+            {evidenceBusy ? (
+              <Skeleton className="h-24" />
+            ) : (
+              evidence && (
+                <div className="rounded-lg border border-border bg-background p-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Metric title="Attendance" value={label(evidence.attendance.day.status)} hint={date} />
+                    <Metric
+                      title="Category"
+                      value={label(evidence.category)}
+                      hint={evidence.rule ? `Operational rule v${evidence.rule.version_number}` : "No rule"}
+                    />
+                    <Metric
+                      title="Eligible overtime"
+                      value={minutes(evidence.eligible_minutes)}
+                      hint="Shift evidence and daily cap"
+                    />
+                    <Metric
+                      title="Reporting manager"
+                      value={evidence.attendance.manager_name ?? "Unassigned"}
+                      hint="Active user binding required"
+                    />
+                  </div>
+                  {evidence.blockers.length > 0 && (
+                    <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-[var(--nx-warning)]">
+                      {evidence.blockers.map((b) => (
+                        <li key={b}>{b}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {!evidence.rule && context?.can_manage_rules && (
+                    <div className="mt-4 grid gap-3 rounded-lg border border-border bg-card p-3">
+                      <strong className="text-sm">Add {label(evidence.category).toLowerCase()} overtime rule</strong>
+                      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                        <Field title="Minimum minutes">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={1439}
+                            value={ruleMinimum}
+                            disabled={busy}
+                            onChange={(e) => setRuleMinimum(e.target.value)}
+                          />
+                        </Field>
+                        <Field title="Daily cap minutes">
+                          <Input
+                            type="number"
+                            min={1}
+                            max={1440}
+                            value={ruleCap}
+                            disabled={busy}
+                            onChange={(e) => setRuleCap(e.target.value)}
+                          />
+                        </Field>
+                        <Button type="button" variant="outline" disabled={busy} onClick={() => void addRule(evidence.category)}>
+                          Add rule
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            )}
+            <Field title="Business reason">
+              <Textarea
+                maxLength={1000}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </Field>
+          </WorkForm>
         </HrRecordDrawer>
       )}
-      <WorkForm
-        className="flex min-w-0 gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setApplied(search);
-          setOffset(0);
-        }}
-      >
-        <Input
-          aria-label="Search overtime requests"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search employee or reference"
-        />
-        <Button variant="outline" type="submit">
-          Search
-        </Button>
-      </WorkForm>
       {loading ? (
         <Skeleton className="h-32" />
       ) : data?.items.length ? (
-        <div className="grid min-w-0 gap-3">
+        <div className="grid min-w-0 gap-2">
           {data.items.map((r) => (
-            <article key={r.id} className={panel}>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <strong className="block break-words text-sm">{r.display_name}</strong>
-                  <span className="text-xs text-muted-foreground">
-                    {r.employee_number} · {r.reference} · {r.work_date}
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-3 text-sm">
-                  <span>
-                    {label(r.category)} ·{" "}
-                    {minutes(r.status === "approved" ? (r.approved_minutes ?? 0) : r.requested_minutes)}
-                  </span>
-                  <State value={r.status} />
-                  <Button
-                    variant="outline"
-                    disabled={busy || editor}
-                    onClick={() => {
-                      setSelected(r.id);
-                      setDecision("");
-                      setDecisionReason("");
-                      setOverride(false);
-                    }}
-                  >
-                    Review
-                  </Button>
-                </div>
-              </div>
-            </article>
+            <button
+              key={r.id}
+              type="button"
+              disabled={busy || !!editor}
+              onClick={() => {
+                setSelected(r.id);
+                setDecision("");
+                setDecisionReason("");
+                setOverride(false);
+                setError("");
+              }}
+              className={`${panel} flex w-full flex-wrap items-center justify-between gap-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 ${selected === r.id ? "border-primary/60" : ""}`}
+            >
+              <span className="min-w-0">
+                <strong className="block break-words text-sm">{r.display_name}</strong>
+                <span className="text-xs text-muted-foreground">
+                  {r.employee_number} · {r.reference} · {r.work_date}
+                </span>
+              </span>
+              <span className="flex flex-wrap items-center gap-3 text-sm">
+                <span>
+                  {label(r.category)} ·{" "}
+                  {minutes(r.status === "approved" ? (r.approved_minutes ?? 0) : r.requested_minutes)}
+                </span>
+                <State value={r.status} />
+              </span>
+            </button>
           ))}
         </div>
       ) : (
@@ -696,88 +485,95 @@ function Overtime({
       {data && (
         <WorkOffsetPagination busy={!!(loading)} total={data.total} offset={offset} size={workPageSize} previousDisabled={!!(!offset || loading)} nextDisabled={!!(offset + workPageSize >= data.total || loading)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
       )}
-      {!editor && selected && !detail && <Skeleton className="h-36" />}
-      {!editor && detail && (
-        <section className={panel} aria-label="Overtime request review">
-          <div className="flex flex-wrap justify-between gap-2">
-            <div>
-              <h2 className="text-base font-semibold">{detail.reference}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {detail.display_name} · {detail.work_date} · Version {detail.version}
-              </p>
+      <HrRecordDrawer
+        title={detail?.reference ?? "Overtime request"}
+        open={!!selected && !editor}
+        onClose={() => {
+          if (busy) return;
+          setSelected("");
+          setDecision("");
+        }}
+        busy={busy}
+        error={error || (selected ? detailRead.error : "") || saveError}
+        footer={
+          detail && !decision ? (
+            <>
+              {detail.can_edit ? <HrEditButton label="Edit overtime request" disabled={busy} onClick={startEdit} /> : null}
+              {canDelete ? (
+                <HrDeleteButton
+                  label="Cancel overtime request"
+                  disabled={busy}
+                  onClick={() => startDecision("cancel")}
+                />
+              ) : null}
+              {workflowActions.map((action) => (
+                <Button key={action} disabled={busy} onClick={() => startDecision(action)}>
+                  {label(action)}
+                </Button>
+              ))}
+            </>
+          ) : undefined
+        }
+      >
+        {!detail ? (
+          <Skeleton className="h-36" />
+        ) : (
+          <section className="grid gap-4" aria-label="Overtime request review">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">{detail.display_name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {detail.employee_number} · {detail.work_date} · Version {detail.version}
+                </p>
+              </div>
+              <State value={detail.status} />
             </div>
-            <State value={detail.status} />
-          </div>
-          <p className="mt-3 break-words text-sm">{detail.reason}</p>
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <Metric title="Requested" value={minutes(detail.requested_minutes)} hint={label(detail.category)} />
-            <Metric title="Approved" value={minutes(detail.approved_minutes ?? 0)} hint="Final HR decision" />
-            <Metric
-              title="Current eligible minutes"
-              value={minutes(detail.evidence?.eligible_minutes ?? 0)}
-              hint="Derived from source evidence"
-            />
-          </div>
-          {detail.evidence_unavailable && (
-            <p className="mt-3 text-sm text-[var(--nx-warning)]">{detail.evidence_unavailable}</p>
-          )}
-          {!detail.workflow_managed && (
-            <p className="mt-3 text-sm text-muted-foreground">Legacy evidence is preserved as read-only history.</p>
-          )}
-          {detail.evidence?.blockers.map((b) => (
-            <p className="mt-2 text-sm text-[var(--nx-warning)]" key={b}>
-              {b}
-            </p>
-          ))}
-          <div className="mt-3">
-            <Button
-              variant="outline"
-              onClick={() =>
-                onNavigate(
-                  "hr",
-                  "daily-attendance",
-                  JSON.stringify({ company_id: company, on_date: detail.work_date, search: detail.employee_number }),
-                )
-              }
-            >
-              View source attendance <ArrowRight className="size-4" />
-            </Button>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {detail.allowed_actions.map((action) => (
-              <Button
-                key={action}
-                variant={action.endsWith("reject") || action === "cancel" ? "outline" : "default"}
-                className={action.endsWith("reject") || action === "cancel" ? "" : "text-primary-foreground!"}
-                disabled={busy}
-                onClick={() => {
-                  setDecision(action);
-                  setDecisionVersion(detail.version);
-                  setDecisionHash(detail.evidence?.hash);
-                  setApproved(String(detail.requested_minutes));
-                  setOverride(false);
-                }}
-              >
-                {label(action)}
-              </Button>
+            <p className="break-words text-sm">{detail.reason}</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <Metric title="Requested" value={minutes(detail.requested_minutes)} hint={label(detail.category)} />
+              <Metric title="Approved" value={minutes(detail.approved_minutes ?? 0)} hint="Final HR decision" />
+              <Metric
+                title="Current eligible minutes"
+                value={minutes(detail.evidence?.eligible_minutes ?? 0)}
+                hint="Derived from source evidence"
+              />
+            </div>
+            {detail.evidence_unavailable && (
+              <p className="text-sm text-[var(--nx-warning)]">{detail.evidence_unavailable}</p>
+            )}
+            {!detail.workflow_managed && (
+              <p className="text-sm text-muted-foreground">Legacy evidence is preserved as read-only history.</p>
+            )}
+            {detail.evidence?.blockers.map((b) => (
+              <p className="text-sm text-[var(--nx-warning)]" key={b}>
+                {b}
+              </p>
             ))}
-          </div>
-          {decision && (
-            <HrRecordDrawer
-              title="Overtime decision"
-              open={!!decision}
-              onClose={() => setDecision("")}
-              busy={busy}
-              error={error || saveError}
-            >
+            <div>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  onNavigate(
+                    "hr",
+                    "daily-attendance",
+                    JSON.stringify({ company_id: company, on_date: detail.work_date, search: detail.employee_number }),
+                  )
+                }
+              >
+                View source attendance <ArrowRight className="size-4" />
+              </Button>
+            </div>
+            {decision && (
               <WorkForm
-                className="mt-4 grid gap-4 rounded-lg border border-border bg-background p-4"
+                className="grid gap-4 rounded-lg border border-border bg-background p-4"
                 onSubmit={(e) => {
                   e.preventDefault();
                   void decide();
                 }}
               >
-                <h3 className="text-sm font-semibold">Confirm {label(decision).toLowerCase()}</h3>
+                <h3 className="text-sm font-semibold">
+                  {decision === "cancel" ? "Cancel this overtime request" : `Confirm ${label(decision).toLowerCase()}`}
+                </h3>
                 {decision === "hr_approve" && (
                   <Field title="Final approved overtime minutes">
                     <Input
@@ -790,13 +586,11 @@ function Overtime({
                     />
                   </Field>
                 )}
-                <Field title="Decision reason">
+                <Field title={decision === "cancel" ? "Reason for cancelling" : "Decision reason"}>
                   <Textarea
                     value={decisionReason}
-                    minLength={8}
                     maxLength={1000}
                     onChange={(e) => setDecisionReason(e.target.value)}
-                    required
                   />
                 </Field>
                 {decision.includes("_") && detail.self_decision_requires_override && (
@@ -810,31 +604,30 @@ function Overtime({
                     audited.
                   </label>
                 )}
-                <div className="flex gap-2">
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button type="button" variant="outline" disabled={busy} onClick={() => setDecision("")}>
+                    Back
+                  </Button>
                   <Button
                     type="submit"
-                    className="text-primary-foreground!"
+                    variant={decision === "cancel" ? "destructive" : "default"}
+                    className={decision === "cancel" ? "" : "text-primary-foreground!"}
                     disabled={busy || (decision.includes("_") && detail.self_decision_requires_override && !override)}
                   >
-                    Confirm decision
-                  </Button>
-                  <Button variant="outline" disabled={busy} onClick={() => setDecision("")}>
-                    Back
+                    {decision === "cancel" ? "Cancel request" : "Confirm decision"}
                   </Button>
                 </div>
               </WorkForm>
-            </HrRecordDrawer>
-          )}
-          <div className="mt-4">
+            )}
             <History items={detail.history} />
-          </div>
-        </section>
-      )}
+          </section>
+        )}
+      </HrRecordDrawer>
     </div>
   );
 }
+/** Attendance Period Close: open, process and lock the month. A locked month's rows are its payroll inputs. */
 function CloseAndInputs({
-  mode,
   client,
   company,
   month,
@@ -848,7 +641,6 @@ function CloseAndInputs({
 }: {
   onEditing: (value: boolean) => void;
   saveError?: string;
-  mode: Exclude<Mode, "overtime">;
   client: HrApiClient;
   company: string;
   month: string;
@@ -861,17 +653,16 @@ function CloseAndInputs({
   const [workPageSize, setWorkPageSize] = useState(25);
   const [error, setError] = useState(""),
     [offset, setOffset] = useState(0),
+    [periodOpen, setPeriodOpen] = useState(false),
+    [employeeId, setEmployeeId] = useState(""),
     [action, setAction] = useState<"open" | "process" | "lock" | "">(""),
     [reason, setReason] = useState(""),
     [override, setOverride] = useState(false),
     [reviewVersion, setReviewVersion] = useState(0),
     [reviewHash, setReviewHash] = useState<string | undefined>();
-  const periodRead = useAttendanceRead<HrAttendancePeriodWorkspace | HrAttendancePayrollInputs>(
-    JSON.stringify([company, month, mode, revision, offset, workPageSize]),
-    () => {
-      const q = { company_id: company, month, limit: workPageSize, offset };
-      return mode === "attendance-period" ? client.periodWorkspace(q) : client.payrollInputs(q);
-    },
+  const periodRead = useAttendanceRead<HrAttendancePeriodWorkspace>(
+    JSON.stringify([company, month, revision, offset, workPageSize]),
+    () => client.periodWorkspace({ company_id: company, month, limit: workPageSize, offset }),
   );
   const data = periodRead.data,
     loading = periodRead.loading,
@@ -881,7 +672,17 @@ function CloseAndInputs({
     return () => onEditing(false);
   }, [action, onEditing]);
   const period = data?.period,
-    workspace = data && "allowed_actions" in data ? data : null;
+    workspace = data ?? null,
+    employee = data?.items.find((item) => item.employee_id === employeeId) ?? null;
+  const startAction = (next: "open" | "process" | "lock") => {
+    setPeriodOpen(true);
+    setAction(next);
+    setReason("");
+    setReviewVersion(period?.version ?? 0);
+    setReviewHash(period?.review_hash ?? undefined);
+    setOverride(false);
+    setError("");
+  };
   async function apply() {
     setError("");
     const parsed = hrAttendancePeriodActionRequestSchema.safeParse({
@@ -894,7 +695,7 @@ function CloseAndInputs({
       override_self_approval: override,
     });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Review the close action.");
+      setError(parsed.error.issues[0]?.message ?? "Review the period action.");
       return;
     }
     const r = await save(parsed.data, (key) => client.actOnPeriod(parsed.data, key, csrf()));
@@ -906,7 +707,7 @@ function CloseAndInputs({
   }
   return (
     <div className="grid min-w-0 gap-4">
-      {(error || loadError) && (
+      {(error || loadError) && !periodOpen && (
         <div
           role="alert"
           className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
@@ -914,125 +715,108 @@ function CloseAndInputs({
           {error || loadError}
         </div>
       )}
-      <div className={panel}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="flex items-center gap-2 text-base font-semibold">
-              {mode === "attendance-period" ? (
-                <FileCheck2 className="size-5 text-primary" />
-              ) : (
-                <LockKeyhole className="size-5 text-primary" />
-              )}
-              {mode === "attendance-period" ? "Month-end attendance review" : "Finalized attendance inputs"}
-            </h2>
-            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-              {mode === "attendance-period"
-                ? "Process the completed month, resolve every exception, then have a separate authorized approver lock the reviewed sources. Locking creates immutable payroll inputs."
-                : "Payroll reads the locked attendance snapshot: days, approved leave, approved overtime and correction references. Salary values and payment posting are handled in payroll."}
-            </p>
-          </div>
-          <State value={period?.state ?? "not_opened"} />
+      {loading && !data ? (
+        <Skeleton className="h-16" />
+      ) : (
+        <AttendancePeriodBar
+          month={month}
+          period={period}
+          actions={workspace?.allowed_actions ?? []}
+          busy={busy || loading}
+          onOpen={() => {
+            setPeriodOpen(true);
+            setAction("");
+          }}
+          onAction={startAction}
+        />
+      )}
+      {period?.state === "locked" && data?.items.length ? (
+        <p className="rounded-lg border border-[var(--nx-success-border)] bg-[var(--nx-success-soft)] px-3 py-2 text-sm text-[var(--nx-success-text)]">
+          Locked. These employee figures are frozen as this month&apos;s payroll inputs and are used by Payroll Runs.
+        </p>
+      ) : null}
+      {loading ? (
+        <Skeleton className="h-40" />
+      ) : data?.items.length ? (
+        <AttendanceEmployeeTable items={data.items} selected={employeeId} onOpen={setEmployeeId} />
+      ) : (
+        <div className={panel}>
+          <p className="text-sm text-muted-foreground">
+            {period?.state === "locked"
+              ? "This locked legacy period has no daily evidence to show. Its historical inputs are preserved."
+              : "No review has been prepared for this month yet. Open the period, then process the review."}
+          </p>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Metric title="Employees" value={period?.employee_count ?? 0} hint="All operational placements in month" />
-          <Metric title="Exceptions" value={period?.exception_count ?? 0} hint="Each unresolved source blocks lock" />
-          <Metric
-            title="Review version"
-            value={period?.version ?? 0}
-            hint={
-              period?.processed_at
-                ? `Processed ${new Date(period.processed_at).toLocaleDateString()}`
-                : "Not yet processed"
-            }
-          />
-          <Metric
-            title="Payroll availability"
-            value={period?.state === "locked" ? "Available" : "Awaiting lock"}
-            hint={
-              period?.locked_at
-                ? `Locked ${new Date(period.locked_at).toLocaleDateString()}`
-                : "Review first, then lock"
-            }
-          />
-        </div>
-        {period?.review_hash && (
-          <p className="mt-3 break-all text-xs text-muted-foreground">Reviewed source hash: {period.review_hash}</p>
-        )}
-        <div className="mt-4 flex flex-wrap gap-2">
-          {workspace?.allowed_actions.map((a) => (
-            <Button
-              key={a}
-              className={a === "lock" ? "text-primary-foreground!" : ""}
-              variant={a === "lock" ? "default" : "outline"}
-              disabled={busy || loading || !!action}
-              onClick={() => {
-                setAction(a);
-                setReviewVersion(period?.version ?? 0);
-                setReviewHash(period?.review_hash ?? undefined);
-                setOverride(false);
-              }}
-            >
-              {a === "open"
-                ? "Open attendance period"
-                : a === "process"
-                  ? "Process / refresh review"
-                  : "Lock reviewed period"}
-            </Button>
-          ))}
-          {mode === "attendance-period" && period?.state === "locked" && (
-            <Button
-              variant="outline"
-              onClick={() =>
-                onNavigate("hr", "attendance-payroll-inputs", JSON.stringify({ company_id: company, month }))
-              }
-            >
-              View payroll inputs <ArrowRight className="size-4" />
-            </Button>
-          )}
-          {mode === "attendance-payroll-inputs" && period?.state !== "locked" && (
-            <Button
-              variant="outline"
-              onClick={() => onNavigate("hr", "attendance-period", JSON.stringify({ company_id: company, month }))}
-            >
-              Open period review <ArrowRight className="size-4" />
-            </Button>
-          )}
-        </div>
-      </div>
-      {action && (
-        <HrRecordDrawer
-          title="Attendance period action"
-          open={!!action}
-          onClose={() => setAction("")}
-          busy={busy}
-          error={error || saveError}
-        >
+      )}
+      {data && (
+        <WorkOffsetPagination
+          busy={loading}
+          total={data.total}
+          offset={offset}
+          size={workPageSize}
+          previousDisabled={!offset || loading}
+          nextDisabled={offset + workPageSize >= data.total || loading}
+          onSizeChange={(size) => {
+            setWorkPageSize(size);
+            setOffset(0);
+          }}
+          onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))}
+          onNext={() => setOffset((v) => v + workPageSize)}
+        />
+      )}
+      {workspace ? (
+        <section className={panel} aria-label="Period history">
+          <History items={workspace.history} title="Period history" />
+        </section>
+      ) : null}
+      <HrRecordDrawer
+        title={`Attendance period · ${attendanceMonthLabel(month)}`}
+        open={periodOpen}
+        onClose={() => {
+          if (busy) return;
+          setPeriodOpen(false);
+          setAction("");
+        }}
+        busy={busy}
+        error={error || saveError}
+        footer={
+          !action && workspace?.allowed_actions.length ? (
+            <>
+              {workspace.allowed_actions.map((a) => (
+                <Button key={a} disabled={busy || loading} onClick={() => startAction(a)}>
+                  {periodActionLabel(a)}
+                </Button>
+              ))}
+            </>
+          ) : undefined
+        }
+      >
+        <AttendancePeriodDetails month={month} period={period} />
+        {action ? (
           <WorkForm
-            className={panel + " grid gap-4"}
+            className="grid gap-4 rounded-lg border border-border bg-background p-4"
             onSubmit={(e) => {
               e.preventDefault();
               void apply();
             }}
           >
-            <h2 className="text-base font-semibold">
+            <h3 className="text-sm font-semibold">
               {action === "lock"
-                ? "Lock the reviewed attendance month"
+                ? "Lock the reviewed month"
                 : action === "process"
-                  ? "Rebuild the attendance review"
+                  ? "Process the attendance review"
                   : "Open the attendance month"}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {action === "lock"
-                ? "The server will recheck source evidence before freezing employee inputs. Locked months cannot be reopened or edited through this workflow."
-                : "This action records your reason and review history. Processing includes every operational employee and reports pending requests, missing shifts and unreconciled attendance."}
-            </p>
-            <Field title="Attendance close reason">
+            </h3>
+            {action === "lock" ? (
+              <p className="text-sm text-muted-foreground">
+                Locking freezes the employee inputs for payroll. A locked month cannot be reopened here.
+              </p>
+            ) : null}
+            <Field title="Reason">
               <Textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                minLength={8}
                 maxLength={1000}
-                required
               />
             </Field>
             {action === "lock" && workspace?.self_decision_requires_override && (
@@ -1042,40 +826,28 @@ function CloseAndInputs({
                 month.
               </label>
             )}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button type="button" variant="outline" disabled={busy} onClick={() => setAction("")}>
+                Back
+              </Button>
               <Button
                 className="text-primary-foreground!"
                 type="submit"
                 disabled={busy || (action === "lock" && workspace?.self_decision_requires_override && !override)}
               >
-                {busy ? "Processing…" : "Confirm " + label(action).toLowerCase()}
-              </Button>
-              <Button variant="outline" disabled={busy} onClick={() => setAction("")}>
-                Cancel
+                {busy ? "Processing…" : periodActionLabel(action)}
               </Button>
             </div>
           </WorkForm>
-        </HrRecordDrawer>
-      )}
-      {loading ? (
-        <Skeleton className="h-40" />
-      ) : data?.items.length ? (
-        <EmployeeInputs items={data.items} company={company} onNavigate={onNavigate} />
-      ) : (
-        <div className={panel}>
-          <p className="text-sm text-muted-foreground">
-            {mode === "attendance-period"
-              ? "No prepared review exists for this month. Open and process a completed month to review its attendance."
-              : period?.state === "locked"
-                ? "This locked legacy period has no v5 daily evidence. Its historical inputs are preserved; a controlled migration is required before showing daily traces."
-                : "Finalized inputs appear here after the attendance period is locked."}
-          </p>
-        </div>
-      )}
-      {data && (
-        <WorkOffsetPagination busy={!!(loading)} total={data.total} offset={offset} size={workPageSize} previousDisabled={!!(!offset || loading)} nextDisabled={!!(offset + workPageSize >= data.total || loading)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
-      )}
-      {workspace && <History items={workspace.history} />}
+        ) : null}
+      </HrRecordDrawer>
+      <HrRecordDrawer
+        title={employee?.display_name ?? "Employee month"}
+        open={!!employee}
+        onClose={() => setEmployeeId("")}
+      >
+        {employee ? <AttendanceEmployeeDetails item={employee} company={company} onNavigate={onNavigate} /> : null}
+      </HrRecordDrawer>
     </div>
   );
 }
@@ -1099,21 +871,19 @@ export function HrAttendanceCompletionWorkspace({
       return null;
     }
   }, [initialReference]);
-  const [companyChoice, setCompany] = useState(initial?.company_id ?? ""),
-    [month, setMonth] = useState(initial?.month ?? previousMonth()),
+  const [companyChoice] = useState(initial?.company_id ?? ""),
+    [month, setMonth] = useState(initial?.month ?? (mode === "overtime" ? currentMonth() : previousMonth())),
+    [openOvertime, setOpenOvertime] = useState(""),
     [revision, setRevision] = useState(0),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
-    [editing, setEditing] = useState(false);
+    [editing, setEditing] = useState(false),
+    [newRequest, setNewRequest] = useState(0),
+    [overtimeSearch, setOvertimeSearch] = useState("");
   const lock = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null);
-  const permission =
-    mode === "overtime"
-      ? "hr.attendance.overtime.read"
-      : mode === "attendance-period"
-        ? "hr.attendance.period.read"
-        : "hr.attendance.payroll_input.read";
+  const permission = mode === "overtime" ? "hr.attendance.overtime.read" : "hr.attendance.period.read";
   const permissions = session?.user.permissions ?? [],
     canRead = permissions.includes(permission);
   const companyRead = useAttendanceRead<HrCompanyDirectory>(canRead ? "companies" : null, () => client.companies());
@@ -1147,59 +917,14 @@ export function HrAttendanceCompletionWorkspace({
   if (!canRead) return <div className={panel}>You do not have permission to view this attendance workspace.</div>;
   return (
     <div className="grid min-w-0 gap-5 font-sans [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_td]:font-sans!">
-      <nav aria-label="Attendance completion workflow" className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3">
-        {(
-          [
-            ["overtime", "Overtime", Clock3],
-            ["attendance-period", "Period close", FileCheck2],
-            ["attendance-payroll-inputs", "Payroll inputs", LockKeyhole],
-          ] as const
-        ).map(([id, title, Icon]) => (
-          <Button
-            key={id}
-            variant="outline"
-            className={
-              "h-auto min-w-0 justify-start gap-2 whitespace-normal px-4 py-3 " +
-              (mode === id ? "border-primary bg-primary/10 text-primary!" : "")
-            }
-            disabled={
-              busy ||
-              editing ||
-              !permissions.includes(
-                id === "overtime"
-                  ? "hr.attendance.overtime.read"
-                  : id === "attendance-period"
-                    ? "hr.attendance.period.read"
-                    : "hr.attendance.payroll_input.read",
-              )
-            }
-            onClick={() => onNavigate("hr", id, JSON.stringify({ company_id: company, month }))}
-          >
-            <Icon className="size-4 shrink-0" />
-            {title}
-          </Button>
-        ))}
-      </nav>
-      <div className={panel + " grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,220px)_auto] md:items-end"}>
-        <Field title="Company">
-          <select
-            className={selectClass}
-            disabled={busy || editing || companyLoading}
-            value={company}
-            onChange={(e) => {
-              setCompany(e.target.value);
-              setError("");
-              setNotice("");
-            }}
-          >
-            <option value="">{companyLoading ? "Loading authorized companies…" : "Select company"}</option>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.code})
-              </option>
-            ))}
-          </select>
-        </Field>
+      <div
+        className={
+          panel +
+          (mode === "overtime"
+            ? " grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] lg:items-end"
+            : " grid gap-4 md:grid-cols-[minmax(0,220px)] md:items-end")
+        }
+      >
         <Field title="Attendance month">
           <Input
             type="month"
@@ -1212,10 +937,31 @@ export function HrAttendanceCompletionWorkspace({
             }}
           />
         </Field>
-        <Button variant="outline" disabled={busy || !company} onClick={() => setRevision((v) => v + 1)}>
-          <RefreshCw className={"size-4 " + (busy ? "animate-spin" : "")} />
-          Refresh
-        </Button>
+        {mode === "overtime" ? (
+          <Field title="Search">
+            <Input
+              aria-label="Search overtime requests"
+              type="search"
+              value={overtimeSearch}
+              onChange={(e) => setOvertimeSearch(e.target.value)}
+              placeholder="Employee or reference"
+            />
+          </Field>
+        ) : null}
+        {mode === "overtime" && permissions.includes("hr.attendance.overtime.create") ? (
+          <Button
+            className="text-primary-foreground! lg:justify-self-end"
+            disabled={busy || editing || !company}
+            onClick={() => {
+              setError("");
+              setNotice("");
+              setNewRequest((value) => value + 1);
+            }}
+          >
+            <Plus className="size-4" />
+            New overtime request
+          </Button>
+        ) : null}
       </div>
       {(error || loadError) && (
         <div
@@ -1250,13 +996,19 @@ export function HrAttendanceCompletionWorkspace({
           csrf={csrfToken}
           onNavigate={onNavigate}
           onEditing={setEditing}
-          canCreate={permissions.includes("hr.attendance.overtime.create")}
+          newRequest={newRequest}
+          search={overtimeSearch}
+          openFirst={openOvertime}
+          onSaved={(id, workDate) => {
+            const target = workDate.slice(0, 7) + "-01";
+            setOpenOvertime(id);
+            if (target !== month) setMonth(target);
+          }}
         />
       ) : (
         <CloseAndInputs
           key={company + month + mode}
           onEditing={setEditing}
-          mode={mode}
           client={client}
           company={company}
           month={month}

@@ -7,12 +7,24 @@ export const peopleGroups = [
     description: "Find a person and manage their employee information.",
     pages: [
       { id: "employees", label: "Employee Directory" },
+      { id: "add-employee", label: "Add Employee" },
       { id: "employee-record", label: "Employee Overview" },
       { id: "employee-contacts", label: "Contacts" },
       { id: "employee-emergency-contacts", label: "Emergency Contacts" },
       { id: "employee-documents", label: "Documents" },
       { id: "employee-assignments", label: "Assignments" },
       { id: "employee-status-history", label: "History" },
+    ],
+    /** Section tabs; the other record pages open from the Add Employee drawer or an employee overview. */
+    tabs: ["employees", "add-employee"],
+    /** Employee record areas listed in the Add Employee drawer; they keep Add Employee as the active tab. */
+    toolsTab: "add-employee",
+    tools: [
+      "employee-contacts",
+      "employee-emergency-contacts",
+      "employee-documents",
+      "employee-assignments",
+      "employee-status-history",
     ],
     cards: [
       {
@@ -22,6 +34,12 @@ export const peopleGroups = [
           "Employee overview, contacts, emergency contacts, documents, assignments and history in one workspace.",
         icon: Users,
       },
+      {
+        id: "add-employee",
+        label: "Add Employee",
+        description: "Create a new employee draft for review.",
+        icon: UserPlus,
+      },
     ],
   },
   {
@@ -29,17 +47,10 @@ export const peopleGroups = [
     label: "Joining & Approvals",
     description: "Create employee drafts and manage their review.",
     pages: [
-      { id: "add-employee", label: "Add Employee" },
       { id: "employee-drafts", label: "Employee Drafts" },
       { id: "employee-approvals", label: "Employee Approvals" },
     ],
     cards: [
-      {
-        id: "add-employee",
-        label: "Add Employee",
-        description: "Create a new employee draft for review.",
-        icon: UserPlus,
-      },
       {
         id: "employee-drafts",
         label: "Employee Drafts",
@@ -49,7 +60,7 @@ export const peopleGroups = [
       {
         id: "employee-approvals",
         label: "Employee Approvals",
-        description: "Review employee submissions and personal data corrections.",
+        description: "Review employee drafts, hires, movements and placement changes.",
         icon: ClipboardCheck,
       },
     ],

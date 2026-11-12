@@ -142,8 +142,8 @@ test.describe("Wave 0 HR visual baseline", () => {
       "monthly-attendance",
       "leave-requests",
       "payroll-runs",
-      "offboarding",
-      "hr-report-centre",
+      "clearance",
+      "lifecycle-policies",
     ]);
     const screens = (await loadHrScreens()).filter((screen) => mobileIds.has(screen.page_id));
     expect(screens).toHaveLength(7);
@@ -172,10 +172,9 @@ test.describe("Wave 0 HR visual baseline", () => {
     await page.goto("/#/hr/shifts");
     await runJourney(page, "attendance", [
       { label: "Daily Attendance", pageId: "daily-attendance" },
-      { label: "Attendance Corrections", pageId: "attendance-corrections" },
+      { label: "Corrections", pageId: "attendance-corrections" },
       { label: "Monthly Attendance", pageId: "monthly-attendance" },
       { label: "Attendance Period Close", pageId: "attendance-period" },
-      { label: "Attendance → Payroll Inputs", pageId: "attendance-payroll-inputs" },
     ]);
   });
 
@@ -193,9 +192,8 @@ test.describe("Wave 0 HR visual baseline", () => {
   test("completes the separation journey by keyboard", async ({ page }) => {
     await page.goto("/#/hr/resignations");
     await runJourney(page, "separation", [
+      { label: "Termination", pageId: "terminations" },
       { label: "Exit Clearance", pageId: "clearance" },
-      { label: "Final Settlements", pageId: "final-settlements" },
-      { label: "Offboarding Control Centre", pageId: "offboarding" },
     ]);
   });
 });

@@ -5,10 +5,10 @@ import { WorkForm } from "@/shared/ui/work-form";
 import { useEffect, useRef, useState } from "react";
 import type {
   FinanceHierarchyItem,
-  FinanceNominalOptions,
   CreateFinanceHierarchyRequest,
   ChangeFinanceHierarchyRequest,
 } from "@nexora/contracts";
+import { inActiveCompany } from "@/lib/session/active-company";
 import { useSession } from "@/lib/session/session-provider";
 import { ApiError } from "@/lib/api/generated";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ export function FinanceHierarchy() {
 function HierarchyWorkspace() {
   const { api, session, csrfToken } = useSession(),
     notify = useActionFeedback();
-  const [options, setOptions] = useState<FinanceNominalOptions | null>(null),
+  const [companyReady, setCompanyReady] = useState(false),
     [company, setCompany] = useState(""),
     [rows, setRows] = useState<FinanceHierarchyItem[]>([]),
     [cursor, setCursor] = useState<string | null>(null),
@@ -61,8 +61,10 @@ function HierarchyWorkspace() {
       .listFinanceNominalOptions("")
       .then((v) => {
         if (active) {
-          setOptions(v);
-          setCompany((c) => (v.companies.some((x) => x.id === c) ? c : (v.companies[0]?.id ?? "")));
+          // Only the company chosen at sign-in is managed here.
+          const companies = inActiveCompany({ items: v.companies }).items;
+          setCompanyReady(true);
+          setCompany((c) => (companies.some((x) => x.id === c) ? c : (companies[0]?.id ?? "")));
         }
       })
       .catch((e) => {
@@ -175,30 +177,7 @@ function HierarchyWorkspace() {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-56 flex-1">
-            <Label htmlFor="coa-header-company">Company</Label>
-            <select
-              id="coa-header-company"
-              aria-label="Hierarchy company"
-              className={selectClass}
-              value={company}
-              disabled={busy || loading}
-              onChange={(e) => {
-                request.current++;
-                setCompany(e.target.value);
-                setRows([]);
-                setCursor(null);
-                reset();
-              }}
-            >
-              {options?.companies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.code} · {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="flex flex-wrap items-end justify-end gap-3">
           <Button
             variant="outline"
             disabled={busy || loading}
@@ -210,6 +189,13 @@ function HierarchyWorkspace() {
             Refresh masters
           </Button>
         </div>
+        {companyReady && !company && (
+          <Alert>
+            <AlertDescription>
+              The company chosen at sign-in is not available for Chart of Accounts masters.
+            </AlertDescription>
+          </Alert>
+        )}
         {!admin && (
           <Alert>
             <AlertDescription>

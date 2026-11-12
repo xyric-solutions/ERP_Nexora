@@ -2,7 +2,7 @@
 import { WorkTable } from "@/shared/ui/work-table";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import type { BankTransferState, BankTransferSummary, BankingCompanyDirectory } from "@nexora/contracts";
+import type { BankTransferState, BankTransferSummary } from "@nexora/contracts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ export function BankingTransfers({
   const client = useMemo(() => new BankingApiClient(api), [api]);
   const canRead = session?.user.permissions.includes("banking.transfer.read") ?? false;
   const canCreate = session?.user.permissions.includes("banking.transfer.create") ?? false;
-  const [companies, setCompanies] = useState<BankingCompanyDirectory["items"]>([]);
+  const [noCompany, setNoCompany] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [state, setState] = useState<BankTransferState | "">("");
   const [search, setSearch] = useState("");
@@ -51,7 +51,7 @@ export function BankingTransfers({
       .companies()
       .then((result) => {
         if (!active) return;
-        setCompanies(result.items);
+        setNoCompany(result.items.length === 0);
         setCompanyId((current) => current || result.items[0]?.id || "");
       })
       .catch(
@@ -145,22 +145,7 @@ export function BankingTransfers({
         ) : null}
       </header>
       <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-        <div className="grid gap-3 border-b border-border bg-muted/25 p-4 md:grid-cols-3">
-          <label htmlFor="transfer-directory-company" className="grid gap-1 text-sm font-medium">
-            Company
-            <select
-              id="transfer-directory-company"
-              className="h-10 rounded-md border border-input bg-background px-3"
-              value={companyId}
-              onChange={(event) => setCompanyId(event.target.value)}
-            >
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.code} · {company.name}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="grid gap-3 border-b border-border bg-muted/25 p-4 md:grid-cols-2">
           <label htmlFor="transfer-directory-state" className="grid gap-1 text-sm font-medium">
             State
             <select
@@ -188,6 +173,15 @@ export function BankingTransfers({
             />
           </label>
         </div>
+        {noCompany ? (
+          <div className="p-4">
+            <Notice
+              title="Company unavailable"
+              detail="Your session has no authorized company for Bank Transfers."
+              destructive
+            />
+          </div>
+        ) : null}
         {error ? (
           <div className="p-4">
             <Notice title="Bank Transfers could not be loaded" detail={error} destructive />

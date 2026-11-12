@@ -1,6 +1,7 @@
 "use client";
 import { WorkTable } from "@/shared/ui/work-table";
 
+import { inActiveCompany } from "@/lib/session/active-company";
 import { useEffect, useRef, useState } from "react";
 import {
   monthlyFiscalPeriods,
@@ -49,21 +50,19 @@ const message = (e: unknown) =>
     : "Calendar request failed. Retry or refresh; no success is assumed.";
 export function FinanceFiscalPeriods({ closeWorkbench = false }: { closeWorkbench?: boolean }) {
   const { api, session } = useSession();
-  const [companies, setCompanies] = useState<Array<{ id: string; code: string; name: string }>>([]),
-    [company, setCompany] = useState(() => savedScope("fiscal_company")),
+  const [company, setCompany] = useState(() => savedScope("fiscal_company")),
     [error, setError] = useState(""),
     [attempt, setAttempt] = useState(0),
-    [ready, setReady] = useState(false),
-    [mutating, setMutating] = useState(false);
+    [ready, setReady] = useState(false);
   const canRead = !!session?.user.permissions.includes("platform.fiscal_calendar.read");
   useEffect(() => {
     if (!canRead) return;
     let active = true;
     api
       .listFiscalCalendarCompanies()
+      .then(inActiveCompany)
       .then((v) => {
         if (active) {
-          setCompanies(v.items);
           setCompany((c) => (v.items.some((x) => x.id === c) ? c : (v.items[0]?.id ?? "")));
           setReady(true);
           setError("");
@@ -115,37 +114,16 @@ export function FinanceFiscalPeriods({ closeWorkbench = false }: { closeWorkbenc
           </AlertDescription>
         </Alert>
       )}
-      <div className="flex max-w-xl flex-col gap-2">
-        <Label htmlFor="fiscal-company">Company</Label>
-        <select
-          id="fiscal-company"
-          className={selectClass}
-          value={company}
-          onChange={(e) => {
-            rememberScope(e.target.value);
-            setCompany(e.target.value);
-          }}
-          disabled={!ready || mutating}
-        >
-          <option value="">{ready ? "No authorized companies" : "Loading companies…"}</option>
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.code} · {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      {company && (
-        <CompanyPeriods
-          key={`${session.tenant_id}:${session.user.id}:${company}`}
-          company={company}
-          onMutating={setMutating}
-        />
+      {ready && !error && !company && (
+        <Alert>
+          <AlertDescription>The company chosen at sign-in is not available for fiscal calendars.</AlertDescription>
+        </Alert>
       )}
+      {company && <CompanyPeriods key={`${session.tenant_id}:${session.user.id}:${company}`} company={company} />}
     </section>
   );
 }
-function CompanyPeriods({ company, onMutating }: { company: string; onMutating: (busy: boolean) => void }) {
+function CompanyPeriods({ company }: { company: string }) {
   const { api, session, csrfToken } = useSession(),
     notify = useActionFeedback();
   const [calendars, setCalendars] = useState<FiscalCalendar[]>([]),
@@ -259,7 +237,6 @@ function CompanyPeriods({ company, onMutating }: { company: string; onMutating: 
     const key = retry.current?.fingerprint === fingerprint ? retry.current.key : `fiscal-${crypto.randomUUID()}`;
     retry.current = { fingerprint, key };
     lock.current = true;
-    onMutating(true);
     setBusy(true);
     setError("");
     setSuccess("");
@@ -303,7 +280,6 @@ function CompanyPeriods({ company, onMutating }: { company: string; onMutating: 
       setError(message(e));
     } finally {
       lock.current = false;
-      onMutating(false);
       setBusy(false);
     }
   }

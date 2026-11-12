@@ -36,7 +36,11 @@ function appForHr(
     | "createMaster"
     | "updateMaster"
     | "changeMasterStatus"
+    | "deleteMaster"
+    | "deleteJobGrade"
+    | "deleteOrganizationUnit"
     | "listJobGrades"
+    | "listJobGradeCurrencies"
     | "createJobGrade"
     | "updateJobGrade"
     | "createEmployeeDraft"
@@ -52,6 +56,8 @@ function appForHr(
     | "listEmployeeStatusHistory"
     | "listEmploymentLifecyclePolicies"
     | "createEmploymentLifecyclePolicy"
+    | "updateEmploymentLifecyclePolicy"
+    | "deleteEmploymentLifecyclePolicy"
   >,
 ) {
   const auth = {
@@ -243,6 +249,42 @@ describe("HR API foundation", () => {
     expect(repository.createMaster).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), payload, "master-create-1", expect.any(String));
   });
 
+  it("protects permanent deletes of deactivated organisation records with browser mutation controls", async () => {
+    const result = (id: string) => ({ id, company_id: "company-a", code: "DSG-004", deleted: true, audit_event_id: "audit-del", replayed: false });
+    const repository = {
+      deleteMaster: vi.fn(async (_c: unknown, id: string) => result(id)),
+      deleteJobGrade: vi.fn(async (_c: unknown, id: string) => result(id)),
+      deleteOrganizationUnit: vi.fn(async (_c: unknown, id: string) => result(id)),
+    } as unknown as Pick<SourceHrRepository, "deleteMaster" | "deleteJobGrade" | "deleteOrganizationUnit">;
+    const app = appForHr(repository);
+    const send = (path: string, options: { csrf?: string; key?: string; origin?: string; body?: object } = {}) => {
+      let call = request(app).delete(path).set("cookie", "nexora_session=token-hr").set("origin", options.origin ?? "https://hr.example.test");
+      if (options.csrf !== "") call = call.set("x-csrf-token", options.csrf ?? session.csrfToken);
+      if (options.key !== "") call = call.set("idempotency-key", options.key ?? "delete-1");
+      return options.body ? call.send(options.body) : call;
+    };
+    for (const [path, method] of [
+      ["/api/v1/hr/masters/master-1", "deleteMaster"],
+      ["/api/v1/hr/job_grades/master-1", "deleteJobGrade"],
+      ["/api/v1/hr/organization_units/master-1", "deleteOrganizationUnit"],
+    ] as const) {
+      const response = await send(path, { body: { company_id: "company-a" } });
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(result("master-1"));
+      expect(repository[method]).toHaveBeenLastCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), "master-1", { company_id: "company-a" }, "delete-1", expect.any(String));
+    }
+    const viaQuery = await send("/api/v1/hr/masters/master-2?company_id=company-a");
+    expect(viaQuery.status).toBe(200);
+    expect(repository.deleteMaster).toHaveBeenLastCalledWith(expect.anything(), "master-2", { company_id: "company-a" }, "delete-1", expect.any(String));
+    const calls = (repository.deleteMaster as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
+    expect((await send("/api/v1/hr/masters/master-3", { body: { company_id: "company-a", status: "inactive" } })).status).toBe(400);
+    expect((await send("/api/v1/hr/masters/master-3", { body: {} })).status).toBe(400);
+    expect((await send("/api/v1/hr/masters/master-3", { body: { company_id: "company-a" }, key: "" })).status).toBe(400);
+    expect((await send("/api/v1/hr/masters/master-3", { body: { company_id: "company-a" }, csrf: "wrong" })).status).toBe(403);
+    expect((await send("/api/v1/hr/masters/master-3", { body: { company_id: "company-a" }, origin: "https://evil.example.test" })).status).toBe(403);
+    expect((repository.deleteMaster as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(calls);
+  });
+
   it("validates type-specific HR master configuration before repository access", async () => {
     const repository = {
       createMaster: vi.fn(async () => ({ id: "location-1", company_id: "company-a", audit_event_id: "audit-location-1", replayed: false })),
@@ -277,9 +319,36 @@ describe("HR API foundation", () => {
       .set("origin", "https://hr.example.test")
       .set("x-csrf-token", session.csrfToken)
       .set("idempotency-key", "configured-master-3")
-      .send({ company_id: "company-a", type: "employee_category", code: "STAFF", name: "Staff", description: "Salaried staff" });
+      .send({ company_id: "company-a", type: "cost_center", code: "AUTO", name: "Delivery", description: "Client delivery", payment_route: "payroll" });
     expect(missing.status).toBe(400);
     expect(repository.createMaster).toHaveBeenCalledTimes(1);
+
+    const setup = { company_id: "company-a", type: "cost_center", code: "AUTO", name: "Client Delivery", description: "", payment_route: "payroll", pay_cycle: "monthly" };
+    const setupAccepted = await request(appForHr(repository))
+      .post("/api/v1/hr/masters")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "configured-master-4")
+      .send(setup);
+    expect(setupAccepted.status).toBe(201);
+    expect(repository.createMaster).toHaveBeenLastCalledWith(expect.anything(), setup, "configured-master-4", expect.any(String));
+
+    for (const [key, body] of [
+      ["configured-master-5", { ...setup, pay_cycle: "quarterly" }],
+      ["configured-master-6", { ...setup, configuration_key: "working_pattern", configuration_value: "onsite" }],
+      ["configured-master-7", { ...payload, payment_route: "payroll", pay_cycle: "monthly" }],
+    ] as const) {
+      const invalid = await request(appForHr(repository))
+        .post("/api/v1/hr/masters")
+        .set("cookie", "nexora_session=token-hr")
+        .set("origin", "https://hr.example.test")
+        .set("x-csrf-token", session.csrfToken)
+        .set("idempotency-key", key)
+        .send(body);
+      expect(invalid.status).toBe(400);
+    }
+    expect(repository.createMaster).toHaveBeenCalledTimes(2);
   });
 
   it("returns company-scoped job grades from the dedicated catalogue", async () => {
@@ -298,6 +367,59 @@ describe("HR API foundation", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual(directory);
     expect(repository.listJobGrades).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), "company-a");
+  });
+
+  it("returns company-configured currencies for job-grade maintenance", async () => {
+    const directory = {
+      items: [
+        { currency_code: "USD", currency_name: "US Dollar", is_base: true },
+        { currency_code: "PKR", currency_name: "Pakistani Rupee", is_base: false },
+      ],
+    };
+    const repository = { listJobGradeCurrencies: vi.fn(async () => directory) } as unknown as Pick<
+      SourceHrRepository,
+      "listJobGradeCurrencies"
+    >;
+    const response = await request(appForHr(repository))
+      .get("/api/v1/hr/job_grade_currencies?company_id=company-a")
+      .set("cookie", "nexora_session=token-hr");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(directory);
+    expect(repository.listJobGradeCurrencies).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "company-a",
+    );
+
+    const missingCompany = await request(appForHr(repository))
+      .get("/api/v1/hr/job_grade_currencies")
+      .set("cookie", "nexora_session=token-hr");
+    expect(missingCompany.status).toBe(400);
+    expect(repository.listJobGradeCurrencies).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns active company projects for manpower requisitions", async () => {
+    const directory = { items: [{ id: "project-1", code: "PRJ-001", name: "Data platform" }] };
+    const repository = { listRequisitionProjects: vi.fn(async () => directory) } as unknown as Pick<
+      SourceHrRepository,
+      "listRequisitionProjects"
+    >;
+    const response = await request(appForHr(repository))
+      .get("/api/v1/hr/requisition_projects?company_id=company-a")
+      .set("cookie", "nexora_session=token-hr");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(directory);
+    expect(repository.listRequisitionProjects).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "company-a",
+    );
+
+    const missingCompany = await request(appForHr(repository))
+      .get("/api/v1/hr/requisition_projects")
+      .set("cookie", "nexora_session=token-hr");
+    expect(missingCompany.status).toBe(400);
+    expect(repository.listRequisitionProjects).toHaveBeenCalledTimes(1);
   });
 
   it("validates and protects job-grade creation with browser mutation controls", async () => {
@@ -443,7 +565,7 @@ describe("HR API foundation", () => {
           designation: "Analyst",
           job: "",
           job_grade: "G1",
-          employment_type: "Full time",
+          employment_setup: "Permanent staff",
           work_location: "Head office",
           change_reason: "initial_appointment",
           assignment_status: "active",
@@ -573,10 +695,93 @@ describe("HR API foundation", () => {
     expect(response.status).toBe(201);
     expect(repository.createEmploymentLifecyclePolicy).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: "tenant-hr" }),
-      payload,
+      { ...payload, description: "" },
       "lifecycle-policy-1",
       expect.any(String),
     );
+  });
+
+  it("protects draft lifecycle-policy edits and deletes with browser mutation controls", async () => {
+    const repository = {
+      updateEmploymentLifecyclePolicy: vi.fn(async () => ({
+        id: "policy-1", company_id: "company-a", code: "LCP-001", name: "Renamed", version: 1,
+        status: "draft", audit_event_id: "audit-u", replayed: false,
+      })),
+      deleteEmploymentLifecyclePolicy: vi.fn(async () => ({
+        id: "policy-1", company_id: "company-a", code: "LCP-001", deleted: true, audit_event_id: "audit-d", replayed: false,
+      })),
+    } as unknown as Pick<SourceHrRepository, "updateEmploymentLifecyclePolicy" | "deleteEmploymentLifecyclePolicy">;
+    const app = appForHr(repository);
+    const payload = { company_id: "company-a", name: "Renamed", effective_from: "2026-11-01" };
+    const updated = await request(app)
+      .patch("/api/v1/hr/employment_lifecycle_policies/policy-1")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "lifecycle-policy-update-1")
+      .send(payload);
+    expect(updated.status).toBe(200);
+    expect(repository.updateEmploymentLifecyclePolicy).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }), "policy-1", { ...payload, description: "" }, "lifecycle-policy-update-1", expect.any(String),
+    );
+    const invalid = await request(app)
+      .patch("/api/v1/hr/employment_lifecycle_policies/policy-1")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "lifecycle-policy-update-2")
+      .send({ ...payload, effective_to: "2026-10-01" });
+    expect(invalid.status).toBe(400);
+    const deleted = await request(app)
+      .delete("/api/v1/hr/employment_lifecycle_policies/policy-1?company_id=company-a")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "lifecycle-policy-delete-1");
+    expect(deleted.status).toBe(200);
+    expect(repository.deleteEmploymentLifecyclePolicy).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }), "policy-1", { company_id: "company-a" }, "lifecycle-policy-delete-1", expect.any(String),
+    );
+    const forged = await request(app)
+      .delete("/api/v1/hr/employment_lifecycle_policies/policy-1")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", "wrong")
+      .set("idempotency-key", "lifecycle-policy-delete-2")
+      .send({ company_id: "company-a" });
+    expect(forged.status).toBe(403);
+    expect(repository.deleteEmploymentLifecyclePolicy).toHaveBeenCalledTimes(1);
+  });
+
+  it("protects lifecycle-policy deactivation with browser mutation controls", async () => {
+    const repository = {
+      deactivateEmploymentLifecyclePolicy: vi.fn(async () => ({
+        id: "policy-1", company_id: "company-a", code: "LCP-001", name: "Standard", version: 1,
+        status: "inactive", audit_event_id: "audit-x", replayed: false,
+      })),
+    } as unknown as Pick<SourceHrRepository, "deactivateEmploymentLifecyclePolicy">;
+    const app = appForHr(repository);
+    const payload = { company_id: "company-a", reason: "Replaced by the 2027 policy" };
+    const deactivated = await request(app)
+      .post("/api/v1/hr/employment_lifecycle_policies/policy-1/deactivate")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "lifecycle-policy-deactivate-1")
+      .send(payload);
+    expect(deactivated.status).toBe(200);
+    expect(repository.deactivateEmploymentLifecyclePolicy).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }), "policy-1", payload, "lifecycle-policy-deactivate-1", expect.any(String),
+    );
+    const forged = await request(app)
+      .post("/api/v1/hr/employment_lifecycle_policies/policy-1/deactivate")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", "wrong")
+      .set("idempotency-key", "lifecycle-policy-deactivate-2")
+      .send(payload);
+    expect(forged.status).toBe(403);
+    expect(repository.deactivateEmploymentLifecyclePolicy).toHaveBeenCalledTimes(1);
   });
 
   it("protects lifecycle-policy submission with the standard browser mutation controls", async () => {
@@ -749,7 +954,7 @@ describe("HR API foundation", () => {
       profile_draft_assignment_id: "assignment-1",
       designation: "Analyst",
       job_grade: "G1",
-      employment_type: "Full time",
+      employment_setup: "Permanent staff",
       work_location: "Head office",
       effective_on: "2026-10-15",
       requested_by: "maker-user",
@@ -843,8 +1048,7 @@ describe("HR API foundation", () => {
       job_grade_id: "grade-1",
       cost_center_id: "cost-center-1",
       work_location_id: "location-1",
-      employment_type_id: "employment-type-1",
-      employee_category_id: "category-1",
+      employment_setup_id: "employment-setup-1",
       effective_on: "2026-10-16",
       reason: "Move the employee to the new operating branch.",
     };
@@ -1080,7 +1284,7 @@ describe("HR API foundation", () => {
       .set("origin", "https://hr.example.test")
       .set("x-csrf-token", session.csrfToken)
       .set("idempotency-key", "work-location-change-request-invalid")
-      .send({ ...payload, reason: "" });
+      .send({ ...payload, reason: "x".repeat(1001) });
     expect(invalid.status).toBe(400);
 
     const decision = { decision: "approved", reason: "Independent location approval completed." };
@@ -1251,17 +1455,43 @@ describe("HR API foundation", () => {
     const summary = {
       company_id: "company-a",
       generated_at: "2026-10-19T10:00:00.000Z",
-      metrics: { active_headcount: 12, draft_profiles: 2, pending_employee_approvals: 1, pending_movements: 3, active_departments: 4, recent_joiners: 2, master_configuration_gaps: 1 },
+      metrics: {
+        active_headcount: 12,
+        draft_profiles: 2,
+        pending_employee_approvals: 1,
+        pending_movements: 3,
+        active_departments: 4,
+        recent_joiners: 2,
+        master_configuration_gaps: 1,
+      },
       status_distribution: [{ status: "active", count: 12 }],
-      action_items: [{ key: "approvals", label: "Employee approvals", count: 1, page_id: "employee-approvals", tone: "attention" }],
+      recent_joiner_list: [
+        {
+          employee_id: "employee-9",
+          employee_number: "EMP-0009",
+          employee_name: "Hamza Iqbal",
+          designation: "Software Engineer",
+          department: "Engineering",
+          joined_on: "2026-10-01",
+        },
+      ],
+      action_items: [
+        { key: "approvals", label: "Employee approvals", count: 1, page_id: "employee-approvals", tone: "attention" },
+      ],
     } as const;
-    const repository = { getDashboard: vi.fn(async () => summary) } as unknown as Pick<SourceHrRepository, "getDashboard">;
+    const repository = { getDashboard: vi.fn(async () => summary) } as unknown as Pick<
+      SourceHrRepository,
+      "getDashboard"
+    >;
     const response = await request(appForHr(repository))
       .get("/api/v1/hr/dashboard?company_id=company-a")
       .set("cookie", "nexora_session=token-hr");
     expect(response.status).toBe(200);
     expect(response.body).toEqual(summary);
-    expect(repository.getDashboard).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-hr" }), "company-a");
+    expect(repository.getDashboard).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "company-a",
+    );
   });
 
   it("rejects an invalid master-data query before it reaches the repository", async () => {
@@ -1360,8 +1590,7 @@ describe("HR API foundation", () => {
       job_grade_id: "grade-a",
       cost_center_id: "cost-center-a",
       work_location_id: "location-a",
-      employment_type_id: "employment-type-a",
-      employee_category_id: "category-a",
+      employment_setup_id: "employment-setup-a",
       effective_from: "2026-10-15",
     };
     const response = await request(appForHr(repository))
@@ -1378,6 +1607,60 @@ describe("HR API foundation", () => {
       "employee-1",
       payload,
       "profile-assignment-1",
+      expect.any(String),
+    );
+  });
+
+  it("edits a draft overtime request through the replace route with mutation safeguards", async () => {
+    const repository = {
+      listEmployees: vi.fn(),
+      getEmployee: vi.fn(),
+      listMasters: vi.fn(),
+      replaceOvertime: vi.fn(async () => ({
+        id: "overtime-2",
+        company_id: "company-a",
+        version: 1,
+        status: "draft",
+        audit_event_id: "audit-2",
+        replayed: false,
+      })),
+    } as unknown as Pick<SourceHrRepository, "listEmployees" | "getEmployee" | "listMasters">;
+    const payload = {
+      company_id: "company-a",
+      expected_version: 1,
+      work_date: "2026-11-05",
+      requested_minutes: 90,
+      reason: "Stock count ran past the shift end",
+      expected_evidence_hash: "a".repeat(64),
+    };
+    const invalid = await request(appForHr(repository))
+      .post("/api/v1/hr/attendance_overtime/overtime-1/replace")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "overtime-edit-1")
+      .send({ ...payload, requested_minutes: 0 });
+    expect(invalid.status).toBe(400);
+    expect(
+      (repository as unknown as { replaceOvertime: ReturnType<typeof vi.fn> }).replaceOvertime,
+    ).not.toHaveBeenCalled();
+
+    const accepted = await request(appForHr(repository))
+      .post("/api/v1/hr/attendance_overtime/overtime-1/replace")
+      .set("cookie", "nexora_session=token-hr")
+      .set("origin", "https://hr.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "overtime-edit-1")
+      .send(payload);
+    expect(accepted.status).toBe(200);
+    expect(accepted.body.id).toBe("overtime-2");
+    expect(
+      (repository as unknown as { replaceOvertime: ReturnType<typeof vi.fn> }).replaceOvertime,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-hr" }),
+      "overtime-1",
+      payload,
+      "overtime-edit-1",
       expect.any(String),
     );
   });

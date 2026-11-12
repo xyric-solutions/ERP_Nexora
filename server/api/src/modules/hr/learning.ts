@@ -268,7 +268,7 @@ export class LearningDevelopment {
                 attendance.some((a) => Date.parse(a.starts_at) === Date.parse(s.starts_at)),
             ) &&
             attendance.length === session.terms.slots.length &&
-            r.terms.evidence_reference.length >= 12 &&
+            r.terms.evidence_reference.length >= 1 &&
             (p.terms.pass_mark === null || r.terms.assessment_score !== null)
           )
             actions.push("propose_completion");
@@ -710,7 +710,7 @@ export class LearningDevelopment {
                   r.terms.kind !== "participation" ||
                   !r.terms.attendance.some((a) => Date.parse(a.starts_at) === Date.parse(s.starts_at)),
               ) ||
-              r.terms.evidence_reference.length < 12
+              r.terms.evidence_reference.length < 1
             )
               conflict(
                 "Record all finished lessons, including explicit zero-minute absences, and verified evidence first.",

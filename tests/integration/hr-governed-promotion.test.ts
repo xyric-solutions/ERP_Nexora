@@ -69,16 +69,14 @@ run("governed employee Promotion repository", () => {
     );
     await pool.query(
       `insert into hr_master_record
-        (id,tenant_id,company_id,master_type,code,name,created_by)
+        (id,tenant_id,company_id,master_type,code,name,created_by,payment_route,pay_cycle)
        values
-        ('promotion-source-designation',$1,$2,'designation','PR-DES-1','Associate','r06.maker'),
-        ('promotion-target-designation',$1,$2,'designation','PR-DES-2','Senior Associate','r06.maker'),
-        ('promotion-source-grade',$1,$2,'job_grade','PR-GRD-1','Grade 1','r06.maker'),
-        ('promotion-target-grade',$1,$2,'job_grade','PR-GRD-2','Grade 2','r06.maker'),
-        ('promotion-cost-center',$1,$2,'cost_center','PR-CC','Promotion Cost Center','r06.maker'),
-        ('promotion-location',$1,$2,'work_location','PR-LOC','Promotion Location','r06.maker'),
-        ('promotion-employment-type',$1,$2,'employment_type','PR-ET','Promotion Employment Type','r06.maker'),
-        ('promotion-category',$1,$2,'employee_category','PR-CAT','Promotion Category','r06.maker')
+        ('promotion-source-designation',$1,$2,'designation','PR-DES-1','Associate','r06.maker',null,null),
+        ('promotion-target-designation',$1,$2,'designation','PR-DES-2','Senior Associate','r06.maker',null,null),
+        ('promotion-source-grade',$1,$2,'job_grade','PR-GRD-1','Grade 1','r06.maker',null,null),
+        ('promotion-target-grade',$1,$2,'job_grade','PR-GRD-2','Grade 2','r06.maker',null,null),
+        ('promotion-cost-center',$1,$2,'cost_center','PR-CC','Promotion Cost Center','r06.maker','payroll','monthly'),
+        ('promotion-location',$1,$2,'work_location','PR-LOC','Promotion Location','r06.maker',null,null)
        on conflict (tenant_id,id) do nothing`,
       [sourceTestTenantId, companyId],
     );
@@ -178,8 +176,6 @@ run("governed employee Promotion repository", () => {
         job_grade_id: "promotion-source-grade",
         cost_center_id: "promotion-cost-center",
         work_location_id: "promotion-location",
-        employment_type_id: "promotion-employment-type",
-        employee_category_id: "promotion-category",
         effective_from: yesterday,
       },
       `promotion-profile-${suffix}`,
@@ -345,8 +341,7 @@ run("governed employee Promotion repository", () => {
               target.department_id=source.department_id as same_department,
               target.cost_center_id=source.cost_center_id as same_cost_center,
               target.work_location_id=source.work_location_id as same_location,
-              target.employment_type_id=source.employment_type_id as same_employment_type,
-              target.employee_category_id=source.employee_category_id as same_category,
+              target.employment_setup_id is not distinct from source.employment_setup_id as same_employment_setup,
               target.reporting_manager_id is not distinct from source.reporting_manager_id as same_manager,
               target.employment_relationship_id=source.employment_relationship_id as same_relationship
          from hr_employee_promotion_request request
@@ -369,8 +364,7 @@ run("governed employee Promotion repository", () => {
         same_department: true,
         same_cost_center: true,
         same_location: true,
-        same_employment_type: true,
-        same_category: true,
+        same_employment_setup: true,
         same_manager: true,
         same_relationship: true,
       }),

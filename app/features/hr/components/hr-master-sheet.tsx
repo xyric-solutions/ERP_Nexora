@@ -1,9 +1,16 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
+import { HrDrawerFooterProvider, useHrDrawerSection } from "./hr-drawer-context";
+
+/**
+ * The single HR & Payroll side drawer: one width and full height everywhere, a
+ * compact header (section name, then the record's name) and one bottom action
+ * area. Actions come from `footer` or from `HrDrawerActions` inside the body.
+ */
 export function HrMasterSheet({
   open,
   onOpenChange,
@@ -17,39 +24,53 @@ export function HrMasterSheet({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Fallback section name when the page does not provide one. */
   eyebrow: string;
+  /** The selected record's name. */
   title: string;
+  /** Read by assistive technology only; the header stays compact. */
   description: string;
   children: ReactNode;
   footer?: ReactNode;
   message?: string;
   elevated?: boolean;
+  /** Retained for compatibility; every drawer now shares one size. */
+  size?: "default" | "wide";
 }) {
+  const section = useHrDrawerSection();
+  const [footerTarget, setFooterTarget] = useState<HTMLDivElement | null>(null);
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        className={`${elevated ? "z-[1401]!" : "z-[1301]!"} w-full! gap-0 overflow-hidden border-border p-0 sm:max-w-xl!`}
+        className={`${elevated ? "z-[1401]!" : "z-[1301]!"} w-full! gap-0 overflow-hidden border-border p-0 sm:max-w-[34rem]!`}
         overlayClassName={elevated ? "z-[1400]!" : "z-[1300]!"}
         side="right"
       >
-        <SheetHeader className="border-b border-border bg-muted/35 px-4 py-4 pr-12 sm:px-5">
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">{eyebrow}</span>
-          <SheetTitle className="m-0! mt-1! text-xl font-semibold sm:text-2xl">{title}</SheetTitle>
-          <SheetDescription className="mt-1 leading-relaxed">{description}</SheetDescription>
+        <SheetHeader className="gap-0 border-b border-border px-5 py-3 pr-14 sm:px-6">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+            {section ?? eyebrow}
+          </span>
+          <SheetTitle className="m-0! truncate text-lg font-semibold leading-snug">{title}</SheetTitle>
+          <SheetDescription className="sr-only">{description || title}</SheetDescription>
         </SheetHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-          {message ? (
-            <p role="status" className="mb-4 rounded-lg border border-border bg-muted p-3 text-sm">
-              {message}
-            </p>
-          ) : null}
-          {children}
+        <HrDrawerFooterProvider target={footerTarget}>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+            {message ? (
+              <p role="status" className="mb-4 rounded-lg border border-border bg-muted p-3 text-sm">
+                {message}
+              </p>
+            ) : null}
+            {children}
+          </div>
+        </HrDrawerFooterProvider>
+        {/*
+          One bottom action area, aligned to the bottom-right corner; it collapses when
+          the record has no actions. Every action uses the primary (yellow) treatment.
+        */}
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border bg-muted/40 px-5 py-3 sm:px-6 [&:not(:has(button,a))]:hidden [&_:is(button,a[data-slot=button])]:border-primary! [&_:is(button,a[data-slot=button])]:bg-primary! [&_:is(button,a[data-slot=button])]:text-primary-foreground! [&_:is(button,a[data-slot=button])]:shadow-none! [&_:is(button,a[data-slot=button]):not(:disabled):hover]:bg-primary/85! [&_:is(button,a[data-slot=button])_svg]:text-primary-foreground!">
+          {footer}
+          <div ref={setFooterTarget} className="contents" />
         </div>
-        {footer ? (
-          <SheetFooter className="border-t border-border bg-background px-4 py-3 sm:flex-row sm:items-center sm:justify-end sm:px-5">
-            {footer}
-          </SheetFooter>
-        ) : null}
       </SheetContent>
     </Sheet>
   );

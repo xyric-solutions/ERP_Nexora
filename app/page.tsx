@@ -10,13 +10,14 @@ import { PrototypeShell } from "./shell/prototype-shell";
 
 export default function Home() {
   const router = useRouter();
-  const { loading, session } = useSession();
+  const { activeCompany, loading, session } = useSession();
 
+  // No session: sign in. Signed in but no company chosen yet: the company list on the sign-in page.
   useEffect(() => {
-    if (!loading && !session) router.replace("/login");
-  }, [loading, router, session]);
+    if (!loading && (!session || !activeCompany)) router.replace("/login");
+  }, [activeCompany, loading, router, session]);
 
-  if (loading || !session) {
+  if (loading || !session || !activeCompany) {
     return <main aria-live="polite">Opening secure workspace&hellip;</main>;
   }
 

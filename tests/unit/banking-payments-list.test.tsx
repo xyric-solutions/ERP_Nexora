@@ -166,27 +166,14 @@ describe("BankingPayments", () => {
   });
 
   it("sends every directory filter, sort and cursor to the server", async () => {
-    state.api.listBankPaymentOptions.mockImplementation(async (query: string) =>
-      query.includes("company-2")
-        ? {
-            bank_accounts: [
-              {
-                ...accountOptions.bank_accounts[0],
-                id: "account-2",
-                account_name: "Trading USD",
-              },
-            ],
-          }
-        : accountOptions,
-    );
     state.api.listBankPayments.mockResolvedValue({ items: [payment], next_cursor: "cursor-2" });
     await render();
 
-    await change(control<HTMLSelectElement>("Company"), "company-2");
-    await settle();
+    // The company is the one chosen at sign-in; the screen has no company picker.
+    expect(container.querySelector('select[aria-label="Company"]')).toBeNull();
     await act(async () => {
       const values: Array<[HTMLInputElement | HTMLSelectElement, string]> = [
-        [control<HTMLSelectElement>("Bank account"), "account-2"],
+        [control<HTMLSelectElement>("Bank account"), "account-1"],
         [control<HTMLSelectElement>("Payment state"), "approved"],
         [control<HTMLInputElement>("Posting date from"), "2026-10-01"],
         [control<HTMLInputElement>("Posting date to"), "2026-10-31"],
@@ -202,8 +189,8 @@ describe("BankingPayments", () => {
     await click("Descending ↓");
 
     const filtered = state.api.listBankPayments.mock.calls.at(-1)?.[0] as string;
-    expect(filtered).toContain("company_id=company-2");
-    expect(filtered).toContain("bank_account_id=account-2");
+    expect(filtered).toContain("company_id=company-1");
+    expect(filtered).toContain("bank_account_id=account-1");
     expect(filtered).toContain("state=approved");
     expect(filtered).toContain("posting_date_from=2026-10-01");
     expect(filtered).toContain("posting_date_to=2026-10-31");

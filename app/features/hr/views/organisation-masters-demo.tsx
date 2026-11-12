@@ -24,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HrMasterSheet } from "../components/hr-master-sheet";
+import { HrDetailGroup, HrDetailNote, HrDetailSection, HrDetailTile } from "../components/hr-detail-tile";
 
 const sections = [
   {
@@ -464,15 +465,16 @@ export function OrganisationMastersDemo() {
           </Button>
         }
       >
-        <div className="space-y-5">
-          <div className="rounded-lg border bg-muted/30 p-4">
-            <p className="text-xs text-muted-foreground">Name</p>
-            <p className="mt-1 font-semibold">{selected}</p>
-          </div>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            After approval, the existing add, edit and view sheets can be opened from these workspace pages. This demo
-            uses illustrative content only.
-          </p>
+        <div className="grid min-w-0 gap-4">
+          <HrDetailGroup title="Details">
+            <HrDetailTile label="Name" value={selected} />
+          </HrDetailGroup>
+          <HrDetailSection title="Preview">
+            <HrDetailNote>
+              After approval, the existing add, edit and view sheets can be opened from these workspace pages. This demo
+              uses illustrative content only.
+            </HrDetailNote>
+          </HrDetailSection>
         </div>
       </HrMasterSheet>
     </div>

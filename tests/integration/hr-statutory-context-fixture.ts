@@ -16,8 +16,8 @@ export function splitPlacementWithPool(pool: DatabasePool, gap = 0): BeforePayro
       [tenant, f.person.assignmentId, split],
     );
     await pool.query(
-      `insert into employee_assignment(id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_grade_id,cost_center_id,work_location_id,employment_type_id,employee_category_id,effective_from,effective_to,change_reason,created_by,assignment_status,source_reference,reporting_manager_id)
-  select $3,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_grade_id,cost_center_id,work_location_id,employment_type_id,employee_category_id,$4::date+$5::int,null,'transfer','r06.maker','legacy_compatibility','isolated dated statutory placement',reporting_manager_id from employee_assignment where tenant_id=$1 and id=$2`,
+      `insert into employee_assignment(id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_grade_id,cost_center_id,work_location_id,employment_setup_id,effective_from,effective_to,change_reason,created_by,assignment_status,source_reference,reporting_manager_id)
+  select $3,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_grade_id,cost_center_id,work_location_id,employment_setup_id,$4::date+$5::int,null,'transfer','r06.maker','legacy_compatibility','isolated dated statutory placement',reporting_manager_id from employee_assignment where tenant_id=$1 and id=$2`,
       [tenant, f.person.assignmentId, id, split, gap],
     );
   };

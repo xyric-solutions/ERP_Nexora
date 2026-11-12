@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { assemblePayrollAccrual, hasExactLoanCurrencyParity } from "../../server/api/src/modules/hr/payroll-journal.js";
+import { resolvePayrollJournalDimensions } from "../../server/api/src/modules/hr/payroll-journal-dimensions.js";
 import { hrPayrollJournalActionSchema, hrPayrollJournalQuerySchema } from "../../packages/contracts/src/hr/index.js";
 const results = [
   { id: "r1", gross: "100.0000", deductions: "20.0000", net: "80.0000", employer_contributions: "5.0000" },
@@ -35,6 +36,80 @@ describe("Exact Payroll accrual assembly and financial command contracts", () =>
         { account_id: "net", debit: "0.0000", credit: "80.0000" },
       ]),
     );
+  });
+  it("splits expense debits by each employee's frozen cost centre and leaves credits whole", () => {
+    const twoResults = [
+      { ...results[0], id: "r1", cost_center_id: "cc-delivery" },
+      { ...results[0], id: "r2", cost_center_id: "cc-admin" },
+      { ...results[0], id: "r3", cost_center_id: null },
+    ];
+    const twoItems = ["r1", "r2", "r3"].flatMap((id) => items.map((item) => ({ ...item, result_id: id })));
+    const assembled = assemblePayrollAccrual(twoResults, twoItems, "net");
+    expect(assembled.debit).toBe("315.0000");
+    expect(assembled.credit).toBe("315.0000");
+    expect(assembled.lines).toEqual([
+      { account_id: "expense", debit: "105.0000", credit: "0.0000" },
+      { account_id: "expense", debit: "105.0000", credit: "0.0000", dimensions: { cost_center: "cc-admin" } },
+      { account_id: "expense", debit: "105.0000", credit: "0.0000", dimensions: { cost_center: "cc-delivery" } },
+      { account_id: "loan-asset", debit: "0.0000", credit: "30.0000" },
+      { account_id: "net", debit: "0.0000", credit: "240.0000" },
+      { account_id: "tax", debit: "0.0000", credit: "45.0000" },
+    ]);
+  });
+  it("keeps the unsplit v1 lines when no result has a cost centre", () => {
+    const assembled = assemblePayrollAccrual(results, items, "net");
+    expect(assembled.lines.every((line) => !("dimensions" in line))).toBe(true);
+  });
+  it("applies Finance mappings only to lines without an employee cost centre", async () => {
+    const client = {
+      query: async () => ({
+        rows: [
+          { id: "cc-admin", code: "ADM", name: "Admin", status: "active" },
+          { id: "cc-finance", code: "FIN", name: "Finance", status: "active" },
+        ],
+      }),
+    };
+    const lines = [
+      { account_id: "expense", debit: "10.0000", credit: "0.0000", dimensions: { cost_center: "cc-admin" } },
+      { account_id: "expense", debit: "5.0000", credit: "0.0000" },
+      { account_id: "net", debit: "0.0000", credit: "15.0000" },
+    ];
+    const accounts = [
+      { id: "expense", code: "6000", required_dimensions: ["cost_center"] },
+      { id: "net", code: "2100", required_dimensions: [] },
+    ];
+    const resolved = await resolvePayrollJournalDimensions(
+      client as never,
+      "t",
+      "c",
+      lines,
+      accounts,
+      [{ account_id: "expense", cost_center_id: "cc-finance" }],
+      true,
+      false,
+    );
+    expect(resolved.blocked).toEqual([]);
+    expect(resolved.lines.map((l) => l.dimensions ?? {})).toEqual([
+      { cost_center: "cc-admin" },
+      { cost_center: "cc-finance" },
+      {},
+    ]);
+    expect(Object.keys(resolved.labels).sort()).toEqual(["cc-admin", "cc-finance"]);
+  });
+  it("needs no mapping when every line of a cost-centre account is employee-tagged, and blocks inactive centres", async () => {
+    const client = { query: async () => ({ rows: [{ id: "cc-admin", code: "ADM", name: "Admin", status: "inactive" }] }) };
+    const resolved = await resolvePayrollJournalDimensions(
+      client as never,
+      "t",
+      "c",
+      [{ account_id: "expense", debit: "10.0000", credit: "0.0000", dimensions: { cost_center: "cc-admin" } }],
+      [{ id: "expense", code: "6000", required_dimensions: ["cost_center"] }],
+      [],
+      true,
+      false,
+    );
+    expect(resolved.blocked.some((m) => m.startsWith("Choose a cost centre"))).toBe(false);
+    expect(resolved.blocked.some((m) => m.startsWith("Every mapped cost centre must remain active"))).toBe(true);
   });
   it("retains amounts above JavaScript safe integer precision", () => {
     const amount = "9007199254740991.1200",

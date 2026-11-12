@@ -11,6 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
+import { HrDetailGroup, HrDetailSummary, HrDetailTile, hrDisplayDate } from "../components/hr-detail-tile";
+import { payCycleLabel, paymentRouteLabel } from "../model/employment-setup";
 
 type Navigate = (moduleId: string, pageId: string, recordRef?: string) => void;
 type LoadState = "loading" | "ready" | "error";
@@ -32,9 +34,12 @@ function statusVariant(status: HrEmployeeDetail["status"]) {
 export function HrEmployeeRecordWorkspace({
   employeeId,
   onNavigate,
+  presentation = "page",
 }: {
   employeeId: string;
   onNavigate: Navigate;
+  /** "drawer" omits directory navigation when shown inside the directory's side drawer. */
+  presentation?: "page" | "drawer";
 }) {
   const { api, session, loading: sessionLoading, refresh: refreshSession } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
@@ -99,9 +104,11 @@ export function HrEmployeeRecordWorkspace({
         <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
           The employee may be outside your active company scope, or the live API is unavailable.
           <span className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => onNavigate("hr", "employees")}>
-              Back to directory
-            </Button>
+            {presentation === "page" ? (
+              <Button type="button" variant="outline" onClick={() => onNavigate("hr", "employees")}>
+                Back to directory
+              </Button>
+            ) : null}
             <Button type="button" onClick={() => void load()}>
               Retry
             </Button>
@@ -124,6 +131,40 @@ export function HrEmployeeRecordWorkspace({
     ["Employee history", "employee-status-history"],
   ] as const;
 
+  if (presentation === "drawer")
+    return (
+      <section className="grid min-w-0 gap-5" aria-label={`Employee record for ${employee.display_name}`}>
+        <HrDetailSummary code={employee.employee_number} status={employee.status}>
+          {employee.designation} · {employee.department}
+          {employee.joined_on ? ` · joined ${hrDisplayDate(employee.joined_on)}` : ""}
+        </HrDetailSummary>
+        <HrDetailGroup title="Employment">
+          <HrDetailTile label="Designation" value={employee.designation} hint={employee.job_grade} />
+          <HrDetailTile label="Department" value={employee.department} />
+          <HrDetailTile label="Project" value={employee.branch} />
+          <HrDetailTile label="Work location" value={employee.work_location} />
+          <HrDetailTile label="Joined" value={hrDisplayDate(employee.joined_on)} />
+        </HrDetailGroup>
+        <HrDetailGroup title="Reporting">
+          <HrDetailTile
+            label="Reporting manager"
+            value={employee.reporting_manager?.display_name}
+            hint={employee.reporting_manager?.employee_number}
+          />
+        </HrDetailGroup>
+        <HrDetailGroup title="Pay setup">
+          <HrDetailTile label="Payment route" value={paymentRouteLabel(employee.payment_route)} />
+          <HrDetailTile label="Pay cycle" value={payCycleLabel(employee.pay_cycle)} />
+        </HrDetailGroup>
+        <HrDetailGroup title="Contact">
+          <HrDetailTile label="Preferred name" value={employee.preferred_name} />
+          <HrDetailTile label="Work email" value={employee.work_email} />
+          <HrDetailTile label="Phone" value={employee.phone} />
+          <HrDetailTile label="Linked user account" value={employee.user_account_id ? "Connected" : "Not connected"} />
+        </HrDetailGroup>
+      </section>
+    );
+
   return (
     <section className="grid min-w-0 w-full gap-5" aria-label={`Employee record for ${employee.display_name}`}>
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-5 shadow-sm">
@@ -145,9 +186,6 @@ export function HrEmployeeRecordWorkspace({
           <Button type="button" variant="outline" onClick={() => onNavigate("hr", "employees")}>
             Back to directory
           </Button>
-          <Button type="button" variant="outline" onClick={() => void load()}>
-            Refresh
-          </Button>
         </div>
       </div>
 
@@ -158,11 +196,11 @@ export function HrEmployeeRecordWorkspace({
           <dl className="mt-4 grid min-w-0 gap-3">
             <Detail label="Designation" value={employee.designation} />
             <Detail label="Job grade" value={employee.job_grade} />
-            <Detail label="Employment type" value={employee.employment_type} />
+            <Detail label="Payment route" value={paymentRouteLabel(employee.payment_route)} />
+            <Detail label="Pay cycle" value={payCycleLabel(employee.pay_cycle)} />
             <Detail label="Department" value={employee.department} />
             <Detail label="Branch" value={employee.branch} />
             <Detail label="Work location" value={employee.work_location} />
-            <Detail label="Employee category" value={employee.employee_category} />
             <Detail label="Joined" value={employee.joined_on} />
             <Detail label="Reporting manager" value={employee.reporting_manager?.display_name} />
           </dl>
@@ -176,10 +214,7 @@ export function HrEmployeeRecordWorkspace({
               <Detail label="Preferred name" value={employee.preferred_name} />
               <Detail label="Work email" value={employee.work_email} />
               <Detail label="Phone" value={employee.phone} />
-              <Detail
-                label="Linked user account"
-                value={employee.user_account_id ? "Connected" : "Not connected"}
-              />
+              <Detail label="Linked user account" value={employee.user_account_id ? "Connected" : "Not connected"} />
             </dl>
           </article>
           <Alert>

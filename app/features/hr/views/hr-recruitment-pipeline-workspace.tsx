@@ -1,23 +1,13 @@
 "use client";
-import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkOffsetPagination, WorkTable } from "@/shared/ui/work-table";
 import { WorkForm } from "@/shared/ui/work-form";
 
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { hrApplicationTransitions, type HrApplicationDirectory, type HrApplicationStage } from "@nexora/contracts";
-import {
-  ArrowRight,
-  BriefcaseBusiness,
-  CalendarDays,
-  CircleDot,
-  History,
-  Plus,
-  RefreshCw,
-  Search,
-  Users,
-  X,
-} from "lucide-react";
+import { Plus } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,8 +17,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import { HrMasterSheet } from "../components/hr-master-sheet";
+import {
+  HrDetailAudit,
+  HrDetailCode,
+  HrDetailGroup,
+  HrDetailNote,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
+import { HrEditButton } from "../components/hr-icon-buttons";
 
-type Application = HrApplicationDirectory["items"][number];
 const labels: Record<HrApplicationStage, string> = {
   application: "Applied",
   screening: "Screening",
@@ -40,24 +41,16 @@ const labels: Record<HrApplicationStage, string> = {
   rejected: "Rejected",
   withdrawn: "Withdrawn",
 };
-const stages = Object.keys(labels) as HrApplicationStage[];
-const activeStages = stages.slice(0, 5);
+/** Stage filters shown on the pipeline (besides All); other stages still appear on rows and in stage changes. */
+const filterStages: readonly HrApplicationStage[] = ["selected", "rejected", "withdrawn"];
 const selectStyle =
   "h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50";
 const failure = (error: unknown, fallback: string) => (error instanceof ApiError ? error.message : fallback);
+const candidateLabel = (item: { display_name: string; email: string }) => `${item.display_name} — ${item.email}`;
+const openingLabel = (item: { title: string; reference: string; remaining_positions: number }) =>
+  `${item.title} — ${item.reference} · ${item.remaining_positions} open`;
 const date = (value: string) =>
   new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-
-function StageBadge({ stage }: { stage: HrApplicationStage }) {
-  return (
-    <Badge
-      variant={stage === "rejected" ? "destructive" : "secondary"}
-      className={stage === "interview" || stage === "evaluation" ? "border-primary/20 bg-primary/10 text-primary" : ""}
-    >
-      {labels[stage]}
-    </Badge>
-  );
-}
 
 export function HrRecruitmentPipelineWorkspace() {
   const { api, session, loading: sessionLoading, csrfToken } = useSession();
@@ -66,7 +59,6 @@ export function HrRecruitmentPipelineWorkspace() {
   const canRead = permissions.includes("hr.employee.read"),
     canCreate = permissions.includes("hr.employee.create"),
     canUpdate = permissions.includes("hr.employee.update");
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [data, setData] = useState<HrApplicationDirectory>({ items: [], total: 0 });
   const [loading, setLoading] = useState(true),
@@ -79,13 +71,13 @@ export function HrRecruitmentPipelineWorkspace() {
   const [selectedId, setSelectedId] = useState(""),
     [nextStage, setNextStage] = useState<HrApplicationStage | "">("");
   const [reason, setReason] = useState("");
+  const [stageEditing, setStageEditing] = useState(false);
   const [editor, setEditor] = useState(false);
   const [candidateId, setCandidateId] = useState(""),
     [openingId, setOpeningId] = useState("");
-  const [candidateSearch, setCandidateSearch] = useState(""),
-    [openingSearch, setOpeningSearch] = useState("");
-  const [lookup, setLookup] = useState({ candidates: "", openings: "" });
-  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [candidatesLoading, setCandidatesLoading] = useState(false),
+    [openingsLoading, setOpeningsLoading] = useState(false);
+  const optionsLoading = candidatesLoading || openingsLoading;
   const [candidates, setCandidates] = useState<Awaited<ReturnType<HrApiClient["candidates"]>>["items"]>([]);
   const [openings, setOpenings] = useState<Awaited<ReturnType<HrApiClient["jobOpenings"]>>["items"]>([]);
   const requestSequence = useRef(0);
@@ -97,7 +89,6 @@ export function HrRecruitmentPipelineWorkspace() {
       .companies()
       .then((result) => {
         if (!cancelled) {
-          setCompanies(result.items);
           setCompanyId(result.items[0]?.id ?? "");
           setLoading(false);
         }
@@ -129,9 +120,7 @@ export function HrRecruitmentPipelineWorkspace() {
       });
       if (sequence !== requestSequence.current) return;
       setData(result);
-      setSelectedId((current) =>
-        result.items.some((item) => item.id === current) ? current : (result.items[0]?.id ?? ""),
-      );
+      setSelectedId((current) => (result.items.some((item) => item.id === current) ? current : ""));
     } catch (err) {
       if (sequence === requestSequence.current) {
         setError(failure(err, "The recruitment pipeline could not be loaded."));
@@ -152,39 +141,66 @@ export function HrRecruitmentPipelineWorkspace() {
     setReason("");
   }, [selectedId, data]);
 
+  // Both dropdowns list live records of the selected company when the editor opens.
   useEffect(() => {
     if (!editor || !companyId) return;
     let cancelled = false;
-    setOptionsLoading(true);
-    setCandidates([]);
-    setOpenings([]);
-    setCandidateId("");
-    setOpeningId("");
-    Promise.all([
-      client.candidates({ companyId, status: "active", search: lookup.candidates, limit: 100 }),
-      client.jobOpenings({ companyId, state: "open", search: lookup.openings, limit: 100 }),
-    ])
-      .then(([people, jobs]) => {
-        if (!cancelled) {
-          setCandidates(people.items);
-          setOpenings(
-            jobs.items.filter((item) => !item.closing_on || item.closing_on >= new Date().toISOString().slice(0, 10)),
-          );
-        }
+    setCandidatesLoading(true);
+    client
+      .candidates({ companyId, status: "active", limit: 100 })
+      .then((people) => {
+        if (!cancelled) setCandidates(people.items);
       })
       .catch((err) => {
-        if (!cancelled) setError(failure(err, "Candidate and opening options could not be loaded."));
+        if (!cancelled) setError(failure(err, "Candidate options could not be loaded."));
       })
       .finally(() => {
-        if (!cancelled) setOptionsLoading(false);
+        if (!cancelled) setCandidatesLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [client, editor, companyId, lookup]);
+  }, [client, editor, companyId]);
+
+  useEffect(() => {
+    if (!editor || !companyId) return;
+    let cancelled = false;
+    setOpeningsLoading(true);
+    client
+      .jobOpenings({ companyId, state: "open", limit: 100 })
+      .then((jobs) => {
+        if (!cancelled)
+          setOpenings(
+            jobs.items.filter(
+              (item) =>
+                item.remaining_positions > 0 &&
+                (!item.closing_on || item.closing_on >= new Date().toISOString().slice(0, 10)),
+            ),
+          );
+      })
+      .catch((err) => {
+        if (!cancelled) setError(failure(err, "Opening options could not be loaded."));
+      })
+      .finally(() => {
+        if (!cancelled) setOpeningsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, editor, companyId]);
+
+  const openEditor = () => {
+    setCandidateId("");
+    setOpeningId("");
+    setCandidates([]);
+    setOpenings([]);
+    setError("");
+    setEditor(true);
+  };
 
   const selected = data.items.find((item) => item.id === selectedId);
   const allowed = selected ? hrApplicationTransitions[selected.stage] : [];
+  const latestNote = selected?.history.at(-1)?.reason ? selected.history.at(-1) : undefined;
   async function create(event: React.FormEvent) {
     event.preventDefault();
     if (saving || !candidateId || !openingId) return;
@@ -197,12 +213,13 @@ export function HrRecruitmentPipelineWorkspace() {
         csrfToken(),
         crypto.randomUUID(),
       );
-      setNotice(`${result.reference} created. The application is ready for screening.`);
+      setNotice(`${result.reference} created in ${labels[result.stage]}. Move it to Screening when ready.`);
       setEditor(false);
-      setSelectedId(result.id);
       setSearch("");
       setStageFilter("");
+      // A fresh filter object reloads the board, which then shows the new application in its stage.
       setFilter({ search: "", stage: "", offset: 0 });
+      setSelectedId(result.id);
     } catch (err) {
       setError(failure(err, "The application could not be saved. Please retry."));
     } finally {
@@ -211,18 +228,24 @@ export function HrRecruitmentPipelineWorkspace() {
   }
   async function move(event: React.FormEvent) {
     event.preventDefault();
-    if (!selected || !nextStage || !reason.trim() || saving) return;
+    if (!selected || !nextStage || saving) return;
     setSaving(true);
     setError("");
     setNotice("");
     try {
       await client.changeApplicationStage(
         selected.id,
-        { company_id: companyId, expected_stage: selected.stage, stage: nextStage, reason: reason.trim() },
+        {
+          company_id: companyId,
+          expected_stage: selected.stage,
+          stage: nextStage,
+          reason: reason.trim() || `Moved to ${labels[nextStage]}.`,
+        },
         csrfToken(),
         crypto.randomUUID(),
       );
       setNotice(`${selected.reference} moved to ${labels[nextStage]}.`);
+      setStageEditing(false);
       await load();
     } catch (err) {
       setError(failure(err, "The stage could not be changed. Refresh and try again."));
@@ -230,40 +253,6 @@ export function HrRecruitmentPipelineWorkspace() {
       setSaving(false);
     }
   }
-  const card = (item: Application) => (
-    <button
-      type="button"
-      key={item.id}
-      aria-pressed={selectedId === item.id}
-      onClick={() => setSelectedId(item.id)}
-      className={`grid w-full gap-3 rounded-xl border bg-card p-4 text-left shadow-xs transition hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selectedId === item.id ? "border-primary ring-1 ring-primary/30" : "border-border"}`}
-    >
-      <div className="flex items-center gap-3">
-        <span
-          className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
-          aria-hidden="true"
-        >
-          {item.candidate_name
-            .split(" ")
-            .map((part) => part[0])
-            .slice(0, 2)
-            .join("")}
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate font-semibold text-foreground">{item.candidate_name}</span>
-          <span className="block truncate text-xs text-muted-foreground">{item.reference}</span>
-        </span>
-      </div>
-      <p className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-        <BriefcaseBusiness className="mt-0.5 size-4 shrink-0" />
-        <span className="line-clamp-2">{item.opening_title}</span>
-      </p>
-      <div className="flex items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
-        <span>{date(item.created_at)}</span>
-        <ArrowRight className="size-4 text-primary" />
-      </div>
-    </button>
-  );
 
   if (sessionLoading) return <Skeleton className="h-96 w-full" />;
   if (!session || !canRead)
@@ -278,111 +267,70 @@ export function HrRecruitmentPipelineWorkspace() {
       aria-label="Live recruitment pipeline"
       className="grid min-w-0 gap-5 font-sans text-foreground [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_h4]:mb-0 [&_ol]:m-0 [&_ol]:list-none [&_ol]:p-0"
     >
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-5 sm:p-6">
-        <div>
-          <Badge variant="outline" className="border-primary/30 bg-card text-primary">
-            Recruitment workspace
-          </Badge>
-          <h2 className="mt-3 text-xl font-semibold tracking-tight">A clear path from application to evaluation</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Review candidates for each opening, record decisions, and keep the application history together.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            disabled={loading || saving || !companyId}
-            onClick={() => void load()}
-            aria-label="Refresh pipeline"
-          >
-            <RefreshCw className="size-4" />
-            Refresh
-          </Button>
-          {canCreate ? (
-            <Button
-              className="text-primary-foreground!"
-              disabled={!companyId || saving}
-              onClick={() => {
-                setEditor(true);
-                setError("");
-              }}
-            >
-              <Plus className="size-4" />
-              Add application
-            </Button>
-          ) : null}
-        </div>
-      </div>
-      {error ? (
+      {error && !selected ? (
         <Alert variant="destructive" role="alert">
           <AlertTitle>Action needs attention</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
-      {notice ? (
+      {notice && !selected ? (
         <div role="status" className="rounded-xl border border-primary/25 bg-primary/5 p-4 text-sm">
           {notice}
         </div>
       ) : null}
+      {!loading && !error && !companyId ? (
+        <Alert>
+          <AlertTitle>No authorized company</AlertTitle>
+          <AlertDescription>Ask your administrator to review company access.</AlertDescription>
+        </Alert>
+      ) : null}
       <WorkForm
-        className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1fr_1.2fr_.7fr_auto]"
+        className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1.2fr_.7fr_auto]"
         onSubmit={(event) => {
           event.preventDefault();
           setFilter({ search, stage: stageFilter, offset: 0 });
         }}
       >
-        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
-          Company
-          <select
-            value={companyId}
-            disabled={saving}
-            className={selectStyle}
-            onChange={(event) => {
-              requestSequence.current += 1;
-              setCompanyId(event.target.value);
-              setData({ items: [], total: 0 });
-              setSelectedId("");
-              setEditor(false);
-              setNotice("");
-              setError("");
-              setFilter((current) => ({ ...current, offset: 0 }));
-            }}
-          >
-            {companies.length === 0 ? (
-              <option value="">No authorized companies</option>
-            ) : (
-              companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))
-            )}
-          </select>
-        </label>
-        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
+        <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
           Search applications
           <Input
-            placeholder="Candidate, reference or job title"
+            type="search"
+            placeholder="Candidate, reference or job title, then Enter"
             maxLength={160}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
         </label>
-        <label className="grid gap-1.5 text-sm font-medium">
+        <label className="grid content-start gap-1.5 text-sm font-medium">
           Stage
-          <select className={selectStyle} value={stageFilter} onChange={(event) => setStageFilter(event.target.value)}>
-            <option value="">All stages</option>
-            {stages.map((stage) => (
+          <select
+            className={selectStyle}
+            value={stageFilter}
+            disabled={saving || !companyId}
+            onChange={(event) => {
+              setStageFilter(event.target.value);
+              setFilter({ search, stage: event.target.value, offset: 0 });
+            }}
+          >
+            <option value="">All</option>
+            {filterStages.map((stage) => (
               <option key={stage} value={stage}>
                 {labels[stage]}
               </option>
             ))}
           </select>
         </label>
-        <Button variant="outline" type="submit" disabled={saving || !companyId}>
-          <Search className="size-4" />
-          Apply filters
-        </Button>
+        {canCreate ? (
+          <Button
+            type="button"
+            className="text-primary-foreground!"
+            disabled={!companyId || saving}
+            onClick={openEditor}
+          >
+            <Plus className="size-4" />
+            Add application
+          </Button>
+        ) : null}
       </WorkForm>
       {editor ? (
         <HrRecordDrawer
@@ -392,106 +340,66 @@ export function HrRecruitmentPipelineWorkspace() {
           busy={saving}
           error={error}
           notice={notice}
+          description="Choose an active candidate and an open vacancy in this company."
         >
           <WorkForm
             onSubmit={create}
             className="grid min-w-0 gap-4 rounded-2xl border border-primary/30 bg-card p-5 shadow-sm"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold">New application</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Choose an active candidate and an open vacancy in this company.
-                </p>
-              </div>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                disabled={saving}
-                aria-label="Close application form"
-                onClick={() => setEditor(false)}
-              >
-                <X className="size-4" />
-              </Button>
-            </div>
-            <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-              <div className="grid gap-2">
-                <label className="grid gap-1.5 text-sm font-medium">
-                  Find candidate
-                  <Input
-                    value={candidateSearch}
-                    placeholder="Search name or email"
-                    onChange={(event) => setCandidateSearch(event.target.value)}
-                  />
-                </label>
-                <label className="grid gap-1.5 text-sm font-medium">
-                  Candidate
-                  <select
-                    required
-                    disabled={optionsLoading || saving}
-                    className={selectStyle}
-                    value={candidateId}
-                    onChange={(event) => setCandidateId(event.target.value)}
-                  >
-                    <option value="">Select a candidate</option>
-                    {candidates.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.display_name} — {item.email}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div className="grid gap-2">
-                <label className="grid gap-1.5 text-sm font-medium">
-                  Find opening
-                  <Input
-                    value={openingSearch}
-                    placeholder="Search opening title"
-                    onChange={(event) => setOpeningSearch(event.target.value)}
-                  />
-                </label>
-                <label className="grid gap-1.5 text-sm font-medium">
-                  Job opening
-                  <select
-                    required
-                    disabled={optionsLoading || saving}
-                    className={selectStyle}
-                    value={openingId}
-                    onChange={(event) => setOpeningId(event.target.value)}
-                  >
-                    <option value="">Select an opening</option>
-                    {openings.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.title} — {item.reference}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={optionsLoading || saving}
-                onClick={() => setLookup({ candidates: candidateSearch, openings: openingSearch })}
-              >
-                Find matching options
-              </Button>
-              <p className="text-xs text-muted-foreground">Up to 100 matches per list. Refine your search if needed.</p>
-            </div>
+            <HrDetailSection title="Application">
+              <label className="grid content-start gap-1.5 text-sm font-medium">
+                Candidate
+                <select
+                  required
+                  className={selectStyle}
+                  disabled={saving || candidatesLoading}
+                  value={candidateId}
+                  onChange={(event) => setCandidateId(event.target.value)}
+                >
+                  <option value="">
+                    {candidatesLoading
+                      ? "Loading candidates…"
+                      : candidates.length
+                        ? "Select a candidate"
+                        : "No active candidates"}
+                  </option>
+                  {candidates.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {candidateLabel(item)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid content-start gap-1.5 text-sm font-medium">
+                Opening title
+                <select
+                  required
+                  className={selectStyle}
+                  disabled={saving || openingsLoading}
+                  value={openingId}
+                  onChange={(event) => setOpeningId(event.target.value)}
+                >
+                  <option value="">
+                    {openingsLoading
+                      ? "Loading openings…"
+                      : openings.length
+                        ? "Select an opening"
+                        : "No open job openings"}
+                  </option>
+                  {openings.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {openingLabel(item)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </HrDetailSection>
             {!optionsLoading && (!candidates.length || !openings.length) ? (
               <Alert>
-                <AlertTitle>Recruitment setup required</AlertTitle>
-                <AlertDescription>
-                  No matching {candidates.length ? "open job openings" : "active candidates"}. Create the missing record
-                  in Candidate Directory or Job Openings, then retry.
-                </AlertDescription>
+                <AlertTitle>{candidates.length ? "No open job openings" : "No active candidates"}</AlertTitle>
               </Alert>
             ) : null}
-            <div className="flex flex-wrap gap-2">
+            <HrDrawerActions>
               <Button
                 className="text-primary-foreground!"
                 type="submit"
@@ -499,202 +407,219 @@ export function HrRecruitmentPipelineWorkspace() {
               >
                 {saving ? "Saving…" : "Create application"}
               </Button>
-              <Button type="button" variant="outline" disabled={saving} onClick={() => setEditor(false)}>
-                Cancel
-              </Button>
-            </div>
+            </HrDrawerActions>
           </WorkForm>
         </HrRecordDrawer>
       ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="font-semibold">Application board</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {data.total} matching applications · Showing {data.items.length ? filter.offset + 1 : 0}–
-            {filter.offset + data.items.length}. Counts below cover this page.
-          </p>
-        </div>
-        <Badge variant="outline">
-          <Users className="size-3" />
-          {data.items.filter((item) => activeStages.includes(item.stage)).length} in progress on this page
-        </Badge>
+      <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by stage">
+        {(["", ...filterStages] as const).map((stage) => {
+          const active = filter.stage === stage;
+          const count = stage ? data.items.filter((item) => item.stage === stage).length : data.items.length;
+          return (
+            <Button
+              key={stage || "all"}
+              type="button"
+              size="sm"
+              variant={active ? "default" : "ghost"}
+              aria-pressed={active}
+              disabled={saving}
+              onClick={() => {
+                setStageFilter(stage);
+                setFilter({ search, stage, offset: 0 });
+              }}
+            >
+              {stage ? labels[stage] : "All"}
+              <span className="tabular-nums opacity-70">{count}</span>
+            </Button>
+          );
+        })}
       </div>
       {loading ? (
-        <div className="grid min-w-0 gap-4 sm:grid-cols-3">
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
-        </div>
-      ) : data.items.length === 0 ? (
-        <div className="grid justify-items-center gap-3 rounded-2xl border border-dashed border-border bg-card px-5 py-14 text-center">
-          <span className="rounded-2xl bg-primary/10 p-4 text-primary">
-            <BriefcaseBusiness className="size-7" />
-          </span>
-          <h3 className="text-lg font-semibold">No applications to display</h3>
-          <p className="max-w-md text-sm leading-6 text-muted-foreground">
-            Add an application to an open vacancy, or adjust your company and stage filters to find an existing record.
-          </p>
-          {canCreate ? (
-            <Button variant="outline" disabled={!companyId} onClick={() => setEditor(true)}>
-              <Plus className="size-4" />
-              Add application
-            </Button>
-          ) : null}
-        </div>
+        <Skeleton className="h-64 w-full" />
       ) : (
-        <div className="grid min-w-0 items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="min-w-0">
-            <div
-              className="relative min-w-0 flex gap-3 overflow-x-auto pb-4"
-              aria-label="Application stages"
-              tabIndex={0}
-            >
-              {(filter.stage ? [filter.stage as HrApplicationStage] : activeStages).map((stage) => (
-                <div
-                  key={stage}
-                  className="min-w-0 basis-full sm:basis-48 flex-1 rounded-xl border border-border bg-muted/35 p-3"
+        <div className="relative min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
+          <WorkTable paging={false} tableId="app/features/hr/views/hr-recruitment-pipeline-workspace:1" className="w-full min-w-160 text-left text-sm">
+            <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3">Candidate</th>
+                <th className="px-4 py-3">Opening</th>
+                <th className="px-4 py-3">Stage</th>
+                <th className="px-4 py-3">Applied</th>
+                <th className="px-4 py-3">Last update</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.map((item) => (
+                <tr
+                  key={item.id}
+                  tabIndex={0}
+                  className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
+                  onClick={() => {
+                    setStageEditing(false);
+                    setSelectedId(item.id);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setStageEditing(false);
+                      setSelectedId(item.id);
+                    }
+                  }}
                 >
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2 text-sm font-semibold">
-                      <CircleDot className="size-3.5 text-primary" />
-                      {labels[stage]}
-                    </span>
-                    <Badge variant="outline" className="bg-card">
-                      {data.items.filter((item) => item.stage === stage).length}
+                  <td className="px-4 py-3">
+                    <span className="block font-medium">{item.candidate_name}</span>
+                    <span className="block text-xs text-muted-foreground">{item.reference}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="block">{item.opening_title}</span>
+                    <span className="block text-xs text-muted-foreground">{item.opening_reference}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant={item.stage === "rejected" || item.stage === "withdrawn" ? "outline" : "secondary"}>
+                      {labels[item.stage]}
                     </Badge>
-                  </div>
-                  <div className="grid gap-3">
-                    {data.items.filter((item) => item.stage === stage).map(card)}
-                    {data.items.every((item) => item.stage !== stage) ? (
-                      <p className="rounded-lg border border-dashed border-border p-5 text-center text-xs text-muted-foreground">
-                        No applications at this stage
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">{date(item.created_at)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">{date(item.updated_at)}</td>
+                </tr>
               ))}
-            </div>
-            {!filter.stage && data.items.some((item) => !activeStages.includes(item.stage)) ? (
-              <div className="mt-3 rounded-xl border border-border bg-card p-4">
-                <h4 className="mb-3 text-sm font-semibold">Other stages and outcomes</h4>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {data.items
-                    .filter((item) => !activeStages.includes(item.stage))
-                    .map((item) => (
-                      <div key={item.id} className="grid gap-2">
-                        <StageBadge stage={item.stage} />
-                        {card(item)}
-                      </div>
-                    ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-          {selected ? (
-            <aside
-              className="grid gap-5 rounded-2xl border border-border bg-card p-5 shadow-sm"
-              aria-label="Application details"
-            >
-              <div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-muted-foreground">{selected.reference}</span>
-                  <StageBadge stage={selected.stage} />
-                </div>
-                <h3 className="mt-3 text-lg font-semibold">{selected.candidate_name}</h3>
-                <p className="mt-1 break-all text-sm text-muted-foreground">{selected.candidate_email}</p>
-              </div>
-              <div className="rounded-xl bg-muted/50 p-3">
-                <p className="text-sm font-medium">{selected.opening_title}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{selected.opening_reference}</p>
-                <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                  <CalendarDays className="size-3.5" />
-                  Applied {date(selected.created_at)}
-                </p>
-              </div>
-              {selected.stage === "evaluation" ? (
-                <Alert>
-                  <AlertTitle>Interview evidence required</AlertTitle>
-                  <AlertDescription>
-                    Open Interviews & Evaluations to review panel scorecards, assessment outcomes and the selection
-                    readiness check.
-                  </AlertDescription>
-                </Alert>
+              {data.items.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-10 text-center text-muted-foreground" colSpan={5}>
+                    No applications match these filters.
+                  </td>
+                </tr>
               ) : null}
-              {canUpdate && allowed.length ? (
-                <HrRecordDrawer
-                  title="Update application stage"
-                  triggerLabel="Update application stage"
-                  completionKey={notice}
-                  busy={saving}
-                  error={error}
-                  notice={notice}
-                >
-                  <WorkForm className="grid gap-3 border-t border-border pt-4" onSubmit={move}>
-                    <h4 className="text-sm font-semibold">Record a stage decision</h4>
-                    <label className="grid gap-1.5 text-sm">
-                      Next stage
-                      <select
-                        className={selectStyle}
-                        required
-                        disabled={saving}
-                        value={nextStage}
-                        onChange={(event) => setNextStage(event.target.value as HrApplicationStage)}
-                      >
-                        <option value="">Choose next stage</option>
-                        {allowed.map((stage) => (
-                          <option key={stage} value={stage}>
-                            {labels[stage]}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="grid gap-1.5 text-sm">
-                      Decision reason
-                      <Textarea
-                        required
-                        maxLength={1000}
-                        value={reason}
-                        disabled={saving}
-                        placeholder="Record the screening outcome or decision context"
-                        onChange={(event) => setReason(event.target.value)}
-                      />
-                    </label>
-                    <Button
-                      className="text-primary-foreground!"
-                      type="submit"
-                      disabled={saving || !nextStage || !reason.trim()}
-                    >
-                      {saving ? "Saving decision…" : "Save stage decision"}
-                      <ArrowRight className="size-4" />
-                    </Button>
-                  </WorkForm>
-                </HrRecordDrawer>
-              ) : null}
-              <div className="border-t border-border pt-4">
-                <h4 className="mb-4 flex items-center gap-2 text-sm font-semibold">
-                  <History className="size-4 text-primary" />
-                  Application history
-                </h4>
-                <ol className="grid min-w-0 gap-4">
-                  {selected.history.map((event) => (
-                    <li key={event.id} className="border-l-2 border-primary/25 pl-3">
-                      <p className="text-sm font-medium">
-                        {event.from_stage ? `${labels[event.from_stage]} → ` : ""}
-                        {labels[event.to_stage]}
-                      </p>
-                      <p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">
-                        {event.reason}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">{date(event.occurred_at)}</p>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </aside>
-          ) : null}
+            </tbody>
+          </WorkTable>
+          <p className="m-0! border-t border-border px-4 py-2 text-xs text-muted-foreground">
+            {data.total} applications · showing {data.items.length ? filter.offset + 1 : 0}–
+            {filter.offset + data.items.length}
+          </p>
         </div>
       )}
-      <WorkOffsetPagination busy={!!(loading || saving)} total={data.total} offset={filter.offset} size={workPageSize} previousDisabled={loading || saving || filter.offset === 0} nextDisabled={loading || saving || filter.offset + workPageSize >= data.total} onSizeChange={(size) => { setWorkPageSize(size); setFilter((current) => ({ ...current, offset: 0 })); }} onPrevious={() => setFilter((current) => ({ ...current, offset: Math.max(0, current.offset - workPageSize) }))} onNext={() => setFilter((current) => ({ ...current, offset: current.offset + workPageSize }))} />
+      <WorkOffsetPagination
+        busy={loading || saving}
+        total={data.total}
+        offset={filter.offset}
+        size={workPageSize}
+        previousDisabled={loading || saving || filter.offset === 0}
+        nextDisabled={loading || saving || filter.offset + workPageSize >= data.total}
+        onSizeChange={(size) => {
+          setWorkPageSize(size);
+          setFilter((current) => ({ ...current, offset: 0 }));
+        }}
+        onPrevious={() => setFilter((current) => ({ ...current, offset: Math.max(0, current.offset - workPageSize) }))}
+        onNext={() => setFilter((current) => ({ ...current, offset: current.offset + workPageSize }))}
+      />
+      <HrMasterSheet
+        open={Boolean(selected)}
+        onOpenChange={(open) => {
+          if (!open && !saving) {
+            setSelectedId("");
+            setStageEditing(false);
+          }
+        }}
+        eyebrow="Recruitment Pipeline"
+        title={selected?.candidate_name ?? "Application"}
+        description={selected ? `${selected.reference} · ${selected.opening_title}` : ""}
+        footer={
+          selected && canUpdate && allowed.length && !stageEditing ? (
+            <HrEditButton
+              label={`Edit ${selected.reference}`}
+              disabled={saving}
+              onClick={() => setStageEditing(true)}
+            />
+          ) : undefined
+        }
+      >
+        {selected ? (
+          <div className="grid min-w-0 gap-4" aria-label="Application details">
+            {error ? (
+              <Alert variant="destructive" role="alert">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            ) : null}
+            {notice ? (
+              <p role="status" className="m-0! rounded-lg border border-border bg-muted p-3 text-sm">
+                {notice}
+              </p>
+            ) : null}
+            {stageEditing ? (
+              <WorkForm className="grid gap-5" onSubmit={move}>
+                <HrDetailSummary code={selected.reference} status={selected.stage} statusLabel={labels[selected.stage]}>
+                  {selected.candidate_name} · {selected.opening_title}
+                </HrDetailSummary>
+                <HrDetailSection title="Stage change">
+                  <label className="grid content-start gap-1.5 text-sm font-medium">
+                    Stage
+                    <select
+                      className={selectStyle}
+                      required
+                      disabled={saving}
+                      value={nextStage}
+                      onChange={(event) => setNextStage(event.target.value as HrApplicationStage)}
+                    >
+                      <option value="">{labels[selected.stage]} (current)</option>
+                      {allowed.map((stage) => (
+                        <option key={stage} value={stage}>
+                          {labels[stage]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid content-start gap-1.5 text-sm font-medium">
+                    Notes
+                    <Textarea
+                      maxLength={1000}
+                      value={reason}
+                      disabled={saving}
+                      onChange={(event) => setReason(event.target.value)}
+                    />
+                  </label>
+                </HrDetailSection>
+                <HrDrawerActions>
+                  <Button type="button" variant="outline" disabled={saving} onClick={() => setStageEditing(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={saving || !nextStage}>
+                    {saving ? "Saving…" : "Save changes"}
+                  </Button>
+                </HrDrawerActions>
+              </WorkForm>
+            ) : (
+              <>
+                <HrDetailSummary code={selected.reference} status={selected.stage} statusLabel={labels[selected.stage]}>
+                  Applied {hrDisplayDate(selected.created_at, false)} · last update{" "}
+                  {hrDisplayDate(selected.updated_at, false)}
+                </HrDetailSummary>
+                <HrDetailGroup title="Candidate">
+                  <HrDetailTile label="Name" value={selected.candidate_name} />
+                  <HrDetailTile label="Email" value={selected.candidate_email} />
+                </HrDetailGroup>
+                <HrDetailGroup title="Position">
+                  <HrDetailTile
+                    label="Opening"
+                    value={selected.opening_title}
+                    hint={<HrDetailCode>{selected.opening_reference}</HrDetailCode>}
+                  />
+                </HrDetailGroup>
+                {latestNote ? (
+                  <HrDetailSection title="Latest note">
+                    <HrDetailNote meta={hrDisplayDate(latestNote.occurred_at, true)}>{latestNote.reason}</HrDetailNote>
+                  </HrDetailSection>
+                ) : null}
+                <HrDetailAudit
+                  items={[
+                    { label: "Applied", value: hrDisplayDate(selected.created_at, true) },
+                    { label: "Updated", value: hrDisplayDate(selected.updated_at, true) },
+                  ]}
+                />
+              </>
+            )}
+          </div>
+        ) : null}
+      </HrMasterSheet>
     </section>
   );
 }

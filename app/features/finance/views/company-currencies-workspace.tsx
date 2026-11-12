@@ -68,7 +68,7 @@ export function FinanceCurrencies() {
   const canManageCurrency = permissions.has("finance.company_currency.manage") && !session?.impersonation;
   const canManageRate = permissions.has("finance.company_currency_rate.manage") && !session?.impersonation;
 
-  const [companies, setCompanies] = useState<Array<{ id: string; code: string; name: string }>>([]);
+  const [companiesReady, setCompaniesReady] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [profile, setProfile] = useState<CompanyCurrencyProfile | null>(null);
   const [currencies, setCurrencies] = useState<CompanyCurrency[]>([]);
@@ -134,7 +134,7 @@ export function FinanceCurrencies() {
       .companies()
       .then((result) => {
         if (!active) return;
-        setCompanies(result.items);
+        setCompaniesReady(true);
         setCompanyId((current) => current || result.items[0]?.id || "");
       })
       .catch((caught) => active && setError(errorMessage(caught)))
@@ -328,27 +328,15 @@ export function FinanceCurrencies() {
       {error && !formMode ? (
         <Notice title="Currency request could not be completed" detail={error} destructive />
       ) : null}
+      {companiesReady && !companyId ? (
+        <Notice
+          title="Company not available"
+          detail="The company chosen at sign-in is not available for company currencies."
+        />
+      ) : null}
 
       <section className="rounded-lg border border-border bg-card p-4">
-        <div className="grid gap-4 lg:grid-cols-[minmax(14rem,22rem)_1fr] lg:items-end">
-          <div className="grid gap-2">
-            <Label htmlFor="company-currency-company">Company *</Label>
-            <select
-              id="company-currency-company"
-              className="h-10 rounded-md border border-input bg-background px-3"
-              value={companyId}
-              onChange={(event) => {
-                setCompanyId(event.target.value);
-                setDetailCurrency("");
-              }}
-            >
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.code} · {company.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="grid gap-4">
           {profile ? (
             <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/30 px-4 py-3">
               <span className="text-sm text-muted-foreground">Financial reporting base</span>
@@ -659,7 +647,7 @@ export function FinanceCurrencies() {
         </section>
       ) : null}
 
-      <FinanceTransferFxPolicy companies={companies} companyId={companyId} onCompanyChange={setCompanyId} />
+      <FinanceTransferFxPolicy companyId={companyId} />
 
       <Dialog open={formMode !== null} onOpenChange={(open) => !open && setFormMode(null)}>
         <DialogContent className="sm:max-w-2xl">

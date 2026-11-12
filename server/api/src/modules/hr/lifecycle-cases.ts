@@ -115,7 +115,7 @@ export class LifecycleCases {
       try {
         await this.permission(client, c, r.company_id, "hr.employment_lifecycle.approve");
         await this.independent(client, c, r);
-        a.push("approve", "return");
+        a.push("approve", "reject", "return");
       } catch (e) {
         if (!(e instanceof HrApiError && e.status === 403)) throw e;
       }
@@ -539,7 +539,11 @@ export class LifecycleCases {
       const kindWhere = q.section === "offboarding" ? "x.kind in('resignation','termination')" : "x.kind=$3";
       if (q.section !== "offboarding") values.push(q.section);
       values.push("%" + q.search.replace(/[\\%_]/g, "\\$&") + "%");
-      const where = `x.tenant_id=$1 and x.company_id=$2 and ${kindWhere} and concat_ws(' ',e.employee_number,e.first_name,e.last_name,x.state,x.terms::text) ilike $${values.length}`;
+      let where = `x.tenant_id=$1 and x.company_id=$2 and ${kindWhere} and concat_ws(' ',e.employee_number,e.first_name,e.last_name,x.state,x.terms::text) ilike $${values.length}`;
+      if (q.state && q.state !== "all") {
+        values.push(q.state);
+        where += ` and x.state=$${values.length}`;
+      }
       const total = (
         await client.query(
           `select count(*)::int as total from hr_lifecycle_case x join employee e on e.tenant_id=x.tenant_id and e.id=x.employee_id where ${where}`,
@@ -564,6 +568,16 @@ export class LifecycleCases {
           [c.tenantId, q.company_id],
         )
       ).rows as Row[];
+      // Employees hired from an accepted offer who do not yet have an open onboarding case.
+      const offers =
+        q.section === "onboarding"
+          ? (
+              await client.query(
+                "select r.id as relationship_id,r.employee_id,concat_ws(' · ',e.employee_number,concat_ws(' ',e.first_name,e.last_name)) as employee_name,h.offer_id,h.created_at::text as hired_on from hr_offer_employee_handoff h join employee e on e.tenant_id=h.tenant_id and e.id=h.employee_id join hr_employment_relationship r on r.tenant_id=h.tenant_id and r.employee_id=h.employee_id and r.legal_employer_id=h.company_id and r.approval_state='approved' and r.status in('active','suspended') where h.tenant_id=$1 and h.company_id=$2 and not exists(select 1 from hr_lifecycle_case x where x.tenant_id=r.tenant_id and x.relationship_id=r.id and x.kind='onboarding' and x.state not in('cancelled','rejected')) and concat_ws(' ',e.employee_number,e.first_name,e.last_name) ilike $3 order by h.created_at desc,r.id limit 200",
+                [c.tenantId, q.company_id, "%" + q.search.replace(/[\\%_]/g, "\\$&") + "%"],
+              )
+            ).rows
+          : [];
       let canCreate = false;
       try {
         await this.permission(client, c, q.company_id, "hr.employment_lifecycle.action");
@@ -603,6 +617,7 @@ export class LifecycleCases {
         offset: q.offset,
         can_create: canCreate,
         relationships: relationships.slice(0, 200),
+        offers,
         exits: await Promise.all(exits.slice(0, 200).map((r) => this.map(client, c, r))),
         history,
         truncated: relationships.length > 200 || exits.length > 200,
@@ -715,7 +730,9 @@ export class LifecycleCases {
             : input.action === "calculate_payroll_correction"
               ? "hr.payroll.period.manage"
               : "hr.payroll.period.approve"
-          : ["approve", "return", "approve_void", "reject_void", "decide_financial_correction"].includes(input.action)
+          : ["approve", "reject", "return", "approve_void", "reject_void", "decide_financial_correction"].includes(
+                input.action,
+              )
             ? "hr.employment_lifecycle.approve"
             : "hr.employment_lifecycle.action",
       );
@@ -914,6 +931,7 @@ export class LifecycleCases {
         state = {
           submit: "submitted",
           approve: "approved",
+          reject: "rejected",
           return: "draft",
           cancel: "cancelled",
           apply_exit: "closed",
@@ -921,9 +939,9 @@ export class LifecycleCases {
         if (
           ["submit", "approve"].includes(input.action) &&
           (terms.kind === "onboarding" || terms.kind === "clearance") &&
-          terms.tasks.some((t) => !t.complete || t.evidence.length < 5)
+          terms.tasks.some((t) => !t.complete)
         )
-          fail("Complete every required checklist task with evidence before submitting.");
+          fail("Mark every checklist item done before submitting.");
         if (["submit", "approve"].includes(input.action) && terms.kind === "clearance") {
           const activeAccount = await client.query(
             "select 1 from employee_user_binding b join security_user_account u on u.tenant_id=b.tenant_id and u.id=b.user_id and u.status='active' and u.archived_at is null where b.tenant_id=$1 and b.employee_id=$2 and b.ended_at is null and b.effective_from<=current_date and(b.effective_to is null or b.effective_to>=current_date) limit 1",
@@ -936,6 +954,10 @@ export class LifecycleCases {
         }
         const today = (await client.query("select current_date::text as today")).rows[0].today;
         if (input.action === "submit") submitted = c.actor.userId;
+        if (input.action === "reject") {
+          await this.independent(client, c, old!);
+          decided = c.actor.userId;
+        }
         if (input.action === "approve") {
           await this.independent(client, c, old!);
           decided = c.actor.userId;

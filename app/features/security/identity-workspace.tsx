@@ -241,7 +241,14 @@ export default function IdentityWorkspace({ embedded = false }: { embedded?: boo
                 {session.user.email}
                 <small className="mt-0.5 text-xs font-normal text-muted-foreground">{session.tenant_id}</small>
               </span>
-              <Button variant="outline" onClick={() => void logout().then(() => router.replace("/login"))}>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  void logout()
+                    .catch(() => undefined)
+                    .then(() => router.replace("/login"))
+                }
+              >
                 Sign out
               </Button>
             </div>

@@ -1,4 +1,11 @@
-import { allocateHrCode } from "./record-codes.js";
+import { allocateHrCode, isHrCodeKind, retireHrCode } from "./record-codes.js";
+import {
+  HrEmployeeRecords,
+  requireEmployeeRecordScope,
+  type EmployeeDocumentFile,
+  type HrEmployeeRecordAuditAction,
+} from "./employees/employee-records.js";
+import { HrRecruitmentRecords, type HrRecruitmentAuditAction } from "./recruitment-records.js";
 import {LearningDevelopment} from "./learning.js";
 import type {HrLearningQuery,HrLearningAction} from "@nexora/contracts";
 import type {HrSelfLeaveContextQuery,CreateHrSelfLeaveRequest,HrSelfLeaveAction} from '@nexora/contracts';
@@ -36,17 +43,18 @@ import type {HrPayrollRunQuery,HrPayrollRunAction,HrPayrollRunWorkspace} from '@
 import {PayrollWorkspace,type PayrollWorkspaceDependencies} from './payroll-workspace.js';
 import type {HrPayrollSection,HrPayrollWorkspaceQuery,HrPayrollWorkspace,HrPayrollItem,HrPayrollOptionsQuery,HrPayrollOptions,CreateHrPayrollRecord,HrPayrollRecordAction,HrPayrollMutationResult} from '@nexora/contracts';
 import {TimeLeave} from './time-leave.js';
+import {SelfAttendance} from './self-attendance.js';
 import type {AttendanceCompletionDependencies} from './attendance-completion.js';
 import type {HrLeaveQuery,HrLeavePolicyInput,CreateHrLeaveTypeRequest,UpdateHrLeavePolicyRequest,HrLeaveTypeStatusRequest,HrLeavePolicy,HrLeaveType,HrLeaveTypeDirectory,HrLeaveAllocation,HrLeaveContextQuery,HrLeaveBalance,HrLeaveBalanceQuery,HrLeaveBalanceDirectory,HrLeaveLedgerQuery,HrLeaveLedger,HrLeaveBalancePostingRequest,HrLeaveContext,CreateHrLeaveRequest,HrLeaveRequestActionRequest,HrLeaveRequestQuery,HrLeaveRequestSummary,HrLeaveRequestDirectory,HrLeaveRequestDetail} from '@nexora/contracts';
 import {AttendanceCompletion} from './attendance-completion.js';
-import type {HrOvertimeQuery,HrOvertimeContextQuery,HrOvertimeRuleRequest,HrOvertimeRule,HrOvertimeEvidence,HrOvertimeContext,CreateHrOvertimeRequest,HrOvertimeActionRequest,HrAttendanceCompletionResult,HrOvertimeSummary,HrOvertimeDetail,HrOvertimeDirectory,HrAttendancePeriodQuery,HrAttendancePeriodActionRequest,HrAttendanceCloseDay,HrAttendanceCloseEmployee,HrAttendancePeriod,HrAttendancePeriodWorkspace,HrAttendancePayrollInputs} from '@nexora/contracts';
+import type {HrOvertimeQuery,HrOvertimeContextQuery,HrOvertimeRuleRequest,HrOvertimeRule,HrOvertimeEvidence,HrOvertimeContext,CreateHrOvertimeRequest,ReplaceHrOvertimeRequest,HrOvertimeActionRequest,HrAttendanceCompletionResult,HrOvertimeSummary,HrOvertimeDetail,HrOvertimeDirectory,HrAttendancePeriodQuery,HrAttendancePeriodActionRequest,HrAttendanceCloseDay,HrAttendanceCloseEmployee,HrAttendancePeriod,HrAttendancePeriodWorkspace,HrAttendancePayrollInputs} from '@nexora/contracts';
 import { resolveHrShiftOnDate } from "./shift-resolution.js";
 import { evaluateDailyAttendance, type AttendanceSource } from "./daily-attendance.js";
 import { summarizeAttendanceMonth } from "./monthly-attendance.js";
 import { createHash, randomUUID } from "node:crypto";
 
 import { hrInterviewTemplates, hrRecruitmentEvidencePolicy } from "@nexora/contracts";
-import { hrApplicationTransitions } from "@nexora/contracts";
+import { HR_DEFAULT_REASON, hrApplicationTransitions, hrRetiredMasterTypes } from "@nexora/contracts";
 import { evaluateApprovalActor, type AuthenticatedAccount } from "@nexora/auth";
 import type {
   HrCorrectionQuery,HrCorrectionContextQuery,HrCorrectionContext,CreateHrCorrectionRequest,UpdateHrCorrectionRequest,HrCorrectionActionRequest,HrCorrectionSummary,HrCorrectionDirectory,HrCorrectionDetail,HrCorrectionEvidence,HrCorrectionResult,
@@ -99,7 +107,13 @@ import type {
   UpdateHrMasterRequest,
   ChangeHrMasterStatusRequest,
   HrMasterMutationResult,
+  DeleteHrMasterRequest,
+  HrMasterDeleteResult,
   HrJobGradeDirectory,
+  HrJobGradeCurrencyDirectory,
+  HrRequisitionProjectDirectory,
+  HrRequisitionWorkLocationDirectory,
+  HrCostCentreNominalDirectory,
   CreateHrJobGradeRequest,
   UpdateHrJobGradeRequest,
   UpdateHrEmployeeDraftRequest,
@@ -127,6 +141,11 @@ import type {
   CreateHrEmploymentLifecyclePolicyRequest,
   HrEmploymentLifecyclePolicyResult,
   SubmitHrEmploymentLifecyclePolicyRequest,
+  UpdateHrEmploymentLifecyclePolicyRequest,
+  DeactivateHrEmploymentLifecyclePolicyRequest,
+  HrEmploymentLifecyclePolicyDeactivationResult,
+  DeleteHrEmploymentLifecyclePolicyRequest,
+  HrEmploymentLifecyclePolicyDeleteResult,
   HrEmploymentLifecyclePolicySubmissionResult,
   ApproveHrEmploymentLifecyclePolicyRequest,
   HrEmploymentLifecyclePolicyApprovalResult,
@@ -295,6 +314,21 @@ type EmployeeOrganizationPlacementChangeRequestReviewRow = Omit<
   decided_at: string | Date | null;
 };
 
+/**
+ * Active Finance nominals usable as a cost centre's default nominal ($1 tenant,
+ * $2 company): postable, active, not a bank nominal, and approved when the
+ * account is a governed general nominal.
+ */
+const costCentreNominalProjection = `select nominal.id,nominal.code,nominal.name,section.name as section
+   from account nominal
+   left join account section on section.tenant_id=nominal.tenant_id and section.company_id=nominal.company_id
+    and section.id=nominal.parent_id and section.is_header
+   left join bank_account bank on bank.tenant_id=nominal.tenant_id and bank.company_id=nominal.company_id and bank.account_id=nominal.id
+   left join finance_general_nominal general on general.tenant_id=nominal.tenant_id and general.company_id=nominal.company_id
+    and general.nominal_id=nominal.id
+  where nominal.tenant_id=$1 and nominal.company_id=$2 and not nominal.is_header and nominal.status='active'
+    and not nominal.managed_bank_nominal and bank.id is null and (general.nominal_id is null or general.state='active')`;
+
 function dateOnly(value: string | Date): string {
   return value instanceof Date ? value.toISOString().slice(0, 10) : value.slice(0, 10);
 }
@@ -462,7 +496,97 @@ function decodeEmployeeHistoryCursor(
 }
 
 export class SourceHrRepository {
-  constructor(private readonly pool: Pool,private readonly statutoryMode:StatutoryExecutionMode='production') {}
+  constructor(
+    private readonly pool: Pool,
+    private readonly statutoryMode: StatutoryExecutionMode = "production",
+    /** Private object storage for employee document files (HR139). */
+    private readonly documentStorage?: ConstructorParameters<typeof HrEmployeeRecords>[0]["storage"],
+  ) {}
+
+  private employeeRecords() {
+    return new HrEmployeeRecords({
+      pool: this.pool,
+      ...(this.documentStorage ? { storage: this.documentStorage } : {}),
+      audit: (client, c, corr, action, entityType, entityId, before, after) =>
+        this.appendPlatformAudit(client, c, corr, action, {
+          entityId,
+          entityType,
+          before,
+          after,
+          sourceReference: `hr:employee-records:${entityId}`,
+        }),
+    });
+  }
+  private recruitmentRecords() {
+    return new HrRecruitmentRecords({
+      pool: this.pool,
+      audit: (client, c, corr, action, entityType, entityId, before, after) =>
+        this.appendPlatformAudit(client, c, corr, action, { entityId, entityType, before, after, sourceReference: `hr:recruitment:${entityId}` }),
+    });
+  }
+  async updateManpowerRequisition(c: HrActorContext, id: string, input: CreateHrManpowerRequisitionRequest, key: string, corr: string) {
+    return this.recruitmentRecords().updateRequisition(c, id, input, key, corr);
+  }
+  async changeManpowerRequisitionState(c: HrActorContext, id: string, input: Parameters<HrRecruitmentRecords["changeRequisitionState"]>[2], key: string, corr: string) {
+    return this.recruitmentRecords().changeRequisitionState(c, id, input, key, corr);
+  }
+  async deleteManpowerRequisition(c: HrActorContext, id: string, companyId: string, key: string, corr: string) {
+    return this.recruitmentRecords().deleteRequisition(c, id, companyId, key, corr);
+  }
+  async updateJobOpening(c: HrActorContext, id: string, input: Parameters<HrRecruitmentRecords["updateOpening"]>[2], key: string, corr: string) {
+    return this.recruitmentRecords().updateOpening(c, id, input, key, corr);
+  }
+  async deleteJobOpening(c: HrActorContext, id: string, companyId: string, key: string, corr: string) {
+    return this.recruitmentRecords().deleteOpening(c, id, companyId, key, corr);
+  }
+  async updateCandidate(c: HrActorContext, id: string, input: Parameters<HrRecruitmentRecords["updateCandidate"]>[2], key: string, corr: string) {
+    return this.recruitmentRecords().updateCandidate(c, id, input, key, corr);
+  }
+  async deleteCandidate(c: HrActorContext, id: string, companyId: string, key: string, corr: string) {
+    return this.recruitmentRecords().deleteCandidate(c, id, companyId, key, corr);
+  }
+  async changeEmployeeStatus(c: HrActorContext, employeeId: string, input: Parameters<HrEmployeeRecords["changeStatus"]>[2], key: string, corr: string) {
+    return this.employeeRecords().changeStatus(c, employeeId, input, key, corr);
+  }
+  async removeEmployee(c: HrActorContext, employeeId: string, input: Parameters<HrEmployeeRecords["removeEmployee"]>[2], key: string, corr: string) {
+    return this.employeeRecords().removeEmployee(c, employeeId, input, key, corr);
+  }
+  async employeeNumberPreview(c: HrActorContext, companyId: string) {
+    return this.employeeRecords().employeeNumberPreview(c, companyId);
+  }
+  async withdrawEmployeeDraft(c: HrActorContext, employeeId: string, input: Parameters<HrEmployeeRecords["withdrawDraft"]>[2], key: string, corr: string) {
+    return this.employeeRecords().withdrawDraft(c, employeeId, input, key, corr);
+  }
+  async updateEmployeeContact(c: HrActorContext, employeeId: string, contactId: string, input: CreateHrEmployeeContactRequest, key: string, corr: string) {
+    return this.employeeRecords().updateContact(c, employeeId, contactId, input, key, corr);
+  }
+  async removeEmployeeContact(c: HrActorContext, employeeId: string, contactId: string, input: Parameters<HrEmployeeRecords["removeContact"]>[3], key: string, corr: string) {
+    return this.employeeRecords().removeContact(c, employeeId, contactId, input, key, corr);
+  }
+  async updateEmployeeEmergencyContact(c: HrActorContext, employeeId: string, contactId: string, input: CreateHrEmployeeEmergencyContactRequest, key: string, corr: string) {
+    return this.employeeRecords().updateEmergencyContact(c, employeeId, contactId, input, key, corr);
+  }
+  async removeEmployeeEmergencyContact(c: HrActorContext, employeeId: string, contactId: string, input: Parameters<HrEmployeeRecords["removeEmergencyContact"]>[3], key: string, corr: string) {
+    return this.employeeRecords().removeEmergencyContact(c, employeeId, contactId, input, key, corr);
+  }
+  async uploadEmployeeDocument(c: HrActorContext, employeeId: string, fields: Parameters<HrEmployeeRecords["uploadDocument"]>[2], file: EmployeeDocumentFile, key: string, corr: string, replaces?: string) {
+    return this.employeeRecords().uploadDocument(c, employeeId, fields, file, key, corr, replaces);
+  }
+  async employeeDocumentContent(c: HrActorContext, employeeId: string, documentId: string) {
+    return this.employeeRecords().documentContent(c, employeeId, documentId);
+  }
+  async removeEmployeeDocument(c: HrActorContext, employeeId: string, documentId: string, input: Parameters<HrEmployeeRecords["removeDocument"]>[3], key: string, corr: string) {
+    return this.employeeRecords().removeDocument(c, employeeId, documentId, input, key, corr);
+  }
+  async listEmployeeEmploymentHistory(c: HrActorContext, employeeId: string) {
+    return this.employeeRecords().listHistory(c, employeeId);
+  }
+  async saveEmployeeEmploymentHistory(c: HrActorContext, employeeId: string, historyId: string | undefined, input: Parameters<HrEmployeeRecords["saveHistory"]>[3], key: string, corr: string) {
+    return this.employeeRecords().saveHistory(c, employeeId, historyId, input, key, corr);
+  }
+  async removeEmployeeEmploymentHistory(c: HrActorContext, employeeId: string, historyId: string, input: Parameters<HrEmployeeRecords["removeHistory"]>[3], key: string, corr: string) {
+    return this.employeeRecords().removeHistory(c, employeeId, historyId, input, key, corr);
+  }
 
   private attendanceDependencies():AttendanceCompletionDependencies{return {pool:this.pool,read:(context,permission,operation)=>this.read(context,permission,operation),company:(...args)=>this.requireCompanyAccess(...args),evidence:(...args)=>this.correctionEvidence(...args),employees:(...args)=>this.selectAttendanceEmployees(...args),days:(...args)=>this.readAttendanceDays(...args),override:(...args)=>this.resolveApprovalOverride(...args),audit:(client,context,corr,id,before,after)=>this.appendPlatformAudit(client,context,corr,'hr.attendance.completion',{entityId:id,before,after,sourceReference:'hr:attendance-completion:'+id})};}
   private completion(){return new AttendanceCompletion(this.attendanceDependencies());}
@@ -470,8 +594,9 @@ export class SourceHrRepository {
   private payrollWorkspace(){return new PayrollWorkspace(this.payrollDependencies());}
   private overtimeMoney(){return new PayrollOvertimeSetup(this.payrollDependencies());}
   async getOvertimeMoneyWorkspace(c:HrActorContext,q:HrOvertimeMoneyQuery):Promise<HrOvertimeMoneyWorkspace>{return this.overtimeMoney().workspace(c,q);}
-  async createOvertimeMoney(c:HrActorContext,input:CreateHrOvertimeMoney,key:string,corr:string){return this.overtimeMoney().create(c,input,key,corr);}
-  async decideOvertimeMoney(c:HrActorContext,id:string,input:HrOvertimeMoneyDecision,key:string,corr:string){return this.overtimeMoney().action(c,id,input,key,corr);}
+  // The overtime reason is optional; a standard reason is recorded when it is left blank.
+  async createOvertimeMoney(c:HrActorContext,input:CreateHrOvertimeMoney,key:string,corr:string){return this.overtimeMoney().create(c,{...input,reason:input.reason||(input.kind==='policy'?'Overtime policy created.':'Employee assigned to overtime policy.')},key,corr);}
+  async decideOvertimeMoney(c:HrActorContext,id:string,input:HrOvertimeMoneyDecision,key:string,corr:string){const standard={submit:'Submitted for approval.',approve:'Approved.',reject:'Rejected.',release:'Released.'} as const;return this.overtimeMoney().action(c,id,{...input,reason:input.reason||standard[input.action]},key,corr);}
   private localization(){return new PayrollLocalizationSetup(this.payrollDependencies(),this.statutoryMode);}
   async getPayrollLocalization(c:HrActorContext,q:HrLocalizationQuery){return this.localization().workspace(c,q);}
   async createPayrollLocalization(c:HrActorContext,input:CreateHrLocalization,key:string,corr:string){return this.localization().create(c,input,key,corr);}
@@ -525,6 +650,11 @@ export class SourceHrRepository {
   async getReportGovernance(c:HrActorContext,q:HrReportGovernanceQuery){return new HrReportGovernance(this.governanceDependencies()).workspace(c,q);}
   async actOnReportGovernance(c:HrActorContext,input:HrReportGovernanceAction,key:string,corr:string){return new HrReportGovernance(this.governanceDependencies()).action(c,input,key,corr);}
   private personalLeave(){return new TimeLeave(this.attendanceDependencies(),true);}
+  private selfAttendance(){return new SelfAttendance(this.attendanceDependencies());}
+  async getSelfAttendance(c:HrActorContext,q:import('@nexora/contracts').HrSelfAttendanceQuery){return this.selfAttendance().workspace(c,q);}
+  async createSelfAttendancePunch(c:HrActorContext,input:import('@nexora/contracts').CreateHrSelfAttendancePunch,key:string,corr:string){return this.selfAttendance().punch(c,input,key,corr);}
+  async saveSelfAttendanceDay(c:HrActorContext,input:import('@nexora/contracts').SaveHrSelfAttendanceDay,key:string,corr:string){return this.selfAttendance().saveDay(c,input,key,corr);}
+  async getEmployeeAttendanceRecords(c:HrActorContext,q:import('@nexora/contracts').HrEmployeeAttendanceRecordsQuery){return this.selfAttendance().employeeRecords(c,q);}
   async getSelfLeaveContext(c:HrActorContext,q:HrSelfLeaveContextQuery){return this.personalLeave().leaveContext(c,q);}
   async getSelfLeaveRequest(c:HrActorContext,company:string,id:string){return this.personalLeave().getLeaveRequest(c,company,id);}
   async createSelfLeaveRequest(c:HrActorContext,input:CreateHrSelfLeaveRequest,key:string,corr:string){return this.personalLeave().createOwnLeaveRequest(c,input,key,corr);}
@@ -548,6 +678,7 @@ export class SourceHrRepository {
   async createOvertimeRule(context:HrActorContext,input:HrOvertimeRuleRequest,key:string,corr:string):Promise<HrAttendanceCompletionResult>{return this.completion().createOvertimeRule(context,input,key,corr);}
   async createOvertime(context:HrActorContext,input:CreateHrOvertimeRequest,key:string,corr:string):Promise<HrAttendanceCompletionResult>{return this.completion().createOvertime(context,input,key,corr);}
   async actOnOvertime(context:HrActorContext,id:string,input:HrOvertimeActionRequest,key:string,corr:string):Promise<HrAttendanceCompletionResult>{return this.completion().actOnOvertime(context,id,input,key,corr);}
+  async replaceOvertime(context:HrActorContext,id:string,input:ReplaceHrOvertimeRequest,key:string,corr:string):Promise<HrAttendanceCompletionResult>{return this.completion().replaceOvertime(context,id,input,key,corr);}
   async periodWorkspace(context:HrActorContext,q:HrAttendancePeriodQuery):Promise<HrAttendancePeriodWorkspace>{return this.completion().periodWorkspace(context,q);}
   async payrollInputs(context:HrActorContext,q:HrAttendancePeriodQuery):Promise<HrAttendancePayrollInputs>{return this.completion().payrollInputs(context,q);}
   async actOnPeriod(context:HrActorContext,input:HrAttendancePeriodActionRequest,key:string,corr:string):Promise<HrAttendanceCompletionResult>{return this.completion().actOnPeriod(context,input,key,corr);}
@@ -634,16 +765,21 @@ export class SourceHrRepository {
         values.push(query.limit);
         const result = await client.query<HrOrganizationUnitDirectory["items"][number]>(
           `with recursive company_tree as (
-           select id,parent_id,type,code,name,status,created_at
+           select id,parent_id,type,code,name,status,created_at,updated_at
              from organization_unit
             where tenant_id=$1 and id=$2 and type='company' and status='active'
            union all
-           select child.id,child.parent_id,child.type,child.code,child.name,child.status,child.created_at
+           select child.id,child.parent_id,child.type,child.code,child.name,child.status,child.created_at,child.updated_at
              from organization_unit child
              join company_tree parent on child.parent_id=parent.id
             where child.tenant_id=$1
          )
-         select unit.id,unit.parent_id,unit.type,unit.code,unit.name,unit.status,unit.created_at,
+         select unit.id,unit.parent_id,unit.type,unit.code,unit.name,unit.status,unit.created_at,unit.updated_at,
+                (select coalesce(account.display_name,account.email,event.actor_id)
+                   from platform_admin_audit_event event
+                   left join security_user_account account on account.tenant_id=event.tenant_id and account.id=event.actor_id
+                  where event.tenant_id=$1 and event.entity_id=unit.id and event.action='hr.organization.create'
+                  order by event.sequence limit 1) as created_by_name,
                 (select concat_ws(' ',employee.first_name,employee.last_name)
                    from hr_organization_head_assignment head_assignment
                    join employee on employee.tenant_id=head_assignment.tenant_id and employee.id=head_assignment.employee_id
@@ -747,7 +883,8 @@ export class SourceHrRepository {
       } else if (operation === "update") {
         const update = input as UpdateHrOrganizationUnitRequest;
         const parentType = await this.requireOrganizationParent(client, context, update.company_id, update.parent_id);
-        this.assertOrganizationParentType(before.type, parentType);
+        // Units placed under the earlier hierarchy keep their parent on a rename.
+        if (update.parent_id !== before.parent_id) this.assertOrganizationParentType(before.type, parentType);
         await client.query(`update organization_unit set parent_id=$3,code=$4,name=$5,updated_at=now() where tenant_id=$1 and id=$2`, [context.tenantId, unitId, update.parent_id, update.code.toUpperCase(), update.name]);
       } else {
         const change = input as ChangeHrOrganizationUnitStatusRequest;
@@ -801,11 +938,16 @@ export class SourceHrRepository {
   }
 
   private assertOrganizationParentType(childType: string, parentType: string): void {
+    // Company -> Location (division) -> Project (branch) -> Department. A
+    // Location sits under the company, a Project under a Location and a
+    // Department under a Project. Business units and warehouses are legacy
+    // levels kept for existing records. Existing units whose parent is not
+    // being changed are not re-checked (see the update path).
     const allowedParents: Record<string, readonly string[]> = {
       business_unit: ["company"],
       division: ["company", "business_unit"],
-      branch: ["company", "business_unit", "division"],
-      department: ["company", "business_unit", "division", "branch"],
+      branch: ["division"],
+      department: ["branch"],
       warehouse: ["company", "business_unit", "division", "branch"],
     };
     if (!allowedParents[childType]?.includes(parentType))
@@ -824,20 +966,44 @@ export class SourceHrRepository {
         "(assignment.effective_to is null or assignment.effective_to >= current_date)",
       ];
       if (query.status) filters.push(`employee.status = $${values.push(query.status)}`);
+      // Soft-deleted employees (HR139 removal) leave the directory unless asked for explicitly.
+      else filters.push("employee.status <> 'inactive'");
       if (query.search) {
         const parameter = values.push(`%${query.search.replace(/[\\%_]/g, "\\$&")}%`);
         filters.push(
           `(employee.employee_number ilike $${parameter} escape '\\' or concat_ws(' ', employee.first_name, employee.middle_name, employee.last_name) ilike $${parameter} escape '\\')`,
         );
       }
+      // Employees created from an approved offer are listed as drafts (with the offer's placement)
+      // until their governed hire produces an active assignment.
+      const offerFilters = [
+        "employee.tenant_id = $1",
+        "handoff.company_id = $2",
+        "employee.status in ('draft','pending_approval')",
+        `not exists (select 1 from employee_assignment current_assignment
+                      where current_assignment.tenant_id = employee.tenant_id and current_assignment.employee_id = employee.id
+                        and current_assignment.company_id = handoff.company_id
+                        and current_assignment.assignment_status in ('active','legacy_compatibility')
+                        and current_assignment.effective_from <= current_date
+                        and (current_assignment.effective_to is null or current_assignment.effective_to >= current_date))`,
+      ];
+      if (query.status) offerFilters.push(`employee.status = $${values.indexOf(query.status) + 1}`);
+      if (query.search)
+        offerFilters.push(
+          `(employee.employee_number ilike $${values.length} escape '\\' or concat_ws(' ', employee.first_name, employee.middle_name, employee.last_name) ilike $${values.length} escape '\\')`,
+        );
+      const salaryParameter = values.push(context.actor.permissions.includes("hr.payroll.salary.read"));
       values.push(query.limit);
-      const result = await client.query<EmployeeSummaryRow>(
-        `select employee.id, employee.employee_number,
-                concat_ws(' ', employee.first_name, employee.middle_name, employee.last_name) as display_name,
+      const result = await client.query<EmployeeSummaryRow & { sort_last: string; sort_first: string }>(
+        `select * from (
+         select employee.id, employee.employee_number,
+                concat_ws(' ', employee.first_name, nullif(employee.middle_name, ''), employee.last_name) as display_name,
                 employee.work_email, employee.status, employee.joined_on,
                 assignment.company_id, assignment.branch_id, branch.name as branch,
                 assignment.department_id, department.name as department,
-                designation.name as designation
+                designation.name as designation, 'assignment' as source, employee.phone,
+                null::text as job_title, null::text as monthly_gross, null::text as currency_code, null::text as offer_reference,
+                employee.last_name as sort_last, employee.first_name as sort_first
            from employee
            join employee_assignment assignment
              on assignment.tenant_id = employee.tenant_id and assignment.employee_id = employee.id
@@ -848,11 +1014,35 @@ export class SourceHrRepository {
            join hr_master_record designation
              on designation.tenant_id = assignment.tenant_id and designation.id = assignment.designation_id
           where ${filters.join(" and ")}
-          order by employee.last_name, employee.first_name, employee.employee_number, employee.id
+         union all
+         select employee.id, employee.employee_number,
+                concat_ws(' ', employee.first_name, nullif(employee.middle_name, ''), employee.last_name) as display_name,
+                coalesce(nullif(employee.work_email, ''), employee.personal_email, '') as work_email,
+                employee.status, employee.joined_on,
+                handoff.company_id, offer.branch_id, branch.name as branch,
+                offer.department_id, department.name as department,
+                designation.name as designation, 'offer' as source, employee.phone,
+                opening.title as job_title,
+                case when $${salaryParameter}::boolean then offer.proposed_gross::text end as monthly_gross,
+                case when $${salaryParameter}::boolean then offer.currency_code end as currency_code,
+                offer.reference as offer_reference,
+                employee.last_name as sort_last, employee.first_name as sort_first
+           from hr_offer_employee_handoff handoff
+           join employee on employee.tenant_id = handoff.tenant_id and employee.id = handoff.employee_id
+           join hr_recruitment_offer offer on offer.tenant_id = handoff.tenant_id and offer.id = handoff.offer_id
+           join hr_job_opening opening on opening.tenant_id = offer.tenant_id and opening.id = offer.opening_id
+           join organization_unit branch on branch.tenant_id = offer.tenant_id and branch.id = offer.branch_id
+           join organization_unit department on department.tenant_id = offer.tenant_id and department.id = offer.department_id
+           join hr_master_record designation on designation.tenant_id = offer.tenant_id and designation.id = offer.designation_id
+          where ${offerFilters.join(" and ")}
+         ) directory
+          order by sort_last, sort_first, employee_number, id
           limit $${values.length}`,
         values,
       );
-      return { items: result.rows.map(employeeSummary) };
+      return {
+        items: result.rows.map(({ sort_last: _last, sort_first: _first, ...row }) => employeeSummary(row)),
+      };
     });
   }
 
@@ -895,7 +1085,7 @@ export class SourceHrRepository {
             +(select count(*) from hr_employee_organization_placement_change_request where tenant_id=$1 and company_id=$2 and request_state='pending'))::int as pending_movements,
            (select count(*)::int from org_tree where type='department' and status='active') as active_departments,
            (select count(*)::int from current_people where joined_on>=current_date-interval '90 days') as recent_joiners,
-           (select count(*)::int from hr_master_record where tenant_id=$1 and company_id=$2 and master_type in ('cost_center','work_location','employment_type','employee_category') and status='active' and configuration_value is null) as master_configuration_gaps`,
+           (select count(*)::int from hr_master_record where tenant_id=$1 and company_id=$2 and master_type in ('cost_center','work_location') and status='active' and configuration_value is null) as master_configuration_gaps`,
         [context.tenantId, companyId],
       );
       const metrics = summary.rows[0]!;
@@ -908,11 +1098,39 @@ export class SourceHrRepository {
           group by employee.status order by employee.status`,
         [context.tenantId, companyId],
       );
+      const joiners = await client.query<{
+        employee_id: string;
+        employee_number: string;
+        employee_name: string;
+        designation: string | null;
+        department: string | null;
+        joined_on: string | Date;
+      }>(
+        `select distinct on (employee.joined_on,employee.id)
+                employee.id as employee_id,employee.employee_number,
+                concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as employee_name,
+                designation.name as designation,department.name as department,employee.joined_on
+           from employee
+           join employee_assignment assignment on assignment.tenant_id=employee.tenant_id and assignment.employee_id=employee.id
+           left join hr_master_record designation on designation.tenant_id=assignment.tenant_id and designation.id=assignment.designation_id
+           left join organization_unit department on department.tenant_id=assignment.tenant_id and department.id=assignment.department_id
+          where employee.tenant_id=$1 and assignment.company_id=$2
+            and assignment.assignment_status in ('active','legacy_compatibility')
+            and assignment.effective_from<=current_date and (assignment.effective_to is null or assignment.effective_to>=current_date)
+            and employee.joined_on is not null and employee.joined_on>=current_date-interval '90 days'
+          order by employee.joined_on desc,employee.id,assignment.effective_from desc
+          limit 8`,
+        [context.tenantId, companyId],
+      );
       return {
         company_id: companyId,
         generated_at: new Date().toISOString(),
         metrics,
         status_distribution: distribution.rows,
+        recent_joiner_list: joiners.rows.map((row) => ({
+          ...row,
+          joined_on: dateOnly(row.joined_on),
+        })),
         action_items: [
           { key: "drafts", label: "Draft employee profiles", count: metrics.draft_profiles, page_id: "employee-drafts", tone: metrics.draft_profiles ? "attention" : "neutral" },
           { key: "approvals", label: "Employee approvals", count: metrics.pending_employee_approvals, page_id: "employee-approvals", tone: metrics.pending_employee_approvals ? "attention" : "neutral" },
@@ -1162,16 +1380,29 @@ export class SourceHrRepository {
       values.push(query.limit);
       const result = await client.query<HrManpowerRequisitionDirectory["items"][number] & { salary_minimum: string; salary_maximum: string; submitted_at: Date | null; decided_at: Date | null; created_at: Date }>(
         `select request.id,request.company_id,request.reference,request.job_title,designation.name as designation,grade.name as job_grade,
-                employment_type.name as employment_type,branch.name as branch,department.name as department,request.positions_requested,
+                request.employment_setup_id,employment_setup.name as employment_setup,request.cost_center_id,cost_center.name as cost_center,
+                coalesce(cost_center.payment_route,employment_setup.payment_route) as payment_route,coalesce(cost_center.pay_cycle,employment_setup.pay_cycle) as pay_cycle,
+                branch.name as branch,request.project_id,project.name as project,request.hiring_basis,request.work_arrangement,department.name as department,
+                request.work_location_id,work_location.name as work_location,work_location_city.city as work_location_city,
+                request.designation_id,request.job_grade_id,request.department_id,request.positions_requested,
                 request.position_type,request.salary_minimum::text,request.salary_maximum::text,request.currency_code,request.target_start_date::text,
                 request.reason,request.required_skills,request.state,request.created_by,request.submitted_by,request.submitted_at,request.decided_by,
                 request.decided_at,request.decision_reason,request.created_at
            from hr_manpower_requisition request
            join hr_master_record designation on designation.tenant_id=request.tenant_id and designation.id=request.designation_id
            join hr_master_record grade on grade.tenant_id=request.tenant_id and grade.id=request.job_grade_id
-           join hr_master_record employment_type on employment_type.tenant_id=request.tenant_id and employment_type.id=request.employment_type_id
-           join organization_unit branch on branch.tenant_id=request.tenant_id and branch.id=request.branch_id
+           left join hr_master_record employment_setup on employment_setup.tenant_id=request.tenant_id and employment_setup.id=request.employment_setup_id
+           left join hr_master_record cost_center on cost_center.tenant_id=request.tenant_id and cost_center.id=request.cost_center_id
+           left join organization_unit branch on branch.tenant_id=request.tenant_id and branch.id=request.branch_id
+           left join erp_project project on project.tenant_id=request.tenant_id and project.company_id=request.company_id and project.id=request.project_id
            join organization_unit department on department.tenant_id=request.tenant_id and department.id=request.department_id
+           left join hr_master_record work_location on work_location.tenant_id=request.tenant_id and work_location.id=request.work_location_id
+           left join lateral (
+             select nullif(btrim(p.locality),'') as city from hr_work_location_profile p
+              where p.tenant_id=request.tenant_id and p.work_location_id=request.work_location_id and p.state in ('approved','active')
+                and p.effective_from<=current_date and (p.effective_to is null or p.effective_to>=current_date)
+              order by p.effective_from desc,p.id desc limit 1
+           ) work_location_city on true
           where ${filters.join(" and ")} order by request.created_at desc,request.id desc limit $${values.length}`,
         values,
       );
@@ -1189,12 +1420,18 @@ export class SourceHrRepository {
       const replay = await client.query<{request_fingerprint:string;response_body:HrManpowerRequisitionResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update", [context.tenantId,context.actor.userId,path,idempotencyKey]);
       if (replay.rows[0]) { if (replay.rows[0].request_fingerprint!==fingerprint) throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","The idempotency key was already used for another request."); await client.query("commit"); return {...replay.rows[0].response_body,replayed:true}; }
       const id=`manpower-requisition-${randomUUID()}`, reference=`MRQ-${new Date().getUTCFullYear()}-${randomUUID().replaceAll("-","").slice(0,6).toUpperCase()}`;
-      await client.query(`insert into hr_manpower_requisition (id,tenant_id,company_id,reference,job_title,designation_id,job_grade_id,employment_type_id,branch_id,department_id,positions_requested,position_type,replacement_employee_id,salary_minimum,salary_maximum,currency_code,target_start_date,reason,required_skills,created_by) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20)`, [id,context.tenantId,input.company_id,reference,input.job_title,input.designation_id,input.job_grade_id,input.employment_type_id,input.branch_id,input.department_id,input.positions_requested,input.position_type,input.replacement_employee_id??null,input.salary_minimum,input.salary_maximum,input.currency_code,input.target_start_date,input.reason,JSON.stringify(input.required_skills),context.actor.userId]);
+      await client.query(`insert into hr_manpower_requisition (id,tenant_id,company_id,reference,job_title,designation_id,job_grade_id,cost_center_id,branch_id,department_id,positions_requested,position_type,replacement_employee_id,salary_minimum,salary_maximum,currency_code,target_start_date,reason,required_skills,created_by,project_id,hiring_basis,work_arrangement,work_location_id) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20,$21,$22,$23,$24)`, [id,context.tenantId,input.company_id,reference,input.job_title,input.designation_id,input.job_grade_id,input.cost_center_id,input.branch_id??null,input.department_id,input.positions_requested,input.position_type,input.replacement_employee_id??null,input.salary_minimum,input.salary_maximum,input.currency_code,input.target_start_date,input.reason,JSON.stringify(input.required_skills),context.actor.userId,input.project_id,input.hiring_basis,input.work_arrangement,input.work_location_id??null]);
       const audit = await this.appendPlatformAudit(client,context,correlationId,"hr.manpower_requisition.create",{entityId:id,entityType:"hr_manpower_requisition",before:null,after:{reference,...input,state:"draft"}});
       const result:HrManpowerRequisitionResult={id,reference,state:"draft",company_id:input.company_id,audit_event_id:audit,replayed:false};
       await client.query("insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,201,$6,$7)",[context.tenantId,context.actor.userId,path,idempotencyKey,fingerprint,result,stateHash(result)]);
       await client.query("commit"); return result;
-    } catch(error) { await client.query("rollback").catch(()=>undefined); throw error; } finally { client.release(); }
+    } catch(error) {
+      await client.query("rollback").catch(()=>undefined);
+      if (error instanceof HrApiError) throw error;
+      const pg = error as { code?: string; message?: string };
+      if (pg.code === "23514" || pg.code === "23503") throw new HrApiError(409, "HR_MANPOWER_REQUISITION_INVALID", pg.code === "23514" && typeof pg.message === "string" && /must be (active|within)|replacement employee|are required/.test(pg.message) ? `The requisition is invalid: ${pg.message}.` : "The requisition references unavailable master data for this company.");
+      throw error;
+    } finally { client.release(); }
   }
 
   async submitManpowerRequisition(context: HrActorContext, id: string, input: SubmitHrManpowerRequisitionRequest, idempotencyKey: string, correlationId: string): Promise<HrManpowerRequisitionResult> {
@@ -1230,7 +1467,8 @@ export class SourceHrRepository {
     try{await client.query("begin");await client.query("select set_config('nexora.tenant_id',$1,true)",[context.tenantId]);await this.requireCompanyAccess(client,context,input.company_id);const path="/api/v1/hr/job_openings",fingerprint=stateHash(input);const replay=await client.query<{request_fingerprint:string;response_body:HrJobOpeningResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update",[context.tenantId,context.actor.userId,path,idempotencyKey]);if(replay.rows[0]){if(replay.rows[0].request_fingerprint!==fingerprint)throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","The idempotency key was already used for another request.");await client.query("commit");return {...replay.rows[0].response_body,replayed:true};}const id=`job-opening-${randomUUID()}`,reference=`JOP-${new Date().getUTCFullYear()}-${randomUUID().replaceAll("-","").slice(0,6).toUpperCase()}`;await client.query("insert into hr_job_opening (id,tenant_id,company_id,reference,requisition_id,title,positions_requested,channels,closing_on,created_by) values ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10)",[id,context.tenantId,input.company_id,reference,input.requisition_id,input.title,input.positions_requested,JSON.stringify(input.channels),input.closing_on??null,context.actor.userId]);const audit=await this.appendPlatformAudit(client,context,correlationId,"hr.job_opening.create",{entityId:id,entityType:"hr_job_opening",before:null,after:{reference,...input,state:"open"}});const result:HrJobOpeningResult={id,reference,state:"open",company_id:input.company_id,audit_event_id:audit,replayed:false};await client.query("insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,201,$6,$7)",[context.tenantId,context.actor.userId,path,idempotencyKey,fingerprint,result,stateHash(result)]);await client.query("commit");return result;}catch(error){await client.query("rollback").catch(()=>undefined);throw error;}finally{client.release();}
   }
   async changeJobOpeningState(context:HrActorContext,id:string,input:ChangeHrJobOpeningStateRequest,idempotencyKey:string,correlationId:string):Promise<HrJobOpeningResult>{
-    if(!validIdempotencyKey(idempotencyKey))throw new HrApiError(400,"INVALID_IDEMPOTENCY_KEY","The idempotency key is invalid.");if(!context.actor.permissions.includes("hr.employee.update"))throw new HrApiError(403,"PERMISSION_DENIED","You are not permitted to change job opening state.");const client=await this.pool.connect();try{await client.query("begin");await client.query("select set_config('nexora.tenant_id',$1,true)",[context.tenantId]);await this.requireCompanyAccess(client,context,input.company_id);const path=`/api/v1/hr/job_openings/${id}/state`,fingerprint=stateHash(input);const replay=await client.query<{request_fingerprint:string;response_body:HrJobOpeningResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update",[context.tenantId,context.actor.userId,path,idempotencyKey]);if(replay.rows[0]){if(replay.rows[0].request_fingerprint!==fingerprint)throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","The idempotency key was already used for another request.");await client.query("commit");return {...replay.rows[0].response_body,replayed:true};}const record=await client.query<{reference:string;company_id:string;state:HrJobOpeningResult["state"]}>("select reference,company_id,state from hr_job_opening where tenant_id=$1 and id=$2 and company_id=$3 for update",[context.tenantId,id,input.company_id]);const before=record.rows[0];if(!before)throw new HrApiError(404,"HR_JOB_OPENING_NOT_FOUND","The job opening is unavailable in your company scope.");if(before.state==="cancelled")throw new HrApiError(409,"HR_JOB_OPENING_FINAL","A cancelled job opening cannot change state.");await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_at=now() where tenant_id=$1 and id=$2",[context.tenantId,id,input.state,input.reason]);const audit=await this.appendPlatformAudit(client,context,correlationId,"hr.job_opening.state",{entityId:id,entityType:"hr_job_opening",before:{state:before.state},after:{state:input.state,reason:input.reason}});const result:HrJobOpeningResult={id,reference:before.reference,state:input.state,company_id:before.company_id,audit_event_id:audit,replayed:false};await client.query("insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,200,$6,$7)",[context.tenantId,context.actor.userId,path,idempotencyKey,fingerprint,result,stateHash(result)]);await client.query("commit");return result;}catch(error){await client.query("rollback").catch(()=>undefined);throw error;}finally{client.release();}
+    if(!validIdempotencyKey(idempotencyKey))throw new HrApiError(400,"INVALID_IDEMPOTENCY_KEY","The idempotency key is invalid.");if(!context.actor.permissions.includes("hr.employee.update"))throw new HrApiError(403,"PERMISSION_DENIED","You are not permitted to change job opening state.");const client=await this.pool.connect();try{await client.query("begin");await client.query("select set_config('nexora.tenant_id',$1,true)",[context.tenantId]);await this.requireCompanyAccess(client,context,input.company_id);const path=`/api/v1/hr/job_openings/${id}/state`,fingerprint=stateHash(input);const replay=await client.query<{request_fingerprint:string;response_body:HrJobOpeningResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update",[context.tenantId,context.actor.userId,path,idempotencyKey]);if(replay.rows[0]){if(replay.rows[0].request_fingerprint!==fingerprint)throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","The idempotency key was already used for another request.");await client.query("commit");return {...replay.rows[0].response_body,replayed:true};}const record=await client.query<{reference:string;company_id:string;state:HrJobOpeningResult["state"]}>("select reference,company_id,state from hr_job_opening where tenant_id=$1 and id=$2 and company_id=$3 for update",[context.tenantId,id,input.company_id]);const before=record.rows[0];if(!before)throw new HrApiError(404,"HR_JOB_OPENING_NOT_FOUND","The job opening is unavailable in your company scope.");// A cancelled opening may be reopened; the opening trigger re-checks approved headcount.
+await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_at=now() where tenant_id=$1 and id=$2",[context.tenantId,id,input.state,input.reason]);const audit=await this.appendPlatformAudit(client,context,correlationId,"hr.job_opening.state",{entityId:id,entityType:"hr_job_opening",before:{state:before.state},after:{state:input.state,reason:input.reason}});const result:HrJobOpeningResult={id,reference:before.reference,state:input.state,company_id:before.company_id,audit_event_id:audit,replayed:false};await client.query("insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,200,$6,$7)",[context.tenantId,context.actor.userId,path,idempotencyKey,fingerprint,result,stateHash(result)]);await client.query("commit");return result;}catch(error){await client.query("rollback").catch(()=>undefined);if(typeof error==="object"&&error!==null&&"code" in error&&error.code==="23514")throw new HrApiError(409,"HR_JOB_OPENING_STATE_REFUSED",`The opening cannot move to this state: ${String((error as {message?:unknown}).message)}.`);throw error;}finally{client.release();}
   }
 
   async listCandidates(context: HrActorContext, query: HrCandidateQuery): Promise<HrCandidateDirectory> {
@@ -1291,6 +1529,8 @@ export class SourceHrRepository {
       const values: unknown[] = [context.tenantId, query.company_id];
       const filters = ["a.tenant_id=$1", "a.company_id=$2"];
       if (query.stage) { values.push(query.stage); filters.push(`a.stage=$${values.length}`); }
+      // Same rule as the offer-context blocker: no open or approved offer may already exist.
+      if (query.available_for_offer === "true") filters.push("not exists(select 1 from hr_recruitment_offer existing where existing.tenant_id=a.tenant_id and existing.application_id=a.id and existing.state in ('draft','submitted','approved','generated','sent','accepted'))");
       if (query.search) { values.push(`%${query.search}%`); filters.push(`(a.reference ilike $${values.length} or concat_ws(' ',c.first_name,c.last_name) ilike $${values.length} or c.email ilike $${values.length} or o.title ilike $${values.length})`); }
       const joins = "from hr_recruitment_application a join hr_candidate c on c.tenant_id=a.tenant_id and c.id=a.candidate_id join hr_job_opening o on o.tenant_id=a.tenant_id and o.id=a.opening_id";
       const count = await client.query<{total: number}>(`select count(*)::int as total ${joins} where ${filters.join(" and ")}`, values);
@@ -1507,11 +1747,11 @@ export class SourceHrRepository {
     this.requireOfferRead(context);return this.read(context,"hr.employee.read",async client=>{await this.requireCompanyAccess(client,context,query.company_id);return this.readOfferContext(client,context,query.company_id,query.application_id);});
   }
   private async readOfferContext(client: PoolClient, context: HrActorContext, companyId:string, applicationId:string, excludeOfferId=""): Promise<HrOfferContext> {
-    const result=await client.query<HrOfferContext & {application_stage:string;candidate_status:string;opening_state:string;requisition_state:string;active_offer:boolean}>(`select a.id as application_id,a.reference as application_reference,concat_ws(' ',c.first_name,c.last_name) as candidate_name,company.name as company_name,o.id as opening_id,o.title as opening_title,o.reference as opening_reference,r.id as requisition_id,r.reference as requisition_reference,r.designation_id,designation.name as designation,r.job_grade_id,grade.name as job_grade,r.employment_type_id,et.name as employment_type,r.branch_id,branch.name as branch,r.department_id,department.name as department,r.salary_minimum::text,r.salary_maximum::text,r.currency_code,o.positions_requested::int as positions_authorized,
-      (select count(*)::int from hr_recruitment_offer reserved where reserved.tenant_id=a.tenant_id and reserved.opening_id=o.id and (reserved.state='accepted' or (reserved.state in ('approved','generated','sent') and reserved.valid_until>=current_date))) as positions_reserved,
+    const result=await client.query<HrOfferContext & {application_stage:string;candidate_status:string;opening_state:string;requisition_state:string;active_offer:boolean}>(`select a.id as application_id,a.reference as application_reference,concat_ws(' ',c.first_name,c.last_name) as candidate_name,company.name as company_name,o.id as opening_id,o.title as opening_title,o.reference as opening_reference,r.id as requisition_id,r.reference as requisition_reference,r.designation_id,designation.name as designation,r.job_grade_id,grade.name as job_grade,r.employment_setup_id,es.name as employment_setup,r.cost_center_id,coalesce(rcc.payment_route,es.payment_route) as payment_route,coalesce(rcc.pay_cycle,es.pay_cycle) as pay_cycle,branch.id as branch_id,branch.name as branch,project.name as project,r.hiring_basis,r.department_id,department.name as department,r.salary_minimum::text,r.salary_maximum::text,r.currency_code,o.positions_requested::int as positions_authorized,
+      (select count(*)::int from hr_recruitment_offer reserved where reserved.tenant_id=a.tenant_id and reserved.opening_id=o.id and (reserved.state='accepted' or exists(select 1 from hr_offer_employee_handoff h where h.tenant_id=reserved.tenant_id and h.offer_id=reserved.id) or (reserved.state in ('approved','generated','sent') and reserved.valid_until>=current_date))) as positions_reserved,
       current_date::text as today,a.stage as application_stage,c.status as candidate_status,o.state as opening_state,r.state as requisition_state,
       exists(select 1 from hr_recruitment_offer existing where existing.tenant_id=a.tenant_id and existing.application_id=a.id and existing.id<>$4 and existing.state in ('draft','submitted','approved','generated','sent','accepted')) as active_offer
-      from hr_recruitment_application a join hr_candidate c on c.tenant_id=a.tenant_id and c.id=a.candidate_id join organization_unit company on company.tenant_id=a.tenant_id and company.id=a.company_id join hr_job_opening o on o.tenant_id=a.tenant_id and o.id=a.opening_id join hr_manpower_requisition r on r.tenant_id=o.tenant_id and r.id=o.requisition_id join hr_master_record designation on designation.tenant_id=r.tenant_id and designation.id=r.designation_id join hr_master_record grade on grade.tenant_id=r.tenant_id and grade.id=r.job_grade_id join hr_master_record et on et.tenant_id=r.tenant_id and et.id=r.employment_type_id join organization_unit branch on branch.tenant_id=r.tenant_id and branch.id=r.branch_id join organization_unit department on department.tenant_id=r.tenant_id and department.id=r.department_id where a.tenant_id=$1 and a.company_id=$2 and a.id=$3`,[context.tenantId,companyId,applicationId,excludeOfferId]);
+      from hr_recruitment_application a join hr_candidate c on c.tenant_id=a.tenant_id and c.id=a.candidate_id join organization_unit company on company.tenant_id=a.tenant_id and company.id=a.company_id join hr_job_opening o on o.tenant_id=a.tenant_id and o.id=a.opening_id join hr_manpower_requisition r on r.tenant_id=o.tenant_id and r.id=o.requisition_id join hr_master_record designation on designation.tenant_id=r.tenant_id and designation.id=r.designation_id join hr_master_record grade on grade.tenant_id=r.tenant_id and grade.id=r.job_grade_id left join hr_master_record es on es.tenant_id=r.tenant_id and es.id=r.employment_setup_id left join hr_master_record rcc on rcc.tenant_id=r.tenant_id and rcc.id=r.cost_center_id join organization_unit department on department.tenant_id=r.tenant_id and department.id=r.department_id left join lateral (with recursive up(id,parent_id,type,depth) as (select u.id,u.parent_id,u.type,0 from organization_unit u where u.tenant_id=department.tenant_id and u.id=department.parent_id union all select p.id,p.parent_id,p.type,up.depth+1 from organization_unit p join up on p.id=up.parent_id where p.tenant_id=department.tenant_id and up.depth<16) select id from up where type='branch' order by depth limit 1) ancestor_branch on true left join organization_unit branch on branch.tenant_id=r.tenant_id and branch.type='branch' and branch.id=coalesce(r.branch_id,ancestor_branch.id) left join erp_project project on project.tenant_id=r.tenant_id and project.company_id=r.company_id and project.id=r.project_id where a.tenant_id=$1 and a.company_id=$2 and a.id=$3`,[context.tenantId,companyId,applicationId,excludeOfferId]);
     const row=result.rows[0];if(!row)throw new HrApiError(404,"HR_APPLICATION_NOT_FOUND","The application is unavailable in your company scope.");
     const {application_stage,candidate_status,opening_state,requisition_state,active_offer,...facts}=row;
     const blockers:string[]=[];
@@ -1519,7 +1759,8 @@ export class SourceHrRepository {
     if(candidate_status!=="active")blockers.push("The candidate must be active.");
     if(opening_state!=="open")blockers.push("The job opening must be open.");
     if(requisition_state!=="approved")blockers.push("An approved manpower requisition is required.");
-    if(active_offer)blockers.push("An active or accepted offer already exists for this application.");
+    if(!facts.branch_id)blockers.push("The requisition department must sit under a branch before an offer can be prepared.");
+    if(active_offer)blockers.push("An open or approved offer already exists for this application.");
     return {...facts,blockers};
   }
   private offerColumns(): string {return `o.id,o.reference,o.company_id,o.application_id,a.reference as application_reference,concat_ws(' ',c.first_name,c.last_name) as candidate_name,j.title as opening_title,o.state,o.version,o.proposed_gross::text,o.currency_code,o.joining_on::text,o.valid_until::text,(o.valid_until<current_date and o.state in ('draft','submitted','approved','generated','sent')) as is_overdue,(o.proposed_gross<o.salary_minimum or o.proposed_gross>o.salary_maximum) as outside_range,o.created_at`;}
@@ -1530,6 +1771,9 @@ export class SourceHrRepository {
       const values:unknown[]=[context.tenantId,query.company_id],filters=["o.tenant_id=$1","o.company_id=$2"];
       if(query.search){values.push(`%${query.search}%`);filters.push(`(o.reference ilike $${values.length} or concat_ws(' ',c.first_name,c.last_name) ilike $${values.length} or j.title ilike $${values.length})`);}
       if(query.state){values.push(query.state);filters.push(`o.state=$${values.length}`);}
+      // preparation = Offer Management (draft/submitted); decided = Create Employee from Offer (everything after).
+      if(query.stage==='preparation')filters.push(`o.state in ('draft','submitted')`);
+      if(query.stage==='decided')filters.push(`o.state not in ('draft','submitted')`);
       const count=await client.query<{total:number}>(`select count(*)::int as total ${this.offerJoins()} where ${filters.join(" and ")}`,values);
       values.push(query.limit,query.offset);
       const result=await client.query<HrOfferDirectory["items"][number] & {created_at:Date}>(`select ${this.offerColumns()} ${this.offerJoins()} where ${filters.join(" and ")} order by o.created_at desc,o.id desc limit $${values.length-1} offset $${values.length}`,values);
@@ -1540,7 +1784,7 @@ export class SourceHrRepository {
     this.requireOfferRead(context);return this.read(context,"hr.employee.read",async client=>{await this.requireCompanyAccess(client,context,companyId);return this.readOfferDetail(client,context,companyId,id);});
   }
   private async readOfferDetail(client:PoolClient, context:HrActorContext, companyId:string, id:string):Promise<HrOfferDetail> {
-    const record=await client.query<Omit<HrOfferDetail,"context"|"history"|"created_at"> & {created_at:Date;salary_minimum:string;salary_maximum:string}>(`select ${this.offerColumns()},o.probation_months,o.notice_days,o.cost_center_id,cc.name as cost_center,o.work_location_id,wl.name as work_location,o.employee_category_id,ec.name as employee_category,o.reporting_manager_id,case when manager.id is null then null else concat_ws(' ',manager.first_name,manager.last_name) end as reporting_manager,o.note,o.range_exception_reason,o.created_by,o.submitted_by,o.approved_by,o.exception_approved_by,o.approval_override_event_id,o.document_text,o.delivery_reference,o.response_reference,o.responded_on::text,o.salary_minimum::text,o.salary_maximum::text ${this.offerJoins()} join hr_master_record cc on cc.tenant_id=o.tenant_id and cc.id=o.cost_center_id join hr_master_record wl on wl.tenant_id=o.tenant_id and wl.id=o.work_location_id join hr_master_record ec on ec.tenant_id=o.tenant_id and ec.id=o.employee_category_id left join employee manager on manager.tenant_id=o.tenant_id and manager.id=o.reporting_manager_id where o.tenant_id=$1 and o.company_id=$2 and o.id=$3`,[context.tenantId,companyId,id]);
+    const record=await client.query<Omit<HrOfferDetail,"context"|"history"|"created_at"> & {created_at:Date;salary_minimum:string;salary_maximum:string}>(`select ${this.offerColumns()},o.probation_months,o.notice_days,o.cost_center_id,cc.name as cost_center,o.work_location_id,wl.name as work_location,o.employment_setup_id,es.name as employment_setup,coalesce(cc.payment_route,es.payment_route) as payment_route,coalesce(cc.pay_cycle,es.pay_cycle) as pay_cycle,o.reporting_manager_id,case when manager.id is null then null else concat_ws(' ',manager.first_name,manager.last_name) end as reporting_manager,o.note,o.range_exception_reason,o.created_by,o.submitted_by,o.approved_by,o.exception_approved_by,o.approval_override_event_id,o.document_text,o.delivery_reference,o.response_reference,o.responded_on::text,o.salary_minimum::text,o.salary_maximum::text ${this.offerJoins()} join hr_master_record cc on cc.tenant_id=o.tenant_id and cc.id=o.cost_center_id join hr_master_record wl on wl.tenant_id=o.tenant_id and wl.id=o.work_location_id left join hr_master_record es on es.tenant_id=o.tenant_id and es.id=o.employment_setup_id left join employee manager on manager.tenant_id=o.tenant_id and manager.id=o.reporting_manager_id where o.tenant_id=$1 and o.company_id=$2 and o.id=$3`,[context.tenantId,companyId,id]);
     const row=record.rows[0];if(!row)throw new HrApiError(404,"HR_OFFER_NOT_FOUND","The offer is unavailable in your company scope.");
     const ctx=await this.readOfferContext(client,context,companyId,row.application_id,id);
     const history=await client.query<HrOfferDetail["history"][number] & {occurred_at:Date}>(`select e.id,e.action,e.from_state,e.to_state,e.reason,e.evidence_reference,e.actor_id,coalesce(u.display_name,u.email,e.actor_id) as actor_name,e.occurred_at from hr_recruitment_offer_event e left join security_user_account u on u.tenant_id=e.tenant_id and u.id=e.actor_id where e.tenant_id=$1 and e.offer_id=$2 order by e.occurred_at,e.id`,[context.tenantId,id]);
@@ -1550,20 +1794,23 @@ export class SourceHrRepository {
   async createOffer(context:HrActorContext,input:CreateHrOfferRequest,key:string,corr:string):Promise<HrOfferResult>{return this.mutateOffer(context,input,key,corr);}
   async updateOffer(context:HrActorContext,id:string,input:UpdateHrOfferRequest,key:string,corr:string):Promise<HrOfferResult>{return this.mutateOffer(context,input,key,corr,id);}
   async performOfferAction(context:HrActorContext,id:string,input:HrOfferActionRequest,key:string,corr:string):Promise<HrOfferResult>{return this.mutateOffer(context,input,key,corr,id);}
-  private async validateOfferTerms(client:PoolClient,context:HrActorContext,ctx:HrOfferContext,terms:CreateHrOfferRequest|UpdateHrOfferRequest):Promise<void>{
+  /** Validates offer terms and returns the range-exception reason to store (optional; standard text when out of range and blank). */
+  private async validateOfferTerms(client:PoolClient,context:HrActorContext,ctx:HrOfferContext,terms:CreateHrOfferRequest|UpdateHrOfferRequest):Promise<string>{
     if(terms.valid_until<ctx.today || terms.joining_on<ctx.today || terms.valid_until>terms.joining_on)throw new HrApiError(400,"HR_OFFER_DATES_INVALID","Validity and joining dates must be current or future, with validity on or before joining.");
     const range=await client.query<{outside:boolean}>("select $1::numeric<$2::numeric or $1::numeric>$3::numeric as outside",[terms.proposed_gross,ctx.salary_minimum,ctx.salary_maximum]);
-    if(range.rows[0]!.outside&&!terms.range_exception_reason.trim())throw new HrApiError(400,"HR_OFFER_EXCEPTION_REASON_REQUIRED","Explain the proposed compensation exception before submitting an out-of-range offer.");
-    for(const [id,type] of [[terms.cost_center_id,"cost_center"],[terms.work_location_id,"work_location"],[terms.employee_category_id,"employee_category"],[ctx.designation_id,"designation"],[ctx.job_grade_id,"job_grade"],[ctx.employment_type_id,"employment_type"]]){
+    const exceptionReason=range.rows[0]!.outside?(terms.range_exception_reason.trim()||HR_DEFAULT_REASON):terms.range_exception_reason;
+    for(const [id,type] of [[terms.cost_center_id,"cost_center"],[terms.work_location_id,"work_location"],[ctx.designation_id,"designation"],[ctx.job_grade_id,"job_grade"]]){
       const record=await client.query("select id from hr_master_record where tenant_id=$1 and company_id=$2 and id=$3 and master_type=$4 and status='active' for share",[context.tenantId,terms.company_id,id,type]);
       if(!record.rowCount)throw new HrApiError(409,"HR_OFFER_MASTER_INVALID","All offer placement and employment masters must be active in this company.");
     }
-    const organization=await client.query("select branch.id from organization_unit branch join organization_unit department on department.tenant_id=branch.tenant_id and department.parent_id=branch.id and department.id=$4 and department.status='active' where branch.tenant_id=$1 and branch.id=$3 and branch.parent_id=$2 and branch.status='active'",[context.tenantId,terms.company_id,ctx.branch_id,ctx.department_id]);
+    // The department may sit directly under the project (branch) or under one of its locations.
+    const organization=await client.query("select branch.id from organization_unit branch join organization_unit department on department.tenant_id=branch.tenant_id and department.id=$4 and department.type='department' and department.status='active' and organization_unit_is_within_company(branch.tenant_id,department.id,branch.id) where branch.tenant_id=$1 and branch.id=$3 and branch.status='active' and organization_unit_is_within_company(branch.tenant_id,branch.id,$2)",[context.tenantId,terms.company_id,ctx.branch_id,ctx.department_id]);
     if(!organization.rowCount)throw new HrApiError(409,"HR_OFFER_MASTER_INVALID","The approved branch and department must remain active in this company.");
     if(terms.reporting_manager_id){
       const manager=await client.query("select e.id from employee e join employee_assignment a on a.tenant_id=e.tenant_id and a.employee_id=e.id where e.tenant_id=$1 and e.id=$2 and e.status in ('active','probation','confirmed') and a.company_id=$3 and a.assignment_status in ('active','legacy_compatibility') and a.effective_from<=current_date and (a.effective_to is null or a.effective_to>=current_date) limit 1",[context.tenantId,terms.reporting_manager_id,terms.company_id]);
       if(!manager.rowCount)throw new HrApiError(409,"HR_OFFER_MANAGER_INVALID","Select an active reporting manager in this company.");
     }
+    return exceptionReason;
   }
   private async mutateOffer(context:HrActorContext,input:CreateHrOfferRequest|UpdateHrOfferRequest|HrOfferActionRequest,key:string,corr:string,offerId?:string):Promise<HrOfferResult>{
     this.requireOfferRead(context);
@@ -1594,24 +1841,27 @@ export class SourceHrRepository {
       if(create && ctx.positions_reserved>=ctx.positions_authorized)throw new HrApiError(409,"HR_OFFER_HEADCOUNT_EXCEEDED","All authorized positions are already reserved.");
       if(!("action" in input)){
         if(before&&before.state!=="draft")throw new HrApiError(409,"HR_OFFER_TERMS_FROZEN","Only draft offer terms can be edited. Withdraw this offer and prepare a new version if needed.");
-        await this.validateOfferTerms(client,context,ctx,input);
-        const terms=[input.proposed_gross,input.joining_on,input.valid_until,input.probation_months,input.notice_days,input.cost_center_id,input.work_location_id,input.employee_category_id,input.reporting_manager_id,input.note,input.range_exception_reason];
-        if(create)await client.query("insert into hr_recruitment_offer (tenant_id,id,company_id,application_id,opening_id,requisition_id,reference,designation_id,job_grade_id,employment_type_id,branch_id,department_id,salary_minimum,salary_maximum,currency_code,created_by,proposed_gross,joining_on,valid_until,probation_months,notice_days,cost_center_id,work_location_id,employee_category_id,reporting_manager_id,note,range_exception_reason) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)",[context.tenantId,id,input.company_id,appId,ctx.opening_id,ctx.requisition_id,reference,ctx.designation_id,ctx.job_grade_id,ctx.employment_type_id,ctx.branch_id,ctx.department_id,ctx.salary_minimum,ctx.salary_maximum,ctx.currency_code,context.actor.userId,...terms]);
-        else{await client.query("update hr_recruitment_offer set proposed_gross=$3,joining_on=$4,valid_until=$5,probation_months=$6,notice_days=$7,cost_center_id=$8,work_location_id=$9,employee_category_id=$10,reporting_manager_id=$11,note=$12,range_exception_reason=$13,version=version+1,updated_at=now() where tenant_id=$1 and id=$2",[context.tenantId,id,...terms]);version++;reason="Draft offer terms updated.";}
+        const exceptionReason=await this.validateOfferTerms(client,context,ctx,input);
+        const terms=[input.proposed_gross,input.joining_on,input.valid_until,input.probation_months,input.notice_days,input.cost_center_id,input.work_location_id,null,input.reporting_manager_id,input.note,exceptionReason];
+        if(create)await client.query("insert into hr_recruitment_offer (tenant_id,id,company_id,application_id,opening_id,requisition_id,reference,designation_id,job_grade_id,branch_id,department_id,salary_minimum,salary_maximum,currency_code,created_by,proposed_gross,joining_on,valid_until,probation_months,notice_days,cost_center_id,work_location_id,employment_setup_id,reporting_manager_id,note,range_exception_reason) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)",[context.tenantId,id,input.company_id,appId,ctx.opening_id,ctx.requisition_id,reference,ctx.designation_id,ctx.job_grade_id,ctx.branch_id,ctx.department_id,ctx.salary_minimum,ctx.salary_maximum,ctx.currency_code,context.actor.userId,...terms]);
+        else{await client.query("update hr_recruitment_offer set proposed_gross=$3,joining_on=$4,valid_until=$5,probation_months=$6,notice_days=$7,cost_center_id=$8,work_location_id=$9,employment_setup_id=$10,reporting_manager_id=$11,note=$12,range_exception_reason=$13,version=version+1,updated_at=now() where tenant_id=$1 and id=$2",[context.tenantId,id,...terms]);version++;reason="Draft offer terms updated.";}
       }else{
         reason=input.reason;evidence=input.evidence_reference;
-        const transitions:Record<string,readonly string[]>={submit:["draft"],approve:["submitted"],reject_approval:["submitted"],generate:["approved"],record_sent:["generated"],accept:["sent"],decline:["sent"],withdraw:["draft","submitted","approved","generated","sent"],expire:["draft","submitted","approved","generated","sent"]};
+        // Offer workflow: Draft -> Submitted -> Approved or Rejected; Withdrawn from Draft, Submitted or Approved.
+        // Letter generation, delivery, acceptance, decline and expiry are retired (earlier records keep their state).
+        const transitions:Record<string,readonly string[]>={submit:["draft"],approve:["submitted"],reject_approval:["submitted"],withdraw:["draft","submitted","approved"]};
         if(!transitions[input.action]?.includes(state))throw new HrApiError(409,"HR_OFFER_TRANSITION_INVALID","This offer cannot perform the requested action in its current state.");
+        if(input.action==="withdraw"&&(await client.query("select 1 from hr_offer_employee_handoff where tenant_id=$1 and offer_id=$2",[context.tenantId,id])).rowCount)throw new HrApiError(409,"HR_OFFER_EMPLOYEE_EXISTS","An employee was already created from this offer, so it cannot be withdrawn.");
         if(input.action==="expire"&&!before!.is_overdue)throw new HrApiError(409,"HR_OFFER_NOT_EXPIRED","The offer validity date has not passed.");
         if(!closing&&(before!.valid_until<ctx.today||before!.joining_on<ctx.today))throw new HrApiError(409,"HR_OFFER_EXPIRED","This offer's validity or joining date has passed. Withdraw or expire it and prepare new terms.");
         if(["approve","generate","record_sent","accept"].includes(input.action)){
-          await this.validateOfferTerms(client,context,ctx,{...before!,company_id:input.company_id,expected_version:before!.version});
-          const reservations=await client.query<{count:number}>("select count(*)::int as count from hr_recruitment_offer where tenant_id=$1 and opening_id=$2 and id<>$3 and (state='accepted' or (state in ('approved','generated','sent') and valid_until>=current_date))",[context.tenantId,ctx.opening_id,id]);
+          await this.validateOfferTerms(client,context,ctx,{...before!,company_id:input.company_id,expected_version:before!.version,employment_setup_id:undefined});
+          const reservations=await client.query<{count:number}>("select count(*)::int as count from hr_recruitment_offer o where tenant_id=$1 and opening_id=$2 and id<>$3 and (state='accepted' or exists(select 1 from hr_offer_employee_handoff h where h.tenant_id=o.tenant_id and h.offer_id=o.id) or (state in ('approved','generated','sent') and valid_until>=current_date))",[context.tenantId,ctx.opening_id,id]);
           if(reservations.rows[0]!.count>=ctx.positions_authorized)throw new HrApiError(409,"HR_OFFER_HEADCOUNT_EXCEEDED","All authorized positions are reserved by approved or accepted offers.");
         }
         let extra="",values:unknown[]=[context.tenantId,id];
         if(input.action==="submit"){
-          await this.validateOfferTerms(client,context,ctx,{...before!,company_id:input.company_id,expected_version:before!.version});
+          await this.validateOfferTerms(client,context,ctx,{...before!,company_id:input.company_id,expected_version:before!.version,employment_setup_id:undefined});
           state="submitted";values.push(context.actor.userId);extra=",submitted_by=$4";
         }else if(input.action==="approve"||input.action==="reject_approval"){
           if(input.action==="approve"&&before!.outside_range&&(!input.approve_range_exception||!context.actor.permissions.includes("hr.payroll.salary.approve")))throw new HrApiError(403,"HR_OFFER_EXCEPTION_APPROVAL_REQUIRED","Out-of-range compensation requires explicit approval and salary approval permission.");
@@ -1619,7 +1869,7 @@ export class SourceHrRepository {
           state=input.action==="approve"?"approved":"rejected";values.push(context.actor.userId,input.reason,input.action==="approve"&&before!.outside_range?context.actor.userId:null,override);extra=",approved_by=$4,approved_at=now(),approval_reason=$5,exception_approved_by=$6,approval_override_event_id=$7";
         }else if(input.action==="generate"){
           const approver=await client.query<{name:string}>("select coalesce(display_name,email) as name from security_user_account where tenant_id=$1 and id=$2",[context.tenantId,before!.approved_by]);
-          const offer=before!;const letter=[ctx.company_name,"EMPLOYMENT OFFER",`Reference: ${reference}`,`Candidate: ${offer.candidate_name}`,"",`We are pleased to offer you the position of ${ctx.designation} (${ctx.job_grade}), ${ctx.department}, ${ctx.branch}.`,`Employment type: ${ctx.employment_type}`,`Monthly gross compensation: ${offer.currency_code} ${offer.proposed_gross}`,`Joining date: ${offer.joining_on}`,`Offer valid through: ${offer.valid_until}`,`Probation: ${offer.probation_months} months. Notice: ${offer.notice_days} days.`,`Work location: ${offer.work_location}`,`Employee category: ${offer.employee_category}`,`Reporting manager: ${offer.reporting_manager??"To be assigned"}`,offer.note?`Additional terms: ${offer.note}`:"", "Please confirm your acceptance before the validity date.",`Approved by: ${approver.rows[0]?.name ?? offer.approved_by}`].filter(Boolean).join("\n");
+          const offer=before!;const letter=[ctx.company_name,"EMPLOYMENT OFFER",`Reference: ${reference}`,`Candidate: ${offer.candidate_name}`,"",`We are pleased to offer you the position of ${ctx.designation} (${ctx.job_grade}), ${ctx.department}, ${ctx.branch}.`,`Payment terms: ${offer.payment_route === "accounts_payable" ? "Accounts payable" : offer.payment_route === "stipend" ? "Stipend" : "Payroll"} (${offer.pay_cycle} pay cycle)`,`Monthly gross compensation: ${offer.currency_code} ${offer.proposed_gross}`,`Joining date: ${offer.joining_on}`,`Offer valid through: ${offer.valid_until}`,`Probation: ${offer.probation_months} months. Notice: ${offer.notice_days} days.`,`Work location: ${offer.work_location}`,`Reporting manager: ${offer.reporting_manager??"To be assigned"}`,offer.note?`Additional terms: ${offer.note}`:"", "Please confirm your acceptance before the validity date.",`Approved by: ${approver.rows[0]?.name ?? offer.approved_by}`].filter(Boolean).join("\n");
           state="generated";values.push(letter);extra=",document_text=$4";
         }else if(input.action==="record_sent"){state="sent";values.push(input.evidence_reference);extra=",delivery_reference=$4";
         }else if(input.action==="accept"||input.action==="decline"){
@@ -1634,7 +1884,7 @@ export class SourceHrRepository {
       const audit=await this.appendPlatformAudit(client,context,corr,"hr.offer.action",{entityId:id,entityType:"hr_recruitment_offer",before:before?{state:before.state,version:before.version}:null,after:{...input,reference,state,version}});
       const output:HrOfferResult={id,reference,state,version,audit_event_id:audit,replayed:false};
       await client.query("insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,$6,$7,$8)",[context.tenantId,context.actor.userId,path,key,fingerprint,create?201:200,output,stateHash(output)]);await client.query("commit");return output;
-    }catch(error){await client.query("rollback").catch(()=>undefined);if(typeof error==="object"&&error!==null&&"constraint" in error&&error.constraint==="uq_hr_offer_active_application")throw new HrApiError(409,"HR_OFFER_EXISTS","An active or accepted offer already exists for this application.");throw error;}finally{client.release();}
+    }catch(error){await client.query("rollback").catch(()=>undefined);if(typeof error==="object"&&error!==null&&"constraint" in error&&error.constraint==="uq_hr_offer_active_application")throw new HrApiError(409,"HR_OFFER_EXISTS","An active or accepted offer already exists for this application.");const message=String((error as {message?:string}).message??"");if(message.startsWith("offer employment setup must be active"))throw new HrApiError(409,"HR_OFFER_MASTER_INVALID","The offer employment setup must be active in the offer company.");if(message==="Submitted offer terms are immutable")throw new HrApiError(409,"HR_OFFER_TERMS_LOCKED","Submitted offer terms, including the employment setup, cannot be changed.");throw error;}finally{client.release();}
   }
 
   async getOfferEmployeeWorkspace(context:HrActorContext, companyId:string, offerId:string):Promise<HrOfferEmployeeWorkspace> {
@@ -1649,7 +1899,8 @@ export class SourceHrRepository {
         (select r.approval_state from hr_employment_lifecycle_request r join hr_employment_relationship er on er.tenant_id=r.tenant_id and er.id=r.relationship_id join hr_employment_lifecycle_transition t on t.tenant_id=r.tenant_id and t.id=r.transition_id where er.tenant_id=h.tenant_id and er.employee_id=h.employee_id and er.legal_employer_id=h.company_id and t.event_type='hire' order by r.requested_at desc,r.id desc limit 1) as hire_state,
         h.created_at,h.created_by,h.reason from hr_offer_employee_handoff h join employee e on e.tenant_id=h.tenant_id and e.id=h.employee_id left join hr_employee_draft_approval p on p.tenant_id=e.tenant_id and p.employee_id=e.id where h.tenant_id=$1 and h.company_id=$2 and h.offer_id=$3`,[context.tenantId,companyId,offerId]);
       const blockers:string[]=[];
-      if(offer.state!=="accepted")blockers.push("Record acceptance of the approved and delivered offer first.");
+      if(!["approved","accepted"].includes(offer.state))blockers.push("Only approved offers can become employees.");
+      else if(offer.state==="approved"&&offer.is_overdue&&!handoff.rowCount)blockers.push("The offer validity date has passed. Withdraw it and prepare a new offer.");
       if(stage!=="selected" && !handoff.rowCount)blockers.push("The application must remain selected until the governed hire is approved.");
       if(status!=="active" && !handoff.rowCount)blockers.push("The candidate must be active.");
       const duplicate=await client.query("select 1 from hr_offer_employee_handoff where tenant_id=$1 and company_id=$2 and candidate_id=$3 and offer_id<>$4",[context.tenantId,companyId,candidate.id,offerId]);
@@ -1675,9 +1926,10 @@ export class SourceHrRepository {
       const path=`/api/v1/hr/recruitment_offers/${offerId}/employee`, fingerprint=stateHash(input);
       const replay=await client.query<{request_fingerprint:string;response_body:HrOfferEmployeeResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4",[context.tenantId,context.actor.userId,path,key]);
       if(replay.rows[0]){if(replay.rows[0].request_fingerprint!==fingerprint)throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","This request key was already used for another employee handoff.");await client.query("commit");return {...replay.rows[0].response_body,replayed:true};}
-      const source=await client.query<{application_id:string;candidate_id:string;first_name:string;last_name:string;email:string;phone:string;joining_on:string;version:number;state:string;stage:string;candidate_status:string}>(`select o.application_id,a.candidate_id,c.first_name,c.last_name,c.email,c.phone,o.joining_on::text,o.version,o.state,a.stage,c.status as candidate_status from hr_recruitment_offer o join hr_recruitment_application a on a.tenant_id=o.tenant_id and a.id=o.application_id join hr_candidate c on c.tenant_id=a.tenant_id and c.id=a.candidate_id where o.tenant_id=$1 and o.company_id=$2 and o.id=$3 for update of a,c`,[context.tenantId,input.company_id,offerId]);
+      const source=await client.query<{application_id:string;candidate_id:string;first_name:string;last_name:string;email:string;phone:string;joining_on:string;version:number;state:string;stage:string;candidate_status:string;overdue:boolean}>(`select o.application_id,a.candidate_id,c.first_name,c.last_name,c.email,c.phone,o.joining_on::text,o.version,o.state,a.stage,c.status as candidate_status,(o.valid_until<current_date) as overdue from hr_recruitment_offer o join hr_recruitment_application a on a.tenant_id=o.tenant_id and a.id=o.application_id join hr_candidate c on c.tenant_id=a.tenant_id and c.id=a.candidate_id where o.tenant_id=$1 and o.company_id=$2 and o.id=$3 for update of a,c`,[context.tenantId,input.company_id,offerId]);
       const row=source.rows[0];if(!row)throw new HrApiError(404,"HR_OFFER_NOT_FOUND","The offer is unavailable in your company scope.");
-      if(row.state!=="accepted" || row.stage!=="selected" || row.candidate_status!=="active")throw new HrApiError(409,"HR_OFFER_HANDOFF_NOT_READY","An accepted offer, selected application and active candidate are required.");
+      // Employees are created only from approved offers (earlier accepted offers remain convertible).
+      if(!(row.state==="accepted"||(row.state==="approved"&&!row.overdue)) || row.stage!=="selected" || row.candidate_status!=="active")throw new HrApiError(409,"HR_OFFER_HANDOFF_NOT_READY","An approved offer within its validity, a selected application and an active candidate are required.");
       if(row.version!==input.expected_version)throw new HrApiError(409,"HR_OFFER_STALE","The offer changed. Refresh before creating the employee.");
       const existing=await client.query("select 1 from hr_offer_employee_handoff where tenant_id=$1 and (offer_id=$2 or employee_id in (select id from employee where tenant_id=$1 and employee_number=$3) or (company_id=$4 and candidate_id=$5))",[context.tenantId,offerId,input.employee_number,input.company_id,row.candidate_id]);
       if(existing.rowCount)throw new HrApiError(409,"HR_OFFER_EMPLOYEE_EXISTS","This offer or candidate already has an employee handoff. Open the existing record; another employee was not created.");
@@ -1693,8 +1945,8 @@ export class SourceHrRepository {
   }
 
   private async requireOfferAssignmentMatch(client:PoolClient, context:HrActorContext, employeeId:string, input:CreateHrProfileDraftAssignmentRequest):Promise<void> {
-    const source=await client.query<{matches:boolean}>(`select (o.company_id=$3 and o.branch_id is not distinct from $4::text and o.department_id is not distinct from $5::text and o.designation_id=$6 and o.job_grade_id=$7 and o.cost_center_id=$8 and o.work_location_id=$9 and o.employment_type_id=$10 and o.employee_category_id=$11 and o.reporting_manager_id is not distinct from $12::text and o.joining_on=$13::date) as matches from hr_offer_employee_handoff h join hr_recruitment_offer o on o.tenant_id=h.tenant_id and o.id=h.offer_id where h.tenant_id=$1 and h.employee_id=$2`,[context.tenantId,employeeId,input.company_id,input.branch_id??null,input.department_id??null,input.designation_id,input.job_grade_id,input.cost_center_id,input.work_location_id,input.employment_type_id,input.employee_category_id,input.reporting_manager_id??null,input.effective_from]);
-    if(source.rows[0] && !source.rows[0].matches)throw new HrApiError(409,"HR_OFFER_ASSIGNMENT_MISMATCH","The initial assignment must match the accepted offer's company, role, grade, location, cost centre, employment type, category, manager and joining date.");
+    const source=await client.query<{matches:boolean}>(`select (o.company_id=$3 and o.branch_id is not distinct from $4::text and o.department_id is not distinct from $5::text and o.designation_id=$6 and o.job_grade_id=$7 and o.cost_center_id=$8 and o.work_location_id=$9 and ($10::text is null or true) and o.reporting_manager_id is not distinct from $11::text and o.joining_on=$12::date) as matches from hr_offer_employee_handoff h join hr_recruitment_offer o on o.tenant_id=h.tenant_id and o.id=h.offer_id where h.tenant_id=$1 and h.employee_id=$2`,[context.tenantId,employeeId,input.company_id,input.branch_id??null,input.department_id??null,input.designation_id,input.job_grade_id,input.cost_center_id,input.work_location_id,input.employment_setup_id,input.reporting_manager_id??null,input.effective_from]);
+    if(source.rows[0] && !source.rows[0].matches)throw new HrApiError(409,"HR_OFFER_ASSIGNMENT_MISMATCH","The initial assignment must match the approved offer's company, role, grade, location, cost centre, manager and joining date.");
   }
 
   private allocationSelect(): string {
@@ -1897,7 +2149,7 @@ export class SourceHrRepository {
             blockers.push("The highest-priority assigned shift is inactive. Review its assignment.");
           if (shift.work_location_id && shift.work_location_id !== at.work_location_id)
             blockers.push(
-              "The highest-priority shift does not match the employee’s effective work location.",
+              "The highest-priority shift does not match the employeeâ€™s effective work location.",
             );
           if (!shift.configured || !shift.resolved || !shift.resolved.configured)
             blockers.push("The assigned shift needs timezone, duration or rotation configuration.");
@@ -2087,7 +2339,7 @@ export class SourceHrRepository {
             throw new HrApiError(
               409,
               "HR_SHIFT_ALLOCATION_REPLACEMENT_INVALID",
-              "Replace only the same target’s allocation covering the new start date.",
+              "Replace only the same targetâ€™s allocation covering the new start date.",
             );
           if (previous.effective_from === create.effective_from)
             await client.query(
@@ -2294,14 +2546,13 @@ export class SourceHrRepository {
     if(result.issues.length)throw new HrApiError(409,"HR_CORRECTION_NOT_RESOLVED",`The proposed correction still needs review: ${result.issues.join(" ")}`);
   }
 
-  private async validateCorrectionTerms(client:PoolClient,input:{stated_in:string|null;stated_out:string|null},evidence:HrCorrectionEvidence,checkLocalOffset=true):Promise<void>{
+  /** Check-in/out times may be any valid time; future times only block submission and approval. */
+  private async validateCorrectionTerms(client:PoolClient,input:{stated_in:string|null;stated_out:string|null},deciding:boolean):Promise<void>{
+    if(!deciding)return;
     for(const value of [input.stated_in,input.stated_out]){
       if(!value)continue;
-      const instant=Date.parse(value),start=Date.parse(evidence.day.scheduled_start??""),end=Date.parse(evidence.day.scheduled_end??"");
-      if(!Number.isFinite(start)||!Number.isFinite(end)||instant<start-43200000||instant>end+43200000)throw new HrApiError(400,"HR_CORRECTION_TIME_OUTSIDE_SHIFT","Use a timestamp within 12 hours of the effective shift window, including the following date for overnight work.");
-      const valid=(await client.query<{past:boolean;local:string}>(`select $1::timestamptz<=now() as past,to_char($1::timestamptz at time zone $2,'YYYY-MM-DD"T"HH24:MI') as local`,[value,evidence.day.time_zone])).rows[0]!;
-      if(!valid.past)throw new HrApiError(400,"HR_CORRECTION_FUTURE_TIMESTAMP","Stated punch timestamps cannot be in the future.");
-      if(checkLocalOffset&&valid.local!==value.slice(0,16))throw new HrApiError(400,"HR_CORRECTION_TIMEZONE_MISMATCH","The supplied UTC offset does not match the shift timezone at that local time.");
+      const valid=(await client.query<{past:boolean}>("select $1::timestamptz<=now() as past",[value])).rows[0]!;
+      if(!valid.past)throw new HrApiError(400,"HR_CORRECTION_FUTURE_TIMESTAMP","Check-in and check-out times cannot be in the future when submitting.");
     }
   }
   private async mutateCorrection(context:HrActorContext,input:CreateHrCorrectionRequest|UpdateHrCorrectionRequest|HrCorrectionActionRequest,key:string,corr:string,id?:string):Promise<HrCorrectionResult>{
@@ -2321,7 +2572,7 @@ export class SourceHrRepository {
       }
       const employeeId=before?.employee_id??(input as CreateHrCorrectionRequest).employee_id,onDate=before?.work_date??(input as CreateHrCorrectionRequest).work_date;
       const needsEvidence=action==="create"||action==="update"||action==="submit"||action.endsWith("_approve");
-      if(needsEvidence){evidence=await this.correctionEvidence(client,context,input.company_id,employeeId,onDate,id);if(evidence.blockers.length)throw new HrApiError(409,"HR_CORRECTION_EVIDENCE_BLOCKED",evidence.blockers.join(" "));if(input.expected_evidence_hash!==evidence.hash)throw new HrApiError(409,"HR_CORRECTION_EVIDENCE_STALE","Attendance evidence changed. Refresh it and review before continuing.");await this.validateCorrectionTerms(client,"kind" in input?input:before!,evidence,"kind" in input);if(action==="submit"||action.endsWith("_approve"))await this.validateCorrectionCandidate(client,context,input.company_id,"kind" in input?input:before!,evidence);}
+      if(needsEvidence){evidence=await this.correctionEvidence(client,context,input.company_id,employeeId,onDate,id);const deciding=action==="submit"||action.endsWith("_approve");/* Drafts save freely; blockers apply when the correction is submitted or approved. */if(deciding&&evidence.blockers.length)throw new HrApiError(409,"HR_CORRECTION_EVIDENCE_BLOCKED",evidence.blockers.join(" "));if(input.expected_evidence_hash!==evidence.hash)throw new HrApiError(409,"HR_CORRECTION_EVIDENCE_STALE","Attendance evidence changed. Refresh it and review before continuing.");await this.validateCorrectionTerms(client,"kind" in input?input:before!,deciding);if(action==="submit"||action.endsWith("_approve"))await this.validateCorrectionCandidate(client,context,input.company_id,"kind" in input?input:before!,evidence);}
       if(action==="create"){
         id=`attendance-correction-${randomUUID()}`;const terms=input as CreateHrCorrectionRequest;
         await client.query("insert into hr_attendance_correction (tenant_id,id,company_id,employee_id,work_date,kind,stated_in,stated_out,reason,requested_by,workflow_managed) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true)",[context.tenantId,id,input.company_id,employeeId,onDate,terms.kind,terms.stated_in,terms.stated_out,terms.reason,context.actor.userId]);
@@ -2410,7 +2661,7 @@ export class SourceHrRepository {
           and ((a.scope='employee' and a.scope_id=r.employee_id) or (a.scope='department' and a.scope_id=r.department_id) or (a.scope='branch' and a.scope_id=r.branch_id))
           order by case a.scope when 'employee' then 1 when 'department' then 2 else 3 end,a.effective_from desc,a.id limit 1) a on true
         left join lateral (select jsonb_agg(jsonb_build_object('direction',x.direction,'occurred_at',x.occurred_at,'source',x.source) order by x.occurred_at,x.id) as punches
-          from (select id,direction,occurred_at,source from hr_attendance_punch where tenant_id=$1 and company_id=$2 and employee_id=r.employee_id and work_date=r.on_date::date order by occurred_at,id limit 129) x) p on true
+          from (select p.id,p.direction,p.occurred_at,p.source from hr_attendance_punch p where p.tenant_id=$1 and p.company_id=$2 and p.employee_id=r.employee_id and p.work_date=r.on_date::date and not exists(select 1 from hr_attendance_punch_amendment m where m.tenant_id=p.tenant_id and m.punch_id=p.id) order by p.occurred_at,p.id limit 129) x) p on true
         left join lateral (select jsonb_agg(jsonb_build_object('kind',kind,'stated_in',stated_in,'stated_out',stated_out)) as corrections
           from hr_attendance_correction where tenant_id=$1 and company_id=$2 and employee_id=r.employee_id and work_date=r.on_date::date and status='approved') c on true
         left join lateral (select jsonb_agg(jsonb_build_object('days',ld.days::text,'portion',ld.portion)) as leaves from hr_leave_request lr
@@ -2865,9 +3116,10 @@ export class SourceHrRepository {
                 employee.work_email, employee.status, employee.joined_on, employee.preferred_name, employee.phone,
                 assignment.company_id, assignment.branch_id, branch.name as branch,
                 assignment.department_id, department.name as department,
-                designation.name as designation, employment_type.name as employment_type,
+                designation.name as designation, employment_setup.name as employment_setup,
+                coalesce(cost_center.payment_route, employment_setup.payment_route) as payment_route,
+                coalesce(cost_center.pay_cycle, employment_setup.pay_cycle) as pay_cycle,
                 job_grade.name as job_grade, work_location.name as work_location,
-                employee_category.name as employee_category,
                 manager.id as reporting_manager_id, manager.employee_number as reporting_manager_number,
                 concat_ws(' ', manager.first_name, manager.middle_name, manager.last_name) as reporting_manager_name,
                 binding.user_id as user_account_id
@@ -2881,10 +3133,10 @@ export class SourceHrRepository {
            join organization_unit department
              on department.tenant_id = assignment.tenant_id and department.id = assignment.department_id
            join hr_master_record designation on designation.tenant_id = assignment.tenant_id and designation.id = assignment.designation_id
-           join hr_master_record employment_type on employment_type.tenant_id = assignment.tenant_id and employment_type.id = assignment.employment_type_id
+           left join hr_master_record employment_setup on employment_setup.tenant_id = assignment.tenant_id and employment_setup.id = assignment.employment_setup_id
+           left join hr_master_record cost_center on cost_center.tenant_id = assignment.tenant_id and cost_center.id = assignment.cost_center_id
            join hr_master_record job_grade on job_grade.tenant_id = assignment.tenant_id and job_grade.id = assignment.job_grade_id
            join hr_master_record work_location on work_location.tenant_id = assignment.tenant_id and work_location.id = assignment.work_location_id
-           join hr_master_record employee_category on employee_category.tenant_id = assignment.tenant_id and employee_category.id = assignment.employee_category_id
            left join employee manager on manager.tenant_id = assignment.tenant_id and manager.id = assignment.reporting_manager_id
            left join employee_user_binding binding
              on binding.tenant_id = employee.tenant_id and binding.employee_id = employee.id
@@ -2923,7 +3175,9 @@ export class SourceHrRepository {
     return this.read(context, "hr.employee.read", async (client) => {
       await this.requireCompanyAccess(client, context, query.company_id);
       const values: unknown[] = [context.tenantId, query.company_id];
-      const filters = ["employee.tenant_id = $1", "scope.company_id = $2", "employee.status = 'draft'"];
+      // Submitted drafts wait for (or have passed) HR approval and stay pending until hired.
+      const statuses = { all: "('draft','pending_approval')", draft: "('draft')", submitted: "('pending_approval')" }[query.status];
+      const filters = ["employee.tenant_id = $1", "scope.company_id = $2", `employee.status in ${statuses}`];
       if (query.search) {
         const parameter = values.push(`%${query.search.replace(/[\\%_]/g, "\\$&")}%`);
         filters.push(
@@ -2939,10 +3193,11 @@ export class SourceHrRepository {
         joined_on: string | Date;
         company_id: string;
         created_at: string | Date;
+        status: "draft" | "pending_approval";
       }>(
         `select employee.id,employee.employee_number,
                 concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as display_name,
-                employee.work_email,employee.joined_on,scope.company_id,employee.created_at
+                employee.work_email,employee.joined_on,scope.company_id,employee.created_at,employee.status
            from hr_employee_draft_scope scope
            join employee on employee.tenant_id=scope.tenant_id and employee.id=scope.employee_id
           where ${filters.join(" and ")}
@@ -2961,6 +3216,32 @@ export class SourceHrRepository {
     });
   }
 
+  /** Location = active 'division' unit and Project = active 'branch' unit of the company; a project must sit under the chosen location. */
+  private async assertDraftPlacement(
+    client: PoolClient,
+    context: HrActorContext,
+    companyId: string,
+    locationId: string | null,
+    projectId: string | null,
+  ): Promise<void> {
+    if (locationId) {
+      const location = await client.query(
+        "select 1 from organization_unit where tenant_id=$1 and id=$2 and type='division' and status='active' and organization_unit_is_within_company(tenant_id,id,$3)",
+        [context.tenantId, locationId, companyId],
+      );
+      if (!location.rowCount)
+        throw new HrApiError(409, "HR_EMPLOYEE_LOCATION_INVALID", "Select an active location in this company.");
+    }
+    if (projectId) {
+      const project = await client.query(
+        "select 1 from organization_unit where tenant_id=$1 and id=$2 and type='branch' and status='active' and organization_unit_is_within_company(tenant_id,id,$3) and ($4::text is null or organization_unit_is_within_company(tenant_id,id,$4))",
+        [context.tenantId, projectId, companyId, locationId],
+      );
+      if (!project.rowCount)
+        throw new HrApiError(409, "HR_EMPLOYEE_PROJECT_INVALID", "Select an active project under the chosen location.");
+    }
+  }
+
   async getEmployeeDraft(context: HrActorContext, employeeId: string): Promise<HrEmployeeDraftDetail> {
     return this.read(context, "hr.employee.read", async (client) => {
       const result = await client.query<{
@@ -2975,13 +3256,21 @@ export class SourceHrRepository {
         joined_on: string | Date;
         company_id: string;
         created_at: string | Date;
+        status: "draft" | "pending_approval";
+        location_id: string | null;
+        location: string | null;
+        project_id: string | null;
+        project: string | null;
       }>(
         `select employee.id,employee.employee_number,employee.first_name,employee.middle_name,employee.last_name,
                 employee.preferred_name,employee.work_email,employee.phone,employee.joined_on::text,
-                scope.company_id,employee.created_at
+                scope.company_id,employee.created_at,employee.status,
+                scope.location_id,location.name as location,scope.project_id,project.name as project
            from hr_employee_draft_scope scope
            join employee on employee.tenant_id=scope.tenant_id and employee.id=scope.employee_id
-          where scope.tenant_id=$1 and employee.id=$2 and employee.status='draft'
+           left join organization_unit location on location.tenant_id=scope.tenant_id and location.id=scope.location_id
+           left join organization_unit project on project.tenant_id=scope.tenant_id and project.id=scope.project_id
+          where scope.tenant_id=$1 and employee.id=$2 and employee.status in ('draft','pending_approval')
             and exists (select 1 from security_user_company_access access
                          where access.tenant_id=scope.tenant_id and access.user_id=$3
                            and access.company_id=scope.company_id and access.revoked_at is null)`,
@@ -3090,10 +3379,11 @@ export class SourceHrRepository {
           personalEmail,
         ],
       );
+      await this.assertDraftPlacement(client, context, input.company_id, input.location_id ?? null, input.project_id ?? null);
       await client.query(
-        `insert into hr_employee_draft_scope (tenant_id,employee_id,company_id,created_by)
-         values ($1,$2,$3,$4)`,
-        [context.tenantId, employeeId, input.company_id, context.actor.userId],
+        `insert into hr_employee_draft_scope (tenant_id,employee_id,company_id,created_by,location_id,project_id)
+         values ($1,$2,$3,$4,$5,$6)`,
+        [context.tenantId, employeeId, input.company_id, context.actor.userId, input.location_id ?? null, input.project_id ?? null],
       );
       const auditEventId = await this.appendPlatformAudit(client, context, correlationId, "hr.employee.create", {
         entityId: employeeId,
@@ -3186,10 +3476,12 @@ export class SourceHrRepository {
         date_of_birth: string | Date | null;
         personal_email: string;
         phone: string;
+        location_id: string | null;
+        project_id: string | null;
       }>(
         `select employee.employee_number,scope.company_id,employee.first_name,employee.middle_name,employee.last_name,
                 employee.preferred_name,employee.joined_on::text,employee.work_email,employee.date_of_birth,
-                employee.personal_email,employee.phone
+                employee.personal_email,employee.phone,scope.location_id,scope.project_id
            from hr_employee_draft_scope scope join employee on employee.tenant_id=scope.tenant_id and employee.id=scope.employee_id
           where scope.tenant_id=$1 and employee.id=$2 and employee.status='draft'
             and exists (select 1 from security_user_company_access access where access.tenant_id=scope.tenant_id
@@ -3216,7 +3508,16 @@ export class SourceHrRepository {
         joined_on: input.joined_on ?? before.joined_on,
         work_email: input.work_email ?? before.work_email,
         phone: input.phone ?? before.phone,
+        location_id: input.location_id === undefined ? before.location_id : input.location_id,
+        project_id: input.project_id === undefined ? before.project_id : input.project_id,
       };
+      if (after.location_id !== before.location_id || after.project_id !== before.project_id) {
+        await this.assertDraftPlacement(client, context, before.company_id, after.location_id, after.project_id);
+        await client.query(
+          "update hr_employee_draft_scope set location_id=$3,project_id=$4 where tenant_id=$1 and employee_id=$2",
+          [context.tenantId, employeeId, after.location_id, after.project_id],
+        );
+      }
       await client.query(
         `update employee set first_name=$3,middle_name=$4,last_name=$5,preferred_name=$6,joined_on=$7,work_email=$8,phone=$9,updated_at=now()
           where tenant_id=$1 and id=$2`,
@@ -3380,24 +3681,25 @@ export class SourceHrRepository {
         company_id: string;
         submitted_by: string;
         submitted_at: string | Date;
+        state: "pending" | "approved" | "rejected";
+        decided_at: string | Date | null;
       }>(
         `select approval.id as approval_id,employee.id as employee_id,employee.employee_number,
                 concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as display_name,
-                scope.company_id,approval.submitted_by,approval.submitted_at
+                scope.company_id,approval.submitted_by,approval.submitted_at,approval.state,approval.decided_at
            from hr_employee_draft_approval approval
            join hr_employee_draft_scope scope on scope.tenant_id=approval.tenant_id and scope.employee_id=approval.employee_id
            join employee on employee.tenant_id=approval.tenant_id and employee.id=approval.employee_id
-          where approval.tenant_id=$1 and scope.company_id=$2 and approval.state='pending'
-          order by approval.submitted_at,approval.id limit $3`,
-        [context.tenantId, query.company_id, query.limit],
+          where approval.tenant_id=$1 and scope.company_id=$2 and ($3='all' or approval.state=$3)
+          order by approval.state<>'pending', coalesce(approval.decided_at,approval.submitted_at) desc, approval.id limit $4`,
+        [context.tenantId, query.company_id, query.state, query.limit],
       );
+      const iso = (value: string | Date) => (value instanceof Date ? value : new Date(value)).toISOString();
       return {
         items: result.rows.map((row) => ({
           ...row,
-          submitted_at:
-            row.submitted_at instanceof Date
-              ? row.submitted_at.toISOString()
-              : new Date(row.submitted_at).toISOString(),
+          submitted_at: iso(row.submitted_at),
+          decided_at: row.decided_at ? iso(row.decided_at) : null,
         })),
       };
     });
@@ -3421,16 +3723,20 @@ export class SourceHrRepository {
         created_by: string;
         submitted_by: string;
         submitted_at: string | Date;
+        approval_state: "pending" | "approved" | "rejected";
+        decided_at: string | Date | null;
+        decision_reason: string | null;
       }>(
         `select employee.id,employee.employee_number,employee.first_name,employee.middle_name,
                 employee.last_name,employee.preferred_name,employee.work_email,employee.phone,
                 employee.joined_on,employee.created_at,employee.created_by,scope.company_id,
-                approval.id as approval_id,approval.submitted_by,approval.submitted_at
+                approval.id as approval_id,approval.submitted_by,approval.submitted_at,
+                approval.state as approval_state,approval.decided_at,approval.decision_reason
            from hr_employee_draft_approval approval
            join employee on employee.tenant_id=approval.tenant_id and employee.id=approval.employee_id
            join hr_employee_draft_scope scope on scope.tenant_id=approval.tenant_id and scope.employee_id=approval.employee_id
-          where approval.tenant_id=$1 and approval.employee_id=$2 and approval.state='pending'
-            and employee.status='pending_approval'
+          where approval.tenant_id=$1 and approval.employee_id=$2
+            and (approval.state<>'pending' or employee.status='pending_approval')
             and exists (select 1 from security_user_company_access access
                          where access.tenant_id=scope.tenant_id and access.user_id=$3
                            and access.company_id=scope.company_id and access.revoked_at is null)`,
@@ -3449,6 +3755,7 @@ export class SourceHrRepository {
         joined_on: dateOnly(row.joined_on),
         created_at: new Date(row.created_at).toISOString(),
         submitted_at: new Date(row.submitted_at).toISOString(),
+        decided_at: row.decided_at ? new Date(row.decided_at).toISOString() : null,
         ...approvalOverrideReviewMetadata(context, [row.created_by, row.submitted_by], "hr.employee.approve"),
       };
     });
@@ -3636,7 +3943,7 @@ export class SourceHrRepository {
       await this.requireOfferAssignmentMatch(client, context, employeeId, input);
       const id = `employee-assignment-${randomUUID()}`;
       await client.query(
-        `insert into employee_assignment (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_grade_id,cost_center_id,work_location_id,employment_type_id,employee_category_id,reporting_manager_id,effective_from,change_reason,created_by,assignment_status,source_reference) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'initial_appointment',$15,'profile_draft','hr:profile-draft-assignment')`,
+        `insert into employee_assignment (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_grade_id,cost_center_id,work_location_id,employment_setup_id,reporting_manager_id,effective_from,change_reason,created_by,assignment_status,source_reference) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'initial_appointment',$14,'profile_draft','hr:profile-draft-assignment')`,
         [
           id,
           context.tenantId,
@@ -3648,8 +3955,7 @@ export class SourceHrRepository {
           input.job_grade_id,
           input.cost_center_id,
           input.work_location_id,
-          input.employment_type_id,
-          input.employee_category_id,
+          null, // Employment setups are retired (HR149); terms come from the cost centre.
           input.reporting_manager_id ?? null,
           input.effective_from,
           context.actor.userId,
@@ -3684,7 +3990,7 @@ export class SourceHrRepository {
 
   async listEmployeeContacts(context: HrActorContext, employeeId: string): Promise<HrEmployeeContactDirectory> {
     return this.read(context, "hr.employee_contact.read", async (client) => {
-      await this.requireActiveEmployeeCompanyScope(client, context, employeeId);
+      await requireEmployeeRecordScope(client, context, employeeId, "read");
       const result = await client.query<{
         id: string;
         employee_id: string;
@@ -3733,7 +4039,7 @@ export class SourceHrRepository {
       await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
         `nexora:hr:employee-contact:${context.tenantId}:${employeeId}`,
       ]);
-      await this.requireActiveEmployeeCompanyScope(client, context, employeeId);
+      await requireEmployeeRecordScope(client, context, employeeId, "write");
       const path = `/api/v1/hr/employees/${employeeId}/contacts`;
       const fingerprint = stateHash(input);
       const replay = await client.query<{ request_fingerprint: string; response_body: HrEmployeeContactResult }>(
@@ -3811,7 +4117,7 @@ export class SourceHrRepository {
     employeeId: string,
   ): Promise<HrEmployeeEmergencyContactDirectory> {
     return this.read(context, "hr.employee_emergency_contact.read", async (client) => {
-      await this.requireActiveEmployeeCompanyScope(client, context, employeeId);
+      await requireEmployeeRecordScope(client, context, employeeId, "read");
       const result = await client.query<{
         id: string;
         employee_id: string;
@@ -3860,7 +4166,7 @@ export class SourceHrRepository {
       await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
         `nexora:hr:employee-emergency-contact:${context.tenantId}:${employeeId}`,
       ]);
-      await this.requireActiveEmployeeCompanyScope(client, context, employeeId);
+      await requireEmployeeRecordScope(client, context, employeeId, "write");
       const path = `/api/v1/hr/employees/${employeeId}/emergency_contacts`;
       const fingerprint = stateHash(input);
       const replay = await client.query<{
@@ -3939,39 +4245,8 @@ export class SourceHrRepository {
   }
 
   async listEmployeeDocuments(context: HrActorContext, employeeId: string): Promise<HrEmployeeDocumentDirectory> {
-    return this.read(context, "hr.employee_document.read", async (client) => {
-      await this.requireActiveEmployeeCompanyScope(client, context, employeeId);
-      const result = await client.query<{
-        id: string;
-        employee_id: string;
-        document_type: string;
-        title: string;
-        reference: string;
-        issued_on: string | Date | null;
-        expires_on: string | Date | null;
-        restricted: boolean;
-        issuing_authority: string;
-        verification_status: "unverified" | "pending" | "verified" | "rejected" | "expired";
-        status: "active" | "inactive";
-        created_at: string | Date;
-      }>(
-        `select id,employee_id,document_type,title,reference,issued_on,expires_on,restricted,
-                issuing_authority,verification_status,status,created_at
-           from employee_document
-          where tenant_id=$1 and employee_id=$2
-          order by status='active' desc,expires_on nulls last,created_at desc,id
-          limit 100`,
-        [context.tenantId, employeeId],
-      );
-      return {
-        items: result.rows.map((row) => ({
-          ...row,
-          issued_on: row.issued_on === null ? null : dateOnly(row.issued_on),
-          expires_on: row.expires_on === null ? null : dateOnly(row.expires_on),
-          created_at: new Date(row.created_at).toISOString(),
-        })),
-      };
-    });
+    // Draft-aware scope and file metadata (HR139) live in the employee-records module.
+    return this.employeeRecords().listDocuments(context, employeeId);
   }
 
   async listEmployeeAssignments(context: HrActorContext, employeeId: string): Promise<HrEmployeeAssignmentDirectory> {
@@ -3981,7 +4256,7 @@ export class SourceHrRepository {
         `select assignment.id,assignment.employee_id,assignment.company_id,
                 assignment.employment_relationship_id,assignment.branch_id,assignment.department_id,
                 assignment.job_id,assignment.designation_id,assignment.job_grade_id,assignment.cost_center_id,
-                assignment.work_location_id,assignment.employment_type_id,assignment.employee_category_id,
+                assignment.work_location_id,assignment.employment_setup_id,
                 assignment.reporting_manager_id,
                 jsonb_build_object(
                   'business_unit_id',(select organization_unit_id from employee_assignment_org_unit
@@ -3996,7 +4271,7 @@ export class SourceHrRepository {
                     where tenant_id=assignment.tenant_id and assignment_id=assignment.id and organization_type='warehouse')
                 ) as organization_placements,
                 designation.name as designation,coalesce(job.name,'') as job,
-                job_grade.name as job_grade,employment_type.name as employment_type,
+                job_grade.name as job_grade,employment_setup.name as employment_setup,
                 work_location.name as work_location,assignment.change_reason,
                 assignment.assignment_status,assignment.effective_from::text,assignment.effective_to::text,assignment.created_at
            from employee_assignment assignment
@@ -4006,8 +4281,8 @@ export class SourceHrRepository {
              on job.tenant_id=assignment.tenant_id and job.id=assignment.job_id
            join hr_master_record job_grade
              on job_grade.tenant_id=assignment.tenant_id and job_grade.id=assignment.job_grade_id
-           join hr_master_record employment_type
-             on employment_type.tenant_id=assignment.tenant_id and employment_type.id=assignment.employment_type_id
+           left join hr_master_record employment_setup
+             on employment_setup.tenant_id=assignment.tenant_id and employment_setup.id=assignment.employment_setup_id
            join hr_master_record work_location
              on work_location.tenant_id=assignment.tenant_id and work_location.id=assignment.work_location_id
           where assignment.tenant_id=$1 and assignment.employee_id=$2
@@ -4148,7 +4423,7 @@ export class SourceHrRepository {
     return this.read(context, "hr.employment_lifecycle_policy.read", async (client) => {
       await this.requireCompanyAccess(client, context, query.company_id);
       const result = await client.query<EmploymentLifecyclePolicyRow>(
-        `select id,legal_employer_id as company_id,code,name,version,status,effective_from,effective_to,
+        `select id,legal_employer_id as company_id,code,name,description,version,status,effective_from,effective_to,
                 created_by,submitted_by
            from hr_employment_lifecycle_policy
           where tenant_id=$1 and legal_employer_id=$2
@@ -4223,8 +4498,8 @@ export class SourceHrRepository {
       const version = (versionResult.rows[0]?.version ?? 0) + 1;
       await client.query(
         `insert into hr_employment_lifecycle_policy
-          (id,tenant_id,legal_employer_id,code,name,version,status,effective_from,effective_to,created_by)
-         values ($1,$2,$3,$4,$5,$6,'draft',$7,$8,$9)`,
+          (id,tenant_id,legal_employer_id,code,name,version,status,effective_from,effective_to,created_by,description)
+         values ($1,$2,$3,$4,$5,$6,'draft',coalesce($7::date,current_date),$8,$9,$10)`,
         [
           id,
           context.tenantId,
@@ -4232,9 +4507,10 @@ export class SourceHrRepository {
           input.code,
           input.name,
           version,
-          input.effective_from,
+          input.effective_from ?? null,
           input.effective_to ?? null,
           context.actor.userId,
+          input.description ?? "",
         ],
       );
       const preEmploymentStateId = `employment-lifecycle-state-${randomUUID()}`;
@@ -4403,6 +4679,241 @@ export class SourceHrRepository {
     }
   }
 
+  /** Locks a draft lifecycle policy for a draft-only edit or delete, after the idempotency replay check. */
+  private async lockDraftEmploymentLifecyclePolicy(
+    client: PoolClient,
+    context: HrActorContext,
+    policyId: string,
+    companyId: string,
+  ) {
+    const policy = await client.query<{
+      company_id: string;
+      code: string;
+      name: string;
+      version: number;
+      description: string;
+      status: "draft" | "pending_approval" | "approved" | "active" | "inactive";
+      effective_from: string | Date;
+      effective_to: string | Date | null;
+    }>(
+      `select legal_employer_id as company_id,code,name,description,version,status,effective_from,effective_to
+         from hr_employment_lifecycle_policy
+        where tenant_id=$1 and id=$2 and legal_employer_id=$4
+          and exists (select 1 from security_user_company_access access where access.tenant_id=hr_employment_lifecycle_policy.tenant_id and access.user_id=$3 and access.company_id=hr_employment_lifecycle_policy.legal_employer_id and access.revoked_at is null)
+        for update`,
+      [context.tenantId, policyId, context.actor.userId, companyId],
+    );
+    const row = policy.rows[0];
+    if (!row) throw new HrApiError(404, "HR_LIFECYCLE_POLICY_NOT_FOUND", "The lifecycle policy was not found in your company scope.");
+    if (row.status !== "draft")
+      throw new HrApiError(
+        409,
+        "HR_LIFECYCLE_POLICY_NOT_DRAFT",
+        "Only draft lifecycle policies can be edited or deleted. Submitted versions are immutable.",
+      );
+    return {
+      ...row,
+      effective_from: dateOnly(row.effective_from),
+      effective_to: row.effective_to ? dateOnly(row.effective_to) : null,
+    };
+  }
+
+  async updateEmploymentLifecyclePolicy(
+    context: HrActorContext,
+    policyId: string,
+    input: UpdateHrEmploymentLifecyclePolicyRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmploymentLifecyclePolicyResult> {
+    if (!validIdempotencyKey(idempotencyKey))
+      throw new HrApiError(400, "INVALID_IDEMPOTENCY_KEY", "The idempotency key is invalid.");
+    if (!context.actor.permissions.includes("hr.employment_lifecycle_policy.manage"))
+      throw new HrApiError(403, "PERMISSION_DENIED", "You are not permitted to manage lifecycle policies.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level read committed");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+        `nexora:hr:lifecycle-policy-draft:${context.tenantId}:${policyId}`,
+      ]);
+      await this.requireCompanyAccess(client, context, input.company_id);
+      const path = `/api/v1/hr/employment_lifecycle_policies/${policyId}/update`;
+      const fingerprint = stateHash(input);
+      const replay = await client.query<{ request_fingerprint: string; response_body: HrEmploymentLifecyclePolicyResult }>(
+        `select request_fingerprint,response_body from platform_admin_idempotency
+          where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey],
+      );
+      if (replay.rows[0]) {
+        if (replay.rows[0].request_fingerprint !== fingerprint)
+          throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request.");
+        await client.query("commit");
+        return { ...replay.rows[0].response_body, replayed: true };
+      }
+      const before = await this.lockDraftEmploymentLifecyclePolicy(client, context, policyId, input.company_id);
+      await client.query(
+        `update hr_employment_lifecycle_policy
+            set name=$3,description=$6,effective_from=coalesce($4::date,effective_from),
+                effective_to=coalesce($5::date,effective_to),updated_at=now()
+          where tenant_id=$1 and id=$2`,
+        [
+          context.tenantId,
+          policyId,
+          input.name,
+          input.effective_from ?? null,
+          input.effective_to ?? null,
+          input.description ?? "",
+        ],
+      );
+      const audit = await this.appendPlatformAudit(
+        client,
+        context,
+        correlationId,
+        "hr.employment_lifecycle_policy.update",
+        {
+          entityId: policyId,
+          entityType: "employment_lifecycle_policy",
+          before,
+          after: {
+            ...before,
+            name: input.name,
+            description: input.description ?? "",
+            effective_from: input.effective_from ?? before.effective_from,
+            effective_to: input.effective_to ?? before.effective_to,
+          },
+        },
+      );
+      const result: HrEmploymentLifecyclePolicyResult = {
+        id: policyId,
+        company_id: before.company_id,
+        code: before.code,
+        name: input.name,
+        version: before.version,
+        status: "draft",
+        audit_event_id: audit,
+        replayed: false,
+      };
+      await client.query(
+        `insert into platform_admin_idempotency
+          (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag)
+         values ($1,$2,'POST',$3,$4,$5,200,$6,$7)`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stateHash(result)],
+      );
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** Deletes an unreferenced draft policy and its draft states and transitions. The record-code
+   * counter is not lowered, so the deleted code is never reissued. */
+  async deleteEmploymentLifecyclePolicy(
+    context: HrActorContext,
+    policyId: string,
+    input: DeleteHrEmploymentLifecyclePolicyRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmploymentLifecyclePolicyDeleteResult> {
+    if (!validIdempotencyKey(idempotencyKey))
+      throw new HrApiError(400, "INVALID_IDEMPOTENCY_KEY", "The idempotency key is invalid.");
+    if (!context.actor.permissions.includes("hr.employment_lifecycle_policy.manage"))
+      throw new HrApiError(403, "PERMISSION_DENIED", "You are not permitted to manage lifecycle policies.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level read committed");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+        `nexora:hr:lifecycle-policy-draft:${context.tenantId}:${policyId}`,
+      ]);
+      await this.requireCompanyAccess(client, context, input.company_id);
+      const path = `/api/v1/hr/employment_lifecycle_policies/${policyId}/delete`;
+      const fingerprint = stateHash({ policyId, action: "delete", input });
+      const replay = await client.query<{
+        request_fingerprint: string;
+        response_body: HrEmploymentLifecyclePolicyDeleteResult;
+      }>(
+        `select request_fingerprint,response_body from platform_admin_idempotency
+          where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey],
+      );
+      if (replay.rows[0]) {
+        if (replay.rows[0].request_fingerprint !== fingerprint)
+          throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request.");
+        await client.query("commit");
+        return { ...replay.rows[0].response_body, replayed: true };
+      }
+      const before = await this.lockDraftEmploymentLifecyclePolicy(client, context, policyId, input.company_id);
+      const usage = await client.query<{ in_use: boolean }>(
+        `select (
+           exists (select 1 from hr_employment_relationship where tenant_id=$1 and lifecycle_policy_id=$2)
+           or exists (select 1 from hr_employment_policy_adoption where tenant_id=$1 and (source_policy_id=$2 or target_policy_id=$2))
+           or exists (
+             select 1 from hr_employment_lifecycle_request request
+              where request.tenant_id=$1
+                and (request.transition_id in (select id from hr_employment_lifecycle_transition where tenant_id=$1 and policy_id=$2)
+                  or request.previous_state_id in (select id from hr_employment_lifecycle_state where tenant_id=$1 and policy_id=$2)
+                  or request.resulting_state_id in (select id from hr_employment_lifecycle_state where tenant_id=$1 and policy_id=$2)))
+           or exists (
+             select 1 from hr_employment_event event
+              where event.tenant_id=$1
+                and (event.previous_state_id in (select id from hr_employment_lifecycle_state where tenant_id=$1 and policy_id=$2)
+                  or event.resulting_state_id in (select id from hr_employment_lifecycle_state where tenant_id=$1 and policy_id=$2)))
+         ) as in_use`,
+        [context.tenantId, policyId],
+      );
+      if (usage.rows[0]?.in_use)
+        throw new HrApiError(
+          409,
+          "HR_LIFECYCLE_POLICY_IN_USE",
+          "This lifecycle policy is referenced by employment records and cannot be deleted. Nothing was changed.",
+        );
+      await client.query("delete from hr_employment_lifecycle_transition where tenant_id=$1 and policy_id=$2", [
+        context.tenantId,
+        policyId,
+      ]);
+      await client.query("delete from hr_employment_lifecycle_state where tenant_id=$1 and policy_id=$2", [
+        context.tenantId,
+        policyId,
+      ]);
+      await client.query("delete from hr_employment_lifecycle_policy where tenant_id=$1 and id=$2", [
+        context.tenantId,
+        policyId,
+      ]);
+      const audit = await this.appendPlatformAudit(
+        client,
+        context,
+        correlationId,
+        "hr.employment_lifecycle_policy.delete",
+        { entityId: policyId, entityType: "employment_lifecycle_policy", before, after: null },
+      );
+      const result: HrEmploymentLifecyclePolicyDeleteResult = {
+        id: policyId,
+        company_id: before.company_id,
+        code: before.code,
+        deleted: true,
+        audit_event_id: audit,
+        replayed: false,
+      };
+      await client.query(
+        `insert into platform_admin_idempotency
+          (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag)
+         values ($1,$2,'POST',$3,$4,$5,200,$6,$7)`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stateHash(result)],
+      );
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async approveEmploymentLifecyclePolicy(
     context: HrActorContext,
     policyId: string,
@@ -4504,6 +5015,108 @@ export class SourceHrRepository {
         name: before.name,
         version: before.version,
         status: "approved",
+        audit_event_id: audit,
+        replayed: false,
+      };
+      await client.query(
+        `insert into platform_admin_idempotency
+          (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag)
+         values ($1,$2,'POST',$3,$4,$5,200,$6,$7)`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stateHash(result)],
+      );
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** Deactivates an approved or active policy. History, codes and employment links are kept. */
+  async deactivateEmploymentLifecyclePolicy(
+    context: HrActorContext,
+    policyId: string,
+    input: DeactivateHrEmploymentLifecyclePolicyRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrEmploymentLifecyclePolicyDeactivationResult> {
+    if (!validIdempotencyKey(idempotencyKey))
+      throw new HrApiError(400, "INVALID_IDEMPOTENCY_KEY", "The idempotency key is invalid.");
+    if (!context.actor.permissions.includes("hr.employment_lifecycle_policy.manage"))
+      throw new HrApiError(403, "PERMISSION_DENIED", "You are not permitted to manage lifecycle policies.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level read committed");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+        `nexora:hr:lifecycle-policy-status:${context.tenantId}:${policyId}`,
+      ]);
+      await this.requireCompanyAccess(client, context, input.company_id);
+      const path = `/api/v1/hr/employment_lifecycle_policies/${policyId}/deactivate`;
+      const fingerprint = stateHash(input);
+      const replay = await client.query<{
+        request_fingerprint: string;
+        response_body: HrEmploymentLifecyclePolicyDeactivationResult;
+      }>(
+        `select request_fingerprint,response_body from platform_admin_idempotency
+          where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey],
+      );
+      if (replay.rows[0]) {
+        if (replay.rows[0].request_fingerprint !== fingerprint)
+          throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request.");
+        await client.query("commit");
+        return { ...replay.rows[0].response_body, replayed: true };
+      }
+      const policy = await client.query<{
+        company_id: string;
+        code: string;
+        name: string;
+        version: number;
+        status: "draft" | "pending_approval" | "approved" | "active" | "inactive";
+      }>(
+        `select legal_employer_id as company_id,code,name,version,status
+           from hr_employment_lifecycle_policy
+          where tenant_id=$1 and id=$2 and legal_employer_id=$3
+          for update`,
+        [context.tenantId, policyId, input.company_id],
+      );
+      const before = policy.rows[0];
+      if (!before)
+        throw new HrApiError(404, "HR_LIFECYCLE_POLICY_NOT_FOUND", "The lifecycle policy was not found in your company scope.");
+      if (before.status !== "active" && before.status !== "approved")
+        throw new HrApiError(
+          409,
+          "HR_LIFECYCLE_POLICY_NOT_ACTIVE",
+          "Only approved or active lifecycle policies can be deactivated.",
+        );
+      await client.query(
+        `update hr_employment_lifecycle_policy
+            set status='inactive',deactivated_by=$3,deactivated_at=now(),updated_at=now()
+          where tenant_id=$1 and id=$2`,
+        [context.tenantId, policyId, context.actor.userId],
+      );
+      const audit = await this.appendPlatformAudit(
+        client,
+        context,
+        correlationId,
+        "hr.employment_lifecycle_policy.deactivate",
+        {
+          entityId: policyId,
+          entityType: "employment_lifecycle_policy",
+          before,
+          after: { ...before, status: "inactive", reason: input.reason },
+        },
+      );
+      const result: HrEmploymentLifecyclePolicyDeactivationResult = {
+        id: policyId,
+        company_id: before.company_id,
+        code: before.code,
+        name: before.name,
+        version: before.version,
+        status: "inactive",
         audit_event_id: audit,
         replayed: false,
       };
@@ -4905,11 +5518,10 @@ export class SourceHrRepository {
         job_grade_id: string;
         cost_center_id: string;
         work_location_id: string;
-        employment_type_id: string;
-        employee_category_id: string;
+        employment_setup_id: string;
         reporting_manager_id: string | null;
       }>(
-        `select relationship.legal_employer_id as company_id,request.relationship_id,request.requested_by,request.effective_on::text,request.reason,request.resulting_state_id,request.job_id,request.profile_draft_assignment_id,assignment.branch_id,assignment.department_id,assignment.designation_id,assignment.job_grade_id,assignment.cost_center_id,assignment.work_location_id,assignment.employment_type_id,assignment.employee_category_id,assignment.reporting_manager_id
+        `select relationship.legal_employer_id as company_id,request.relationship_id,request.requested_by,request.effective_on::text,request.reason,request.resulting_state_id,request.job_id,request.profile_draft_assignment_id,assignment.branch_id,assignment.department_id,assignment.designation_id,assignment.job_grade_id,assignment.cost_center_id,assignment.work_location_id,assignment.employment_setup_id,assignment.reporting_manager_id
            from hr_employment_lifecycle_request request join hr_employment_relationship relationship on relationship.tenant_id=request.tenant_id and relationship.id=request.relationship_id join employee_assignment assignment on assignment.tenant_id=request.tenant_id and assignment.id=request.profile_draft_assignment_id
           where request.tenant_id=$1 and request.id=$2 and relationship.employee_id=$3 and request.approval_state='pending'
             and exists (select 1 from security_user_company_access access where access.tenant_id=request.tenant_id and access.user_id=$4 and access.company_id=relationship.legal_employer_id and access.revoked_at is null) for update of request,relationship,assignment`,
@@ -4937,7 +5549,7 @@ export class SourceHrRepository {
       );
       let assignmentId: string | null = null;
       if (input.decision === "approved") {
-        await this.requireOfferAssignmentMatch(client,context,employeeId,{company_id:row.company_id,branch_id:row.branch_id??undefined,department_id:row.department_id??undefined,designation_id:row.designation_id,job_grade_id:row.job_grade_id,cost_center_id:row.cost_center_id,work_location_id:row.work_location_id,employment_type_id:row.employment_type_id,employee_category_id:row.employee_category_id,reporting_manager_id:row.reporting_manager_id??undefined,effective_from:row.effective_on});
+        await this.requireOfferAssignmentMatch(client,context,employeeId,{company_id:row.company_id,branch_id:row.branch_id??undefined,department_id:row.department_id??undefined,designation_id:row.designation_id,job_grade_id:row.job_grade_id,cost_center_id:row.cost_center_id,work_location_id:row.work_location_id,employment_setup_id:row.employment_setup_id,reporting_manager_id:row.reporting_manager_id??undefined,effective_from:row.effective_on});
         await client.query(
           `insert into hr_employment_event (id,tenant_id,relationship_id,request_id,sequence,event_type,effective_on,previous_state_id,resulting_state_id,recorded_by,approved_by,approved_at,source_reference,reason) values ($1,$2,$3,$4,1,'hire',$5,(select id from hr_employment_lifecycle_state where tenant_id=$2 and policy_id=$6 and is_initial=true),$7,$8,$8,now(),$9,$10)`,
           [
@@ -4964,7 +5576,7 @@ export class SourceHrRepository {
         );
         assignmentId = `employee-assignment-${randomUUID()}`;
         await client.query(
-          `insert into employee_assignment (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_id,job_grade_id,cost_center_id,work_location_id,employment_type_id,employee_category_id,reporting_manager_id,effective_from,change_reason,created_by,employment_relationship_id,assignment_status,source_reference) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'initial_appointment',$16,$17,'active',$18)`,
+          `insert into employee_assignment (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_id,job_grade_id,cost_center_id,work_location_id,employment_setup_id,reporting_manager_id,effective_from,change_reason,created_by,employment_relationship_id,assignment_status,source_reference) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'initial_appointment',$15,$16,'active',$17)`,
           [
             assignmentId,
             context.tenantId,
@@ -4977,8 +5589,7 @@ export class SourceHrRepository {
             row.job_grade_id,
             row.cost_center_id,
             row.work_location_id,
-            row.employment_type_id,
-            row.employee_category_id,
+            null, // Employment setups are retired (HR149); terms come from the cost centre.
             row.reporting_manager_id,
             row.effective_on,
             context.actor.userId,
@@ -5050,7 +5661,9 @@ export class SourceHrRepository {
     return this.read(context, "hr.employee_assignment.change", async (client) => {
       await this.requireCompanyAccess(client, context, query.company_id);
       const values: unknown[] = [context.tenantId, query.company_id];
-      const filters = ["request.tenant_id=$1", "request.company_id=$2", "request.request_state='pending'"];
+      const filters = ["request.tenant_id=$1", "request.company_id=$2"];
+      const status = query.status ?? "pending";
+      if (status !== "all") filters.push(`request.request_state=$${values.push(status)}`);
       if (query.search) {
         const parameter = values.push(`%${query.search.replace(/[\\%_]/g, "\\$&")}%`);
         filters.push(
@@ -5179,9 +5792,9 @@ export class SourceHrRepository {
           (tenant_id,id,employee_id,company_id,relationship_id,source_assignment_id,
            proposed_branch_id,proposed_department_id,proposed_job_id,proposed_designation_id,
            proposed_job_grade_id,proposed_cost_center_id,proposed_work_location_id,
-           proposed_employment_type_id,proposed_employee_category_id,proposed_reporting_manager_id,
+           proposed_employment_setup_id,proposed_reporting_manager_id,
            effective_on,reason,requested_by)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
         [
           context.tenantId,
           id,
@@ -5196,8 +5809,7 @@ export class SourceHrRepository {
           input.job_grade_id,
           input.cost_center_id,
           input.work_location_id,
-          input.employment_type_id,
-          input.employee_category_id,
+          null, // Employment setups are retired (HR149); terms come from the cost centre.
           input.reporting_manager_id ?? null,
           input.effective_on,
           input.reason,
@@ -5298,16 +5910,14 @@ export class SourceHrRepository {
         proposed_job_grade_id: string;
         proposed_cost_center_id: string;
         proposed_work_location_id: string;
-        proposed_employment_type_id: string;
-        proposed_employee_category_id: string;
+        proposed_employment_setup_id: string;
         proposed_reporting_manager_id: string | null;
       }>(
         `select request.company_id,request.relationship_id,request.source_assignment_id,
                 request.requested_by,request.effective_on::text,request.proposed_branch_id,
                 request.proposed_department_id,request.proposed_job_id,request.proposed_designation_id,
                 request.proposed_job_grade_id,request.proposed_cost_center_id,
-                request.proposed_work_location_id,request.proposed_employment_type_id,
-                request.proposed_employee_category_id,request.proposed_reporting_manager_id
+                request.proposed_work_location_id,request.proposed_employment_setup_id,request.proposed_reporting_manager_id
            from hr_employee_transfer_request request
            join employee_assignment assignment
              on assignment.tenant_id=request.tenant_id and assignment.id=request.source_assignment_id
@@ -5359,10 +5969,10 @@ export class SourceHrRepository {
         await client.query(
           `insert into employee_assignment
             (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_id,
-             job_grade_id,cost_center_id,work_location_id,employment_type_id,employee_category_id,
+             job_grade_id,cost_center_id,work_location_id,employment_setup_id,
              reporting_manager_id,effective_from,change_reason,created_by,employment_relationship_id,
              assignment_status,source_reference)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'transfer',$16,$17,'active',$18)`,
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'transfer',$15,$16,'active',$17)`,
           [
             assignmentId,
             context.tenantId,
@@ -5375,8 +5985,7 @@ export class SourceHrRepository {
             row.proposed_job_grade_id,
             row.proposed_cost_center_id,
             row.proposed_work_location_id,
-            row.proposed_employment_type_id,
-            row.proposed_employee_category_id,
+            null, // Employment setups are retired (HR149); terms come from the cost centre.
             row.proposed_reporting_manager_id,
             row.effective_on,
             context.actor.userId,
@@ -5458,7 +6067,9 @@ export class SourceHrRepository {
     return this.read(context, "hr.employee_assignment.change", async (client) => {
       await this.requireCompanyAccess(client, context, query.company_id);
       const values: unknown[] = [context.tenantId, query.company_id];
-      const filters = ["request.tenant_id=$1", "request.company_id=$2", "request.request_state='pending'"];
+      const filters = ["request.tenant_id=$1", "request.company_id=$2"];
+      const status = query.status ?? "pending";
+      if (status !== "all") filters.push(`request.request_state=$${values.push(status)}`);
       if (query.search) {
         const parameter = values.push(`%${query.search.replace(/[\\%_]/g, "\\$&")}%`);
         filters.push(
@@ -5726,16 +6337,14 @@ export class SourceHrRepository {
         department_id: string | null;
         cost_center_id: string;
         work_location_id: string;
-        employment_type_id: string;
-        employee_category_id: string;
+        employment_setup_id: string;
         reporting_manager_id: string | null;
       }>(
         `select request.company_id,request.relationship_id,request.source_assignment_id,
                 request.requested_by,request.effective_on::text,request.proposed_job_id,
                 request.proposed_designation_id,request.proposed_job_grade_id,
                 assignment.branch_id,assignment.department_id,assignment.cost_center_id,
-                assignment.work_location_id,assignment.employment_type_id,
-                assignment.employee_category_id,assignment.reporting_manager_id
+                assignment.work_location_id,assignment.employment_setup_id,assignment.reporting_manager_id
            from hr_employee_promotion_request request
            join employee_assignment assignment
              on assignment.tenant_id=request.tenant_id and assignment.id=request.source_assignment_id
@@ -5789,10 +6398,10 @@ export class SourceHrRepository {
         await client.query(
           `insert into employee_assignment
             (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_id,
-             job_grade_id,cost_center_id,work_location_id,employment_type_id,employee_category_id,
+             job_grade_id,cost_center_id,work_location_id,employment_setup_id,
              reporting_manager_id,effective_from,change_reason,created_by,employment_relationship_id,
              assignment_status,source_reference)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'promotion',$16,$17,'active',$18)`,
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'promotion',$15,$16,'active',$17)`,
           [
             assignmentId,
             context.tenantId,
@@ -5805,8 +6414,7 @@ export class SourceHrRepository {
             row.proposed_job_grade_id,
             row.cost_center_id,
             row.work_location_id,
-            row.employment_type_id,
-            row.employee_category_id,
+            null, // Employment setups are retired (HR149); terms come from the cost centre.
             row.reporting_manager_id,
             row.effective_on,
             context.actor.userId,
@@ -6199,14 +6807,13 @@ export class SourceHrRepository {
         job_grade_id: string;
         cost_center_id: string;
         work_location_id: string;
-        employment_type_id: string;
-        employee_category_id: string;
+        employment_setup_id: string;
       }>(
         `select request.company_id,request.relationship_id,request.source_assignment_id,
                 request.requested_by,request.effective_on::text,request.proposed_reporting_manager_id,
                 assignment.branch_id,assignment.department_id,assignment.designation_id,assignment.job_id,
                 assignment.job_grade_id,assignment.cost_center_id,assignment.work_location_id,
-                assignment.employment_type_id,assignment.employee_category_id
+                assignment.employment_setup_id
            from hr_employee_manager_change_request request
            join employee_assignment assignment
              on assignment.tenant_id=request.tenant_id and assignment.id=request.source_assignment_id
@@ -6260,10 +6867,10 @@ export class SourceHrRepository {
         await client.query(
           `insert into employee_assignment
             (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_id,
-             job_grade_id,cost_center_id,work_location_id,employment_type_id,employee_category_id,
+             job_grade_id,cost_center_id,work_location_id,employment_setup_id,
              reporting_manager_id,effective_from,change_reason,created_by,employment_relationship_id,
              assignment_status,source_reference)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'manager_change',$16,$17,'active',$18)`,
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'manager_change',$15,$16,'active',$17)`,
           [
             assignmentId,
             context.tenantId,
@@ -6276,8 +6883,7 @@ export class SourceHrRepository {
             row.job_grade_id,
             row.cost_center_id,
             row.work_location_id,
-            row.employment_type_id,
-            row.employee_category_id,
+            null, // Employment setups are retired (HR149); terms come from the cost centre.
             row.proposed_reporting_manager_id,
             row.effective_on,
             context.actor.userId,
@@ -6649,8 +7255,7 @@ export class SourceHrRepository {
         job_id: string;
         job_grade_id: string;
         cost_center_id: string;
-        employment_type_id: string;
-        employee_category_id: string;
+        employment_setup_id: string;
         reporting_manager_id: string | null;
       }>(
         `select request.company_id,request.relationship_id,request.source_assignment_id,
@@ -6659,8 +7264,7 @@ export class SourceHrRepository {
                 profile.effective_from::text as profile_effective_from,
                 profile.effective_to::text as profile_effective_to,
                 assignment.branch_id,assignment.department_id,assignment.designation_id,assignment.job_id,
-                assignment.job_grade_id,assignment.cost_center_id,assignment.employment_type_id,
-                assignment.employee_category_id,assignment.reporting_manager_id
+                assignment.job_grade_id,assignment.cost_center_id,assignment.employment_setup_id,assignment.reporting_manager_id
            from hr_employee_work_location_change_request request
            join employee_assignment assignment
              on assignment.tenant_id=request.tenant_id and assignment.id=request.source_assignment_id
@@ -6728,10 +7332,10 @@ export class SourceHrRepository {
         await client.query(
           `insert into employee_assignment
             (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_id,
-             job_grade_id,cost_center_id,work_location_id,employment_type_id,employee_category_id,
+             job_grade_id,cost_center_id,work_location_id,employment_setup_id,
              reporting_manager_id,effective_from,change_reason,created_by,employment_relationship_id,
              assignment_status,source_reference)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'work_location_change',$16,$17,'active',$18)`,
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'work_location_change',$15,$16,'active',$17)`,
           [
             assignmentId,
             context.tenantId,
@@ -6744,8 +7348,7 @@ export class SourceHrRepository {
             row.job_grade_id,
             row.cost_center_id,
             row.proposed_work_location_id,
-            row.employment_type_id,
-            row.employee_category_id,
+            null, // Employment setups are retired (HR149); terms come from the cost centre.
             row.reporting_manager_id,
             row.effective_on,
             context.actor.userId,
@@ -7144,8 +7747,7 @@ export class SourceHrRepository {
         job_grade_id: string;
         cost_center_id: string;
         work_location_id: string;
-        employment_type_id: string;
-        employee_category_id: string;
+        employment_setup_id: string;
         reporting_manager_id: string | null;
       }>(
         `select request.company_id,request.relationship_id,request.source_assignment_id,
@@ -7153,8 +7755,7 @@ export class SourceHrRepository {
                 request.proposed_business_unit_id,request.proposed_division_id,
                 request.proposed_branch_id,request.proposed_department_id,request.proposed_warehouse_id,
                 assignment.designation_id,assignment.job_id,assignment.job_grade_id,
-                assignment.cost_center_id,assignment.work_location_id,assignment.employment_type_id,
-                assignment.employee_category_id,assignment.reporting_manager_id
+                assignment.cost_center_id,assignment.work_location_id,assignment.employment_setup_id,assignment.reporting_manager_id
            from hr_employee_organization_placement_change_request request
            join employee_assignment assignment
              on assignment.tenant_id=request.tenant_id and assignment.id=request.source_assignment_id
@@ -7228,10 +7829,10 @@ export class SourceHrRepository {
         await client.query(
           `insert into employee_assignment
             (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_id,
-             job_grade_id,cost_center_id,work_location_id,employment_type_id,employee_category_id,
+             job_grade_id,cost_center_id,work_location_id,employment_setup_id,
              reporting_manager_id,effective_from,change_reason,created_by,employment_relationship_id,
              assignment_status,source_reference)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'organization_change',$16,$17,'active',$18)`,
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'organization_change',$15,$16,'active',$17)`,
           [
             assignmentId,
             context.tenantId,
@@ -7244,8 +7845,7 @@ export class SourceHrRepository {
             row.job_grade_id,
             row.cost_center_id,
             row.work_location_id,
-            row.employment_type_id,
-            row.employee_category_id,
+            null, // Employment setups are retired (HR149); terms come from the cost centre.
             row.reporting_manager_id,
             row.effective_on,
             context.actor.userId,
@@ -7356,11 +7956,25 @@ export class SourceHrRepository {
         status: "active" | "inactive";
         configuration_key: HrMasterDirectory["items"][number]["configuration_key"];
         configuration_value: string | null;
+        payment_route: HrMasterDirectory["items"][number]["payment_route"];
+        pay_cycle: HrMasterDirectory["items"][number]["pay_cycle"];
+        owning_org_unit_id: string | null;
+        owning_org_unit: string | null;
+        created_by_name: string | null;
+        created_at: string;
+        updated_at: string;
       }>(
-        `select id, company_id, master_type as type, code, name, description, status,
-                configuration_key,configuration_value
-           from hr_master_record where ${filters.join(" and ")}
-          order by master_type, code, id limit $${values.length}`,
+        `select master.id, master.company_id, master.master_type as type, master.code, master.name, master.description, master.status,
+                master.configuration_key,master.configuration_value,master.payment_route,master.pay_cycle,
+                master.owning_org_unit_id,owner.name as owning_org_unit,
+                coalesce(account.display_name,account.email,master.created_by) as created_by_name,
+                to_char(master.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
+                to_char(master.updated_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at
+           from hr_master_record master
+           left join organization_unit owner on owner.tenant_id=master.tenant_id and owner.id=master.owning_org_unit_id
+           left join security_user_account account on account.tenant_id=master.tenant_id and account.id=master.created_by
+          where ${filters.map((filter) => `master.${filter}`).join(" and ")}
+          order by master.master_type, master.code, master.id limit $${values.length}`,
         values,
       );
       return { items: result.rows };
@@ -7373,7 +7987,7 @@ export class SourceHrRepository {
       const result = await client.query<HrJobGradeDirectory["items"][number]>(
         `select master.id,master.company_id,master.master_type as type,master.code,master.name,
                 master.description,master.status,master.configuration_key,master.configuration_value,
-                detail.grade_level,detail.currency_code,
+                master.payment_route,master.pay_cycle,detail.grade_level,detail.currency_code,
                 detail.band_minimum::text,detail.band_midpoint::text,detail.band_maximum::text
            from hr_master_record master
            join hr_job_grade_detail detail
@@ -7385,6 +7999,103 @@ export class SourceHrRepository {
       );
       return { items: result.rows };
     });
+  }
+
+  /**
+   * Active company currencies configured under Finance, read for job-grade
+   * maintenance. Read-only; Finance remains the owner of currency setup.
+   */
+  async listJobGradeCurrencies(context: HrActorContext, companyId: string): Promise<HrJobGradeCurrencyDirectory> {
+    return this.read(context, "hr.master.read", async (client) => {
+      await this.requireCompanyAccess(client, context, companyId);
+      return { items: await this.activeCompanyCurrencies(client, context, companyId) };
+    });
+  }
+
+  /**
+   * Active Finance reporting projects of a company, read for manpower
+   * requisitions. Read-only; Finance remains the owner of project setup.
+   */
+  async listRequisitionProjects(context: HrActorContext, companyId: string): Promise<HrRequisitionProjectDirectory> {
+    return this.read(context, "hr.employee.read", async (client) => {
+      await this.requireCompanyAccess(client, context, companyId);
+      const result = await client.query<HrRequisitionProjectDirectory["items"][number]>(
+        "select id,code,name from erp_project where tenant_id=$1 and company_id=$2 and status='active' order by code,id limit 500",
+        [context.tenantId, companyId],
+      );
+      return { items: result.rows };
+    });
+  }
+
+  /**
+   * Active work locations of a company with the city from their current
+   * approved address profile, read for manpower requisitions.
+   */
+  async listRequisitionWorkLocations(context: HrActorContext, companyId: string): Promise<HrRequisitionWorkLocationDirectory> {
+    return this.read(context, "hr.employee.read", async (client) => {
+      await this.requireCompanyAccess(client, context, companyId);
+      const result = await client.query<HrRequisitionWorkLocationDirectory["items"][number]>(
+        `select location.id,location.code,location.name,profile.city,profile.country_code
+           from hr_master_record location
+           left join lateral (
+             select nullif(btrim(p.locality),'') as city,p.country_code
+               from hr_work_location_profile p
+              where p.tenant_id=location.tenant_id and p.company_id=location.company_id
+                and p.work_location_id=location.id and p.state in ('approved','active')
+                and p.effective_from<=current_date and (p.effective_to is null or p.effective_to>=current_date)
+              order by p.effective_from desc,p.id desc limit 1
+           ) profile on true
+          where location.tenant_id=$1 and location.company_id=$2
+            and location.master_type='work_location' and location.status='active'
+          order by location.name,location.id limit 500`,
+        [context.tenantId, companyId],
+      );
+      return { items: result.rows };
+    });
+  }
+
+  /**
+   * Active Finance nominals of a company offered as a cost centre's default
+   * nominal: postable, non-bank accounts whose general-nominal approval (if
+   * any) is active. Read-only; Finance remains the owner of the chart.
+   */
+  async listCostCentreNominals(context: HrActorContext, companyId: string): Promise<HrCostCentreNominalDirectory> {
+    return this.read(context, "hr.master.read", async (client) => {
+      await this.requireCompanyAccess(client, context, companyId);
+      const result = await client.query<HrCostCentreNominalDirectory["items"][number]>(
+        `${costCentreNominalProjection} order by nominal.code,nominal.id limit 500`,
+        [context.tenantId, companyId],
+      );
+      return { items: result.rows };
+    });
+  }
+
+  /** Company currency rows are protected by company-scoped row security keyed on the acting user. */
+  private async activeCompanyCurrencies(
+    client: PoolClient,
+    context: HrActorContext,
+    companyId: string,
+  ): Promise<HrJobGradeCurrencyDirectory["items"]> {
+    await client.query("select set_config('nexora.user_id',$1,true)", [context.actor.userId]);
+    const result = await client.query<HrJobGradeCurrencyDirectory["items"][number]>(
+      `select company_currency.currency_code,
+              coalesce(mapping.currency_name,standard.name,company_currency.currency_code) as currency_name,
+              company_currency.is_base
+         from company_currency
+         join currency standard
+           on standard.tenant_id=company_currency.tenant_id
+          and standard.code=company_currency.currency_code
+          and standard.status='active'
+         left join country_currency_catalog mapping
+           on mapping.country_code=company_currency.selected_country_code
+          and mapping.currency_code=company_currency.currency_code
+        where company_currency.tenant_id=$1 and company_currency.company_id=$2
+          and company_currency.status='active'
+        order by company_currency.is_base desc,company_currency.currency_code,company_currency.id
+        limit 300`,
+      [context.tenantId, companyId],
+    );
+    return result.rows;
   }
 
   async createJobGrade(
@@ -7442,6 +8153,17 @@ export class SourceHrRepository {
         [context.tenantId, gradeId, input.company_id],
       )).rows[0] : null;
       if (gradeId && !before) throw new HrApiError(404, "HR_JOB_GRADE_NOT_FOUND", "Job grade was not found.");
+      const currencyCode = input.currency_code.toUpperCase();
+      // A legacy grade may keep its existing currency; any new or changed currency must be configured for the company.
+      if (!(before && before.currency_code === currencyCode)) {
+        const configured = await this.activeCompanyCurrencies(client, context, input.company_id);
+        if (!configured.some((item) => item.currency_code === currencyCode))
+          throw new HrApiError(
+            409,
+            "HR_JOB_GRADE_CURRENCY_NOT_CONFIGURED",
+            "Choose a currency configured for this company under Finance â†’ Company currencies.",
+          );
+      }
       let id = gradeId;
       if (operation === "create") {
         input = { ...input, code: await allocateHrCode(client, context.tenantId, input.company_id, "job_grade", input.code) };
@@ -7618,22 +8340,32 @@ export class SourceHrRepository {
         await client.query("commit");
         return { ...replay.rows[0].response_body, replayed: true };
       }
-      const before = masterId ? (await client.query(`select id,company_id,master_type,code,name,description,status,configuration_key,configuration_value from hr_master_record where tenant_id=$1 and id=$2 and company_id=$3 for update`, [context.tenantId, masterId, input.company_id])).rows[0] : null;
+      const before = masterId ? (await client.query(`select id,company_id,master_type,code,name,description,status,configuration_key,configuration_value,payment_route,pay_cycle,owning_org_unit_id from hr_master_record where tenant_id=$1 and id=$2 and company_id=$3 for update`, [context.tenantId, masterId, input.company_id])).rows[0] : null;
       if (masterId && !before) throw new HrApiError(404, "HR_MASTER_NOT_FOUND", "HR master record was not found.");
-      if (operation === "update" && before && ["cost_center", "work_location", "employment_type", "employee_category"].includes(String(before.master_type))) {
+      const masterType = String(operation === "create" ? (input as CreateHrMasterRequest).type : before?.master_type);
+      if ((hrRetiredMasterTypes as readonly string[]).includes(masterType))
+        throw new HrApiError(409, "HR_MASTER_TYPE_RETIRED", "Employment types, employee categories and employment setups are retired and read-only. Set the payment route and pay cycle on the cost centre.");
+      if (operation === "update" && before) {
         const update = input as UpdateHrMasterRequest;
-        if (!update.configuration_key || !update.configuration_value)
+        if (masterType === "work_location" && (!update.configuration_key || !update.configuration_value))
           throw new HrApiError(400, "HR_MASTER_CONFIGURATION_REQUIRED", "Configuration is required when updating this HR master type.");
+        if (masterType === "cost_center" && (!update.payment_route || !update.pay_cycle))
+          throw new HrApiError(400, "HR_MASTER_CONFIGURATION_REQUIRED", "A cost centre requires a payment route and pay cycle.");
+        if (masterType !== "cost_center" && (update.payment_route || update.pay_cycle))
+          throw new HrApiError(400, "HR_MASTER_CONFIGURATION_INVALID", "Payment route and pay cycle apply only to cost centres.");
       }
+      if (operation !== "status")
+        await this.assertMasterReferences(client, context, masterType, input as CreateHrMasterRequest | UpdateHrMasterRequest, before);
       let id = masterId;
       if (operation === "create") {
         const create = { ...input as CreateHrMasterRequest };
         create.code = await allocateHrCode(client, context.tenantId, create.company_id, create.type, create.code);
         id = `hr-master-${randomUUID()}`;
-        await client.query(`insert into hr_master_record (id,tenant_id,company_id,master_type,code,name,description,status,created_by,configuration_key,configuration_value) values ($1,$2,$3,$4,$5,$6,$7,'active',$8,$9,$10)`, [id, context.tenantId, create.company_id, create.type, create.code.toUpperCase(), create.name, create.description, context.actor.userId, create.configuration_key ?? null, create.configuration_value ?? null]);
+        await client.query(`insert into hr_master_record (id,tenant_id,company_id,master_type,code,name,description,status,created_by,configuration_key,configuration_value,payment_route,pay_cycle,owning_org_unit_id) values ($1,$2,$3,$4,$5,$6,$7,'active',$8,$9,$10,$11,$12,$13)`, [id, context.tenantId, create.company_id, create.type, create.code.toUpperCase(), create.name, create.description, context.actor.userId, create.configuration_key ?? null, create.configuration_value ?? null, create.payment_route ?? null, create.pay_cycle ?? null, create.owning_org_unit_id ?? null]);
       } else if (operation === "update") {
         const update = input as UpdateHrMasterRequest;
-        await client.query(`update hr_master_record set code=$4,name=$5,description=$6,configuration_key=$7,configuration_value=$8,updated_at=now() where tenant_id=$1 and id=$2 and company_id=$3`, [context.tenantId, masterId, update.company_id, update.code.toUpperCase(), update.name, update.description, update.configuration_key ?? null, update.configuration_value ?? null]);
+        // Omitting the department keeps the current one, so older clients never clear it.
+        await client.query(`update hr_master_record set code=$4,name=$5,description=$6,configuration_key=$7,configuration_value=$8,payment_route=$9,pay_cycle=$10,owning_org_unit_id=case when $11::boolean then $12 else owning_org_unit_id end,updated_at=now() where tenant_id=$1 and id=$2 and company_id=$3`, [context.tenantId, masterId, update.company_id, update.code.toUpperCase(), update.name, update.description, update.configuration_key ?? null, update.configuration_value ?? null, update.payment_route ?? null, update.pay_cycle ?? null, update.owning_org_unit_id !== undefined, update.owning_org_unit_id ?? null]);
       } else {
         const change = input as ChangeHrMasterStatusRequest;
         if(change.status==="inactive"&&before?.master_type==="work_location") {
@@ -7642,7 +8374,7 @@ export class SourceHrRepository {
         }
         await client.query(`update hr_master_record set status=$4,deactivated_by=case when $4='inactive' then $5 else null end,deactivated_at=case when $4='inactive' then now() else null end,updated_at=now() where tenant_id=$1 and id=$2 and company_id=$3`, [context.tenantId, masterId, change.company_id, change.status, context.actor.userId]);
       }
-      const after = (await client.query(`select id,company_id,master_type,code,name,description,status,configuration_key,configuration_value from hr_master_record where tenant_id=$1 and id=$2`, [context.tenantId, id])).rows[0];
+      const after = (await client.query(`select id,company_id,master_type,code,name,description,status,configuration_key,configuration_value,payment_route,pay_cycle,owning_org_unit_id from hr_master_record where tenant_id=$1 and id=$2`, [context.tenantId, id])).rows[0];
       const audit = await this.appendPlatformAudit(client, context, correlationId, `hr.master.${operation}`, { entityId: id!, entityType: "hr_master_record", before, after });
       const result = { id: id!, company_id: input.company_id, audit_event_id: audit, replayed: false };
       await client.query(`insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,200,$6,$7)`, [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stateHash(result)]);
@@ -7652,7 +8384,234 @@ export class SourceHrRepository {
       await client.query("rollback").catch(() => undefined);
       const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
       if (code === "23505") throw new HrApiError(409, "HR_MASTER_DUPLICATE", "That code or name already exists for this company and master type.");
+      if (code === "23514" && String((error as { message?: unknown }).message).startsWith("employment types and employee categories are retired"))
+        throw new HrApiError(409, "HR_MASTER_TYPE_RETIRED", "Employment types, employee categories and employment setups are retired and read-only. Set the payment route and pay cycle on the cost centre.");
       if (code === "23514") throw new HrApiError(409, "HR_MASTER_CONFIGURATION_INVALID", "The master configuration is invalid for this record type.");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** Server-side checks for master fields that reference other records. */
+  private async assertMasterReferences(
+    client: PoolClient,
+    context: HrActorContext,
+    masterType: string,
+    terms: CreateHrMasterRequest | UpdateHrMasterRequest,
+    before: { configuration_value?: string | null; owning_org_unit_id?: string | null } | null | undefined,
+  ): Promise<void> {
+    if (terms.owning_org_unit_id != null) {
+      if (masterType !== "job")
+        throw new HrApiError(400, "HR_MASTER_DEPARTMENT_INVALID", "Only jobs are linked to a department.");
+      if (terms.owning_org_unit_id !== before?.owning_org_unit_id) {
+        const department = await client.query(
+          `with recursive tree as (
+             select id from organization_unit where tenant_id=$1 and id=$2 and type='company'
+             union all
+             select child.id from organization_unit child join tree parent on child.parent_id=parent.id where child.tenant_id=$1)
+           select 1 from organization_unit unit
+            where unit.tenant_id=$1 and unit.id=$3 and unit.type='department' and unit.status='active'
+              and unit.id in (select id from tree)`,
+          [context.tenantId, terms.company_id, terms.owning_org_unit_id],
+        );
+        if (!department.rowCount)
+          throw new HrApiError(409, "HR_MASTER_DEPARTMENT_INVALID", "Choose an active department of this company for the job.");
+      }
+    }
+    // A new or changed default nominal must be an active Finance nominal of the company.
+    if (
+      masterType === "cost_center" &&
+      terms.configuration_value != null &&
+      terms.configuration_value !== before?.configuration_value
+    ) {
+      const nominal = await client.query(`${costCentreNominalProjection} and nominal.code=$3 limit 1`, [
+        context.tenantId,
+        terms.company_id,
+        terms.configuration_value,
+      ]);
+      if (!nominal.rowCount)
+        throw new HrApiError(409, "HR_COST_CENTRE_NOMINAL_INVALID", "Choose an active Finance nominal of this company as the default nominal.");
+    }
+  }
+
+  async deleteMaster(
+    context: HrActorContext,
+    masterId: string,
+    input: DeleteHrMasterRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrMasterDeleteResult> {
+    return this.deleteOrganisationRecord(context, "master", masterId, input, idempotencyKey, correlationId);
+  }
+
+  async deleteJobGrade(
+    context: HrActorContext,
+    gradeId: string,
+    input: DeleteHrMasterRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrMasterDeleteResult> {
+    return this.deleteOrganisationRecord(context, "job_grade", gradeId, input, idempotencyKey, correlationId);
+  }
+
+  async deleteOrganizationUnit(
+    context: HrActorContext,
+    unitId: string,
+    input: DeleteHrMasterRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrMasterDeleteResult> {
+    return this.deleteOrganisationRecord(context, "organization_unit", unitId, input, idempotencyKey, correlationId);
+  }
+
+  /** Permanent delete of a deactivated Organisation & Masters record. Only inactive,
+   * unreferenced records qualify; the full before-state is kept in hr_master_deletion
+   * and the code's counter high-water mark is raised so the code is never reissued. */
+  private async deleteOrganisationRecord(
+    context: HrActorContext,
+    resource: "master" | "job_grade" | "organization_unit",
+    recordId: string,
+    input: DeleteHrMasterRequest,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<HrMasterDeleteResult> {
+    if (!validIdempotencyKey(idempotencyKey)) throw new HrApiError(400, "INVALID_IDEMPOTENCY_KEY", "The idempotency key is invalid.");
+    const organization = resource === "organization_unit";
+    const permission = organization ? "hr.organization.update" : "hr.master.update";
+    if (!context.actor.permissions.includes(permission))
+      throw new HrApiError(403, "PERMISSION_DENIED", organization ? "You are not permitted to maintain the organization structure." : "You are not permitted to maintain HR master data.");
+    const inUse = () => new HrApiError(409, "HR_MASTER_IN_USE", "This record is still used by employee assignments, requisitions or other records and cannot be deleted. Nothing was changed.");
+    const collection = organization ? "organization_units" : resource === "job_grade" ? "job_grades" : "masters";
+    const path = `/api/v1/hr/${collection}/${recordId}/delete`;
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin isolation level read committed");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await this.requireCompanyAccess(client, context, input.company_id);
+      const fingerprint = stateHash({ recordId, resource, action: "delete", input });
+      const replay = await client.query<{ request_fingerprint: string; response_body: HrMasterDeleteResult }>(
+        `select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey],
+      );
+      if (replay.rows[0]) {
+        if (replay.rows[0].request_fingerprint !== fingerprint) throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request.");
+        await client.query("commit");
+        return { ...replay.rows[0].response_body, replayed: true };
+      }
+      let before: Record<string, unknown> & { code: string; status: string };
+      let kind: string;
+      if (organization) {
+        const row = (await client.query<{ code: string; status: string; type: string; state: Record<string, unknown> }>(
+          `with recursive tree as (
+             select id from organization_unit where tenant_id=$1 and id=$3 and type='company'
+             union all
+             select child.id from organization_unit child join tree parent on child.parent_id=parent.id where child.tenant_id=$1)
+           select unit.code,unit.status,unit.type,to_jsonb(unit) state from organization_unit unit
+            where unit.tenant_id=$1 and unit.id=$2 and unit.id in (select id from tree) for update`,
+          [context.tenantId, recordId, input.company_id],
+        )).rows[0];
+        if (!row) throw new HrApiError(404, "HR_ORGANIZATION_UNIT_NOT_FOUND", "Organization unit was not found.");
+        if (row.type === "company") throw new HrApiError(409, "HR_COMPANY_ADMIN_REQUIRED", "Company records are maintained by platform administration.");
+        before = { ...row.state, code: row.code, status: row.status };
+        kind = row.type;
+      } else {
+        const row = (await client.query<{ code: string; status: string; master_type: string; state: Record<string, unknown>; grade: Record<string, unknown> | null }>(
+          `select master.code,master.status,master.master_type,to_jsonb(master) state,to_jsonb(detail) grade
+             from hr_master_record master
+             left join hr_job_grade_detail detail on detail.tenant_id=master.tenant_id and detail.master_record_id=master.id
+            where master.tenant_id=$1 and master.id=$2 and master.company_id=$3 for update of master`,
+          [context.tenantId, recordId, input.company_id],
+        )).rows[0];
+        if (resource === "job_grade" && row?.master_type !== "job_grade") throw new HrApiError(404, "HR_JOB_GRADE_NOT_FOUND", "Job grade was not found.");
+        if (!row) throw new HrApiError(404, "HR_MASTER_NOT_FOUND", "HR master record was not found.");
+        if ((hrRetiredMasterTypes as readonly string[]).includes(row.master_type))
+          throw new HrApiError(409, "HR_MASTER_TYPE_RETIRED", "Employment types, employee categories and employment setups are retired and read-only. Set the payment route and pay cycle on the cost centre.");
+        before = { ...row.state, ...(row.grade ? { job_grade_detail: row.grade } : {}), code: row.code, status: row.status };
+        kind = row.master_type;
+      }
+      // An active record is deactivated and deleted in this one transaction; the database
+      // guards still only delete inactive rows, and any remaining reference rolls both back.
+      if (before.status !== "inactive") {
+        if (organization)
+          await client.query("update organization_unit set status='inactive',updated_at=now() where tenant_id=$1 and id=$2", [context.tenantId, recordId]);
+        else
+          await client.query(
+            "update hr_master_record set status='inactive',deactivated_by=$3,deactivated_at=now(),updated_at=now() where tenant_id=$1 and id=$2",
+            [context.tenantId, recordId, context.actor.userId],
+          );
+      }
+      // References that are not protected by a foreign key.
+      if (organization) {
+        const children = await client.query("select 1 from organization_unit where tenant_id=$1 and parent_id=$2 limit 1", [context.tenantId, recordId]);
+        if (children.rowCount)
+          throw new HrApiError(409, "HR_ORGANIZATION_UNIT_HAS_CHILDREN", "This unit still has child units. Move or delete them before deleting this unit.");
+        const used = await client.query<{ used: boolean }>(
+          `select exists(select 1 from hr_shift_assignment where tenant_id=$1 and scope in ('branch','department') and scope_id=$2)
+               or exists(select 1 from hr_recruitment_offer where tenant_id=$1 and (branch_id=$2 or department_id=$2)) as used`,
+          [context.tenantId, recordId],
+        );
+        if (used.rows[0]?.used) throw inUse();
+      } else if (kind === "employment_setup") {
+        const used = await client.query<{ used: boolean }>(
+          `select exists(select 1 from hr_leave_type where tenant_id=$1 and $2=any(applicable_employment_setup_ids))
+               or exists(select 1 from hr_leave_policy_version where tenant_id=$1 and $2=any(applicable_employment_setup_ids)) as used`,
+          [context.tenantId, recordId],
+        );
+        if (used.rows[0]?.used) throw inUse();
+      } else if (kind === "cost_center") {
+        const used = await client.query<{ used: boolean }>(
+          `select exists(select 1 from hr_payroll_journal_line where tenant_id=$1 and dimensions->>'cost_center'=$2)
+               or exists(select 1 from hr_payroll_journal_proposal proposal,
+                           jsonb_array_elements(case when jsonb_typeof(proposal.source_evidence->'cost_center_mappings')='array'
+                                                     then proposal.source_evidence->'cost_center_mappings' else '[]'::jsonb end) mapping
+                          where proposal.tenant_id=$1 and mapping->>'cost_center_id'=$2)
+               or exists(select 1 from journal_line where tenant_id=$1 and dimensions->>'cost_center'=$2)
+               or exists(select 1 from manual_journal_line where tenant_id=$1 and dimensions->>'cost_center'=$2)
+               or exists(select 1 from hr_leave_type where tenant_id=$1 and $2=any(applicable_cost_center_ids))
+               or exists(select 1 from hr_leave_policy_version where tenant_id=$1 and $2=any(applicable_cost_center_ids)) as used`,
+          [context.tenantId, recordId],
+        );
+        if (used.rows[0]?.used) throw inUse();
+      }
+      if (isHrCodeKind(kind)) await retireHrCode(client, context.tenantId, input.company_id, kind, before.code);
+      if (organization) {
+        await client.query("delete from organization_unit where tenant_id=$1 and id=$2", [context.tenantId, recordId]);
+      } else {
+        await client.query("delete from hr_job_grade_detail where tenant_id=$1 and master_record_id=$2", [context.tenantId, recordId]);
+        await client.query("delete from hr_master_record where tenant_id=$1 and id=$2 and company_id=$3", [context.tenantId, recordId, input.company_id]);
+      }
+      const entityType = organization ? "organization_unit" : "hr_master_record";
+      const action = organization ? "hr.organization.delete" : resource === "job_grade" ? "hr.job_grade.delete" : "hr.master.delete";
+      const audit = await this.appendPlatformAudit(client, context, correlationId, action, {
+        entityId: recordId,
+        entityType,
+        before,
+        after: null,
+        sourceReference: `hr:${collection}:delete:${recordId}`,
+      });
+      await client.query(
+        `insert into hr_master_deletion (tenant_id,id,company_id,entity_type,entity_id,record_kind,code,before_state,audit_event_id,deleted_by)
+         values ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10)`,
+        [context.tenantId, `hr-deletion-${randomUUID()}`, input.company_id, entityType, recordId, kind, before.code, JSON.stringify(before), audit, context.actor.userId],
+      );
+      const result: HrMasterDeleteResult = { id: recordId, company_id: input.company_id, code: before.code, deleted: true, audit_event_id: audit, replayed: false };
+      await client.query(
+        `insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,200,$6,$7)`,
+        [context.tenantId, context.actor.userId, path, idempotencyKey, fingerprint, result, stateHash(result)],
+      );
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+      const message = String((error as { message?: unknown } | null)?.message ?? "");
+      // ON DELETE RESTRICT: assignments, requisitions, offers, shifts, HR134 legacy map, history ...
+      if (code === "23503" || code === "23001") throw inUse();
+      if (code === "23514" && message.startsWith("retired employment masters"))
+        throw new HrApiError(409, "HR_MASTER_TYPE_RETIRED", "Employment types, employee categories and employment setups are retired and read-only. Set the payment route and pay cycle on the cost centre.");
+      // A guard on deactivating the record (for example active placements) also means it is still in use.
+      if (code === "23514" && !message.startsWith("retired employment masters")) throw inUse();
       throw error;
     } finally {
       client.release();
@@ -7688,7 +8647,7 @@ export class SourceHrRepository {
                    relationship.legal_employer_id as company_id,relationship.id as relationship_id,
                    job.id as job_id,job.code as job_code,job.name as job_name,
                    assignment.id as profile_draft_assignment_id,designation.name as designation,
-                   job_grade.name as job_grade,employment_type.name as employment_type,
+                   job_grade.name as job_grade,employment_setup.name as employment_setup,
                    work_location.name as work_location,request.effective_on,request.requested_by,
                    request.requested_at,request.reason,request.approval_state as status,
                    request.decided_by,request.decided_at,request.decision_comment as decision_reason
@@ -7707,8 +8666,8 @@ export class SourceHrRepository {
                 on designation.tenant_id=assignment.tenant_id and designation.id=assignment.designation_id
               join hr_master_record job_grade
                 on job_grade.tenant_id=assignment.tenant_id and job_grade.id=assignment.job_grade_id
-              join hr_master_record employment_type
-                on employment_type.tenant_id=assignment.tenant_id and employment_type.id=assignment.employment_type_id
+              left join hr_master_record employment_setup
+                on employment_setup.tenant_id=assignment.tenant_id and employment_setup.id=assignment.employment_setup_id
               join hr_master_record work_location
                 on work_location.tenant_id=assignment.tenant_id and work_location.id=assignment.work_location_id`;
   }
@@ -8118,12 +9077,18 @@ export class SourceHrRepository {
       | "hr.employment_lifecycle_policy.submit"
       | "hr.employment_lifecycle_policy.approve"
       | "hr.employment_lifecycle_policy.activate"
+      | "hr.employment_lifecycle_policy.update"
+      | "hr.employment_lifecycle_policy.delete"
+      | "hr.employment_lifecycle_policy.deactivate"
       | "hr.master.job.create"
       | "hr.job_grade.create"
       | "hr.job_grade.update"
       | "hr.master.create"
       | "hr.master.update"
       | "hr.master.status"
+      | "hr.master.delete"
+      | "hr.job_grade.delete"
+      | "hr.organization.delete"
       | "hr.organization.create"
       | "hr.organization.update"
       | "hr.organization.status"
@@ -8139,6 +9104,8 @@ export class SourceHrRepository {
       | "hr.employee_assignment.work_location_change.decide"
       | "hr.employee_assignment.organization_change.request"
       | "hr.employee_assignment.organization_change.decide"
+      | HrEmployeeRecordAuditAction
+      | HrRecruitmentAuditAction
       | "hr.manpower_requisition.create"
       | "hr.manpower_requisition.submitted"
       | "hr.manpower_requisition.approved"
@@ -8165,7 +9132,7 @@ export class SourceHrRepository {
       | "hr.learning.workflow",
     mutation: {
       entityId: string;
-      entityType?: "hr_learning_record" | "hr_personal_data_correction" | "hr_report_export" | "hr_settlement_entitlement" | "hr_employment_policy_adoption" | "hr_lifecycle_case" | "hr_performance_record" | "hr_payroll_workspace" | "employee" | "employment_lifecycle_policy" | "hr_master_record" | "employment_relationship" | "organization_unit" | "hr_manpower_requisition" | "hr_job_opening" | "hr_candidate" | "hr_recruitment_application" | "hr_recruitment_offer" | "hr_shift" | "hr_shift_assignment" | "hr_attendance_correction";
+      entityType?: "hr_manpower_requisition" | "hr_job_opening" | "hr_candidate" | "employee_contact" | "employee_emergency_contact" | "employee_document" | "hr_employee_employment_history" | "hr_learning_record" | "hr_personal_data_correction" | "hr_report_export" | "hr_settlement_entitlement" | "hr_employment_policy_adoption" | "hr_lifecycle_case" | "hr_performance_record" | "hr_payroll_workspace" | "employee" | "employment_lifecycle_policy" | "hr_master_record" | "employment_relationship" | "organization_unit" | "hr_manpower_requisition" | "hr_job_opening" | "hr_candidate" | "hr_recruitment_application" | "hr_recruitment_offer" | "hr_shift" | "hr_shift_assignment" | "hr_attendance_correction";
       before: unknown;
       after: unknown;
       sourceReference?: string;

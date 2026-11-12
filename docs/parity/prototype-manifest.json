@@ -3,8 +3,8 @@
   "source": "app/prototype-data.ts",
   "counts": {
     "modules": 34,
-    "groups": 140,
-    "pages": 780
+    "groups": 135,
+    "pages": 765
   },
   "modules": [
     {
@@ -2558,15 +2558,78 @@
               "status": "live"
             },
             {
+              "id": "employment-setup",
+              "label": "Employment Setup",
+              "archetype": "list",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
               "id": "employment-types",
               "label": "Employment Types",
               "archetype": "list",
-              "status": "live"
+              "status": "live",
+              "hiddenFromNavigation": true
             },
             {
               "id": "employee-categories",
               "label": "Employee Categories",
               "archetype": "list",
+              "status": "live",
+              "hiddenFromNavigation": true
+            }
+          ]
+        },
+        {
+          "id": "recruitment",
+          "label": "Recruitment",
+          "pages": [
+            {
+              "id": "recruitment-workspace",
+              "label": "Recruitment",
+              "archetype": "dashboard",
+              "status": "live"
+            },
+            {
+              "id": "manpower-requisitions",
+              "label": "Manpower Requisitions",
+              "archetype": "approval",
+              "status": "live"
+            },
+            {
+              "id": "job-openings",
+              "label": "Job Openings",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "candidates",
+              "label": "Candidate Directory",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "recruitment-pipeline",
+              "label": "Recruitment Pipeline",
+              "archetype": "workflow",
+              "status": "live"
+            },
+            {
+              "id": "interviews",
+              "label": "Interviews & Evaluations",
+              "archetype": "workflow",
+              "status": "live"
+            },
+            {
+              "id": "offers",
+              "label": "Offer Management",
+              "archetype": "approval",
+              "status": "live"
+            },
+            {
+              "id": "create-employee-from-offer",
+              "label": "Create Employee from Offer",
+              "archetype": "workflow",
               "status": "live"
             }
           ]
@@ -2662,79 +2725,19 @@
           ]
         },
         {
-          "id": "recruitment",
-          "label": "Recruitment",
-          "pages": [
-            {
-              "id": "recruitment-workspace",
-              "label": "Recruitment",
-              "archetype": "dashboard",
-              "status": "live"
-            },
-            {
-              "id": "manpower-requisitions",
-              "label": "Manpower Requisitions",
-              "archetype": "approval",
-              "status": "live"
-            },
-            {
-              "id": "job-openings",
-              "label": "Job Openings",
-              "archetype": "list",
-              "status": "live"
-            },
-            {
-              "id": "candidates",
-              "label": "Candidate Directory",
-              "archetype": "list",
-              "status": "live"
-            },
-            {
-              "id": "recruitment-pipeline",
-              "label": "Recruitment Pipeline",
-              "archetype": "workflow",
-              "status": "live"
-            },
-            {
-              "id": "interviews",
-              "label": "Interviews & Evaluations",
-              "archetype": "workflow",
-              "status": "live"
-            },
-            {
-              "id": "offers",
-              "label": "Offer Management",
-              "archetype": "approval",
-              "status": "live"
-            },
-            {
-              "id": "create-employee-from-offer",
-              "label": "Create Employee from Offer",
-              "archetype": "workflow",
-              "status": "live"
-            }
-          ]
-        },
-        {
-          "id": "attendance-shifts",
-          "label": "Attendance & Shifts",
+          "id": "attendance-leave",
+          "label": "Attendance & Leave",
           "pages": [
             {
               "id": "attendance-workspace",
-              "label": "Attendance & Shifts",
+              "label": "Attendance & Leave",
               "archetype": "dashboard",
               "status": "live"
             },
             {
-              "id": "shifts",
-              "label": "Shifts & Rules",
-              "archetype": "settings",
-              "status": "live"
-            },
-            {
-              "id": "shift-assignments",
-              "label": "Shift Assignments",
-              "archetype": "list",
+              "id": "attendance-check-in",
+              "label": "Check In / Out",
+              "archetype": "form",
               "status": "live"
             },
             {
@@ -2744,14 +2747,8 @@
               "status": "live"
             },
             {
-              "id": "monthly-attendance",
-              "label": "Monthly Attendance",
-              "archetype": "list",
-              "status": "live"
-            },
-            {
               "id": "attendance-corrections",
-              "label": "Attendance Corrections",
+              "label": "Corrections",
               "archetype": "approval",
               "status": "live"
             },
@@ -2759,30 +2756,6 @@
               "id": "overtime",
               "label": "Overtime",
               "archetype": "approval",
-              "status": "live"
-            },
-            {
-              "id": "attendance-period",
-              "label": "Attendance Period Close",
-              "archetype": "workflow",
-              "status": "live"
-            },
-            {
-              "id": "attendance-payroll-inputs",
-              "label": "Attendance → Payroll Inputs",
-              "archetype": "report",
-              "status": "live"
-            }
-          ]
-        },
-        {
-          "id": "time-leave",
-          "label": "Time & Leave",
-          "pages": [
-            {
-              "id": "time-leave-workspace",
-              "label": "Time & Leave",
-              "archetype": "dashboard",
               "status": "live"
             },
             {
@@ -2798,21 +2771,9 @@
               "status": "live"
             },
             {
-              "id": "attendance",
-              "label": "Attendance",
-              "archetype": "list",
-              "status": "live"
-            },
-            {
               "id": "leave-requests",
-              "label": "Leave Requests",
+              "label": "Leave Request",
               "archetype": "list",
-              "status": "live"
-            },
-            {
-              "id": "leave-request",
-              "label": "Add Leave Request",
-              "archetype": "form",
               "status": "live"
             },
             {
@@ -2820,6 +2781,64 @@
               "label": "Leave Approval",
               "archetype": "approval",
               "status": "live"
+            },
+            {
+              "id": "shifts",
+              "label": "Shifts & Rules",
+              "archetype": "settings",
+              "status": "live"
+            },
+            {
+              "id": "shift-assignments",
+              "label": "Shift Assignments",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "my-attendance",
+              "label": "My Attendance",
+              "archetype": "report",
+              "status": "live"
+            },
+            {
+              "id": "monthly-attendance",
+              "label": "Monthly Attendance",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "attendance-period",
+              "label": "Attendance Period Close",
+              "archetype": "workflow",
+              "status": "live"
+            },
+            {
+              "id": "attendance-payroll-inputs",
+              "label": "Attendance → Payroll Inputs",
+              "archetype": "report",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "leave-request",
+              "label": "Add Leave Request",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "time-leave-workspace",
+              "label": "Time & Leave",
+              "archetype": "dashboard",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "attendance",
+              "label": "Attendance",
+              "archetype": "list",
+              "status": "live",
+              "hiddenFromNavigation": true
             }
           ]
         },
@@ -2896,78 +2915,6 @@
           ]
         },
         {
-          "id": "performance",
-          "label": "Performance Management",
-          "pages": [
-            {
-              "id": "performance-workspace",
-              "label": "Performance Management",
-              "archetype": "dashboard",
-              "status": "live"
-            },
-            {
-              "id": "performance-cycles",
-              "label": "Performance Cycles",
-              "archetype": "settings",
-              "status": "live"
-            },
-            {
-              "id": "goals-kpis",
-              "label": "Goals & KPIs",
-              "archetype": "workflow",
-              "status": "live"
-            },
-            {
-              "id": "performance-reviews",
-              "label": "Performance Reviews",
-              "archetype": "approval",
-              "status": "live"
-            },
-            {
-              "id": "performance-outcomes",
-              "label": "Performance Outcomes",
-              "archetype": "workflow",
-              "status": "live"
-            }
-          ]
-        },
-        {
-          "id": "learning",
-          "label": "Learning & Development",
-          "pages": [
-            {
-              "id": "learning-workspace",
-              "label": "Learning & Development",
-              "archetype": "dashboard",
-              "status": "live"
-            },
-            {
-              "id": "training-programs",
-              "label": "Training Programmes",
-              "archetype": "settings",
-              "status": "live"
-            },
-            {
-              "id": "training-requests",
-              "label": "Training Requests",
-              "archetype": "approval",
-              "status": "live"
-            },
-            {
-              "id": "training-sessions",
-              "label": "Training Sessions",
-              "archetype": "workflow",
-              "status": "live"
-            },
-            {
-              "id": "training-completions",
-              "label": "Completion & Certificates",
-              "archetype": "workflow",
-              "status": "live"
-            }
-          ]
-        },
-        {
           "id": "employee-lifecycle",
           "label": "Employee Lifecycle",
           "pages": [
@@ -2997,8 +2944,26 @@
             },
             {
               "id": "employee-movements",
-              "label": "Transfers, Promotions & Movements",
+              "label": "Transfers",
               "archetype": "approval",
+              "status": "live"
+            },
+            {
+              "id": "employee-promotions",
+              "label": "Promotions",
+              "archetype": "approval",
+              "status": "live"
+            },
+            {
+              "id": "loans-benefits",
+              "label": "Loan Requests",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "advance-requests",
+              "label": "Advance Requests",
+              "archetype": "list",
               "status": "live"
             },
             {
@@ -3009,91 +2974,13 @@
             },
             {
               "id": "terminations",
-              "label": "Termination Cases",
+              "label": "Termination",
               "archetype": "approval",
               "status": "live"
             },
             {
               "id": "clearance",
               "label": "Exit Clearance",
-              "archetype": "workflow",
-              "status": "live"
-            },
-            {
-              "id": "final-settlements",
-              "label": "Final Settlements",
-              "archetype": "approval",
-              "status": "live"
-            },
-            {
-              "id": "offboarding",
-              "label": "Offboarding Control Centre",
-              "archetype": "workflow",
-              "status": "live"
-            }
-          ]
-        },
-        {
-          "id": "benefits-self-service",
-          "label": "Benefits & Self-service",
-          "pages": [
-            {
-              "id": "benefits-self-service-workspace",
-              "label": "Benefits & Self-service",
-              "archetype": "dashboard",
-              "status": "live"
-            },
-            {
-              "id": "loans-benefits",
-              "label": "Loans, Benefits & Gratuity",
-              "archetype": "list",
-              "status": "live"
-            },
-            {
-              "id": "statutory-deductions",
-              "label": "Statutory Deductions",
-              "archetype": "settings",
-              "status": "live"
-            },
-            {
-              "id": "employee-self-service",
-              "label": "Employee Self-service",
-              "archetype": "dashboard",
-              "status": "live"
-            },
-            {
-              "id": "hr-report-centre",
-              "label": "HR & Payroll Report Centre",
-              "archetype": "report",
-              "status": "live"
-            }
-          ]
-        },
-        {
-          "id": "hr-compliance",
-          "label": "Reporting, Compliance & Audit",
-          "pages": [
-            {
-              "id": "hr-compliance-workspace",
-              "label": "Reporting, Compliance & Audit",
-              "archetype": "dashboard",
-              "status": "live"
-            },
-            {
-              "id": "hr-compliance-configuration",
-              "label": "Compliance Configuration",
-              "archetype": "settings",
-              "status": "live"
-            },
-            {
-              "id": "hr-report-audit-log",
-              "label": "Report Audit Log",
-              "archetype": "report",
-              "status": "live"
-            },
-            {
-              "id": "hr-export-centre",
-              "label": "Secure Export Centre",
               "archetype": "workflow",
               "status": "live"
             }

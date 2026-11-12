@@ -31,7 +31,7 @@ function readable(value: string): string {
 export function HrEmployeeHistoryWorkspace({ initialEmployeeId }: { initialEmployeeId?: string } = {}) {
   const { api, session, loading: sessionLoading } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
+  const [noCompany, setNoCompany] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [employees, setEmployees] = useState<HrEmployeeDirectory["items"]>([]);
   const [employeeId, setEmployeeId] = useState("");
@@ -64,7 +64,7 @@ export function HrEmployeeHistoryWorkspace({ initialEmployeeId }: { initialEmplo
     loadEmployeeRouteCompanies(client, initialEmployeeId)
       .then((result) => {
         if (!active) return;
-        setCompanies(result.items);
+        setNoCompany(result.items.length === 0);
         const initialCompanyId = result.preferredCompanyId;
         setCompanyId(initialCompanyId);
         setDirectoryState(initialCompanyId ? "loading" : "ready");
@@ -151,13 +151,6 @@ export function HrEmployeeHistoryWorkspace({ initialEmployeeId }: { initialEmplo
     };
   }, [client, employeeId]);
 
-  function chooseCompany(nextCompanyId: string) {
-    setCompanyId(nextCompanyId);
-    setDirectoryState(nextCompanyId ? "loading" : "ready");
-    setEmployees([]);
-    chooseEmployee("");
-  }
-
   function chooseEmployee(nextEmployeeId: string) {
     setEmployeeId(nextEmployeeId);
     const nextState: LoadState = nextEmployeeId ? "loading" : "ready";
@@ -234,23 +227,8 @@ export function HrEmployeeHistoryWorkspace({ initialEmployeeId }: { initialEmplo
           Status, lifecycle and profile evidence is read-only. Changes must continue through their governed workflows.
         </AlertDescription>
       </Alert>
-      <div className="grid min-w-0 gap-3 rounded-lg border border-border bg-card p-3 shadow-sm md:grid-cols-2">
-        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
-          Company
-          <select
-            className="h-9 w-full min-w-0 max-w-full rounded-md border border-input bg-background px-2.5 text-sm"
-            value={companyId}
-            onChange={(event) => chooseCompany(event.target.value)}
-            disabled={directoryState === "loading"}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name} ({company.code})
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
+      <div className="grid min-w-0 gap-3 rounded-lg border border-border bg-card p-3 shadow-sm md:grid-cols-[minmax(0,28rem)]">
+        <label className="grid content-start min-w-0 gap-1.5 text-sm font-medium">
           Employee
           <select
             className="h-9 w-full min-w-0 max-w-full rounded-md border border-input bg-background px-2.5 text-sm"
@@ -273,6 +251,12 @@ export function HrEmployeeHistoryWorkspace({ initialEmployeeId }: { initialEmplo
           <AlertDescription>No mock employee history is shown.</AlertDescription>
         </Alert>
       )}
+      {directoryState === "ready" && noCompany ? (
+        <Alert>
+          <AlertTitle>Company access required</AlertTitle>
+          <AlertDescription>Company access must be granted before employee history can be reviewed.</AlertDescription>
+        </Alert>
+      ) : null}
       {directoryState === "loading" && <Skeleton className="h-20 w-full" />}
       {employeeId && (
         <Tabs defaultValue="status" className="min-w-0 gap-4">

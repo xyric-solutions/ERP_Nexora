@@ -1,25 +1,64 @@
 "use client";
 import { WorkTable } from "@/shared/ui/work-table";
 
+import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { CreateHrManpowerRequisitionRequest, HrManpowerRequisitionDirectory } from "@nexora/contracts";
+import { hrRequisitionStateMoves } from "@nexora/contracts";
+import type {
+  CreateHrManpowerRequisitionRequest,
+  HrHiringBasis,
+  HrManpowerRequisitionDirectory,
+  HrWorkArrangement,
+} from "@nexora/contracts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
+import {
+  HrDetailAudit,
+  HrDetailFigures,
+  HrDetailGroup,
+  HrDetailNote,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
+import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
+import { HrEditButton } from "../components/hr-icon-buttons";
+import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
+import { costCentreOptionLabel, payCycleLabel, paymentRouteLabel } from "../model/employment-setup";
+import { hiringBasisLabel, hiringBasisOptions, isHiringBasis } from "../model/hiring-basis";
+import { isWorkArrangement, jobTypeOptions, workArrangementLabel } from "../model/work-arrangement";
+
+/** All = every requisition (drafts and submitted ones stay reachable); Approved and Rejected narrow the list. */
+type RequisitionFilter = "all" | "approved" | "rejected";
+const requisitionFilterOptions: readonly { value: RequisitionFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+];
 
 type Requisition = HrManpowerRequisitionDirectory["items"][number];
 type Editor = {
+  /** Set when editing an existing requisition. */
+  id?: string;
+  state?: Requisition["state"];
+  /** Status chosen in Edit; moves follow hrRequisitionStateMoves. */
+  nextState?: Requisition["state"];
   jobTitle: string;
+  workArrangement: HrWorkArrangement | "";
   designationId: string;
   gradeId: string;
-  employmentTypeId: string;
-  branchId: string;
+  costCenterId: string;
+  projectId: string;
+  hiringBasis: HrHiringBasis | "";
   departmentId: string;
+  workLocationId: string;
   positions: string;
   minimum: string;
   maximum: string;
@@ -30,20 +69,32 @@ type Editor = {
 };
 const blankEditor = (): Editor => ({
   jobTitle: "",
+  workArrangement: "",
   designationId: "",
   gradeId: "",
-  employmentTypeId: "",
-  branchId: "",
+  costCenterId: "",
+  projectId: "",
+  hiringBasis: "",
   departmentId: "",
+  workLocationId: "",
   positions: "1",
   minimum: "",
   maximum: "",
-  currency: "PKR",
+  currency: "",
   targetStart: "",
   reason: "",
   skills: "",
 });
 const stateLabel = (value: Requisition["state"]) => value.replaceAll("_", " ");
+type WorkLocation = Awaited<ReturnType<HrApiClient["requisitionWorkLocations"]>>["items"][number];
+/** "Lahore · Head Office" when the location's address names a city. */
+const workLocationLabel = (item: Pick<WorkLocation, "name" | "city">) =>
+  item.city ? `${item.city} · ${item.name}` : item.name;
+const requisitionLocation = (record: Requisition) =>
+  record.work_location
+    ? workLocationLabel({ name: record.work_location, city: record.work_location_city })
+    : "Not recorded";
+const selectClass = "h-9 min-w-0 w-full rounded-md border border-input bg-background px-2";
 
 export function HrManpowerRequisitionsWorkspace() {
   const { api, csrfToken, session, loading: sessionLoading, refresh: refreshSession } = useSession();
@@ -54,34 +105,44 @@ export function HrManpowerRequisitionsWorkspace() {
     canCreate = permissions.includes("hr.employee.create"),
     canSubmit = permissions.includes("hr.employee.submit"),
     canApprove = permissions.includes("hr.employee.approve");
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [companyId, setCompanyId] = useState(""),
     [records, setRecords] = useState<Requisition[]>([]),
     [selectedId, setSelectedId] = useState(""),
     [query, setQuery] = useState(""),
-    [state, setState] = useState(""),
+    [state, setState] = useState<RequisitionFilter>("all"),
     [editor, setEditor] = useState<Editor | null>(null),
     [message, setMessage] = useState(""),
     [loading, setLoading] = useState(true),
     [saving, setSaving] = useState(false);
   const [masters, setMasters] = useState<Awaited<ReturnType<HrApiClient["masters"]>>["items"]>([]),
     [grades, setGrades] = useState<Awaited<ReturnType<HrApiClient["jobGrades"]>>["items"]>([]),
-    [units, setUnits] = useState<Awaited<ReturnType<HrApiClient["organizationUnits"]>>["items"]>([]);
+    [units, setUnits] = useState<Awaited<ReturnType<HrApiClient["organizationUnits"]>>["items"]>([]),
+    [projects, setProjects] = useState<Awaited<ReturnType<HrApiClient["requisitionProjects"]>>["items"]>([]),
+    [workLocations, setWorkLocations] = useState<WorkLocation[]>([]),
+    [currencies, setCurrencies] = useState<Awaited<ReturnType<HrApiClient["jobGradeCurrencies"]>>["items"]>([]);
   const load = useCallback(
-    async (company: string) => {
+    async (company: string, filter: RequisitionFilter = state) => {
       if (!company) return;
       setLoading(true);
       try {
-        const [items, masterItems, gradeItems, unitItems] = await Promise.all([
-          client.manpowerRequisitions({ companyId: company, search: query, state: state || undefined }),
-          client.masters({ companyId: company, activeOnly: true }),
-          client.jobGrades(company),
-          client.organizationUnits({ companyId: company }),
-        ]);
+        const [items, masterItems, gradeItems, unitItems, projectItems, currencyItems, locationItems] =
+          await Promise.all([
+            client.manpowerRequisitions({ companyId: company, search: query, state: filter === "all" ? undefined : filter }),
+            client.masters({ companyId: company, activeOnly: true }),
+            client.jobGrades(company),
+            client.organizationUnits({ companyId: company }),
+            client.requisitionProjects(company),
+            // Currencies only fill the picker; the grade currency is still offered if they fail.
+            client.jobGradeCurrencies(company).catch(() => ({ items: [] })),
+            client.requisitionWorkLocations(company),
+          ]);
         setRecords(items.items);
         setMasters(masterItems.items);
         setGrades(gradeItems.items.filter((grade) => grade.status === "active"));
         setUnits(unitItems.items.filter((unit) => unit.status === "active"));
+        setProjects(projectItems.items);
+        setCurrencies(currencyItems.items);
+        setWorkLocations(locationItems.items);
         setSelectedId((current) =>
           items.items.some((item) => item.id === current) ? current : (items.items[0]?.id ?? ""),
         );
@@ -103,7 +164,6 @@ export function HrManpowerRequisitionsWorkspace() {
     client
       .companies()
       .then((result) => {
-        setCompanies(result.items);
         const first = result.items[0]?.id ?? "";
         setCompanyId(first);
         return load(first);
@@ -115,27 +175,111 @@ export function HrManpowerRequisitionsWorkspace() {
   }, [canRead, client, load, sessionLoading]);
   const selected = records.find((record) => record.id === selectedId),
     designations = masters.filter((item) => item.type === "designation"),
-    employmentTypes = masters.filter((item) => item.type === "employment_type"),
-    branches = units.filter((item) => item.type === "branch"),
+    costCentres = masters.filter((item) => item.type === "cost_center"),
     departments = units.filter((item) => item.type === "department");
+  // Grade level is the visible grade; the name is added only when two grades share a level.
+  const gradeLabel = (grade: (typeof grades)[number]) =>
+    grades.filter((item) => item.grade_level === grade.grade_level).length > 1
+      ? `Grade ${grade.grade_level} · ${grade.name}`
+      : `Grade ${grade.grade_level}`;
+  const missingSetup = [
+    grades.length ? "" : "an active job grade with a salary band",
+    projects.length ? "" : "an active Finance project",
+  ].filter(Boolean);
+  const editorGrade = editor ? grades.find((item) => item.id === editor.gradeId) : undefined;
+  const currencyOptions = [
+    ...currencies.map((item) => ({ code: item.currency_code, label: `${item.currency_code} · ${item.currency_name}` })),
+    ...(editorGrade && !currencies.some((item) => item.currency_code === editorGrade.currency_code)
+      ? [{ code: editorGrade.currency_code, label: editorGrade.currency_code }]
+      : []),
+  ];
+  const editorFor = (record: Requisition): Editor => ({
+    id: record.id,
+    state: record.state,
+    nextState: record.state,
+    jobTitle: record.job_title,
+    workArrangement: record.work_arrangement ?? "",
+    designationId: record.designation_id ?? "",
+    gradeId: record.job_grade_id ?? "",
+    costCenterId: record.cost_center_id ?? "",
+    projectId: record.project_id ?? "",
+    hiringBasis: record.hiring_basis ?? "",
+    departmentId: record.department_id ?? "",
+    workLocationId: record.work_location_id ?? "",
+    positions: String(record.positions_requested),
+    minimum: record.salary_minimum,
+    maximum: record.salary_maximum,
+    currency: record.currency_code,
+    targetStart: record.target_start_date,
+    reason: record.reason,
+    skills: record.required_skills.join(", "),
+  });
+  const editingFields = !editor?.id || editor.state === "draft";
+  const statusOptions = (state: Requisition["state"]) => [
+    state,
+    ...(hrRequisitionStateMoves[state] as readonly Requisition["state"][]),
+  ];
+  const remove = async (record: Requisition) => {
+    setSaving(true);
+    try {
+      await client.deleteManpowerRequisition(record.id, companyId, csrfToken(), crypto.randomUUID());
+      setMessage(`${record.reference} was deleted.`);
+      setDetailsOpen(false);
+      setSelectedId("");
+      await load(companyId);
+      return true;
+    } catch (cause) {
+      setMessage(cause instanceof Error && cause.message ? cause.message : "The requisition could not be deleted.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+  /** Status-only save for requisitions past draft. */
+  const saveState = async () => {
+    if (!editor?.id || !editor.nextState || editor.nextState === editor.state) {
+      setEditor(null);
+      return;
+    }
+    setSaving(true);
+    try {
+      await client.changeManpowerRequisitionState(
+        editor.id,
+        { company_id: companyId, state: editor.nextState as "draft" | "submitted" | "cancelled", reason: "" },
+        csrfToken(),
+        crypto.randomUUID(),
+      );
+      setMessage(`The requisition is now ${stateLabel(editor.nextState)}.`);
+      setSelectedId(editor.id);
+      setEditor(null);
+      await load(companyId);
+    } catch (cause) {
+      setMessage(cause instanceof Error && cause.message ? cause.message : "The status could not be changed.");
+    } finally {
+      setSaving(false);
+    }
+  };
   const save = async () => {
     if (!editor || !companyId) return;
+    if (!editingFields) return saveState();
     const positions = Number(editor.positions);
     if (
       !editor.jobTitle.trim() ||
+      !editor.workArrangement ||
       !editor.designationId ||
       !editor.gradeId ||
-      !editor.employmentTypeId ||
-      !editor.branchId ||
+      !editor.costCenterId ||
+      !editor.projectId ||
+      !editor.hiringBasis ||
       !editor.departmentId ||
-      !editor.targetStart ||
-      !editor.reason.trim()
+      !editor.currency ||
+      !editor.targetStart
     ) {
       setMessage("Complete every required field before saving the requisition.");
       return;
     }
     if (!Number.isInteger(positions) || positions < 1) {
-      setMessage("Requested positions must be a whole number of at least one.");
+      setMessage("Headcount must be a whole number of at least one.");
       return;
     }
     if (
@@ -146,14 +290,24 @@ export function HrManpowerRequisitionsWorkspace() {
       setMessage("Enter a valid salary range with the maximum at least the minimum.");
       return;
     }
+    const grade = grades.find((item) => item.id === editor.gradeId);
+    if (grade && grade.currency_code !== editor.currency) {
+      setMessage(
+        `Use ${grade.currency_code} for this requisition: the selected job grade's salary band is set in ${grade.currency_code}.`,
+      );
+      return;
+    }
     const payload: CreateHrManpowerRequisitionRequest = {
       company_id: companyId,
       job_title: editor.jobTitle.trim(),
       designation_id: editor.designationId,
       job_grade_id: editor.gradeId,
-      employment_type_id: editor.employmentTypeId,
-      branch_id: editor.branchId,
+      cost_center_id: editor.costCenterId,
+      project_id: editor.projectId,
+      hiring_basis: editor.hiringBasis,
+      work_arrangement: editor.workArrangement,
       department_id: editor.departmentId,
+      ...(editor.workLocationId ? { work_location_id: editor.workLocationId } : {}),
       positions_requested: positions,
       position_type: "new_position",
       salary_minimum: editor.minimum,
@@ -168,10 +322,23 @@ export function HrManpowerRequisitionsWorkspace() {
     };
     setSaving(true);
     try {
-      const result = await client.createManpowerRequisition(payload, csrfToken(), crypto.randomUUID());
+      if (editor.id) {
+        await client.updateManpowerRequisition(editor.id, payload, csrfToken(), crypto.randomUUID());
+        if (editor.nextState && editor.nextState !== editor.state)
+          await client.changeManpowerRequisitionState(
+            editor.id,
+            { company_id: companyId, state: editor.nextState as "draft" | "submitted" | "cancelled", reason: "" },
+            csrfToken(),
+            crypto.randomUUID(),
+          );
+        setSelectedId(editor.id);
+        setMessage("The requisition was saved.");
+      } else {
+        const result = await client.createManpowerRequisition(payload, csrfToken(), crypto.randomUUID());
+        setSelectedId(result.id);
+        setMessage(`${result.reference} was saved as a draft and recorded in the audit trail.`);
+      }
       setEditor(null);
-      setSelectedId(result.id);
-      setMessage(`${result.reference} was saved as a draft and recorded in the audit trail.`);
       await load(companyId);
     } catch {
       setMessage(
@@ -243,39 +410,7 @@ export function HrManpowerRequisitionsWorkspace() {
         </Alert>
       ) : null}
       <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4 border-border">
-        <label className="grid min-w-0 basis-full sm:basis-48 flex-1 gap-1 text-sm font-medium">
-          Company
-          <select
-            className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-            value={companyId}
-            onChange={(event) => {
-              setCompanyId(event.target.value);
-              void load(event.target.value);
-            }}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name} ({company.code})
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid min-w-0 basis-full sm:basis-48 flex-1 gap-1 text-sm font-medium">
-          State
-          <select
-            className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-            value={state}
-            onChange={(event) => setState(event.target.value)}
-          >
-            <option value="">All states</option>
-            {["draft", "submitted", "approved", "rejected", "cancelled"].map((value) => (
-              <option key={value} value={value}>
-                {stateLabel(value as Requisition["state"])}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid min-w-0 basis-full sm:basis-48 flex-[1.3] gap-1 text-sm font-medium">
+        <label className="grid content-start min-w-0 basis-full sm:basis-48 flex-[1.3] gap-1 text-sm font-medium">
           Search
           <Input
             value={query}
@@ -297,6 +432,15 @@ export function HrManpowerRequisitionsWorkspace() {
           </Button>
         ) : null}
       </div>
+      <HrMasterStatusFilter<RequisitionFilter>
+        label="Requisition state"
+        value={state}
+        options={requisitionFilterOptions}
+        onChange={(value) => {
+          setState(value);
+          void load(companyId, value);
+        }}
+      />
       {loading ? (
         <Skeleton className="h-80 w-full" />
       ) : (
@@ -345,7 +489,11 @@ export function HrManpowerRequisitionsWorkspace() {
                     </td>
                     <td className="px-4 py-3">
                       {record.department}
-                      <span className="block text-xs text-muted-foreground">{record.branch}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {record.work_location ? `${requisitionLocation(record)} · ` : ""}
+                        {hiringBasisLabel(record.hiring_basis)}
+                        {record.work_arrangement ? ` · ${workArrangementLabel(record.work_arrangement)}` : ""}
+                      </span>
                     </td>
                     <td className="px-4 py-3">{record.positions_requested}</td>
                     <td className="px-4 py-3">{record.target_start_date}</td>
@@ -370,241 +518,382 @@ export function HrManpowerRequisitionsWorkspace() {
           </div>
           {editor ? (
             <HrRecordDrawer
-              title="Add requisition"
+              title={editor.id ? editor.jobTitle || "Edit requisition" : "Add requisition"}
               open={!!editor}
               onClose={() => setEditor(null)}
               busy={saving}
               notice={message}
             >
-              <aside className="grid gap-3 rounded-lg border bg-card p-4 border-border">
-                <div>
-                  <span className="nx-eyebrow">New controlled request</span>
-                </div>
-                {grades.length === 0 ? (
-                  <Alert>
-                    <AlertTitle>Job-grade setup required</AlertTitle>
-                    <AlertDescription>
-                      Configure an active job grade with a complete salary band for this company before creating a
-                      requisition.
-                    </AlertDescription>
-                  </Alert>
+              <aside className="grid gap-5 rounded-lg border bg-card p-4 border-border">
+                {editor.id && editor.state ? (
+                  <HrDetailSection title="Status">
+                    <label className="grid content-start gap-1 text-sm">
+                      Status
+                      <select
+                        className={selectClass}
+                        value={editor.nextState}
+                        onChange={(event) =>
+                          setEditor({ ...editor, nextState: event.target.value as Requisition["state"] })
+                        }
+                      >
+                        {statusOptions(editor.state).map((state) => (
+                          <option key={state} value={state}>
+                            {stateLabel(state)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </HrDetailSection>
                 ) : null}
-                <label className="grid gap-1 text-sm">
-                  Job title
-                  <Input
-                    value={editor.jobTitle}
-                    onChange={(event) => setEditor({ ...editor, jobTitle: event.target.value })}
-                  />
-                </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1 text-sm">
-                    Designation
-                    <select
-                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                      value={editor.designationId}
-                      onChange={(event) => setEditor({ ...editor, designationId: event.target.value })}
-                    >
-                      <option value="">Select</option>
-                      {designations.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Job grade
-                    <select
-                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                      value={editor.gradeId}
-                      onChange={(event) => {
-                        const grade = grades.find((item) => item.id === event.target.value);
-                        setEditor({
-                          ...editor,
-                          gradeId: event.target.value,
-                          currency: grade?.currency_code ?? editor.currency,
-                          minimum: grade?.band_minimum ?? editor.minimum,
-                          maximum: grade?.band_maximum ?? editor.maximum,
-                        });
-                      }}
-                    >
-                      <option value="">Select</option>
-                      {grades.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name} · {item.currency_code} {item.band_minimum ?? "band unset"}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Employment type
-                    <select
-                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                      value={editor.employmentTypeId}
-                      onChange={(event) => setEditor({ ...editor, employmentTypeId: event.target.value })}
-                    >
-                      <option value="">Select</option>
-                      {employmentTypes.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Requested positions
-                    <Input
-                      inputMode="numeric"
-                      value={editor.positions}
-                      onChange={(event) => setEditor({ ...editor, positions: event.target.value })}
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Branch
-                    <select
-                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                      value={editor.branchId}
-                      onChange={(event) => setEditor({ ...editor, branchId: event.target.value })}
-                    >
-                      <option value="">Select</option>
-                      {branches.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Department
-                    <select
-                      className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                      value={editor.departmentId}
-                      onChange={(event) => setEditor({ ...editor, departmentId: event.target.value })}
-                    >
-                      <option value="">Select</option>
-                      {departments.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Salary minimum
-                    <Input
-                      inputMode="decimal"
-                      value={editor.minimum}
-                      onChange={(event) => setEditor({ ...editor, minimum: event.target.value })}
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Salary maximum
-                    <Input
-                      inputMode="decimal"
-                      value={editor.maximum}
-                      onChange={(event) => setEditor({ ...editor, maximum: event.target.value })}
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Currency
-                    <Input
-                      maxLength={3}
-                      value={editor.currency}
-                      onChange={(event) => setEditor({ ...editor, currency: event.target.value.toUpperCase() })}
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Target start
-                    <Input
-                      type="date"
-                      value={editor.targetStart}
-                      onChange={(event) => setEditor({ ...editor, targetStart: event.target.value })}
-                    />
-                  </label>
-                </div>
-                <label className="grid gap-1 text-sm">
-                  Required skills (comma separated)
-                  <Input
-                    value={editor.skills}
-                    onChange={(event) => setEditor({ ...editor, skills: event.target.value })}
-                  />
-                </label>
-                <label className="grid gap-1 text-sm">
-                  Business reason
-                  <textarea
-                    className="min-h-24 rounded-md border border-input bg-background p-2"
-                    value={editor.reason}
-                    onChange={(event) => setEditor({ ...editor, reason: event.target.value })}
-                  />
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <Button disabled={saving || grades.length === 0} onClick={() => void save()}>
-                    {saving ? "Saving..." : "Save draft"}
+                {missingSetup.length && editingFields ? (
+                  <p
+                    role="status"
+                    className="m-0! truncate rounded-md border border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] px-3 py-1.5 text-xs text-[var(--nx-warning)]"
+                    title={`Setup required: ${missingSetup.join(" and ")}`}
+                  >
+                    Setup required: {missingSetup.join(" and ")}
+                  </p>
+                ) : null}
+                <fieldset
+                  disabled={!editingFields}
+                  className="m-0! grid min-w-0 gap-5 border-0 p-0 disabled:opacity-60"
+                >
+                  <HrDetailSection title="Role">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="grid content-start gap-1 text-sm sm:col-span-2">
+                        Job title
+                        <Input
+                          value={editor.jobTitle}
+                          placeholder="For example Community Handler – Marketing"
+                          onChange={(event) => setEditor({ ...editor, jobTitle: event.target.value })}
+                        />
+                      </label>
+                      <label className="grid content-start gap-1 text-sm">
+                        Designation
+                        <select
+                          className={selectClass}
+                          value={editor.designationId}
+                          onChange={(event) => setEditor({ ...editor, designationId: event.target.value })}
+                        >
+                          <option value="">Select</option>
+                          {designations.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="grid content-start gap-1 text-sm">
+                        Job grade
+                        <select
+                          className={selectClass}
+                          value={editor.gradeId}
+                          onChange={(event) => {
+                            const grade = grades.find((item) => item.id === event.target.value);
+                            setEditor({
+                              ...editor,
+                              gradeId: event.target.value,
+                              currency: grade?.currency_code ?? editor.currency,
+                              minimum: grade?.band_minimum ?? editor.minimum,
+                              maximum: grade?.band_maximum ?? editor.maximum,
+                            });
+                          }}
+                        >
+                          <option value="">Select</option>
+                          {grades.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {gradeLabel(item)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="grid content-start gap-1 text-sm">
+                        Cost centre
+                        <select
+                          className={selectClass}
+                          value={editor.costCenterId}
+                          onChange={(event) => setEditor({ ...editor, costCenterId: event.target.value })}
+                        >
+                          <option value="">Select</option>
+                          {costCentres.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {costCentreOptionLabel(item)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="grid content-start gap-1 text-sm">
+                        Hiring basis
+                        <select
+                          className={selectClass}
+                          value={editor.hiringBasis}
+                          onChange={(event) =>
+                            setEditor({
+                              ...editor,
+                              hiringBasis: isHiringBasis(event.target.value) ? event.target.value : "",
+                            })
+                          }
+                        >
+                          <option value="">Select</option>
+                          {hiringBasisOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="grid content-start gap-1 text-sm">
+                        Headcount
+                        <Input
+                          inputMode="numeric"
+                          value={editor.positions}
+                          onChange={(event) => setEditor({ ...editor, positions: event.target.value })}
+                        />
+                      </label>
+                      <label className="grid content-start gap-1 text-sm">
+                        Target start
+                        <Input
+                          type="date"
+                          value={editor.targetStart}
+                          onChange={(event) => setEditor({ ...editor, targetStart: event.target.value })}
+                        />
+                      </label>
+                    </div>
+                  </HrDetailSection>
+                  <HrDetailSection title="Where the role works">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="grid content-start gap-1 text-sm">
+                        Department
+                        <select
+                          className={selectClass}
+                          value={editor.departmentId}
+                          onChange={(event) => setEditor({ ...editor, departmentId: event.target.value })}
+                        >
+                          <option value="">Select</option>
+                          {departments.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="grid content-start gap-1 text-sm">
+                        Project
+                        <select
+                          className={selectClass}
+                          value={editor.projectId}
+                          onChange={(event) => setEditor({ ...editor, projectId: event.target.value })}
+                        >
+                          <option value="">{projects.length ? "Select" : "No active projects"}</option>
+                          {projects.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.code} · {item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="grid content-start gap-1 text-sm">
+                        Location
+                        <select
+                          className={selectClass}
+                          value={editor.workLocationId}
+                          onChange={(event) => setEditor({ ...editor, workLocationId: event.target.value })}
+                        >
+                          <option value="">{workLocations.length ? "Select" : "No active work locations yet"}</option>
+                          {workLocations.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {workLocationLabel(item)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="grid content-start gap-1 text-sm">
+                        Job type
+                        <select
+                          className={selectClass}
+                          value={editor.workArrangement}
+                          onChange={(event) =>
+                            setEditor({
+                              ...editor,
+                              workArrangement: isWorkArrangement(event.target.value) ? event.target.value : "",
+                            })
+                          }
+                        >
+                          <option value="">Select</option>
+                          {jobTypeOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </HrDetailSection>
+                  <HrDetailSection title="Salary range">
+                    <label className="grid content-start gap-1 text-sm">
+                      Currency
+                      <select
+                        className={selectClass}
+                        value={editor.currency}
+                        onChange={(event) => setEditor({ ...editor, currency: event.target.value })}
+                      >
+                        <option value="">{currencyOptions.length ? "Select" : "No company currencies"}</option>
+                        {currencyOptions.map((option) => (
+                          <option key={option.code} value={option.code}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="grid content-start min-w-0 gap-1 text-sm">
+                        Minimum salary
+                        <Input
+                          inputMode="decimal"
+                          value={editor.minimum}
+                          onChange={(event) => setEditor({ ...editor, minimum: event.target.value })}
+                        />
+                      </label>
+                      <label className="grid content-start min-w-0 gap-1 text-sm">
+                        Maximum salary
+                        <Input
+                          inputMode="decimal"
+                          value={editor.maximum}
+                          onChange={(event) => setEditor({ ...editor, maximum: event.target.value })}
+                        />
+                      </label>
+                    </div>
+                  </HrDetailSection>
+                  <HrDetailSection title="Requirements">
+                    <label className="grid content-start gap-1 text-sm">
+                      Required skills (comma separated)
+                      <Input
+                        value={editor.skills}
+                        onChange={(event) => setEditor({ ...editor, skills: event.target.value })}
+                      />
+                    </label>
+                    <label className="grid content-start gap-1 text-sm">
+                      Business reason
+                      <textarea
+                        className="min-h-24 rounded-md border border-input bg-background p-2"
+                        value={editor.reason}
+                        onChange={(event) => setEditor({ ...editor, reason: event.target.value })}
+                      />
+                    </label>
+                  </HrDetailSection>
+                </fieldset>
+                <HrDrawerActions>
+                  <Button
+                    disabled={saving || (editingFields && (grades.length === 0 || projects.length === 0))}
+                    onClick={() => void save()}
+                  >
+                    {saving ? "Saving..." : editor.id ? "Save changes" : "Save draft"}
                   </Button>
-                  <Button variant="outline" onClick={() => setEditor(null)}>
-                    Cancel
-                  </Button>
-                </div>
+                </HrDrawerActions>
               </aside>
             </HrRecordDrawer>
           ) : selected ? (
             <HrRecordDrawer
-              title="Requisition details"
+              title={selected.job_title}
               open={detailsOpen && !editor}
               onClose={() => setDetailsOpen(false)}
               busy={saving}
               notice={message}
             >
               <aside className="grid min-w-0 gap-4 rounded-lg border bg-card p-5 border-border">
-                <div>
-                  <span className="nx-eyebrow">{selected.reference}</span>
-                  <h2 className="mt-1 text-xl font-semibold">{selected.job_title}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {selected.designation} · {selected.job_grade} · {selected.employment_type}
-                  </p>
-                </div>
-                <span
-                  className={`w-fit nx-status nx-status-${selected.state === "approved" ? "active" : selected.state === "rejected" ? "inactive" : "draft"}`}
-                >
-                  {stateLabel(selected.state)}
-                </span>
-                <dl className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <dt className="text-muted-foreground">Organisation</dt>
-                    <dd className="font-medium">
-                      {selected.department}
-                      <br />
-                      {selected.branch}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Headcount</dt>
-                    <dd className="font-medium">{selected.positions_requested}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Salary range</dt>
-                    <dd className="font-medium">
-                      {selected.currency_code} {selected.salary_minimum} – {selected.salary_maximum}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Target start</dt>
-                    <dd className="font-medium">{selected.target_start_date}</dd>
-                  </div>
-                </dl>
-                <div>
-                  <h3 className="text-sm font-medium">Business reason</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{selected.reason}</p>
-                </div>
-                {selected.required_skills.length ? (
-                  <p className="text-sm text-muted-foreground">Skills: {selected.required_skills.join(", ")}</p>
-                ) : null}
+                <HrDetailSummary code={selected.reference} status={selected.state}>
+                  {selected.department}
+                  {selected.target_start_date ? ` · target start ${hrDisplayDate(selected.target_start_date)}` : ""}
+                </HrDetailSummary>
+                <HrDetailFigures
+                  items={[
+                    { label: "Headcount", value: selected.positions_requested },
+                    { label: `Minimum (${selected.currency_code})`, value: selected.salary_minimum },
+                    { label: `Maximum (${selected.currency_code})`, value: selected.salary_maximum },
+                  ]}
+                />
+                <HrDetailGroup title="Role">
+                  <HrDetailTile label="Job title" value={selected.job_title} />
+                  <HrDetailTile label="Designation" value={selected.designation} />
+                  <HrDetailTile label="Job grade" value={selected.job_grade} />
+                  <HrDetailTile
+                    label="Cost centre"
+                    value={selected.cost_center ?? selected.employment_setup ?? undefined}
+                    hint={`${paymentRouteLabel(selected.payment_route)} / ${payCycleLabel(selected.pay_cycle)}`}
+                  />
+                  <HrDetailTile
+                    label="Hiring basis"
+                    value={selected.hiring_basis ? hiringBasisLabel(selected.hiring_basis) : undefined}
+                  />
+                  <HrDetailTile
+                    label="Job type"
+                    value={selected.work_arrangement ? workArrangementLabel(selected.work_arrangement) : undefined}
+                  />
+                </HrDetailGroup>
+                <HrDetailGroup title="Where the role works">
+                  <HrDetailTile label="Department" value={selected.department} />
+                  <HrDetailTile label="Project" value={selected.project ?? selected.branch} />
+                  <HrDetailTile
+                    label="Location"
+                    value={selected.work_location ? requisitionLocation(selected) : undefined}
+                  />
+                </HrDetailGroup>
+                <HrDetailGroup title="Requirements">
+                  <HrDetailTile label="Target start" value={hrDisplayDate(selected.target_start_date)} />
+                  <HrDetailTile
+                    label="Required skills"
+                    value={
+                      selected.required_skills.length ? (
+                        <span className="flex flex-wrap gap-1.5">
+                          {selected.required_skills.map((skill) => (
+                            <span
+                              key={skill}
+                              className="rounded-[5px] border border-border bg-muted px-2 text-xs font-normal"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </span>
+                      ) : undefined
+                    }
+                  />
+                  <HrDetailTile label="Business reason" value={selected.reason} />
+                </HrDetailGroup>
                 {selected.decision_reason ? (
-                  <p className="rounded-md bg-muted p-3 text-sm">
-                    <strong>Decision:</strong> {selected.decision_reason}
-                  </p>
+                  <HrDetailSection title="Decision">
+                    <HrDetailNote meta={selected.decided_at ? hrDisplayDate(selected.decided_at, true) : undefined}>
+                      {selected.decision_reason}
+                    </HrDetailNote>
+                  </HrDetailSection>
                 ) : null}
-                <div className="flex flex-wrap gap-2">
+                <HrDetailAudit
+                  items={[
+                    { label: "Created", value: hrDisplayDate(selected.created_at, true) },
+                    { label: "Submitted", value: hrDisplayDate(selected.submitted_at, true) },
+                    { label: "Decided", value: hrDisplayDate(selected.decided_at, true) },
+                  ]}
+                />
+                <HrDrawerActions>
+                  {canCreate ? (
+                    <HrConfirmDeleteButton
+                      label={`Delete ${selected.reference}`}
+                      title={`Delete ${selected.reference}?`}
+                      description="Draft, rejected and cancelled requisitions without job openings can be deleted. The deletion is kept in the audit trail."
+                      variant="outline"
+                      disabled={saving || !["draft", "rejected", "cancelled"].includes(selected.state)}
+                      onConfirm={() => remove(selected)}
+                    />
+                  ) : null}
+                  {canCreate || canSubmit || canApprove ? (
+                    <HrEditButton
+                      label={`Edit ${selected.reference}`}
+                      disabled={saving}
+                      onClick={() => {
+                        setDetailsOpen(false);
+                        setEditor(editorFor(selected));
+                      }}
+                    />
+                  ) : null}
                   {selected.state === "draft" && canSubmit ? (
                     <Button disabled={saving} onClick={() => void transition("submit")}>
                       Submit for approval
@@ -620,7 +909,7 @@ export function HrManpowerRequisitionsWorkspace() {
                       </Button>
                     </>
                   ) : null}
-                </div>
+                </HrDrawerActions>
               </aside>
             </HrRecordDrawer>
           ) : (

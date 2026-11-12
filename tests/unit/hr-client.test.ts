@@ -103,8 +103,7 @@ describe("HR browser client", () => {
       job_grade_id: "grade-1",
       cost_center_id: "cost-center-1",
       work_location_id: "location-1",
-      employment_type_id: "employment-type-1",
-      employee_category_id: "category-1",
+      employment_setup_id: "employment-setup-1",
       effective_on: "2026-10-16",
       reason: "Move the employee to the new operating branch.",
     };
@@ -388,5 +387,27 @@ describe("HR browser client", () => {
 
     expect(api.listHrEmployeeLifecycleEvents).toHaveBeenCalledWith("employee/a", "?limit=10&cursor=next%2Fvalue");
     expect(api.listHrEmployeeProfileHistory).toHaveBeenCalledWith("employee/a", "?limit=25");
+  });
+
+  it("reads company-configured job-grade currencies through the generated client", async () => {
+    const directory = { items: [{ currency_code: "USD", currency_name: "US Dollar", is_base: true }] };
+    const api = {
+      listHrJobGradeCurrencies: vi.fn(async () => directory),
+    } as unknown as NexoraApiClient;
+    const client = new HrApiClient(api);
+
+    await expect(client.jobGradeCurrencies("company/a")).resolves.toEqual(directory);
+    expect(api.listHrJobGradeCurrencies).toHaveBeenCalledWith("?company_id=company%2Fa");
+  });
+
+  it("reads requisition projects through the generated client", async () => {
+    const directory = { items: [{ id: "project-1", code: "PRJ-001", name: "Data platform" }] };
+    const api = {
+      listHrRequisitionProjects: vi.fn(async () => directory),
+    } as unknown as NexoraApiClient;
+    const client = new HrApiClient(api);
+
+    await expect(client.requisitionProjects("company/a")).resolves.toEqual(directory);
+    expect(api.listHrRequisitionProjects).toHaveBeenCalledWith("?company_id=company%2Fa");
   });
 });

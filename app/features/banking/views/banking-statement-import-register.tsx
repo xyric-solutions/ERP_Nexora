@@ -7,7 +7,6 @@ import type {
   BankStatementImportDirectory,
   BankStatementImportOptions,
   BankStatementImportSummary,
-  BankingCompanyDirectory,
 } from "@nexora/contracts";
 import { Eye, Plus, Search, X } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -59,7 +58,7 @@ export function BankingStatementImportRegister({ onAddNew, onOpen }: BankingStat
   const canRead = permissions.includes("banking.statement_import.read");
   const canCreate = permissions.includes("banking.statement_import.create") && !session?.impersonation;
 
-  const [companies, setCompanies] = useState<BankingCompanyDirectory["items"]>([]);
+  const [noCompany, setNoCompany] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [options, setOptions] = useState<BankStatementImportOptions | null>(null);
   const [bankAccountId, setBankAccountId] = useState("");
@@ -103,7 +102,7 @@ export function BankingStatementImportRegister({ onAddNew, onOpen }: BankingStat
         if (!canRead) return;
         const directory = await client.companies();
         if (!active) return;
-        setCompanies(directory.items);
+        setNoCompany(directory.items.length === 0);
         const initialCompanyId = directory.items[0]?.id ?? "";
         setCompanyId(initialCompanyId);
         if (!initialCompanyId) return;
@@ -149,27 +148,6 @@ export function BankingStatementImportRegister({ onAddNew, onOpen }: BankingStat
         cursor: input.cursor,
       });
       applyDirectory(result, input.targetPage ?? 0);
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function changeCompany(nextCompanyId: string) {
-    setCompanyId(nextCompanyId);
-    setBankAccountId("");
-    setReference("");
-    setPageCursors([undefined]);
-    setLoading(true);
-    setError("");
-    try {
-      const [loadedOptions, imports] = await Promise.all([
-        client.statementImportOptions({ company_id: nextCompanyId }),
-        queryDirectory({ selectedCompanyId: nextCompanyId, selectedBankAccountId: "", selectedReference: "" }),
-      ]);
-      setOptions(loadedOptions);
-      applyDirectory(imports, 0);
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {
@@ -254,6 +232,12 @@ export function BankingStatementImportRegister({ onAddNew, onOpen }: BankingStat
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
+      {!error && noCompany ? (
+        <Alert variant="destructive">
+          <AlertTitle>Company unavailable</AlertTitle>
+          <AlertDescription>Your session has no authorized company for bank statement imports.</AlertDescription>
+        </Alert>
+      ) : null}
 
       <section className="rounded-lg border border-border bg-card p-3 sm:p-4" aria-label="Statement import filters">
         <WorkForm
@@ -263,23 +247,6 @@ export function BankingStatementImportRegister({ onAddNew, onOpen }: BankingStat
             void search();
           }}
         >
-          {companies.length > 1 ? (
-            <label className="min-w-56 flex-1 space-y-1 text-sm">
-              <span>Company</span>
-              <select
-                aria-label="Company"
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={companyId}
-                onChange={(event) => void changeCompany(event.target.value)}
-              >
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.code} · {company.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
           <label className="min-w-56 flex-1 space-y-1 text-sm">
             <span>Bank</span>
             <select

@@ -31,6 +31,39 @@ const url = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL;
     ).toMatchObject({ net_minor: "1999999999999875", payment_status: "not_paid", posting_status: "statement_only" });
     expect(() => lifecycleSettlement([{ direction: "earning", amount_minor: "1.5" }])).toThrow();
   });
+  it("accepts done checklist items without evidence, rejects independently and filters by status", async () => {
+    const f = await fixture();
+    const draft = await f.save({
+      kind: "onboarding",
+      relationship_id: f.relationshipId,
+      due_date: f.today,
+      notes: "",
+      tasks: f.tasks("onboarding").map((task) => ({ ...task, evidence: "" })),
+    });
+    await f.act(draft.id, "submit");
+    await expect(f.act(draft.id, "reject")).rejects.toMatchObject({ status: 403 });
+    await f.act(draft.id, "reject", "r06.checker");
+    const byState = (state: "rejected" | "approved") =>
+      f.repo.getLifecycleCaseWorkspace(lifecycleActor("r06.maker"), {
+        company_id: f.companyId,
+        section: "onboarding",
+        state,
+        search: "",
+        limit: 25,
+        offset: 0,
+      });
+    expect((await byState("rejected")).items.map((item) => item.id)).toEqual([draft.id]);
+    expect((await byState("approved")).items).toHaveLength(0);
+    // A rejected case does not block a fresh onboarding case for the same employment.
+    const fresh = await f.save({
+      kind: "onboarding",
+      relationship_id: f.relationshipId,
+      due_date: f.today,
+      notes: "Second attempt",
+      tasks: f.tasks("onboarding", false),
+    });
+    expect(fresh.status).toBe("draft");
+  });
   it("completes joining controls and independently confirms probation through authoritative employment history", async () => {
     const f = await fixture();
     const incomplete = await f.save({

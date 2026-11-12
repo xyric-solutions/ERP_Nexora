@@ -102,7 +102,6 @@ function LegacyCatalogue({ context, onNavigate, onAction }: ReportsWorkspaceProp
           <span>Search reports</span>
           <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Invoice, customer statement, ageing, variance..." />
         </label>
-        <label><span>Company</span><select><option>All companies</option><option>Nexora Services</option><option>Nexora Manufacturing</option></select></label>
         <label><span>Access</span><select><option>My permitted reports</option><option>Shared with me</option><option>Created by me</option></select></label>
         <button className={`nx-report-centre__favourite-toggle${favouritesOnly ? " is-active" : ""}`} type="button" aria-pressed={favouritesOnly} onClick={() => setFavouritesOnly((value) => !value)}>★ Favourites</button>
       </section>
@@ -197,7 +196,6 @@ function Catalogue({ context, onNavigate, onAction }: ReportsWorkspaceProps) {
           <span>Search any report</span>
           <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Invoice, statement, ageing, tax, variance..." />
         </label>
-        <label><span>Company</span><select><option>All companies</option><option>Nexora Services</option><option>Nexora Manufacturing</option></select></label>
         <label><span>Access</span><select><option>My permitted reports</option><option>Shared with me</option><option>Created by me</option></select></label>
         <Button variant="outline" className={`nx-report-centre__favourite-toggle${selectedGroupId === "favourites" && !query ? " is-active" : ""}`} type="button" onClick={() => { setQuery(""); setSelectedGroupId("favourites"); }}>{"\u2605"} Favourites</Button>
       </section>
@@ -298,7 +296,6 @@ function ReportDetail({ context, onNavigate, onAction }: ReportsWorkspaceProps) 
       </section>
 
       {filtersOpen ? <section className="nx-report-workspace__filters" aria-label="Advanced report filters">
-        <label><span>Company</span><select><option>All permitted companies</option><option>Nexora Services</option></select></label>
         <label><span>Branch</span><select><option>All branches</option><option>Islamabad</option><option>Lahore</option></select></label>
         <label><span>Currency</span><select><option>Reporting currency</option><option>USD</option><option>PKR</option><option>GBP</option></select></label>
         <label><span>Status</span><select><option>All statuses</option><option>Approved</option><option>Outstanding</option><option>Paid</option></select></label>

@@ -7,7 +7,6 @@ import type {
   BankStatementImportDirectory,
   BankStatementImportOptions,
   BankStatementImportSummary,
-  BankingCompanyDirectory,
 } from "@nexora/contracts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +41,7 @@ export function LiveBankStatement({ accountId, onAction, onReconcile, onBack }: 
   const { api, session } = useSession();
   const client = useMemo(() => new BankingApiClient(api), [api]);
   const canRead = session?.user.permissions.includes("banking.statement_import.read") ?? false;
-  const [companies, setCompanies] = useState<BankingCompanyDirectory["items"]>([]);
+  const [noCompany, setNoCompany] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [options, setOptions] = useState<BankStatementImportOptions | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState(accountId);
@@ -91,7 +90,7 @@ export function LiveBankStatement({ accountId, onAction, onReconcile, onBack }: 
         if (!canRead) return;
         const directory = await client.companies();
         if (!active) return;
-        setCompanies(directory.items);
+        setNoCompany(directory.items.length === 0);
         const initialCompanyId = directory.items[0]?.id ?? "";
         setCompanyId(initialCompanyId);
         if (!initialCompanyId) return;
@@ -129,28 +128,6 @@ export function LiveBankStatement({ accountId, onAction, onReconcile, onBack }: 
       active = false;
     };
   }, [accountId, canRead, client]);
-
-  async function changeCompany(nextCompanyId: string) {
-    setCompanyId(nextCompanyId);
-    setLoading(true);
-    setError("");
-    try {
-      const loadedOptions = await client.statementImportOptions({ company_id: nextCompanyId });
-      setOptions(loadedOptions);
-      const nextAccountId = loadedOptions.bank_accounts[0]?.id ?? "";
-      setSelectedAccountId(nextAccountId);
-      if (nextAccountId) {
-        await fetchImports({ selectedCompanyId: nextCompanyId, selectedAccountId: nextAccountId });
-      } else {
-        setImports([]);
-        setDetail(null);
-      }
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function changeAccount(nextAccountId: string) {
     setSelectedAccountId(nextAccountId);
@@ -280,20 +257,14 @@ export function LiveBankStatement({ accountId, onAction, onReconcile, onBack }: 
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
+      {!error && noCompany ? (
+        <Alert variant="destructive">
+          <AlertTitle>Company unavailable</AlertTitle>
+          <AlertDescription>Your session has no authorized company for bank statements.</AlertDescription>
+        </Alert>
+      ) : null}
 
-      <section className="grid gap-3 rounded-lg border border-border bg-card p-4 md:grid-cols-3 xl:grid-cols-7">
-        <select
-          aria-label="Company"
-          className="h-8 rounded-lg border border-input bg-background px-2 text-sm"
-          value={companyId}
-          onChange={(event) => void changeCompany(event.target.value)}
-        >
-          {companies.map((company) => (
-            <option key={company.id} value={company.id}>
-              {company.code} · {company.name}
-            </option>
-          ))}
-        </select>
+      <section className="grid gap-3 rounded-lg border border-border bg-card p-4 md:grid-cols-3 xl:grid-cols-6">
         <select
           aria-label="Bank account"
           className="h-8 rounded-lg border border-input bg-background px-2 text-sm"

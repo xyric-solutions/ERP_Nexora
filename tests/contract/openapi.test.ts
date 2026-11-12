@@ -354,6 +354,7 @@ describe("OpenAPI contract", () => {
       "/hr/employees/{employeeId}/organization_placement_change_requests/{requestId}",
       "/hr/employees/{employeeId}/organization_placement_change_requests/{requestId}/decision",
       "/hr/employment_lifecycle_policies",
+      "/hr/employment_lifecycle_policies/{policyId}",
       "/hr/employment_lifecycle_policies/{policyId}/submit",
       "/hr/employment_lifecycle_policies/{policyId}/approval_decision",
       "/hr/employment_lifecycle_policies/{policyId}/activate",

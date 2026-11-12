@@ -1,571 +1,745 @@
 "use client";
-import { WorkOffsetPagination } from "@/shared/ui/work-table";
-import { HrPersonalLearning } from "./hr-learning-workspace";
-import { HrCompanyScope as CompanyScope } from "../components/hr-company-scope";
-import { HrPersonalCorrections } from "./hr-personal-corrections";
-import { HrPersonalLeaveApplications } from "./hr-personal-leave-applications";
-import { useState, type ReactNode } from "react";
-import { ArrowRight, Download, RefreshCw, ShieldCheck, FileText, UserRound } from "lucide-react";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  createHrPayrollRecordSchema,
+  hrPayrollRecordActionSchema,
+  type HrPayrollItem,
+  type HrPayrollRecordAction,
+} from "@nexora/contracts";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
+import { SearchableSelect } from "@/shared/ui/searchable-select";
+
 import { HrApiClient } from "../api/hr-client";
+import { HrClickableRow } from "../components/hr-clickable-row";
+import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
 import {
-  Field,
-  State,
-  Metric,
-  panel,
-  selectClass,
-  useAttendanceRead,
-  localDate,
-} from "../components/hr-workspace-controls";
-import { payslipHtml } from "../components/payslip-print";
-import { HrPayrollWorkspace } from "./hr-payroll-workspace";
-import { HrPayrollLocalizationSetup } from "./hr-payroll-localization-setup";
-import { HrSettlementBenefits } from "./hr-settlement-benefits";
-import { HrDashboardWorkspace } from "./hr-dashboard-workspace";
-import { HrFinancePayrollDashboardWorkspace } from "./hr-finance-payroll-dashboard-workspace";
-import type { HrPayslipDetail } from "@nexora/contracts";
+  HrDetailAudit,
+  HrDetailList,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  HrStatusPill,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
+import { HrDrawerActions } from "../components/hr-drawer-context";
+import { HrSearchField } from "../components/hr-list-controls";
+import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { hrCell } from "../components/hr-table";
+import { Field, selectClass, useAttendanceRead, localDate } from "../components/hr-workspace-controls";
 
 type Navigate = (module: string, page: string, reference?: string) => void;
-export const benefitsPages = [
-  "loans-benefits",
-  "statutory-deductions",
-  "employee-self-service",
-  "hr-report-centre",
-] as const;
-type Page = (typeof benefitsPages)[number];
-function Notice({ error, children }: { error?: boolean; children: ReactNode }) {
-  return (
-    <Alert variant={error ? "destructive" : "default"}>
-      <AlertDescription>{children}</AlertDescription>
-    </Alert>
-  );
+type LoanKind = "loan" | "advance";
+type Decision = Exclude<HrPayrollRecordAction["action"], "activate" | "deactivate" | "cancel">;
+
+const PAGE_SIZE = 25;
+const label: Record<LoanKind, { one: string; many: string }> = {
+  loan: { one: "Loan", many: "Loans" },
+  advance: { one: "Advance", many: "Advances" },
+};
+const decisionLabel: Record<Decision, string> = {
+  submit: "Submit for approval",
+  approve: "Approve",
+  reject: "Reject",
+  confirm_disbursement: "Confirm disbursement",
+};
+const monthStart = () => localDate().slice(0, 8) + "01";
+const money = (amount: string | null | undefined, currency: string | null | undefined) =>
+  amount ? `${amount} ${currency ?? ""}`.trim() : "";
+
+/** Keeps one idempotency key per unchanged request so a retry cannot apply twice. */
+function useIdempotency() {
+  const retry = useRef<{ fingerprint: string; key: string } | null>(null);
+  return (input: unknown) => {
+    const fingerprint = JSON.stringify(input);
+    if (retry.current?.fingerprint !== fingerprint) retry.current = { fingerprint, key: crypto.randomUUID() };
+    return {
+      key: retry.current.key,
+      done: () => {
+        retry.current = null;
+      },
+    };
+  };
 }
-function BenefitRules({ company }: { company: string }) {
-  const [busy, setBusy] = useState(false);
+
+function NewLoanForm({
+  kind,
+  company,
+  client,
+  csrf,
+  busy,
+  onSaved,
+  setBusy,
+}: {
+  kind: LoanKind;
+  company: string;
+  client: HrApiClient;
+  csrf: () => string;
+  busy: boolean;
+  setBusy: (busy: boolean) => void;
+  onSaved: (message: string, id: string) => void;
+}) {
+  const [employee, setEmployee] = useState("");
+  const [component, setComponent] = useState("");
+  const [currency, setCurrency] = useState("");
+  const [principal, setPrincipal] = useState("");
+  const [startMonth, setStartMonth] = useState(monthStart());
+  const [instalments, setInstalments] = useState(kind === "advance" ? "1" : "12");
+  const [reason, setReason] = useState("");
+  const [typed, setTyped] = useState("");
+  const [search, setSearch] = useState("");
+  const [error, setError] = useState("");
+  const idempotency = useIdempotency();
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearch(typed.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [typed]);
+
+  const onDate = /^\d{4}-\d{2}-01$/.test(startMonth) ? startMonth : monthStart();
+  const options = useAttendanceRead(company ? JSON.stringify([company, onDate, search]) : null, () =>
+    client.payrollOptions({ company_id: company, on_date: onDate, search }),
+  );
+  const recoveryComponents = (options.data?.components ?? []).filter(
+    (item) => item.kind === "deduction" && item.method === "fixed",
+  );
+  const code = options.data?.code_previews?.[kind] ?? "";
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    const parsed = createHrPayrollRecordSchema.safeParse({
+      company_id: company,
+      kind: "loan",
+      loan_kind: kind,
+      reason,
+      employee_id: employee,
+      component_id: component,
+      reference: "AUTO",
+      currency_code: currency.trim().toUpperCase(),
+      principal: principal.trim(),
+      start_month: startMonth,
+      instalment_count: Number(instalments),
+    });
+    if (!parsed.success) {
+      setError(parsed.error.issues.map((issue) => issue.message).join(" "));
+      return;
+    }
+    const attempt = idempotency(parsed.data);
+    setBusy(true);
+    try {
+      const result = await client.createPayrollRecord(parsed.data, csrf(), attempt.key);
+      attempt.done();
+      onSaved(`${label[kind].one} saved as a draft.`, result.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : `The ${label[kind].one.toLowerCase()} could not be saved.`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <HrSettlementBenefits company={company} record={null} busy={busy} onBusy={setBusy} onCalculated={() => undefined} />
+    <WorkForm className="grid min-w-0 gap-4" aria-label={`New ${label[kind].one.toLowerCase()}`} onSubmit={submit}>
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+      <Field title={`${label[kind].one} code`}>
+        <Input readOnly aria-readonly value={code || "Assigned on save"} className="font-mono read-only:bg-muted/40" />
+      </Field>
+      <div className="grid min-w-0 content-start gap-2 text-sm font-medium">
+        <label htmlFor={`hr-${kind}-employee`}>Employee</label>
+        <SearchableSelect
+          id={`hr-${kind}-employee`}
+          label="Employee"
+          value={employee}
+          required
+          disabled={busy}
+          loading={options.loading && !options.data}
+          placeholder="Choose employee"
+          searchPlaceholder="Search by name or employee number…"
+          search={typed}
+          onSearchChange={setTyped}
+          options={(options.data?.employees ?? []).map((item) => ({ value: item.id, label: item.label }))}
+          onValueChange={setEmployee}
+        />
+      </div>
+      <Field title="Recovery component">
+        <select
+          className={selectClass}
+          value={component}
+          required
+          disabled={busy || options.loading}
+          onChange={(event) => setComponent(event.target.value)}
+        >
+          <option value="">
+            {options.loading
+              ? "Loading components…"
+              : recoveryComponents.length
+                ? "Choose recovery component"
+                : "No fixed deduction components configured"}
+          </option>
+          {recoveryComponents.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+        <Field title="Amount">
+          <Input
+            inputMode="decimal"
+            value={principal}
+            required
+            disabled={busy}
+            onChange={(event) => setPrincipal(event.target.value)}
+          />
+        </Field>
+        <Field title="Currency">
+          <Input
+            value={currency}
+            required
+            maxLength={3}
+            disabled={busy}
+            className="uppercase"
+            onChange={(event) => setCurrency(event.target.value.toUpperCase())}
+          />
+        </Field>
+        <Field title="First recovery month">
+          <Input
+            type="month"
+            value={startMonth.slice(0, 7)}
+            required
+            disabled={busy}
+            onChange={(event) => setStartMonth(event.target.value ? event.target.value + "-01" : "")}
+          />
+        </Field>
+        <Field title="Instalments">
+          <Input
+            type="number"
+            min={1}
+            max={600}
+            value={instalments}
+            required
+            disabled={busy}
+            onChange={(event) => setInstalments(event.target.value)}
+          />
+        </Field>
+      </div>
+      <Field title="Reason">
+        <Textarea rows={2} value={reason} maxLength={500} disabled={busy} onChange={(e) => setReason(e.target.value)} />
+      </Field>
+      <HrDrawerActions>
+        <Button type="submit" disabled={busy}>
+          {busy ? "Saving…" : "Save draft"}
+        </Button>
+      </HrDrawerActions>
+    </WorkForm>
   );
 }
 
-function EmployeeSelfService({ onNavigate }: { onNavigate: Navigate }) {
-  const [workPageSize, setWorkPageSize] = useState(25);
-  const { api } = useSession(),
-    client = new HrApiClient(api);
-  const [company, setCompany] = useState(""),
-    [month, setMonth] = useState(localDate().slice(0, 7)),
-    [revision, setRevision] = useState(0),
-    [offset, setOffset] = useState(0),
-    [tab, setTab] = useState("payslips");
-  const [profileBusy, setProfileBusy] = useState(false);
-  const [leaveOpened, setLeaveOpened] = useState(""),
-    [leaveNotice, setLeaveNotice] = useState("");
-  const [opened, setOpened] = useState(""),
-    [exportError, setExportError] = useState("");
-  const q = { ...(company ? { company_id: company } : {}), month: month + "-01", limit: workPageSize, offset };
-  const read = useAttendanceRead(month ? JSON.stringify([q, revision]) : null, () => client.selfService(q)),
-    w = read.data;
-  const detail = useAttendanceRead(
-    w?.company_id && opened ? JSON.stringify([w.company_id, opened, revision]) : null,
-    () => client.selfServicePayslip(w!.company_id!, opened),
-  );
-  const member = w?.memberships.find((m) => m.company_id === w.company_id);
-  const total = w
-    ? tab === "payslips"
-      ? w.payslip_total
-      : tab === "requests"
-        ? w.request_total
-        : tab === "loans"
-          ? w.loan_total
-          : 0
-    : 0;
-  function reset() {
-    setLeaveOpened("");
-    setLeaveNotice("");
-    setOpened("");
-    setOffset(0);
-    setExportError("");
+function LoanDetail({
+  kind,
+  company,
+  record,
+  permissions,
+  client,
+  csrf,
+  busy,
+  setBusy,
+  onChanged,
+  onNavigate,
+}: {
+  kind: LoanKind;
+  company: string;
+  record: HrPayrollItem;
+  permissions: readonly string[];
+  client: HrApiClient;
+  csrf: () => string;
+  busy: boolean;
+  setBusy: (busy: boolean) => void;
+  onChanged: (message: string, keepOpen: boolean) => void;
+  onNavigate: Navigate;
+}) {
+  const [decision, setDecision] = useState<Decision | null>(null);
+  const [reason, setReason] = useState("");
+  const [paymentLine, setPaymentLine] = useState("");
+  const [bankReference, setBankReference] = useState("");
+  const [confirmedOn, setConfirmedOn] = useState(localDate());
+  const [error, setError] = useState("");
+  const idempotency = useIdempotency();
+
+  const canManage = permissions.includes("hr.payroll.loan.manage");
+  const canApprove = permissions.includes("hr.payroll.loan.approve");
+  const decisions: Decision[] = [];
+  if (record.workflow_managed) {
+    if (record.status === "draft" && canManage) decisions.push("submit");
+    if (record.status === "submitted" && canApprove) decisions.push("approve", "reject");
+    if (record.status === "approved" && canApprove && permissions.includes("banking.payment.read"))
+      decisions.push("confirm_disbursement");
   }
-  function download(d: HrPayslipDetail) {
+  const canDelete = record.workflow_managed && canManage && ["draft", "submitted"].includes(record.status);
+
+  async function act(action: HrPayrollRecordAction["action"]) {
+    setError("");
+    const parsed = hrPayrollRecordActionSchema.safeParse({
+      company_id: company,
+      section: "loans",
+      expected_version: record.version,
+      source_hash: record.source_hash,
+      action,
+      reason,
+      confirm_override: false,
+      ...(action === "confirm_disbursement"
+        ? { bank_payment_line_id: paymentLine, bank_reference: bankReference, confirmed_on: confirmedOn }
+        : {}),
+    });
+    if (!parsed.success) {
+      setError(parsed.error.issues.map((issue) => issue.message).join(" "));
+      return false;
+    }
+    const attempt = idempotency({ id: record.id, ...parsed.data });
+    setBusy(true);
     try {
-      const font = getComputedStyle(document.body).fontFamily,
-        url = URL.createObjectURL(new Blob([payslipHtml(d, font)], { type: "text/html;charset=utf-8" })),
-        a = document.createElement("a");
-      a.href = url;
-      a.download = (
-        "payslip-" +
-        d.document.employee.number +
-        "-" +
-        d.document.period.month.slice(0, 7) +
-        ".html"
-      ).replace(/[^a-zA-Z0-9._-]/g, "-");
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      await client.actOnPayrollRecord(record.id, parsed.data, csrf(), attempt.key);
+      attempt.done();
+      setDecision(null);
+      setReason("");
+      onChanged(
+        action === "cancel"
+          ? `${label[kind].one} deleted.`
+          : action === "submit"
+            ? `${label[kind].one} submitted for approval.`
+            : action === "approve"
+              ? `${label[kind].one} approved.`
+              : action === "reject"
+                ? `${label[kind].one} rejected.`
+                : "Disbursement confirmed.",
+        action !== "cancel",
+      );
+      return true;
     } catch (e) {
-      setExportError(e instanceof Error ? e.message : "Download failed.");
+      setError(e instanceof Error ? e.message : "The action could not be completed.");
+      return false;
+    } finally {
+      setBusy(false);
     }
   }
+
+  const d = record.details;
   return (
-    <div className="min-w-0 space-y-5" data-self-service>
-      <Notice>
-        Your personal workspace uses your linked employee account. Only published payslips are available. Apply for
-        leave in Leave requests. Request changes to your personal details in Personal details; HR verifies and approves
-        them.
-      </Notice>
-      <div className={panel}>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_12rem_auto]">
-          <Field title="My company">
-            <select
-              className={selectClass}
-              value={w?.company_id ?? company}
-              disabled={profileBusy || read.loading || !w?.memberships.length}
-              onChange={(e) => {
-                setCompany(e.target.value);
-                reset();
-              }}
-            >
-              <option value="">
-                {read.loading
-                  ? "Loading employee account…"
-                  : read.error
-                    ? "Company unavailable"
-                    : "Employee link required"}
-              </option>
-              {w?.memberships.map((m) => (
-                <option key={m.company_id} value={m.company_id}>
-                  {m.company_name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field title="Month">
-            <Input
-              type="month"
-              disabled={profileBusy}
-              value={month}
-              onChange={(e) => {
-                setMonth(e.target.value);
-                reset();
-              }}
-            />
-          </Field>
-          <Button
-            type="button"
-            disabled={profileBusy}
-            className="self-end"
-            variant="outline"
-            onClick={() => setRevision((v) => v + 1)}
-          >
-            <RefreshCw className="size-4" />
-            {read.error ? "Retry" : "Refresh"}
-          </Button>
-        </div>
-      </div>
-      {read.loading && <p role="status">Loading your personal records…</p>}
-      {read.error && <Notice error>{read.error}</Notice>}
-      {!month && <Notice>Select a month to load your records.</Notice>}
-      {w?.status === "link_required" && (
-        <Alert>
-          <UserRound className="size-4" />
-          <AlertTitle>Link your employee account</AlertTitle>
-          <AlertDescription>
-            Ask Security or HR to link your sign-in to your employee record and grant access to your company.
-            Administrator permissions do not select another employee for you.
-          </AlertDescription>
+    <div className="grid min-w-0 gap-4">
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
-      )}
-      {member && (
-        <>
-          <div className={panel}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-semibold break-words">{member.employee_name}</h2>
-                <p className="text-sm text-muted-foreground">
-                  {member.employee_number} · {member.company_name}
-                </p>
-              </div>
-              <Badge variant="outline">
-                <ShieldCheck className="mr-1 size-3" />
-                Personal records
-              </Badge>
-            </div>
-          </div>
-          {w?.memberships_truncated && (
-            <Notice>Only the first 100 linked companies are listed. Ask Security to review your company access.</Notice>
-          )}
-          <Tabs
-            value={tab}
-            onValueChange={(v) => {
-              if (profileBusy) return;
-              setTab(v);
-              reset();
-            }}
-          >
-            <div className="max-w-full overflow-x-auto">
-              <TabsList className="w-max">
-                <TabsTrigger disabled={profileBusy} value="payslips">
-                  Payslips ({w?.payslip_total})
-                </TabsTrigger>
-                <TabsTrigger disabled={profileBusy} value="learning">
-                  My learning
-                </TabsTrigger>
-                <TabsTrigger disabled={profileBusy} value="profile">
-                  Personal details
-                </TabsTrigger>
-                <TabsTrigger disabled={profileBusy} value="balances">
-                  Leave balances
-                </TabsTrigger>
-                <TabsTrigger disabled={profileBusy} value="requests">
-                  Leave requests ({w?.request_total})
-                </TabsTrigger>
-                <TabsTrigger disabled={profileBusy} value="loans">
-                  Loans ({w?.loan_total})
-                </TabsTrigger>
-              </TabsList>
-            </div>
-            <TabsContent value="payslips">
-              <div className="mt-4 grid gap-3">
-                {w?.payslips.map((p) => (
-                  <article className={panel} key={p.id}>
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <h3 className="font-semibold">{p.month.slice(0, 7)} payslip</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Released {new Date(p.released_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setOpened(p.id);
-                          setExportError("");
-                        }}
-                      >
-                        Open payslip
-                        <ArrowRight className="size-4" />
-                      </Button>
-                    </div>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                      <Metric title="Gross" value={p.currency + " " + p.gross} hint="Published earnings" />
-                      <Metric
-                        title="Deductions"
-                        value={p.currency + " " + p.deductions}
-                        hint="Published employee deductions"
-                      />
-                      <Metric
-                        title="Net"
-                        value={p.currency + " " + p.net}
-                        hint="Payroll net; payment confirmed separately"
-                      />
-                    </div>
-                  </article>
-                ))}
-                {!w?.payslips.length && <Notice>No published payslips for this month.</Notice>}
-              </div>
-            </TabsContent>
-            <TabsContent value="learning">
-              <HrPersonalLearning company={w!.company_id!} onBusy={setProfileBusy} />
-            </TabsContent>
-            <TabsContent value="profile">
-              <HrPersonalCorrections company={w!.company_id!} onBusy={setProfileBusy} />
-            </TabsContent>
-            <TabsContent value="balances">
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {w?.balances.map((b) => (
-                  <article className={panel} key={b.leave_type_id}>
-                    <h3 className="font-semibold">{b.leave_type}</h3>
-                    <p className="text-xs text-muted-foreground">Current balance as of {b.as_of}</p>
-                    <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                      {[
-                        ["Available", b.available],
-                        ["Posted balance", b.balance],
-                        ["Pending requests", b.reserved],
-                        ["Future approved usage", b.future_used],
-                        ["Encashed", b.encashed],
-                      ].map(([label, value]) => (
-                        <div key={label}>
-                          <dt className="text-muted-foreground">{label}</dt>
-                          <dd className="font-semibold tabular-nums">{value} days</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </article>
-                ))}
-                {!w?.balances.length && <Notice>No leave balances are configured for your account.</Notice>}
-                {w?.balances_truncated && (
-                  <Notice>The first 50 leave types are shown. Contact HR for a complete balance review.</Notice>
-                )}
-              </div>
-            </TabsContent>
-            <TabsContent value="requests">
-              {leaveNotice && <Notice>{leaveNotice}</Notice>}
-              <HrPersonalLeaveApplications
-                company={w!.company_id!}
-                canApply={w!.can_apply_leave}
-                items={w!.requests}
-                opened={leaveOpened}
-                onOpen={setLeaveOpened}
-                onSaved={(result, from) => {
-                  setLeaveOpened(result.id);
-                  setLeaveNotice(
-                    result.status === "draft"
-                      ? "Leave draft saved. Review and submit it for independent approval."
-                      : result.status === "cancelled"
-                        ? "Your leave request was cancelled. Pending reservations have been released."
-                        : "Leave submitted to your reporting manager.",
-                  );
-                  if (from) setMonth(from.slice(0, 7));
-                  setOffset(0);
-                  setRevision((v) => v + 1);
-                }}
-              />
-            </TabsContent>
-            <TabsContent value="loans">
-              <div className="mt-4 grid gap-3">
-                {w?.loans.map((l) => (
-                  <article className={panel} key={l.id}>
-                    <div className="flex flex-wrap justify-between gap-2">
-                      <h3 className="font-semibold break-words">{l.reference}</h3>
-                      <State value={l.state} />
-                    </div>
-                    <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-3">
-                      {[
-                        ["Principal", l.principal],
-                        ["Approved Payroll recoveries", l.recovered],
-                        ["Scheduled repayment balance", l.outstanding],
-                      ].map(([label, value]) => (
-                        <div key={label}>
-                          <dt className="text-muted-foreground">{label}</dt>
-                          <dd className="font-semibold tabular-nums break-words">
-                            {l.currency} {value}
-                          </dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </article>
-                ))}
-                {!w?.loans.length && (
-                  <Notice>No approved loans are available. Draft applications remain with HR for review.</Notice>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
-          {tab !== "balances" && tab !== "profile" && tab !== "learning" && (
-            <WorkOffsetPagination busy={!!(read.loading)} total={total} offset={offset} size={workPageSize} previousDisabled={!!(offset === 0 || read.loading)} nextDisabled={!!(offset + workPageSize >= total || read.loading)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => {
-                    setOffset((v) => Math.max(0, v - workPageSize));
-                    setOpened("");
-                  }} onNext={() => {
-                    setOffset((v) => v + workPageSize);
-                    setOpened("");
-                  }} />
-          )}
-        </>
-      )}
-      {detail.loading && <p role="status">Opening your published payslip…</p>}
-      {detail.error && <Notice error>{detail.error}</Notice>}
-      {exportError && <Notice error>{exportError}</Notice>}
-      {detail.data && (
-        <section className={panel}>
-          <div className="flex flex-wrap justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-semibold">Published pay breakdown</h2>
-              <p className="text-sm text-muted-foreground">
-                {detail.data.document.period.month.slice(0, 7)} · {detail.data.document.result.currency}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" onClick={() => download(detail.data!)}>
-                <Download className="size-4" />
-                Download payslip
-              </Button>
-              <Button type="button" variant="ghost" onClick={() => setOpened("")}>
-                Close
-              </Button>
-            </div>
-          </div>
-          <ul className="mt-4 divide-y divide-border">
-            {detail.data.document.lines.map((l, i) => (
-              <li className="flex flex-wrap justify-between gap-3 py-3 text-sm" key={i}>
-                <span className="min-w-0 break-words">
-                  {l.name} <span className="text-muted-foreground">({l.kind.replaceAll("_", " ")})</span>
+      ) : null}
+      <HrDetailSummary code={record.reference} status={record.status}>
+        {label[kind].one} · {money(record.amount, record.currency_code)}
+      </HrDetailSummary>
+      <HrDetailList>
+        <HrDetailTile label="Employee" value={record.employee_name} />
+        <HrDetailTile label="Amount" value={money(record.amount, record.currency_code)} />
+        <HrDetailTile label="Recovery component" value={d.component_name} />
+        <HrDetailTile
+          label="First recovery"
+          value={record.effective_from ? hrDisplayDate(record.effective_from) : ""}
+        />
+        <HrDetailTile label="Instalments" value={d.instalment_count} />
+        <HrDetailTile label="Recovered" value={money(d.recovered, record.currency_code)} />
+        <HrDetailTile label="Outstanding" value={money(d.outstanding, record.currency_code)} />
+        {d.bank_reference ? <HrDetailTile label="Bank reference" value={d.bank_reference} /> : null}
+        {d.confirmed_on ? <HrDetailTile label="Disbursed on" value={hrDisplayDate(d.confirmed_on)} /> : null}
+      </HrDetailList>
+      {record.lines.length ? (
+        <HrDetailSection title="Recovery schedule">
+          <ul className="m-0! grid list-none gap-1 p-0!">
+            {record.lines.map((line, index) => (
+              <li key={index} className="flex min-w-0 items-center justify-between gap-3 text-[13.5px]">
+                <span>{hrDisplayDate(line.label)}</span>
+                <span className="flex items-center gap-3">
+                  <span className="tabular-nums">{money(line.amount, record.currency_code)}</span>
+                  <HrStatusPill status={line.description} />
                 </span>
-                <strong className="tabular-nums">{l.amount}</strong>
               </li>
             ))}
           </ul>
-          <p className="mt-4 text-xs text-muted-foreground">
-            Published payslips remain unchanged. Any independently posted settlement correction is recorded separately
-            by Payroll. This document does not confirm a bank transfer.
-          </p>
-        </section>
-      )}
-      <Button type="button" variant="outline" onClick={() => onNavigate("hr", "performance-reviews")}>
-        Open my Performance workspace
-        <ArrowRight className="size-4" />
-      </Button>
-    </div>
-  );
-}
-
-function ReportCentre({ onNavigate }: { onNavigate: Navigate }) {
-  const { session } = useSession(),
-    permissions = session?.user.permissions ?? [];
-  const [report, setReport] = useState("workforce");
-  const reports = [
-    {
-      id: "workforce",
-      title: "Workforce overview",
-      description: "Effective headcount, approval queues, recent joiners and master-data gaps.",
-      permission: "hr.employee.read",
-      page: "hr-dashboard",
-    },
-    {
-      id: "payroll",
-      title: "Finance & Payroll overview",
-      description: "Salary coverage, finalized run totals, Finance accrual and governed payment status.",
-      permission: "hr.payroll.report.read",
-      page: "finance-payroll-dashboard",
-    },
-  ];
-  return (
-    <div className="min-w-0 space-y-5">
-      <Notice>
-        Reports use the same company-scoped data as their operational workspaces. Detailed review opens the owning
-        screen. Secure Export Centre provides independently governed directory and finalized Payroll CSV downloads.
-        Additional report types remain in the reporting backlog.
-      </Notice>
-      <div className="grid gap-4 md:grid-cols-2">
-        {reports.map((r) => (
-          <button
-            type="button"
-            key={r.id}
-            aria-pressed={report === r.id}
-            className={
-              panel +
-              " text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
-              (report === r.id ? "border-primary ring-1 ring-primary" : "")
-            }
-            onClick={() => setReport(r.id)}
-          >
-            <FileText className="mb-3 size-5 text-primary" />
-            <h2 className="font-semibold">{r.title}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">{r.description}</p>
-          </button>
-        ))}
-      </div>
-      <div key={report}>
-        {report === "workforce" ? (
-          <HrDashboardWorkspace onNavigate={onNavigate} />
-        ) : (
-          <HrFinancePayrollDashboardWorkspace onNavigate={onNavigate} />
-        )}
-      </div>
-      <section className={panel}>
-        <h2 className="font-semibold">Detailed operational reports</h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {[
-            ["Loan balances & schedules", "employee-loans", "hr.payroll.loan.read"],
-            ["Secure CSV exports", "hr-export-centre", "hr.report_export.read"],
-            ["Disclosure policy", "hr-compliance-configuration", "hr.report_export.read"],
-            ["Report audit history", "hr-report-audit-log", "hr.report_audit.read"],
-            ["Payroll results & statutory calculation evidence", "payroll-runs", "hr.payroll.result.read"],
-            ["Published payslip register", "payslips", "hr.payroll.payslip.read"],
-            ["Final statements & supplemental corrections", "final-settlements", "hr.employment_history.read"],
-            ["Leave balances & reservations", "leave-balances", "hr.leave.balance.read"],
-            ["Monthly attendance", "monthly-attendance", "hr.attendance.read"],
-          ]
-            .filter(([, , permission]) => permissions.includes(permission))
-            .map(([title, page]) => (
-              <Button
-                key={page}
-                type="button"
-                variant="outline"
-                className="h-auto justify-between whitespace-normal py-3 text-left"
-                onClick={() => onNavigate("hr", page)}
-              >
-                {title}
-                <ArrowRight className="ml-2 size-4 shrink-0" />
-              </Button>
+        </HrDetailSection>
+      ) : null}
+      {record.history.length ? (
+        <HrDetailSection title="History">
+          <ol className="m-0! grid list-none gap-2 p-0!">
+            {record.history.map((event, index) => (
+              <li key={index} className="text-[13px]">
+                <span className="font-medium capitalize">{event.action.replaceAll("_", " ")}</span>
+                <span className="text-muted-foreground"> · {hrDisplayDate(event.occurred_at, true)}</span>
+                {event.reason ? (
+                  <span className="block text-xs text-muted-foreground wrap-anywhere">{event.reason}</span>
+                ) : null}
+              </li>
             ))}
-        </div>
-        <p className="mt-4 text-xs text-muted-foreground">
-          Each report rechecks current company and record permissions on the API.
-        </p>
-      </section>
+          </ol>
+        </HrDetailSection>
+      ) : null}
+      <HrDetailAudit items={[{ label: "Version", value: String(record.version) }]} />
+
+      {decision ? (
+        <WorkForm
+          className="grid min-w-0 gap-3"
+          aria-label={decisionLabel[decision]}
+          onSubmit={(event) => {
+            event.preventDefault();
+            void act(decision);
+          }}
+        >
+          {decision === "confirm_disbursement" ? (
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+              <Field title="Bank payment">
+                <select
+                  className={selectClass}
+                  value={paymentLine}
+                  required
+                  disabled={busy}
+                  onChange={(event) => setPaymentLine(event.target.value)}
+                >
+                  <option value="">
+                    {record.disbursement_options?.length ? "Choose posted payment" : "No posted payment available"}
+                  </option>
+                  {(record.disbursement_options ?? []).map((option) => (
+                    <option key={option.line_id} value={option.line_id}>
+                      {option.payment_reference} · {option.posting_date} · {option.amount} {option.currency_code}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field title="Bank reference">
+                <Input
+                  value={bankReference}
+                  required
+                  maxLength={128}
+                  disabled={busy}
+                  onChange={(event) => setBankReference(event.target.value)}
+                />
+              </Field>
+              <Field title="Confirmed on">
+                <Input
+                  type="date"
+                  value={confirmedOn}
+                  required
+                  disabled={busy}
+                  onChange={(event) => setConfirmedOn(event.target.value)}
+                />
+              </Field>
+              {!record.disbursement_options?.length ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="self-end"
+                  onClick={() => onNavigate("banking", "bank-payments")}
+                >
+                  Open Bank Payments
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          <Field title="Reason">
+            <Textarea
+              rows={2}
+              value={reason}
+              maxLength={500}
+              disabled={busy}
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </Field>
+          <HrDrawerActions>
+            <Button type="button" variant="outline" disabled={busy} onClick={() => setDecision(null)}>
+              Back
+            </Button>
+            <Button type="submit" disabled={busy}>
+              {busy ? "Saving…" : decisionLabel[decision]}
+            </Button>
+          </HrDrawerActions>
+        </WorkForm>
+      ) : (
+        <HrDrawerActions>
+          {canDelete ? (
+            <HrConfirmDeleteButton
+              label={`Delete ${record.reference}`}
+              title={`Delete ${record.reference}?`}
+              description={`The ${label[kind].one.toLowerCase()} request is cancelled and kept in the audit history.`}
+              variant="outline"
+              disabled={busy}
+              onConfirm={() => act("cancel")}
+            />
+          ) : null}
+          {decisions.map((action) => (
+            <Button
+              key={action}
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setError("");
+                setReason("");
+                setDecision(action);
+              }}
+            >
+              {decisionLabel[action]}
+            </Button>
+          ))}
+        </HrDrawerActions>
+      )}
     </div>
   );
 }
 
-export function HrBenefitsWorkspace({ page, onNavigate }: { page: Page; onNavigate: Navigate }) {
-  const [tab, setTab] = useState("loans");
-  const titles: Record<Page, string> = {
-    "loans-benefits": "Loans, Benefits & Gratuity",
-    "statutory-deductions": "Statutory Deductions",
-    "employee-self-service": "Employee Self-service",
-    "hr-report-centre": "HR & Payroll Report Centre",
+function LoanRegister({ kind, onNavigate }: { kind: LoanKind; onNavigate: Navigate }) {
+  const { api, session, activeCompany, csrfToken } = useSession();
+  const client = useMemo(() => new HrApiClient(api), [api]);
+  const permissions = session?.user.permissions ?? [];
+  const canRead = permissions.includes("hr.payroll.loan.read");
+  const canManage = permissions.includes("hr.payroll.loan.manage");
+  const company = activeCompany?.id ?? "";
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("");
+  const [offset, setOffset] = useState(0);
+  const [revision, setRevision] = useState(0);
+  const [creating, setCreating] = useState(false);
+  const [openedId, setOpenedId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setFilter(search.trim());
+      setOffset(0);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  const query = {
+    company_id: company,
+    section: "loans" as const,
+    month: monthStart(),
+    search: filter,
+    loan_kind: kind,
+    limit: PAGE_SIZE,
+    offset,
   };
+  const result = useAttendanceRead(company && canRead ? JSON.stringify([query, revision]) : null, () =>
+    client.payrollWorkspace(query),
+  );
+  const items = result.data?.items ?? [];
+  const total = result.data?.total ?? 0;
+  const opened = items.find((item) => item.id === openedId) ?? null;
+
+  if (!canRead)
+    return (
+      <Alert>
+        <AlertDescription>Loan read permission is required.</AlertDescription>
+      </Alert>
+    );
+
   return (
-    <div className="min-w-0 space-y-6 text-foreground" data-benefits-workspace={page}>
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="break-words text-2xl font-semibold tracking-tight sm:text-3xl">{titles[page]}</h1>
-        </div>
-      </header>
-      {page === "loans-benefits" && (
-        <Tabs value={tab} onValueChange={setTab}>
-          <div className="max-w-full overflow-x-auto">
-            <TabsList className="w-max">
-              <TabsTrigger value="loans">Loans & advances</TabsTrigger>
-              <TabsTrigger value="benefits">Benefits & gratuity rules</TabsTrigger>
-            </TabsList>
-          </div>
-          <TabsContent value="loans">
-            <div className="mt-4 space-y-4">
-              <Notice>
-                Approved loan schedules feed Payroll recovery. Funding remains subject to the separately owned Banking
-                workflow.
-              </Notice>
-              <HrPayrollWorkspace page="employee-loans" onNavigate={onNavigate} />
-            </div>
-          </TabsContent>
-          <TabsContent value="benefits">
-            <div className="mt-4 space-y-4">
-              <Notice>
-                Maintain the same governed company and country-specific benefit rules used by Final Settlements.
-                Calculate an employee award from their actual approved exit and salary evidence.
-              </Notice>
-              <CompanyScope>{(company) => <BenefitRules company={company} />}</CompanyScope>
-              <Button type="button" variant="outline" onClick={() => onNavigate("hr", "final-settlements")}>
-                Open Final Settlements
-                <ArrowRight className="size-4" />
-              </Button>
-            </div>
-          </TabsContent>
-        </Tabs>
-      )}
-      {page === "statutory-deductions" && (
-        <>
-          <Notice>
-            Configure legal employer, work jurisdictions, employee declarations, contribution bases and published rule
-            packs here. Payroll uses effective approved configuration and retains the exact calculation evidence with
-            each run.
-          </Notice>
-          <CompanyScope>
-            {(company) => <HrPayrollLocalizationSetup company={company} onDate={localDate()} />}
-          </CompanyScope>
-          <Button type="button" variant="outline" onClick={() => onNavigate("hr", "payroll-runs")}>
-            Review Payroll calculations
-            <ArrowRight className="size-4" />
+    <section className="grid min-w-0 gap-3" aria-label={label[kind].many} data-loan-register={kind}>
+      <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(14rem,1fr)_auto] md:items-end">
+        <HrSearchField
+          id={`hr-${kind}-search`}
+          value={search}
+          onChange={setSearch}
+          placeholder="Search code or employee"
+        />
+        {canManage ? (
+          <Button
+            type="button"
+            className="w-full md:w-auto"
+            disabled={!company || busy}
+            onClick={() => {
+              setNotice("");
+              setCreating(true);
+            }}
+          >
+            + New {label[kind].one.toLowerCase()}
           </Button>
+        ) : null}
+      </div>
+      {!company ? (
+        <Alert>
+          <AlertDescription>Choose a company at sign-in to see these records.</AlertDescription>
+        </Alert>
+      ) : null}
+      {notice && !opened && !creating ? (
+        <p role="status" className="m-0! text-sm text-muted-foreground">
+          {notice}
+        </p>
+      ) : null}
+      {result.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{result.error}</AlertDescription>
+        </Alert>
+      ) : null}
+      {result.loading && !result.data ? <Skeleton className="h-40 w-full" /> : null}
+      {result.data ? (
+        <>
+          <div className="min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-benefits-workspace:1" className="w-full text-left text-sm">
+              <caption className="sr-only">{label[kind].many}</caption>
+              <thead className="border-b border-border bg-muted/60">
+                <tr>
+                  <th scope="col" className={`${hrCell} font-semibold`}>
+                    Code
+                  </th>
+                  <th scope="col" className={`${hrCell} font-semibold`}>
+                    Employee
+                  </th>
+                  <th scope="col" className={`${hrCell} font-semibold max-sm:hidden`}>
+                    Amount
+                  </th>
+                  <th scope="col" className={`${hrCell} font-semibold max-md:hidden`}>
+                    Outstanding
+                  </th>
+                  <th scope="col" className={`${hrCell} font-semibold`}>
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <HrClickableRow
+                    key={item.id}
+                    onOpen={() => {
+                      setNotice("");
+                      setOpenedId(item.id);
+                    }}
+                  >
+                    <td className={`${hrCell} font-mono text-[13px]`}>{item.reference}</td>
+                    <td className={`${hrCell} font-medium wrap-anywhere`}>{item.employee_name}</td>
+                    <td className={`${hrCell} tabular-nums max-sm:hidden`}>{money(item.amount, item.currency_code)}</td>
+                    <td className={`${hrCell} tabular-nums text-muted-foreground max-md:hidden`}>
+                      {money(item.details.outstanding, item.currency_code)}
+                    </td>
+                    <td className={hrCell}>
+                      <HrStatusPill status={item.status} />
+                    </td>
+                  </HrClickableRow>
+                ))}
+                {!items.length ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                      {filter
+                        ? `No ${label[kind].many.toLowerCase()} match this search.`
+                        : `No ${label[kind].many.toLowerCase()} yet.`}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </WorkTable>
+          </div>
+          {total > PAGE_SIZE ? (
+            <nav
+              aria-label={`${label[kind].many} pages`}
+              className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground"
+            >
+              <span aria-live="polite">
+                {offset + 1}–{Math.min(offset + PAGE_SIZE, total)} of {total}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={offset === 0}
+                  onClick={() => setOffset((value) => Math.max(0, value - PAGE_SIZE))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={offset + PAGE_SIZE >= total}
+                  onClick={() => setOffset((value) => value + PAGE_SIZE)}
+                >
+                  Next
+                </Button>
+              </div>
+            </nav>
+          ) : null}
         </>
-      )}
-      {page === "employee-self-service" && <EmployeeSelfService onNavigate={onNavigate} />}
-      {page === "hr-report-centre" && <ReportCentre onNavigate={onNavigate} />}
+      ) : null}
+
+      <HrRecordDrawer
+        title={`New ${label[kind].one.toLowerCase()}`}
+        description={`Create a ${label[kind].one.toLowerCase()} request`}
+        open={creating}
+        busy={busy}
+        onClose={() => setCreating(false)}
+      >
+        {creating ? (
+          <NewLoanForm
+            kind={kind}
+            company={company}
+            client={client}
+            csrf={csrfToken}
+            busy={busy}
+            setBusy={setBusy}
+            onSaved={(message, id) => {
+              setNotice(message);
+              setCreating(false);
+              setOpenedId(id);
+              setRevision((value) => value + 1);
+            }}
+          />
+        ) : null}
+      </HrRecordDrawer>
+
+      <HrRecordDrawer
+        title={opened?.employee_name ?? label[kind].one}
+        description={`${label[kind].one} details`}
+        open={!!opened && !creating}
+        busy={busy}
+        notice={opened ? notice : undefined}
+        onClose={() => setOpenedId("")}
+      >
+        {opened ? (
+          <LoanDetail
+            key={opened.id + ":" + opened.version}
+            kind={kind}
+            company={company}
+            record={opened}
+            permissions={permissions}
+            client={client}
+            csrf={csrfToken}
+            busy={busy}
+            setBusy={setBusy}
+            onNavigate={onNavigate}
+            onChanged={(message, keepOpen) => {
+              setNotice(message);
+              if (!keepOpen) setOpenedId("");
+              setRevision((value) => value + 1);
+            }}
+          />
+        ) : null}
+      </HrRecordDrawer>
+    </section>
+  );
+}
+
+/** Loan Benefits (Employee Lifecycle): loans and salary advances, kept as separate governed records. */
+/** Loan Benefits sub-pages: Loan Requests and Advance Requests, each with its own records and workflow. */
+export function HrLoanBenefitsWorkspace({ kind, onNavigate }: { kind: LoanKind; onNavigate: Navigate }) {
+  return (
+    <div className="grid min-w-0 gap-4 text-foreground" data-benefits-workspace={kind}>
+      <LoanRegister kind={kind} onNavigate={onNavigate} />
     </div>
   );
 }

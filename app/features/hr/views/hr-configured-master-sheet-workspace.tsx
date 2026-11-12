@@ -10,61 +10,128 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
+import {
+  HrDetailAudit,
+  HrDetailGroup,
+  HrDetailNote,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import { nextMasterCode } from "../model/hr-master-code";
-import { HrMasterArchiveButton } from "../components/hr-master-archive-button";
+import { HrMasterStatusBadge } from "../components/hr-master-status-badge";
+import { HrMasterDeleteButton } from "../components/hr-master-delete-button";
+import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
-import { preferredMasterCompany, rememberMasterCompany } from "../model/organisation-master-navigation";
+import { isPayCycle, isPaymentRoute } from "../model/employment-setup";
+import { preferredMasterCompany } from "../model/organisation-master-navigation";
 
 type Record = HrMasterDirectory["items"][number];
-type ConfigurationKey = NonNullable<Record["configuration_key"]>;
 type Option = { value: string; label: string };
-type Editor = { mode: "create" | "edit"; code: string; name: string; description: string; configurationValue: string };
+type ConfigurationKey = "default_nominal" | "working_pattern";
+type FieldKey = ConfigurationKey | "payment_route" | "pay_cycle";
+type FieldValues = Partial<globalThis.Record<FieldKey, string>>;
+type Editor = {
+  mode: "create" | "edit";
+  code: string;
+  name: string;
+  description: string;
+  values: FieldValues;
+};
+
+/** One configured value on a master record; each field becomes a form control, table column and detail tile. */
+export type HrConfiguredMasterField = {
+  key: FieldKey;
+  label: string;
+  /** Not shown; kept so older field definitions stay valid. */
+  help?: string;
+  placeholder?: string;
+  options?: readonly Option[];
+  /** Options read from live records instead of a fixed list. */
+  optionsSource?: "cost_centre_nominals";
+  /** An optional field may be left unset. */
+  optional?: boolean;
+};
 
 export type HrConfiguredMasterSheetDefinition = {
-  type: Extract<HrMasterType, "cost_center" | "work_location" | "employment_type" | "employee_category">;
+  type: Extract<HrMasterType, "cost_center" | "work_location" | "employment_setup">;
   label: string;
   singular: string;
   guidance: string;
-  configurationKey: ConfigurationKey;
-  configurationLabel: string;
-  configurationHelp: string;
-  configurationPlaceholder?: string;
-  options?: readonly Option[];
+  /** Header of the name column; defaults to the singular label. */
+  nameLabel?: string;
+  fields: readonly HrConfiguredMasterField[];
+  /** Offer "Add" in the record drawer's footer as well as in the toolbar. */
+  addFromDrawer?: boolean;
 };
+
+function recordValue(record: Record, key: FieldKey): string | null {
+  if (key === "payment_route") return record.payment_route;
+  if (key === "pay_cycle") return record.pay_cycle;
+  return record.configuration_key === key ? record.configuration_value : null;
+}
 
 function editorFor(
   record: Record | undefined,
   definition: HrConfiguredMasterSheetDefinition,
   records: readonly Record[],
 ): Editor {
+  const initialValue = (field: HrConfiguredMasterField) =>
+    (record ? recordValue(record, field.key) : null) ?? (field.optional ? "" : (field.options?.[0]?.value ?? ""));
   return {
     mode: record ? "edit" : "create",
     code:
       record?.code ??
       nextMasterCode(
         definition.type,
-        records.map((item) => item.code),
+        records.filter((item) => item.type === definition.type).map((item) => item.code),
       ),
     name: record?.name ?? "",
     description: record?.description ?? "",
-    configurationValue: record?.configuration_value ?? definition.options?.[0]?.value ?? "",
+    values: Object.fromEntries(definition.fields.map((field) => [field.key, initialValue(field)])),
   };
 }
 
-function configurationLabel(record: Record, definition: HrConfiguredMasterSheetDefinition): string {
-  if (!record.configuration_value) return "Not configured";
-  return (
-    definition.options?.find((option) => option.value === record.configuration_value)?.label ??
-    record.configuration_value
-  );
+function fieldLabel(record: Record, field: HrConfiguredMasterField, liveOptions: readonly Option[] = []): string {
+  const value = recordValue(record, field.key);
+  if (!value) return "Not configured";
+  return [...(field.options ?? []), ...liveOptions].find((option) => option.value === value)?.label ?? value;
+}
+
+/** Request terms: configuration key/value, or the employment-setup payment route and pay cycle. */
+function termsFor(definition: HrConfiguredMasterSheetDefinition, values: FieldValues) {
+  const terms: {
+    configuration_key?: ConfigurationKey | null;
+    configuration_value?: string | null;
+    payment_route?: NonNullable<Record["payment_route"]>;
+    pay_cycle?: NonNullable<Record["pay_cycle"]>;
+  } = {};
+  for (const field of definition.fields) {
+    const value = (values[field.key] ?? "").trim();
+    if (field.key === "payment_route") {
+      if (isPaymentRoute(value)) terms.payment_route = value;
+    } else if (field.key === "pay_cycle") {
+      if (isPayCycle(value)) terms.pay_cycle = value;
+    } else if (value) {
+      terms.configuration_key = field.key;
+      terms.configuration_value = value;
+    } else if (field.optional) {
+      terms.configuration_key = null;
+      terms.configuration_value = null;
+    }
+  }
+  return terms;
 }
 
 export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: HrConfiguredMasterSheetDefinition }) {
+  const sectionLabel = definition.label;
+  const sectionSingular = definition.singular;
+  const sectionKey = definition.type;
   const { api, csrfToken, session, loading: sessionLoading, refresh: refreshSession } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [records, setRecords] = useState<Record[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -74,6 +141,9 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  // Loaded nominals are keyed by company, so switching company shows "Loading" until its own list arrives.
+  const [nominals, setNominals] = useState<{ companyId: string; options: Option[] }>({ companyId: "", options: [] });
+  const usesNominals = definition.fields.some((field) => field.optionsSource === "cost_centre_nominals");
   const permissions = session?.user.permissions ?? [];
   const canRead = permissions.includes("hr.master.read");
   const canCreate = permissions.includes("hr.master.create");
@@ -84,19 +154,21 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
       if (!targetCompanyId) return;
       setLoading(true);
       try {
-        const result = await client.masters({ companyId: targetCompanyId, type: definition.type, activeOnly: false });
-        setRecords(result.items);
-        setSelectedId((current) => (result.items.some((record) => record.id === current) ? current : ""));
+        const { items } = await client.masters({
+          companyId: targetCompanyId,
+          type: definition.type,
+          activeOnly: false,
+        });
+        setRecords(items);
+        setSelectedId((current) => (items.some((record) => record.id === current) ? current : ""));
         setMessage("");
       } catch {
-        setMessage(
-          `${definition.label} could not be loaded from the authorized API. Refresh your session and try again.`,
-        );
+        setMessage(`${sectionLabel} could not be loaded from the authorized API. Refresh your session and try again.`);
       } finally {
         setLoading(false);
       }
     },
-    [client, definition.label, definition.type],
+    [client, definition.type, sectionLabel],
   );
 
   useEffect(() => {
@@ -106,9 +178,13 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
     client
       .companies()
       .then((result) => {
-        setCompanies(result.items);
         const first = preferredMasterCompany(result.items);
         setCompanyId(first);
+        if (!first) {
+          setMessage("No authorized company is available. Ask your administrator to review company access.");
+          setLoading(false);
+          return;
+        }
         return loadRecords(first);
       })
       .catch(() => {
@@ -117,11 +193,39 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
       });
   }, [canRead, client, loadRecords, sessionLoading]);
 
+  // Finance owns the nominals; HR only reads the active ones of the selected company.
+  useEffect(() => {
+    if (!usesNominals || !companyId || !canRead) return;
+    let cancelled = false;
+    client
+      .costCentreNominals(companyId)
+      .then(({ items }) => {
+        if (!cancelled)
+          setNominals({
+            companyId,
+            options: items.map((item) => ({
+              value: item.code,
+              label: `${item.code} · ${item.name}${item.section ? ` (${item.section})` : ""}`,
+            })),
+          });
+      })
+      .catch(() => {
+        if (!cancelled) setNominals({ companyId, options: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canRead, client, companyId, usesNominals]);
+  const nominalsLoaded = nominals.companyId === companyId;
+  const liveOptions = (field: HrConfiguredMasterField): readonly Option[] =>
+    field.optionsSource === "cost_centre_nominals" && nominalsLoaded ? nominals.options : [];
+  const label = (record: Record, field: HrConfiguredMasterField) => fieldLabel(record, field, liveOptions(field));
+
   const selected = records.find((record) => record.id === selectedId);
   const filtered = records
     .filter((record) => statusFilter === "all" || record.status === statusFilter)
     .filter((record) =>
-      `${record.code} ${record.name} ${record.description} ${configurationLabel(record, definition)}`
+      `${record.code} ${record.name} ${record.description} ${definition.fields.map((field) => label(record, field)).join(" ")}`
         .toLowerCase()
         .includes(search.trim().toLowerCase()),
     );
@@ -133,8 +237,17 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
   };
 
   const save = async () => {
-    if (!editor || !companyId || !editor.name.trim() || !editor.configurationValue.trim()) {
-      setMessage(`Name and ${definition.configurationLabel.toLowerCase()} are required.`);
+    const missing = definition.fields.some((field) => !field.optional && !(editor?.values[field.key] ?? "").trim());
+    if (!editor || !companyId || !editor.name.trim() || missing) {
+      const required = [
+        "Name",
+        ...definition.fields.filter((field) => !field.optional).map((field) => field.label.toLowerCase()),
+      ];
+      setMessage(
+        required.length === 1
+          ? "Name is required."
+          : `${required.slice(0, -1).join(", ")} and ${required.at(-1)} are required.`,
+      );
       return;
     }
     const shared = {
@@ -142,8 +255,7 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
       code: editor.code,
       name: editor.name.trim(),
       description: editor.description.trim(),
-      configuration_key: definition.configurationKey,
-      configuration_value: editor.configurationValue.trim(),
+      ...termsFor(definition, editor.values),
     };
     setSaving(true);
     try {
@@ -183,13 +295,29 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
     }
   };
 
+  const deleteRecord = async (record: { id: string; code: string; name: string }) => {
+    setSaving(true);
+    try {
+      await client.deleteMaster(record.id, { company_id: companyId }, csrfToken(), crypto.randomUUID());
+      setMessage(`${record.code} ${record.name} was permanently deleted. Its code will not be reused.`);
+      setSelectedId("");
+      await loadRecords(companyId);
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `${record.name} could not be deleted.`);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (sessionLoading) return <Skeleton className="h-72 w-full" />;
   if (!session)
     return (
       <Alert>
         <AlertTitle>Sign in required</AlertTitle>
         <AlertDescription>
-          Your browser session is not active. Sign in again, then reopen {definition.label}.{" "}
+          Your browser session is not active. Sign in again, then reopen {sectionLabel}.{" "}
           <Button className="ml-2" size="sm" variant="outline" onClick={() => void refreshSession()}>
             Retry session
           </Button>
@@ -205,7 +333,7 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
     );
 
   return (
-    <section className="grid gap-3" aria-label={definition.label}>
+    <section className="grid gap-3" aria-label={sectionLabel}>
       {message ? (
         <Alert>
           <AlertDescription>{message}</AlertDescription>
@@ -214,36 +342,16 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground">
         <Summary label="Total records" value={records.length} />
         <Summary label="Active" value={activeCount} accent />
-        <Summary label="Inactive history" value={records.length - activeCount} />
+        <Summary label="Deactivated" value={records.length - activeCount} />
       </div>
-      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,.8fr)_minmax(14rem,1fr)_auto] md:items-end">
-        <label className="grid gap-1 text-sm font-medium" htmlFor={`configured-${definition.type}-company`}>
-          Company
-          <select
-            id={`configured-${definition.type}-company`}
-            className="h-10 min-w-0 rounded-md border border-input bg-background px-3"
-            value={companyId}
-            onChange={(event) => {
-              setCompanyId(event.target.value);
-              rememberMasterCompany(event.target.value);
-              closeSheet();
-              void loadRecords(event.target.value);
-            }}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-medium" htmlFor={`configured-${definition.type}-search`}>
+      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,1fr)_auto] md:items-end">
+        <label className="grid content-start gap-1 text-sm font-medium" htmlFor={`configured-${sectionKey}-search`}>
           Search
           <Input
-            id={`configured-${definition.type}-search`}
+            id={`configured-${sectionKey}-search`}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder={`Search ${definition.label.toLowerCase()}`}
+            placeholder={`Search ${sectionLabel.toLowerCase()}`}
           />
         </label>
         {canCreate ? (
@@ -254,7 +362,7 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
               setEditor(editorFor(undefined, definition, records));
             }}
           >
-            + Add {definition.singular}
+            + Add {sectionSingular}
           </Button>
         ) : null}
       </div>
@@ -268,8 +376,12 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
               <thead className="border-b border-border bg-muted/60">
                 <tr>
                   <th className="px-4 py-3 text-left">Code</th>
-                  <th className="px-4 py-3 text-left">{definition.singular}</th>
-                  <th className="px-4 py-3 text-left">{definition.configurationLabel}</th>
+                  <th className="px-4 py-3 text-left">{definition.nameLabel ?? sectionSingular}</th>
+                  {definition.fields.map((field) => (
+                    <th key={field.key} className="px-4 py-3 text-left">
+                      {field.label}
+                    </th>
+                  ))}
                   <th className="px-4 py-3 text-left">Description</th>
                   <th className="px-4 py-3 text-left">Status</th>
                 </tr>
@@ -297,17 +409,21 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
                         {record.name}
                       </Button>
                     </td>
-                    <td className="px-4 py-3">{configurationLabel(record, definition)}</td>
+                    {definition.fields.map((field) => (
+                      <td key={field.key} className="px-4 py-3">
+                        {label(record, field)}
+                      </td>
+                    ))}
                     <td className="max-w-md px-4 py-3 text-muted-foreground">{record.description || "—"}</td>
                     <td className="px-4 py-3">
-                      <span className={`nx-status nx-status-${record.status}`}>{record.status}</span>
+                      <HrMasterStatusBadge status={record.status} />
                     </td>
                   </tr>
                 ))}
                 {filtered.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-10 text-center text-muted-foreground" colSpan={5}>
-                      No {definition.label.toLowerCase()} match these filters.
+                    <td className="px-4 py-10 text-center text-muted-foreground" colSpan={4 + definition.fields.length}>
+                      No {sectionLabel.toLowerCase()} records match these filters.
                     </td>
                   </tr>
                 ) : null}
@@ -326,9 +442,9 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
         title={
           editor
             ? editor.mode === "create"
-              ? `Add ${definition.singular}`
-              : `Edit ${definition.singular}`
-            : (selected?.name ?? definition.singular)
+              ? `Add ${sectionSingular}`
+              : `Edit ${sectionSingular}`
+            : (selected?.name ?? sectionSingular)
         }
         description={
           editor
@@ -338,98 +454,179 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
         footer={
           editor ? (
             <>
-              <Button variant="outline" disabled={saving} onClick={closeSheet}>
-                Cancel
-              </Button>
               <Button disabled={saving} onClick={() => void save()}>
                 {saving ? "Saving…" : "Save changes"}
               </Button>
             </>
           ) : canUpdate && selected ? (
             <>
-              {selected.status === "active" ? (
-                <HrMasterArchiveButton name={selected.name} saving={saving} onArchive={changeStatus} />
-              ) : null}
               <Button variant="outline" disabled={saving} onClick={() => void changeStatus()}>
                 {selected.status === "active" ? "Deactivate" : "Activate"}
               </Button>
-              <Button onClick={() => setEditor(editorFor(selected, definition, records))}>
-                Edit {definition.singular}
-              </Button>
+              {definition.addFromDrawer && canCreate ? (
+                <Button
+                  variant="outline"
+                  disabled={saving}
+                  onClick={() => {
+                    setSelectedId("");
+                    setEditor(editorFor(undefined, definition, records));
+                  }}
+                >
+                  + Add {sectionSingular}
+                </Button>
+              ) : null}
+              <HrEditButton
+                label={`Edit ${sectionSingular}`}
+                onClick={() => setEditor(editorFor(selected, definition, records))}
+              />
+              <HrMasterDeleteButton
+                name={selected.name}
+                code={selected.code}
+                saving={saving}
+                onDelete={() => deleteRecord(selected)}
+              />
             </>
           ) : undefined
         }
       >
         {editor ? (
           <div className="grid gap-5">
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${definition.type}-code`}>
-              Auto-generated code
-              <Input id={`configured-${definition.type}-code`} value={editor.code} disabled />
-              <span className="text-xs font-normal text-muted-foreground">
-                Assigned automatically to keep records consistent.
-              </span>
-            </label>
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${definition.type}-name`}>
-              Name
-              <Input
-                id={`configured-${definition.type}-name`}
-                maxLength={160}
-                value={editor.name}
-                onChange={(event) => setEditor({ ...editor, name: event.target.value })}
-              />
-            </label>
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${definition.type}-configuration`}>
-              {definition.configurationLabel}
-              {definition.options ? (
-                <select
-                  id={`configured-${definition.type}-configuration`}
-                  className="h-10 rounded-md border border-input bg-background px-3"
-                  value={editor.configurationValue}
-                  onChange={(event) => setEditor({ ...editor, configurationValue: event.target.value })}
-                >
-                  {definition.options.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <Input
-                  id={`configured-${definition.type}-configuration`}
-                  maxLength={128}
-                  placeholder={definition.configurationPlaceholder}
-                  value={editor.configurationValue}
-                  onChange={(event) => setEditor({ ...editor, configurationValue: event.target.value.toUpperCase() })}
+            <HrDetailSection title="Details">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-code`}>
+                  Auto-generated code
+                  <Input id={`configured-${sectionKey}-code`} value={editor.code} disabled />
+                </label>
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-name`}>
+                  Name
+                  <Input
+                    id={`configured-${sectionKey}-name`}
+                    maxLength={160}
+                    value={editor.name}
+                    onChange={(event) => setEditor({ ...editor, name: event.target.value })}
+                  />
+                </label>
+              </div>
+            </HrDetailSection>
+            {definition.fields.length ? (
+              <HrDetailSection title="Configuration">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {definition.fields.map((field) => {
+                    const isConfiguration = field.key === "default_nominal" || field.key === "working_pattern";
+                    const id = `configured-${sectionKey}-${isConfiguration ? "configuration" : field.key}`;
+                    const value = editor.values[field.key] ?? "";
+                    const setValue = (next: string) =>
+                      setEditor({ ...editor, values: { ...editor.values, [field.key]: next } });
+                    return (
+                      <label key={field.key} className="grid content-start gap-1.5 text-sm font-medium" htmlFor={id}>
+                        {field.label}
+                        {field.optionsSource ? (
+                          <LiveOptionSelect
+                            id={id}
+                            value={value}
+                            options={liveOptions(field)}
+                            loaded={nominalsLoaded}
+                            onChange={setValue}
+                          />
+                        ) : field.options ? (
+                          <select
+                            id={id}
+                            required
+                            className="h-10 rounded-md border border-input bg-background px-3"
+                            value={value}
+                            onChange={(event) => setValue(event.target.value)}
+                          >
+                            {field.options.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <Input
+                            id={id}
+                            maxLength={128}
+                            placeholder={field.placeholder}
+                            value={value}
+                            onChange={(event) => setValue(event.target.value.toUpperCase())}
+                          />
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              </HrDetailSection>
+            ) : null}
+            <HrDetailSection title="Description">
+              <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-description`}>
+                Description
+                <Textarea
+                  id={`configured-${sectionKey}-description`}
+                  className="min-h-32 resize-y"
+                  maxLength={1000}
+                  value={editor.description}
+                  onChange={(event) => setEditor({ ...editor, description: event.target.value })}
                 />
-              )}
-              <span className="text-xs font-normal text-muted-foreground">{definition.configurationHelp}</span>
-            </label>
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor={`configured-${definition.type}-description`}>
-              Description
-              <Textarea
-                id={`configured-${definition.type}-description`}
-                className="min-h-32 resize-y"
-                maxLength={1000}
-                value={editor.description}
-                onChange={(event) => setEditor({ ...editor, description: event.target.value })}
-              />
-            </label>
+              </label>
+            </HrDetailSection>
           </div>
         ) : selected ? (
-          <div className="grid gap-5">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Detail label="Code" value={selected.code} />
-              <Detail label="Status" value={selected.status} status />
-              <Detail label={definition.configurationLabel} value={configurationLabel(selected, definition)} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</p>
-              <p className="mt-2 leading-relaxed">{selected.description || "No description recorded."}</p>
-            </div>
+          <div className="grid min-w-0 gap-4">
+            <HrDetailSummary code={selected.code} status={selected.status}>
+              {sectionSingular} · Company master record
+            </HrDetailSummary>
+            <HrDetailGroup title="Details">
+              <HrDetailTile label="Name" value={selected.name} />
+              {definition.fields.map((field) => (
+                <HrDetailTile key={field.key} label={field.label} value={label(selected, field)} />
+              ))}
+            </HrDetailGroup>
+            <HrDetailSection title="Description">
+              {selected.description ? (
+                <HrDetailNote>{selected.description}</HrDetailNote>
+              ) : (
+                <p className="m-0! text-sm text-muted-foreground">No description recorded.</p>
+              )}
+            </HrDetailSection>
+            <RecordStamps record={selected} />
           </div>
         ) : null}
       </HrMasterSheet>
     </section>
+  );
+}
+
+/** Optional dropdown of live records; keeps a saved value visible even if it is no longer offered. */
+function LiveOptionSelect({
+  id,
+  value,
+  options,
+  loaded,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  options: readonly Option[];
+  loaded: boolean;
+  onChange: (value: string) => void;
+}) {
+  const offered =
+    value && !options.some((option) => option.value === value) ? [{ value, label: value }, ...options] : options;
+  return (
+    <select
+      id={id}
+      className="h-10 rounded-md border border-input bg-background px-3 disabled:opacity-50"
+      value={value}
+      disabled={!loaded}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      <option value="">{!loaded ? "Loading nominals…" : options.length ? "Not set" : "No Finance nominals yet"}</option>
+      {offered.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -440,15 +637,19 @@ function Summary({ label, value }: { label: string; value: number; accent?: bool
     </span>
   );
 }
-function Detail({ label, value, status = false }: { label: string; value: string; status?: boolean }) {
+/** "Created by", "Created" and "Last updated" line, shown when the API provides them. */
+function RecordStamps({
+  record,
+}: {
+  record: { created_by_name?: string | null; created_at?: string; updated_at?: string };
+}) {
   return (
-    <div className="rounded-lg border border-border bg-muted/35 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      {status ? (
-        <span className={`mt-2 inline-flex nx-status nx-status-${value}`}>{value}</span>
-      ) : (
-        <p className="mt-1 font-semibold">{value}</p>
-      )}
-    </div>
+    <HrDetailAudit
+      items={[
+        { label: "Created by", value: record.created_by_name },
+        { label: "Created", value: hrDisplayDate(record.created_at, true) },
+        { label: "Last updated", value: hrDisplayDate(record.updated_at, true) },
+      ]}
+    />
   );
 }

@@ -103,6 +103,7 @@ const app = createApp({
   tenantSelectionService,
   passwordChangeService,
   sessionService,
+  sessionCompanies: authRepository,
   securityRepository,
   invalidateSecurityPolicy: (tenantId) => securityPolicyAuthority.invalidate(tenantId),
   bankingRepository: new SourceBankingRepository(
@@ -134,7 +135,7 @@ const app = createApp({
   ),
   inventoryRepository: new SourceInventoryRepository(pool),
   bankSelfApprovalRepository: new SourceBankSelfApprovalRepository(pool),
-  hrRepository: new SourceHrRepository(pool),
+  hrRepository: new SourceHrRepository(pool, "production", objectStorage),
   readiness: {
     inventory_foundation: async () => {
       const result = await pool.query<{ available: boolean }>(

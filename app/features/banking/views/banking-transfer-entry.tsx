@@ -7,7 +7,6 @@ import type {
   BankTransferDetail,
   BankTransferMode,
   BankTransferOptions,
-  BankingCompanyDirectory,
   CreateBankTransferRequest,
 } from "@nexora/contracts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -122,7 +121,6 @@ export function BankingTransferEntry({
   const canSubmit = permissions.has("banking.transfer.submit");
   const canApprove = permissions.has("banking.transfer.approve");
   const readOnly = Boolean(session?.impersonation);
-  const [companies, setCompanies] = useState<BankingCompanyDirectory["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [accounts, setAccounts] = useState<BankOption[]>([]);
   const [policyConfigured, setPolicyConfigured] = useState<boolean | undefined>();
@@ -170,7 +168,6 @@ export function BankingTransferEntry({
       Promise.all([client.companies(), transferId ? client.transfer(transferId) : Promise.resolve(null)])
         .then(async ([companyResult, persisted]) => {
           if (!active) return;
-          setCompanies(companyResult.items);
           const selectedCompany = persisted?.company_id ?? companyResult.items[0]?.id ?? "";
           setCompanyId(selectedCompany);
           if (persisted) {
@@ -201,16 +198,6 @@ export function BankingTransferEntry({
       window.clearTimeout(timer);
     };
   }, [client, session, sessionLoading, transferId]);
-
-  async function changeCompany(next: string) {
-    setCompanyId(next);
-    setAccounts([]);
-    setPolicyConfigured(undefined);
-    setLines([emptyLine(postingDate)]);
-    setWorkflow(emptyBankWorkflowSelection);
-    markDirty();
-    await refreshOptions(next);
-  }
 
   async function refreshOptions(selectedCompany = companyId) {
     const request = ++optionRequest.current;
@@ -457,13 +444,19 @@ export function BankingTransferEntry({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
+      {!error && !companyId ? (
+        <Alert variant="destructive">
+          <AlertTitle>Company unavailable</AlertTitle>
+          <AlertDescription>Your session has no authorized company for Bank Transfers.</AlertDescription>
+        </Alert>
+      ) : null}
 
       {policyConfigured === false ? (
         <Alert>
           <AlertTitle>Bank Transfer FX policy needs setup</AlertTitle>
           <AlertDescription>
             Select FX gain, FX loss, rounding and bank-charge nominals for{" "}
-            {companies.find((company) => company.id === companyId)?.name ?? "this company"} in Finance → Currencies
+            the signed-in company in Finance → Currencies
             &amp; Transfer FX before saving a transfer.
             <div className="mt-3 flex flex-wrap gap-2">
               {onConfigurePolicy && permissions.has("finance.transfer_fx_policy.manage") ? (
@@ -489,22 +482,6 @@ export function BankingTransferEntry({
 
       <div className="min-w-0 rounded-lg border border-border bg-card">
         <section aria-label="Transfer controls" className="grid items-start gap-3 p-3 sm:grid-cols-2 xl:grid-cols-4">
-          <label htmlFor="transfer-company" className="grid min-w-0 gap-1.5 text-xs font-semibold sm:col-span-2">
-            Company *
-            <select
-              id="transfer-company"
-              className="h-10 rounded-md border border-input bg-background px-3"
-              value={companyId}
-              disabled={!editable || Boolean(detail)}
-              onChange={(event) => void changeCompany(event.target.value)}
-            >
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.code} · {company.name}
-                </option>
-              ))}
-            </select>
-          </label>
           <label htmlFor="transfer-posting-date" className="grid min-w-0 gap-1.5 text-xs font-semibold xl:col-span-1">
             Posting date *
             <Input

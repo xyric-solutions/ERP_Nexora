@@ -13,6 +13,7 @@ import type {
   HrOvertimeEvidence,
   HrOvertimeContext,
   CreateHrOvertimeRequest,
+  ReplaceHrOvertimeRequest,
   HrOvertimeActionRequest,
   HrAttendanceCompletionResult,
   HrOvertimeSummary,
@@ -517,7 +518,17 @@ export class AttendanceCompletion {
             actions.push(action);
         }
     }
-    return { allowed_actions: actions, self_decision_requires_override: makers.includes(context.actor.userId) };
+    const can_edit =
+      row.workflow_managed &&
+      !evidence?.attendance.period_locked &&
+      row.status === "draft" &&
+      row.requested_by === context.actor.userId &&
+      context.actor.permissions.includes("hr.attendance.overtime.create");
+    return {
+      allowed_actions: actions,
+      can_edit,
+      self_decision_requires_override: makers.includes(context.actor.userId),
+    };
   }
   async getOvertime(context: HrActorContext, company: string, id: string): Promise<HrOvertimeDetail> {
     return this.d.read(context, "hr.attendance.overtime.read", async (client) => {
@@ -620,7 +631,7 @@ export class AttendanceCompletion {
       input,
       async (client) => {
         const evidence = await this.evidence(client, context, input.company_id, input.employee_id, input.work_date);
-        this.validateEvidence(evidence, input.expected_evidence_hash, input.requested_minutes);
+        this.validateEvidence(evidence, input.expected_evidence_hash, input.requested_minutes, true);
         const id = `overtime-${randomUUID()}`;
         await client.query(
           `insert into hr_overtime_request(tenant_id,id,company_id,employee_id,work_date,category,requested_minutes,reason,requested_by,operational_rule_id,operational_rule_evidence_hash,workflow_managed,review_source_hash) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,$12)`,
@@ -655,7 +666,107 @@ export class AttendanceCompletion {
       },
     );
   }
-  private validateEvidence(evidence: HrOvertimeEvidence, expected: string | undefined, minutes: number) {
+  /**
+   * Edit a draft. Overtime terms are immutable in the database, so the draft is
+   * cancelled and a corrected draft is created in the same transaction. Both
+   * steps are recorded in the request history and the audit log.
+   */
+  async replaceOvertime(
+    context: HrActorContext,
+    id: string,
+    input: ReplaceHrOvertimeRequest,
+    key: string,
+    corr: string,
+  ) {
+    this.require(context, "hr.attendance.overtime.read");
+    return this.runWrite(
+      context,
+      input.company_id,
+      "hr.attendance.overtime.create",
+      key,
+      corr,
+      `/api/v1/hr/attendance_overtime/${id}/replace`,
+      input,
+      async (client) => {
+        await client.query(
+          "select id from hr_overtime_request where tenant_id=$1 and company_id=$2 and id=$3 for update",
+          [context.tenantId, input.company_id, id],
+        );
+        const before = await this.overtimeRow(client, context, input.company_id, id);
+        if (before.version !== input.expected_version) conflict("This overtime request changed. Refresh its version.");
+        let original: HrOvertimeEvidence | null = null;
+        try {
+          original = await this.evidence(client, context, input.company_id, before.employee_id, before.work_date);
+        } catch (error) {
+          if (!(error instanceof HrApiError && error.status === 409)) throw error;
+        }
+        if (!this.actions(context, before, original).can_edit)
+          denied("Only your own draft overtime request in an open period can be edited.");
+        const evidence = await this.evidence(client, context, input.company_id, before.employee_id, input.work_date);
+        this.validateEvidence(evidence, input.expected_evidence_hash, input.requested_minutes, true);
+        const cancelled = { ...before, status: "cancelled", version: before.version + 1 };
+        await client.query(
+          "update hr_overtime_request set status='cancelled',version=version+1,decision_comment=$3 where tenant_id=$1 and id=$2",
+          [context.tenantId, id, `Edited: ${input.reason}`],
+        );
+        const replacementId = `overtime-${randomUUID()}`;
+        await client.query(
+          `insert into hr_overtime_request(tenant_id,id,company_id,employee_id,work_date,category,requested_minutes,reason,requested_by,operational_rule_id,operational_rule_evidence_hash,workflow_managed,review_source_hash) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,$12)`,
+          [
+            context.tenantId,
+            replacementId,
+            input.company_id,
+            before.employee_id,
+            input.work_date,
+            evidence.category,
+            input.requested_minutes,
+            input.reason,
+            context.actor.userId,
+            evidence.rule!.id,
+            evidence.rule!.evidence_hash,
+            evidence.hash,
+          ],
+        );
+        const after = await this.overtimeRow(client, context, input.company_id, replacementId);
+        await this.event(
+          client,
+          context,
+          "overtime",
+          id,
+          cancelled.version,
+          "replace",
+          `Replaced by ${after.reference}: ${input.reason}`,
+          before,
+          cancelled,
+          original?.hash ?? null,
+          null,
+        );
+        return {
+          id: replacementId,
+          version: 1,
+          status: "draft",
+          before,
+          after,
+          type: "overtime",
+          hash: evidence.hash,
+          override: null,
+          reason: input.reason,
+          action: "create",
+        };
+      },
+    );
+  }
+  /**
+   * Drafts save freely: only an operational rule (required by the database) and fresh evidence are checked.
+   * Submission and approval apply every blocker and the eligible-minute limits.
+   */
+  private validateEvidence(evidence: HrOvertimeEvidence, expected: string | undefined, minutes: number, draft = false) {
+    if (draft) {
+      if (!evidence.rule)
+        conflict("Set up an operational overtime rule for this day's category before saving overtime.");
+      if (expected !== evidence.hash) conflict("Attendance evidence changed. Refresh and review before continuing.");
+      return;
+    }
     if (evidence.blockers.length) conflict(evidence.blockers.join(" "));
     if (expected !== evidence.hash) conflict("Attendance evidence changed. Refresh and review before continuing.");
     if (minutes > evidence.eligible_minutes || minutes < (evidence.rule?.minimum_minutes ?? 1))
@@ -897,7 +1008,7 @@ export class AttendanceCompletion {
  coalesce((select jsonb_agg(to_jsonb(c) order by c.id) from hr_attendance_correction c where c.tenant_id=$1 and c.company_id=$2 and c.employee_id=e.id and c.work_date=d.on_date and c.status='approved'),'[]') as corrections,
  coalesce((select jsonb_agg(jsonb_build_object('id',o.id,'category',o.category,'minutes',o.approved_minutes,'operational_rule_id',o.operational_rule_id) order by o.id) from hr_overtime_request o where o.tenant_id=$1 and o.company_id=$2 and o.employee_id=e.id and o.work_date=d.on_date and o.status='approved'),'[]') as overtime,
  coalesce((select jsonb_agg(x.kind order by x.kind) from (select 'correction' as kind from hr_attendance_correction c where c.tenant_id=$1 and c.company_id=$2 and c.employee_id=e.id and c.work_date=d.on_date and c.status in ('draft','pending_manager','pending_hr') union all select 'overtime' from hr_overtime_request o where o.tenant_id=$1 and o.company_id=$2 and o.employee_id=e.id and o.work_date=d.on_date and o.status in ('draft','pending_manager','pending_hr') union all select 'leave' from hr_leave_request l where l.tenant_id=$1 and l.company_id=$2 and l.employee_id=e.id and d.on_date between l.from_date and l.to_date and l.status in ('draft','pending_manager','pending_hr')) x),'[]') as pending,
- coalesce((select jsonb_agg(jsonb_build_object('id',p.id,'direction',p.direction,'at',p.occurred_at) order by p.occurred_at,p.id) from hr_attendance_punch p where p.tenant_id=$1 and p.company_id=$2 and p.employee_id=e.id and p.work_date=d.on_date),'[]') as punches,
+ coalesce((select jsonb_agg(jsonb_build_object('id',p.id,'direction',p.direction,'at',p.occurred_at) order by p.occurred_at,p.id) from hr_attendance_punch p where p.tenant_id=$1 and p.company_id=$2 and p.employee_id=e.id and p.work_date=d.on_date and not exists(select 1 from hr_attendance_punch_amendment m where m.tenant_id=p.tenant_id and m.punch_id=p.id)),'[]') as punches,
  coalesce((select jsonb_agg(to_jsonb(a) order by a.id) from employee_assignment a where a.tenant_id=$1 and a.company_id=$2 and a.employee_id=e.id and a.effective_from<=d.on_date and (a.effective_to is null or a.effective_to>=d.on_date)),'[]') as placements,
  coalesce((select jsonb_agg(to_jsonb(h) order by h.id) from hr_holiday h where h.tenant_id=$1 and h.company_id=$2 and h.holiday_date=d.on_date and h.status='active'),'[]') as holidays
  from employee e cross join unnest($3::date[]) d(on_date) where e.tenant_id=$1 and e.id=any($4::text[]) order by e.id,d.on_date`,

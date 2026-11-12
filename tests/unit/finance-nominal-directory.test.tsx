@@ -97,41 +97,16 @@ describe("Company Chart of Accounts directory isolation", () => {
     expect(container.querySelector("[data-finance-master-trigger]")).not.toBeNull();
     expect([...container.querySelectorAll("button")].some((button) => button.textContent === "Edit")).toBe(false);
   });
-  it("ignores an older company response that arrives after the new company response", async () => {
-    const old = deferred<ReturnType<typeof directory>>();
-    harness.api.listFinanceNominals
-      .mockReturnValueOnce(old.promise)
-      .mockResolvedValueOnce(directory("New company nominal"));
-    act(render);
-    await settle(0);
-    await settle();
-    expect(harness.api.listFinanceNominals).toHaveBeenCalledTimes(1);
-    change("Nominal company", "company-two");
-    await settle();
-    expect(container.textContent).toContain("New company nominal");
-    await act(async () => old.resolve(directory("Old company nominal")));
-    expect(container.textContent).not.toContain("Old company nominal");
-    expect(container.textContent).toContain("New company nominal");
-  });
-  it("clears rows and pagination immediately when company selection is removed", async () => {
+  it("works in the company chosen at sign-in without a company picker", async () => {
     harness.api.listFinanceNominals.mockResolvedValue(directory("Company nominal", "next-page"));
     act(render);
     await settle(0);
     await settle();
+    expect(container.querySelector('select[aria-label="Nominal company"]')).toBeNull();
     expect(container.textContent).toContain("Company nominal");
-    change("Nominal company", "");
-    expect(container.textContent).not.toContain("Company nominal");
-    expect(container.textContent).not.toContain("Next page");
-    await settle();
     expect(harness.api.listFinanceNominals).toHaveBeenCalledTimes(1);
-  });
-  it("does not retain previous rows during the company-change debounce", async () => {
-    harness.api.listFinanceNominals.mockResolvedValue(directory("Previous nominal"));
-    act(render);
-    await settle(0);
-    await settle();
-    change("Nominal company", "company-two");
-    expect(container.textContent).not.toContain("Previous nominal");
+    expect(JSON.stringify(harness.api.listFinanceNominals.mock.calls[0])).toContain("company-one");
+    expect(JSON.stringify(harness.api.listFinanceNominals.mock.calls[0])).not.toContain("company-two");
   });
   it("ignores a stale pagination result after changing the status filter", async () => {
     const next = deferred<ReturnType<typeof directory>>();

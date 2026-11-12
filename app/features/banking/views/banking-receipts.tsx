@@ -2,12 +2,7 @@
 import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import type {
-  BankReceiptOptions,
-  BankReceiptState,
-  BankReceiptSummary,
-  BankingCompanyDirectory,
-} from "@nexora/contracts";
+import type { BankReceiptOptions, BankReceiptState, BankReceiptSummary } from "@nexora/contracts";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -90,7 +85,6 @@ export function BankingReceipts({ onOpenReceipt, onCreateReceipt }: BankingRecei
   const client = useMemo(() => new BankingApiClient(api), [api]);
   const canRead = session?.user.permissions.includes("banking.receipt.read") ?? false;
   const canCreate = session?.user.permissions.includes("banking.receipt.create") ?? false;
-  const [companies, setCompanies] = useState<BankingCompanyDirectory["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [bankAccounts, setBankAccounts] = useState<BankReceiptOptions["bank_accounts"]>([]);
   const [rows, setRows] = useState<BankReceiptSummary[]>([]);
@@ -124,7 +118,6 @@ export function BankingReceipts({ onOpenReceipt, onCreateReceipt }: BankingRecei
     let active = true;
     const timer = window.setTimeout(() => {
       setLoadingCompanies(true);
-      setCompanies([]);
       setCompanyId("");
       setBankAccounts([]);
       invalidateDirectory();
@@ -132,13 +125,11 @@ export function BankingReceipts({ onOpenReceipt, onCreateReceipt }: BankingRecei
         .companies()
         .then((result) => {
           if (!active || request !== companyRequest.current) return;
-          setCompanies(result.items);
           setCompanyId(result.items[0]?.id ?? "");
           setLoadFailure(null);
         })
         .catch((caught) => {
           if (!active || request !== companyRequest.current) return;
-          setCompanies([]);
           setCompanyId("");
           setBankAccounts([]);
           setRows([]);
@@ -260,29 +251,6 @@ export function BankingReceipts({ onOpenReceipt, onCreateReceipt }: BankingRecei
 
       <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm" aria-label="Bank receipts">
         <div className="grid gap-3 border-b border-border bg-muted/25 p-4 md:grid-cols-2 xl:grid-cols-4">
-          <Field label="Company">
-            <select
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-              value={companyId}
-              disabled={loadingCompanies || companies.length === 0}
-              onChange={(event) => {
-                directoryRequest.current += 1;
-                setCompanyId(event.target.value);
-                setBankAccountId("");
-                setBankAccounts([]);
-                setRows([]);
-                setNextCursor(null);
-                setLoadFailure(null);
-              }}
-            >
-              {companies.length === 0 ? <option value="">No accessible companies</option> : null}
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.code} · {company.name}
-                </option>
-              ))}
-            </select>
-          </Field>
           <Field label="Bank account">
             <select
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
@@ -318,7 +286,7 @@ export function BankingReceipts({ onOpenReceipt, onCreateReceipt }: BankingRecei
               ))}
             </select>
           </Field>
-          <Field label="Search receipts">
+          <Field label="Search receipts" className="md:col-span-2">
             <Input
               className="h-10"
               maxLength={160}
@@ -505,8 +473,20 @@ export function BankingReceipts({ onOpenReceipt, onCreateReceipt }: BankingRecei
   );
 }
 
-function Field({ label: fieldLabel, children }: { label: string; children: React.ReactNode }) {
-  return <LabeledField label={fieldLabel}>{children}</LabeledField>;
+function Field({
+  label: fieldLabel,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <LabeledField label={fieldLabel} className={className}>
+      {children}
+    </LabeledField>
+  );
 }
 
 function StateCard({ title, detail }: { title: string; detail: string }) {

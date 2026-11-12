@@ -21,6 +21,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api/generated";
+import { inActiveCompany } from "@/lib/session/active-company";
 import { useSession } from "@/lib/session/session-provider";
 import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { SearchableSelect } from "@/shared/ui/searchable-select";
@@ -171,7 +172,8 @@ export function FinanceJournalWorkspace({
     setError("");
     try {
       const initial = await client.options();
-      const selected = companyId || initial.companies[0]?.id || "";
+      // Only the company chosen at sign-in is available to Journals.
+      const selected = companyId || inActiveCompany({ items: initial.companies }).items[0]?.id || "";
       setCompanyId(selected);
       setOptions(selected ? await client.options(selected) : initial);
     } catch (caught) {
@@ -269,15 +271,16 @@ export function FinanceJournalWorkspace({
     <div className="grid min-w-0 gap-2" aria-busy={loading}>
       <WorkspaceHeader
         activeTab={activeTab}
-        companyId={companyId}
         options={options}
-        onCompany={setCompanyId}
         permissions={permissions}
         displayDecimalPlaces={displayDecimalPlaces}
         onDisplayDecimalPlaces={changeDisplayDecimalPlaces}
         onNewJournal={() => navigateWithinWorkspace("finance", "manual-journal")}
       />
       {error ? <Notice title="Journal request could not be completed" detail={error} destructive /> : null}
+      {!loading && !error && !companyId ? (
+        <Notice title="Company not available" detail="The company chosen at sign-in is not available for Journals." />
+      ) : null}
       <Tabs
         value={activeTab}
         onValueChange={(value) => {
@@ -384,18 +387,14 @@ type Common = {
 
 function WorkspaceHeader({
   activeTab,
-  companyId,
   options,
-  onCompany,
   permissions,
   displayDecimalPlaces,
   onDisplayDecimalPlaces,
   onNewJournal,
 }: {
   activeTab: JournalWorkspaceTab;
-  companyId: string;
   options: JournalOptions | null;
-  onCompany: (id: string) => void;
   permissions: Set<string>;
   displayDecimalPlaces: number;
   onDisplayDecimalPlaces: (value: number) => void;
@@ -418,24 +417,7 @@ function WorkspaceHeader({
           </span>
         ) : null}
       </div>
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[minmax(12rem,20rem)_auto_auto] lg:justify-end">
-        <div className="col-span-2 flex min-w-0 items-center gap-2 sm:col-span-1">
-          <Label htmlFor="journal-company" className="text-xs">
-            Company
-          </Label>
-          <select
-            id="journal-company"
-            className="h-9 min-h-9 w-full min-w-0 rounded-md border border-input bg-card px-2 text-sm focus-visible:outline-2 focus-visible:outline-ring"
-            value={companyId}
-            onChange={(event) => onCompany(event.target.value)}
-          >
-            {options?.companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.code} · {company.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
         <div className="flex min-w-0 items-center gap-2">
           <Label htmlFor="journal-display-decimals" className="text-xs">
             Decimals
@@ -2133,9 +2115,6 @@ function RecurringJournals({
                   </Alert>
                 ) : null}
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={closeDrawer}>
-                    Cancel
-                  </Button>
                   <Button disabled={busy} onClick={() => void save()}>
                     {busy ? "Saving…" : "Save template"}
                   </Button>

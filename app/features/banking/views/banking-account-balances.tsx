@@ -154,21 +154,13 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
 
   return (
     <div className="space-y-4" aria-busy={loading}>
-      <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-        <LabeledField label="Company">
-          <select
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            value={companyId}
-            onChange={(event) => setCompanyId(event.target.value)}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.code} · {company.name}
-              </option>
-            ))}
-          </select>
-        </LabeledField>
-      </div>
+      {!loading && !error && companies.length === 0 ? (
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+          <p role="alert" className="m-0 text-sm font-medium text-destructive">
+            Your session has no authorized company for bank accounts.
+          </p>
+        </div>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Bank account currency totals">
         {loading && summary.length === 0

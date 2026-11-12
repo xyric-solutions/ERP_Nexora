@@ -340,8 +340,7 @@ test("the HR foundation screens are reachable and share one master screen", asyn
     "job-grades",
     "cost-centres",
     "work-locations",
-    "employment-types",
-    "employee-categories",
+    "employment-setup",
   ]) {
     assert.match(catalogue, new RegExp(`p\\("${pageId}"`), `the HR menu is missing ${pageId}`);
   }

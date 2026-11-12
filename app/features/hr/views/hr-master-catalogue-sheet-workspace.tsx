@@ -10,18 +10,40 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
+import {
+  HrDetailAudit,
+  HrDetailGroup,
+  HrDetailNote,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
 import { nextMasterCode } from "../model/hr-master-code";
-import { HrMasterArchiveButton } from "../components/hr-master-archive-button";
+import { HrMasterStatusBadge } from "../components/hr-master-status-badge";
+import { HrMasterDeleteButton } from "../components/hr-master-delete-button";
+import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
-import { preferredMasterCompany, rememberMasterCompany } from "../model/organisation-master-navigation";
+import { preferredMasterCompany } from "../model/organisation-master-navigation";
+import { organizationUnitTypeLabels } from "../model/organization-hierarchy";
 
 type Record = HrMasterDirectory["items"][number];
-type Editor = { mode: "create" | "edit"; code: string; name: string; description: string };
+type Unit = Awaited<ReturnType<HrApiClient["organizationUnits"]>>["items"][number];
+type Editor = { mode: "create" | "edit"; code: string; name: string; description: string; departmentId: string };
+
+/** "Development · Lahore office": the department and the unit it reports into. */
+function departmentPath(units: readonly Unit[], departmentId: string | null | undefined): string | null {
+  const department = units.find((unit) => unit.id === departmentId);
+  if (!department) return null;
+  const parent = units.find((unit) => unit.id === department.parent_id);
+  return parent ? `${department.name} · ${organizationUnitTypeLabels[parent.type]} ${parent.name}` : department.name;
+}
 
 function editorFor(record: Record | undefined, type: HrMasterType, records: readonly Record[]): Editor {
   return {
+    departmentId: record?.owning_org_unit_id ?? "",
     mode: record ? "edit" : "create",
     code:
       record?.code ??
@@ -38,15 +60,22 @@ export function HrMasterCatalogueSheetWorkspace({
   type,
   label,
   singular,
+  nameLabel = "Name",
+  namePlaceholder,
+  withDepartment = false,
 }: {
   type: HrMasterType;
   label: string;
   singular: string;
   guidance: string;
+  /** Label of the name field and column, such as Position or Job title. */
+  nameLabel?: string;
+  namePlaceholder?: string;
+  /** Jobs belong to a department, chosen when the job is created. */
+  withDepartment?: boolean;
 }) {
   const { api, csrfToken, session, loading: sessionLoading, refresh: refreshSession } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [records, setRecords] = useState<Record[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -56,6 +85,7 @@ export function HrMasterCatalogueSheetWorkspace({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [units, setUnits] = useState<Unit[]>([]);
   const permissions = session?.user.permissions ?? [];
   const canRead = permissions.includes("hr.master.read");
   const canCreate = permissions.includes("hr.master.create");
@@ -66,8 +96,14 @@ export function HrMasterCatalogueSheetWorkspace({
       if (!targetCompanyId) return;
       setLoading(true);
       try {
-        const result = await client.masters({ companyId: targetCompanyId, type, activeOnly: false });
+        const [result, unitResult] = await Promise.all([
+          client.masters({ companyId: targetCompanyId, type, activeOnly: false }),
+          withDepartment
+            ? client.organizationUnits({ companyId: targetCompanyId, limit: 200 })
+            : Promise.resolve({ items: [] as Unit[] }),
+        ]);
         setRecords(result.items);
+        setUnits(unitResult.items);
         setSelectedId((current) => (result.items.some((record) => record.id === current) ? current : ""));
         setMessage("");
       } catch {
@@ -76,7 +112,7 @@ export function HrMasterCatalogueSheetWorkspace({
         setLoading(false);
       }
     },
-    [client, label, type],
+    [client, label, type, withDepartment],
   );
 
   useEffect(() => {
@@ -86,7 +122,6 @@ export function HrMasterCatalogueSheetWorkspace({
     client
       .companies()
       .then((result) => {
-        setCompanies(result.items);
         const first = preferredMasterCompany(result.items);
         setCompanyId(first);
         return loadRecords(first);
@@ -98,10 +133,15 @@ export function HrMasterCatalogueSheetWorkspace({
   }, [canRead, client, loadRecords, sessionLoading]);
 
   const selected = records.find((record) => record.id === selectedId);
+  const departments = units.filter((unit) => unit.type === "department" && unit.status === "active");
+  const departmentLabel = (record: Record) =>
+    departmentPath(units, record.owning_org_unit_id) ?? record.owning_org_unit ?? "Not linked";
   const filtered = records
     .filter((record) => statusFilter === "all" || record.status === statusFilter)
     .filter((record) =>
-      `${record.code} ${record.name} ${record.description}`.toLowerCase().includes(search.trim().toLowerCase()),
+      `${record.code} ${record.name} ${record.description} ${withDepartment ? departmentLabel(record) : ""}`
+        .toLowerCase()
+        .includes(search.trim().toLowerCase()),
     );
   const closeSheet = () => {
     if (saving) return;
@@ -111,9 +151,14 @@ export function HrMasterCatalogueSheetWorkspace({
 
   const save = async () => {
     if (!editor || !companyId || !editor.name.trim()) {
-      setMessage("Name is required.");
+      setMessage(`${nameLabel} is required.`);
       return;
     }
+    if (withDepartment && !editor.departmentId) {
+      setMessage(`Choose the department this ${singular.toLowerCase()} belongs to.`);
+      return;
+    }
+    const department = withDepartment ? { owning_org_unit_id: editor.departmentId } : {};
     setSaving(true);
     try {
       if (editor.mode === "create") {
@@ -124,6 +169,7 @@ export function HrMasterCatalogueSheetWorkspace({
             code: "AUTO",
             name: editor.name.trim(),
             description: editor.description.trim(),
+            ...department,
           },
           csrfToken(),
           crypto.randomUUID(),
@@ -137,6 +183,7 @@ export function HrMasterCatalogueSheetWorkspace({
             code: selected.code,
             name: editor.name.trim(),
             description: editor.description.trim(),
+            ...department,
           },
           csrfToken(),
           crypto.randomUUID(),
@@ -174,6 +221,22 @@ export function HrMasterCatalogueSheetWorkspace({
     }
   };
 
+  const deleteRecord = async (record: { id: string; code: string; name: string }) => {
+    setSaving(true);
+    try {
+      await client.deleteMaster(record.id, { company_id: companyId }, csrfToken(), crypto.randomUUID());
+      setMessage(`${record.code} ${record.name} was permanently deleted. Its code will not be reused.`);
+      setSelectedId("");
+      await loadRecords(companyId);
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `${record.name} could not be deleted.`);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (sessionLoading) return <Skeleton className="h-72 w-full" />;
   if (!session)
     return (
@@ -202,28 +265,8 @@ export function HrMasterCatalogueSheetWorkspace({
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
-      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,.8fr)_minmax(14rem,1fr)_auto] md:items-end">
-        <label className="grid gap-1 text-sm font-medium" htmlFor={`master-${type}-company`}>
-          Company
-          <select
-            id={`master-${type}-company`}
-            className="h-10 min-w-0 rounded-md border border-input bg-background px-3"
-            value={companyId}
-            onChange={(event) => {
-              setCompanyId(event.target.value);
-              rememberMasterCompany(event.target.value);
-              closeSheet();
-              void loadRecords(event.target.value);
-            }}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-medium" htmlFor={`master-${type}-search`}>
+      <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,1fr)_auto] md:items-end">
+        <label className="grid content-start gap-1 text-sm font-medium" htmlFor={`master-${type}-search`}>
           Search
           <Input
             id={`master-${type}-search`}
@@ -254,7 +297,8 @@ export function HrMasterCatalogueSheetWorkspace({
               <thead className="border-b border-border bg-muted/60">
                 <tr>
                   <th className="px-4 py-3 text-left">Code</th>
-                  <th className="px-4 py-3 text-left">{singular}</th>
+                  <th className="px-4 py-3 text-left">{nameLabel === "Name" ? singular : nameLabel}</th>
+                  {withDepartment ? <th className="px-4 py-3 text-left">Department</th> : null}
                   <th className="px-4 py-3 text-left">Description</th>
                   <th className="px-4 py-3 text-left">Status</th>
                 </tr>
@@ -282,15 +326,20 @@ export function HrMasterCatalogueSheetWorkspace({
                         {record.name}
                       </Button>
                     </td>
+                    {withDepartment ? (
+                      <td className={`px-4 py-3 ${record.owning_org_unit_id ? "" : "text-muted-foreground"}`}>
+                        {departmentLabel(record)}
+                      </td>
+                    ) : null}
                     <td className="max-w-md px-4 py-3 text-muted-foreground">{record.description || "—"}</td>
                     <td className="px-4 py-3">
-                      <span className={`nx-status nx-status-${record.status}`}>{record.status}</span>
+                      <HrMasterStatusBadge status={record.status} />
                     </td>
                   </tr>
                 ))}
                 {filtered.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-10 text-center text-muted-foreground" colSpan={4}>
+                    <td className="px-4 py-10 text-center text-muted-foreground" colSpan={withDepartment ? 5 : 4}>
                       No {label.toLowerCase()} match these filters.
                     </td>
                   </tr>
@@ -318,65 +367,110 @@ export function HrMasterCatalogueSheetWorkspace({
         footer={
           editor ? (
             <>
-              <Button variant="outline" disabled={saving} onClick={closeSheet}>
-                Cancel
-              </Button>
               <Button disabled={saving} onClick={() => void save()}>
                 {saving ? "Saving…" : "Save changes"}
               </Button>
             </>
           ) : canUpdate && selected ? (
             <>
-              {selected.status === "active" ? (
-                <HrMasterArchiveButton name={selected.name} saving={saving} onArchive={changeStatus} />
-              ) : null}
               <Button variant="outline" disabled={saving} onClick={() => void changeStatus()}>
                 {selected.status === "active" ? "Deactivate" : "Activate"}
               </Button>
-              <Button onClick={() => setEditor(editorFor(selected, type, records))}>Edit {singular}</Button>
+              <HrEditButton label={`Edit ${singular}`} onClick={() => setEditor(editorFor(selected, type, records))} />
+              <HrMasterDeleteButton
+                name={selected.name}
+                code={selected.code}
+                saving={saving}
+                onDelete={() => deleteRecord(selected)}
+              />
             </>
           ) : undefined
         }
       >
         {editor ? (
           <div className="grid gap-5">
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-code`}>
-              Auto-generated code
-              <Input id={`master-${type}-code`} value={editor.code} disabled />
-              <span className="text-xs font-normal text-muted-foreground">
-                Assigned automatically to keep records consistent.
-              </span>
-            </label>
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-name`}>
-              Name
-              <Input
-                id={`master-${type}-name`}
-                maxLength={160}
-                value={editor.name}
-                onChange={(event) => setEditor({ ...editor, name: event.target.value })}
-              />
-            </label>
-            <label className="grid gap-1.5 text-sm font-medium" htmlFor={`master-${type}-description`}>
-              Description
-              <Textarea
-                id={`master-${type}-description`}
-                className="min-h-32 resize-y"
-                maxLength={1000}
-                value={editor.description}
-                onChange={(event) => setEditor({ ...editor, description: event.target.value })}
-              />
-            </label>
+            <HrDetailSection title="Details">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`master-${type}-code`}>
+                  Auto-generated code
+                  <Input id={`master-${type}-code`} value={editor.code} disabled />
+                </label>
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`master-${type}-name`}>
+                  {nameLabel}
+                  <Input
+                    id={`master-${type}-name`}
+                    maxLength={160}
+                    placeholder={namePlaceholder}
+                    value={editor.name}
+                    onChange={(event) => setEditor({ ...editor, name: event.target.value })}
+                  />
+                </label>
+              </div>
+            </HrDetailSection>
+            {withDepartment ? (
+              <HrDetailSection title="Assignment">
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`master-${type}-department`}>
+                  Department
+                  <select
+                    id={`master-${type}-department`}
+                    className="h-10 rounded-md border border-input bg-background px-3"
+                    value={editor.departmentId}
+                    onChange={(event) => setEditor({ ...editor, departmentId: event.target.value })}
+                  >
+                    <option value="">{departments.length ? "Select a department" : "No active departments"}</option>
+                    {/* A job's current department stays visible even if it was deactivated later. */}
+                    {editor.departmentId && !departments.some((unit) => unit.id === editor.departmentId) ? (
+                      <option value={editor.departmentId}>
+                        {departmentPath(units, editor.departmentId) ??
+                          selected?.owning_org_unit ??
+                          "Current department"}
+                      </option>
+                    ) : null}
+                    {departments.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {departmentPath(units, unit.id)}
+                      </option>
+                    ))}
+                  </select>
+                  {departments.length ? null : (
+                    <span className="text-xs font-normal text-muted-foreground">
+                      Add a department in Organisation Structure first.
+                    </span>
+                  )}
+                </label>
+              </HrDetailSection>
+            ) : null}
+            <HrDetailSection title="Description">
+              <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`master-${type}-description`}>
+                Description
+                <Textarea
+                  id={`master-${type}-description`}
+                  className="min-h-32 resize-y"
+                  maxLength={1000}
+                  value={editor.description}
+                  onChange={(event) => setEditor({ ...editor, description: event.target.value })}
+                />
+              </label>
+            </HrDetailSection>
           </div>
         ) : selected ? (
-          <div className="grid gap-5">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Detail label="Code" value={selected.code} />
-              <Detail label="Status" value={selected.status} status={selected.status} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</p>
-              <p className="mt-2 leading-relaxed">{selected.description || "No description recorded."}</p>
-            </div>
+          <div className="grid min-w-0 gap-4">
+            <HrDetailSummary code={selected.code} status={selected.status}>
+              {singular}
+              {withDepartment ? ` · ${departmentLabel(selected)}` : " · Company master record"}
+            </HrDetailSummary>
+            <HrDetailGroup title="Details">
+              <HrDetailTile label={nameLabel === "Name" ? singular : nameLabel} value={selected.name} />
+              {withDepartment ? <HrDetailTile label="Department" value={departmentLabel(selected)} /> : null}
+            </HrDetailGroup>
+            <HrDetailSection title="Description">
+              {selected.description ? (
+                <HrDetailNote>{selected.description}</HrDetailNote>
+              ) : (
+                <p className="m-0! text-sm text-muted-foreground">No description recorded.</p>
+              )}
+            </HrDetailSection>
+            <RecordStamps record={selected} />
           </div>
         ) : null}
       </HrMasterSheet>
@@ -384,15 +478,19 @@ export function HrMasterCatalogueSheetWorkspace({
   );
 }
 
-function Detail({ label, value, status }: { label: string; value: string; status?: string }) {
+/** "Created by", "Created" and "Last updated" line, shown when the API provides them. */
+function RecordStamps({
+  record,
+}: {
+  record: { created_by_name?: string | null; created_at?: string; updated_at?: string };
+}) {
   return (
-    <div className="rounded-lg border border-border bg-muted/35 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      {status ? (
-        <span className={`mt-2 inline-flex nx-status nx-status-${status}`}>{value}</span>
-      ) : (
-        <p className="mt-1 font-semibold">{value}</p>
-      )}
-    </div>
+    <HrDetailAudit
+      items={[
+        { label: "Created by", value: record.created_by_name },
+        { label: "Created", value: hrDisplayDate(record.created_at, true) },
+        { label: "Last updated", value: hrDisplayDate(record.updated_at, true) },
+      ]}
+    />
   );
 }

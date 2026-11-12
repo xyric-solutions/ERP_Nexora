@@ -1,5 +1,5 @@
 /**
- * HR Phase 4 — recruitment, performance, training and employee lifecycle.
+ * HR Phase 4 — recruitment and employee lifecycle.
  *
  * These tests protect the controls the prototype must explain visually. They
  * intentionally test relationships and lifecycle gates rather than snapshots
@@ -60,51 +60,6 @@ test("the recruitment funnel is cumulative and never grows at a later stage", as
   }
 });
 
-test("performance scores are derived, calibrated and never move money directly", async () => {
-  const performance = await load("hr-performance-data.ts");
-
-  for (const review of performance.performanceReviews.filter((row) => row.status === "Completed")) {
-    assert.equal(performance.goalWeightsAreValid(review.employeeId, review.cycleId), true);
-    assert.equal(performance.storedRatingAgreesWithAssessments(review), true);
-    assert.equal(performance.calibrationIsIndependent(review), true);
-    assert.deepEqual(performance.reviewBlockers(review), []);
-  }
-
-  for (const outcome of performance.performanceOutcomes.filter((row) => row.status === "Applied")) {
-    assert.equal(performance.outcomeIsPermittedByRating(outcome), true);
-    assert.equal(performance.outcomeIsBackedByTransaction(outcome), true);
-  }
-
-  const approvedButNotApplied = performance.performanceOutcomes.find((row) => row.status === "Approved");
-  assert.ok(approvedButNotApplied);
-  assert.match(performance.outcomeBlockers(approvedButNotApplied).join(" "), /no money has moved/i);
-});
-
-test("training passes are earned from attendance and assessment evidence", async () => {
-  const performance = await load("hr-performance-data.ts");
-  const failed = performance.trainingCompletions.find((row) => row.result === "Failed");
-  assert.ok(failed, "fixtures need a failed completion to explain the control");
-  assert.equal(performance.completionIsEarned(failed), false);
-  assert.ok(performance.completionBlockers(failed).length > 0);
-
-  for (const completion of performance.trainingCompletions.filter((row) => row.result === "Passed")) {
-    assert.equal(performance.completionAttendanceIsConsistent(completion), true);
-    assert.equal(performance.completionIsEarned(completion), true);
-  }
-});
-
-test("training programme completion rate is derived from eligible participants", async () => {
-  const training = await load("hr-performance-data.ts");
-  for (const program of training.trainingPrograms) {
-    const effectiveness = training.programEffectiveness(program.id);
-    assert.ok(effectiveness.completionRate >= 0 && effectiveness.completionRate <= 100);
-    const sessions = training.sessionsForProgram(program.id);
-    const eligible = sessions.flatMap((session) => training.participantsFor(session.id)).filter((row) => row.status !== "Withdrawn");
-    const completed = eligible.filter((row) => training.completionFor(row.id));
-    assert.equal(effectiveness.completionRate, eligible.length === 0 ? 0 : Math.round((completed.length / eligible.length) * 100));
-  }
-});
-
 test("employee lifecycle changes preserve effective-dated and financial separation", async () => {
   const lifecycle = await load("hr-lifecycle-data.ts");
 
@@ -137,8 +92,7 @@ test("HR Phase 4 pages are explicitly wired before the generic prototype fallbac
 
   for (const pageId of [
     "manpower-requisitions", "recruitment-pipeline", "offers",
-    "performance-cycles", "performance-reviews", "training-programs",
-    "onboarding", "probation-reviews", "employee-movements", "final-settlements",
+    "onboarding", "probation-reviews", "employee-movements", "resignations", "clearance",
   ]) {
     assert.match(navigation, new RegExp(`p\\(\\"${pageId}\\"`));
     assert.match(screens, new RegExp(`\\"${pageId}\\"`));
@@ -146,6 +100,5 @@ test("HR Phase 4 pages are explicitly wired before the generic prototype fallbac
   assert.match(content, /isHrLifecyclePage/);
   assert.match(content, /<HrLifecycleScreen/);
   assert.match(screens, /Recruitment control centre/);
-  assert.match(screens, /Performance & development/);
   assert.match(screens, /Employee lifecycle control/);
 });

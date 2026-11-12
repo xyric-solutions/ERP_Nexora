@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   BankAccountDetail,
   BankAccountSummary,
-  BankingCompanyDirectory,
   BankingLedgerAccountDirectory,
   CreateBankAccountRequest,
 } from "@nexora/contracts";
@@ -41,7 +40,6 @@ export function BankAccountSetup({ onCreated }: { onCreated?: (accountId: string
   const permissions = useMemo(() => new Set(session?.user.permissions ?? []), [session]);
   const canCreate = permissions.has("banking.bank_account.create");
   const canSubmit = permissions.has("banking.bank_account.submit");
-  const [companies, setCompanies] = useState<BankingCompanyDirectory["items"]>([]);
   const [ledgers, setLedgers] = useState<BankingLedgerAccountDirectory["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [ledgerAccountId, setLedgerAccountId] = useState("");
@@ -72,7 +70,6 @@ export function BankAccountSetup({ onCreated }: { onCreated?: (accountId: string
         .companies()
         .then((result) => {
           if (!active) return;
-          setCompanies(result.items);
           setCompanyId(result.items[0]?.id ?? "");
         })
         .catch((error) => {
@@ -187,20 +184,12 @@ export function BankAccountSetup({ onCreated }: { onCreated?: (accountId: string
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-5 sm:grid-cols-2">
-          <Field label="Company">
-            <select
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              disabled={loading || saving}
-              value={companyId}
-              onChange={(event) => setCompanyId(event.target.value)}
-            >
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.code} · {company.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+          {!loading && !notice && !companyId ? (
+            <Alert className="sm:col-span-2" variant="destructive">
+              <AlertTitle>Company unavailable</AlertTitle>
+              <AlertDescription>Your session has no authorized company for bank account setup.</AlertDescription>
+            </Alert>
+          ) : null}
           <Field label="Account type">
             <select
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -363,7 +352,6 @@ export function BankAccountApprovals() {
   const client = useMemo(() => new BankingApiClient(api), [api]);
   const canRead = session?.user.permissions.includes("banking.bank_account.read") ?? false;
   const canApprove = session?.user.permissions.includes("banking.bank_account.approve") ?? false;
-  const [companies, setCompanies] = useState<BankingCompanyDirectory["items"]>([]);
   const [companyId, setCompanyId] = useState("");
   const [rows, setRows] = useState<BankAccountSummary[]>([]);
   const [selected, setSelected] = useState<BankAccountDetail | null>(null);
@@ -382,7 +370,6 @@ export function BankAccountApprovals() {
         .companies()
         .then((result) => {
           if (!active) return;
-          setCompanies(result.items);
           setCompanyId(result.items[0]?.id ?? "");
         })
         .catch((caught) => {
@@ -485,22 +472,17 @@ export function BankAccountApprovals() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-3">
-            <select
-              className="h-10 min-w-64 rounded-md border border-input bg-background px-3 text-sm"
-              value={companyId}
-              onChange={(event) => setCompanyId(event.target.value)}
-            >
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.code} · {company.name}
-                </option>
-              ))}
-            </select>
+          <div className="flex justify-end gap-3">
             <Button variant="outline" disabled={loading} type="button" onClick={() => void refresh()}>
               Refresh
             </Button>
           </div>
+          {!loading && !error && !companyId ? (
+            <Alert variant="destructive">
+              <AlertTitle>Company unavailable</AlertTitle>
+              <AlertDescription>Your session has no authorized company for bank account approvals.</AlertDescription>
+            </Alert>
+          ) : null}
           {error ? (
             <Alert variant="destructive">
               <AlertTitle>Request failed</AlertTitle>

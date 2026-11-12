@@ -905,45 +905,6 @@ export function BankingReceiptEntry({
 
       <div className="min-w-0 rounded-lg border border-border bg-card">
         <section className="grid items-start gap-3 p-3 sm:grid-cols-2 xl:grid-cols-6" aria-label="Receipt controls">
-          <Field label="Company" helper="Authenticated company scope" className="xl:col-span-2">
-            {companies.length === 1 ? (
-              <p
-                className="m-0 min-h-10 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
-                aria-label="Authenticated company"
-              >
-                {companies[0].code} · {companies[0].name}
-              </p>
-            ) : (
-              <select
-                aria-label="Company"
-                className={selectClass}
-                value={companyId}
-                disabled={busy || Boolean(persistedId)}
-                onChange={(event) =>
-                  edit(() => {
-                    setCompanyId(event.target.value);
-                    setWorkflow(emptyBankWorkflowSelection);
-                    setNominalSearch("");
-                    lastNominalSearch.current = "";
-                    setNominalSearching(false);
-                    setDirectoriesCompanyId("");
-                    setBankAccountId("");
-                    setBankAccounts([]);
-                    setNominalAccounts([]);
-                    setNominalAvailability(null);
-                    setLines((current) => current.map((line) => ({ ...line, nominalAccountId: "", dimensions: {} })));
-                  })
-                }
-              >
-                <option value="">Select company</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.code} · {company.name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </Field>
           <div className="min-w-0 xl:col-span-2">
             <Field
               label="Bank"

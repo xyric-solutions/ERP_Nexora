@@ -19,15 +19,17 @@ function initials(name: string) {
 
 export function DashboardHeaderControls() {
   const router = useRouter();
-  const { logout, session } = useSession();
+  const { activeCompany, logout, session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
 
   if (!session) return null;
 
+  /** Ends the sign-in completely and returns to the username and password form. */
   async function signOut() {
     setSigningOut(true);
     try {
-      await logout();
+      // The session is cleared locally even if the server call fails, so the form still shows.
+      await logout().catch(() => undefined);
       router.replace("/login");
     } finally {
       setSigningOut(false);
@@ -46,6 +48,7 @@ export function DashboardHeaderControls() {
           <span className="nx-account-menu__identity">
             <strong>{user.display_name}</strong>
             <small>{user.email}</small>
+            {activeCompany ? <small>{activeCompany.name}</small> : null}
           </span>
           <Button variant="ghost" size="sm" type="button" role="menuitem" disabled={signingOut} onClick={() => void signOut()}>
             {signingOut ? "Signing out…" : "Sign out"}

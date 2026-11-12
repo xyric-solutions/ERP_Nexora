@@ -6,7 +6,6 @@ import type {
   BankReconciliationDirectory,
   BankReconciliationState,
   BankReconciliationSummary,
-  BankingCompanyDirectory,
 } from "@nexora/contracts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +54,7 @@ export function BankingReconciliationRegister({ onAction, onOpen }: BankingRecon
   const { api, session } = useSession();
   const client = useMemo(() => new BankingApiClient(api), [api]);
   const canRead = session?.user.permissions.includes("banking.reconciliation.read") ?? false;
-  const [companies, setCompanies] = useState<BankingCompanyDirectory["items"]>([]);
+  const [noCompany, setNoCompany] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [bankAccountId, setBankAccountId] = useState("");
   const [state, setState] = useState<BankReconciliationState | "">("");
@@ -101,7 +100,7 @@ export function BankingReconciliationRegister({ onAction, onOpen }: BankingRecon
         if (!canRead) return;
         const directory = await client.companies();
         if (!active) return;
-        setCompanies(directory.items);
+        setNoCompany(directory.items.length === 0);
         const initialCompanyId = directory.items[0]?.id ?? "";
         setCompanyId(initialCompanyId);
         if (!initialCompanyId) return;
@@ -120,20 +119,6 @@ export function BankingReconciliationRegister({ onAction, onOpen }: BankingRecon
       active = false;
     };
   }, [canRead, client]);
-
-  async function changeCompany(nextCompanyId: string) {
-    setCompanyId(nextCompanyId);
-    setBankAccountId("");
-    setLoading(true);
-    setError("");
-    try {
-      await loadDirectory({ selectedCompanyId: nextCompanyId });
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function applyFilters() {
     if (!companyId) return;
@@ -222,6 +207,12 @@ export function BankingReconciliationRegister({ onAction, onOpen }: BankingRecon
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
+      {!error && noCompany ? (
+        <Alert variant="destructive">
+          <AlertTitle>Company unavailable</AlertTitle>
+          <AlertDescription>Your session has no authorized company for bank reconciliations.</AlertDescription>
+        </Alert>
+      ) : null}
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Loaded reconciliation summary">
         <Summary
@@ -253,19 +244,7 @@ export function BankingReconciliationRegister({ onAction, onOpen }: BankingRecon
       </section>
 
       <section className="rounded-lg border border-border bg-card">
-        <div className="grid gap-3 border-b border-border p-4 md:grid-cols-3 xl:grid-cols-7">
-          <select
-            aria-label="Company"
-            className="h-8 rounded-lg border border-input bg-background px-2 text-sm"
-            value={companyId}
-            onChange={(event) => void changeCompany(event.target.value)}
-          >
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.code} · {company.name}
-              </option>
-            ))}
-          </select>
+        <div className="grid gap-3 border-b border-border p-4 md:grid-cols-3 xl:grid-cols-6">
           <select
             aria-label="Bank account"
             className="h-8 rounded-lg border border-input bg-background px-2 text-sm"

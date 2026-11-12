@@ -2,76 +2,98 @@
 import { WorkTable } from "@/shared/ui/work-table";
 import { WorkForm } from "@/shared/ui/work-form";
 
-import { HrEmploymentPolicyUpgrades } from "./hr-employment-policy-upgrades";
 
 import { useEffect, useMemo, useState } from "react";
 
 import type { HrEmploymentLifecyclePolicyDirectory } from "@nexora/contracts";
+import { Ban } from "lucide-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
 import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warning";
 
 import { HrApiClient } from "../api/hr-client";
+import { HrClickableRow } from "../components/hr-clickable-row";
+import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
+import {
+  HrDetailAudit,
+  HrDetailList,
+  HrDetailNote,
+  HrDetailSection,
+  HrDetailSummary,
+  HrDetailTile,
+  HrStatusPill,
+  hrDisplayDate,
+} from "../components/hr-detail-tile";
+import { HrDrawerActions } from "../components/hr-drawer-context";
+import { HrEditButton } from "../components/hr-icon-buttons";
+import { HrPagination, HrSearchField, matchesSearch, useHrPage } from "../components/hr-list-controls";
+import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { hrCell } from "../components/hr-table";
 
 type LoadState = "loading" | "ready" | "error";
+type Policy = HrEmploymentLifecyclePolicyDirectory["items"][number];
+type Decision = "submit" | "approve" | "activate" | "deactivate";
 
-function policyVariant(status: HrEmploymentLifecyclePolicyDirectory["items"][number]["status"]) {
-  return status === "active" ? "secondary" : status === "inactive" ? "outline" : "default";
-}
+const statusLabel: Record<Policy["status"], string> = {
+  draft: "Draft",
+  pending_approval: "Pending approval",
+  approved: "Approved",
+  active: "Active",
+  inactive: "Deactivated",
+};
 
-/** Policy drafts can be submitted, but independent approval and activation remain separate capabilities. */
+const decisionLabel: Record<Decision, string> = {
+  submit: "Submit for approval",
+  approve: "Approve",
+  activate: "Activate",
+  deactivate: "Deactivate",
+};
+
+const filterMatches = (filter: HrMasterStatus, policy: Policy) =>
+  filter === "all" || (filter === "active" ? policy.status === "active" : policy.status === "inactive");
+
+/** Lifecycle policies: name and describe a company policy; drafts are edited or deleted, live ones deactivated. */
 export function HrLifecyclePoliciesWorkspace() {
-  const { api, csrfToken, session, loading: sessionLoading } = useSession();
+  const { api, csrfToken, session, activeCompany, loading: sessionLoading } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
-  const [companies, setCompanies] = useState<Awaited<ReturnType<HrApiClient["companies"]>>["items"]>([]);
-  const [companyId, setCompanyId] = useState("");
-  const [policies, setPolicies] = useState<HrEmploymentLifecyclePolicyDirectory["items"]>([]);
+  const [fallbackCompanyId, setFallbackCompanyId] = useState("");
+  const companyId = activeCompany?.id ?? fallbackCompanyId;
+  const [policies, setPolicies] = useState<Policy[]>([]);
   const [state, setState] = useState<LoadState>("loading");
-  const code = "AUTO";
-  const [name, setName] = useState("");
-  const [effectiveFrom, setEffectiveFrom] = useState("");
-  const [saving, setSaving] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<HrMasterStatus>("all");
+  const [openedId, setOpenedId] = useState("");
+  const [editor, setEditor] = useState<"new" | Policy | null>(null);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [decision, setDecision] = useState<Decision | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [submissionReason, setSubmissionReason] = useState("");
-  const [submittingPolicyId, setSubmittingPolicyId] = useState("");
-  const [approvalReason, setApprovalReason] = useState("");
-  const [approvingPolicyId, setApprovingPolicyId] = useState("");
-  const [activationReason, setActivationReason] = useState("");
-  const [activatingPolicyId, setActivatingPolicyId] = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
-  const [actionPolicy, setActionPolicy] = useState<HrEmploymentLifecyclePolicyDirectory["items"][number] | null>(null);
-  const actionBusy = Boolean(submittingPolicyId || approvingPolicyId || activatingPolicyId);
-  const openAction = (policy: HrEmploymentLifecyclePolicyDirectory["items"][number]) => {
-    setError("");
-    setSubmissionReason("");
-    setApprovalReason("");
-    setActivationReason("");
-    setActionPolicy(policy);
-  };
-  const canReadPolicies = session?.user.permissions.includes("hr.employment_lifecycle_policy.read") ?? false;
-  const canManagePolicies = session?.user.permissions.includes("hr.employment_lifecycle_policy.manage") ?? false;
-  const canApprovePolicies = session?.user.permissions.includes("hr.employment_lifecycle_policy.approve") ?? false;
 
+  const permissions = session?.user.permissions ?? [];
+  const canRead = permissions.includes("hr.employment_lifecycle_policy.read");
+  const canManage = permissions.includes("hr.employment_lifecycle_policy.manage");
+  const canApprove = permissions.includes("hr.employment_lifecycle_policy.approve");
+
+  // Without a sign-in company, fall back to the first authorized company.
   useEffect(() => {
-    if (sessionLoading || !canReadPolicies) return;
+    if (sessionLoading || !canRead || activeCompany?.id) return;
     let active = true;
     client
       .companies()
       .then((result) => {
         if (!active) return;
-        setCompanies(result.items);
+        setFallbackCompanyId(result.items[0]?.id ?? "");
         if (!result.items.length) setState("ready");
-        setCompanyId((current) =>
-          result.items.some((company) => company.id === current) ? current : (result.items[0]?.id ?? ""),
-        );
       })
       .catch(() => {
         if (active) setState("error");
@@ -79,13 +101,13 @@ export function HrLifecyclePoliciesWorkspace() {
     return () => {
       active = false;
     };
-  }, [canReadPolicies, client, sessionLoading, refreshKey]);
+  }, [activeCompany?.id, canRead, client, sessionLoading, refreshKey]);
 
   useEffect(() => {
-    if (!companyId) return;
+    if (!companyId || !canRead) return;
     let active = true;
     client
-      .employmentLifecyclePolicies({ companyId, limit: 50 })
+      .employmentLifecyclePolicies({ companyId, limit: 100 })
       .then((result) => {
         if (!active) return;
         setPolicies(result.items);
@@ -97,480 +119,426 @@ export function HrLifecyclePoliciesWorkspace() {
     return () => {
       active = false;
     };
-  }, [client, companyId, refreshKey]);
+  }, [canRead, client, companyId, refreshKey]);
 
-  const createPolicy = async () => {
-    if (!companyId || !code.trim() || !name.trim() || !effectiveFrom) {
-      setError("Choose a company and provide a policy code, name, and effective date.");
-      return;
-    }
-    setSaving(true);
+  const visible = policies.filter(
+    (policy) =>
+      filterMatches(filter, policy) &&
+      matchesSearch(search, [policy.name, policy.code, policy.description, statusLabel[policy.status]]),
+  );
+  const listPage = useHrPage(visible, `${search}|${filter}`);
+  const opened = policies.find((policy) => policy.id === openedId) ?? null;
+
+  const reload = () => {
+    setState("loading");
+    setRefreshKey((value) => value + 1);
+  };
+
+  const openEditor = (target: "new" | Policy) => {
     setError("");
     setNotice("");
+    setName(target === "new" ? "" : target.name);
+    setDescription(target === "new" ? "" : target.description);
+    setEditor(target);
+  };
+
+  const savePolicy = async () => {
+    if (!companyId || !name.trim()) {
+      setError("Enter the policy name.");
+      return;
+    }
+    setBusy(true);
+    setError("");
     try {
-      const result = await client.createEmploymentLifecyclePolicy(
-        { company_id: companyId, code: code.trim().toUpperCase(), name: name.trim(), effective_from: effectiveFrom },
-        csrfToken(),
-        crypto.randomUUID(),
-      );
+      const body = { company_id: companyId, name: name.trim(), description: description.trim() };
+      const result =
+        editor === "new"
+          ? await client.createEmploymentLifecyclePolicy({ ...body, code: "AUTO" }, csrfToken(), crypto.randomUUID())
+          : await client.updateEmploymentLifecyclePolicy(
+              (editor as Policy).id,
+              body,
+              csrfToken(),
+              crypto.randomUUID(),
+            );
+      setNotice(editor === "new" ? `${result.code} created as a draft.` : `${result.code} updated.`);
+      setOpenedId(result.id);
+      setEditor(null);
+      reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The policy could not be saved.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deletePolicy = async (policy: Policy) => {
+    setBusy(true);
+    setError("");
+    try {
+      await client.deleteEmploymentLifecyclePolicy(policy.id, { company_id: companyId }, csrfToken(), crypto.randomUUID());
+      setNotice(`${policy.code} deleted.`);
+      setOpenedId("");
+      reload();
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The policy could not be deleted.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const decide = async (policy: Policy, action: Decision) => {
+    setBusy(true);
+    setError("");
+    try {
+      const key = crypto.randomUUID();
+      const input = { reason: reason.trim() };
+      if (action === "submit") await client.submitEmploymentLifecyclePolicy(policy.id, input, csrfToken(), key);
+      else if (action === "approve") await client.approveEmploymentLifecyclePolicy(policy.id, input, csrfToken(), key);
+      else if (action === "activate")
+        await client.activateEmploymentLifecyclePolicy(policy.id, input, csrfToken(), key);
+      else
+        await client.deactivateEmploymentLifecyclePolicy(
+          policy.id,
+          { company_id: companyId, ...input },
+          csrfToken(),
+          key,
+        );
       setNotice(
-        `${result.code} v${result.version} was created as a draft with the standard Hire, confirmation and exit definitions.`,
+        action === "submit"
+          ? `${policy.code} submitted for approval.`
+          : action === "approve"
+            ? `${policy.code} approved.`
+            : action === "activate"
+              ? `${policy.code} is now active.`
+              : `${policy.code} deactivated.`,
       );
-      setName("");
-      setEffectiveFrom("");
-      setCreateOpen(false);
-      setState("loading");
-      setRefreshKey((current) => current + 1);
-    } catch {
-      setError("The policy could not be created. Check its code, company scope, and your lifecycle-policy permission.");
+      setDecision(null);
+      setReason("");
+      reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The action could not be completed.");
     } finally {
-      setSaving(false);
-    }
-  };
-
-  const submitPolicy = async (policyId: string, policyCode: string) => {
-    if (!submissionReason.trim()) {
-      setError("Provide a submission reason before sending a lifecycle policy for independent approval.");
-      return;
-    }
-    setSubmittingPolicyId(policyId);
-    setError("");
-    setNotice("");
-    try {
-      const result = await client.submitEmploymentLifecyclePolicy(
-        policyId,
-        { reason: submissionReason.trim() },
-        csrfToken(),
-        crypto.randomUUID(),
-      );
-      setNotice(
-        `${result.code} is pending independent approval. It is not active and cannot govern employee transitions.`,
-      );
-      setSubmissionReason("");
-      setActionPolicy(null);
-      setState("loading");
-      setRefreshKey((current) => current + 1);
-    } catch {
-      setError(
-        `Unable to submit ${policyCode}. Confirm it is still a draft in your company scope and that you have manage permission.`,
-      );
-    } finally {
-      setSubmittingPolicyId("");
-    }
-  };
-
-  const approvePolicy = async (policyId: string, policyCode: string) => {
-    if (!approvalReason.trim()) {
-      setError("Provide an approval reason before independently approving a lifecycle policy.");
-      return;
-    }
-    const policy = policies.find((item) => item.id === policyId);
-    if (policy?.self_decision_requires_override && !policy.super_admin_override_allowed) {
-      setError(`A different HR approver must approve ${policyCode}.`);
-      return;
-    }
-    setApprovingPolicyId(policyId);
-    setError("");
-    setNotice("");
-    try {
-      const result = await client.approveEmploymentLifecyclePolicy(
-        policyId,
-        { reason: approvalReason.trim() },
-        csrfToken(),
-        crypto.randomUUID(),
-      );
-      setNotice(`${result.code} is approved but remains inactive until the separate activation step is completed.`);
-      setApprovalReason("");
-      setActionPolicy(null);
-      setState("loading");
-      setRefreshKey((current) => current + 1);
-    } catch {
-      setError(`Unable to approve ${policyCode}. Check its current state, your access, and maker/checker authority.`);
-    } finally {
-      setApprovingPolicyId("");
-    }
-  };
-
-  const activatePolicy = async (policyId: string, policyCode: string) => {
-    if (!activationReason.trim()) {
-      setError("Provide an activation reason before activating an approved policy.");
-      return;
-    }
-    const policy = policies.find((item) => item.id === policyId);
-    if (policy?.self_decision_requires_override && !policy.super_admin_override_allowed) {
-      setError(`A different HR approver must activate ${policyCode}.`);
-      return;
-    }
-    setActivatingPolicyId(policyId);
-    setError("");
-    setNotice("");
-    try {
-      const result = await client.activateEmploymentLifecyclePolicy(
-        policyId,
-        { reason: activationReason.trim() },
-        csrfToken(),
-        crypto.randomUUID(),
-      );
-      setNotice(`${result.code} is now active. This does not create or activate any employee.`);
-      setActivationReason("");
-      setActionPolicy(null);
-      setState("loading");
-      setRefreshKey((current) => current + 1);
-    } catch {
-      setError(
-        `Unable to activate ${policyCode}. It must be approved, effective today, and have no overlapping active company policy.`,
-      );
-    } finally {
-      setActivatingPolicyId("");
+      setBusy(false);
     }
   };
 
   if (sessionLoading) return <Skeleton className="h-32 w-full" />;
-  if (!canReadPolicies)
+  if (!canRead)
     return (
       <Alert>
-        <AlertTitle>Lifecycle policy access required</AlertTitle>
-        <AlertDescription>This screen requires the employment lifecycle policy read permission.</AlertDescription>
+        <AlertDescription>Lifecycle policy read permission is required.</AlertDescription>
       </Alert>
     );
 
+  const workflow: Decision[] = opened
+    ? opened.status === "draft" && canManage
+      ? ["submit"]
+      : opened.status === "pending_approval" && canApprove
+        ? ["approve"]
+        : opened.status === "approved" && canApprove
+          ? ["activate"]
+          : []
+    : [];
+  const blockedBySelfReview =
+    !!opened &&
+    (opened.status === "pending_approval" || opened.status === "approved") &&
+    opened.self_decision_requires_override &&
+    !opened.super_admin_override_allowed;
+  const isDraft = opened?.status === "draft";
+  const canDeactivate = !!opened && canManage && (opened.status === "active" || opened.status === "approved");
+
   return (
-    <section
-      className="grid min-w-0 grid-cols-1 gap-4 [&_.overflow-x-auto]:relative [&_button.bg-primary]:text-primary-foreground!"
-      aria-label="Employment lifecycle policies"
-    >
-      <p className="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">
-        New policy drafts include Hire, employment confirmation, resignation and termination transitions. Existing
-        approved policies retain their original definitions; unsupported transitions remain blocked until a governed
-        policy upgrade.
-      </p>
-      <Alert>
-        <AlertTitle>Employment lifecycle policies</AlertTitle>
-        <AlertDescription>
-          Policies define legal employment transitions. Draft authoring and submission are controlled here; independent
-          approval and activation remain separate workflow steps.
-        </AlertDescription>
-      </Alert>
-      {notice && (
-        <Alert>
-          <AlertTitle>Draft lifecycle policy created</AlertTitle>
-          <AlertDescription>{notice}</AlertDescription>
-        </Alert>
-      )}
-      {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Lifecycle policy action unavailable</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      <div className="flex min-w-0 flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
-        <label className="grid min-w-0 basis-full gap-1.5 text-sm font-medium sm:basis-64 sm:flex-1">
-          Company
-          <select
-            className="h-9 w-full min-w-0 rounded-md border border-input bg-background px-2.5 text-sm"
-            value={companyId}
-            onChange={(event) => {
-              setState("loading");
-              setPolicies([]);
-              setCompanyId(event.target.value);
-            }}
-            disabled={state === "loading" || !companies.length}
-          >
-            {!companies.length && (
-              <option value="">
-                {state === "loading"
-                  ? "Loading authorized companies…"
-                  : state === "error"
-                    ? "Companies could not be loaded"
-                    : "No authorized companies"}
-              </option>
-            )}
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name} ({company.code})
-              </option>
-            ))}
-          </select>
-        </label>
-        {canManagePolicies && (
+    <section className="grid min-w-0 gap-3" aria-label="Lifecycle policies">
+      <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(14rem,1fr)_auto] md:items-end">
+        <HrSearchField
+          id="hr-lifecycle-policies-search"
+          value={search}
+          onChange={setSearch}
+          placeholder="Search policy name, code or text"
+        />
+        {canManage ? (
           <Button
             type="button"
-            disabled={state !== "ready" || !companyId || actionBusy}
-            onClick={() => {
-              setError("");
-              setCreateOpen(true);
-            }}
+            className="w-full md:w-auto"
+            disabled={state !== "ready" || !companyId || busy}
+            onClick={() => openEditor("new")}
           >
-            + Create draft policy
+            + Create policy
           </Button>
-        )}
+        ) : null}
       </div>
-      {state === "loading" && <Skeleton className="h-32 w-full" />}
-      {state === "error" && (
+      <HrMasterStatusFilter label="Policy status" value={filter} onChange={setFilter} />
+
+      {notice && !opened && !editor ? (
+        <p role="status" className="m-0! text-sm text-muted-foreground">
+          {notice}
+        </p>
+      ) : null}
+      {state === "loading" ? <Skeleton className="h-32 w-full" /> : null}
+      {state === "error" ? (
         <Alert variant="destructive">
-          <AlertTitle>Lifecycle policies unavailable</AlertTitle>
-          <AlertDescription>
-            Authorized companies or policies could not be loaded. Retry the request; if your access has changed, sign in
-            again.
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            Lifecycle policies could not be loaded.
+            <Button type="button" variant="outline" size="sm" onClick={reload}>
+              Retry
+            </Button>
           </AlertDescription>
-          <Button
-            type="button"
-            variant="outline"
-            className="mt-3"
-            onClick={() => {
-              setState("loading");
-              setRefreshKey((v) => v + 1);
-            }}
-          >
-            Retry companies and policies
-          </Button>
         </Alert>
-      )}
-      {state === "ready" && !companies.length && (
+      ) : null}
+      {state === "ready" && !companyId ? (
         <Alert>
-          <AlertTitle>No company access</AlertTitle>
-          <AlertDescription>
-            No companies are assigned to your account. Ask your administrator to review company access.
-          </AlertDescription>
+          <AlertDescription>No company is assigned to your account.</AlertDescription>
         </Alert>
-      )}
-      {state === "ready" && companies.length > 0 && (
-        <div className="grid min-w-0 grid-cols-1 gap-4">
-          <div className="min-w-0 w-full overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-            <WorkTable tableId="app/features/hr/views/hr-lifecycle-policies-workspace:1" className="w-full min-w-[760px] text-left text-sm">
-              <thead className="border-b bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      ) : null}
+
+      {state === "ready" && companyId ? (
+        <>
+          <div className="min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-lifecycle-policies-workspace:1" className="w-full table-fixed text-left text-sm">
+              <caption className="sr-only">Lifecycle policies</caption>
+              <thead className="border-b border-border bg-muted/60">
                 <tr>
-                  <th className="px-4 py-3">Policy</th>
-                  <th className="px-4 py-3">Version</th>
-                  <th className="px-4 py-3">Effective period</th>
-                  <th className="px-4 py-3">Status</th>
-                  {(canManagePolicies || canApprovePolicies) && <th className="px-4 py-3">Action</th>}
+                  <th scope="col" className={`${hrCell} w-[34%] font-semibold max-sm:w-auto`}>
+                    Policy
+                  </th>
+                  <th scope="col" className={`${hrCell} font-semibold max-sm:hidden`}>
+                    Description
+                  </th>
+                  <th scope="col" className={`${hrCell} w-36 font-semibold`}>
+                    Status
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {policies.map((policy) => (
-                  <tr className="border-b border-border/70 last:border-0" key={policy.id}>
-                    <td className="px-4 py-3">
-                      <p className="font-medium">{policy.name}</p>
-                      <p className="text-xs text-muted-foreground">{policy.code}</p>
+                {listPage.pageRows.map((policy) => (
+                  <HrClickableRow
+                    key={policy.id}
+                    onOpen={() => {
+                      setError("");
+                      setNotice("");
+                      setDecision(null);
+                      setReason("");
+                      setOpenedId(policy.id);
+                    }}
+                  >
+                    <td className={hrCell}>
+                      <span className="block truncate font-medium">{policy.name}</span>
+                      <span className="font-mono text-xs text-muted-foreground">{policy.code}</span>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{policy.version}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {policy.effective_from} to {policy.effective_to ?? "Open-ended"}
+                    <td className={`${hrCell} text-muted-foreground max-sm:hidden`}>
+                      <span className="line-clamp-2 wrap-anywhere">{policy.description}</span>
                     </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={policyVariant(policy.status)}>{policy.status.replaceAll("_", " ")}</Badge>
+                    <td className={hrCell}>
+                      <HrStatusPill status={policy.status} label={statusLabel[policy.status]} />
                     </td>
-                    {(canManagePolicies || canApprovePolicies) && (
-                      <td className="px-4 py-3">
-                        {policy.status === "draft" && canManagePolicies ? (
-                          <Button size="sm" type="button" onClick={() => openAction(policy)} disabled={actionBusy}>
-                            {submittingPolicyId === policy.id ? "Submitting..." : "Submit"}
-                          </Button>
-                        ) : policy.status === "pending_approval" && canApprovePolicies ? (
-                          <div className="grid min-w-72 gap-2">
-                            {policy.self_decision_requires_override && policy.super_admin_override_allowed ? (
-                              <SuperAdminOverrideWarning />
-                            ) : null}
-                            {policy.self_decision_requires_override && !policy.super_admin_override_allowed ? (
-                              <Alert variant="destructive">
-                                <AlertTitle>Independent approver required</AlertTitle>
-                                <AlertDescription>
-                                  You created or submitted this policy and cannot approve it.
-                                </AlertDescription>
-                              </Alert>
-                            ) : (
-                              <Button size="sm" type="button" onClick={() => openAction(policy)} disabled={actionBusy}>
-                                {approvingPolicyId === policy.id ? "Approving..." : "Approve"}
-                              </Button>
-                            )}
-                          </div>
-                        ) : policy.status === "approved" && canApprovePolicies ? (
-                          <div className="grid min-w-72 gap-2">
-                            {policy.self_decision_requires_override && policy.super_admin_override_allowed ? (
-                              <SuperAdminOverrideWarning />
-                            ) : null}
-                            {policy.self_decision_requires_override && !policy.super_admin_override_allowed ? (
-                              <Alert variant="destructive">
-                                <AlertTitle>Independent activator required</AlertTitle>
-                                <AlertDescription>
-                                  You created or submitted this policy and cannot activate it.
-                                </AlertDescription>
-                              </Alert>
-                            ) : (
-                              <Button size="sm" type="button" onClick={() => openAction(policy)} disabled={actionBusy}>
-                                {activatingPolicyId === policy.id ? "Activating..." : "Activate"}
-                              </Button>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">No action available</span>
-                        )}
-                      </td>
-                    )}
-                  </tr>
+                  </HrClickableRow>
                 ))}
-                {policies.length === 0 && (
+                {!visible.length ? (
                   <tr>
-                    <td
-                      className="px-4 py-8 text-center text-muted-foreground"
-                      colSpan={canManagePolicies || canApprovePolicies ? 5 : 4}
-                    >
-                      No lifecycle policy is configured for this company.
+                    <td colSpan={3} className="px-4 py-10 text-center text-muted-foreground">
+                      {search.trim() || filter !== "all" ? "No policies match." : "No lifecycle policies yet."}
                     </td>
                   </tr>
-                )}
+                ) : null}
               </tbody>
             </WorkTable>
           </div>
-        </div>
-      )}
+          <HrPagination
+            label="Lifecycle policy pages"
+            page={listPage.page}
+            pageCount={listPage.pageCount}
+            total={listPage.total}
+            onPageChange={listPage.setPage}
+          />
+        </>
+      ) : null}
+
       <HrRecordDrawer
-        title={
-          actionPolicy?.status === "draft"
-            ? "Submit lifecycle policy"
-            : actionPolicy?.status === "pending_approval"
-              ? "Approve lifecycle policy"
-              : "Activate lifecycle policy"
-        }
-        description="Review the selected policy and record a reason for this separate audited decision."
-        open={Boolean(actionPolicy)}
-        busy={actionBusy}
-        error={error}
-        onClose={() => setActionPolicy(null)}
+        title={editor === "new" ? "New lifecycle policy" : `Edit ${editor ? editor.name : "policy"}`}
+        description={editor === "new" ? "Create a lifecycle policy" : "Edit the lifecycle policy"}
+        open={editor !== null}
+        busy={busy}
+        error={editor ? error : undefined}
+        onClose={() => setEditor(null)}
       >
-        {actionPolicy && (
-          <WorkForm
-            className="grid min-w-0 gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (actionBusy) return;
-              if (actionPolicy.status === "draft") void submitPolicy(actionPolicy.id, actionPolicy.code);
-              else if (actionPolicy.status === "pending_approval")
-                void approvePolicy(actionPolicy.id, actionPolicy.code);
-              else if (actionPolicy.status === "approved") void activatePolicy(actionPolicy.id, actionPolicy.code);
-            }}
-          >
-            <div className="grid gap-1 wrap-anywhere">
-              <p className="font-semibold">{actionPolicy.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {actionPolicy.code} · Version {actionPolicy.version}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {companies.find((company) => company.id === companyId)?.name}
-              </p>
-            </div>
-            {actionPolicy.self_decision_requires_override &&
-            actionPolicy.super_admin_override_allowed &&
-            actionPolicy.status !== "draft" ? (
-              <SuperAdminOverrideWarning />
-            ) : null}
-            <label htmlFor="lifecycle-policy-action-reason" className="grid min-w-0 gap-1.5 text-sm font-medium">
-              {actionPolicy.status === "draft"
-                ? "Submission reason"
-                : actionPolicy.status === "pending_approval"
-                  ? "Approval reason"
-                  : "Activation reason"}
-              <Input
-                id="lifecycle-policy-action-reason"
-                required
-                maxLength={1000}
-                disabled={actionBusy}
-                value={
-                  actionPolicy.status === "draft"
-                    ? submissionReason
-                    : actionPolicy.status === "pending_approval"
-                      ? approvalReason
-                      : activationReason
-                }
-                onChange={(event) => {
-                  if (actionPolicy.status === "draft") setSubmissionReason(event.target.value);
-                  else if (actionPolicy.status === "pending_approval") setApprovalReason(event.target.value);
-                  else setActivationReason(event.target.value);
-                }}
-              />
-            </label>
-            <p className="text-sm text-muted-foreground">
-              {actionPolicy.status === "draft"
-                ? "Submission sends this draft for independent approval and cannot activate it."
-                : actionPolicy.status === "pending_approval"
-                  ? "Approval remains separate from activation. Maker/checker restrictions still apply."
-                  : "Activation requires an approved policy effective today, with no overlapping active company policy."}
-            </p>
-            <Button
-              type="submit"
-              disabled={
-                actionBusy ||
-                (actionPolicy.status !== "draft" &&
-                  actionPolicy.self_decision_requires_override &&
-                  !actionPolicy.super_admin_override_allowed)
-              }
-            >
-              {actionBusy
-                ? "Saving…"
-                : actionPolicy.status === "draft"
-                  ? "Submit policy"
-                  : actionPolicy.status === "pending_approval"
-                    ? "Approve policy"
-                    : "Activate policy"}
-            </Button>
-          </WorkForm>
-        )}
-      </HrRecordDrawer>
-      <HrRecordDrawer
-        title="Create draft lifecycle policy"
-        description="Create the draft without leaving the lifecycle-policy register. Submission and activation remain separate governed actions."
-        open={createOpen}
-        busy={saving}
-        error={error}
-        notice={notice}
-        onClose={() => setCreateOpen(false)}
-      >
-        <div className="grid gap-4">
-          <label htmlFor="lifecycle-policy-code" className="grid min-w-0 gap-1.5 text-sm font-medium">
-            Policy code (automatic)
+        <WorkForm
+          className="grid min-w-0 gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void savePolicy();
+          }}
+        >
+          <label htmlFor="lifecycle-policy-code" className="grid min-w-0 content-start gap-1.5 text-sm font-medium">
+            Code
             <Input
               id="lifecycle-policy-code"
-              value="Assigned on save · LCP-001…"
               readOnly
-              maxLength={32}
-              placeholder="HR-LIFECYCLE"
+              className="font-mono read-only:bg-muted/40"
+              value={editor && editor !== "new" ? editor.code : "Assigned on save · LCP-001…"}
             />
           </label>
-          <label htmlFor="lifecycle-policy-name" className="grid min-w-0 gap-1.5 text-sm font-medium">
+          <label htmlFor="lifecycle-policy-name" className="grid min-w-0 content-start gap-1.5 text-sm font-medium">
             Policy name
             <Input
               id="lifecycle-policy-name"
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              required
               maxLength={160}
-              placeholder="Standard employment lifecycle"
+              disabled={busy}
+              onChange={(event) => setName(event.target.value)}
             />
           </label>
-          <label htmlFor="lifecycle-policy-effectiveFrom" className="grid min-w-0 gap-1.5 text-sm font-medium">
-            Effective from
-            <Input
-              id="lifecycle-policy-effectiveFrom"
-              type="date"
-              value={effectiveFrom}
-              onChange={(event) => setEffectiveFrom(event.target.value)}
+          <label
+            htmlFor="lifecycle-policy-description"
+            className="grid min-w-0 content-start gap-1.5 text-sm font-medium"
+          >
+            Policy
+            <Textarea
+              id="lifecycle-policy-description"
+              rows={10}
+              value={description}
+              maxLength={4000}
+              disabled={busy}
+              onChange={(event) => setDescription(event.target.value)}
             />
           </label>
-          <p className="text-sm text-muted-foreground">
-            The standard pre-employment, employed, confirmed and ended states are created in draft. Independent approval
-            is still required before activation.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={() => void createPolicy()} disabled={saving}>
-              {saving ? "Creating…" : "Create draft policy"}
+          <HrDrawerActions>
+            <Button type="submit" disabled={busy}>
+              {busy ? "Saving…" : editor === "new" ? "Create policy" : "Save changes"}
             </Button>
-            <Button type="button" variant="outline" disabled={saving} onClick={() => setCreateOpen(false)}>
-              Cancel
-            </Button>
-          </div>
-        </div>
+          </HrDrawerActions>
+        </WorkForm>
       </HrRecordDrawer>
-      <HrEmploymentPolicyUpgrades key={companyId} companyId={companyId} policyRevision={refreshKey} />
+
+      <HrRecordDrawer
+        title={opened?.name ?? "Lifecycle policy"}
+        description="Lifecycle policy details"
+        open={!!opened && editor === null}
+        busy={busy}
+        error={opened && !editor ? error : undefined}
+        notice={opened && !editor ? notice : undefined}
+        onClose={() => {
+          setOpenedId("");
+          setDecision(null);
+        }}
+      >
+        {opened ? (
+          <div className="grid min-w-0 gap-4">
+            <HrDetailSummary code={opened.code} status={opened.status} statusLabel={statusLabel[opened.status]}>
+              Version {opened.version}
+            </HrDetailSummary>
+            <HrDetailSection title="Policy">
+              {opened.description ? (
+                <p className="m-0! whitespace-pre-wrap text-[13.5px] leading-relaxed wrap-anywhere">
+                  {opened.description}
+                </p>
+              ) : (
+                <HrDetailNote>No policy text yet.</HrDetailNote>
+              )}
+            </HrDetailSection>
+            <HrDetailList>
+              <HrDetailTile label="Policy name" value={opened.name} />
+              <HrDetailTile label="Code" value={opened.code} mono />
+              <HrDetailTile label="Status" value={statusLabel[opened.status]} />
+            </HrDetailList>
+            {(opened.status === "pending_approval" || opened.status === "approved") &&
+            opened.self_decision_requires_override &&
+            opened.super_admin_override_allowed &&
+            workflow.length ? (
+              <SuperAdminOverrideWarning />
+            ) : null}
+            {blockedBySelfReview && workflow.length ? (
+              <Alert variant="destructive">
+                <AlertDescription>A different HR approver must decide on this policy.</AlertDescription>
+              </Alert>
+            ) : null}
+            <HrDetailAudit items={[{ label: "Created", value: hrDisplayDate(opened.effective_from) }]} />
+            {decision ? (
+              <WorkForm
+                className="grid min-w-0 gap-3"
+                aria-label={decisionLabel[decision]}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void decide(opened, decision);
+                }}
+              >
+                <label
+                  htmlFor="lifecycle-policy-decision-reason"
+                  className="grid min-w-0 content-start gap-1.5 text-sm font-medium"
+                >
+                  Reason
+                  <Textarea
+                    id="lifecycle-policy-decision-reason"
+                    rows={2}
+                    maxLength={1000}
+                    value={reason}
+                    disabled={busy}
+                    onChange={(event) => setReason(event.target.value)}
+                  />
+                </label>
+                <HrDrawerActions>
+                  <Button type="button" variant="outline" disabled={busy} onClick={() => setDecision(null)}>
+                    Back
+                  </Button>
+                  <Button type="submit" disabled={busy}>
+                    {busy ? "Saving…" : decisionLabel[decision]}
+                  </Button>
+                </HrDrawerActions>
+              </WorkForm>
+            ) : (
+              <HrDrawerActions>
+                {canManage ? (
+                  <HrConfirmDeleteButton
+                    label={isDraft ? `Delete ${opened.code}` : "Only drafts can be deleted"}
+                    title={`Delete ${opened.code}?`}
+                    description="Only unused drafts can be deleted. The deletion is kept in the audit trail and the code is not reused."
+                    variant="outline"
+                    disabled={busy || !isDraft}
+                    onConfirm={() => deletePolicy(opened)}
+                  />
+                ) : null}
+                {canManage ? (
+                  <HrEditButton
+                    label={isDraft ? `Edit ${opened.code}` : "Only drafts can be edited"}
+                    disabled={busy || !isDraft}
+                    onClick={() => openEditor(opened)}
+                  />
+                ) : null}
+                {canDeactivate ? (
+                  <Button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      setError("");
+                      setReason("");
+                      setDecision("deactivate");
+                    }}
+                  >
+                    <Ban aria-hidden="true" />
+                    Deactivate
+                  </Button>
+                ) : null}
+                {workflow.map((action) => (
+                  <Button
+                    key={action}
+                    type="button"
+                    disabled={busy || blockedBySelfReview}
+                    onClick={() => {
+                      setError("");
+                      setReason("");
+                      setDecision(action);
+                    }}
+                  >
+                    {decisionLabel[action]}
+                  </Button>
+                ))}
+              </HrDrawerActions>
+            )}
+          </div>
+        ) : null}
+      </HrRecordDrawer>
     </section>
   );
 }

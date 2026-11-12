@@ -7,7 +7,6 @@ import type {
   BankStatementImportOptions,
   BankStatementLine,
   BankStatementMappingSnapshot,
-  BankingCompanyDirectory,
 } from "@nexora/contracts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -95,7 +94,7 @@ export function BankingStatementImport({
   const canUpdate = permissions.includes("banking.statement_import.update") && !session?.impersonation;
   const canFinalize = permissions.includes("banking.statement_import.finalize") && !session?.impersonation;
 
-  const [companies, setCompanies] = useState<BankingCompanyDirectory["items"]>([]);
+  const [noCompany, setNoCompany] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [options, setOptions] = useState<BankStatementImportOptions | null>(null);
   const [bankAccountId, setBankAccountId] = useState("");
@@ -154,7 +153,7 @@ export function BankingStatementImport({
         if (!canRead) return;
         const directory = await client.companies();
         if (!active) return;
-        setCompanies(directory.items);
+        setNoCompany(directory.items.length === 0);
         if (importId) {
           const imported = await client.statementImport(importId);
           if (!active) return;
@@ -184,21 +183,6 @@ export function BankingStatementImport({
       active = false;
     };
   }, [canRead, client, importId]);
-
-  async function changeCompany(nextCompanyId: string) {
-    setCompanyId(nextCompanyId);
-    setBankAccountId("");
-    setMappingProfileId("");
-    setError("");
-    try {
-      const loadedOptions = await client.statementImportOptions({ company_id: nextCompanyId });
-      setOptions(loadedOptions);
-      setBankAccountId(loadedOptions.bank_accounts[0]?.id ?? "");
-      setDateFormat(loadedOptions.date_formats[0] ?? "dd/MM/yyyy");
-    } catch (caught) {
-      setError(errorMessage(caught));
-    }
-  }
 
   async function reload(importToLoad = detail?.id) {
     if (!importToLoad) return;
@@ -408,6 +392,12 @@ export function BankingStatementImport({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
+      {!error && noCompany ? (
+        <Alert variant="destructive">
+          <AlertTitle>Company unavailable</AlertTitle>
+          <AlertDescription>Your session has no authorized company for bank statement imports.</AlertDescription>
+        </Alert>
+      ) : null}
       {notice ? (
         <Alert>
           <AlertTitle>Bank Statement updated</AlertTitle>
@@ -428,30 +418,6 @@ export function BankingStatementImport({
           <h2 className="text-sm font-semibold">⌄ Search</h2>
         </div>
         <div className="grid gap-4 p-4 md:grid-cols-2 lg:grid-cols-12">
-          {companies.length > 1 ? (
-            <label className="order-1 space-y-1 text-sm lg:col-span-4">
-              <span>
-                Company{" "}
-                <span aria-hidden="true" className="text-destructive">
-                  *
-                </span>
-              </span>
-              <select
-                aria-label="Company"
-                className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
-                disabled={loading || Boolean(detail)}
-                value={companyId}
-                onChange={(event) => void changeCompany(event.target.value)}
-              >
-                <option value="">Select company</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.code} · {company.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
           <label className="order-1 space-y-1 text-sm lg:col-span-4">
             <span>
               Bank{" "}

@@ -1,4 +1,5 @@
 "use client";
+import { inActiveCompany } from "@/lib/session/active-company";
 import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -59,6 +60,8 @@ export function ProductsWorkspace({
     let active = true;
     api
       .listInventoryCompanies()
+      // Only the company chosen at sign-in is in scope; the API rejects any other company.
+      .then(inActiveCompany)
       .then((r) => {
         if (active) {
           setCompanies(r.items);

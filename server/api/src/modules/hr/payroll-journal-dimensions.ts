@@ -4,7 +4,10 @@ import { HrApiError } from "./source-repository.js";
 export type PayrollJournalMapping = { account_id: string; cost_center_id: string };
 type Line = { account_id: string; debit: string; credit: string; dimensions?: Record<string, string> };
 type Account = { id: string; code: string; required_dimensions: unknown };
-/** Explicit whole-account allocation, independently accepted with the accrual. No employee split is inferred. */
+/**
+ * Explicit whole-account allocation, independently accepted with the accrual. Lines already tagged with an
+ * employee's frozen cost centre keep it; mappings apply to the remaining (untagged) lines of an account.
+ */
 export async function resolvePayrollJournalDimensions(
   client: PoolClient,
   tenant: string,
@@ -30,7 +33,8 @@ export async function resolvePayrollJournalDimensions(
     if (!a || !Array.isArray(a.required_dimensions) || !a.required_dimensions.includes("cost_center"))
       blocked.push("Mappings must belong to this accrual's accounts requiring the cost_center dimension.");
   }
-  const ids = [...new Set(mappings.map((m) => m.cost_center_id))].sort();
+  const employeeCentres = lines.map((l) => l.dimensions?.cost_center).filter((id): id is string => !!id);
+  const ids = [...new Set([...mappings.map((m) => m.cost_center_id), ...employeeCentres])].sort();
   const centres = ids.length
     ? (
         await client.query<{ id: string; code: string; name: string; status: string }>(
@@ -53,7 +57,12 @@ export async function resolvePayrollJournalDimensions(
       blocked.push(
         "This account requires unsupported accounting dimensions; a governed mapping is required: " + a.code,
       );
-    if (required && a.required_dimensions.includes("cost_center") && !seen.has(a.id))
+    if (
+      required &&
+      a.required_dimensions.includes("cost_center") &&
+      !seen.has(a.id) &&
+      lines.some((l) => l.account_id === a.id && !l.dimensions?.cost_center)
+    )
       blocked.push("Choose a cost centre for the whole account balance before preparing the journal: " + a.code);
   }
   const retained = mappings
@@ -66,6 +75,7 @@ export async function resolvePayrollJournalDimensions(
     blocked,
     labels: Object.fromEntries(centres.map((c) => [c.id, c.code + " · " + c.name])),
     lines: lines.map((l) => {
+      if (l.dimensions?.cost_center) return l;
       const centre = byAccount.get(l.account_id);
       return centre ? { ...l, dimensions: { cost_center: centre } } : l;
     }),

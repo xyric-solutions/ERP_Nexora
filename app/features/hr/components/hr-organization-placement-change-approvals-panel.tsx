@@ -1,5 +1,9 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { HrPagination, matchesSearch, useHrPage } from "./hr-list-controls";
+import { HrDrawerActions } from "./hr-drawer-context";
 import { HrRecordDrawer } from "./hr-record-drawer";
+import { HrClickableRow } from "./hr-clickable-row";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -23,15 +27,13 @@ import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warn
 
 import { HrApiClient } from "../api/hr-client";
 import { approvalOverrideReviewState } from "../approval-override-ui";
+import {
+  organizationHierarchyOrder,
+  organizationUnitTypeLabels,
+  selectableOrganizationUnitTypes,
+} from "../model/organization-hierarchy";
 
 type Decision = "approved" | "rejected";
-const placementLabels: Record<string, string> = {
-  business_unit: "Business unit",
-  division: "Division",
-  branch: "Branch",
-  department: "Department",
-  warehouse: "Warehouse",
-};
 
 function message(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -45,6 +47,7 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
   userId,
   canUseApprovalOverride,
   onAction,
+  search = "",
 }: {
   client: HrApiClient;
   csrfToken: () => string;
@@ -53,6 +56,8 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
   userId?: string;
   canUseApprovalOverride: boolean;
   onAction: (action: string, subject?: string) => void;
+  /** Typed search from the approvals toolbar. */
+  search?: string;
 }) {
   const [queue, setQueue] = useState<HrEmployeeOrganizationPlacementChangeRequestReview[]>([]);
   const [loadedCompanyId, setLoadedCompanyId] = useState("");
@@ -66,6 +71,10 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const visibleQueue = queue.filter((item) =>
+    matchesSearch(search, [item.employee_name, item.employee_number, item.reason, item.effective_on]),
+  );
+  const queuePage = useHrPage(visibleQueue, `${companyId}:${search.trim()}`);
   const retry = useRef<{ fingerprint: string; key: string } | null>(null);
 
   useEffect(() => {
@@ -178,9 +187,6 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Independent checker</p>
           <h2 className="mt-1 text-lg font-semibold">Organization placement approvals</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Review the complete hierarchy before creating a new assignment segment.
-          </p>
         </div>
         <Badge variant="outline">Live API only</Badge>
       </div>
@@ -198,25 +204,53 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
         </Alert>
       )}
       {!loading && !loadError && queue.length > 0 && (
-        <label className="grid gap-1.5 text-sm font-medium">
-          Pending request
-          <select
-            className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
-            value={selectedId}
-            onChange={(event) => {
-              setSelectedId(event.target.value);
-              setError("");
-              setNotice("");
-            }}
-          >
-            <option value="">Select a request</option>
-            {queue.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.employee_number} — {item.employee_name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="relative min-w-0 overflow-x-auto rounded-md border border-border">
+          <WorkTable paging={false} tableId="app/features/hr/components/hr-organization-placement-change-approvals-panel:1" className="w-full min-w-160 text-left text-sm">
+            <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3">Employee</th>
+                <th className="px-4 py-3">Reason</th>
+                <th className="px-4 py-3">Effective</th>
+              </tr>
+            </thead>
+            <tbody>
+              {queuePage.pageRows.map((item) => (
+                <HrClickableRow
+                  key={item.id}
+                  disabled={saving}
+                  onOpen={() => {
+                    setSelectedId(item.id);
+                    setError("");
+                    setNotice("");
+                  }}
+                >
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-foreground">{item.employee_name}</p>
+                    <p className="text-xs text-muted-foreground">{item.employee_number}</p>
+                  </td>
+                  <td className="max-w-80 truncate px-4 py-3 text-muted-foreground">{item.reason}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{item.effective_on}</td>
+                </HrClickableRow>
+              ))}
+              {visibleQueue.length === 0 && (
+                <tr>
+                  <td className="px-4 py-8 text-center text-muted-foreground" colSpan={3}>
+                    No requests match this search.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </WorkTable>
+        </div>
+      )}
+      {!loading && !loadError && queue.length > 0 && (
+        <HrPagination
+          label="Approval request pages"
+          page={queuePage.page}
+          pageCount={queuePage.pageCount}
+          total={queuePage.total}
+          onPageChange={queuePage.setPage}
+        />
       )}
       {detailLoading && <Skeleton className="h-32 w-full" />}
       {error && (
@@ -273,7 +307,7 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
                 <AlertDescription>You requested this change and cannot decide it.</AlertDescription>
               </Alert>
             )}
-            <label htmlFor="organization-placement-decision-reason" className="grid gap-1.5 text-sm font-medium">
+            <label htmlFor="organization-placement-decision-reason" className="grid content-start gap-1.5 text-sm font-medium">
               Decision reason
               <Textarea
                 id="organization-placement-decision-reason"
@@ -286,11 +320,11 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
                 }}
               />
             </label>
-            <div className="flex flex-wrap gap-2">
+            <HrDrawerActions>
               <Button
                 type="button"
                 disabled={
-                  saving || approvalOverride.independentApproverRequired || !detail.hierarchy_ready || !reason.trim()
+                  saving || approvalOverride.independentApproverRequired || !detail.hierarchy_ready
                 }
                 onClick={() => setDecision("approved")}
               >
@@ -299,12 +333,12 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
               <Button
                 type="button"
                 variant="outline"
-                disabled={saving || approvalOverride.independentApproverRequired || !reason.trim()}
+                disabled={saving || approvalOverride.independentApproverRequired}
                 onClick={() => setDecision("rejected")}
               >
                 Reject
               </Button>
-            </div>
+            </HrDrawerActions>
           </>
         )}
       </HrRecordDrawer>
@@ -350,9 +384,12 @@ function PlacementCard({ title, names }: { title: string; names: Record<string, 
     <div className="rounded-md border border-border p-3">
       <h3 className="font-semibold">{title}</h3>
       <dl className="mt-2 grid gap-1 text-sm">
-        {Object.entries(placementLabels).map(([type, label]) => (
+        {organizationHierarchyOrder
+          // Legacy business-unit and warehouse rows appear only when the request names one.
+          .filter((type) => (selectableOrganizationUnitTypes as readonly string[]).includes(type) || names[type])
+          .map((type) => (
           <div key={type} className="flex justify-between gap-3">
-            <dt className="text-muted-foreground">{label}</dt>
+            <dt className="text-muted-foreground">{organizationUnitTypeLabels[type]}</dt>
             <dd className="text-right font-medium">{names[type] ?? "Not assigned"}</dd>
           </div>
         ))}
