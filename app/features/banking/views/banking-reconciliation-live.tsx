@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -16,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { BankingApiClient } from "../api/banking-client";
@@ -666,20 +668,22 @@ export function BankingReconciliationWorkspace({
             />
           </Field>
           <Field label="Opening Balance">
-            <Input
+            <AmountInput
               aria-label="Opening statement balance"
-              inputMode="decimal"
+              allowNegative
+              decimals={8}
               placeholder="Fetched when transactions load"
               readOnly
               value={openingBalance}
             />
           </Field>
           <Field label="Statement Ending Balance">
-            <Input
+            <AmountInput
               aria-label="Closing statement balance"
-              inputMode="decimal"
+              allowNegative
+              decimals={8}
               value={closingBalance}
-              onChange={(event) => setClosingBalance(event.target.value)}
+              onValueChange={(raw) => setClosingBalance(raw)}
             />
           </Field>
         </div>
@@ -927,7 +931,7 @@ export function BankingReconciliationWorkspace({
             </Field>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] border-collapse text-sm">
+            <WorkTable tableId="app/features/banking/views/banking-reconciliation-live:1" className="w-full min-w-[980px] border-collapse text-sm">
               <thead className="bg-primary text-primary-foreground">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">Rec</th>
@@ -987,7 +991,7 @@ export function BankingReconciliationWorkspace({
                   ))
                 )}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         </section>
       ) : null}
@@ -1289,7 +1293,7 @@ function EvidenceTable({ title, columns, children }: { title: string; columns: s
     <section className="min-w-0 overflow-hidden rounded-lg border border-border bg-card">
       <h2 className="border-b border-border px-4 py-3 text-sm font-semibold">{title}</h2>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] border-collapse text-sm">
+        <WorkTable tableId="app/features/banking/views/banking-reconciliation-live:2" className="w-full min-w-[720px] border-collapse text-sm">
           <thead className="bg-primary text-primary-foreground">
             <tr>
               {columns.map((column) => (
@@ -1305,7 +1309,7 @@ function EvidenceTable({ title, columns, children }: { title: string; columns: s
             </tr>
           </thead>
           <tbody>{children}</tbody>
-        </table>
+        </WorkTable>
       </div>
     </section>
   );

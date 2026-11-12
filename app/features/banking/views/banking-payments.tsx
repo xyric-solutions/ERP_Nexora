@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -12,7 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
+import { LabeledField } from "@/shared/ui/labeled-field";
 import { BankingApiClient } from "../api/banking-client";
+import { BankAccountCapsule } from "../components/bank-account-capsule";
 
 const paymentStates: readonly BankPaymentState[] = ["draft", "submitted", "approved", "rejected", "posted", "reversed"];
 
@@ -243,35 +246,19 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
   }
 
   return (
-    <div className="space-y-5" aria-busy={loadingCompanies || loading || loadingMore}>
-      <header className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5 shadow-sm lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-4" aria-busy={loadingCompanies || loading || loadingMore}>
+      <header className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-sm lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Banking &amp; Treasury</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Bank Payments</h1>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Review persisted payment instructions, approval state and posting dates for the selected company.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Bank Payments</h1>
         </div>
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled
-              aria-describedby="bank-payments-export-note"
-              title="Export is not available until a governed payment export is delivered."
-            >
-              Export unavailable
-            </Button>
             {canCreate && onCreatePayment ? (
               <Button type="button" onClick={onCreatePayment}>
                 Add bank payment
               </Button>
             ) : null}
           </div>
-          <p id="bank-payments-export-note" className="max-w-sm text-xs text-muted-foreground sm:text-right">
-            Export is disabled because no governed payment export endpoint is available yet.
-          </p>
         </div>
       </header>
 
@@ -430,7 +417,7 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
 
         {rows.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
+            <WorkTable continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loading || loadingMore),loadMore:() => void load(nextCursor ?? undefined, true)}} tableId="app/features/banking/views/banking-payments:1" className="w-full min-w-[1120px] border-collapse text-left text-sm">
               <caption className="sr-only">Persisted bank payments for the selected company</caption>
               <thead className="bg-muted/50 text-xs uppercase tracking-[0.08em] text-muted-foreground">
                 <tr>
@@ -446,7 +433,7 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
               <tbody>
                 {rows.map((payment) => (
                   <tr key={payment.id} className="border-b border-border/70 transition-colors hover:bg-muted/35">
-                    <td className="px-4 py-3.5">
+                    <td className="px-4 py-3">
                       <button
                         className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         type="button"
@@ -456,45 +443,42 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
                       </button>
                       <small className="mt-1 block text-muted-foreground">Version {payment.version}</small>
                     </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <span className="block font-medium">Posted {date(payment.posting_date)}</span>
                       <small className="mt-1 block text-muted-foreground">
                         Value {payment.value_date ? date(payment.value_date) : "not set"}
                       </small>
                     </td>
-                    <td className="px-4 py-3.5">
-                      <span className="block font-medium text-foreground">{payment.bank_account_name}</span>
+                    <td className="px-4 py-3">
+                      <BankAccountCapsule>{payment.bank_account_name}</BankAccountCapsule>
                       <small className="mt-1 block text-muted-foreground">
-                        {[payment.bank_name, payment.account_number_masked].filter(Boolean).join(" · ") || "Nominal account"}
+                        {[payment.bank_name, payment.account_number_masked].filter(Boolean).join(" · ") ||
+                          "Nominal account"}
                       </small>
                     </td>
-                    <td className="max-w-80 px-4 py-3.5 text-muted-foreground">
+                    <td className="max-w-80 px-4 py-3 text-muted-foreground">
                       {payment.narration_summary ?? "No narration recorded"}
                     </td>
-                    <td className="px-4 py-3.5 font-medium">{payment.currency}</td>
-                    <td className="px-4 py-3.5 text-right tabular-nums">{payment.line_count}</td>
-                    <td className="px-4 py-3.5 text-right font-semibold tabular-nums">
+                    <td className="px-4 py-3 font-medium">{payment.currency}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{payment.line_count}</td>
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums">
                       {money(payment.total_amount, payment.currency)}
                     </td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-4 py-3">
                       <Badge variant={stateVariant(payment.state)}>{label(payment.state)}</Badge>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         ) : null}
 
-        <footer className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm text-muted-foreground">
+        <footer className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm text-muted-foreground">
           <span aria-live="polite">
             Showing {rows.length} persisted payment{rows.length === 1 ? "" : "s"}
           </span>
-          {nextCursor ? (
-            <Button variant="outline" type="button" disabled={loadingMore} onClick={() => void load(nextCursor, true)}>
-              {loadingMore ? "Loading…" : "Load more"}
-            </Button>
-          ) : null}
+
         </footer>
       </section>
     </div>
@@ -511,18 +495,15 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label
-      className={`block text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground ${className ?? ""}`}
-    >
-      <span className="mb-1.5 block">{fieldLabel}</span>
+    <LabeledField label={fieldLabel} className={className}>
       {children}
-    </label>
+    </LabeledField>
   );
 }
 
 function StateCard({ title, detail }: { title: string; detail: string }) {
   return (
-    <div className="m-4 rounded-lg border border-dashed border-border bg-muted/25 p-10 text-center" role="status">
+    <div className="m-3 rounded-lg border border-dashed border-border bg-muted/25 p-8 text-center" role="status">
       <strong className="block text-lg text-foreground">{title}</strong>
       <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
     </div>

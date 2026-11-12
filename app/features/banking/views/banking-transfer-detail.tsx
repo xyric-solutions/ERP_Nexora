@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BankTransferDetail } from "@nexora/contracts";
@@ -195,7 +196,7 @@ export function BankingTransferDetail({
           <p className="text-sm text-muted-foreground">Resolved Bank controls and governed currency-rate evidence.</p>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-[1180px] w-full text-sm">
+          <WorkTable tableId="app/features/banking/views/banking-transfer-detail:1" className="min-w-[1180px] w-full text-sm">
             <thead className="bg-[var(--nx-info-soft)] text-left text-[var(--nx-emphasis-text)]">
               <tr>
                 {[
@@ -236,15 +237,20 @@ export function BankingTransferDetail({
                     {line.source_currency} {line.source_amount}
                     <br />
                     <span className="text-xs text-muted-foreground">
-                      Rate {line.source_rate} · {line.source_rate_effective_date ?? "base"}
+                      Valuation rate {line.source_rate} · {line.source_rate_effective_date ?? "base"}
                     </span>
                   </td>
                   <td className="px-3 py-3">
                     {line.destination_currency} {line.destination_amount}
                     <br />
                     <span className="text-xs text-muted-foreground">
-                      Rate {line.destination_rate} · {line.destination_rate_effective_date ?? "base"}
+                      Valuation rate {line.destination_rate} · {line.destination_rate_effective_date ?? "base"}
                     </span>
+                    {line.conversion_rate ? (
+                      <p className="mb-0 mt-1 text-xs">
+                        Entered: 1 {line.source_currency} = {line.conversion_rate} {line.destination_currency}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3">
                     {transfer.base_currency} {line.fx_difference}
@@ -252,7 +258,7 @@ export function BankingTransferDetail({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       </section>
       <section className="grid gap-5 lg:grid-cols-2">
@@ -330,11 +336,7 @@ export function BankingTransferDetail({
               <Button type="button" variant="destructive" disabled={Boolean(busy)} onClick={() => void act("reject")}>
                 Reject
               </Button>
-              <Button
-                type="button"
-                disabled={Boolean(busy)}
-                onClick={() => void act("approve", canApproveAndClose)}
-              >
+              <Button type="button" disabled={Boolean(busy)} onClick={() => void act("approve", canApproveAndClose)}>
                 {canApproveAndClose ? "Approve & Close" : "Approve"}
               </Button>
             </>

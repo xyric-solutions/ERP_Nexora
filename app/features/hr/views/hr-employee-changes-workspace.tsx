@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -247,7 +249,7 @@ export function HrEmployeeChangesWorkspace({ kind }: { kind: Kind }) {
       {state === "ready" ? (
         <>
           <div className="min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
-            <table className="w-full text-left text-sm">
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-employee-changes-workspace:1" className="w-full text-left text-sm">
               <caption className="sr-only">{text.singular} requests</caption>
               <thead className="border-b border-border bg-muted/60">
                 <tr>
@@ -304,7 +306,7 @@ export function HrEmployeeChangesWorkspace({ kind }: { kind: Kind }) {
                   </tr>
                 ) : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           <HrPagination
             label={`${text.singular} pages`}
@@ -640,7 +642,7 @@ function NewChangeForm({
   };
 
   return (
-    <form
+    <WorkForm
       className="grid min-w-0 gap-4"
       onSubmit={(event) => {
         event.preventDefault();
@@ -779,7 +781,7 @@ function NewChangeForm({
           </HrDrawerActions>
         </>
       ) : null}
-    </form>
+    </WorkForm>
   );
 }
 

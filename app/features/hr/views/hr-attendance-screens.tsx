@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 /**
  * Phase 2 screens: shifts, attendance, corrections, overtime, leave and the
@@ -142,7 +143,7 @@ function MonthlyAttendance({ month, onAction }: { month: string; onAction: (acti
       <Legend />
 
       <div className="nx-table-wrap overflow-x-auto">
-        <table className="nx-data-table [&_th]:px-1.5 [&_th]:py-1.5 [&_td]:px-1.5 [&_td]:py-1.5 [&_thead_.attendance-name]:bg-muted [&_tbody_.attendance-name]:bg-card">
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:1" className="nx-data-table [&_th]:px-1.5 [&_th]:py-1.5 [&_td]:px-1.5 [&_td]:py-1.5 [&_thead_.attendance-name]:bg-muted [&_tbody_.attendance-name]:bg-card">
           <thead>
             <tr>
               <th className="attendance-name sticky left-0 z-10 min-w-47.5 text-left">Employee</th>
@@ -181,7 +182,7 @@ function MonthlyAttendance({ month, onAction }: { month: string; onAction: (acti
               </tr>
             ))}
           </tbody>
-        </table>
+        </WorkTable>
       </div>
     </div>
   );
@@ -219,7 +220,7 @@ function DailyAttendance({ onAction }: { onAction: (action: string, subject?: st
       </div>
 
       <div className="nx-table-wrap">
-        <table className={hrDataTableClass}>
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:2" className={hrDataTableClass}>
           <thead>
             <tr>
               <th>Employee</th><th>Department</th><th>Shift</th><th>In</th><th>Out</th>
@@ -243,7 +244,7 @@ function DailyAttendance({ onAction }: { onAction: (action: string, subject?: st
               </tr>
             ))}
           </tbody>
-        </table>
+        </WorkTable>
       </div>
     </div>
   );
@@ -259,7 +260,7 @@ function Shifts({ onAction }: { onAction: (action: string, subject?: string) => 
     <div className="nx-recon">
 
       <div className="nx-table-wrap">
-        <table className={hrDataTableClass}>
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:3" className={hrDataTableClass}>
           <thead>
             <tr><th>Code</th><th>Shift</th><th>Type</th><th>Hours</th><th className="amount">Grace in</th><th className="amount">Break</th><th className="amount">OT after</th><th>Weekly off</th><th>Status</th></tr>
           </thead>
@@ -278,7 +279,7 @@ function Shifts({ onAction }: { onAction: (action: string, subject?: string) => 
               </tr>
             ))}
           </tbody>
-        </table>
+        </WorkTable>
       </div>
 
       <section className="grid min-w-0 gap-3 rounded border border-border bg-card p-4 shadow-xs">
@@ -316,7 +317,7 @@ function ShiftAssignments({ onAction }: { onAction: (action: string, subject?: s
   return (
     <div className="nx-recon">
       <div className="nx-table-wrap">
-        <table className={hrDataTableClass}>
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:4" className={hrDataTableClass}>
           <thead><tr><th>Reference</th><th>Scope</th><th>Applies to</th><th>Shift</th><th>Effective from</th><th>Effective to</th><th>Assigned by</th><th>Note</th></tr></thead>
           <tbody>
             {[...shiftAssignments].sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom)).map((row) => (
@@ -332,7 +333,7 @@ function ShiftAssignments({ onAction }: { onAction: (action: string, subject?: s
               </tr>
             ))}
           </tbody>
-        </table>
+        </WorkTable>
       </div>
     </div>
   );
@@ -353,7 +354,7 @@ function Corrections({ onAction }: { onAction: (action: string, subject?: string
 
 
       <div className="nx-table-wrap">
-        <table className={hrDataTableClass}>
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:5" className={hrDataTableClass}>
           <thead><tr><th>Reference</th><th>Employee</th><th>Date</th><th>Type</th><th>Check in</th><th>Check out</th><th>Reason</th><th>Manager</th><th>HR</th><th>Status</th><th /></tr></thead>
           <tbody>
             {attendanceCorrections.map((row) => (
@@ -379,7 +380,7 @@ function Corrections({ onAction }: { onAction: (action: string, subject?: string
               </tr>
             ))}
           </tbody>
-        </table>
+        </WorkTable>
       </div>
     </div>
   );
@@ -415,7 +416,7 @@ function Overtime({ onAction }: { onAction: (action: string, subject?: string) =
 
 
       <div className="nx-table-wrap">
-        <table className={hrDataTableClass}>
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:6" className={hrDataTableClass}>
           <thead><tr><th>Employee</th><th>Date</th><th>Shift</th><th>In</th><th>Out</th><th className="amount">Overtime</th><th>Category</th><th className="amount">Rate</th><th>Status</th><th /></tr></thead>
           <tbody>
             {claims.map(({ day, name }) => {
@@ -436,7 +437,7 @@ function Overtime({ onAction }: { onAction: (action: string, subject?: string) =
               );
             })}
           </tbody>
-        </table>
+        </WorkTable>
       </div>
     </div>
   );
@@ -448,7 +449,7 @@ function LeaveTypesScreen() {
   return (
     <div className="nx-recon">
       <div className="nx-table-wrap">
-        <table className={hrDataTableClass}>
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:7" className={hrDataTableClass}>
           <thead><tr><th>Code</th><th>Leave type</th><th>Paid</th><th className="amount">Entitlement</th><th>Accrual</th><th>Carry forward</th><th className="amount">Max balance</th><th>Request</th><th>HR approval</th><th>Applies to</th></tr></thead>
           <tbody>
             {leaveTypes.map((type) => (
@@ -466,7 +467,7 @@ function LeaveTypesScreen() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </WorkTable>
       </div>
     </div>
   );
@@ -483,7 +484,7 @@ function LeaveBalances({ onAction }: { onAction: (action: string, subject?: stri
   return (
     <div className="nx-recon">
       <div className="nx-table-wrap">
-        <table className={hrDataTableClass}>
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:8" className={hrDataTableClass}>
           <thead>
             <tr>
               <th>Employee</th><th>Leave type</th>
@@ -510,13 +511,13 @@ function LeaveBalances({ onAction }: { onAction: (action: string, subject?: stri
               </tr>
             ))}
           </tbody>
-        </table>
+        </WorkTable>
       </div>
 
       <section className="grid min-w-0 gap-3 rounded border border-border bg-card p-4 shadow-xs">
         <header><div><span className="nx-eyebrow">Leave workflow</span><h2>Requests in flight</h2></div></header>
         <div className="nx-table-wrap">
-          <table className={hrDataTableClass}>
+          <WorkTable tableId="app/features/hr/views/hr-attendance-screens:9" className={hrDataTableClass}>
             <thead><tr><th>Reference</th><th>Employee</th><th>Type</th><th>From</th><th>To</th><th className="amount">Days</th><th>Balance then</th><th>Manager</th><th>HR</th><th>Status</th></tr></thead>
             <tbody>
               {leaveRequests.map((request) => {
@@ -539,7 +540,7 @@ function LeaveBalances({ onAction }: { onAction: (action: string, subject?: stri
                 );
               })}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       </section>
     </div>
@@ -578,7 +579,7 @@ function AttendancePeriodScreen({ onAction }: { onAction: (action: string, subje
 
 
       <div className="nx-table-wrap">
-        <table className={hrDataTableClass}>
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:10" className={hrDataTableClass}>
           <thead><tr><th>Employee</th><th>Date</th><th>Status</th><th>Detail</th><th /></tr></thead>
           <tbody>
             {exceptions.length === 0 ? (
@@ -593,7 +594,7 @@ function AttendancePeriodScreen({ onAction }: { onAction: (action: string, subje
               </tr>
             ))}
           </tbody>
-        </table>
+        </WorkTable>
       </div>
 
       <div className="nx-worksheet__actions">
@@ -631,7 +632,7 @@ function PayrollInputs({ onAction }: { onAction: (action: string, subject?: stri
 
 
       <div className="nx-table-wrap">
-        <table className={hrDataTableClass}>
+        <WorkTable tableId="app/features/hr/views/hr-attendance-screens:11" className={hrDataTableClass}>
           <thead>
             <tr>
               <th>Employee</th><th>Period</th>
@@ -659,7 +660,7 @@ function PayrollInputs({ onAction }: { onAction: (action: string, subject?: stri
               </tr>
             ))}
           </tbody>
-        </table>
+        </WorkTable>
       </div>
 
       <div className="nx-worksheet__actions">

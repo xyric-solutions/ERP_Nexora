@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+
 import { HrPagination, matchesSearch, useHrPage } from "./hr-list-controls";
 import { HrDrawerActions } from "./hr-drawer-context";
 import { HrRecordDrawer } from "./hr-record-drawer";
@@ -210,7 +212,7 @@ export function HrHireApprovalsPanel({
       {state === "ready" && (
         <div className="grid min-w-0 gap-4 ">
           <div className="relative min-w-0 overflow-x-auto rounded-md border border-border">
-            <table className="w-full min-w-180 text-left text-sm">
+            <WorkTable paging={false} tableId="app/features/hr/components/hr-hire-approvals-panel:1" className="w-full min-w-180 text-left text-sm">
               <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">Employee</th>
@@ -240,7 +242,7 @@ export function HrHireApprovalsPanel({
                   </tr>
                 )}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           <HrPagination
             label="Approval request pages"

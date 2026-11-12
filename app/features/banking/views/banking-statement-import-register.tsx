@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable, WorkPagination } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
 
 import { useEffect, useMemo, useState } from "react";
 import type {
@@ -238,7 +240,7 @@ export function BankingStatementImportRegister({ onAddNew, onOpen }: BankingStat
       ) : null}
 
       <section className="rounded-lg border border-border bg-card p-3 sm:p-4" aria-label="Statement import filters">
-        <form
+        <WorkForm
           className="flex flex-col gap-3 lg:flex-row lg:items-end"
           onSubmit={(event) => {
             event.preventDefault();
@@ -282,28 +284,13 @@ export function BankingStatementImportRegister({ onAddNew, onOpen }: BankingStat
               Clear
             </Button>
           </div>
-          <label className="ml-auto flex items-center gap-2 whitespace-nowrap text-sm">
-            <span>Show</span>
-            <select
-              aria-label="Entries per page"
-              className="h-9 rounded-md border border-input bg-background px-2"
-              value={pageSize}
-              onChange={(event) => void changePageSize(Number(event.target.value))}
-            >
-              {[10, 25, 50, 100].map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-            <span>entries</span>
-          </label>
-        </form>
+
+        </WorkForm>
       </section>
 
       <section className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] border-collapse text-sm">
+          <WorkTable paging={false} tableId="app/features/banking/views/banking-statement-import-register:1" className="w-full min-w-[980px] border-collapse text-sm">
             <thead className="bg-primary text-primary-foreground">
               <tr>
                 <th className="w-12 px-3 py-3 text-center">
@@ -371,33 +358,9 @@ export function BankingStatementImportRegister({ onAddNew, onOpen }: BankingStat
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
-          <span>
-            Showing {firstRow} to {lastRow} {nextCursor ? "entries" : `of ${lastRow} entries`}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={loading || pageIndex === 0}
-              onClick={() => void previousPage()}
-            >
-              Previous
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={loading || !nextCursor}
-              onClick={() => void nextPage()}
-            >
-              Next
-            </Button>
-          </div>
-        </footer>
+        <WorkPagination size={pageSize} start={firstRow} end={lastRow} total={nextCursor ? undefined : lastRow} hasMore={!!nextCursor} page={pageIndex} previous={pageIndex > 0} next={!!nextCursor} busy={loading} onSizeChange={(size) => void changePageSize(size)} onPrevious={() => void previousPage()} onNext={() => void nextPage()} />
       </section>
     </section>
   );

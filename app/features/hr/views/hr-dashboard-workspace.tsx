@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Building2, ChevronRight, ClipboardCheck, FileClock, UserPlus, Users, Workflow } from "lucide-react";
@@ -208,7 +209,7 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
               <h2 className="m-0! mt-0.5! text-base font-semibold">Recent joiners</h2>
             </header>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-130 text-left text-sm">
+              <WorkTable tableId="app/features/hr/views/hr-dashboard-workspace:1" className="w-full min-w-130 text-left text-sm">
                 <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 sm:pl-5">Employee</th>
@@ -239,7 +240,7 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
                     </tr>
                   ) : null}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           </article>
           <p className="m-0! text-right text-xs text-muted-foreground">
@@ -247,7 +248,7 @@ export function HrDashboardWorkspace({ onNavigate }: { onNavigate: Navigate }) {
           </p>
         </>
       ) : !error ? (
-        <p className="rounded-lg border border-border bg-card p-5 text-muted-foreground">
+        <p className="rounded-lg border border-border bg-card p-4 text-muted-foreground">
           No authorised company is available for this dashboard.
         </p>
       ) : null}

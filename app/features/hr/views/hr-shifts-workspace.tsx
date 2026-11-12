@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination, WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
@@ -207,7 +210,7 @@ function ShiftEditor({
     void onSave(result.data, initial && !editor.copy ? initial.id : undefined);
   };
   return (
-    <form
+    <WorkForm
       aria-label="Shift rules editor"
       className="grid min-w-0 gap-5 rounded-lg border border-border bg-card p-4"
       onSubmit={(e) => {
@@ -573,7 +576,7 @@ function ShiftEditor({
           {busy ? "Saving…" : initial && !editor.copy ? "Save shift rules" : "Create shift"}
         </Button>
       </HrDrawerActions>
-    </form>
+    </WorkForm>
   );
 }
 
@@ -584,6 +587,7 @@ export function HrShiftsWorkspace({
   /** Kept for the shell's call signature; shift assignment is reached from the side menu. */
   onNavigate: (moduleId: string, pageId: string) => void;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const initialScope = useMemo(() => readHrOperationsScope(initialReference), [initialReference]);
   const { api, session, loading: sessionLoading, csrfToken } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
@@ -635,7 +639,7 @@ export function HrShiftsWorkspace({
     let current = true;
     setLoading(true);
     client
-      .shifts({ companyId: company, search: applied || undefined, status: status === "all" ? undefined : status, offset })
+      .shifts({ companyId: company, search: applied || undefined, status: status === "all" ? undefined : status, offset, limit: workPageSize })
       .then((result) => {
         if (current) {
           setDirectory(result);
@@ -652,7 +656,7 @@ export function HrShiftsWorkspace({
     return () => {
       current = false;
     };
-  }, [client, company, canRead, applied, status, offset, revision]);
+  }, [client, company, canRead, applied, status, offset, revision, workPageSize]);
   useEffect(() => {
     if (!company || !selected) {
       setDetail(null);
@@ -779,7 +783,7 @@ export function HrShiftsWorkspace({
   return (
     <section
       aria-label="Live shifts and rules"
-      className="grid min-w-0 gap-5 font-sans text-foreground [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0"
+      className="grid min-w-0 gap-4 font-sans text-foreground [&_label]:gap-1.5 [&_label]:leading-tight [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0"
     >
       {error && !selected && (
         <Alert variant="destructive">
@@ -793,7 +797,7 @@ export function HrShiftsWorkspace({
           {notice}
         </div>
       )}
-      <form
+      <WorkForm
         aria-label="Find shifts"
         className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,1fr)_auto] md:items-end"
         onSubmit={(e) => {
@@ -829,7 +833,7 @@ export function HrShiftsWorkspace({
             New shift
           </Button>
         )}
-      </form>
+      </WorkForm>
       <HrMasterStatusFilter
         value={status}
         onChange={(next) => {
@@ -872,7 +876,7 @@ export function HrShiftsWorkspace({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-180 border-collapse text-left text-sm">
+              <WorkTable paging={false} tableId="app/features/hr/views/hr-shifts-workspace:1" className="w-full min-w-180 border-collapse text-left text-sm">
                 <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="w-px whitespace-nowrap px-4 py-3">Shift code</th>
@@ -916,33 +920,23 @@ export function HrShiftsWorkspace({
                     </tr>
                   )}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           )}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2">
-            <span className="text-xs text-muted-foreground">
-              {directory.total ? `${offset + 1}–${Math.min(offset + 50, directory.total)}` : "0"} of {directory.total}{" "}
-              company shifts
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={busy || loading || !!editor || offset === 0}
-                onClick={() => setOffset(Math.max(0, offset - 50))}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={busy || loading || !!editor || offset + 50 >= directory.total}
-                onClick={() => setOffset(offset + 50)}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <WorkOffsetPagination
+            busy={busy || loading || !!editor}
+            total={directory.total}
+            offset={offset}
+            size={workPageSize}
+            previousDisabled={busy || loading || !!editor || offset === 0}
+            nextDisabled={busy || loading || !!editor || offset + workPageSize >= directory.total}
+            onSizeChange={(size) => {
+              setWorkPageSize(size);
+              setOffset(0);
+            }}
+            onPrevious={() => setOffset(Math.max(0, offset - workPageSize))}
+            onNext={() => setOffset(offset + workPageSize)}
+          />
         </div>
       )}
       <HrMasterSheet

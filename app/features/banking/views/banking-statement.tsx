@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+
 import { FilterBar } from "../../../shared/ui/filter-bar";
 
 /**
@@ -14,6 +16,7 @@ import { LiveBankStatement } from "./banking-statement-live";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import {
   AdvancedListFilters,
   ListFilterSelect,
@@ -136,7 +139,7 @@ export function BankAccountBalances({
           }}
         />
         <div className="nx-table-wrap">
-          <table className="nx-data-table">
+          <WorkTable tableId="app/features/banking/views/banking-statement:1" className="nx-data-table">
             <thead>
               <tr>
                 <th>Bank</th><th>Account</th><th>Nominal</th><th>Cur.</th>
@@ -171,7 +174,7 @@ export function BankAccountBalances({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
         <div className="nx-pagination">
           <span>Showing {visible.length} of {bankAccounts.length} accounts · select a bank to open its statement</span>
@@ -300,11 +303,11 @@ export function BankStatementFixture({
         </div>
         <div className="grid min-w-42 gap-1.5 [&>label]:text-xs [&>label]:font-semibold [&>select]:min-h-10 [&>select]:w-full [&>select]:rounded-md [&>select]:border [&>select]:border-border [&>select]:bg-card [&>select]:px-3 [&>select]:text-sm">
           <label htmlFor="stmt-min">Minimum amount</label>
-          <Input id="stmt-min" inputMode="decimal" value={minAmount} onChange={(event) => setMinAmount(event.target.value)} placeholder="0.00" />
+          <AmountInput id="stmt-min" value={minAmount} onValueChange={(raw) => setMinAmount(raw)} placeholder="0.00" />
         </div>
         <div className="grid min-w-42 gap-1.5 [&>label]:text-xs [&>label]:font-semibold [&>select]:min-h-10 [&>select]:w-full [&>select]:rounded-md [&>select]:border [&>select]:border-border [&>select]:bg-card [&>select]:px-3 [&>select]:text-sm">
           <label htmlFor="stmt-max">Maximum amount</label>
-          <Input id="stmt-max" inputMode="decimal" value={maxAmount} onChange={(event) => setMaxAmount(event.target.value)} placeholder="No limit" />
+          <AmountInput id="stmt-max" value={maxAmount} onValueChange={(raw) => setMaxAmount(raw)} placeholder="No limit" />
         </div>
         <div className="flex flex-wrap gap-1.5">
           {[
@@ -340,7 +343,7 @@ export function BankStatementFixture({
 
       <section className="nx-card nx-list-card">
         <div className="nx-table-wrap">
-          <table className="nx-data-table [&_td]:align-top">
+          <WorkTable tableId="app/features/banking/views/banking-statement:2" className="nx-data-table [&_td]:align-top">
             <thead>
               <tr>
                 <th>Date</th><th>Voucher</th><th>Type</th><th>Nominal</th><th>Ref. No.</th><th>Details</th>
@@ -392,7 +395,7 @@ export function BankStatementFixture({
                 <td />
               </tr>
             </tfoot>
-          </table>
+          </WorkTable>
         </div>
         <div className="nx-pagination">
           <span>{visibleLines.length} of {windowLines.length} movements shown{onlyUnreconciled ? " · unreconciled filter active" : ""}</span>

@@ -266,7 +266,7 @@ export class SourceFinanceNominalRepository {
         };
       await this.company(client, context, companyId);
       const sections = await client.query<FinanceNominalOptions["sections"][number]>(
-        `select section.id,section.code,section.name,section.parent_id as category_id,
+        `select section.id,section.code,section.name,section.type,section.parent_id as category_id,
        coalesce(policy.section_role,case when general.section_id is not null then 'general' end) as section_role,
        coalesce(policy.status='active' and policy.next_value<=policy.last_value,
          general.status='active' and general.next_value<=general.last_value,false) as creation_enabled
@@ -672,8 +672,7 @@ export class SourceFinanceNominalRepository {
         if (command.action === "update") {
           if (before.bank_status !== "draft")
             throw new FinanceNominalError(409, "NOMINAL_STATE_CONFLICT", "Only a draft may be edited.");
-          if (command.input.currency)
-            await this.currency(client, context, before.company_id, command.input.currency);
+          if (command.input.currency) await this.currency(client, context, before.company_id, command.input.currency);
           await client.query(`update account set name=$3,description=$4 where tenant_id=$1 and id=$2`, [
             context.tenantId,
             id,
@@ -940,8 +939,7 @@ export class SourceFinanceNominalRepository {
           "NOMINAL_DUPLICATE",
           "A nominal with this name already exists in the Section.",
         );
-      if (command.input.currency)
-        await this.currency(client, context, before.company_id, command.input.currency);
+      if (command.input.currency) await this.currency(client, context, before.company_id, command.input.currency);
       await client.query(`update account set name=$3,description=$4 where tenant_id=$1 and id=$2`, [
         context.tenantId,
         id,
@@ -1023,12 +1021,7 @@ export class SourceFinanceNominalRepository {
       ]);
     return { id, eventType, reason };
   }
-  private async currency(
-    client: PoolClient,
-    context: FinanceNominalActorContext,
-    companyId: string,
-    code: string,
-  ) {
+  private async currency(client: PoolClient, context: FinanceNominalActorContext, companyId: string, code: string) {
     const found = await client.query(
       `select company_currency.currency_code
          from company_currency

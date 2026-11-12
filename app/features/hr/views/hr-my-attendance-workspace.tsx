@@ -1,4 +1,5 @@
 "use client";
+import { WorkForm } from "@/shared/ui/work-form";
 import { useState } from "react";
 import { hrSelfAttendanceQuerySchema } from "@nexora/contracts";
 import { Download, UserRound } from "lucide-react";
@@ -63,7 +64,7 @@ export function HrMyAttendanceWorkspace() {
 
   return (
     <section aria-label="My attendance" className="grid min-w-0 gap-5">
-      <form
+      <WorkForm
         className="grid gap-3 rounded-xl border border-border bg-muted/30 p-4 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end"
         onSubmit={(e) => {
           e.preventDefault();
@@ -108,7 +109,7 @@ export function HrMyAttendanceWorkspace() {
           <Download className="size-4" aria-hidden="true" />
           Export
         </Button>
-      </form>
+      </WorkForm>
       {rangeError && (
         <p role="alert" className="text-sm text-destructive">
           {rangeError}

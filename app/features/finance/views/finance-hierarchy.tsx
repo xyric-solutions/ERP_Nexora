@@ -1,4 +1,7 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useEffect, useRef, useState } from "react";
 import type {
   FinanceHierarchyItem,
@@ -34,7 +37,6 @@ function HierarchyWorkspace() {
   const [selected, setSelected] = useState<FinanceHierarchyItem | null>(null),
     [name, setName] = useState(""),
     [parent, setParent] = useState(""),
-    [code, setCode] = useState(""),
     [type, setType] = useState<FinanceHierarchyItem["type"]>("expense");
   const retry = useRef<{ fingerprint: string; key: string } | null>(null),
     lock = useRef(false),
@@ -49,7 +51,6 @@ function HierarchyWorkspace() {
     setSelected(null);
     setName("");
     setParent("");
-    setCode("");
     setType("expense");
     retry.current = null;
   }
@@ -136,7 +137,7 @@ function HierarchyWorkspace() {
           company_id: company,
           name: name.trim(),
           type: category?.type ?? type,
-          ...(parent ? { parent_id: parent, code } : {}),
+          ...(parent ? { parent_id: parent } : {}),
         };
     const fingerprint = JSON.stringify({ company, id: selected?.id, input });
     if (retry.current?.fingerprint !== fingerprint)
@@ -211,7 +212,7 @@ function HierarchyWorkspace() {
         {loading && <p role="status">Loading company masters…</p>}
         {!loading && !rows.length && !error && <p>No company categories or sections are available.</p>}
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[42rem] text-sm">
+          <WorkTable tableId="app/features/finance/views/finance-hierarchy:1" className="w-full min-w-[42rem] text-sm">
             <thead>
               <tr>
                 {["Code", "Name", "Kind", "Type", "Status", "Version"].map((h) => (
@@ -232,7 +233,6 @@ function HierarchyWorkspace() {
                         if (busy) return;
                         setSelected(row);
                         setName(row.name);
-                        setCode(row.code);
                         setParent(row.parent_id ?? "");
                         setType(row.type);
                         retry.current = null;
@@ -249,7 +249,7 @@ function HierarchyWorkspace() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
         {cursor && (
           <Button variant="outline" disabled={loading || busy} onClick={() => void more()}>
@@ -257,7 +257,7 @@ function HierarchyWorkspace() {
           </Button>
         )}
         {company && admin && (
-          <form
+          <WorkForm
             onSubmit={(e) => {
               e.preventDefault();
               void save();
@@ -322,19 +322,16 @@ function HierarchyWorkspace() {
                   <Label htmlFor="coa-header-code">Section / category code</Label>
                   <Input
                     id="coa-header-code"
-                    required={!!parent}
-                    pattern={selected ? undefined : "[0-9]{4}"}
-                    maxLength={selected ? 128 : 4}
-                    disabled={!!selected}
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
+                    readOnly
+                    value={selected?.code ?? "Generated from Category when you save"}
                   />
                 </div>
               )}
             </fieldset>
             <p className="text-sm text-muted-foreground">
-              Codes, parents and accounting types are immutable after creation. A new ordinary Section receives its own
-              nominal code sequence. Existing dependent headers cannot be deactivated.
+              Codes are allocated automatically and remain immutable with parents and accounting types after creation. A
+              new ordinary Section receives its own nominal code sequence. Existing dependent headers cannot be
+              deactivated.
             </p>
             <div className="flex flex-wrap gap-3">
               <Button
@@ -361,7 +358,7 @@ function HierarchyWorkspace() {
                 Clear selection
               </Button>
             </div>
-          </form>
+          </WorkForm>
         )}
       </CardContent>
     </Card>

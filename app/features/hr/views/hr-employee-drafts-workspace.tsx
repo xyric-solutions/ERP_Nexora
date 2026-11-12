@@ -1,4 +1,7 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useEffect, useMemo, useState } from "react";
@@ -188,7 +191,7 @@ export function HrEmployeeDraftsWorkspace({
   return (
     <section className="grid min-w-0 grid-cols-1 gap-4" aria-label="Employee drafts">
       <div className="flex min-w-0 flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
-        <form
+        <WorkForm
           className="flex min-w-0 basis-full flex-wrap items-end gap-2 sm:basis-65 sm:flex-1"
           onSubmit={(event) => {
             event.preventDefault();
@@ -206,7 +209,7 @@ export function HrEmployeeDraftsWorkspace({
           <Button type="submit" variant="outline">
             Search
           </Button>
-        </form>
+        </WorkForm>
         {allowAdd && canCreate ? (
           <Button type="button" onClick={() => setAdding(true)}>
             + Add Employee
@@ -253,7 +256,7 @@ export function HrEmployeeDraftsWorkspace({
       {state === "ready" ? (
         <div className="grid min-w-0 grid-cols-1 gap-4">
           <div className="relative min-w-0 w-full overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-            <table className="w-full min-w-180 text-left text-sm">
+            <WorkTable tableId="app/features/hr/views/hr-employee-drafts-workspace:1" className="w-full min-w-180 text-left text-sm">
               <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="w-px whitespace-nowrap px-4 py-3">Employee no.</th>
@@ -302,7 +305,7 @@ export function HrEmployeeDraftsWorkspace({
                   </tr>
                 ) : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
 
           <HrRecordDrawer

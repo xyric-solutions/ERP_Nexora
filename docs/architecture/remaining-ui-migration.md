@@ -1,5 +1,1613 @@
 # Remaining UI migration checklist
 
+## 2026-11-11 — One continuous payment form
+
+- `purchase-payment-details.tsx` now uses one Payment details heading and a
+  uniform surface. Removed the supplier-panel tint, supplier/payment headings,
+  column/mobile dividers and the separator below Bank. Supplier fields remain
+  left and payment fields right on desktop, stacking on mobile. Accessible group
+  names, shared controls, disabled states and every callback remain intact.
+- Fully allocated supplier bills remain visible with status and zero open
+  balance; their selection stays disabled. No paid/settled-bank state was invented
+  for the instruction-only workflow. Existing allocations, WHT, bank-driven
+  currency, partial payments and same-currency bank changes are preserved.
+- Targeted ESLint/Prettier, theme audit write/check, design detector and
+  `git diff --check` passed. `npm.cmd run build:web` passed with
+  `NEXT_DIST_DIR=tmp/purchase-unified-form-build`, including TypeScript. No new
+  API, database, dependency, stylesheet or font change was required.
+- `npm.cmd exec playwright -- test tests/e2e/purchase-payment-layout.spec.ts
+  --workers=1 --output tmp/purchase-unified-form-results` passed all six
+  light/dark 1440/768/390px cases, including the single heading, uniform
+  borderless groups, visible fully allocated zero-balance rows, disabled selection,
+  axe, overflow, partial allocations and bank-currency transitions. Screenshots:
+  `tmp/purchase-payment-evidence/`. Refreshed web on 3000 only; readiness and all
+  22 web assets passed. API/database and live business data were untouched.
+
+## 2026-11-11 — Payment currency follows the bank
+
+- Removed due/expected date, currency selection and external reference from
+  `purchase-payment-details.tsx`. Payment-specific Ref. No., date, amounts,
+  withholding and allocation controls remain. Bill dates/terms are unchanged.
+- The bank selector lists eligible company accounts across supported currencies.
+  `purchase-document-form.tsx` updates bank and currency atomically. A currency
+  change clears allocations, old entry amounts and manual-amount overrides;
+  switching banks in the same currency preserves allocations and entered values.
+  Inactive/unsupported-currency and historical unavailable-bank safeguards remain.
+  Existing hidden metadata is preserved; editing document date clears its unused
+  legacy due date so a hidden value cannot block payment editing. The server's
+  bank/currency and company/tenant validation remain authoritative. No API,
+  schema, dependency or stylesheet change was needed for this refinement.
+- Verification: 30 tests passed with `npm.cmd run test:unit --
+  tests/unit/purchase-document-form.test.tsx tests/unit/purchase-payment-amounts.test.ts
+  --maxWorkers=1`; targeted ESLint/Prettier, theme audit write/check, design detector
+  and `git diff --check` passed. `npm.cmd run build:web` passed with
+  `NEXT_DIST_DIR=tmp/purchase-bank-currency-build`, including TypeScript.
+- `npm.cmd exec playwright -- test tests/e2e/purchase-payment-layout.spec.ts
+  --workers=1 --output tmp/purchase-bank-currency-results` passed all six light/dark
+  1440/768/390px cases, including absent controls, USD/EUR switching, incompatible
+  allocation clearing, same-currency preservation and unsupported-bank exclusion.
+  Axe and overflow checks passed; screenshots remain under
+  `tmp/purchase-payment-evidence/`. Refreshed local web on 3000 only; API/database
+  were not restarted or migrated. Readiness and all 22 web assets passed.
+
+## 2026-11-11 — Bill dates, payment terms and compact voucher forms
+
+- Added `purchase-bill-details.tsx` and feature-scoped `purchase-form-field.tsx`.
+  Bill and payment forms now share aligned label/control rows, supplier details
+  on the left and compact transaction fields on the right. Bills retain their
+  approved-order selector/search, inherited approval, line editing and print
+  behavior. Existing payment selection, partial allocations, WHT and bank
+  snapshots remain. No CSS files, fonts, dependencies or palettes were added.
+- Bills now persist separate document/bill dates and either a manual due date
+  or a payment term. Presets match the supplied reference: immediate; 15/21/30/45
+  days; following month end; ten days after next month end; and 30% now/balance
+  60 days. Shared UTC calendar/decimal helpers display exact installment dates
+  and amounts. The server recalculates due dates and validates them on approval;
+  the saved final due date cannot be spoofed by a client. Manual dates use bill
+  date as their lower bound, allowing overdue invoices entered later.
+- Procurement migration 5 adds nullable bill date/term columns and preserves
+  historical records. Older clients retain saved values when omitting the new
+  fields; new legacy bills fall back to document date. Non-bill date rules,
+  tenant/company permissions, audit, versions and idempotency remain. Updated
+  contract/OpenAPI, payment bill-date column and CSV date/term/schedule exports.
+  Installment schedules do not execute or schedule bank transfers. For rollback,
+  retain the additive columns and historical data rather than dropping them.
+- Verification passed: `npm.cmd run test:unit --
+  tests/unit/purchase-document-form.test.tsx tests/unit/purchase-payment-amounts.test.ts
+  tests/unit/purchase-bill-payment-terms.test.ts tests/unit/purchase-export.test.ts
+  --maxWorkers=1` (45 tests); `npm.cmd run test:integration --
+  tests/integration/procurement-workflow.test.ts tests/integration/postgres-migrations.test.ts`
+  (39 tests); `npm.cmd run test:contract -- tests/contract/openapi.test.ts
+  --maxWorkers=1 --testTimeout=15000` (7 tests). Typecheck, targeted ESLint/Prettier,
+  API generation/check, theme audit write/check, design detector and diff checks
+  passed. Build: `NEXT_DIST_DIR=tmp/purchase-bill-terms-build npm.cmd run build:web`.
+- The isolated production browser run passed 12 tests across
+  `purchase-payment-layout.spec.ts`, `purchase-flow-layout.spec.ts` and
+  `purchase-workflow.spec.ts`, filtered to `Supplier-driven|creates suppliers|
+  guides an authorized creator|Purchase stage context`. Includes axe, light/dark,
+  1440/768/390px payment layouts, 1440/390px bill layouts, real single/multi
+  payment approval and saving/approving/reopening a bill with 30-day terms.
+  Evidence remains under `tmp/purchase-payment-evidence/` and
+  `tmp/purchase-flow-evidence/`; results under `tmp/purchase-bill-terms-results/`.
+- Applied only procurement migration 5 to the existing local ERP and refreshed
+  web/API on 3000/4000 with automatic migrations disabled. Readiness and all
+  22 referenced web assets passed. No live business bill/payment was created or
+  approved during deployment. Receipt/return semantics remain separate pending work.
+
+## 2026-11-11 — Supplier-driven payment allocation and layout
+
+- Updated `purchase-document-form.tsx` and `purchase-payment-details.tsx`:
+  removed the payment bill-search field; supplier selection loads its approved
+  bills, including fully reserved bills. Checkboxes allocate open balances and
+  keep automatic gross totals; an explicitly entered gross amount caps subsequent
+  selections to its remaining amount. Partial amounts and discounts stay editable.
+  Fully reserved and incompatible-currency bills remain visible but cannot be
+  newly allocated. Supplier/currency changes clear incompatible selections, and
+  old pagination responses cannot replace the current supplier's bills.
+- Desktop now places approver, supplier and mailing address on the left, with
+  dates, currency, references, bank, mode and amounts on the right. Tablet/mobile
+  stack the panels above a keyboard-scrollable bill table. Added selected-row
+  emphasis, a selected count and a semantic net-bank summary. Scoped important
+  utilities counter legacy address-height and hovered-cell overrides. Existing
+  typography/theme tokens and shared controls remain; no stylesheet was retired.
+- Added optional `supplier_id` to the validated document-directory contract and
+  repository query, filtering before pagination under existing tenant/company
+  authorization. Documented the parameter and regenerated OpenAPI/client output
+  (the generic client signature remains unchanged). No migration, dependency,
+  permission grant or bank posting was added. Saved snapshots, approval/audit,
+  idempotency, multi-supplier minimums and the instruction-only boundary remain.
+  Status labels describe reservations accurately rather than asserting bank payment.
+- Verification passed: `npm.cmd run test:unit --
+  tests/unit/purchase-document-form.test.tsx tests/unit/purchase-payment-amounts.test.ts
+  --maxWorkers=1` (29 tests); `npm.cmd run test:integration --
+  tests/integration/procurement-workflow.test.ts` (22 tests, isolated database);
+  `npm.cmd run test:contract -- tests/contract/openapi.test.ts --maxWorkers=1
+  --testTimeout=15000` (7 tests); `npm.cmd run typecheck`; targeted ESLint/Prettier;
+  `npm.cmd run api:check`; `git diff --check`; and `npm.cmd run build:web` with
+  `NEXT_DIST_DIR=tmp/purchase-payment-layout-build`. Theme audit `--write` and
+  `--check` passed with no feature-view exceptions; the Impeccable scan was clear.
+- Browser checks passed: the six new `purchase-payment-layout.spec.ts` cases
+  cover light/dark at 1440/768/390px, automatic/partial/capped allocations,
+  disabled fully reserved/currency rows, supplier switching, pagination,
+  accessible labels, axe and overflow. Existing stage-layout checks passed four
+  cases; real isolated single/multi approval and guided Purchase workflows passed
+  two cases. An initial overlapping browser run collided in the default trace
+  output; a separate run also hit the existing route-handler cleanup race. The
+  final eight-case run passed using `--output tmp/purchase-payment-layout-results`.
+  Final screenshots: `tmp/purchase-payment-evidence/allocation-{light,dark}-{1440,768,390}.png`.
+- Refreshed the existing local web on 3000 and API on 4000 with their preserved
+  process configuration and automatic migrations disabled. Both are ready; web
+  assets were verified. No live business document was created or approved.
+  Receipt/return party semantics remain the separate pending design decision.
+
+## 2026-11-10 — Build and GitHub snapshot verification
+
+- User requested a production build, commit and push of the current ERP work to
+  `shoaib_nexora`. The existing branch matched `origin/shoaib_nexora` before
+  committing. The snapshot includes the accumulated Purchasing, Inventory,
+  Banking, Finance, shared UI, API/contracts/migrations and regression coverage.
+  Git ignores exclude build output, temporary runtime helpers and local secrets.
+- `npm.cmd run build` passed, including workspace type checking and the standard
+  Next.js production build. The standard build restored portable `.next` type
+  imports in `next-env.d.ts`; temporary build paths are not committed.
+- Initial full unit verification found outdated Inventory prototype-fixture and
+  portal-dialog selectors, plus an I/O timeout under parallel build/lint load.
+  Updated the two test harnesses without changing product behavior. The complete
+  `npm.cmd run test:unit -- --maxWorkers=4` rerun passed all 164 files/1,260 tests.
+- `npm.cmd run test:contract -- --maxWorkers=1 --testTimeout=15000` passed all
+  17 tests after the initial parallel OpenAPI snapshot read exceeded five seconds.
+  `npm.cmd run test:security` passed five runnable tests; 58 environment-dependent
+  tests were skipped. API generation, route catalogue, theme and staged whitespace
+  checks passed. Credential-pattern review found no matches in candidate files.
+- Repository-wide hygiene remains a known limitation: `npm.cmd run lint` reports
+  294 errors/four warnings, and `npm.cmd run format:check` reports 122 files.
+  Comparing every changed TS/TSX source with HEAD found 94 lint errors in both
+  revisions and no additional errors; other findings are in unchanged files.
+  No lint rules were disabled and no unrelated bulk formatting was performed.
+
+## 2026-11-10 — Payment approval without an entered reason
+
+- Removed the payment-only reason field, approval-blocking condition and repeated
+  Super Admin reason warning from `purchase-document-form.tsx`. Payment and
+  Multi-vendor Payment now use the same approval path as other Purchase forms.
+  Rejection and cancellation reveal their existing required reason/confirmation
+  only when selected. Action callbacks and shared button props remain compatible.
+- Removed the matching server rejection of blank payment approval reasons.
+  Existing default audit description and system-origin override evidence remain;
+  exact live permissions, assignment, self-approval/override, impersonation,
+  lifecycle/version/idempotency and allocation/posting checks are unchanged.
+  Updated contract documentation and regenerated client/OpenAPI. No migration,
+  dependency, stylesheet, permission grant or financial posting was added.
+- Verification: 34 form/workflow unit tests, 21 Purchase integration tests and
+  6 OpenAPI contract tests passed. Integration coverage includes normal single/
+  multi approvals without text, Super Admin approval/override audit/replay for
+  both payment kinds, rejection/cancellation validation and concurrent limits.
+  Typecheck, targeted ESLint/Prettier, API generation check, theme audit and diff
+  check passed. Isolated production build
+  `NEXT_DIST_DIR=tmp/purchase-payment-approval-build` passed. The targeted browser
+  run of `purchase-workflow.spec.ts` and `purchase-flow-layout.spec.ts`, with
+  grep `creates suppliers|guides an authorized creator|Purchase stage context`,
+  passed six tests: real single/multi approval with no reason input, guided flow,
+  and light/dark 1440/390px stage layouts. No source style overrides were added;
+  the Impeccable detector returned no findings.
+- Refreshed the existing local ERP web PID 72532 on 3000 and API PID 43292 on
+  4000, preserving configuration and the instruction-only boundary. No business
+  voucher was approved or changed in the live local database. Web/API readiness
+  and all 22 referenced static assets returned HTTP 200. The temporary 3227
+  preview was stopped. No migration was required. The earlier receipt/return
+  party clarification remains the safe resume point for that separate work.
+
+## 2026-11-10 — Shared Purchase payment fields
+
+- Added `purchase-payment-details.tsx` and extended the existing document form:
+  searchable company bank and supplier selectors; complete mailing addresses;
+  per-supplier gross amount, mode, reference, WHT percentage, additional WHT,
+  calculated WHT/net bank amount and unallocated balance. Outstanding bills now
+  show dates, identifiers, invoice reference, due date, original/open amounts,
+  discount, payment, settled total and totals footer. No stylesheet was added.
+- Procurement contracts/generated client/OpenAPI, repository and additive
+  migration 4 persist the details and canonical masked bank/supplier snapshots.
+  Server decimal checks include discounts in reservation caps and prevent excess
+  allocations/withholding. Legacy edits omitting new fields preserve them.
+  Multi-vendor saves/approvals remain one atomic document. Existing codes,
+  exact scoped permissions, audit/version/idempotency and instruction-only
+  accounting boundary are preserved. Exports include supplier payment rows.
+- Confirmed both partial and full linked returns. Receipt/return voucher menus,
+  source links and balance effects remain unfinished pending whether VCR means
+  a supplier refund or a customer receipt; no placeholder financial actions were
+  introduced. WHT is a transaction-entered percentage of gross with half-up
+  cent rounding; no statutory rates or prototype tax data were introduced.
+- Verification so far: full `npm.cmd run typecheck`, 59 focused unit tests,
+  34 Purchase/migration integration tests, 6 OpenAPI contract tests,
+  `npm.cmd run api:check`, targeted ESLint/Prettier, Impeccable detector (empty),
+  required theme audit and isolated production build
+  `NEXT_DIST_DIR=tmp/purchase-payment-details-build` passed. The final full
+  Purchase browser command (both `purchase-workflow.spec.ts` and
+  `purchase-flow-layout.spec.ts`, one worker, isolated local database/API)
+  passed all 13 tests, including save/reopen, full encrypted-profile mailing
+  addresses, keyboard access, Axe, 1440/768/390px and light/dark. Initial test
+  runs exposed a save/reload test race and a skipped batch heading level; the
+  test now waits for the saved record URL and supplier headings use h2.
+  Evidence: `tmp/purchase-workflow-evidence/payment-{light,dark}-{width}.png`.
+- Applied only Procurement migration 4 to the existing local ERP; no business
+  vouchers or permissions were changed. Refreshed local web PID 40568 on 3000
+  and API PID 60760 on 4000 with existing configuration (automatic global
+  migrations disabled on that API process to avoid unrelated pending changes).
+  Web/API readiness and all 22 referenced static assets returned HTTP 200.
+  The temporary 3227 preview was stopped. Theme `--check` and diff checks pass
+  (the existing migration-document CRLF normalization warning remains).
+- Source shape: fonts and colors use existing controls/tokens in light/dark;
+  no direct font or color exceptions were introduced. Safe resume: resolve the
+  pending receipt-party question, then implement linked partial/full money
+  returns and both requested four-category menus against the real API.
+
+## 2026-11-10 — Receive Products action wording
+
+- Updated `purchase-document-actions.tsx` and its form caller: the receipt's
+  combined draft action and primary decision say Receive Products; its close
+  action says Receive & Close. The toolbar is an accessible labelled group.
+  Other stages keep their existing labels.
+- Existing callbacks, receipt matching, inherited approver, access checks,
+  lifecycle/audit/version/idempotency and posting boundaries are unchanged.
+  The first action continues to Bill when allowed; the second closes explicitly.
+  Updated existing browser locators to target the toolbar and avoid confusing
+  the stage-navigation Receive Products action with receipt confirmation.
+  Shared Tailwind/shadcn controls, fonts and semantic colors are retained.
+  No API/schema, stylesheet or dependency change is required.
+- Verification: 22 existing form/tracker unit tests passed. Targeted ESLint,
+  Prettier, Impeccable detector, required theme audit `--write`/`--check`,
+  `git diff --check` and production build with
+  `NEXT_DIST_DIR=tmp/purchase-receive-label-build` passed.
+- Targeted browser run passed six tests with existing preview/local bootstrap:
+  `npx.cmd playwright test tests/e2e/purchase-workflow.spec.ts tests/e2e/purchase-flow-layout.spec.ts --workers=1 --max-failures=1 --grep 'creates suppliers|guides an authorized creator|Purchase stage context'`.
+  Exercises Receive & Close in independent receipt decisions, Receive Products
+  in the assigned-creator path through Bill, and existing light/dark desktop/
+  phone layout and accessibility checks. No API restart or migration is needed.
+- Active web PID 22904 serves `tmp/purchase-receive-label-build` on port 3000;
+  API PID 56644 on port 4000 is preserved. Readiness and all 22 referenced static
+  assets returned 200. Preview PID 29536 was stopped. Refresh the helper's
+  pre-activation PID/build assertions before a future activation.
+
+## 2026-11-10 — PR approver inheritance and approval without reason entry
+
+- Changed `purchase-document-form.tsx` and `purchase-document-actions.tsx`:
+  approver selection is shown on editable PRs only in Request-to-Bill. Later
+  forms inherit the PR approver and show no selector or approval-reason input.
+  Authorized normal and Super Admin approval buttons work without entering text.
+  Reject/Cancel disclose a separate reason and explicit confirmation on demand.
+  Existing payment-instruction approver/reason behavior is retained.
+- `SourceProcurementRepository` resolves the PR assignment through a bounded,
+  company/tenant-scoped ancestor lookup on document reads/saves/actions. An
+  explicit downstream reassignment is rejected. Legacy flows without a PR
+  assignment fall back to the earliest assigned ancestor; unchanged legacy draft
+  assignments normalize when saved. Submitted records enforce the effective
+  assignment when acting and audit the resulting assignment and decision in one
+  new version. No historical record, code or audit event is rewritten directly.
+- Updated the compatible Purchase action/document contracts and regenerated
+  client/OpenAPI artifacts. Approval accepts an omitted/empty reason; the server
+  supplies a factual description for immutable workflow/change/override evidence.
+  Override metadata identifies a system-generated reason. Shared override
+  authority/writer checks are unchanged. Rejection/cancellation and payment
+  approval still require reasons. No migration, grant or dependency was added.
+- Access, live actor/assignment checks, self-approval/override authority,
+  CSRF/version/idempotency, supplier/product snapshots, exports, stage navigation
+  and posting boundaries are preserved. Shared Tailwind/shadcn controls and
+  semantic tokens are retained; no stylesheet was added or retired.
+- Verification: 39 focused unit, 18 Procurement integration and six
+  OpenAPI contract tests passed. Includes full inherited-assignment chain,
+  attempted reassignment, wrong actor, automatic Super Admin evidence/replay,
+  missing payment reason, PR-only selector and rejection confirmation. Type
+  checking, targeted lint/formatting, generated API consistency, theme audit and
+  production `NEXT_DIST_DIR=tmp/purchase-pr-approver-build` passed.
+- Final browser command with explicit local test bootstrap and existing preview:
+  `npx.cmd playwright test tests/e2e/purchase-workflow.spec.ts tests/e2e/purchase-flow-layout.spec.ts --workers=1 --max-failures=1`
+  passed 13 tests. Covers one PR selection through the complete assigned-creator
+  flow, independent approval without text, supplier carry-forward, payment
+  boundaries, partial receipts and light/dark 1440/768/390px forms. No Axe
+  violations were reported on tested surfaces. Evidence remains in
+  `tmp/purchase-flow-evidence/` and `tmp/purchase-workflow-evidence/`.
+- Activated web PID 18720 on port 3000 and API PID 56644 on port 4000. Readiness
+  returned 200 and all 22 referenced assets loaded. Preview PID 72852 was stopped.
+  Safe resume: current build is `tmp/purchase-pr-approver-build`; refresh runtime
+  helper old-process assertions before further activation. No migration remains.
+
+## 2026-11-10 — One searchable RFQ Supplier field
+
+- Replaced the RFQ invitation checklist in `purchase-document-form.tsx` with
+  `purchase-rfq-supplier.tsx`, using the shared `SearchableSelect` and bounded
+  `usePurchaseDirectory` hook. The Supplier dropdown contains name/code search,
+  loading/error/retry states and pagination. Inactive/blocked suppliers remain
+  unavailable. The RFQ no longer has a separate search row; the approved Purchase
+  Request dropdown contains its own search and continuation action.
+- The RFQ editor selects one supplier, persists its supplier ID plus the compatible
+  single invitation ID, and carries that supplier into its Order. Changing the
+  Purchase Request preserves the selected supplier while copying source lines.
+  Historical multi-supplier RFQs keep all saved selections on unrelated edits;
+  explicitly selecting a Supplier replaces that list. A sole historical invitation
+  also carries into the Order. No API/schema migration or dependency was added.
+- Existing access checks, lifecycle actions, audit/version/idempotency behavior,
+  product snapshots/export columns and posting boundaries are preserved. Shared
+  font/color tokens and controls are reused; no stylesheet was added or retired.
+- Verification: 36 focused unit tests and 17 Procurement integration tests passed,
+  including missing supplier validation, historical RFQ preservation and rejection
+  of an Order with a different supplier. `npm.cmd run typecheck`, targeted ESLint,
+  Prettier, `npm.cmd run api:check`, the Impeccable detector, theme audit
+  `--write`/`--check` and `git diff --check` passed. Production build passed with
+  `NEXT_DIST_DIR=tmp/purchase-rfq-supplier-build`.
+- Browser command with explicit existing preview and local bootstrap:
+  `npx.cmd playwright test tests/e2e/purchase-workflow.spec.ts tests/e2e/purchase-flow-layout.spec.ts --workers=1 --max-failures=1`
+  passed 13 tests. The real-API flow persists the single supplier and checks the
+  inherited Order supplier. RFQ tests at 1440/768/390px in light/dark themes use
+  embedded supplier/Request searches, replace one selected supplier with another,
+  preserve it while choosing a Request, copy source lines, check page overflow
+  and report no Axe violations on the tested form. Evidence:
+  `tmp/purchase-workflow-evidence/rfq-supplier-{theme}-{width}.png`.
+- Activated locally on port 3000 (web PID 52768); API PID 39220 on port 4000 was
+  preserved. Web/API readiness returned 200 and all 22 referenced static assets
+  returned 200. Preview PID 60484 was stopped. Safe resume: active build is
+  `tmp/purchase-rfq-supplier-build`; refresh the helper's old-process assertions
+  before any future activation. No migration remains.
+
+## 2026-11-10 — Compact stages and immediate assigned creator approval
+
+- Updated `purchase-document-form.tsx`, `purchase-document-actions.tsx` and
+  `purchase-flow-header.tsx`. Authorized assigned creators can explicitly Save,
+  Approve & Continue through Request/RFQ/Order/Receive Products/Bill. Save Draft
+  and Submit for Approval retain their separate meanings. Existing submitted
+  records also allow immediate permitted assigned creator approval.
+- Ordinary assigned self-approval uses the displayed standard audit reason when
+  no reason is entered. Super Admin overrides still require an entered reason.
+  Independent approval, rejection, cancellation and payment instructions retain
+  their reason requirements. Server permissions, audit, CSRF, versioning and
+  posting boundaries are preserved; no policy grants or API/schema changes.
+- Partial submission/approval failures retain the submitted document and reuse
+  the approval retry key. Added regression coverage for this recovery, explicit
+  override reasons and the payment boundary.
+- Stage cards use one action row with labelled, titled plus buttons for another
+  record. Desktop cards measure about 94px high; the responsive card dimensions,
+  keyboard table scrolling, mixed receipt statuses and no page overflow are
+  checked in light/dark browser fixtures. Evidence remains under
+  `tmp/purchase-flow-evidence/`. Shared semantic fonts/colors and controls are
+  retained; no stylesheet, dependency or shared primitive was added or retired.
+- Verification: 33 focused unit tests, 16 Procurement integration tests and six
+  OpenAPI contract tests passed. `npm.cmd run typecheck`, targeted ESLint,
+  Prettier, the Impeccable detector, theme audit `--write`/`--check`,
+  `git diff --check` and production `npm.cmd run build:web` passed. Final isolated
+  build: `NEXT_DIST_DIR=tmp/purchase-compact-flow-build`.
+- Final browser command, with explicit local bootstrap and existing preview:
+  `npx.cmd playwright test tests/e2e/purchase-workflow.spec.ts tests/e2e/purchase-flow-layout.spec.ts --workers=1 --max-failures=1`
+  passed 13 tests. Includes real-API assigned creator submission/approval through
+  Bill, separate export columns, independent/payment workflows and light/dark
+  1440/768/390px forms. The final Bill assertion waits for Approved rather than
+  treating the intermediate Submitted state as completed approval. Axe checks
+  reported no violations on the tested surfaces.
+- Activated this build on local port 3000 (web PID 64860); existing API PID 39220
+  on port 4000 was preserved. Web/API readiness returned 200 and all 22 referenced
+  static assets loaded successfully. Temporary preview PID 72024 was stopped.
+  Safe resume: current active build is `tmp/purchase-compact-flow-build`; runtime
+  helper activation PID assertions describe the pre-activation process and must
+  be refreshed before any future activation. No further migration is required.
+
+## 2026-11-10 — One Purchase workflow workspace
+
+- Refined `purchase-document-form.tsx` and `purchase-workspace.tsx` around one
+  consistent workspace. Added `purchase-flow-header.tsx`,
+  `purchase-document-actions.tsx`, `use-purchase-flow.ts` and feature-owned stage
+  labels/helpers. The five-stage Request/RFQ/Order/Receive Products/Bill tracker
+  shows the active form, root Request code and actual per-stage status counts.
+  A separate document-state strip and lifecycle toolbar stay at the top. No
+  shared palette, font, feature stylesheet or dependency was added or retired.
+- Each stage opens its existing records or prepares an eligible source-linked
+  form. Multiple records open a chooser, and bounded pagination supports larger
+  flows. Partial receipts and multiple bills remain separate; an approved receipt
+  is not described as full completion. Refresh status reloads the active document
+  without leaving the workspace. Stage switching/refresh guard unsaved edits.
+  Submission to another approver stays open; final Approve Bill stays on the Bill.
+  Close and Approve & Close remain explicit exits.
+- Added documented/generated `GET /api/v1/procurement/documents/{id}/flow` in the
+  existing API/contracts boundary. It follows ancestry to the root Request and
+  returns paginated summaries plus counts for the complete tree, enforcing live
+  tenant/company read authority. Tokens bind root/company/tenant/page size.
+  No database migration or new permission is required for this refinement.
+- Existing creation/decision permissions, maker-checker/self-approval rules,
+  reasons, idempotency, optimistic versions, audit evidence, approved-document
+  immutability, source copying, receipt/bill matching and CSV/print code-name
+  separation are preserved. Stock/AP/GL/bank execution remains outside this UI.
+- Corrected inherited list markers with scoped Tailwind resets. Read-only table
+  scroll containers are labelled and keyboard-focusable outside the disabled
+  control fieldsets; line inputs, metadata, notes and add/remove controls remain
+  locked. Two opening-tag-only `jsx-a11y/no-noninteractive-tabindex` exceptions
+  document the WCAG 2.1.1 scroll-region requirement. They do not suppress descendant
+  checks or browser accessibility tests.
+- Verification: `npm.cmd run test:unit --
+  tests/unit/purchase-document-form.test.tsx tests/unit/purchase-flow-header.test.tsx
+  tests/unit/purchase-workflow.test.ts tests/unit/purchase-export.test.ts
+  tests/unit/purchase-suppliers.test.tsx` passed **30 tests**; final focused form
+  and tracker reruns passed **10** and **4** tests. `npm.cmd run test:integration
+  -- tests/integration/procurement-workflow.test.ts` passed **16 tests**, including
+  ancestry from Bill, exact partial-receipt counts, unrelated-flow exclusion,
+  scoped pagination and permission/company/tenant boundaries. `npm.cmd run
+  test:contract -- tests/contract/openapi.test.ts` passed **6 tests**.
+- `npm.cmd run typecheck`, targeted ESLint/Prettier, `npm.cmd run api:check`,
+  theme audit `--write`/`--check` and `git diff --check` passed. Audit: 114 feature
+  view sources, zero direct font/colour exceptions; the design detector returned
+  `[]`. `$env:NEXT_DIST_DIR='tmp/purchase-flow-workspace-build'; npm.cmd run
+  build:web` passed with TypeScript.
+- With existing-web mode on port 3227, `NEXORA_PURCHASE_E2E=true` and an explicit
+  disposable local bootstrap database, `npx.cmd playwright test
+  tests/e2e/purchase-workflow.spec.ts tests/e2e/purchase-flow-layout.spec.ts
+  --workers=1` passed **13/13**. Tests cover the full real API/database workflow,
+  keeping final Bill approval in place, reopening previous stages, chooser behavior,
+  both themes at desktop/tablet/phone widths, keyboard table scrolling, separate
+  CSV/print columns and zero axe violations. The final Bill assertion waits for
+  the asynchronous approval instead of relying on navigation to another page.
+- Reviewed desktop/phone Bill screenshots in `tmp/purchase-flow-evidence/`.
+  The verified web build is active on port 3000, API readiness on port 4000 is
+  HTTP 200, all 22 referenced assets are available, and the preview was stopped.
+  Safe resume: refresh Purchases and open any linked Request-to-Bill record.
+
+## 2026-11-10 — Purchase product identity and guided approval
+
+- Updated `purchase-document-form.tsx` with searchable product code/name and
+  company approver controls, using the existing shared searchable selector,
+  shadcn controls and semantic Tailwind tokens. Descriptions remain independent.
+  Product identity/code/name/unit are resolved by the API and retained through
+  linked RFQ, Order, Receipt and Bill snapshots. Custom/service and historical
+  lines remain supported. No stylesheet was added or retired.
+- Save Draft and the existing independent submission/approval path are retained.
+  Save & Continue submits and opens explicit self review when the selected actor
+  has authority; another approver leaves a submitted record in the register.
+  Approve & Continue opens the next source-linked form. Reasons, version checks,
+  idempotency, impersonation restrictions, audit evidence and receipt/bill quantity
+  matching remain enforced. No stock, AP, GL or bank execution was introduced.
+- Procurement migration 3 adds nullable assigned approvers and the explicit
+  `procurement.document.self_approve` permission catalogue entry. It grants no
+  roles implicitly. The API rechecks live company scope and maker history;
+  ordinary self-approval and audited Super Admin override stay distinct. Legacy
+  updates omitting approver assignment retain it. Product/approver directories
+  are bounded and their continuation tokens bind company, tenant and filters.
+- Purchase document and loaded-register CSV exports now use saved API data,
+  including the shell export action. Product Code, Product Name and Description
+  are separate columns; spreadsheet formula prefixes are neutralized. CSV opens
+  in Excel; native XLSX generation is not added. Print/browser PDF columns also
+  separate code and name. Register exports explicitly cover loaded rows.
+- Verification passed: **24 unit**, **30 database/migration**, **6 contract**
+  tests; the additional assigned-approver compatibility assertion passed in a
+  focused rerun. Exact commands: `npm.cmd run test:unit --
+  tests/unit/purchase-document-form.test.tsx tests/unit/purchase-workflow.test.ts
+  tests/unit/purchase-export.test.ts tests/unit/purchase-suppliers.test.tsx`,
+  `npm.cmd run test:integration -- tests/integration/procurement-workflow.test.ts
+  tests/integration/postgres-migrations.test.ts`, and `npm.cmd run test:contract
+  -- tests/contract/openapi.test.ts`. `npm.cmd run typecheck`, targeted ESLint and
+  Prettier, `npm.cmd run api:check`, `git diff --check`, and theme audit
+  `--write`/`--check` passed (114 feature views, zero direct font/colour exceptions).
+  The design detector returned `[]`.
+- `$env:NEXT_DIST_DIR='tmp/purchase-guided-approval-final-build'; npm.cmd run
+  build:web` passed. With `PLAYWRIGHT_USE_EXISTING_WEB=true`,
+  `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3225`, `NEXORA_PURCHASE_E2E=true` and the
+  explicit disposable local bootstrap database, `npx.cmd playwright test
+  tests/e2e/purchase-workflow.spec.ts --workers=1` passed **9/9**. It exercises
+  the complete assigned self-review-to-Bill flow, explicit submitted/approved
+  database states, separate CSV/print columns, retained independent approvals
+  through payment instructions, and light/dark layouts at 1440/768/390px. Purchase
+  Request and Supplier axe checks had zero violations. A previous teardown race
+  and an ambiguous native-option test locator were corrected before the final run.
+- Reviewed desktop/phone screenshots in `tmp/purchase-workflow-evidence/`.
+  The additive migration is applied to the verified local ERP service database;
+  the final web build is active on port 3000 and API readiness on port 4000 is
+  HTTP 200. Safe resume: refresh Purchases; grant the new self-approval permission
+  only to intended users with approval and company access through governed role
+  administration. Existing Super Admin override authority remains available.
+
+## 2026-11-08 — Compact Journals header
+
+- `finance-journals-workspace.tsx` removes the duplicate Home/Finance breadcrumb,
+  introductory prose, oversized currency badge and persistent precision-help row.
+  A compact Journals title, base currency and inline Company/Decimals/New Journal
+  controls replace the tall introductory area. The shell breadcrumb remains.
+  The precision guidance remains associated with its control for screen readers
+  and is available as a native tooltip. Controls reflow on narrow screens.
+- Company scope, currency context, decimal preference persistence, entry/posting
+  precision, create permissions, Transactions/Recurring tabs and the full Journal
+  editor are preserved. No API, database, shared palette or stylesheet changes.
+- `npm.cmd run test:unit -- tests/unit/finance-journals-workspace.test.tsx
+  tests/unit/finance-journal-form.test.ts` passed **16/16**. Targeted ESLint,
+  Prettier, `git diff --check`, theme audit `--write`/`--check` and the design
+  detector (`[]`) passed. No new font/colour exception was introduced.
+- `$env:NEXT_DIST_DIR='tmp/journal-compact-header-build'; npm.cmd run build:web`
+  passed with TypeScript. With existing-web mode on local port 3224,
+  `npm.cmd run test:e2e -- tests/e2e/finance-journal-layout.spec.ts --max-failures=1`
+  passed **10/10** in light/dark at 1440/768/559/390/320px. Tests verify the
+  compact header height (at most 48px on desktop, 80px on tablet and 124px on
+  phones), retained company/decimal controls, zero axe violations in the header
+  and editor, and the previous full-form/line/unsaved-change behavior. No API
+  writes occurred. The drawer bounds check waits for its opening animation.
+- Header screenshots in `tmp/journal-layout-evidence/header-*.png` were reviewed
+  on desktop light/dark and phone light. The verified build is active on port
+  3000 (HTTP 200), and the preview was stopped. Safe resume: refresh Journals.
+
+## 2026-11-07 — Full Manual Journal form visibility
+
+- `finance-journals-workspace.tsx` now overrides the Sheet's side-specific width
+  constraints, allowing the Journal drawer to use the viewport up to 80rem.
+  The previous ordinary width utilities lost to the shared side variants: the
+  browser regression reproduced a 384px form at a 1440px viewport.
+- Journal lines remain a six-column table on wide screens and stack into labelled
+  editable lines below 1280px. Debit, Credit, dimensions, removal, Add More and
+  save/cancel controls are reachable without sideways scrolling. Totals fit narrow
+  widths and identify debit/credit explicitly. The scrollable body has bounded
+  width and the header remains outside its vertical scroll.
+- `SheetContent` accepts optional `portalClassName`; only the Journal opts into
+  the existing 1300 overlay layer through a portal stacking context. This prevents
+  sidebar interception and keeps nested account dropdowns in the same layer.
+  Other Sheet users retain their defaults. No feature CSS was added or retired.
+- Validation messages use the full semantic destructive text colour; the inherited
+  90% colour blend failed contrast at 4.45:1 on the light surface. This is scoped
+  to the Journal error list and preserves the global palette.
+- Existing field values, draft/save APIs, decimal handling, account filtering,
+  required dimensions, add/remove handlers, permissions, lifecycle actions and
+  unsaved-change confirmation remain unchanged. No API, posting or database work
+  was required; browser checks intercept all API calls and prohibit writes.
+- `npm.cmd run test:unit -- tests/unit/finance-journals-workspace.test.tsx
+  tests/unit/finance-journal-form.test.ts` passed **16/16**. Targeted ESLint and
+  Prettier, `git diff --check`, theme audit `--write`/`--check`, and the design
+  detector (`[]`) passed. No new direct font/colour exception was introduced.
+  `$env:NEXT_DIST_DIR='tmp/journal-full-form-build'; npm.cmd run build:web`
+  passed with TypeScript.
+- With existing-web mode on local port 3222, `npm.cmd run test:e2e --
+  tests/e2e/finance-journal-layout.spec.ts --max-failures=1` passed **10/10**:
+  light/dark at 1440/768/559/390/320px, viewport bounds, all line fields,
+  account dropdowns, required dimensions, add/remove state, error visibility,
+  accessible save/cancel and unsaved-change confirmation. Axe reported no
+  violations. No API writes occurred. Screenshots are in
+  `tmp/journal-layout-evidence/`; desktop light, phone light and tablet dark
+  were visually reviewed.
+- The verified build is active on local port 3000 (HTTP 200); its temporary
+  preview was stopped. Safe resume: refresh Finance → Journals and open
+  New Journal. Backend posting behavior and shared Sheet defaults are unchanged.
+
+## 2026-11-06 — Detailed Purchase supplier profile
+
+- Suppliers is now the eighth visible Purchase submenu. `PurchaseSuppliers`
+  retains its bounded directory search and opens a dedicated editor composed by
+  `supplier-profile-fields.tsx`: Overview, Contacts & Addresses, Tax Details,
+  Payment Terms, Bank Accounts and Internal Notes. Direct Add Supplier routes
+  open the form; Save/Cancel return to the directory. No stylesheet was added or
+  retired. Existing shared controls, fonts and semantic theme tokens are reused.
+- Additional details persist through the versioned Procurement API and additive
+  Procurement 2 migration. Profiles containing banking details use the existing
+  configured encryption key with AES-256-GCM, including audit/retry storage.
+  Server-assigned SUP codes, permissions/company isolation, CSRF, optimistic
+  concurrency, idempotency, unsaved-change protection and purchase workflows
+  remain intact. Bank details do not execute payments; commercial terms are
+  reference information and do not rewrite purchase documents.
+- Focused `test:unit` runs for supplier profile/crypto/editor, purchase workflow,
+  purchase form and shell navigation passed **43/43**. `test:integration` for
+  procurement workflow and PostgreSQL migrations passed **27/27**; OpenAPI
+  `test:contract` passed **6/6**. Full `npm.cmd run typecheck`, targeted ESLint,
+  Prettier checks, API/catalogue checks and theme `--write`/`--check` passed.
+  `$env:NEXT_DIST_DIR='tmp/supplier-profile-release-build'; npm.cmd run build:web`
+  passed, including TypeScript. Theme audit retains zero direct exceptions across
+  114 feature views; no new shared exception was introduced.
+- Browser evidence is in `tmp/purchase-workflow-evidence/supplier-*.png`:
+  Overview, Bank Accounts and error states in light/dark at 1440/768/390px.
+  Desktop light Overview and mobile dark Bank Accounts were visually reviewed.
+  Tablet light errors and desktop dark Bank Accounts were also reviewed.
+  With `NEXORA_PURCHASE_E2E=true`, an explicit local bootstrap database and
+  existing-web mode on port 3220, `npm.cmd run test:e2e --
+  tests/e2e/purchase-workflow.spec.ts --max-failures=1` passed **8/8**. Includes
+  encrypted profile persistence/reload, direct-route Save/Cancel, the complete
+  Purchase workflow, no page overflow and zero axe violations in the supplier
+  form at all six theme/width combinations.
+  Browser checks exercise real API/SQL persistence with disposable local test
+  databases; no synthetic supplier is inserted into the service database.
+- Local Procurement 2 migration preserved existing supplier identities/versions
+  and all other module ledgers. Safe resume: refresh Purchase → Suppliers.
+  The verified release build is active on port 3000 and the updated API on 4000;
+  both returned HTTP 200 for readiness, and supplier access without a session
+  returned HTTP 401. Temporary previews were stopped.
+  Existing unrelated migrations and financial posting integrations remain outside
+  this batch.
+
+## 2026-11-06 — FX workflow and exchange-rate controls at the top
+
+- `banking-transfer-entry.tsx` now renders a single Workflow context section
+  directly below company/posting/value-date controls for every transfer layout.
+  Project, Location / City and Approver therefore precede the FX transfer fields.
+  `bank-fx-transfer-line.tsx` places the exchange-rate section directly below
+  its heading and above From/To accounts and amounts. DOM and keyboard order
+  follow the visible order; borders were moved with the sections.
+- Existing account filtering, quote/amount precision, estimates, saved evidence,
+  workflow state, charges, multiple lines, permissions and mutation callbacks
+  remain unchanged. No server, contract, database, CSS or financial-data change.
+- `npm.cmd run test:unit -- tests/unit/banking-transfer-entry.test.tsx` passed
+  **13/13**. Targeted ESLint, Prettier, `git diff --check`, theme audit
+  `--write`/`--check` and the design detector (`[]`) passed. Theme audit retains
+  zero direct feature exceptions across 114 views. Existing responsive browser
+  coverage now explicitly asserts a single workflow section above the FX quote,
+  and the FX quote above From Bank, for both themes at 1440/768/390px.
+- `$env:NEXT_DIST_DIR='tmp/fx-transfer-top-controls-build'; npm.cmd run build:web`
+  passed with TypeScript. With existing-web mode on port 3218,
+  `npm.cmd run test:e2e -- tests/e2e/bank-transfer-menu.spec.ts --max-failures=1`
+  passed **6/6**. Desktop/mobile screenshots in `tmp/bank-transfer-menu-evidence/`
+  were visually reviewed. Fixtures intercept API calls; no financial data writes.
+  The tested artifact is active and HTTP-ready on port **3000**; preview stopped.
+  Safe resume: hard refresh the FX transfer form. API and calculation logic remain
+  unchanged; no backend integration test was repeated for this layout-only change.
+
+## 2026-11-06 — FX transfer form aligned with the account-to-account reference
+
+- Added `BankFxTransferLine` for FX creation and existing cross-currency draft
+  editing: paired From/To account sections, source amount, read-only receiving
+  amount, editable forward rate, reciprocal quote, then mode/reference/date/detail.
+  Account controls use the existing bounded selector and same-company currency
+  filtering. Layout uses two columns on desktop/tablet and stacks on mobile.
+  Workflow context follows the FX amounts; company/posting/value-date controls,
+  optional source-currency bank charges and multiple lines remain available.
+- The receiving amount is a clearly labelled live estimate when an explicit
+  quote is entered. Blank quotes retain configured-rate fallback. The server
+  confirms saved receiving amounts and applies currency precision; the estimate
+  is never sent as financial evidence. Saved evidence is discarded when its
+  account pair, document date, amount or quote changes. Small reciprocal rates
+  show `< 0.01` with a detailed title rather than suggesting a zero rate.
+- `bank-transfer-entry.ts` owns reusable editable-line types, existing modes and
+  patterns, exact integer preview arithmetic, reciprocals and grouped totals.
+  Source totals now accumulate full eight-place amounts before display rounding.
+  Moved the unchanged two-decimal formatter from Finance into
+  `app/shared/lib/decimal-display.ts` because Banking now shares it. Source amounts
+  and rates still reach the API as the original strings, including 18-place quotes.
+  Approval, independent server revalidation, CSRF, idempotency, audit and posting
+  boundaries remain unchanged. Same-currency creation keeps its existing table.
+- Focused view/model/shared-display suites passed **50/50** using `npm.cmd run
+  test:unit -- tests/unit/banking-transfer-entry.test.tsx
+  tests/unit/bank-fx-transfer-preview.test.ts tests/unit/currency-rate-display.test.ts
+  tests/unit/finance-currencies-view.test.tsx`. The final FX suites passed **31/31**
+  again after the reciprocal display adjustment. Tests cover exact large totals,
+  invalid inputs, readonly estimates, metadata/fees, multiple lines, stale saved
+  evidence, account filtering and unchanged full-precision mutation payloads.
+- `npm.cmd run test:integration -- tests/integration/banking-transfers.test.ts`
+  passed **6/6** in disposable databases, including save/approval/post/reversal
+  controls. Targeted ESLint/Prettier, `git diff --check`, theme audit
+  `--write`/`--check` and the design detector (`[]`) passed. Theme audit remains
+  zero direct feature exceptions across 114 views. No CSS or server/contract/
+  schema change. TypeScript identified an unreachable FX-only message in the
+  preserved standard-transfer branch; removed it without casts or suppressions.
+- Preview browser checks with existing-web mode on port 3218 passed **12/12**:
+  `npm.cmd run test:e2e -- tests/e2e/bank-transfer-menu.spec.ts
+  tests/e2e/bank-transfer-policy-setup.spec.ts
+  tests/e2e/company-currency-rate-save.spec.ts --max-failures=1`.
+  These cover light/dark at 1440/768/390px, aligned amount fields, full-width
+  quote controls, two-decimal receiving estimates, no body overflow, setup
+  permissions and currency-rate saving. Fixtures intercept API calls; no real
+  company rate, transfer or journal was created. Desktop/mobile evidence under
+  `tmp/bank-transfer-menu-evidence/` was visually reviewed as one batch.
+- The final build `$env:NEXT_DIST_DIR='tmp/fx-transfer-form-build'; npm.cmd run
+  build:web` passed with TypeScript. After the small-inverse display adjustment,
+  `npm.cmd run test:e2e -- tests/e2e/bank-transfer-menu.spec.ts --max-failures=1`
+  passed **6/6** again. One desktop/mobile confirmation batch shows the final
+  rate display, aligned amounts and complete metadata/actions without body
+  overflow. Final formatting, theme audit `--check` and `git diff --check` passed.
+  The tested artifact is active on port **3000**, with its process/artifact and
+  HTTP readiness verified. The task preview on 3218 was stopped; API unchanged.
+  Safe resume: hard refresh, then Bank → Transfers → Add New → FX Transfer.
+
+## 2026-11-06 — Two-decimal currency rate display
+
+- Company currency list and immutable rate history now display exactly two
+  decimal places, including `1.00` for the base rate. Exact source rates remain
+  available in the cell title and in add/correction inputs. Small rates such as
+  `0.0036` display as `0.00` in read-only cells; they retain their original value
+  when edited, saved or used by the API. No stored rate or calculation changed.
+- `app/features/finance/lib/currency-rate-display.ts` rounds decimal strings
+  with integer arithmetic, avoiding floating-point errors even at the maximum
+  supported whole/fraction precision. The formatter is presentation-only.
+- `npm.cmd run test:unit -- tests/unit/currency-rate-display.test.ts
+  tests/unit/finance-currencies-view.test.tsx` passed **19/19**, covering decimal
+  padding, half-up rounding, carry, large rates, malformed values, two-decimal
+  list/history display, exact correction inputs and unchanged save payloads.
+- Targeted ESLint/Prettier, `git diff --check`, theme audit `--write`/`--check`
+  and the design detector (`[]`) passed. Theme audit retains zero direct feature
+  exceptions across 114 views. No CSS, contracts, server or database changes.
+- `$env:NEXT_DIST_DIR='tmp/currency-display-build'; npm.cmd run build:web` passed
+  with TypeScript. With existing-web mode, `npm.cmd run test:e2e --
+  tests/e2e/company-currency-rate-save.spec.ts --max-failures=1` passed **4/4** on
+  preview port 3218 and **4/4** on active port 3000. Typed/restored PKR entries
+  still submit `0.0036`, then reload as `0.00` with the full API value in the cell
+  title. Browser API calls use fixtures; no business records were created.
+  Desktop/mobile evidence: `tmp/currency-display-evidence/`, visually reviewed.
+  Preview stopped; build active on port 3000. Safe resume: hard refresh the
+  currency work page; add/correction inputs retain full precision.
+
+## 2026-11-06 — Recurring currency save: restored browser input
+
+- Reproduced a second disabled-button path with a failing view regression:
+  a browser-restored input value can be visible without an input/change event
+  updating React state. This is a verified failure mode; the user's actual
+  browser address/state could not be inspected because computer-use startup
+  failed in this session. Several older local ERP previews are still running.
+- `company-currencies-workspace.tsx` now uses native form submission and reads
+  the actual named rate/date controls through `FormData`. The button depends on
+  management permission, company/currency context and busy state; country is
+  still required for base setup/activation. Native required-field validation and
+  the shared request schemas block invalid submissions before the API call.
+  Decimal precision, CSRF, server authorization and idempotency are preserved.
+  Errors and restored entries remain inside the dialog after a failed save.
+- `npm.cmd run test:unit -- tests/unit/finance-currencies-view.test.tsx` passed
+  **9/9**. The restored-input test failed before the fix. Invalid zero, negative,
+  exponential and overprecision rates, missing dates, API conflicts, activation,
+  base setup and read-only access remain covered. Shared contract/authority tests
+  passed **13/13** with `npm.cmd run test:unit --
+  tests/unit/company-currency-contracts.test.ts
+  tests/unit/company-currency-authority.test.ts`.
+- `$env:NEXT_DIST_DIR='tmp/currency-rate-submit-build'; npm.cmd run build:web`
+  passed with TypeScript. Targeted ESLint/Prettier, theme audit `--write`/`--check`,
+  the design detector (`[]`) and `git diff --check` passed. Theme audit remains
+  zero direct feature exceptions across 114 views. No CSS, API, database schema
+  or permission changes were needed.
+- With `PLAYWRIGHT_USE_EXISTING_WEB=true` and the preview base URL on port 3218,
+  `npm.cmd run test:e2e -- tests/e2e/company-currency-rate-save.spec.ts
+  --max-failures=1` passed **4/4**. Light desktop and dark mobile cases each test
+  typed and restored **1 PKR = 0.0036 USD**, effective **2026-11-06**, exact request
+  values, dialog closure and refreshed data. Browser API calls use fixtures;
+  no actual company rate or bank transaction was created from the screenshot.
+  Evidence: `tmp/currency-rate-save-evidence/*-typed-ready.png` and
+  `*-restored-ready.png`, visually reviewed at desktop/mobile widths.
+- `npm.cmd run test:integration -- tests/integration/company-currencies.test.ts`
+  passed **7/7** against disposable databases, preserving persistence/audit,
+  authorization, base-currency locking and isolation checks. The tested build is
+  active on local port **3000**; the same browser command passed **4/4** again
+  with `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000`. The task preview on port 3218
+  was stopped. Existing API/runtime data and older unrelated previews were left
+  intact. Safe resume: open `http://localhost:3000/#/finance/currencies-fx`, hard
+  refresh, and save the desired rate through the authorized form. The user's
+  actual browser URL remains unconfirmed; older preview ports serve older builds.
+
+## 2026-11-06 — Currency rate Save and Close validation
+
+- Reproduced the disabled Add Rate button with a failing regression. Both the
+  click handler and disabled-button expression incorrectly required `countryCode`,
+  although the existing-currency rate dialog does not show a country selector.
+  This was form validation; existing rate-management permissions remain unchanged.
+- `company-currencies-workspace.tsx` now validates each form mode against its
+  actual shared request schema and management permission. Base/activation still
+  require country mapping; Add Rate requires company, currency, positive decimal
+  rate and a valid effective date. Rate-only users no longer fetch country mappings.
+  Failed saves retain the input and show actionable errors inside the open dialog.
+- The final focused view suite `npm.cmd run test:unit --
+  tests/unit/finance-currencies-view.test.tsx` passed **8/8**, including successful
+  country-free save, zero/negative/exponential-rate rejection, missing-date
+  rejection, in-dialog failure feedback, retained input and read-only restrictions.
+  Supporting currency contract and authority checks also passed in the initial
+  **20-test** run with `tests/unit/company-currency-contracts.test.ts` and
+  `tests/unit/company-currency-authority.test.ts`. `npm.cmd run test:integration --
+  tests/integration/company-currencies.test.ts` passed **7/7** in disposable databases.
+- `$env:NEXT_DIST_DIR='tmp/currency-rate-save-build'; npm.cmd run build:web` passed
+  including TypeScript. Targeted ESLint/Prettier and `git diff --check` passed;
+  theme audit `--write` and `--check` retain zero direct feature exceptions across
+  114 views, and the design detector returned `[]`. No CSS, API contract, server
+  permission, database schema or financial-period changes were required.
+- `npm.cmd run test:e2e -- tests/e2e/company-currency-rate-save.spec.ts
+  --max-failures=1` with existing-web mode passed **2/2** on port 3217 and **2/2**
+  after activating the same artifact on port 3000. Light desktop and dark mobile
+  checks use the user's exact screenshot values, **1 PKR = 0.0036 USD**, effective
+  **2026-11-05**. They verify enabled Save and Close, the exact request, dialog
+  closure, refreshed work-page data and no country lookup. An initial browser
+  selector omitted the required-field marker; corrected and rerun. Browser reads
+  and writes are intercepted fixtures; no company valuation rate or transaction
+  was silently created from the screenshot. Evidence: `tmp/currency-rate-save-evidence/`.
+- The fixed web artifact is active locally; the existing API remains unchanged.
+  The task preview was stopped. Safe resume: refresh the user's currency page,
+  re-enter the desired rate/date and save through the normal authorized API.
+
+## 2026-11-06 — Company Transfer/FX policy configuration and setup diagnostics
+
+- Configured the actual **R06-UAT** company policy through the existing authorized
+  repositories using the live Super Admin account. Mappings are **420106 Currency
+  Exchange Gains** (revenue), **710707 Realised Exchange Losses**, **710705 Round
+  Off**, and **710702 Bank Charges** (expenses), with base-currency rounding
+  tolerance **0.01**. All four accounts are active. The existing loss/rounding
+  drafts were explicitly reviewed as ordinary and activated with audit history;
+  Bank Charges was reused. Only the missing revenue gain account was created.
+  Existing unrelated draft accounts, codes and classifications were preserved.
+- Actual policy version is **1** with one immutable policy event. Read-only
+  verification confirms zero transfers and zero journals: no financial bank
+  transaction was created or posted by this setup work.
+- Transfer options now expose optional `fx_policy_configured` in the shared
+  contract/OpenAPI. The form explains missing setup before saving, provides
+  authorized Finance navigation and a Refresh setup action, and blocks mutations
+  while setup is missing or refreshing. Refresh preserves entered form values;
+  company-option requests ignore stale responses. Older option fixtures/clients
+  that omit the new field remain compatible. Server enforcement remains mandatory.
+- Missing valuation-rate errors identify the currency pair and effective date,
+  explain the company setup location and distinguish the entered bank quote from
+  the valuation rate. Finance policy saves now display actionable API errors.
+- `npm.cmd run test:unit -- tests/unit/banking-transfer-entry.test.tsx
+  tests/unit/banking-api-router.test.ts tests/unit/banking-contracts.test.ts
+  tests/unit/bank-payment-shell-navigation.test.tsx` passed **60/60**.
+  `npm.cmd run test:integration -- tests/integration/banking-transfers.test.ts
+  tests/integration/finance-currencies.test.ts` passed **7/7** in disposable
+  databases; this includes policy readiness, persistence/audit, missing-rate
+  diagnostics and the FX approval/posting/reversal lifecycle. `npm.cmd run
+  test:contract -- tests/contract/openapi.test.ts` passed **6/6**.
+- `npm.cmd run typecheck`, `npm.cmd run api:check`, targeted ESLint and Prettier,
+  `git diff --check`, and the production build with
+  `$env:NEXT_DIST_DIR='tmp/transfer-policy-build'; npm.cmd run build:web` passed.
+  Theme audit `--write`/`--check` reported zero direct feature exceptions across
+  114 views; the design detector returned `[]`. No CSS or schema migration was added.
+- With `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3216` and
+  `PLAYWRIGHT_USE_EXISTING_WEB=true`, `npm.cmd run test:e2e --
+  tests/e2e/bank-transfer-menu.spec.ts tests/e2e/bank-transfer-policy-setup.spec.ts
+  --max-failures=1` passed **8/8**. Browser API reads were fixtures and writes were
+  blocked. Existing FX light/dark and responsive checks remain; new administrator
+  and maker checks cover setup permissions, disabled saving and refresh without
+  losing input. Final active-port setup smoke passed **2/2** using
+  `npm.cmd run test:e2e -- tests/e2e/bank-transfer-policy-setup.spec.ts
+  --max-failures=1`. Evidence: `tmp/bank-transfer-menu-evidence/policy-setup-*.png`.
+- Updated API and web artifact are active on local ports 4000 and 3000; task
+  previews were stopped. No role grants, accounting periods or exchange-rate
+  values were changed. Database module heads remain unchanged.
+- **Remaining actual prerequisites:** PKR is active but has no approved company
+  valuation rate to USD (and no existing tenant PKR rate to reuse). The user was
+  asked for the approved quote and effective date; no illustrative or market
+  rate was invented. November 2026 is `soft_close`, while October remains open.
+  Preserve these accounting controls until the owner explicitly requests the
+  period workflow. FX drafts still require the approved valuation rate; posting
+  additionally requires an eligible accounting period. Safe resume: apply the
+  supplied rate using `SourceFinanceCurrencyRepository.createCompanyCurrencyRate`,
+  preserving the source-to-base direction and date, then verify the transfer path.
+
+## 2026-11-06 — Entered exchange rates on FX Transfers
+
+- FX lines now expose an optional **Exchange rate** field with an explicit quote
+  direction: **1 source currency = entered rate destination currency**. It sits
+  in a compact area below the line. Changing either bank clears the quote; edits
+  restore the saved rate. Blank retains the existing configured-rate behavior.
+  Saved receiving-amount evidence is invalidated when the entered rate changes.
+- `conversion_rate` is an optional positive decimal string with up to 20 integer
+  and 18 fractional digits in the shared Transfer input/output contract and
+  regenerated OpenAPI. Existing clients can omit it. The API calculates the
+  receiving amount with exact decimal arithmetic and destination-currency rounding.
+  It rejects same-currency quotes, amounts that round to zero and significant
+  precision beyond the currency's supported scale.
+- Governed source/destination rates continue to value the bank movements in the
+  company base currency. The difference follows the existing FX gain/loss or
+  rounding policy; bank charges remain separate in source currency. Entering a
+  quote does not change the company currency-rate master or bypass approval.
+- Additive Finance migration **36** adds nullable `bank_transfer_line.conversion_rate`
+  and immutable `bank_transfer_event.fx_evidence` snapshots. A database trigger
+  checks that a quoted receiving amount matches the exact rate. Existing records
+  retain null quotes; historical event facts are not rewritten. Existing tenant
+  isolation, company scope, CSRF, idempotency, versioning and lifecycle guards remain.
+- Header-only draft edits exposed two existing round-trip issues, now fixed in
+  the Transfer repository: SQL date-only values remain text to avoid timezone
+  shifts, and insignificant trailing zeros are normalized before native-currency
+  precision validation. Directory ordering still uses the underlying indexed date.
+- `npm.cmd run test:unit -- tests/unit/bank-transfer-conversion-contract.test.ts
+  tests/unit/banking-transfer-entry.test.tsx tests/unit/banking-transfer-detail.test.tsx
+  tests/unit/banking-transfer-service.test.ts tests/unit/banking-transfers-list.test.tsx
+  tests/unit/banking-api-router.test.ts tests/unit/banking-contracts.test.ts
+  tests/unit/bank-transfer-routing.test.ts` passed **79/79**.
+- `npm.cmd run test:integration -- tests/integration/banking-transfers.test.ts`
+  passed **5/5**, including negotiated gains/losses, immutable quotes, inconsistent
+  receiving-amount rejection, audit evidence, header-only edit preservation,
+  idempotency, posting and reversal in disposable databases. The PostgreSQL
+  migration suite `tests/integration/postgres-migrations.test.ts` passed **15/15**.
+  Initial runs caught missing migration registration, an incorrect replay-flag
+  test assumption and the two round-trip defects above; corrected and rerun.
+- `npm.cmd run test:contract -- tests/contract/openapi.test.ts` passed **6/6**.
+  With the explicit local test database, `npm.cmd run test:security --
+  tests/security/bank-transfer-database-security.test.ts` passed **3/3**.
+  `npm.cmd run typecheck`, final API compilation, `npm.cmd run api:check`, targeted
+  ESLint and Prettier passed. The production build with
+  `$env:NEXT_DIST_DIR='tmp/bank-fx-rate-final-build'; npm.cmd run build:web` passed.
+- Theme audit `--write` and `--check` report zero direct feature-view exceptions
+  across 114 views. The design detector returned `[]`; no CSS was added or retired.
+  Only Finance advanced in the actual local database, from 35 to 36; HR remains
+  at the established 131 baseline and all other module heads are unchanged.
+- With `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3215` and
+  `PLAYWRIGHT_USE_EXISTING_WEB=true`, `npm.cmd run test:e2e --
+  tests/e2e/bank-transfer-menu.spec.ts --max-failures=1` passed **6/6** against the
+  final artifact. It covers the entered quote, explicit direction, compact row,
+  both creation choices and currency filtering in light/dark at 1440/768/390px.
+  The mobile transaction table retains its existing horizontal scroll behavior.
+  Browser reads use fixtures and writes are blocked; lifecycle posting tests use
+  disposable databases. Evidence: `tmp/bank-transfer-menu-evidence/`.
+- The verified artifact is active on port 3000; the updated API is on port 4000.
+  Final browser smoke command on port 3000 with the same existing-web environment,
+  `npm.cmd run test:e2e -- tests/e2e/bank-transfer-menu.spec.ts --grep
+  'light, 1440px|dark, 390px' --max-failures=1`, passed **2/2**. No business bank
+  transactions were created or posted. Task preview processes were stopped.
+  Safe resume: keep company valuation rates configured even when entering a bank
+  quote; no external bank execution or currency-master override was introduced.
+
+## 2026-11-06 — Bank Transfer and FX creation choices
+
+- Bank Transfers now has an accessible **Add New** dropdown with **Transfer**
+  and **FX Transfer**. Both reuse the existing API-backed entry form, dirty guard,
+  idempotency, permissions, approval and separate posting actions.
+- Transfer creation offers receiving accounts in the source currency; FX creation
+  offers accounts in another currency. Source selection is required first, and
+  changing it clears an incompatible destination. Missing compatible accounts
+  have a visible explanation. Existing edit links and generic creation links
+  retain their supported currency combinations; no stored records are reclassified.
+- FX still uses server-resolved, dated currency rates and the existing transfer
+  policy. This change adds no negotiated-rate override or financial posting logic,
+  changes no API contract or schema, and grants no additional permissions.
+- Verification: `npm.cmd run test:unit -- tests/unit/bank-transfer-routing.test.ts
+  tests/unit/banking-transfer-entry.test.tsx` passed **15/15**; `npm.cmd run
+  test:unit -- tests/unit/banking-transfers-list.test.tsx
+  tests/unit/banking-transfer-detail.test.tsx tests/unit/banking-transfer-service.test.ts
+  tests/unit/bank-payment-shell-navigation.test.tsx` passed **7/7**.
+- Production build: `$env:NEXT_DIST_DIR='tmp/bank-transfer-menu-build'; npm.cmd
+  run build:web` passed, including TypeScript. With `PLAYWRIGHT_BASE_URL` pointing
+  to the isolated preview and `PLAYWRIGHT_USE_EXISTING_WEB=true`, `npm.cmd run
+  test:e2e -- tests/e2e/bank-transfer-menu.spec.ts --max-failures=1` passed **6/6**:
+  keyboard menu opening, both entry routes, account currency filtering, light/dark
+  at 1440/768/390px, no page overflow or page errors. Browser API reads were
+  intercepted fixtures; no bank records were saved or posted. An initial test
+  selector used button instead of the control's actual combobox role; corrected
+  and rerun. Evidence: `tmp/bank-transfer-menu-evidence/`.
+- The same artifact is active on local port 3000. Final active-port command with
+  the same browser environment: `npm.cmd run test:e2e --
+  tests/e2e/bank-transfer-menu.spec.ts --grep 'light, 1440px|dark, 390px'
+  --max-failures=1` passed **2/2**. The isolated preview was stopped afterward.
+- Targeted ESLint and Prettier checks passed. Theme audit `--write` and `--check`
+  reported zero direct feature font/colour exceptions across 114 views; Impeccable
+  detector returned `[]`; `git diff --check` passed. No feature CSS was added or
+  retired. This menu-only batch preceded the entered-rate enhancement documented
+  above; its configured-rate limitation is superseded by that enhancement.
+
+## 2026-11-05 — Product defaults, Warehouse and Stock Transfer
+
+- Product General now exposes Income account and Expense account, Manufacture
+  beside Sales/Purchase, Location/City and Default Warehouse. The existing stock
+  asset mapping remains in Accounting. Services cannot be marked for manufacture.
+  Existing prices, supplier, opening-plan, validation and access behavior remain.
+- Inventory exposes exactly Products, Stock Transfer and Warehouse. The two new
+  work pages support real search, pagination, Add New and populated edit forms.
+  Warehouses include automatic codes, location, contact/address and active status.
+  Transfer drafts include source/destination, date/reference, stock product lines,
+  exact quantities and server-derived product units. Shared form lifecycle code
+  retains failed input, optimistic versions, retry keys and unsaved guards.
+- Inventory source migration 2 adds location/warehouse foreign keys, warehouse
+  organization profiles, transfer headers/lines and immutable operation evidence.
+  Warehouse organization identities stay synchronized. Header and line changes
+  require matching audit snapshots; identities cannot be deleted or renumbered.
+  Same-company references, active warehouse/product checks, scoped current
+  authorization, CSRF/origin, If-Match and idempotency remain server-enforced.
+  Existing Inventory permissions are reused without new role grants; see
+  `docs/architecture/inventory-products.md` for their precise scope.
+- Verification: `npm.cmd run test:unit -- tests/unit/inventory-products.test.ts
+  tests/unit/purchase-workflow.test.ts tests/unit/purchase-document-form.test.tsx
+  tests/unit/prototype-shell-navigation.test.tsx tests/unit/bank-payment-shell-navigation.test.tsx`
+  passed **25/25**. `npm.cmd run test:integration --
+  tests/integration/inventory-products.test.ts tests/integration/procurement-workflow.test.ts
+  tests/integration/postgres-migrations.test.ts` passed **39/39** in disposable
+  databases. `npm.cmd run test:contract -- tests/contract/openapi.test.ts` passed
+  **6/6**. `npm.cmd run typecheck` and final API/contracts/database compilation
+  passed. The production web build with
+  `NEXT_DIST_DIR=tmp/inventory-operations-build npm.cmd run build:web` passed,
+  including TypeScript. The tested artifact is promoted without rebuilding it.
+- `NEXORA_INVENTORY_E2E=true`, an explicit local bootstrap test database,
+  `PLAYWRIGHT_USE_EXISTING_WEB=true` and `npm.cmd run test:e2e --
+  tests/e2e/inventory-products.spec.ts --max-failures=1` passed **11/11** on the
+  preview: product manufacture/account/location persistence, warehouse creation/
+  reload/edit, same-warehouse rejection, transfer create/edit with immutable line
+  evidence, read-only and missing-record safeguards, light/dark at 1440/768/390px.
+  Browser sessions alone are synthetic; routes, SQL, authorization and audit are
+  real. Evidence: `tmp/inventory-products-evidence/` and
+  `tmp/inventory-operations-evidence/`. Final active-port evidence additionally
+  checks each new work page's local table overflow before its creation form.
+  The final run on port 3000 passed **11/11**, waiting for real Warehouse and
+  Transfer rows before capturing light/dark work-page screenshots.
+- Focused ESLint, Prettier, `npm.cmd run api:check`, catalogue check and
+  `git diff --check` passed. Theme audit write/check reports zero direct feature
+  font/colour exceptions over 114 feature view files; this is not a percentage
+  of all menu screens. The previously recorded shared colour exception remains.
+  The UI detector returned no findings. No feature CSS was added or retired.
+- The test setup was corrected to use the existing Location manage capability.
+  A denial assertion was adjusted for a synchronous rejection, and bounded
+  product selection now uses search instead of assuming all records fit in the
+  first result set. Coverage and authorization checks were retained.
+- Local activation: web **3000**, PID **44652**, build
+  `tmp/inventory-operations-build`; API **4000**, PID **44156**, helper
+  `tmp/inventory-operations-api.mjs`. Only Inventory 2 was applied to
+  `nexora_postmerge_service`; Finance remains 35, Procurement 1 and HR 131.
+  Existing Super Admin access was verified read-only. No sample product,
+  warehouse or transfer rows were imported; preview servers were stopped.
+- Remaining/safe resume: transfers are explicitly unposted drafts. Saving does
+  not move/reserve stock, post a journal or create a manufacturing order.
+  Stock ledger/availability, governed transfer posting, posted openings and
+  manufacturing execution require their own workflows. Historical HR warehouse
+  units are retained without automatic Inventory-profile conversion. Existing
+  product opening values remain unposted plans. Keep the accounting-event and
+  approval boundaries when implementing future posting.
+
+
+## 2026-11-05 — Database-backed Inventory Products
+
+- Inventory now exposes only **Products**, with hidden creation/detail routes and
+  preserved item URL aliases. The new `app/features/inventory` workspace has
+  searchable, filtered, paginated grid/list views, Add New and one product form
+  combining General, Pricing, Inventory and Accounting. It supports goods and
+  services, company currency, automatic stable codes, supplier/account lookups,
+  descriptions, tax/discount defaults and opening stock plans. Legacy Inventory
+  styles were not removed; no new feature CSS was added.
+- Inventory 1 adds company-scoped product records and immutable change snapshots
+  linked to the platform audit chain. Contracts, OpenAPI and generated client use
+  the independent authenticated API. Saves preserve tenant/company isolation,
+  current exact-permission policies, CSRF/origin, If-Match, idempotency, barcode
+  uniqueness and transactional numbering. Existing Reference Master/Purchase
+  company authorization SQL is now shared without changing its predicates.
+- The form retains failed edits and guards unsaved navigation; read-only users
+  can inspect every tab. Missing products cannot become writable blank forms.
+  Company changes are disabled during edits. Shared semantic tokens and shadcn
+  controls preserve light/dark, focus, disabled, loading, empty and error states.
+  Browser-default fieldset borders were removed and description sizing restored
+  using Tailwind. Cards use three desktop columns and stable product-code order.
+- Verification: `npm.cmd run test:unit -- tests/unit/inventory-products.test.ts
+  tests/unit/purchase-workflow.test.ts tests/unit/purchase-document-form.test.tsx
+  tests/unit/prototype-shell-navigation.test.tsx tests/unit/bank-payment-shell-navigation.test.tsx`
+  passed **24/24**. `npm.cmd run test:integration --
+  tests/integration/inventory-products.test.ts tests/integration/procurement-workflow.test.ts
+  tests/integration/postgres-migrations.test.ts` passed **35/35** in disposable
+  PostgreSQL databases. `npm.cmd run test:contract -- tests/contract/openapi.test.ts`
+  passed **6/6**. Initial test expectations for OpenAPI path order and the shared
+  audit trigger error code were corrected; no safeguards were removed.
+- With `NEXORA_INVENTORY_E2E=true`, the explicit local bootstrap test database,
+  `PLAYWRIGHT_USE_EXISTING_WEB=true` and `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000`,
+  `npm.cmd run test:e2e -- tests/e2e/inventory-products.spec.ts --max-failures=1`
+  passed **10/10** on the final active web build: persisted create/reload/edit,
+  supplier selection, failed-save recovery, unsaved changes, read-only tabs,
+  missing records and light/dark at 1440/768/390px without horizontal overflow.
+  The first browser run required an alert locator to distinguish the form error
+  from Next.js's route announcer. Sessions alone are synthetic in the isolated
+  test listener. Final browser evidence: `tmp/inventory-products-evidence/`.
+- `npm.cmd run typecheck` passed; API/contracts/database compilation passed after
+  the final changes. `NEXT_DIST_DIR=tmp/inventory-products-final-build npm.cmd run
+  build:web` passed including TypeScript. Focused ESLint and Prettier checks,
+  `npm.cmd run api:check`, `npm.cmd run catalogue:check`, `git diff --check` and
+  `node scripts/audit-ui-theme.mjs --write` / `--check` passed. The UI detector
+  returned no findings. Theme audit: 0 direct feature font/colour exceptions over
+  113 feature view files; this is not a percentage of all menu screens. The
+  previously recorded shared source colour exception remains outside this batch.
+- Local activation: web port **3000**, PID **66716**, build
+  `tmp/inventory-products-final-build`; API port **4000**, PID **44152**, helper
+  `tmp/inventory-products-api.mjs`, real session/authentication infrastructure.
+  Only Inventory 1 was applied to `nexora_postmerge_service`: Finance remains 35,
+  Procurement 1 and HR 131. No sample products or suppliers were imported. A
+  read-only check confirms Shoaib's existing Super Admin has product read/save
+  access to two companies and three company currencies; no grants were added.
+- Remaining/safe resume: opening values are explicitly **unposted plans**, not
+  on-hand balances or journals. Warehouse stock ledger, governed stock opening/
+  receipt posting, quantity updates/replenishment, variants/combos, images and
+  FBR submission are separate unfinished workflows. Do not infer stock from the
+  product master or bypass the accounting event boundary. See
+  `docs/architecture/inventory-products.md` for contracts and persistence rules.
+
+
+## 2026-11-05 — Unified database-backed Purchases
+
+- Replaced the Purchase/Supplier prototype screens with the persisted
+  `app/features/purchasing` workspace, supplier form and common document form.
+  Purchases now opens directly to seven entries: Purchase Request, Request for
+  Quotation, Purchase Order, Receive Products, Bills, Payment and Multi-vendor
+  Payment. Suppliers are managed from the Purchases header. The separate module
+  and redundant group layer are removed; old Supplier/detail links still resolve
+  inside Purchases. Form routes remain hidden from navigation, and generated
+  prototype records are excluded from Purchase global-search results.
+- Strict shared contracts/OpenAPI/generated client connect the forms to the
+  independent Purchase API and new Procurement 1 source migration. Party/vendor
+  identities, live company/role scopes, CSRF/origin checks, version preconditions,
+  idempotency, transactional numbering, workflow approval/action tables and
+  append-only platform/override/change audit evidence are retained or reused.
+  Saving stabilizes the document URL; approval uses the populated creation form.
+  Partial receipts copy their actual quantities into Bills. Approval serializes
+  quantity and payment allocation consumption, including concurrent requests.
+- Verification: `npm.cmd run test:unit -- tests/unit/purchase-workflow.test.ts
+  tests/unit/purchase-document-form.test.tsx tests/unit/prototype-shell-navigation.test.tsx
+  tests/unit/bank-payment-shell-navigation.test.tsx` passed 20/20.
+  `npm.cmd run test:contract -- tests/contract/openapi.test.ts` passed 6/6.
+  `npm.cmd run test:integration -- tests/integration/procurement-workflow.test.ts
+  tests/integration/postgres-migrations.test.ts` passed 26/26 in disposable
+  PostgreSQL databases. Initial tests exposed stale source migration-head
+  expectations and a browser test that switched sessions before approval
+  navigation completed; these were corrected while retaining their coverage.
+- `NEXORA_PURCHASE_E2E=true`, an explicit local bootstrap test database,
+  `PLAYWRIGHT_USE_EXISTING_WEB=true` and `npm.cmd run test:e2e --
+  tests/e2e/purchase-workflow.spec.ts --max-failures=1` passed 7/7 on the preview:
+  the full real-API/PostgreSQL workflow plus light/dark at 1440/768/390px.
+  The same suite was repeated against the updated local web on port 3000.
+  Synthetic sessions are used only in the isolated test listener; the deployed
+  local service keeps its existing authentication/session infrastructure.
+  Screenshots are in `tmp/purchase-workflow-evidence/`.
+- `NEXT_DIST_DIR=tmp/purchase-workflow-final-build npm.cmd run build:web` passed
+  including TypeScript. API/contracts/database TypeScript compilation, focused
+  ESLint, Prettier, `npm.cmd run api:check`, catalogue check, UI theme audit
+  write/check, UI detector (no findings) and `git diff --check` passed. No feature
+  CSS was added or retired. The theme audit has no direct feature font/color
+  exceptions; its existing shared source exception is outside this scope.
+- Only Procurement 1 was applied to `nexora_postmerge_service`. Finance remains
+  35 and HR remains 131; other existing migration versions and data are unchanged.
+  The local API is on port 4000 (PID 63468), with the prior configuration and
+  readiness behavior plus Purchase readiness. The local web is on port 3000
+  (PID 21672). Health, required authentication, Shoaib's existing Super Admin
+  Purchase/company authority and live read-only directories/options were checked.
+  No permission grant, prototype data import or business document insertion was
+  performed in the service database.
+- Posting boundary: these are persisted operational records and payment
+  instructions. Approval does not post stock/AP/GL, execute a bank transfer or
+  mark Bills paid. The forms state this explicitly. Further posting integration
+  must use the owning stock/Finance/Bank workflow. See
+  [Purchase workflow](purchase-workflow.md) for rules, tests and the safe resume
+  boundary. Rolling back the web/API runtime can leave the additive Purchase
+  tables intact; do not delete recorded Purchase data to roll back presentation.
+
+## 2026-11-05 — Compact Bank entry forms
+
+- Payment and Receipt now use a plain, compact `BankEntryHeader`, with Company,
+  Bank, Posting date and Value date in one desktop row. Project, Location / City
+  and Approver share the same transaction card. Transfer uses the same header
+  and grouping, retains its persisted reference in the edit title, and has fixed
+  allocation columns so long account labels cannot expand the whole table.
+- The nominal directory availability message is beside the line-entry table;
+  the ordinary search notice is an inline row. Empty/search/error information,
+  refresh and authorized Chart of Accounts navigation remain available. Optional
+  reference information follows the lines, keeping the main entry path short.
+- The shared prototype transaction renderer used by Deposit, Bank Charges,
+  Interest, Cheque Issued and Cheque Received has smaller plain section headers
+  and denser responsive field groups. These routes remain explicitly prototypes;
+  this presentation change does not enable financial mutations or posting.
+- Existing API contracts, company scoping, account eligibility, amounts, required
+  dimensions, validation, save/submit/approval permissions, idempotency keys,
+  unsaved-change handling and explicit no-posting safeguards are preserved.
+  No backend, database, dependency or legacy stylesheet was changed or retired.
+- Verification: `npm.cmd run test:unit --
+  tests/unit/banking-payment-entry.test.tsx tests/unit/banking-receipt-entry.test.tsx
+  tests/unit/banking-transfer-entry.test.tsx` passed 43/43, covering existing workflows and the
+  persisted transfer reference. `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3207
+  PLAYWRIGHT_USE_EXISTING_WEB=true npm.cmd run test:e2e --
+  tests/e2e/bank-compact-forms.spec.ts --max-failures=2` passed 24/24: eight entry
+  types, light/dark, 1440/768/390px, header density, aligned fields, adding/removing
+  lines, totals, available footer actions and no document overflow. Browser API
+  fixtures block every business write. The first tablet run exposed an absolute
+  screen-reader table label escaping its cell; positioning its header cell fixes
+  the overflow while preserving its accessible name.
+- Browser evidence: `tmp/bank-compact-evidence/` contains desktop, tablet and
+  mobile screenshots for all eight entry types in both themes. UI theme audit
+  write/check reports zero direct feature font/color exceptions. A pre-existing
+  shared source color exception remains outside this Bank scope. The changed
+  controls continue to use the shared font, semantic theme tokens and controls.
+- Final `NEXT_DIST_DIR=tmp/bank-compact-forms-release-build npm.cmd run build:web`
+  passed, including TypeScript. Focused ESLint and Prettier on the seven changed
+  UI sources and two test files passed, as did the UI detector (no findings) and
+  `git diff --check`. The local web now serves this build on port 3000 (PID 66384);
+  its existing API connection/environment were preserved. The API and database
+  were not restarted or changed. Eight active-web smoke cases passed with
+  `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 PLAYWRIGHT_USE_EXISTING_WEB=true
+  npm.cmd run test:e2e -- tests/e2e/bank-compact-forms.spec.ts
+  --grep 'light, 1440px|dark, 390px' --max-failures=1`.
+- Safe resume: this batch covers eight transaction-entry forms. Separate Bank
+  setup/reconciliation/revaluation retain their existing governed layouts and
+  behavior. Keep wide transaction grids locally scrollable at narrow widths.
+
+## 2026-11-05 — Approval in the creation form
+
+- The user requested the normal creation form for draft/pending records, with
+  Approve & Close and Close at the bottom, replacing the separate Nominal
+  summary/posting-review screen. `FinanceNominalDetail` now reuses
+  `FinanceNominalForm` for these states while retaining existing routes and
+  active-record details. Fields, stable codes, automatically derived Category,
+  company scope, bank restrictions and editable/read-only capabilities remain.
+- Imported draft account use is a single form field using the existing explicit
+  classification API. The separate review panel, checkbox and save-review button
+  are absent from draft/pending forms. No classification is silently assigned:
+  general accounts may proceed through the existing authorized activation path;
+  module-controlled accounts remain subject to their owning module.
+- Approve & Close uses server decision capabilities when offered, otherwise the
+  established Super Admin activation path. Metadata edits and account-use changes
+  preserve returned versions; classification and activation have separate stable
+  retry keys so a successful classification is not repeated after activation
+  fails. A concurrent record-version change requires reopening the form. No new
+  endpoint, schema migration, permission grant or posting behavior was added.
+- Category/Section approval uses the same creation form. For authorized approvers,
+  Approve & Close submits a saved draft and then approves it through the existing
+  API lifecycle. A failed decision retains the pending version and decision key;
+  retry does not resubmit. Submit-only users keep their existing Submit action.
+  Form Close/navigation preserve unsaved-change protection, including the shared
+  Banking nominal bridge. Read-only/legacy records no longer display the false
+  assertion that their user is not an authorized Super Admin.
+- Verification: `npm.cmd run test:unit --
+  tests/unit/finance-nominal-review.test.tsx tests/unit/finance-nominal-form.test.tsx
+  tests/unit/finance-hierarchy-workspaces.test.tsx
+  tests/unit/finance-nominal-directory.test.tsx` passed 38/38. Tests cover populated
+  pending fields, direct footer approval, permission/capability restrictions,
+  classification/activation partial-failure retry, blocked module-controlled
+  accounts, concurrent version changes and draft hierarchy submission/decision
+  retry without resubmission. Initial legacy Submit-action assertions were updated
+  to retain coverage for submit-only users and cover the new approver footer.
+- `NEXT_DIST_DIR=tmp/finance-creation-approval-final-build npm.cmd run build:web`
+  passed, including TypeScript. Focused ESLint and Prettier, UI theme audit
+  write/check, the UI detector (no findings) and `git diff --check` passed.
+  `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3205 PLAYWRIGHT_USE_EXISTING_WEB=true
+  npm.cmd run test:e2e -- tests/e2e/finance-master-consistency.spec.ts` passed 6/6
+  in light/dark at 1440/768/390px. Includes the imported draft form, explicit
+  account-use selection, disabled module-controlled approval, absence of the old
+  panel, activation retry without repeating classification, Category/Section one-button
+  approval, Close without mutation and existing active-record edits. Synthetic
+  routes intercept writes; no live nominal was approved by these tests. Initial
+  browser failure was an old dialog-scoped error locator, corrected for the form.
+- Inspected desktop/light and mobile/dark evidence in
+  `tmp/finance-creation-approval-evidence/`. Activated the final bundle with
+  `python tmp/preview-creation-approval.py activate`: web PID 66468 on 3000,
+  all 22 assets returned 200. API PID 48416 and Finance migration 35 remain;
+  no API restart, database migration, permission or existing record change was
+  needed. Keep `tmp/finance-creation-approval-final-build` while active. Logs:
+  `tmp/finance-creation-approval-3000.*.log`; helper PID guard refers to the
+  consumed previous web process and must be revalidated before reuse.
+- Active-app smoke with `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000
+  PLAYWRIGHT_USE_EXISTING_WEB=true npm.cmd run test:e2e --
+  tests/e2e/finance-master-consistency.spec.ts --grep 'light, 1440px|dark, 390px'`
+  passed 2/2; API readiness remained 200 and the final diff check passed.
+
+## 2026-11-05 — Category and Section approval workflow (confirmed)
+
+- User confirmed extending new interactive Categories and Sections to draft →
+  pending approval → active. Existing active/inactive records and catalogue
+  adoption keep their lifecycle. Names, codes, parents, scope, aggregate counts,
+  lazy expansion, neutral rows and no-posting safeguards are preserved.
+- `finance-hierarchy-workspaces.tsx` now offers Save Draft, Submit for approval,
+  read-only pending review, Approve & Close, Reject & Close with a reason, and
+  Close without mutation. Draft/pending/rejected filters and Review row actions
+  open the existing separate forms. Failed decisions retain fields and retry
+  keys; unsaved edits must be saved before submission. The shell now recognises
+  Category/Section routes as Finance master pages, including notification titles.
+- Shared hierarchy contracts and generated OpenAPI describe workflow state,
+  self-decision metadata and submit/approve/reject commands. The hierarchy API
+  rechecks normal permissions, live Super Admin company authority, expected
+  versions and valid transitions; pending/rejected records cannot be renamed or
+  directly activated. Self decisions use the existing governed override writer.
+- Additive Finance migration `0035_hierarchy_approval_workflow.forward.sql`
+  records append-only tenant-scoped lifecycle evidence bound to existing master
+  audit events. Its deferred account guard checks only enrolled headers. Existing
+  guard functions are retained; ordinary Nominal mutations do not query the new
+  workflow table. Section code policy creation happens in the approval transaction
+  after activation, preserving the active-header database guard. No business
+  records are backfilled or financial journals posted.
+- Verification: `node tmp/verify-hierarchy-approval.mjs --schema-only` passed
+  additive migration/legacy-header checks. `node tmp/verify-hierarchy-approval.mjs`
+  passed 13/13 integration tests in an identity-verified disposable database,
+  removed afterward. Includes lifecycle, stable codes, override/audit binding,
+  tenant/company authority, stale versions, concurrent replay, failed-evidence
+  rollback, immutable history and codes, rejection and no journal posting.
+- `npm.cmd run test:unit -- tests/unit/finance-hierarchy-workspaces.test.tsx
+  tests/unit/finance-contracts.test.ts tests/unit/finance-nominal-review.test.tsx
+  tests/unit/finance-nominal-form.test.tsx tests/unit/finance-nominal-directory.test.tsx
+  tests/unit/prototype-shell-navigation.test.tsx` passed 64/64. Full
+  `npm.cmd run typecheck`, scoped ESLint/Prettier, `npm.cmd run api:generate`,
+  `npm.cmd run api:check`, `npm.cmd run test:contract -- tests/contract/openapi.test.ts`
+  (6/6), theme audit write/check, the UI detector (no findings) and
+  `git diff --check` passed. Finance migration ledger expectations now include 35;
+  the full cross-module migration snapshot suite was not run (its pre-existing
+  HR expectations remain separate).
+- Production build `NEXT_DIST_DIR=tmp/finance-hierarchy-approval-build
+  npm.cmd run build:web` passed. Browser suite with
+  `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3202 PLAYWRIGHT_USE_EXISTING_WEB=true
+  npm.cmd run test:e2e -- tests/e2e/finance-master-consistency.spec.ts` passed 6/6
+  in light/dark at 1440/768/390px, including Category/Section submission, review,
+  Close without a decision, failed approval/retry, success navigation and existing
+  Nominal/edit behavior. Synthetic routes intercept mutations. Initial failures
+  identified missing fixture permissions and an overly broad alert locator;
+  corrected fixtures/assertions passed. Desktop/light and mobile/dark evidence
+  was inspected under `tmp/finance-hierarchy-approval-evidence/`.
+- After correcting the Finance notification route classification, the final
+  production build `NEXT_DIST_DIR=tmp/finance-hierarchy-approval-final-build
+  npm.cmd run build:web` passed including TypeScript. The same 6/6 browser cases
+  passed again with `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3203`, including the
+  Finance success-title assertion. Final preview PID 55676 on 3203; all 22 assets
+  returned 200. Final formatting, theme check and `git diff --check` passed.
+- User explicitly approved deploying Finance 35 to local database
+  `nexora_postmerge_service` and restarting the local API/web app, resolving the
+  earlier exact-target approval block. Ran
+  `python tmp/activate-hierarchy-approval-api.py activate` successfully: Finance
+  is now 35, account status counts and all other migration ledgers are unchanged
+  (HR remains 131). Canary passed before replacement; active API PID 48416 on
+  4000 reports readiness 200. Automatic migrations remain disabled.
+- `python tmp/preview-hierarchy-approval-final.py activate` activated the verified
+  final bundle on port 3000, PID 60248. All 22 static assets returned 200.
+  Final read-only checks confirmed Finance 35 and unauthenticated hierarchy
+  access returns 401. Active-app smoke command
+  `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 PLAYWRIGHT_USE_EXISTING_WEB=true
+  npm.cmd run test:e2e -- tests/e2e/finance-master-consistency.spec.ts
+  --grep 'light, 1440px|dark, 390px'` passed 2/2. These desktop/light and
+  mobile/dark cases intercept mutations; no live business records were created
+  or approved during deployment verification.
+- Safe resume: keep `tmp/finance-hierarchy-approval-final-build` while active.
+  API startup retains `tmp/reference-dialog-api.mjs` with the current compiled
+  modules; the pending HR rollout remains separate. Deployment helper PID guards
+  refer to the consumed previous runtimes and must be revalidated before reuse.
+  Logs: `tmp/hierarchy-approval-api-4000.*.log` and
+  `tmp/finance-hierarchy-approval-3000.*.log`. No deployment work remains for this
+  batch.
+
+## 2026-11-05 — Plain Chart of Accounts rows and nominal review
+
+- Removed pale yellow row fills, amber metadata/action borders and fixed dark
+  ink from `finance-master-row.tsx`. Categories, Sections and Nominals now use
+  the shared theme surface, foreground and neutral borders in both themes.
+  Compact spacing, responsive wrapping, keyboard expansion, lazy reads, counts,
+  filters, immutable codes, company scope and permission checks are preserved.
+  No stylesheet, shared palette, API or database behavior was changed.
+- Draft and pending Nominal titles and Review actions open the existing record
+  details. Draft editing remains an explicit Edit action. Review has a separate
+  Close button; a successful Approve & Close returns to the directory. Failures
+  retain the review and confirmation, display the error and preserve the retry
+  key. Decisions still use server capabilities, CSRF and expected versions.
+- Categories and Sections currently expose only active/inactive statuses and
+  activate on creation. Extending them to draft/pending approval requires a
+  server lifecycle, contracts, migration and audit changes. That scope decision
+  was requested from the user and remains pending; no cosmetic approval action
+  was added to records that lack an approval lifecycle.
+- Verification: `npm.cmd run test:unit --
+  tests/unit/finance-nominal-review.test.tsx
+  tests/unit/finance-nominal-directory.test.tsx
+  tests/unit/finance-hierarchy-workspaces.test.tsx
+  tests/unit/finance-nominal-form.test.tsx` passed 28/28. Focused ESLint and
+  Prettier checks, `git diff --check`, theme audit write/check and the Impeccable
+  detector passed (no detector findings; no direct feature-view font/colour
+  exceptions). `NEXT_DIST_DIR=tmp/finance-plain-build npm.cmd run build:web`
+  passed including TypeScript.
+- `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3201
+  PLAYWRIGHT_USE_EXISTING_WEB=true npm.cmd run test:e2e --
+  tests/e2e/finance-master-consistency.spec.ts` passed 6/6 at 1440/768/390px in
+  light/dark themes. Covers row surface/contrast/bounds, nested and main lists,
+  keyboard expansion, existing edits, draft/pending review, Close without a
+  decision, failed approval/retry and return to the list after approval.
+  Synthetic API routes intercept decisions; no business records were changed.
+  The initial browser run failed to connect because preview startup preceded
+  build completion; rerunning after the completed build passed.
+- Inspected desktop/light and mobile/dark screenshots under
+  `tmp/finance-plain-evidence/`. Updated controlled live Nominal workflow test
+  navigation expectations, but did not run those credential-dependent scenarios.
+  Activated the verified local build on port 3000 (PID 21296); all 22 web assets
+  returned 200. API runtime retained. Helper: `tmp/preview-finance-plain.py`;
+  logs: `tmp/finance-plain-3000.*.log`. Keep `tmp/finance-plain-build` while active.
+  Safe resume: resolve the Category/Section lifecycle decision before adding
+  approval states or endpoints.
+
+## 2026-11-04 — Nominal edit form and audited Section changes
+
+- Authorized Nominal row titles and Edit actions now open the separate, populated
+  edit form in both nested Categories/Sections and the main directory. Open still
+  shows details. The form uses a bounded, responsive two-column layout, editable
+  name/Section, read-only code/company and automatically derived Category/type.
+  Existing unavailable Sections remain visible during edits; options loads cannot
+  replace them with another Section. Failed saves retain input and retry keys.
+- Section changes are versioned, transactional and audited on the API. Targets
+  must be active ordinary Sections of the same accounting type and company.
+  Used accounts, Bank hierarchy moves, duplicate target names, forged categories,
+  stale versions and unauthorized changes fail closed. Codes remain stable;
+  account type, posting ownership and lifecycle state are preserved. Company-level
+  names/Sections on adopted ordinary nominals may change while the approved
+  catalog and original mapping remain immutable, including subsequent posting
+  classification reviews. No financial transaction or automatic activation occurs.
+- Updated the shared Finance contract, generated OpenAPI output, options query,
+  master change transaction and additive Finance migration
+  `0034_audited_nominal_section_edits.forward.sql`. The migration extends immutable
+  master evidence with the target Section and guards every account parent change.
+  Existing migration files were not modified. Bank/header source identities and
+  all existing authorization, CSRF, idempotency and audit protections remain.
+- Moved detail Edit/Refresh actions into the header, tightened summary spacing,
+  and shortened posting-review explanations without removing confirmation or
+  activation safeguards. Shared yellow primary buttons and pale compact list rows
+  retain the requested theme. No dependency or stylesheet was added/retired.
+- Verification: 57/57 tests passed via `npm.cmd run test:unit --
+  tests/unit/finance-nominal-form.test.tsx tests/unit/finance-nominal-api.test.ts
+  tests/unit/finance-nominal-directory.test.tsx tests/unit/finance-hierarchy-workspaces.test.tsx
+  tests/unit/finance-posting-review.test.tsx tests/unit/finance-contracts.test.ts`.
+  `node tmp/verify-nominal-edit.mjs` passed 11/11 database integration tests in a
+  newly created, identity-verified disposable local database, removed afterward.
+  Tests cover guarded moves, actual journal usage, audit evidence, stable codes,
+  replay, duplicates, cross-type/company rejection and adopted control accounts.
+  `npm.cmd run test:contract -- tests/contract/openapi.test.ts` passed 6/6;
+  `npm.cmd run api:generate`, `npm.cmd run api:check`, API TypeScript build,
+  focused ESLint/Prettier, theme audit write/check and `git diff --check` passed.
+- `NEXT_DIST_DIR=tmp/finance-edit-build npm.cmd run build:web` passed including
+  TypeScript. Browser suite `tests/e2e/finance-master-consistency.spec.ts` passed
+  6/6 at 1440/768/390px in both themes: nested/main Edit form navigation,
+  name changes, Section selection, automatic read-only Category, stable codes,
+  separate detail view, keyboard expansion and compact row contrast/bounds.
+  Synthetic GET fixtures abort mutations. Inspected screenshots are under
+  `tmp/finance-edit-evidence/` (forms), with list evidence retained under
+  `tmp/finance-compact-evidence/`.
+  The dark desktop browser smoke also passed against active port 3000. Finance's
+  schema-ledger test expectations now include migration 34; the full cross-module
+  migration snapshot was not run and still contains its pre-existing HR 130
+  expectations, separate from the pending HR rollout.
+- Deployed only Finance 34 to the active local API database using the official
+  module migration runner; HR remains at 131 and other module ledgers are unchanged.
+  No business records were changed. API canary and active readiness returned 200;
+  API PID 2268 on 4000, web PID 34140 on 3000, all 22 web assets returned 200.
+  Runtime helpers/logs: `tmp/activate-nominal-edit-api.py`,
+  `tmp/activate-finance-edit.py`, `tmp/nominal-edit-api-*`, `tmp/finance-edit-3000.*`.
+  Safe resume: keep `tmp/finance-edit-build` while active. The API retains the
+  deployed `tmp/reference-dialog-api.mjs` startup baseline with current compiled
+  modules and automatic migrations disabled; pending HR rollout is still separate.
+
+## 2026-11-04 — Compact pale yellow Chart of Accounts rows
+
+- Refined the shared `finance-master-row.tsx` renderer for Categories, Sections
+  and Nominals: pale yellow headers, inline names/subtitles, smaller type and
+  padding, neutral borders and compact list gaps. Desktop headers are 40px tall
+  for the standard content; longer names and narrow layouts wrap naturally.
+  Central `--nx-record-row-background` and `--nx-record-row-hover` roles keep
+  the requested pale yellow in both themes, with existing dark action text.
+  Shared primary buttons and other modules retain their existing theme.
+- Preserved expansion, keyboard focus, lazy reads, Open/Edit navigation,
+  permissions, company scope, filters, record codes, forms and all feedback.
+  Expanded content keeps the theme surface for readable loading/error states.
+  No API, database, dependency or posting behavior changed.
+- Verification: `npm.cmd run test:unit --
+  tests/unit/finance-hierarchy-workspaces.test.tsx
+  tests/unit/finance-nominal-directory.test.tsx` passed 14/14 tests.
+  `NEXT_DIST_DIR=tmp/finance-compact-build npm.cmd run build:web` passed,
+  including TypeScript. Focused ESLint and Prettier checks passed for the shared
+  row, both views and updated browser test. Theme audit write/check and
+  `git diff --check` passed with no direct feature-view colour/font exceptions.
+- `npm.cmd run test:e2e -- tests/e2e/finance-master-consistency.spec.ts` passed
+  6/6 against the built preview: light/dark at 1440/768/390px, all three lists,
+  compact header bounds, pale-background luminance, text/badge/action contrast
+  >=4.5:1, keyboard expansion and separate edit/detail navigation. Synthetic
+  read-only fixtures block mutations. Inspected desktop/mobile screenshots:
+  `tmp/finance-compact-evidence/`.
+- Activated the verified build on port 3000 (PID 69852), with all 22 static
+  assets returning HTTP 200. API runtime retained. Helper/logs:
+  `tmp/activate-finance-compact.py`, `tmp/finance-compact-3000.*.log`.
+  Safe resume: retain `tmp/finance-compact-build` while it is the active web
+  output; the pending independent API/HR rollout caveat below still applies.
+
+## 2026-11-04 — Consistent yellow Chart of Accounts rows
+
+- Added feature-owned `app/features/finance/components/finance-master-row.tsx`.
+  Categories, Sections and Nominals now use the same shared Button primary
+  variant, semantic yellow/brand tokens, responsive row spacing, badges and
+  outlined actions. Replaced the unstyled native disclosure buttons responsible
+  for the grey blocks. The central palette and other modules are unchanged;
+  no stylesheet or dependency was added or retired.
+- Sections now reuse the existing expandable Section disclosure from Categories,
+  including lazy Nominal reads, loading/error/empty states, retry and load-more.
+  Main Nominals use matching rows grouped by Category/Section, with Open and
+  authorized Edit callbacks to the existing separate detail/edit routes. The
+  Bank approval directory retains its existing table and decision workflow.
+- Preserved company scope, filters, sorting/pagination, totals, record codes,
+  status/version data, read-only restrictions, separate forms and posting guards.
+  Fixed failed expansion retries retaining their error cache, and invalidated
+  pending Nominal responses when company/search changes so earlier scope data
+  cannot overwrite the current expansion. Company clearing resets visible rows.
+  No API contract, database migration or live financial behavior changed.
+- `npm.cmd run test:unit -- tests/unit/finance-hierarchy-workspaces.test.tsx
+  tests/unit/finance-nominal-directory.test.tsx tests/unit/finance-nominal-form.test.tsx
+  tests/unit/finance-posting-review.test.tsx tests/unit/finance-contracts.test.ts`:
+  48/48 passed. Coverage includes standalone Section expansion, retry recovery,
+  stale company responses, Nominal Open/Edit, denied edits and existing forms/
+  approval behavior. Focused ESLint, Prettier, theme write/check and
+  `git diff --check` passed. The design detector returned no findings for these
+  Finance surfaces. Theme audit: no direct feature-view font/colour exceptions.
+- `NEXT_DIST_DIR=tmp/finance-yellow-build npm.cmd run build:web` passed, including
+  application TypeScript. `npm.cmd run test:e2e --
+  tests/e2e/finance-master-consistency.spec.ts` passed all six cases against both
+  the preview and active web deployment: light/dark at 1440/768/390px, all three
+  lists, mouse/keyboard expansion, lazy reads, real computed semantic-yellow
+  backgrounds, text contrast >=4.5:1 and separate Open/Edit form navigation.
+  Browser traffic uses synthetic read-only fixtures and aborts mutations; no
+  live business records were changed. Screenshots: `tmp/finance-yellow-evidence/`.
+- Activated the verified build on port 3000 (web PID 20880); all 22 static assets
+  returned HTTP 200. Existing API process/configuration was retained. Runtime
+  helper/logs: `tmp/activate-finance-yellow.py`, `tmp/finance-yellow-3000.*.log`.
+  Safe resume: refresh existing tabs; keep `tmp/finance-yellow-build` intact while
+  it is the active `NEXT_DIST_DIR`. The independent pending API/HR rollout caveat
+  recorded below remains unchanged.
+
+## 2026-11-04 — Remove repeated screen information
+
+- Removed the shared company/role/industry summary chips, technical API/database
+  toolbar labels, disabled preview-state control and duplicate breadcrumb group.
+  Shared page introductions retain the title and actions without repeating the
+  module name/description or showing connection-status badges. Meaningful
+  prototype, read-only, unfinished-page and record-status labels remain.
+- Applied the same header cleanup to the shared Commerce, Manufacturing, AI,
+  Reports, Dashboard and master-form renderers, plus Banking registers, Finance
+  master headings, HR Dashboard/Benefits and Identity. Removed disabled export
+  placeholders and their endpoint explanations from Bank lists; Account Balances
+  no longer reserves a column for implementation commentary. Unavailable values
+  still say Unavailable. Preserved company scope, labels, filters, navigation,
+  working actions, validation/errors, approvals and no-posting controls.
+- Verified removed selector usage with `rg` before pruning context-summary,
+  toolbar label/note and print-selector rules. No stylesheet was retired; legacy
+  responsive toolbar selectors remain harmless until that toolbar is migrated.
+- `npm.cmd run test:unit -- tests/unit/prototype-page-intro.test.tsx
+  tests/unit/prototype-shell-navigation.test.tsx tests/unit/banking-payments-list.test.tsx
+  tests/unit/banking-receipts-list.test.tsx tests/unit/finance-hierarchy-workspaces.test.tsx
+  tests/unit/reference-master-workspace.test.tsx tests/unit/identity-workspace-components.test.ts
+  tests/unit/bank-payment-shell-navigation.test.tsx tests/unit/bank-receipt-routing.test.ts
+  tests/unit/bank-reconciliation-shell-navigation.test.tsx`: 43/43 passed.
+  Updated two older list-test label lookups to follow the existing `label.control`
+  association instead of depending on the former nested span/input markup.
+- `NEXT_DIST_DIR=tmp/ui-copy-cleanup-build npm.cmd run build:web` passed, including
+  application TypeScript. Built separately from the active output to avoid stale
+  runtime chunks. Theme `--write`/`--check` and `git diff --check` passed, with zero
+  direct feature-view font/colour exceptions. The existing shared print
+  exceptions remain documented by the theme audit.
+- Focused ESLint passes for shell, Banking, Finance, HR, Identity and the new/
+  updated unit tests. The six older shared-renderer files retain 32 existing
+  `jsx-a11y/label-has-associated-control` errors; `node tmp/verify-header-lint.mjs`
+  compared each finding against committed source: 32 before, 32 after, zero
+  introduced. The design detector reports two existing unrelated accent-border
+  warnings; no broad lint-clean or visual-redesign claim.
+- `npm.cmd exec tsx -- tmp/verify-screen-copy-cleanup.ts`: 140 settled-route checks
+  passed across representative routes in all 35 modules, two themes and
+  1440/390px. Browser checks use synthetic session/Bank API fixtures and perform
+  no live business writes. Evidence: `tmp/screen-copy-cleanup-evidence/results.json`
+  and screenshots alongside it. This is representative route coverage, not a
+  claim that all menu routes or backend workflows were retested.
+- Activated the verified output on port 3000 (web PID 50276) using the existing
+  launch environment retained in memory. All 22 page assets returned HTTP 200;
+  the unchanged API on port 4000 remains ready with all checks `ok`. Runtime
+  helper/logs: `tmp/activate-ui-copy-cleanup.py`, `tmp/ui-copy-cleanup-3000.*.log`.
+- Safe resume: refresh existing tabs to load the cleaned headers. The web runs
+  with `NEXT_DIST_DIR=tmp/ui-copy-cleanup-build`; keep its output intact until a
+  replacement build is verified. The separate API/HR rollout caveat below remains
+  unchanged. Continue any further feature-specific text cleanup by retaining
+  task guidance, error/empty states and real workflow limitations.
+
+## 2026-11-04 — Project and Location creation
+
+- `reference-master-workspace.tsx` now opens a shared Dialog from **Add new**.
+  Name is the only editable creation field; Code is read-only and allocated on
+  save as `PRJ-001` / `LOC-001`. Existing details/edit/status workflows, company
+  scope, permissions, dirty-state reporting and audited API writes are preserved.
+- The API accepts omitted codes while retaining explicit-code compatibility.
+  Allocation is serialized per tenant/company/kind in the existing transaction,
+  includes inactive records and replays idempotently. No migration, dependency
+  or stylesheet was added or retired.
+- Passed 19 focused unit/API tests, six OpenAPI checks and 15 real PostgreSQL
+  integration tests in a disposable isolated database. Workspace typecheck,
+  production build, focused lint, API generation check, theme write/check and
+  `git diff --check` passed. Theme audit reports no direct feature-view
+  colour/font exceptions; shared print exceptions remain as documented.
+- Browser interaction checks passed for both forms in light/dark at
+  1440/768/390px: initial Name focus, read-only Code, empty/whitespace-disabled
+  creation, Enter submission, list refresh, cancellation and Escape dismissal.
+  Screenshots: `tmp/reference-creation-evidence/`. Browser checks use API fixtures;
+  server allocation, concurrency, retry and audit behavior use real PostgreSQL.
+- Runtime activation follow-up: the reported inline form came from the stale
+  November 3 web/API processes. Restarted the verified repository services on
+  ports 3000/4000 with their exact original environment retained in memory;
+  no secrets were printed/saved and no migrations or business writes ran.
+  Current local PIDs: web 16372, API 6024. All 22 page assets return HTTP 200;
+  API readiness is HTTP 200 with every check `ok`, and served OpenAPI requires
+  only `company_id` and `name` for creation.
+- A canary of the full pending API startup failed its newer HR readiness floor.
+  The confirmed live database remains at the separately deployed HR131 floor;
+  HR132/133 enable payroll/Banking behavior and were not applied for this fix.
+  The scoped API entry `tmp/reference-dialog-api.mjs` is transpiled from the
+  committed startup baseline and imports current compiled modules. It retains
+  the existing deployed readiness checks; the pending stricter source check
+  and migrations remain unchanged for their own coordinated rollout.
+  Runtime preparation/activation helpers and logs are under
+  `tmp/prepare-reference-api-runtime.mjs`, `tmp/activate-reference-dialog.py`
+  and `tmp/reference-dialog-*.log`. Canary processes were stopped afterward.
+- Re-ran `PLAYWRIGHT_USE_EXISTING_WEB=true PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000
+  npm run test:e2e -- tests/e2e/reference-master-creation.spec.ts` against the
+  active web deployment: 12/12 browser scenarios passed. The interaction suite
+  still uses API fixtures, so it creates no live business records. Evidence
+  remains in `tmp/reference-creation-evidence/`; existing authorization and
+  transactional allocation integration coverage is unchanged.
+- Safe resume: retain the running scoped startup until the independent pending
+  HR/payroll schema deployment is coordinated. A full API deployment from current
+  `server.ts` requires its stricter HR floor. The live Bank workflow browser suite
+  was adapted to generated codes; that full financial journey was not run for
+  this master-data-only change. Refresh existing browser tabs to load the dialog.
 ## 2026-11-11 — Employee Lifecycle improvements (policies, cases, changes, loans)
 
 - Lifecycle Policies: name + policy text only (effective date defaults to the
@@ -188,6 +1796,220 @@
   own widths. No stylesheets retired.
 - Safe resume: if a drawer form looks cramped, cap its grid at two columns rather
   than widening the shared sheet.
+## 2026-11-11 — Thousands separators on money entry fields
+
+- Added shared `AmountInput` (`app/shared/ui/amount-input.tsx`) and helpers
+  (`app/shared/model/amount-format.ts`, tests in `tests/unit/amount-format.test.ts`).
+  Money fields group thousands while typing (1,000 · 10,000 · 1,000,000), keep the
+  caret in place, accept pasted "PKR 12,500.00", and emit the unformatted raw value
+  via `onValueChange(raw, amount)`. With `name`, a hidden input posts the raw value.
+  Negatives only with `allowNegative`; precision via `decimals` (default 2).
+- Converted: Sales (receipt/payment amount, allocations, bulk receipts, opening
+  balance, credit limit, line rate, FX rate); Banking (18 fields: entry line amounts,
+  transfer amount/charge, reconciliation balances, statement filters, overdraft, rates);
+  Finance (currency rates, journal debit/credit, FX rounding tolerance); HR (salary
+  bands, requisition salary, offer gross, settlement rates/corrections, payroll
+  statutory money fields, adjustments, loans, structure amounts, learning cost);
+  Commerce rates/freight/expenses; Master-data limits, cost, prices, MRP; shell
+  prototype rate line; shared module-view amount filters.
+- Preserved: raw values reach validation/API unchanged (no commas), existing decimal
+  limits (8 for bank amounts, 18 for currency rates, 4 for HR money), labels/ids/aria.
+- Deliberately left as numeric inputs: quantities, percentages, days, minutes, counts.
+- Verification: tsc 0 errors; unit tests 1105 passed, 2 failing in
+  `user-management-components.test.ts` (security users — untouched, pre-existing);
+  lint counts unchanged versus HEAD on touched files; theme audit clean; `build:web` passed.
+- Resume point: browser check of each converted screen in light/dark at
+  desktop/tablet/mobile widths.
+
+## 2026-11-11 — Sales UI audit fixes (Sales, Revenue, Customers)
+
+Browser walkthrough of every Sales/Revenue/Customers screen at 1440, 820 and
+390 px plus dark mode (`tmp/sales-ui-audit/audit.mjs`, screenshots in
+`tmp/sales-ui-audit/shots`).
+
+- **Receipt Preview/Print opened off-centre** (reported): the voucher viewer
+  was rendered inside the receipt side panel, so it lived in the panel's z-50
+  stacking context under the shell sidebar (z 60), which covered its left half
+  and the toolbar title. New `components/document-viewer.tsx`
+  (`DocumentViewerFrame`) is a portalled Base UI dialog used by both the
+  receipt voucher and the invoice/quotation PDF viewer: centred over the whole
+  window, focus moves to Close, Escape closes only the viewer and leaves the
+  panel open, `data-print-viewer` print rules unchanged. The voucher now
+  scales to fit phones like the invoice PDF.
+- **Side panels and dialogs under the sidebar**: Sales sheets, dialogs and
+  discard prompts used the primitives' default z-50, so the sidebar stayed
+  undimmed and clickable. `salesLayer` in `sales-ui.tsx` sets panels to
+  z-160/161 (shell modal layer), dialogs over panels to 170/171, viewer 175;
+  toasts (180) stay on top.
+- **Panel header gap**: `SheetTitle`/`SheetDescription` and dialog titles kept
+  the browser's default h2/p margins (~15 px each). Sales usages now pass
+  `m-0` (HR already uses `m-0!`). The shared primitives were not changed.
+- **New Invoice / New Quotation scrolled sideways on tablet and phone**: an
+  `sr-only` table header escaped its `overflow-x-auto` wrapper. All Sales
+  table scroll wrappers are now `relative`.
+- **Lists**: money and date cells no longer break onto two lines
+  (`ListColumn.nowrap`; right-aligned columns never wrap). Invoices list: Issued
+  by and Received are optional in Filter so Status fits at 1440 px. Batch
+  sheets are wider (`max-w-5xl`) so their grid is not clipped. Page headers sit
+  beside their actions only from `xl`, so action buttons no longer stack.
+- Preserved: routes, panels, handlers, discard guard, auto-print, print
+  output, column chooser storage, all mock workflows (no posting).
+- Verified: browser checks above (preview centred/covers shell/Escape,
+  delete dialog above panel, invoice PDF covers shell, no horizontal page
+  overflow, no console errors), `tsc`, eslint (sales), sales unit tests 16/16,
+  `git diff --check`, UI theme audit 0 exceptions, `npm run build:web`.
+- Not changed (outside Sales scope): the shared `Sheet`/`Dialog` primitives
+  still default to z-50 and browser heading margins; other features override
+  locally. The Nexora AI launcher (z 1350) floats above all overlays by design.
+
+## 2026-11-11 — Sales document currencies
+
+- `app/shared/constants/countries.ts`: `CURRENCIES` is now the full active
+  ISO 4217 list (154 codes, checked against `Intl.supportedValuesOf`), plus
+  `currencyDigits` (ISO minor units: JPY 0, KWD 3), `currencyName` and
+  `currencyLabel`. Customer preferred/bank currency selects use it unchanged.
+- Quotations, orders, invoices and Receipts documents carry optional
+  `currency` + `fxRate` (PKR per 1 unit). Missing = PKR, so existing records
+  and fixtures are unchanged. New `components/currency-fields.tsx` (searchable
+  currency + rate) is used by the document form and the receipt form.
+- Rules (`model/sales-currency.ts`, `sales-workflow.ts`): a document's amounts
+  stay in its currency; exposure, open balance, money on account, credit limits
+  and list metric tiles are PKR at each document's rate. Receipts allocate and
+  offset only within the same currency; returns use the original's currency;
+  an invoice from an order keeps the order's currency. Batch Receipts/Payments
+  rows are PKR; Batch Invoice Receipts posts one receipt per customer and
+  currency at the invoice rate. Catalogue (PKR) prices convert at the rate.
+- Verified: tsc, eslint (sales + shared constants), sales unit tests 16/16,
+  full unit suite (2 pre-existing failures in
+  `tests/unit/user-management-components.test.ts`, Security, untouched),
+  `git diff --check`, UI audit 0 exceptions, `npm run build:web`.
+- Remaining: browser evidence (light/dark, mobile) for the currency fields;
+  rates are typed by hand in the prototype — the live flow should default them
+  from the Finance currency-rate API for the document date and post FX
+  gains/losses on settlement server-side.
+
+## 2026-11-11 — Sales Create Invoice form and list pagination
+
+- Create Invoice (fulfilment panel, Pick, Pack & Delivery "Delivered" tab,
+  sales order record) now opens `DocumentEntry` prefilled from the delivered
+  order via `invoiceDraftFromOrder`; the invoice is saved and linked only on
+  Save (`saveDocument` → `linkInvoiceToOrder`). `createInvoiceFromOrder` is
+  kept as draft + save for tests. Customer is locked to the order's customer.
+- `list-view-options.tsx`: finalized pager (`ListPager` + `usePagedRows` with
+  a filter reset key) under all six Sales lists; rows per page moved from the
+  Filter menu into the pager; default 10 rows.
+- Verified: `tsc --noEmit`, eslint on `app/features/sales`, sales unit tests
+  (12 passed, one new), `git diff --check`, UI audit `--write`/`--check`
+  (0 exceptions), `npm run build:web`. Browser evidence still to capture:
+  light/dark and mobile width for the pager and the prefilled invoice form.
+- Still mock: Sales has no API; invoice creation remains session-only.
+
+## 2026-11-11 — Sales review decisions (quotation approval, receipts, sale return, filter)
+
+From the Sales Module Quotation and Invoice Review (11 Nov 2026) and the reference
+screenshots. All Tailwind + shadcn primitives; no stylesheet added or retired.
+Workflow detail: `docs/architecture/sales-simplified-workflow.md`.
+
+- **Model** (`app/features/sales/model`): quotation `Open` → `Draft`, optional
+  `approver`, self-approval, named-approver decisions (reason only for reject /
+  changes), no auto order on approval, Confirm Order, Reset to Draft, delete
+  drafts only. Orders are `Draft | Confirmed`; Packed/Delivered/Invoiced are
+  derived fulfilment (`fulfilmentStage`). Receipts page documents typed
+  Receipt/Customer payment/Return receipt/Return payment (RCT/CPY/RRC/RPY) with
+  Draft/Posted, multi-invoice allocation, on-account money, reversals, offsets,
+  batch posting and duplicate detection. Sale returns are multi-line and credit
+  the invoice. New `sales-approvers.ts` directory. Fixtures migrated.
+- **New shared Sales components**: `list-view-options.tsx` (Filter: column
+  chooser + rows per page + pager, applied to every Sales list),
+  `discard-guard.tsx` (discard prompt), `money-forms.tsx` (receipt/payment/return
+  forms and batch sheets), `money-voucher.tsx` (Print/Preview voucher).
+- **Views**: Receipts rebuilt (Add New ▾ / Batch ▾ hover menus, record action
+  bar, Draft → Posted stepper, ribbon, duplicate warning); invoice panel is
+  read-only with no header actions and a **Receive Payment** footer button
+  (payment form removed); Sale Return moved to **Add New ▾** on the Invoices
+  page (shared `components/action-menu.tsx`, also used by Receipts); quotation record (Approve/Submit/approver decisions, Confirm Order,
+  Reset to Draft, Delete, Preview/Download PDF/Print, quotation band); order
+  record (Draft/Confirmed + fulfilment pill, order band, delete draft); entry
+  form Approver field; delivery, customers and recurring lists use the Filter.
+  Add New/Batch menus moved from Recurring Bills to Receipts.
+- **Retired**: `views/sales-control-views.tsx` (Sales Returns, Pricing &
+  Discounts, Sales Approvals, Sales Reports) after `rg` confirmed no other
+  users; the Returns & Control menu group; redirects added for the old ids.
+- **Verified**: `tsc --noEmit` (0 errors); ESLint on `app/features/sales`,
+  `app/shell/config/prototype-data.ts` and the new test (clean);
+  `vitest tests/unit/sales-workflow.test.ts` (11 passed); `git diff --check`;
+  `node scripts/audit-ui-theme.mjs --write` and `--check` (0 font / 0 colour
+  exceptions); `npm.cmd run build:web` passed (after disk space was freed).
+  Not yet browser-checked: login needs the local API, database and credentials.
+- **Resume point**: browser-check Quotations,
+  Sales Orders, Pick Pack & Delivery, Invoices (Add New › Sale Return), Receipts (Add New,
+  Batch, record actions) and the Filter menu at desktop/tablet/mobile in light
+  and dark. Access & Control page (per-module User/Manager/Admin) is still to
+  design. Everything remains mock data; nothing posts to ledger, stock or bank.
+
+## 2026-11-11 — Sales Receipts page under Invoices
+
+- New `app/features/sales/views/sales-receipts-view.tsx` (Tailwind + shadcn
+  Sheet/Button, no stylesheet): Receipts list with metrics, search and
+  customer/method/source filters; receipt side panel; New Receipt side panel.
+- Menu: `sales/receipts` added after Invoices; Invoices page header gains a
+  **Receipts** button. `RCT-` codes route to the receipt panel. Retired
+  customer-receipt deep links now redirect to Receipts instead of Invoices.
+- Shared `components/payment-fields.tsx` now renders the payment inputs for both
+  the invoice panel and New Receipt; `patchPayment`, `openInvoices` and a
+  `source` argument added to `recordInvoicePayment` (default "Invoice", so
+  existing Save Receipt behaviour is unchanged).
+- Verified: `tsc --noEmit`, ESLint on `app/features/sales`, `git diff --check`,
+  theme audit --write/--check (0 exceptions), `npm run build:web`.
+  Not yet browser-checked (light/dark, mobile widths).
+- Still mock data; nothing posts to the ledger or bank. No stylesheets retired.
+
+## 2026-11-10 — International customer form, customer panel, panel close on save
+
+- Customer form rebuilt (`app/features/sales/components/customer-*.tsx`,
+  `views/sales-customers-view.tsx`): only Overview mandatory; international
+  phone (searchable calling-code selector), structured billing/shipping
+  addresses with country selector and postal validation, tax + flexible
+  identification, extended payment terms & credit, multi-field bank accounts
+  (masked in summaries), notes and session-only attachments.
+- Customer list now shows type, contact, opening balance, outstanding, credit
+  limit and status; clicking a row opens a right-side panel (status, opening
+  balance, all sections). Old full-page customer record removed (deep links to
+  CUS- codes open the panel). Opening balance now feeds outstanding balance and
+  credit exposure.
+- Invoices: Save invoice / Create Invoice return to the list with no panel open;
+  Save Receipt closes the panel on success only.
+- Shared: `app/shared/constants/countries.ts`,
+  `app/shared/model/international-validation.ts`; optional `valueLabel` and
+  `searchPlaceholder` props added to `SearchableSelect` (backward compatible).
+- Verified: `tsc --noEmit`, focused ESLint, theme audit --check (0 exceptions),
+  `npm run build:web`, and an Edge walkthrough (15 checks, light/dark, 390px, no
+  console errors). Evidence: `tmp/customer-form-check/`.
+- Known: flag emoji render as two-letter codes on Windows. Still mock data; no
+  Customer API. No stylesheets retired.
+
+## 2026-11-10 — Simplified Sales, Revenue and Customers workspace
+
+- Added `app/features/sales` (Tailwind + shadcn primitives, no feature
+  stylesheet) implementing the approved "Nexora Simple Sales" artifact: Purchase-
+  style lists, entry forms and records with one next action; Delivery dialog;
+  invoice PDF viewer with real PDF download and sheet-only printing; Customer
+  Receipts; tabbed customer form; Returns & Control pages; Recurring Bills.
+- Sales, Revenue and Customers menus rebuilt in `prototype-data.ts`; new
+  `inline` menu groups (no "Selling" header) and `retiredPageRedirects` for old
+  deep links. Sidebar now renders each page link once (previously every group
+  listed its pages twice) and shows waiting counts on Pick, Pack & Delivery and
+  Sales Approvals. Commercial workspace now serves Purchases/Suppliers only.
+- Preserved: routes for all other modules, record deep links via `recordRef`,
+  keyboard row opening, focus states, light/dark tokens. Mock data only; no API.
+- Verified: `tsc --noEmit`, focused ESLint, theme audit (0 exceptions),
+  `git diff --check`, `npm run build:web`, and an Edge walkthrough on
+  localhost:3001 covering the full quotation→receipt flow, over-limit approval,
+  validation, five legacy redirects, dark theme and 390px width (no overflow,
+  no console errors). Evidence: `tmp/sales-impl-check/`.
+- No stylesheets retired. Safe resume: build the Customer API, then swap the
+  session store for a feature data adapter. Details:
+  `docs/architecture/sales-simplified-workflow.md`.
 
 ## 2026-11-02 — Sidebar search icon contrast
 
@@ -3749,8 +5571,7 @@ Company Chart adoption/review checkpoint (2026-10-20):
   the screen and server validation. Foreign-currency, inactive, header, system
   and non-postable Bank accounts remain excluded.
 - No feature stylesheet was added or retired. Finance migration 33 and the
-  searchable selector were activated on the localhost ERP database and port
-  3000. Authenticated browser acceptance remains outstanding because the
+  searchable selector were activated on the localhost ERP database and port 3000. Authenticated browser acceptance remains outstanding because the
   computer-use helper could not initialize.
 
 ## 2026-10-30 - Journal self-approval and decimal display
@@ -3795,6 +5616,160 @@ Company Chart adoption/review checkpoint (2026-10-20):
   and narrow-width visual acceptance of the open transaction and recurring
   drawers when the local development runtime is available.
 
+## 2026-11-03 - Bank and HR density and alignment pass
+
+- Tightened the active Bank workspace rhythm across Account Balances, account
+  governance, Payments and Receipts. Filter labels are now visible and
+  baseline-aligned, table rows and summary panels are more compact, and
+  responsive wrapping plus existing search, sorting, pagination and governed
+  actions remain unchanged.
+- Added one semantic Bank Account capsule reused by Bank lists. It uses the
+  centralized warning surface, border and text roles to provide the approved
+  pale amber treatment in light mode and muted gold treatment in dark mode,
+  with keyboard focus and interactive hover states where the capsule opens a
+  record.
+- Added one shared labelled-field primitive and adopted it in the HR workspace
+  controls, company scope, dashboard and employee directory. Shared HR panels,
+  metrics and right-side master sheets now use a consistent compact rhythm;
+  attendance, correction, offer, shift and shift-assignment workspace shells
+  align descendant labels without global selectors or changes outside HR.
+- Business behavior was intentionally preserved: API calls, permissions,
+  financial and HR lifecycle controls, routes, validation, state transitions,
+  pagination, drawers and no-posting safeguards were not changed. No
+  dependency, feature stylesheet, contract or migration was added.
+- Verification passed: repository TypeScript, focused ESLint for the new
+  components and core changed Bank/HR files, UI theme audit write/check (0 font
+  exceptions and 0 feature-view colour exceptions across 110 views),
+  `git diff --check`, and the Next.js 16.3.8 production web build. A broader
+  lint run still reports 62 existing effect-state and label-association
+  findings in legacy HR workspace code whose logic and label markup were not
+  changed by this presentation pass.
+- Browser evidence remains outstanding because the Windows browser automation
+  helper exited during initialization and again after its required reset/retry.
+  Safe resume point: authenticated desktop and narrow-width checks of Bank
+  Account Balances plus representative HR dashboard, directory and shift
+  screens on the existing localhost runtime.
+
+## 2026-11-03 - Shared sidebar duplicate-menu correction
+
+- Removed an obsolete second render path from the shared expanded-module
+  sidebar. Every permitted child page now appears once; route handling,
+  permission and mode scoping, nesting, expansion state, active styling,
+  status badges and hidden route aliases are unchanged.
+- Added a shell-level jsdom regression that compares the expanded Bank group
+  with its visible catalogue entries and rejects duplicate labels. The test
+  reproduced 14 rendered links instead of 7 before the fix and passes after it.
+- Verification passed: 6 focused/adjacent navigation tests, targeted ESLint,
+  repository TypeScript checks, UI theme audit write/check, `git diff --check`,
+  and the Next.js 16.3.8 production web build. The rebuilt server on port 3000
+  returns HTTP 200 with all 22 referenced assets available; API readiness on
+  port 4000 remains HTTP 200.
+- Browser automation failed during initialization and after its required reset,
+  so new authenticated screenshot evidence remains outstanding. Safe resume
+  point: visually sample one expanded group in Bank and one non-Bank module on
+  the running localhost site; no further code migration is required for this
+  correction.
+
+## 2026-11-03 - Bank navigation consolidation
+
+- Removed `Transaction Entry`, `Bank Accounts`, and `Treasury & Instruments`
+  from Bank navigation through a reusable group visibility flag. The primary
+  `Bank` group and its seven pages remain unchanged.
+- Preserved the hidden groups' page catalogue entries, route resolution,
+  components, permissions, API behavior and internal action targets. The shared
+  sidebar, module drawer and navigation search omit hidden groups without
+  deleting their workflows.
+- Added regression coverage proving the Bank sidebar exposes only the primary
+  group while direct route lookup still resolves Bank Account Setup and
+  Treasury Reports.
+- Verification passed: focused navigation tests, targeted ESLint, repository
+  TypeScript checks, UI theme audit write/check, `git diff --check` and the
+  Next.js 16.3.8 production build. The restarted web service on port 3000
+  returns HTTP 200 with all 22 referenced assets available; API readiness on
+  port 4000 remains HTTP 200. Safe resume point: authenticated visual sampling
+  of the consolidated Bank menu when browser automation is available.
+
+## 2026-11-03 - Chart of Accounts workspaces
+
+- Replaced the mixed Chart of Accounts menu with three visible company work
+  pages: Categories, Sections and Nominals. Category, Section and Nominal forms,
+  Nominal detail, the legacy overview/section aliases and Central Master Data
+  remain routable but are hidden from the sidebar.
+- Added a collapsed Category hierarchy with exact server-calculated Section and
+  Nominal totals, expandable Section rows and bounded lazy Nominal loading. The
+  Sections directory groups persisted codes beneath bold Category headings.
+  Separate Category and Section forms reuse the existing governed mutation
+  contracts and preserve immutable code, parent and accounting-type rules.
+- Reused the reviewed `nexora-standard-coa` catalogue and existing company
+  adoption records (14 standard Categories and 78 standard Sections) rather
+  than duplicating screenshot data. Company-created additions remain visible;
+  no account was renumbered, reparented, reclassified, approved or posted.
+- Made every interactive Chart of Accounts code read-only and automatic.
+  Categories now receive company-scoped `CAT-###` codes, Sections receive the
+  next code in their accounting-type band, and Nominals retain their existing
+  Section-based allocation. Transaction-scoped locks prevent concurrent
+  duplicates; inactive codes remain reserved and exhausted bands fail safely.
+- Verification passed: 33 focused workspace/navigation/contract regression unit
+  tests, 9 isolated direct-master integration tests, 17 contract tests,
+  catalogue and contract/client generation checks, repository TypeScript,
+  targeted ESLint, the UI theme audit (111 views, 0 font and 0 feature-view
+  colour exceptions), `git diff --check`, and the Next.js 16.3.8 production web
+  build. A read-only database comparison confirmed all 14 approved Categories
+  and 78 approved Sections for the UAT company. Safe resume point: authenticated
+  desktop and narrow-width visual sampling of Category and Section expansion.
+
+
+## 2026-11-11 - Shared work-page filters, columns, pagination and forms
+
+- Added shared `WorkTable`, `WorkPagination`, `WorkOffsetPagination`, `WorkForm`
+  and `WorkFormLayout` presentation, with route-scoped column/page-size preferences.
+  Updated shared labeled fields and the HR/Identity record drawers for consistent
+  create/edit presentation. The user confirmed that form styling is in scope.
+- Migrated 142 existing table declarations, 117 native forms and 34 governed
+  editor layouts. These are source declarations, not a count or percentage of
+  menu screens. Banking, Purchasing, Inventory, Finance, HR, Security, shared
+  module lists and prototype work views consume the shared controls.
+- Added text and field filters, a checkbox column menu, reset, and a bottom pager
+  with 10/25/50/100 rows (default 25). Preserved existing company/status/date/server
+  search, domain row actions, selection state, group headings and footer totals.
+  Removed duplicate and inert pagers; Nominal cards and table views share one
+  server pager. Cursor directories show known counts with `+` while more exist.
+- HR APIs capped at 50 rows compose a 100-row page through two bounded authorized
+  reads in the existing feature adapter. Failed second batches reject the page;
+  changed source hashes require refresh. No API contracts, schemas, migrations,
+  authorization rules or financial posting behavior changed in this batch.
+- Deliberate exclusions: editable transaction lines, complete print/source
+  documents, hidden chart tables and the assistant chat composer. Form inputs are
+  never paginated. Matching loaded records print across screen page boundaries.
+  Existing feature CSS remains because active selectors still depend on it.
+- Additional column/text filters on server-backed lists explicitly cover loaded
+  rows; existing API search remains available for the full authorized directory.
+  No background scan attempts to load the entire company dataset.
+- Verification: `npm.cmd run test:unit -- --maxWorkers=4` passed 1,287 tests in
+  167 files. The final shared-control/HR-page checks passed 14 tests. Repository
+  `npm.cmd run typecheck` and `npm.cmd run build:web` passed (isolated output:
+  `tmp/work-pages-final-build`). New shared files passed ESLint/Prettier; a
+  comparison of 141 affected source files found no new lint regressions against
+  252 existing errors. This does not claim a clean repository-wide lint run.
+- Theme audit `--write` and `--check` passed: 114 feature-view source files with
+  zero direct font/colour exceptions; the existing shared colour exception is
+  unchanged. Structural comparison retained every original table/form and all
+  domain functions; only two superseded local Pagination helpers were retired.
+- Browser evidence: `tests/e2e/work-list-controls.spec.ts` and
+  `tests/e2e/purchase-payment-layout.spec.ts` cover 10 read-only scenarios using
+  synthetic API fixtures. Lists are checked at 1440/390px in light/dark; payment
+  allocation also covers 768px. The tests exercise sizes, next/previous, cursor
+  boundaries, field/text filters, columns, allocation, bank currency, zero writes,
+  zero page errors, no page overflow, and zero scoped axe violations. Screenshots:
+  `tmp/work-list-light-1440.png`, `tmp/work-list-light-390.png`,
+  `tmp/work-list-dark-1440.png`, `tmp/work-list-dark-390.png`.
+- Remaining: this is representative route-level browser coverage, not visual
+  certification of every menu route. Existing prototype data sources, server
+  filter capabilities and documented migration exceptions remain in place.
+- Local handoff: refreshed web port 3000 from the final isolated build. HTTP
+  200, all 22 referenced Next.js assets HTTP 200, and API readiness on port 4000
+  HTTP 200. Stopped the temporary port-3200 preview; retained evidence under
+  `tmp/`. No business-data writes were performed during browser verification.
 ## 2026-11-04 - HR icon-only back, edit and delete actions
 
 - Added `app/features/hr/components/hr-icon-buttons.tsx` (`HrBackButton`,
@@ -5384,3 +7359,57 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Pre-existing/unrelated: `tests/contract/openapi.test.ts` snapshot lists 204
   paths vs 352 generated (finance journals etc. missing); 24 unused-import
   lint errors in `app/features/hr/api/hr-client.ts`.
+
+## Sales quotations approval pass (10 Nov 2026)
+
+- Changed: `app/features/sales` model (types, constants, fixtures, workflow,
+  store counts), `sales-dialogs.tsx` (QuotationDecisionDialog/Buttons),
+  `sales-ui.tsx` (stopped tone, new status tones), document entry/list/record,
+  Sales Approvals, and new `views/sales-quotation-record.tsx`.
+- Tailwind + shadcn primitives only; no new stylesheet. Theme audit: 0 font,
+  0 colour exceptions.
+- Verified: `tsc --noEmit`, eslint on the sales feature, workflow rule script,
+  `git diff --check`, `npm run build:web`. Not yet verified in a browser at
+  desktop/tablet/mobile widths or in dark mode.
+- Resume point: browser pass over Quotations list, quotation record (each
+  status), New Quotation form and Sales Approvals.
+
+## Sales single-approval workflow pass (10 Nov 2026)
+
+- Changed: sales model (single Management approval that auto-confirms the order,
+  pick & pack step, invoice payments, notifications), new
+  `components/fulfilment-panel.tsx` and `components/invoice-panel.tsx` (shadcn
+  `Sheet`), rewritten order record and Pick, Pack & Delivery view, Sales
+  Approvals limited to quotations and returns, shell bell shows sales
+  notifications. Retired: `views/sales-receipts-view.tsx` (Customer Receipts
+  page, no remaining imports), `CreditDialog`, `DeliveryDialog`.
+- Verified: `tsc --noEmit`, eslint (sales + shell), workflow rule script,
+  theme audit (0 exceptions), `git diff --check`, `npm run build:web`.
+  Not yet verified in a browser.
+- Resume point: browser pass over quotation approval, Pick, Pack & Delivery
+  panel, invoice panel (desktop/tablet/mobile, light/dark), and the bell.
+
+## 2026-11-12 — Branch integration: hr-employment-setup and abdullah_nexora into shoaib_nexora
+
+- Merged `hr-employment-setup` (HR & Payroll redesign, sign-in company selection) and
+  `abdullah_nexora` (Sales workspace, shared `AmountInput`) into `shoaib_nexora`.
+  `hr_module_nexora` was already fully contained in `shoaib_nexora`.
+- HR views keep the HR-branch redesign; main's shared `WorkTable` / `WorkForm` controls
+  are re-applied. Tables paged by `HrPagination` or a server pager use `paging={false}`;
+  payslip document tables stay plain. Server-paged HR lists whose request limit and
+  pager step disagreed after the merge now use `WorkOffsetPagination`, with the page
+  size driving the request limit.
+- Banking, finance and master-data screens keep main's layouts without company pickers.
+  Purchasing, inventory and chart-hierarchy company lists are narrowed to the signed-in
+  company (`inActiveCompany`) so they never trigger `COMPANY_SCOPE_MISMATCH`.
+- `AmountInput` is applied to the HR-branch money fields (job-grade bands, requisition
+  salary range, offer gross, payroll amounts/principal and structure item amounts) and to
+  main's bank transfer amount, bank charge and company currency rate fields.
+- Shell: `g()` takes `hiddenFromNavigation` then `inline`; sidebar groups support inline
+  Sales groups, Sales badge counts and the HR active-group highlight together.
+- Verified without installing dependencies: no conflict markers, no imports of deleted
+  modules, a no-lib TypeScript parse/undeclared-name check of all changed TS/TSX files,
+  `git diff --check`, theme audit `--check`, prototype manifest `--check`.
+- Not yet run: full `npm run typecheck`, unit/integration tests, `npm run build:web` and a
+  browser pass. Resume point: install dependencies, run those checks, then browser-check
+  HR lists (page-size switching), banking/finance company scope and the Sales menu.

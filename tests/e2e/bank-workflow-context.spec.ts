@@ -31,12 +31,17 @@ test.describe("Real shared masters and Bank workflow context", () => {
   test("creates, views, edits and deactivates real company masters through Finance navigation", async ({ page }) => {
     await signIn(page, "r06.maker");
     await page.goto("/#/finance/reporting-projects");
-    await expect(page.getByRole("button", { name: "Add Project", exact: true })).toBeEnabled();
-    const code = `UI-${randomUUID().slice(0, 8)}`;
-    await page.getByRole("button", { name: "Add Project", exact: true }).click();
-    await page.getByLabel("Code", { exact: true }).fill(code);
-    await page.getByLabel("Name", { exact: true }).fill("Synthetic browser project");
-    await page.getByRole("button", { name: "Save reference", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Add new", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "Add new", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "New Project", exact: true });
+    await expect(dialog.getByLabel("Code", { exact: true })).toHaveAttribute("readonly", "");
+    await dialog.getByLabel("Name", { exact: true }).fill("Synthetic browser project");
+    const creation = page.waitForResponse(
+      (response) => response.url().endsWith("/master_data/projects") && response.request().method() === "POST",
+    );
+    await dialog.getByRole("button", { name: "Create Project", exact: true }).click();
+    const code: string = (await (await creation).json()).record.code;
+    expect(code).toMatch(/^PRJ-\d{3,}$/);
     await expect(page.getByRole("button", { name: `View ${code}`, exact: true })).toBeVisible();
     await page.reload();
     await page.getByRole("button", { name: `View ${code}`, exact: true }).click();
@@ -62,7 +67,7 @@ test.describe("Real shared masters and Bank workflow context", () => {
     if ((await finance.getAttribute("aria-expanded")) !== "true") await finance.click();
     await navigation.getByRole("button", { name: "Locations / Cities", exact: true }).click();
     await expect(page).toHaveURL(/finance\/reporting-locations/);
-    await expect(page.getByRole("button", { name: "Add Location", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Add new", exact: true })).toBeEnabled();
   });
   for (const kind of ["payment", "receipt"] as const) {
     test(`${kind} persists references across reload and routes to its selected independent checker`, async ({
@@ -70,15 +75,22 @@ test.describe("Real shared masters and Bank workflow context", () => {
     }) => {
       await signIn(page, "r06.maker");
       const suffix = randomUUID().slice(0, 8);
-      for (const [path, label, code] of [
-        ["reporting-projects", "Project", `PRJ-${suffix}`],
-        ["reporting-locations", "Location", `LOC-${suffix}`],
+      const codes: string[] = [];
+      for (const [path, label] of [
+        ["reporting-projects", "Project"],
+        ["reporting-locations", "Location"],
       ]) {
         await page.goto(`/#/finance/${path}`);
-        await page.getByRole("button", { name: `Add ${label}`, exact: true }).click();
-        await page.getByLabel("Code", { exact: true }).fill(code!);
+        await page.getByRole("button", { name: "Add new", exact: true }).click();
         await page.getByLabel("Name", { exact: true }).fill(`Synthetic ${label} ${suffix}`);
-        await page.getByRole("button", { name: "Save reference", exact: true }).click();
+        const creation = page.waitForResponse(
+          (response) =>
+            response.url().endsWith(`/master_data/${label === "Project" ? "projects" : "locations"}`) &&
+            response.request().method() === "POST",
+        );
+        await page.getByRole("button", { name: `Create ${label}`, exact: true }).click();
+        const code: string = (await (await creation).json()).record.code;
+        codes.push(code);
         await expect(page.getByRole("button", { name: `View ${code}`, exact: true })).toBeVisible();
       }
       await page.goto(`/#/banking/add-bank-${kind}`);
@@ -87,8 +99,8 @@ test.describe("Real shared masters and Bank workflow context", () => {
         kind === "payment" ? "Pay through" : "Receive into",
         "Synthetic Bank Payment Operating Account",
       );
-      const project = await choose(page, "Project", `PRJ-${suffix}`);
-      const location = await choose(page, "Location / City", `LOC-${suffix}`);
+      const project = await choose(page, "Project", codes[0]!);
+      const location = await choose(page, "Location / City", codes[1]!);
       const approver = await choose(page, "Approver", "r06.checker");
       await page.getByLabel("Line 1 external reference", { exact: true }).fill(`REF-${suffix}`);
       await page

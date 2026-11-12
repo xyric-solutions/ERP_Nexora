@@ -1,4 +1,8 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+import { WorkSurfaceContext } from "@/shared/ui/work-surface-context";
+
 import { FilterBar } from "../shared/ui/filter-bar";
 
 import {
@@ -17,6 +21,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import type { CompanyMode } from "@prototype/shared/fixtures/mock-data";
 import { RoleDashboard } from "@prototype/features/dashboard/views/role-dashboard";
@@ -39,7 +44,10 @@ import { BankingTransferEntry } from "@prototype/features/banking/views/banking-
 import { BankingTransferDetail } from "@prototype/features/banking/views/banking-transfer-detail";
 import { isPersistedBankPaymentId } from "@prototype/features/banking/model/bank-payment-routing";
 import { isPersistedBankReceiptId } from "@prototype/features/banking/model/bank-receipt-routing";
-import { isPersistedBankTransferId } from "@prototype/features/banking/model/bank-transfer-routing";
+import {
+  bankTransferEntryKind,
+  isPersistedBankTransferId,
+} from "@prototype/features/banking/model/bank-transfer-routing";
 import {
   resolveBankReconciliationRoute,
   resolveBankStatementImportRoute,
@@ -56,7 +64,12 @@ import {
   BankNominalDetailBridge,
 } from "@/features/finance/views/finance-nominals";
 import { FinanceChartTemplates } from "@/features/finance/views/finance-chart-templates";
-import { FinanceHierarchy } from "@/features/finance/views/finance-hierarchy";
+import {
+  encodeHierarchyRouteReference,
+  FinanceCategories,
+  FinanceHierarchyForm,
+  FinanceSections,
+} from "@/features/finance/views/finance-hierarchy-workspaces";
 import { FinanceFiscalPeriods } from "@/features/finance/views/finance-fiscal-periods";
 import { FinanceCurrencies } from "@/features/finance/views/company-currencies-workspace";
 import {
@@ -132,7 +145,11 @@ import { HrLifecycleScreen, isHrLifecyclePage } from "@prototype/features/hr/vie
 import { HrLifecyclePoliciesWorkspace } from "@prototype/features/hr/views/hr-lifecycle-policies-workspace";
 import { HrLoanBenefitsWorkspace } from "@prototype/features/hr/views/hr-benefits-workspace";
 import { HrReportingWorkspace, isHrReportingPage } from "@prototype/features/hr/views/hr-reporting-workspace";
+import { InventoryOperationsWorkspace } from "@prototype/features/inventory/views/inventory-operations-workspace";
+import { ProductsWorkspace } from "@prototype/features/inventory/views/products-workspace";
+import { PurchaseWorkspace } from "@prototype/features/purchasing/views/purchase-workspace";
 import { CommercialWorkspace, isCommercialMaturityPage } from "@prototype/features/commerce/views/commercial-workspace";
+import { isSalesWorkspacePage, SalesWorkspace } from "@prototype/features/sales/views/sales-workspace";
 import { MasterDataForm, isMatureMasterDataForm } from "@prototype/features/master-data/views/master-data-form";
 import { RecordPreviewDrawer } from "@prototype/features/commerce/components/record-preview-drawer";
 import { isReportsWorkspacePage, ReportsWorkspace } from "@prototype/features/reports/views/reports-workspace";
@@ -266,17 +283,15 @@ function PageIntro({
   children?: React.ReactNode;
   statusLabel?: string;
 }) {
+  const status = statusLabel ?? (context.status === "prototype" ? "Prototype only" : titleCase(context.status));
+  const statusNotice = /read[- ]only/i.test(status) ? "Read only" : /connected|^live$/i.test(status) ? null : status;
   return (
     <div className="nx-page-intro">
       <div>
-        <span className="nx-eyebrow">{context.moduleLabel}</span>
         <div className="nx-title-row">
           <h1>{context.pageLabel}</h1>
-          <StatusChip
-            status={statusLabel ?? (context.status === "prototype" ? "Prototype only" : titleCase(context.status))}
-          />
+          {statusNotice && <StatusChip status={statusNotice} />}
         </div>
-        <p>{context.moduleDescription}</p>
       </div>
       {children ? <div className="nx-page-actions">{children}</div> : null}
     </div>
@@ -744,7 +759,7 @@ function ListView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
           </div>
         ) : null}
         <div className="nx-table-wrap">
-          <table className="nx-data-table">
+          <WorkTable tableId="app/shell/prototype-content:1" className="nx-data-table">
             <thead>
               <tr>
                 <th>
@@ -809,7 +824,7 @@ function ListView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
         <div className="nx-pagination">
           <span>Showing 1–{filtered.length} of 128 records</span>
@@ -984,7 +999,7 @@ function DetailView({ context, rows, onAction }: Omit<PrototypeContentProps, "vi
             <AuditTimeline />
           ) : (
             <div className="nx-line-items">
-              <table>
+              <WorkTable tableId="app/shell/prototype-content:2">
                 <thead>
                   <tr>
                     <th>Line</th>
@@ -1007,7 +1022,7 @@ function DetailView({ context, rows, onAction }: Omit<PrototypeContentProps, "vi
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           )}
         </section>
@@ -1154,7 +1169,7 @@ function FormView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
         family={blueprint.family}
         onAction={onAction}
       />
-      <form
+      <WorkForm
         className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(16.875rem,19.375rem)] items-start gap-3.5 max-xl:grid-cols-1"
         onSubmit={(event) => {
           event.preventDefault();
@@ -1276,9 +1291,8 @@ function FormView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
                         </select>
                       </td>
                       <td>
-                        <Input
+                        <AmountInput
                           defaultValue={row.amount.replace(/[^0-9.]/g, "")}
-                          inputMode="decimal"
                           aria-label={"Rate line " + (index + 1)}
                         />
                       </td>
@@ -1507,7 +1521,7 @@ function FormView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
           </Button>
           <Button type="submit">Validate &amp; submit</Button>
         </footer>
-      </form>
+      </WorkForm>
     </>
   );
 }
@@ -1873,7 +1887,7 @@ function ReportView({ context, rows, onAction }: Omit<PrototypeContentProps, "vi
           </div>
         </div>
         <div className="nx-table-wrap">
-          <table className="nx-data-table">
+          <WorkTable tableId="app/shell/prototype-content:4" className="nx-data-table">
             <thead>
               <tr>
                 <th>Date</th>
@@ -1906,7 +1920,7 @@ function ReportView({ context, rows, onAction }: Omit<PrototypeContentProps, "vi
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       </section>
     </>
@@ -2743,11 +2757,15 @@ export function PrototypeContent(props: PrototypeContentProps) {
   ) : (
     <PrototypeContentBody {...props} />
   );
-  // Every HR & Payroll drawer shows the page it belongs to at the top of its header.
-  return context.moduleId === "hr" ? (
-    <HrDrawerSectionProvider section={context.pageLabel}>{content}</HrDrawerSectionProvider>
-  ) : (
-    content
+  return (
+    <WorkSurfaceContext.Provider value={`${context.moduleId}:${context.pageId}`}>
+      {/* Every HR & Payroll drawer shows the page it belongs to at the top of its header. */}
+      {context.moduleId === "hr" ? (
+        <HrDrawerSectionProvider section={context.pageLabel}>{content}</HrDrawerSectionProvider>
+      ) : (
+        content
+      )}
+    </WorkSurfaceContext.Provider>
   );
 }
 
@@ -2763,9 +2781,13 @@ function PrototypeContentBody(props: PrototypeContentProps) {
     (context.moduleId === "finance" &&
       [
         "chart-of-accounts",
+        "coa-categories",
+        "coa-sections",
         "nominals",
         "nominal-detail",
         "add-nominal",
+        "add-coa-category",
+        "add-coa-section",
         "central-chart-template",
         "section-management",
         "reporting-projects",
@@ -2814,7 +2836,62 @@ function PrototypeContentBody(props: PrototypeContentProps) {
   if (["coming-soon", "not-implemented"].includes(context.status))
     return <ComingSoonView context={context} onAction={onAction} />;
 
-  if (context.moduleId === "finance" && context.pageId === "section-management") return <FinanceHierarchy />;
+  if (context.moduleId === "finance" && ["coa-categories", "chart-of-accounts"].includes(context.pageId))
+    return (
+      <FinanceCategories
+        onCreate={(companyId) =>
+          props.onNavigate("finance", "add-coa-category", encodeHierarchyRouteReference({ companyId }))
+        }
+        onEdit={(companyId, headerId, kind) =>
+          props.onNavigate(
+            "finance",
+            kind === "category" ? "add-coa-category" : "add-coa-section",
+            encodeHierarchyRouteReference({ companyId, headerId }),
+          )
+        }
+        onOpenNominal={(nominalId) => props.onNavigate("finance", "nominal-detail", nominalId)}
+        onEditNominal={(nominalId) => props.onNavigate("finance", "add-nominal", nominalId)}
+        onStandardChart={() => props.onNavigate("finance", "central-chart-template")}
+      />
+    );
+  if (context.moduleId === "finance" && ["coa-sections", "section-management"].includes(context.pageId))
+    return (
+      <FinanceSections
+        onCreate={(companyId) =>
+          props.onNavigate("finance", "add-coa-section", encodeHierarchyRouteReference({ companyId }))
+        }
+        onEdit={(companyId, headerId, kind) =>
+          props.onNavigate(
+            "finance",
+            kind === "category" ? "add-coa-category" : "add-coa-section",
+            encodeHierarchyRouteReference({ companyId, headerId }),
+          )
+        }
+        onOpenNominal={(nominalId) => props.onNavigate("finance", "nominal-detail", nominalId)}
+        onEditNominal={(nominalId) => props.onNavigate("finance", "add-nominal", nominalId)}
+        onStandardChart={() => props.onNavigate("finance", "central-chart-template")}
+      />
+    );
+  if (context.moduleId === "finance" && ["add-coa-category", "add-coa-section"].includes(context.pageId))
+    return (
+      <FinanceHierarchyForm
+        key={`${context.pageId}:${context.recordRef ?? "new"}`}
+        kind={context.pageId === "add-coa-category" ? "category" : "section"}
+        recordRef={context.recordRef}
+        onDirtyChange={props.onPaymentEntryDirtyChange}
+        onSaved={() =>
+          props.onNavigate(
+            "finance",
+            context.pageId === "add-coa-category" ? "coa-categories" : "coa-sections",
+            undefined,
+            { bypassUnsavedGuard: true },
+          )
+        }
+        onCancel={() =>
+          props.onNavigate("finance", context.pageId === "add-coa-category" ? "coa-categories" : "coa-sections")
+        }
+      />
+    );
   if (context.moduleId === "finance" && context.pageId === "currencies-fx") return <FinanceCurrencies />;
   if (context.moduleId === "configuration" && context.pageId === "company-fiscal-currency")
     return <FinanceCurrencies />;
@@ -2835,7 +2912,7 @@ function PrototypeContentBody(props: PrototypeContentProps) {
       <FinanceChartTemplates
         key={context.pageId}
         initialKind="category"
-        onCompanyAccounts={() => props.onNavigate("finance", "chart-of-accounts")}
+        onCompanyAccounts={() => props.onNavigate("finance", "coa-categories")}
       />
     );
   }
@@ -2847,10 +2924,7 @@ function PrototypeContentBody(props: PrototypeContentProps) {
       />
     );
   }
-  if (
-    context.moduleId === "finance" &&
-    ["chart-of-accounts", "nominals", "nominal-detail", "add-nominal"].includes(context.pageId)
-  ) {
+  if (context.moduleId === "finance" && ["nominals", "nominal-detail", "add-nominal"].includes(context.pageId)) {
     if (context.pageId === "add-nominal")
       return (
         <FinanceNominalForm
@@ -2868,14 +2942,16 @@ function PrototypeContentBody(props: PrototypeContentProps) {
           nominalId={context.recordRef}
           onBack={() => props.onNavigate("finance", "nominals")}
           onEdit={(id) => props.onNavigate("finance", "add-nominal", id)}
+          onDirtyChange={props.onPaymentEntryDirtyChange}
         />
       );
     return (
       <FinanceNominals
-        title={context.pageId === "chart-of-accounts" ? "Chart of Accounts" : "Nominal accounts"}
+        title="Nominal accounts"
         onCreate={() => props.onNavigate("finance", "add-nominal")}
         onCentralTemplate={() => props.onNavigate("finance", "central-chart-template")}
         onOpen={(id) => props.onNavigate("finance", "nominal-detail", id)}
+        onEdit={(id) => props.onNavigate("finance", "add-nominal", id)}
       />
     );
   }
@@ -3053,8 +3129,43 @@ function PrototypeContentBody(props: PrototypeContentProps) {
     return <ReportsWorkspace context={context} onAction={onAction} onNavigate={props.onNavigate} />;
   }
 
+  if (context.moduleId === "inventory") {
+    if (["warehouses", "add-warehouse", "stock-transfers", "add-stock-transfer"].includes(context.pageId))
+      return (
+        <InventoryOperationsWorkspace
+          page={context.pageId}
+          recordRef={context.recordRef}
+          onNavigate={props.onNavigate}
+          onDirtyChange={props.onPaymentEntryDirtyChange}
+        />
+      );
+    return (
+      <ProductsWorkspace
+        page={context.pageId}
+        recordRef={context.recordRef}
+        onNavigate={props.onNavigate}
+        onDirtyChange={props.onPaymentEntryDirtyChange}
+      />
+    );
+  }
+  if (context.moduleId === "purchases") {
+    return (
+      <PurchaseWorkspace
+        page={context.pageId}
+        recordRef={context.recordRef}
+        onNavigate={props.onNavigate}
+        onDirtyChange={props.onPaymentEntryDirtyChange}
+      />
+    );
+  }
+
   if (isMatureMasterDataForm(context.pageId)) {
     return <MasterDataForm context={context} onAction={onAction} onNavigate={props.onNavigate} />;
+  }
+
+  // Simplified Sales, Revenue and Customers workspace (approved 10 Nov 2026).
+  if (isSalesWorkspacePage(context.moduleId, context.pageId)) {
+    return <SalesWorkspace context={context} onNavigate={props.onNavigate} />;
   }
 
   if (isCommercialMaturityPage(context.moduleId, context.pageId)) {
@@ -3183,7 +3294,7 @@ function PrototypeContentBody(props: PrototypeContentProps) {
     if (context.pageId === "transfers") {
       return (
         <BankingTransfers
-          onCreate={() => props.onNavigate("banking", "add-transfer")}
+          onCreate={(kind) => props.onNavigate("banking", "add-transfer", kind)}
           onOpen={(transferId) => props.onNavigate("banking", "transaction-detail", transferId)}
         />
       );
@@ -3193,7 +3304,9 @@ function PrototypeContentBody(props: PrototypeContentProps) {
       return (
         <BankingTransferEntry
           key={context.recordRef ?? "new"}
-          transferId={context.recordRef}
+          transferId={isPersistedBankTransferId(context.recordRef) ? context.recordRef : undefined}
+          entryKind={bankTransferEntryKind(context.recordRef)}
+          onConfigurePolicy={() => props.onNavigate("finance", "currencies-fx")}
           onBack={() => props.onNavigate("banking", "transfers", undefined, { bypassUnsavedGuard: true })}
           onDirtyChange={props.onPaymentEntryDirtyChange}
           onOpen={(transferId) =>
@@ -3263,9 +3376,6 @@ function PrototypeContentBody(props: PrototypeContentProps) {
       return (
         <>
           <PageIntro context={{ ...context, status: "backend connected" }}>
-            <Button variant="outline" type="button" disabled title="A governed export API is not available yet">
-              Export unavailable
-            </Button>
             <ActionButton tone="primary" onClick={() => props.onNavigate("banking", "add-bank-account")}>
               + Add New
             </ActionButton>
@@ -3319,6 +3429,7 @@ function PrototypeContentBody(props: PrototypeContentProps) {
             accountId={context.recordRef ?? selectedBankAccountId}
             onEdit={(id) => props.onNavigate("banking", "add-bank-account", id)}
             onBack={() => props.onNavigate("banking", "account-balances")}
+            onDirtyChange={props.onPaymentEntryDirtyChange}
           />
         </>
       );

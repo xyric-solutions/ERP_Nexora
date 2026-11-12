@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination, WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
@@ -165,34 +168,38 @@ function Message({ error }: { error: string }) {
 function Empty({ text }: { text: string }) {
   return <div className={panel + " py-8 text-center text-sm text-muted-foreground"}>{text}</div>;
 }
+/** Server offset pager for leave lists, presented with the shared ERP work pagination. */
 function Pagination({
   total,
   offset,
   setOffset,
   loading,
-  size = 25,
+  size,
+  onSizeChange,
 }: {
   total: number;
   offset: number;
   setOffset: (v: number) => void;
   loading: boolean;
-  size?: number;
+  size: number;
+  onSizeChange: (size: number) => void;
 }) {
-  return total > size ? (
-    <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-      <span>
-        {offset + 1}–{Math.min(offset + size, total)} of {total}
-      </span>
-      <div className="flex gap-2">
-        <Button variant="outline" disabled={!offset || loading} onClick={() => setOffset(Math.max(0, offset - size))}>
-          Previous
-        </Button>
-        <Button variant="outline" disabled={offset + size >= total || loading} onClick={() => setOffset(offset + size)}>
-          Next
-        </Button>
-      </div>
-    </div>
-  ) : null;
+  return (
+    <WorkOffsetPagination
+      busy={loading}
+      total={total}
+      offset={offset}
+      size={size}
+      previousDisabled={!offset || loading}
+      nextDisabled={offset + size >= total || loading}
+      onSizeChange={(next) => {
+        onSizeChange(next);
+        setOffset(0);
+      }}
+      onPrevious={() => setOffset(Math.max(0, offset - size))}
+      onNext={() => setOffset(offset + size)}
+    />
+  );
 }
 const newPolicy = (date: string): HrLeavePolicyInput => ({
   effective_from: date,
@@ -350,6 +357,7 @@ function PolicyEditor({
   );
 }
 function LeaveTypes(props: Shared) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const { client, company, date, revision, busy, save, csrf, permissions, onEditing } = props;
   const [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
@@ -363,8 +371,8 @@ function LeaveTypes(props: Shared) {
     [reason, setReason] = useState(""),
     [error, setError] = useState(""),
     [selectedId, setSelectedId] = useState("");
-  const query = useAttendanceRead(JSON.stringify([company, date, revision, offset, applied]), () =>
-    client.listLeaveTypes({ company_id: company, as_of: date, search: applied || undefined, limit: 50, offset }),
+  const query = useAttendanceRead(JSON.stringify([company, date, revision, offset, applied, workPageSize]), () =>
+    client.listLeaveTypes({ company_id: company, as_of: date, search: applied || undefined, limit: workPageSize, offset }),
   );
   const applySearch = useCallback((value: string) => {
     setApplied(value);
@@ -489,7 +497,7 @@ function LeaveTypes(props: Shared) {
           busy={busy}
           error={error || props.saveError}
         >
-          <form
+          <WorkForm
             className="grid gap-5"
             aria-label="Leave policy editor"
             onSubmit={(e) => {
@@ -545,7 +553,7 @@ function LeaveTypes(props: Shared) {
                 {busy ? "Saving…" : editor === "new" ? "Create leave type" : "Save changes"}
               </Button>
             </HrDrawerActions>
-          </form>
+          </WorkForm>
         </HrRecordDrawer>
       )}
       {query.loading ? (
@@ -554,7 +562,7 @@ function LeaveTypes(props: Shared) {
         <Empty text="No leave types match this company, search and status." />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-card">
-          <table className="w-full min-w-180 border-collapse text-left text-sm">
+          <WorkTable paging={false} tableId="app/features/hr/views/hr-time-leave-workspace:1" className="w-full min-w-180 border-collapse text-left text-sm">
             <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="w-px whitespace-nowrap px-4 py-3">Leave code</th>
@@ -601,7 +609,7 @@ function LeaveTypes(props: Shared) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       )}
       <Pagination
@@ -609,7 +617,8 @@ function LeaveTypes(props: Shared) {
         offset={offset}
         setOffset={setOffset}
         loading={query.loading}
-        size={50}
+        size={workPageSize}
+        onSizeChange={setWorkPageSize}
       />
       <HrRecordDrawer
         title={current?.name ?? "Leave type"}
@@ -689,6 +698,8 @@ function LeaveTypes(props: Shared) {
   );
 }
 function LeaveBalances(props: Shared) {
+  const [workPageSize, setWorkPageSize] = useState(25);
+  const [ledgerPageSize, setLedgerPageSize] = useState(25);
   const { client, company, date, revision, busy, save, csrf, permissions, onEditing } = props;
   const [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
@@ -703,8 +714,8 @@ function LeaveBalances(props: Shared) {
     [reason, setReason] = useState(""),
     [error, setError] = useState(""),
     [ledgerOffset, setLedgerOffset] = useState(0);
-  const query = useAttendanceRead(JSON.stringify([company, date, revision, offset, applied]), () =>
-    client.listLeaveBalances({ company_id: company, as_of: date, search: applied || undefined, limit: 25, offset }),
+  const query = useAttendanceRead(JSON.stringify([company, date, revision, offset, applied, workPageSize]), () =>
+    client.listLeaveBalances({ company_id: company, as_of: date, search: applied || undefined, limit: workPageSize, offset }),
   );
   const applySearch = useCallback((value: string) => {
     setApplied(value);
@@ -713,7 +724,7 @@ function LeaveBalances(props: Shared) {
   useAppliedSearch(search, applySearch);
   const ledger = useAttendanceRead(
     selected
-      ? JSON.stringify([company, selected.employee_id, selected.leave_type_id, effective, revision, ledgerOffset])
+      ? JSON.stringify([company, selected.employee_id, selected.leave_type_id, effective, revision, ledgerOffset, ledgerPageSize])
       : null,
     () =>
       client.leaveLedger({
@@ -721,7 +732,7 @@ function LeaveBalances(props: Shared) {
         employee_id: selected!.employee_id,
         leave_type_id: selected!.leave_type_id,
         as_of: effective,
-        limit: 25,
+        limit: ledgerPageSize,
         offset: ledgerOffset,
       }),
   );
@@ -783,7 +794,7 @@ function LeaveBalances(props: Shared) {
         <Empty text="No operational employee and leave type matches this date. Create leave types and check employee placements." />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-card">
-          <table className="w-full min-w-180 border-collapse text-left text-sm">
+          <WorkTable paging={false} tableId="app/features/hr/views/hr-time-leave-workspace:2" className="w-full min-w-180 border-collapse text-left text-sm">
             <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="w-px whitespace-nowrap px-4 py-3">Employee no.</th>
@@ -832,10 +843,17 @@ function LeaveBalances(props: Shared) {
                 );
               })}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       )}
-      <Pagination total={query.data?.total ?? 0} offset={offset} setOffset={setOffset} loading={query.loading} />
+      <Pagination
+        total={query.data?.total ?? 0}
+        offset={offset}
+        setOffset={setOffset}
+        loading={query.loading}
+        size={workPageSize}
+        onSizeChange={setWorkPageSize}
+      />
       <HrRecordDrawer
         title={
           posting ? "Adjust balance" : selected ? `${selected.display_name} · ${selected.leave_type}` : "Leave ledger"
@@ -861,7 +879,7 @@ function LeaveBalances(props: Shared) {
         }
       >
         {selected && posting ? (
-          <form
+          <WorkForm
             className="grid gap-4"
             aria-label="Post leave balance entry"
             onSubmit={(e) => {
@@ -942,7 +960,7 @@ function LeaveBalances(props: Shared) {
                 {busy ? "Posting…" : "Confirm posting"}
               </Button>
             </HrDrawerActions>
-          </form>
+          </WorkForm>
         ) : selected ? (
           ledger.loading ? (
             <Skeleton className="h-28" />
@@ -983,6 +1001,8 @@ function LeaveBalances(props: Shared) {
                 offset={ledgerOffset}
                 setOffset={setLedgerOffset}
                 loading={ledger.loading}
+                size={ledgerPageSize}
+                onSizeChange={setLedgerPageSize}
               />
             </div>
           ) : null
@@ -1088,7 +1108,7 @@ function RequestEditor(props: Shared) {
         <Message
           error={error || query.error || (!validRange ? "Choose an ordered date range of up to 62 calendar days." : "")}
         />
-        <form
+        <WorkForm
           className="grid min-w-0 gap-5"
           onSubmit={(e) => {
             e.preventDefault();
@@ -1292,7 +1312,7 @@ function RequestEditor(props: Shared) {
               {busy ? "Saving…" : canSubmit ? "Submit" : "Save as draft"}
             </Button>
           </HrDrawerActions>
-        </form>
+        </WorkForm>
       </section>
     </HrRecordDrawer>
   );
@@ -1317,6 +1337,7 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
     initial,
     approval,
   } = props;
+  const [workPageSize, setWorkPageSize] = useState(25);
   const [search, setSearch] = useState(""),
     [applied, setApplied] = useState(""),
     [filter, setFilter] = useState<LeaveListFilter>("all"),
@@ -1329,7 +1350,7 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
     [hash, setHash] = useState<string | undefined>(),
     [error, setError] = useState("");
   const status = filter === "all" || filter === "submitted" ? undefined : (filter as LeaveStatusFilter);
-  const list = useAttendanceRead(JSON.stringify([company, date, revision, offset, applied, filter, approval]), () =>
+  const list = useAttendanceRead(JSON.stringify([company, date, revision, offset, applied, filter, approval, workPageSize]), () =>
     client.listLeaveRequests({
       company_id: company,
       as_of: date,
@@ -1338,7 +1359,7 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
       queue_only: "false",
       submitted_only: approval || filter === "submitted" ? "true" : "false",
       exclude_cancelled: "true",
-      limit: 25,
+      limit: workPageSize,
       offset,
     }),
   );
@@ -1438,7 +1459,7 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
         />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-card">
-          <table className="w-full min-w-180 border-collapse text-left text-sm">
+          <WorkTable paging={false} tableId="app/features/hr/views/hr-time-leave-workspace:3" className="w-full min-w-180 border-collapse text-left text-sm">
             <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="w-px whitespace-nowrap px-4 py-3">Reference</th>
@@ -1488,10 +1509,17 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       )}
-      <Pagination total={list.data?.total ?? 0} offset={offset} setOffset={setOffset} loading={list.loading} />
+      <Pagination
+        total={list.data?.total ?? 0}
+        offset={offset}
+        setOffset={setOffset}
+        loading={list.loading}
+        size={workPageSize}
+        onSizeChange={setWorkPageSize}
+      />
       <HrRecordDrawer
         title={
           action ? `${actionLabel(action)} · ${request?.reference ?? ""}` : (request?.reference ?? "Leave request")
@@ -1535,7 +1563,7 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
         {selected && detail.loading && !request ? (
           <Skeleton className="h-40" />
         ) : request && action ? (
-          <form
+          <WorkForm
             className="grid gap-4"
             aria-label="Leave request decision"
             onSubmit={(e) => {
@@ -1578,7 +1606,7 @@ function LeaveRequests(props: Shared & { approval: boolean }) {
                     : `Confirm ${actionLabel(action).toLowerCase()}`}
               </Button>
             </HrDrawerActions>
-          </form>
+          </WorkForm>
         ) : request ? (
           <div className="grid min-w-0 gap-4">
             <HrDetailSummary

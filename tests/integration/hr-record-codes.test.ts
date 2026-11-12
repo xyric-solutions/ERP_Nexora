@@ -116,6 +116,61 @@ run("Transactional HR automatic record codes", () => {
     expect(replay.replayed).toBe(true);
   });
 
+  it("creates branches and departments through the authorized repository with automatic codes", async () => {
+    const repo = new SourceHrRepository(pool);
+    const context: HrActorContext = {
+      tenantId: sourceTestTenantId,
+      actor: {
+        tenantId: sourceTestTenantId,
+        userId: "r06.maker",
+        email: "r06.maker@example.test",
+        displayName: "Maker",
+        organizationName: "Code tests",
+        roles: ["hr_manager"],
+        permissions: ["hr.organization.update"],
+        sessionVersion: 1,
+      },
+    };
+    const branch = await repo.createOrganizationUnit(
+      context,
+      {
+        company_id: company,
+        parent_id: company,
+        type: "branch",
+        code: "AUTO",
+        name: `Automatic branch ${randomUUID()}`,
+      },
+      `branch-code-${randomUUID()}`,
+      "hr-auto-branch-code-test",
+    );
+    const department = await repo.createOrganizationUnit(
+      context,
+      {
+        company_id: company,
+        parent_id: branch.id,
+        type: "department",
+        code: "AUTO",
+        name: `Automatic department ${randomUUID()}`,
+      },
+      `department-code-${randomUUID()}`,
+      "hr-auto-department-code-test",
+    );
+    const rows = await pool.query<{ id: string; code: string; parent_id: string }>(
+      "select id,code,parent_id from organization_unit where tenant_id=$1 and id=any($2::text[]) order by id",
+      [sourceTestTenantId, [branch.id, department.id]],
+    );
+    expect(rows.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: branch.id, code: expect.stringMatching(/^BR-\d{3,}$/), parent_id: company }),
+        expect.objectContaining({
+          id: department.id,
+          code: expect.stringMatching(/^DEPT-\d{3,}$/),
+          parent_id: branch.id,
+        }),
+      ]),
+    );
+  });
+
   it("includes inactive records and rolls allocation back with the mutation", async () => {
     const client = await pool.connect();
     try {

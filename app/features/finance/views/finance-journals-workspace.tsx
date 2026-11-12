@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable, WorkPagination } from "@/shared/ui/work-table";
+import { WorkFormLayout } from "@/shared/ui/work-form";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
@@ -14,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -266,7 +269,7 @@ export function FinanceJournalWorkspace({
             ? "Reverse Journal"
             : "Journal Details";
   return (
-    <div className="space-y-5" aria-busy={loading}>
+    <div className="grid min-w-0 gap-2" aria-busy={loading}>
       <WorkspaceHeader
         activeTab={activeTab}
         options={options}
@@ -309,8 +312,11 @@ export function FinanceJournalWorkspace({
           if (!open) closeDrawer();
         }}
       >
-        <SheetContent className="w-full max-w-none gap-0 sm:max-w-[min(96vw,80rem)]">
-          <SheetHeader className="border-b border-border pr-14">
+        <SheetContent
+          portalClassName="relative isolate z-[1300]"
+          className="min-w-0 gap-0 data-[side=right]:w-full data-[side=right]:max-w-none data-[side=right]:sm:max-w-[min(96vw,80rem)]"
+        >
+          <SheetHeader className="shrink-0 border-b border-border pr-14">
             <SheetTitle>{drawerTitle}</SheetTitle>
             <SheetDescription>
               {drawerMode === "create" || drawerMode === "edit"
@@ -318,7 +324,7 @@ export function FinanceJournalWorkspace({
                 : "Review the Journal, lifecycle evidence and permitted actions without leaving the register."}
             </SheetDescription>
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-3 sm:p-4">
             {drawerMode === "create" || drawerMode === "edit" ? (
               <ManualJournalForm
                 key={`${companyId}:${selectedJournalId ?? "new"}`}
@@ -396,45 +402,50 @@ function WorkspaceHeader({
   onNewJournal: () => void;
 }) {
   return (
-    <header className="border-b border-border pb-4">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <p className="text-sm text-primary">Home / Finance / Journals</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Journals</h1>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            {activeTab === "transactions"
-              ? "Review, prepare, approve, post and reverse Journals from one transaction register."
-              : "Manage recurring templates that generate drafts for the normal approval workflow."}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
-          {options?.base_currency ? (
-            <Badge variant="outline" className="h-10 px-3">
-              Base currency · {options.base_currency}
-            </Badge>
-          ) : null}
-          <div className="grid gap-1">
-            <Label htmlFor="journal-display-decimals">Display decimals</Label>
-            <select
-              id="journal-display-decimals"
-              className="h-10 rounded-md border border-input bg-background px-3"
-              value={displayDecimalPlaces}
-              onChange={(event) => onDisplayDecimalPlaces(Number(event.target.value))}
-              aria-describedby="journal-display-decimals-hint"
-            >
-              {Array.from({ length: 9 }, (_, value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </div>
-          {activeTab === "transactions" && permissions.has("finance.journal.create") ? (
-            <Button onClick={onNewJournal}>＋ New Journal</Button>
-          ) : null}
-        </div>
+    <header
+      aria-label="Journal workspace"
+      className="grid min-w-0 gap-2 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center"
+    >
+      <div className="flex items-center gap-2">
+        <h1 className="m-0 text-xl font-semibold">Journals</h1>
+        {options?.base_currency ? (
+          <span
+            className="text-xs text-muted-foreground"
+            title="Company base currency"
+            aria-label={`Base currency ${options.base_currency}`}
+          >
+            {options.base_currency}
+          </span>
+        ) : null}
       </div>
-      <p id="journal-display-decimals-hint" className="mt-2 text-xs text-muted-foreground">
+      <div className="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
+        <div className="flex min-w-0 items-center gap-2">
+          <Label htmlFor="journal-display-decimals" className="text-xs">
+            Decimals
+          </Label>
+          <select
+            id="journal-display-decimals"
+            aria-label="Display decimals"
+            title="Display only. Entry and posting precision follow the company base currency."
+            className="h-9 min-h-9 rounded-md border border-input bg-card px-2 text-sm focus-visible:outline-2 focus-visible:outline-ring"
+            value={displayDecimalPlaces}
+            onChange={(event) => onDisplayDecimalPlaces(Number(event.target.value))}
+            aria-describedby="journal-display-decimals-hint"
+          >
+            {Array.from({ length: 9 }, (_, value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </div>
+        {activeTab === "transactions" && permissions.has("finance.journal.create") ? (
+          <Button className="h-9" onClick={onNewJournal}>
+            ＋ New Journal
+          </Button>
+        ) : null}
+      </div>
+      <p id="journal-display-decimals-hint" className="sr-only">
         Display only. Entry and posting precision follow the company base currency.
       </p>
     </header>
@@ -451,6 +462,7 @@ function JournalRegister({
   refreshToken,
   initialView = "all",
 }: Common & { initialView?: JournalRegisterView }) {
+ const [workPageSize, setWorkPageSize] = useState(25);
   const [items, setItems] = useState<JournalSummary[]>([]);
   const [view, setView] = useState<JournalRegisterView>(initialView);
   const [state, setState] = useState(
@@ -488,7 +500,7 @@ function JournalRegister({
         ...(filters.dateFrom ? { date_from: filters.dateFrom } : {}),
         ...(filters.dateTo ? { date_to: filters.dateTo } : {}),
         approval_queue: filters.view === "approval",
-        limit: 25,
+        limit: workPageSize,
         ...(cursor ? { cursor } : {}),
       });
       setItems(result.items);
@@ -498,7 +510,7 @@ function JournalRegister({
     } finally {
       setBusy(false);
     }
-  }, [client, companyId, cursor, filters, refreshToken, setError]);
+  }, [client, companyId, cursor, filters, refreshToken, setError, workPageSize]);
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
@@ -624,21 +636,15 @@ function JournalRegister({
         displayDecimalPlaces={displayDecimalPlaces}
         onOpen={(item) => onNavigate("finance", "journal-detail", item.id)}
       />
-      <Pagination
-        busy={busy}
-        hasPrevious={cursorHistory.length > 0}
-        hasNext={Boolean(nextCursor)}
-        onPrevious={() => {
+      <WorkPagination size={workPageSize} page={cursorHistory.length} start={items.length ? cursorHistory.length * workPageSize + 1 : 0} end={cursorHistory.length * workPageSize + items.length} total={nextCursor ? undefined : cursorHistory.length * workPageSize + items.length} hasMore={Boolean(nextCursor)} previous={cursorHistory.length > 0} next={Boolean(nextCursor)} busy={busy} onPrevious={() => {
           const previous = cursorHistory.at(-1);
           setCursorHistory((value) => value.slice(0, -1));
           setCursor(previous);
-        }}
-        onNext={() => {
+        }} onNext={() => {
           if (!nextCursor) return;
           setCursorHistory((value) => [...value, cursor]);
           setCursor(nextCursor);
-        }}
-      />
+        }} onSizeChange={(size) => { setWorkPageSize(size); setCursor(undefined); setCursorHistory([]); }} />
     </section>
   );
 }
@@ -656,7 +662,7 @@ function JournalTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[920px] text-sm">
+      <WorkTable paging={false} tableId="app/features/finance/views/finance-journals-workspace:1" className="w-full min-w-[920px] text-sm">
         <thead className="bg-primary text-left text-primary-foreground">
           <tr>
             {["Journal ID", "Date", "Reference", "Source", "State", "Total", "Action"].map((label) => (
@@ -701,7 +707,7 @@ function JournalTable({
             </tr>
           ) : null}
         </tbody>
-      </table>
+      </WorkTable>
     </div>
   );
 }
@@ -820,8 +826,8 @@ function ManualJournalForm({
   const editable = !detail || detail.state === "draft";
   if (loadingDetail) return <Notice title="Loading Journal" detail="Reading the draft and its current version." />;
   return (
-    <section className="space-y-4 rounded-lg border border-border bg-card p-4">
-      <div className="grid gap-4 lg:grid-cols-2">
+    <WorkFormLayout><section className="grid min-w-0 gap-4 rounded-lg border border-border bg-card p-3 sm:p-4">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
         <div className="grid gap-2">
           <Label htmlFor="journal-date">Date *</Label>
           <Input
@@ -862,7 +868,7 @@ function ManualJournalForm({
         <Alert variant="destructive" role="alert">
           <AlertTitle>Review the Journal form</AlertTitle>
           <AlertDescription>
-            <ul className="list-disc space-y-1 pl-5">
+            <ul className="list-disc space-y-1 pl-5 text-destructive">
               {validationErrors.map((message) => (
                 <li key={message}>{message}</li>
               ))}
@@ -872,12 +878,14 @@ function ManualJournalForm({
       ) : null}
       <div className="flex justify-end">
         <div
-          className={`grid min-w-80 grid-cols-2 border text-right tabular-nums ${validation.debit === validation.credit && validation.debit > 0n ? "border-[var(--nx-success-border)]" : "border-destructive/40"}`}
+          className={`grid w-full max-w-sm grid-cols-2 border text-right tabular-nums ${validation.debit === validation.credit && validation.debit > 0n ? "border-[var(--nx-success-border)]" : "border-destructive/40"}`}
         >
           <span className="bg-muted px-4 py-3 font-semibold">
+            <span className="mb-1 block text-xs font-normal text-muted-foreground">Total debit</span>
             {formatJournalDisplayAmount(formatJournalAmount(validation.debit, decimalPlaces), displayDecimalPlaces)}
           </span>
           <span className="bg-muted px-4 py-3 font-semibold">
+            <span className="mb-1 block text-xs font-normal text-muted-foreground">Total credit</span>
             {formatJournalDisplayAmount(formatJournalAmount(validation.credit, decimalPlaces), displayDecimalPlaces)}
           </span>
         </div>
@@ -930,7 +938,7 @@ function ManualJournalForm({
           ) : null}
         </div>
       </div>
-    </section>
+    </section></WorkFormLayout>
   );
 }
 
@@ -966,22 +974,41 @@ function LineEditor({
       label: `${item.code} · ${item.name}${item.kind === "bank" ? " · Bank" : ""}`,
     }));
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[980px] text-sm">
-        <thead className="bg-primary text-left text-primary-foreground">
+    <WorkFormLayout><div className="min-w-0">
+      <table className="block w-full table-fixed text-sm xl:table">
+        <caption className="sr-only">Journal lines</caption>
+        <thead className="sr-only bg-primary text-left text-primary-foreground xl:not-sr-only">
           <tr>
-            <th className="px-3 py-3">Nominal Account</th>
-            <th className="px-3 py-3">Description</th>
-            <th className="px-3 py-3">Required Dimensions</th>
-            <th className="px-3 py-3 text-right">Debit</th>
-            <th className="px-3 py-3 text-right">Credit</th>
-            <th className="w-20 px-3 py-3">Action</th>
+            <th scope="col" className="w-[24%] px-3 py-3">
+              Nominal Account
+            </th>
+            <th scope="col" className="w-[24%] px-3 py-3">
+              Description
+            </th>
+            <th scope="col" className="w-[18%] px-3 py-3">
+              Required Dimensions
+            </th>
+            <th scope="col" className="w-[13%] px-3 py-3 text-right">
+              Debit
+            </th>
+            <th scope="col" className="w-[13%] px-3 py-3 text-right">
+              Credit
+            </th>
+            <th scope="col" className="w-[8%] px-3 py-3">
+              Action
+            </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="grid gap-4 xl:table-row-group">
           {lines.map((line, index) => (
-            <tr key={line.client_id} className="border-t border-border">
-              <td className="p-2">
+            <tr
+              key={line.client_id}
+              className="grid min-w-0 grid-cols-2 gap-3 rounded-lg border border-border p-3 xl:table-row xl:rounded-none xl:border-x-0 xl:border-b-0 xl:p-0"
+            >
+              <td className="col-span-2 grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
+                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                  Nominal Account · Line {index + 1}
+                </span>
                 <SearchableSelect
                   label={`Nominal account line ${index + 1}`}
                   searchLabel={`Search nominal account line ${index + 1}`}
@@ -993,7 +1020,10 @@ function LineEditor({
                   onValueChange={(value) => changeAccount(index, value)}
                 />
               </td>
-              <td className="p-2">
+              <td className="col-span-2 grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
+                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                  Description
+                </span>
                 <Input
                   aria-label={`Description line ${index + 1}`}
                   value={line.description}
@@ -1001,7 +1031,10 @@ function LineEditor({
                   onChange={(event) => change(index, "description", event.target.value)}
                 />
               </td>
-              <td className="p-2">
+              <td className="col-span-2 grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
+                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                  Required Dimensions
+                </span>
                 {(() => {
                   const dimensions =
                     options?.nominals.find((item) => item.id === line.account_id)?.required_dimensions ?? [];
@@ -1022,7 +1055,10 @@ function LineEditor({
                   );
                 })()}
               </td>
-              <td className="p-2">
+              <td className="grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
+                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                  Debit
+                </span>
                 <JournalAmountInput
                   label={`Debit line ${index + 1}`}
                   value={line.debit}
@@ -1031,7 +1067,10 @@ function LineEditor({
                   onChange={(value) => change(index, "debit", value || "0")}
                 />
               </td>
-              <td className="p-2">
+              <td className="grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
+                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                  Credit
+                </span>
                 <JournalAmountInput
                   label={`Credit line ${index + 1}`}
                   value={line.credit}
@@ -1040,7 +1079,7 @@ function LineEditor({
                   onChange={(value) => change(index, "credit", value || "0")}
                 />
               </td>
-              <td className="p-2">
+              <td className="col-span-2 flex justify-end xl:table-cell xl:p-2">
                 <Button
                   type="button"
                   size="sm"
@@ -1060,7 +1099,7 @@ function LineEditor({
           ＋ Add More
         </Button>
       ) : null}
-    </div>
+    </div></WorkFormLayout>
   );
 }
 
@@ -1113,7 +1152,7 @@ function JournalDetailView({
       </section>
       <section className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
+          <WorkTable tableId="app/features/finance/views/finance-journals-workspace:3" className="w-full min-w-[760px] text-sm">
             <thead className="bg-primary text-left text-primary-foreground">
               <tr>
                 {["Nominal Account", "Description", "Dimensions", "Debit", "Credit"].map((value) => (
@@ -1146,7 +1185,7 @@ function JournalDetailView({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
         <div className="border-t border-border bg-muted/30 px-4 py-3 text-right font-semibold">
           Total · {money(detail.total, detail.currency, displayDecimalPlaces)}
@@ -1187,6 +1226,7 @@ function JournalApproval({
   embedded = false,
   onComplete,
 }: Common & { initialId?: string; embedded?: boolean; onComplete?: (id: string) => void }) {
+ const [workPageSize, setWorkPageSize] = useState(25);
   const [items, setItems] = useState<JournalSummary[]>([]);
   const [selected, setSelected] = useState(initialId ?? "");
   const [detail, setDetail] = useState<JournalDetail | null>(null);
@@ -1205,7 +1245,7 @@ function JournalApproval({
       const result = await client.list({
         company_id: companyId,
         approval_queue: true,
-        limit: 25,
+        limit: workPageSize,
         ...(cursor ? { cursor } : {}),
       });
       setItems(result.items);
@@ -1216,7 +1256,7 @@ function JournalApproval({
     } finally {
       setLoading(false);
     }
-  }, [client, companyId, cursor, setError]);
+  }, [client, companyId, cursor, setError, workPageSize]);
   useEffect(() => {
     if (embedded) return;
     const timer = window.setTimeout(() => void load(), 0);
@@ -1282,24 +1322,18 @@ function JournalApproval({
             </button>
           ))}
           {items.length === 0 ? <p className="p-6 text-sm text-muted-foreground">No Journals await approval.</p> : null}
-          <Pagination
-            busy={loading}
-            hasPrevious={cursorHistory.length > 0}
-            hasNext={Boolean(nextCursor)}
-            onPrevious={() => {
+          <WorkPagination size={workPageSize} page={cursorHistory.length} start={items.length ? cursorHistory.length * workPageSize + 1 : 0} end={cursorHistory.length * workPageSize + items.length} total={nextCursor ? undefined : cursorHistory.length * workPageSize + items.length} hasMore={Boolean(nextCursor)} previous={cursorHistory.length > 0} next={Boolean(nextCursor)} busy={loading} onPrevious={() => {
               setSelected("");
               setDetail(null);
               setCursorHistory((value) => value.slice(0, -1));
               setCursor(cursorHistory.at(-1));
-            }}
-            onNext={() => {
+            }} onNext={() => {
               if (!nextCursor) return;
               setSelected("");
               setDetail(null);
               setCursorHistory((value) => [...value, cursor]);
               setCursor(nextCursor);
-            }}
-          />
+            }} onSizeChange={(size) => { setWorkPageSize(size); setCursor(undefined); setCursorHistory([]); }} />
         </aside>
       ) : null}
       <section className="rounded-lg border border-border bg-card p-4">
@@ -1403,6 +1437,7 @@ function JournalReversal({
   embedded = false,
   onComplete,
 }: Common & { initialId?: string; embedded?: boolean; onComplete?: (id: string) => void }) {
+ const [workPageSize, setWorkPageSize] = useState(25);
   const [items, setItems] = useState<JournalSummary[]>([]);
   const [selected, setSelected] = useState(initialId ?? "");
   const [detail, setDetail] = useState<JournalDetail | null>(null);
@@ -1423,7 +1458,7 @@ function JournalReversal({
         source: "manual",
         state: "posted",
         approval_queue: false,
-        limit: 25,
+        limit: workPageSize,
         ...(cursor ? { cursor } : {}),
       });
       setItems(result.items);
@@ -1434,7 +1469,7 @@ function JournalReversal({
     } finally {
       setLoading(false);
     }
-  }, [client, companyId, cursor, setError]);
+  }, [client, companyId, cursor, setError, workPageSize]);
   useEffect(() => {
     if (embedded) return;
     const timer = window.setTimeout(() => void load(), 0);
@@ -1492,24 +1527,18 @@ function JournalReversal({
             ))}
           </select>
           {loading ? <p className="mt-3 text-sm text-muted-foreground">Loading posted Journals…</p> : null}
-          <Pagination
-            busy={loading}
-            hasPrevious={cursorHistory.length > 0}
-            hasNext={Boolean(nextCursor)}
-            onPrevious={() => {
+          <WorkPagination size={workPageSize} page={cursorHistory.length} start={items.length ? cursorHistory.length * workPageSize + 1 : 0} end={cursorHistory.length * workPageSize + items.length} total={nextCursor ? undefined : cursorHistory.length * workPageSize + items.length} hasMore={Boolean(nextCursor)} previous={cursorHistory.length > 0} next={Boolean(nextCursor)} busy={loading} onPrevious={() => {
               setSelected("");
               setDetail(null);
               setCursorHistory((value) => value.slice(0, -1));
               setCursor(cursorHistory.at(-1));
-            }}
-            onNext={() => {
+            }} onNext={() => {
               if (!nextCursor) return;
               setSelected("");
               setDetail(null);
               setCursorHistory((value) => [...value, cursor]);
               setCursor(nextCursor);
-            }}
-          />
+            }} onSizeChange={(size) => { setWorkPageSize(size); setCursor(undefined); setCursorHistory([]); }} />
         </section>
       ) : null}
       <section className="rounded-lg border border-border bg-card p-4">
@@ -1589,6 +1618,8 @@ function RecurringJournals({
   displayDecimalPlaces,
   onDirtyChange,
 }: Common & { onDirtyChange?: (dirty: boolean) => void }) {
+ const [workPageSize, setWorkPageSize] = useState(25);
+ const [occurrencePageSize, setOccurrencePageSize] = useState(25);
   const [items, setItems] = useState<RecurringJournalTemplate[]>([]);
   const [selected, setSelected] = useState<RecurringJournalTemplate | null>(null);
   const [status, setStatus] = useState<"" | "active" | "inactive">("");
@@ -1631,7 +1662,7 @@ function RecurringJournals({
       const result = await client.recurring({
         company_id: companyId,
         ...(status ? { status } : {}),
-        limit: 25,
+        limit: workPageSize,
         ...(cursor ? { cursor } : {}),
       });
       setItems(result.items);
@@ -1641,17 +1672,17 @@ function RecurringJournals({
     } finally {
       setLoading(false);
     }
-  }, [client, companyId, cursor, setError, status]);
+  }, [client, companyId, cursor, setError, status, workPageSize]);
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
 
   const loadOccurrences = useCallback(
-    async (item: RecurringJournalTemplate, next?: string) => {
+    async (item: RecurringJournalTemplate, next?: string, requestedSize = occurrencePageSize) => {
       setOccurrenceLoading(true);
       try {
-        const result = await client.occurrences(item.id, { limit: 25, ...(next ? { cursor: next } : {}) });
+        const result = await client.occurrences(item.id, { limit: requestedSize, ...(next ? { cursor: next } : {}) });
         setOccurrences(result.items);
         setOccurrenceNext(result.next_cursor);
         setHistoryTemplate(item);
@@ -1661,7 +1692,7 @@ function RecurringJournals({
         setOccurrenceLoading(false);
       }
     },
-    [client, setError],
+    [client, setError, occurrencePageSize],
   );
   const openHistory = (item: RecurringJournalTemplate) => {
     setOccurrenceCursor(undefined);
@@ -1798,7 +1829,7 @@ function RecurringJournals({
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
+          <WorkTable paging={false} tableId="app/features/finance/views/finance-journals-workspace:4" className="w-full min-w-[820px] text-sm">
             <thead className="bg-primary text-left text-primary-foreground">
               <tr>
                 {["Template", "Schedule", "Next draft", "Last generated", "Status", "Action"].map((value) => (
@@ -1855,23 +1886,17 @@ function RecurringJournals({
                 </tr>
               ) : null}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
-        <Pagination
-          busy={loading}
-          hasPrevious={cursorHistory.length > 0}
-          hasNext={Boolean(nextCursor)}
-          onPrevious={() => {
+        <WorkPagination size={workPageSize} page={cursorHistory.length} start={items.length ? cursorHistory.length * workPageSize + 1 : 0} end={cursorHistory.length * workPageSize + items.length} total={nextCursor ? undefined : cursorHistory.length * workPageSize + items.length} hasMore={Boolean(nextCursor)} previous={cursorHistory.length > 0} next={Boolean(nextCursor)} busy={loading} onPrevious={() => {
             setCursorHistory((value) => value.slice(0, -1));
             setCursor(cursorHistory.at(-1));
-          }}
-          onNext={() => {
+          }} onNext={() => {
             if (nextCursor) {
               setCursorHistory((value) => [...value, cursor]);
               setCursor(nextCursor);
             }
-          }}
-        />
+          }} onSizeChange={(size) => { setWorkPageSize(size); setCursor(undefined); setCursorHistory([]); }} />
       </section>
 
       {pendingStatus ? (
@@ -1936,7 +1961,7 @@ function RecurringJournals({
                   </p>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[720px] text-sm">
+                  <WorkTable paging={false} tableId="app/features/finance/views/finance-journals-workspace:5" className="w-full min-w-[720px] text-sm">
                     <thead className="bg-muted">
                       <tr>
                         {["Scheduled date", "State", "Attempts", "Draft", "Last error", "Updated"].map((value) => (
@@ -1982,26 +2007,20 @@ function RecurringJournals({
                         </tr>
                       ) : null}
                     </tbody>
-                  </table>
+                  </WorkTable>
                 </div>
-                <Pagination
-                  busy={occurrenceLoading}
-                  hasPrevious={occurrenceHistory.length > 0}
-                  hasNext={Boolean(occurrenceNext)}
-                  onPrevious={() => {
+                <WorkPagination size={occurrencePageSize} page={occurrenceHistory.length} start={occurrences.length ? occurrenceHistory.length * occurrencePageSize + 1 : 0} end={occurrenceHistory.length * occurrencePageSize + occurrences.length} total={occurrenceNext ? undefined : occurrenceHistory.length * occurrencePageSize + occurrences.length} hasMore={Boolean(occurrenceNext)} previous={occurrenceHistory.length > 0} next={Boolean(occurrenceNext)} busy={occurrenceLoading} onPrevious={() => {
                     const previous = occurrenceHistory.at(-1);
                     setOccurrenceHistory((value) => value.slice(0, -1));
                     setOccurrenceCursor(previous);
                     void loadOccurrences(historyTemplate, previous);
-                  }}
-                  onNext={() => {
+                  }} onNext={() => {
                     if (occurrenceNext) {
                       setOccurrenceHistory((value) => [...value, occurrenceCursor]);
                       setOccurrenceCursor(occurrenceNext);
                       void loadOccurrences(historyTemplate, occurrenceNext);
                     }
-                  }}
-                />
+                  }} onSizeChange={(size) => { setOccurrencePageSize(size); setOccurrenceCursor(undefined); setOccurrenceHistory([]); if (historyTemplate) void loadOccurrences(historyTemplate, undefined, size); }} />
               </section>
             ) : null}
 
@@ -2124,17 +2143,22 @@ function JournalAmountInput({
   onChange: (value: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  // Remount after editing so the field re-renders at the selected display precision.
+  const [views, setViews] = useState(0);
   const displayed = formatJournalDisplayAmount(value, displayDecimalPlaces);
   return (
-    <Input
+    <AmountInput
+      key={views}
       aria-label={label}
-      className="text-right tabular-nums"
-      inputMode="decimal"
+      decimals={8}
       value={editing || displayed === "—" ? value : displayed}
       disabled={disabled}
       onFocus={() => setEditing(true)}
-      onBlur={() => setEditing(false)}
-      onChange={(event) => onChange(event.target.value)}
+      onBlur={() => {
+        setEditing(false);
+        setViews((count) => count + 1);
+      }}
+      onValueChange={(raw) => onChange(raw)}
     />
   );
 }
@@ -2179,31 +2203,7 @@ function ReadOnlyLines({ detail, displayDecimalPlaces }: { detail: JournalDetail
     </div>
   );
 }
-function Pagination({
-  busy,
-  hasPrevious,
-  hasNext,
-  onPrevious,
-  onNext,
-}: {
-  busy: boolean;
-  hasPrevious: boolean;
-  hasNext: boolean;
-  onPrevious: () => void;
-  onNext: () => void;
-}) {
-  if (!hasPrevious && !hasNext) return null;
-  return (
-    <nav className="flex items-center justify-end gap-2 border-t border-border p-3" aria-label="Pagination">
-      <Button type="button" size="sm" variant="outline" disabled={busy || !hasPrevious} onClick={onPrevious}>
-        Previous
-      </Button>
-      <Button type="button" size="sm" variant="outline" disabled={busy || !hasNext} onClick={onNext}>
-        Next
-      </Button>
-    </nav>
-  );
-}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid gap-2">

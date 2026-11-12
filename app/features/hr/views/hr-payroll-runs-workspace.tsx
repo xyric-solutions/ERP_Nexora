@@ -1,6 +1,9 @@
 "use client";
+import { WorkOffsetPagination, WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, LockKeyhole, Plus } from "lucide-react";
+import { LockKeyhole, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,6 +58,7 @@ export function HrPayrollRunsWorkspace({
   review?: boolean;
   onNavigate: (module: string, page: string, reference?: string) => void;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const { api, session, csrfToken, loading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]),
     permissions = session?.user.permissions ?? [],
@@ -71,7 +75,7 @@ export function HrPayrollRunsWorkspace({
     [busy, setBusy] = useState(false);
   const companies = useAttendanceRead(canRead ? "payroll-run-companies" : null, () => client.companies()),
     company = companies.data?.items[0]?.id ?? "",
-    query = { company_id: company, month: month + "-01", limit: 25, offset },
+    query = { company_id: company, month: month + "-01", limit: workPageSize, offset },
     state = useAttendanceRead(company && canRead ? JSON.stringify([query, revision]) : null, () =>
       client.payrollRunWorkspace(query),
     ),
@@ -309,7 +313,7 @@ export function HrPayrollRunsWorkspace({
         <section aria-label="Payroll policies" className="grid gap-2">
           <h3 className="text-sm font-semibold">Payroll policies</h3>
           <div className={tableWrap}>
-            <table className={tableClass}>
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-payroll-runs-workspace:1" className={tableClass}>
               <thead className={headClass}>
                 <tr>
                   <th className={th}>Payroll currency</th>
@@ -346,7 +350,7 @@ export function HrPayrollRunsWorkspace({
                   </tr>
                 )}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         </section>
       )}
@@ -356,7 +360,7 @@ export function HrPayrollRunsWorkspace({
       <section aria-label="Employee results" className="grid gap-2">
         <h3 className="text-sm font-semibold">Employee results</h3>
         <div className={tableWrap}>
-          <table className={tableClass}>
+          <WorkTable paging={false} tableId="app/features/hr/views/hr-payroll-runs-workspace:2" className={tableClass}>
             <thead className={headClass}>
               <tr>
                 <th className={th}>Employee</th>
@@ -394,33 +398,24 @@ export function HrPayrollRunsWorkspace({
                 </tr>
               )}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       </section>
-      {data && data.total > 25 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <span>
-            {offset + 1}–{Math.min(offset + 25, data.total)} of {data.total}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={offset === 0 || state.loading || locked}
-              onClick={() => setOffset((v) => Math.max(0, v - 25))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              disabled={offset + 25 >= data.total || state.loading || locked}
-              onClick={() => setOffset((v) => v + 25)}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+      {data && (
+        <WorkOffsetPagination
+          busy={state.loading || locked}
+          total={data.total}
+          offset={offset}
+          size={workPageSize}
+          previousDisabled={offset === 0 || state.loading || locked}
+          nextDisabled={offset + workPageSize >= data.total || state.loading || locked}
+          onSizeChange={(size) => {
+            setWorkPageSize(size);
+            setOffset(0);
+          }}
+          onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))}
+          onNext={() => setOffset((v) => v + workPageSize)}
+        />
       )}
       {!!data?.history.length && (
         <details className={panel}>
@@ -534,7 +529,7 @@ export function HrPayrollRunsWorkspace({
             </Button>
           }
         >
-          <form id="payroll-run-action" onSubmit={save} className="grid gap-4">
+          <WorkForm id="payroll-run-action" onSubmit={save} className="grid gap-4">
             <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0!">
               {(draft.action === "policy" || draft.action === "policy_update") && (
                 <>
@@ -623,7 +618,7 @@ export function HrPayrollRunsWorkspace({
                 onChange={(e) => set({ reason: e.target.value })}
               />
             </Field>
-          </form>
+          </WorkForm>
         </HrRecordDrawer>
       ) : null}
     </div>
@@ -735,7 +730,7 @@ function EmployeeResult({ employee }: { employee: Employee }) {
         )}
       </section>
       <div className={tableWrap}>
-        <table className={tableClass}>
+        <WorkTable paging={false} tableId="app/features/hr/views/hr-payroll-runs-workspace:3" className={tableClass}>
           <thead className={headClass}>
             <tr>
               <th className={th}>Component</th>
@@ -797,7 +792,7 @@ function EmployeeResult({ employee }: { employee: Employee }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </WorkTable>
       </div>
       {employee.warnings.map((warning, i) => (
         <p key={i} className="text-sm text-[var(--nx-warning)]">

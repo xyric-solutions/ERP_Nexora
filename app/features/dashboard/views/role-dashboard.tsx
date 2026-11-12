@@ -310,13 +310,9 @@ export function RoleDashboard({ context, dashboard, onAction, onNavigate }: Role
     <section className="nx-role-dashboard" aria-labelledby="role-dashboard-title">
       <header className="grid min-w-0 items-center gap-6 overflow-hidden rounded-xl border border-[color:color-mix(in_srgb,var(--nx-brand)_20%,var(--nx-border))] bg-[radial-gradient(circle_at_92%_12%,var(--nx-role-hero-glow),transparent_34%),var(--nx-surface)] p-6 text-[var(--nx-text)] shadow-sm lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,.75fr)]">
         <div className="flex min-w-0 flex-col items-start gap-2">
-          <span className="nx-eyebrow">{dashboard.eyebrow}</span>
           <h1 id="role-dashboard-title">{dashboard.title}</h1>
-          <p>{dashboard.description}</p>
           <div className="flex min-w-0 flex-wrap gap-2 max-[429px]:flex-col max-[429px]:items-stretch" aria-label="Dashboard context">
             <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-[var(--nx-brand)] bg-[var(--nx-brand)] px-2.5 py-1 text-[11px] font-bold leading-tight text-[var(--nx-text-inverse)]">Mock role view</span>
-            <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-[color:color-mix(in_srgb,var(--nx-brand)_22%,var(--nx-border))] bg-[color:color-mix(in_srgb,var(--nx-brand-soft)_78%,var(--nx-surface))] px-2.5 py-1 text-[11px] font-bold leading-tight text-[var(--nx-brand-strong)]">{context.role}</span>
-            <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-[color:color-mix(in_srgb,var(--nx-brand)_22%,var(--nx-border))] bg-[color:color-mix(in_srgb,var(--nx-brand-soft)_78%,var(--nx-surface))] px-2.5 py-1 text-[11px] font-bold leading-tight text-[var(--nx-brand-strong)]">{humanize(context.companyMode)} company</span>
           </div>
         </div>
         <div className="grid min-w-0 grid-cols-2 gap-3 rounded-lg border border-[color:color-mix(in_srgb,var(--nx-brand)_14%,var(--nx-border))] bg-[color:color-mix(in_srgb,var(--nx-surface)_88%,transparent)] p-4 shadow-xs max-md:grid-cols-1">

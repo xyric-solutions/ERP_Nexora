@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
@@ -12,6 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { useActionFeedback } from "@/shared/ui/action-feedback";
@@ -257,7 +259,7 @@ export function FinanceCurrencies() {
           </p>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-[680px] w-full text-sm">
+          <WorkTable tableId="app/features/finance/views/finance-currencies:1" className="min-w-[680px] w-full text-sm">
             <thead className="bg-muted/50 text-left">
               <tr>
                 {["Code", "Name", "Decimals", "Base", "Status", "Action"].map((item) => (
@@ -310,7 +312,7 @@ export function FinanceCurrencies() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       </section>
       <section className="rounded-lg border border-border bg-card">
@@ -340,11 +342,11 @@ export function FinanceCurrencies() {
             </label>
             <label htmlFor="currency-rate-value" className="grid gap-1 text-sm font-medium">
               Rate *
-              <Input
+              <AmountInput
                 id="currency-rate-value"
-                inputMode="decimal"
+                decimals={18}
                 value={rate}
-                onChange={(event) => setRate(event.target.value)}
+                onValueChange={(raw) => setRate(raw)}
               />
             </label>
             <label htmlFor="currency-rate-effective-date" className="grid gap-1 text-sm font-medium">
@@ -402,11 +404,11 @@ export function FinanceCurrencies() {
             <div className="mt-4 grid gap-3 md:grid-cols-[1fr_2fr_auto] md:items-end">
               <label htmlFor="corrected-currency-rate" className="grid gap-1 text-sm font-medium">
                 Corrected rate *
-                <Input
+                <AmountInput
                   id="corrected-currency-rate"
-                  inputMode="decimal"
+                  decimals={18}
                   value={correctedRate}
-                  onChange={(event) => setCorrectedRate(event.target.value)}
+                  onValueChange={(raw) => setCorrectedRate(raw)}
                 />
               </label>
               <label htmlFor="currency-rate-correction-reason" className="grid gap-1 text-sm font-medium">
@@ -445,7 +447,7 @@ export function FinanceCurrencies() {
           </div>
         ) : null}
         <div className="overflow-x-auto">
-          <table className="min-w-[720px] w-full text-sm">
+          <WorkTable tableId="app/features/finance/views/finance-currencies:2" className="min-w-[720px] w-full text-sm">
             <thead className="bg-muted/50 text-left">
               <tr>
                 {["Pair", "Rate", "Effective date", "Status", "Revision", "Action"].map((item) => (
@@ -516,7 +518,7 @@ export function FinanceCurrencies() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       </section>
       {canReadPolicy ? (
@@ -557,11 +559,11 @@ export function FinanceCurrencies() {
             ))}
             <label htmlFor="transfer-rounding-tolerance" className="grid gap-1 text-sm font-medium">
               Rounding tolerance *
-              <Input
+              <AmountInput
                 id="transfer-rounding-tolerance"
-                inputMode="decimal"
+                decimals={8}
                 value={policyForm.tolerance}
-                onChange={(event) => setPolicyForm((current) => ({ ...current, tolerance: event.target.value }))}
+                onValueChange={(raw) => setPolicyForm((current) => ({ ...current, tolerance: raw }))}
               />
             </label>
             <label htmlFor="transfer-policy-reason" className="grid gap-1 text-sm font-medium">

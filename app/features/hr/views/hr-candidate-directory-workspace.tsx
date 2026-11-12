@@ -1,4 +1,8 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
+import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { HrCandidateDirectory } from "@nexora/contracts";
@@ -23,7 +27,6 @@ import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrMasterStatusBadge } from "../components/hr-master-status-badge";
 import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
-import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 type Candidate = HrCandidateDirectory["items"][number];
 type CandidateSource = Candidate["source"];
@@ -204,7 +207,7 @@ export function HrCandidateDirectoryWorkspace() {
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
-      <form
+      <WorkForm
         className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[minmax(14rem,1fr)_auto] md:items-end"
         onSubmit={(event) => {
           event.preventDefault();
@@ -223,7 +226,7 @@ export function HrCandidateDirectoryWorkspace() {
         <Button type="submit" variant="outline">
           Search
         </Button>
-      </form>
+      </WorkForm>
       <HrMasterStatusFilter
         value={filter}
         onChange={(next) => {
@@ -235,7 +238,7 @@ export function HrCandidateDirectoryWorkspace() {
         <Skeleton className="h-64 w-full" />
       ) : (
         <div className="relative min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
-          <table className="w-full min-w-160 text-left text-sm">
+          <WorkTable tableId="app/features/hr/views/hr-candidate-directory-workspace:1" className="w-full min-w-160 text-left text-sm">
             <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3">Candidate</th>
@@ -287,7 +290,7 @@ export function HrCandidateDirectoryWorkspace() {
                 </tr>
               ) : null}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       )}
       <HrRecordDrawer
@@ -301,7 +304,7 @@ export function HrCandidateDirectoryWorkspace() {
         notice={message}
       >
         {selected && editor ? (
-          <form
+          <WorkForm
             className="grid gap-5"
             onSubmit={(event) => {
               event.preventDefault();
@@ -390,7 +393,7 @@ export function HrCandidateDirectoryWorkspace() {
                 {saving ? "Saving…" : "Save changes"}
               </Button>
             </HrDrawerActions>
-          </form>
+          </WorkForm>
         ) : selected ? (
           <>
             <HrDetailSummary

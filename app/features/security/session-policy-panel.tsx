@@ -1,4 +1,6 @@
 "use client";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { IdentitySheet } from "./identity-sheet";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
@@ -162,7 +164,7 @@ export default function SessionPolicyPanel({ permissions }: { permissions: Reado
         onClose={() => setShowCreate(false)}
       >
         {showCreate ? (
-          <form onSubmit={create} className="grid gap-4 border-b border-border p-5 sm:grid-cols-2">
+          <WorkForm onSubmit={create} className="grid gap-4 border-b border-border p-5 sm:grid-cols-2">
             {numeric.map(([key, label]) => (
               <div key={key} className="grid gap-1.5">
                 <Label htmlFor={key}>{label}</Label>
@@ -207,7 +209,7 @@ export default function SessionPolicyPanel({ permissions }: { permissions: Reado
             <Button className="sm:col-span-2" disabled={busy} type="submit">
               Create governed draft
             </Button>
-          </form>
+          </WorkForm>
         ) : null}
       </IdentitySheet>
       <div className="grid gap-3 p-5">

@@ -177,7 +177,7 @@ describe("Identity & Access actions and permissions", () => {
       ),
     );
     expect(document.body.querySelector("thead")?.textContent).toContain("Action");
-    const options = [...document.body.querySelectorAll("select option")].map((option) => option.textContent);
+    const options = [...document.body.querySelectorAll('select[aria-label="Action for audit-ui"] option')].map((option) => option.textContent);
     expect(options).toEqual(["Choose action", "View details"]);
     await choose("Action for audit-ui", "view");
     expect(document.body.querySelector('[aria-label="Record details"]')?.textContent).toContain("maker-ui");

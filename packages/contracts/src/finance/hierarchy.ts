@@ -13,7 +13,11 @@ export const financeHierarchyItemSchema = z.strictObject({
   type: z.enum(["asset", "liability", "equity", "revenue", "expense"]),
   parent_id: id.nullable(),
   status: z.enum(["active", "inactive"]),
+  state: z.enum(["draft", "pending_approval", "active", "inactive", "rejected"]).optional(),
+  self_decision_requires_override: z.boolean().optional(),
   version: z.number().int().positive(),
+  section_count: z.number().int().nonnegative(),
+  nominal_count: z.number().int().nonnegative(),
 });
 export const financeHierarchyDirectorySchema = z.strictObject({
   items: z.array(financeHierarchyItemSchema).max(100),
@@ -31,19 +35,22 @@ export const createFinanceHierarchyRequestSchema = z
       .optional(),
   })
   .superRefine((v, c) => {
-    if (!!v.parent_id !== !!v.code)
+    if (v.code && !v.parent_id)
       c.addIssue({
         code: "custom",
-        message: "A section requires its category and four-digit code; category codes are generated.",
+        message: "An explicit four-digit code is valid only for a controlled Section create.",
       });
   });
 export const changeFinanceHierarchyRequestSchema = z
   .strictObject({
     expected_version: z.number().int().positive(),
     name: z.string().trim().min(1).max(160).optional(),
-    action: z.enum(["activate", "deactivate"]).optional(),
+    action: z.enum(["activate", "deactivate", "submit", "approve", "reject"]).optional(),
+    reason: z.string().trim().min(3).max(500).optional(),
   })
-  .refine((v) => !!v.name !== !!v.action, "Specify exactly one name change or status action.");
+  .refine((v) => !!v.name !== !!v.action, "Specify exactly one name change or lifecycle action.")
+  .refine((v) => v.action !== "reject" || !!v.reason, "A rejection reason is required.")
+  .refine((v) => !v.reason || v.action === "reject", "Only rejection accepts a supplied reason.");
 export type FinanceHierarchyQuery = z.infer<typeof financeHierarchyQuerySchema>;
 export type FinanceHierarchyItem = z.infer<typeof financeHierarchyItemSchema>;
 export type FinanceHierarchyDirectory = z.infer<typeof financeHierarchyDirectorySchema>;

@@ -60,6 +60,7 @@ run("Bank Transfer governed repository", () => {
   let postingDate: string;
   let baseCurrency: string;
   let foreignCurrency: string;
+  let configuredBeforePolicy: boolean | undefined;
 
   beforeAll(async () => {
     bootstrap = createDatabasePool(databaseUrl!);
@@ -233,6 +234,8 @@ run("Bank Transfer governed repository", () => {
       [foreignRateId, sourceTestTenantId, companyId, foreignCurrency, baseCurrency],
     );
 
+    repository = new SourceBankTransferRepository(pool);
+    configuredBeforePolicy = (await repository.options(maker, { company_id: companyId })).fx_policy_configured;
     await pool.query(
       `insert into bank_transfer_fx_policy
         (tenant_id,company_id,id,fx_gain_nominal_id,fx_loss_nominal_id,rounding_nominal_id,
@@ -249,6 +252,13 @@ run("Bank Transfer governed repository", () => {
       await bootstrap.query(`drop database if exists ${isolatedDatabase}`);
       await bootstrap.end();
     }
+  });
+
+  it("reports company policy availability in Transfer options", async () => {
+    expect(configuredBeforePolicy).toBe(false);
+    await expect(repository.options(maker, { company_id: companyId })).resolves.toMatchObject({
+      fx_policy_configured: true,
+    });
   });
 
   it("runs create through reversal with independent approval, posting and balanced journals", async () => {
@@ -407,4 +417,152 @@ run("Bank Transfer governed repository", () => {
       ),
     ).resolves.toMatchObject({ state: "reversed", version: 5 });
   }, 60_000);
+
+  it.each([
+    ["0.7", "175.00000000", "-31.25000000", "fx_loss", "252.00000000"],
+    ["0.9", "225.00000000", "31.25000000", "fx_gain", "283.25000000"],
+  ])(
+    "retains entered rate %s through edit, audit, approval, posting and reversal",
+    async (rate, received, difference, role, total) => {
+      const input = {
+        company_id: companyId,
+        approver_user_id: "r06.checker",
+        posting_date: postingDate,
+        lines: [
+          {
+            line_order: 1,
+            document_date: postingDate,
+            from_bank_account_id: sourceBankId,
+            to_bank_account_id: foreignBankId,
+            transfer_mode: "internal" as const,
+            source_amount: "250.00",
+            bank_charge_amount: "2.00",
+            conversion_rate: rate,
+          },
+        ],
+      };
+      const key = randomUUID();
+      const created = await repository.create(maker, input, key, randomUUID());
+      await expect(repository.create(maker, input, key, randomUUID())).resolves.toEqual(created);
+      await expect(
+        repository.create(
+          maker,
+          { ...input, lines: [{ ...input.lines[0]!, conversion_rate: "1.1" }] },
+          key,
+          randomUUID(),
+        ),
+      ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+      // Updating a header without resending lines must preserve the entered quote.
+      const updated = await repository.update(
+        maker,
+        created.id,
+        { expected_version: created.version, value_date: postingDate },
+        randomUUID(),
+        randomUUID(),
+      );
+      const draft = await repository.get(maker, created.id);
+      expect(draft.posting_date).toBe(postingDate);
+      await expect(
+        pool.query(
+          "update bank_transfer_line set destination_amount=destination_amount+1 where tenant_id=$1 and transfer_id=$2",
+          [sourceTestTenantId, created.id],
+        ),
+      ).rejects.toMatchObject({ code: "23514" });
+      expect(draft.lines[0]).toMatchObject({
+        conversion_rate: `${rate}00000000000000000`,
+        destination_amount: received,
+        fx_difference: difference,
+        destination_rate_id: foreignRateId,
+        destination_rate: "1.250000000000000000",
+      });
+      expect(draft.accounting_preview.lines).toContainEqual(expect.objectContaining({ role }));
+      expect(draft.accounting_preview).toMatchObject({ debit_total: total, credit_total: total });
+      const evidence = await pool.query<{ fx_evidence: unknown }>(
+        "select fx_evidence from bank_transfer_event where tenant_id=$1 and transfer_id=$2 order by record_version",
+        [sourceTestTenantId, created.id],
+      );
+      expect(evidence.rows).toHaveLength(2);
+      for (const event of evidence.rows)
+        expect(event.fx_evidence).toEqual([
+          expect.objectContaining({ conversion_rate: `${rate}00000000000000000`, destination_amount: received }),
+        ]);
+      const submitted = await repository.submit(
+        maker,
+        created.id,
+        { expected_version: updated.version },
+        randomUUID(),
+        randomUUID(),
+      );
+      await expect(
+        pool.query("update bank_transfer_line set conversion_rate=1 where tenant_id=$1 and transfer_id=$2", [
+          sourceTestTenantId,
+          created.id,
+        ]),
+      ).rejects.toMatchObject({ code: "23514" });
+      const approved = await repository.decide(
+        checker,
+        created.id,
+        { action: "approve", expected_version: submitted.version },
+        randomUUID(),
+        randomUUID(),
+      );
+      const posted = await repository.post(
+        poster,
+        created.id,
+        { expected_version: approved.version },
+        randomUUID(),
+        randomUUID(),
+      );
+      const journal = await pool.query<{ debit: string; credit: string }>(
+        "select sum(base_debit)::text as debit,sum(base_credit)::text as credit from journal_line where tenant_id=$1 and journal_id=$2",
+        [sourceTestTenantId, posted.journal_id],
+      );
+      expect(journal.rows[0]).toEqual({ debit: total, credit: total });
+      await expect(
+        repository.reverse(
+          poster,
+          created.id,
+          { expected_version: posted.version, reason: "Reverse negotiated FX test" },
+          randomUUID(),
+          randomUUID(),
+        ),
+      ).resolves.toMatchObject({ state: "reversed" });
+    },
+    60_000,
+  );
+
+  it("rejects same-currency quotes and quotes whose destination rounds to zero", async () => {
+    const input = {
+      company_id: companyId,
+      posting_date: postingDate,
+      lines: [
+        {
+          line_order: 1,
+          document_date: postingDate,
+          from_bank_account_id: sourceBankId,
+          to_bank_account_id: destinationBankId,
+          transfer_mode: "internal" as const,
+          source_amount: "1.00",
+          bank_charge_amount: "0",
+          conversion_rate: "1",
+        },
+      ],
+    };
+    await expect(repository.create(maker, input, randomUUID(), randomUUID())).rejects.toMatchObject({
+      code: "TRANSFER_CONVERSION_RATE_NOT_APPLICABLE",
+    });
+    input.lines[0]!.to_bank_account_id = foreignBankId;
+    input.lines[0]!.conversion_rate = "0.000000000000000001";
+    await expect(repository.create(maker, input, randomUUID(), randomUUID())).rejects.toMatchObject({
+      code: "TRANSFER_CONVERTED_AMOUNT_TOO_SMALL",
+    });
+    const priorDate = new Date(`${postingDate}T00:00:00Z`);
+    priorDate.setUTCDate(priorDate.getUTCDate() - 2);
+    input.lines[0]!.document_date = priorDate.toISOString().slice(0, 10);
+    input.lines[0]!.conversion_rate = "1";
+    await expect(repository.create(maker, input, randomUUID(), randomUUID())).rejects.toMatchObject({
+      code: "TRANSFER_FX_RATE_UNAVAILABLE",
+      message: expect.stringContaining(`${foreignCurrency} to ${baseCurrency}`),
+    });
+  });
 });

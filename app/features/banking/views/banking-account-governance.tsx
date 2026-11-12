@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -13,13 +14,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
+import { LabeledField } from "@/shared/ui/labeled-field";
 import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warning";
 import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { BankingApiClient } from "../api/banking-client";
+import { BankAccountCapsule } from "../components/bank-account-capsule";
 
 function failure(error: unknown): string {
   if (error instanceof ApiError)
@@ -275,22 +279,22 @@ export function BankAccountSetup({ onCreated }: { onCreated?: (accountId: string
             </select>
           </Field>
           <Field label="Opening balance">
-            <Input
+            <AmountInput
               disabled={saving}
-              inputMode="decimal"
+              decimals={8}
               value={openingBalance}
-              onChange={(event) => setOpeningBalance(event.target.value)}
+              onValueChange={(raw) => setOpeningBalance(raw)}
             />
             <small className="text-muted-foreground">
               Must remain zero until governed opening-balance posting is available.
             </small>
           </Field>
           <Field label="Overdraft limit">
-            <Input
+            <AmountInput
               disabled={saving}
-              inputMode="decimal"
+              decimals={8}
               value={overdraftLimit}
-              onChange={(event) => setOverdraftLimit(event.target.value)}
+              onValueChange={(raw) => setOverdraftLimit(raw)}
             />
           </Field>
           <div className="sm:col-span-2">
@@ -496,7 +500,7 @@ export function BankAccountApprovals() {
             <GovernanceState title="Queue clear" detail="No bank account is awaiting approval for this company." />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <WorkTable tableId="app/features/banking/views/banking-account-governance:1" className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
                     <th className="p-3">Reference</th>
@@ -511,7 +515,7 @@ export function BankAccountApprovals() {
                     <tr key={row.id} className="border-b border-border/70">
                       <td className="p-3">{row.reference}</td>
                       <td className="p-3">
-                        <strong>{row.account_name}</strong>
+                        <BankAccountCapsule>{row.account_name}</BankAccountCapsule>
                         <small className="block text-muted-foreground">{row.account_number_masked}</small>
                       </td>
                       <td className="p-3">{row.bank_name}</td>
@@ -530,7 +534,7 @@ export function BankAccountApprovals() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           )}
         </CardContent>
@@ -686,7 +690,7 @@ export function BankAccountDetailWorkspace({ accountId, onBack }: { accountId: s
           Back to balances
         </Button>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="space-y-4">
         {error ? (
           <Alert variant="destructive">
             <AlertTitle>Request failed</AlertTitle>
@@ -695,7 +699,7 @@ export function BankAccountDetailWorkspace({ accountId, onBack }: { accountId: s
         ) : null}
         {account ? (
           <>
-            <dl className="grid gap-4 rounded-lg border border-border bg-muted/20 p-5 sm:grid-cols-2 xl:grid-cols-4">
+            <dl className="grid gap-3 rounded-lg border border-border bg-muted/20 p-4 sm:grid-cols-2 xl:grid-cols-4">
               {[
                 ["Bank", `${account.bank_name}${account.branch ? ` · ${account.branch}` : ""}`],
                 ["Account number", account.account_number_masked],
@@ -751,12 +755,7 @@ export function BankAccountDetailWorkspace({ accountId, onBack }: { accountId: s
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <Label className="block space-y-1.5">
-      <span className="block">{label}</span>
-      {children}
-    </Label>
-  );
+  return <LabeledField label={label}>{children}</LabeledField>;
 }
 
 function GovernanceState({ title, detail }: { title: string; detail: string }) {

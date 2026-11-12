@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 /**
  * HR Phase 4 presentation: recruitment, performance/development and the
@@ -823,7 +824,7 @@ export function HrLifecycleScreen({
             </div>
           </div>
           <div className="nx-table-wrap">
-            <table className={cn(hrDataTableClass, "min-w-230")}>
+            <WorkTable tableId="app/features/hr/views/hr-lifecycle-screens:1" className={cn(hrDataTableClass, "min-w-230")}>
               <thead>
                 <tr>
                   <th>Reference</th>
@@ -871,7 +872,7 @@ export function HrLifecycleScreen({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           {visible.length === 0 ? (
             <div className="grid min-h-45 place-items-center gap-1 p-7.5 text-center text-muted-foreground">

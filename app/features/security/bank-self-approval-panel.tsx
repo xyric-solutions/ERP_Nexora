@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable, WorkPagination } from "@/shared/ui/work-table";
+
 import { IdentitySheet } from "./identity-sheet";
 import { useEffect, useRef, useState } from "react";
 import type {
@@ -38,6 +40,8 @@ function Panel() {
     !session?.impersonation;
   const canRead = global && permissions.includes("security.bank_self_approval.read"),
     canManage = canRead && permissions.includes("security.bank_self_approval.manage");
+  const [workPageSize, setWorkPageSize] = useState(25);
+  const [grantCursors, setGrantCursors] = useState<string[]>([""]);
   const [company, setCompany] = useState(""),
     [kind, setKind] = useState<"payment" | "receipt">("payment");
   const [options, setOptions] = useState<BankSelfApprovalOptions>({ companies: [], users: [], next_cursor: null });
@@ -127,7 +131,7 @@ function Panel() {
       company_id: company,
       transaction_kind: kind,
       history: String(history),
-      limit: "50",
+      limit: String(workPageSize),
       ...(cursor ? { cursor } : {}),
     });
     api
@@ -147,7 +151,7 @@ function Panel() {
     return () => {
       active = false;
     };
-  }, [api, canRead, company, kind, history, cursor, refresh]);
+  }, [api, canRead, company, kind, history, cursor, refresh, workPageSize]);
   useEffect(() => {
     if (!company || !user || !canManage) return;
     let active = true;
@@ -175,7 +179,7 @@ function Panel() {
   }, [api, company, kind, user, canManage, refresh]);
   function reset() {
     setPage({ items: [], next_cursor: null });
-    setCursor("");
+    setCursor(""); setGrantCursors([""]);
     setUserCursor("");
     setSearch("");
     setUser("");
@@ -287,7 +291,7 @@ function Panel() {
               onChange={(e) => {
                 if ((e.target.value === "true") === history) return;
                 setHistory(e.target.value === "true");
-                setCursor("");
+                setCursor(""); setGrantCursors([""]);
                 setPage({ items: [], next_cursor: null });
                 setLoading(true);
                 setError("");
@@ -409,7 +413,7 @@ function Panel() {
           <p role="status">No grants match this selection.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <WorkTable paging={false} tableId="app/features/security/bank-self-approval-panel:1" className="w-full text-left text-sm">
               <thead>
                 <tr>
                   <th className="p-2">User</th>
@@ -459,7 +463,7 @@ function Panel() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         )}
       </CardContent>
@@ -474,33 +478,9 @@ function Panel() {
         >
           Refresh grants
         </Button>
-        {cursor && (
-          <Button
-            variant="outline"
-            disabled={busy || loading}
-            onClick={() => {
-              setCursor("");
-              setPage({ items: [], next_cursor: null });
-              setLoading(true);
-            }}
-          >
-            First page
-          </Button>
-        )}
-        {page.next_cursor && (
-          <Button
-            variant="outline"
-            disabled={busy || loading}
-            onClick={() => {
-              setCursor(page.next_cursor!);
-              setPage({ items: [], next_cursor: null });
-              setLoading(true);
-            }}
-          >
-            Next grants
-          </Button>
-        )}
-      </CardFooter>
+
+
+      </CardFooter><WorkPagination size={workPageSize} start={page.items.length ? (grantCursors.length - 1) * workPageSize + 1 : 0} end={(grantCursors.length - 1) * workPageSize + page.items.length} total={page.next_cursor ? undefined : (grantCursors.length - 1) * workPageSize + page.items.length} page={grantCursors.length - 1} hasMore={!!page.next_cursor} previous={grantCursors.length > 1} next={!!page.next_cursor} busy={busy || loading} onSizeChange={(size) => { setWorkPageSize(size); setCursor(""); setGrantCursors([""]); setPage({items: [], next_cursor: null}); setLoading(true); }} onPrevious={() => { setCursor(grantCursors.at(-2) ?? ""); setGrantCursors((current) => current.slice(0, -1)); setLoading(true); }} onNext={() => { if (!page.next_cursor) return; setGrantCursors((current) => [...current, page.next_cursor!]); setCursor(page.next_cursor); setLoading(true); }} />
     </Card>
   );
 }

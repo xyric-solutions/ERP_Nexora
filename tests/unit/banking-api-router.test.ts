@@ -255,6 +255,47 @@ describe("Bank Transfer API routes", () => {
     );
   });
 
+  it("validates an entered FX quote before dispatching a Transfer", async () => {
+    const repository = {
+      create: vi.fn(async () => ({
+        id: "transfer-1",
+        reference: "TRF-001",
+        state: "draft" as const,
+        version: 1,
+        audit_event_id: "audit-1",
+        replayed: false,
+      })),
+    };
+    const app = appForBanking({}, {}, {}, repository);
+    for (const conversion_rate of ["0", "-1", "1e3", "0.1234567890123456789"]) {
+      const response = await request(app)
+        .post("/api/v1/banking/transfers")
+        .set("cookie", "nexora_session=token-banking")
+        .set("origin", "https://banking.example.test")
+        .set("x-csrf-token", session.csrfToken)
+        .set("idempotency-key", "fx-invalid")
+        .send({ ...transferInput, lines: [{ ...transferInput.lines[0], conversion_rate }] });
+      expect(response.status).toBe(400);
+    }
+    expect(repository.create).not.toHaveBeenCalled();
+    const response = await request(app)
+      .post("/api/v1/banking/transfers")
+      .set("cookie", "nexora_session=token-banking")
+      .set("origin", "https://banking.example.test")
+      .set("x-csrf-token", session.csrfToken)
+      .set("idempotency-key", "fx-valid")
+      .send({ ...transferInput, lines: [{ ...transferInput.lines[0], conversion_rate: "280.125" }] });
+    expect(response.status).toBe(201);
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        lines: [expect.objectContaining({ conversion_rate: "280.125" })],
+      }),
+      "fx-valid",
+      expect.any(String),
+    );
+  });
+
   it("requires matching If-Match evidence for Transfer lifecycle mutations", async () => {
     const submit = vi.fn(async () => ({
       id: "transfer-1",

@@ -1,4 +1,8 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
+
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type {
   CreateHrOfferEmployeeRequest,
@@ -321,7 +325,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
           {notice}
         </div>
       )}
-      <form
+      <WorkForm
         aria-label="Search offers"
         className="grid min-w-0 items-end gap-4 rounded-xl border border-border bg-card p-4"
         onSubmit={(e) => {
@@ -342,7 +346,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
             placeholder="Candidate, offer reference or opening"
           />
         </label>
-      </form>
+      </WorkForm>
       <HrMasterStatusFilter<DecidedOfferFilter>
         label="Offer status"
         value={stateFilter}
@@ -368,7 +372,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-160 border-collapse text-left text-sm" aria-label="Offers">
+              <WorkTable paging={false} tableId="app/features/hr/views/hr-offer-employee-workspace:1" className="w-full min-w-160 border-collapse text-left text-sm" aria-label="Offers">
                 <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="whitespace-nowrap px-4 py-3">Candidate</th>
@@ -417,7 +421,7 @@ export function HrOfferEmployeeWorkspace({ onNavigate, initialOfferId }: { onNav
                     </tr>
                   )}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           )}
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2">

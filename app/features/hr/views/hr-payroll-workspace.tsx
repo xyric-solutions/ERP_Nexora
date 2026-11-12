@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { payrollNavigationContext } from "../components/payroll-navigation";
 import { HrPayrollLocalizationSetup } from "./hr-payroll-localization-setup";
 import { HrPayrollOvertimeSetup } from "./hr-payroll-overtime-setup";
@@ -7,6 +10,7 @@ import { SearchableSelect } from "@/shared/ui/searchable-select";
 import { Wallet, Plus, ArrowRight, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
@@ -197,17 +201,28 @@ function RecordEditor({
   const locked = (key: string) => automatic(key) || (section === "salaries" && key === "currency_code");
   const field = (key: string, title: string, type = "text", required = true) => (
     <Field title={title}>
-      <Input
-        className="box-border! w-full min-w-0! max-w-full! font-normal! read-only:bg-muted/40"
-        type={type}
-        inputMode={["amount", "principal"].includes(key) ? "decimal" : undefined}
-        value={automatic(key) ? (preview ?? "") : form[key]}
-        readOnly={locked(key)}
-        aria-readonly={locked(key) || undefined}
-        required={required && !locked(key)}
-        onChange={(e) => change(key, e.target.value)}
-        maxLength={type === "text" ? 160 : undefined}
-      />
+      {key === "amount" || key === "principal" ? (
+        <AmountInput
+          className="box-border! w-full min-w-0! max-w-full! font-normal! read-only:bg-muted/40"
+          decimals={4}
+          value={form[key]}
+          readOnly={locked(key)}
+          aria-readonly={locked(key) || undefined}
+          required={required && !locked(key)}
+          onValueChange={(raw) => change(key, raw)}
+        />
+      ) : (
+        <Input
+          className="box-border! w-full min-w-0! max-w-full! font-normal! read-only:bg-muted/40"
+          type={type}
+          value={automatic(key) ? (preview ?? "") : form[key]}
+          readOnly={locked(key)}
+          aria-readonly={locked(key) || undefined}
+          required={required && !locked(key)}
+          onChange={(e) => change(key, e.target.value)}
+          maxLength={type === "text" ? 160 : undefined}
+        />
+      )}
     </Field>
   );
   async function submit(e: React.FormEvent) {
@@ -288,7 +303,7 @@ function RecordEditor({
   }
   return (
     <section className="grid min-w-0" aria-label="New Payroll record">
-      <form className="grid gap-5" onSubmit={submit}>
+      <WorkForm className="grid gap-5" onSubmit={submit}>
         <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0! md:grid-cols-2">
           {["components", "structures"].includes(section) && (
             <>
@@ -460,16 +475,22 @@ function RecordEditor({
                     options={options?.components ?? []}
                   />
                   <Field title={method === "formula" ? "Formula " + (index + 1) : "Amount " + (index + 1)}>
-                    <Input
-                      value={method === "formula" ? item.formula : item.amount}
-                      onChange={(e) =>
-                        setItems((s) =>
-                          s.map((i, n) =>
-                            n === index ? { ...i, [method === "formula" ? "formula" : "amount"]: e.target.value } : i,
-                          ),
-                        )
-                      }
-                    />
+                    {method === "formula" ? (
+                      <Input
+                        value={item.formula}
+                        onChange={(e) =>
+                          setItems((s) => s.map((i, n) => (n === index ? { ...i, formula: e.target.value } : i)))
+                        }
+                      />
+                    ) : (
+                      <AmountInput
+                        decimals={4}
+                        value={item.amount}
+                        onValueChange={(raw) =>
+                          setItems((s) => s.map((i, n) => (n === index ? { ...i, amount: raw } : i)))
+                        }
+                      />
+                    )}
                   </Field>
                   <HrDeleteButton
                     label={`Remove component ${index + 1}`}
@@ -513,7 +534,7 @@ function RecordEditor({
             {busy ? "Saving…" : "Save"}
           </Button>
         </div>
-      </form>
+      </WorkForm>
     </section>
   );
 }
@@ -690,7 +711,7 @@ function RecordDetail({
         </p>
       )}
       {actions.length > 0 && (
-        <form onSubmit={decide} className="mt-6 grid gap-4 border-t border-border pt-5">
+        <WorkForm onSubmit={decide} className="mt-6 grid gap-4 border-t border-border pt-5">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <ShieldCheck className="h-4 w-4 text-primary" />
             Controlled action
@@ -799,7 +820,7 @@ function RecordDetail({
                 ? "Record disbursement confirmation"
                 : "Confirm " + name(chosen)}
           </Button>
-        </form>
+        </WorkForm>
       )}
     </section>
   );
@@ -813,6 +834,7 @@ export function HrPayrollWorkspace({
   onNavigate: Navigate;
   initialReference?: string | undefined;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const initial = payrollNavigationContext(initialReference);
   const { api, session, csrfToken, loading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]),
@@ -832,7 +854,7 @@ export function HrPayrollWorkspace({
     [notice, setNotice] = useState("");
   const companies = useAttendanceRead(canRead ? "payroll-companies" : null, () => client.companies()),
     company = companies.data?.items.some((c) => c.id === choice) ? choice : (companies.data?.items[0]?.id ?? ""),
-    query = { company_id: company, section, month, search, limit: 25, offset },
+    query = { company_id: company, section, month, search, limit: workPageSize, offset },
     records = useAttendanceRead(canRead && company ? JSON.stringify([query, revision]) : null, () =>
       client.payrollWorkspace(query),
     );
@@ -1034,30 +1056,8 @@ export function HrPayrollWorkspace({
           ))}
         </div>
       )}
-      {records.data && records.data.total > 25 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <span>
-            {offset + 1}–{Math.min(offset + 25, records.data.total)} of {records.data.total}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={offset === 0 || busy || records.loading}
-              onClick={() => setOffset((v) => Math.max(0, v - 25))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              disabled={offset + 25 >= records.data.total || busy || records.loading}
-              onClick={() => setOffset((v) => v + 25)}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+      {records.data && (
+        <WorkOffsetPagination busy={!!(busy || records.loading)} total={records.data.total} offset={offset} size={workPageSize} previousDisabled={!!(offset === 0 || busy || records.loading)} nextDisabled={!!(offset + workPageSize >= records.data.total || busy || records.loading)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
       )}
       {section === "components" && company && (
         <section className={panel} aria-label="Overtime pay">

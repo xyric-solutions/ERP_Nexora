@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { ArrowUpRight, ChevronRight } from "lucide-react";
 import type { HrAttendanceCloseEmployee, HrAttendancePeriodWorkspace } from "@nexora/contracts";
@@ -157,7 +158,7 @@ export function AttendanceEmployeeTable({
   return (
     <div className="min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-sm">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-200 text-left text-sm">
+        <WorkTable tableId="app/features/hr/components/hr-attendance-month-end:1" className="w-full min-w-200 text-left text-sm">
           <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className={`${th} sm:pl-5`}>Employee</th>
@@ -193,7 +194,7 @@ export function AttendanceEmployeeTable({
               </HrClickableRow>
             ))}
           </tbody>
-        </table>
+        </WorkTable>
       </div>
     </div>
   );
@@ -262,7 +263,7 @@ export function AttendanceEmployeeDetails({
           Daily trace
         </h3>
         <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-120 text-left text-sm">
+          <WorkTable tableId="app/features/hr/components/hr-attendance-month-end:2" className="w-full min-w-120 text-left text-sm">
             <thead className="border-b border-border bg-muted/60 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3">Date</th>
@@ -320,7 +321,7 @@ export function AttendanceEmployeeDetails({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       </section>
       {references.length ? (

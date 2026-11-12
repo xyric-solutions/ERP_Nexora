@@ -19,8 +19,8 @@ test.describe("bank transfers responsive acceptance", () => {
     await signIn(page);
     await page.goto("/#/banking/bank-transfers");
     await expect(page.getByRole("heading", { level: 1, name: "Bank Transfers" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Add transfer" })).toBeVisible();
-    await page.getByRole("button", { name: "Add transfer" }).click();
+    await page.getByRole("button", { name: "Add New", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Transfer", exact: true }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Add Transfer" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Workflow context" })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Project", exact: true })).toBeVisible();

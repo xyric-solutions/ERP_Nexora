@@ -6,5 +6,8 @@ export * from "./hr/index.js";
 export * from "./jobs/index.js";
 export * from "./master-data/index.js";
 export * from "./problem.js";
+export * from "./procurement/index.js";
 export * from "./security/index.js";
 export * from "./security/bank-self-approval.js";
+
+export * from "./inventory/index.js";

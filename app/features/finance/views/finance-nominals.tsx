@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable, WorkPagination } from "@/shared/ui/work-table";
+import { WorkForm, WorkFormLayout } from "@/shared/ui/work-form";
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -7,12 +9,12 @@ import type {
   FinanceNominalOptions,
   FinanceNominalSummary,
 } from "@nexora/contracts";
-import { createFinanceNominalRequestSchema } from "@nexora/contracts";
+import { createFinanceNominalRequestSchema, updateFinanceNominalRequestSchema } from "@nexora/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -31,6 +33,7 @@ import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { BankAccountDetailWorkspace } from "@/features/banking/views/banking-account-governance";
 import { FinanceNominalsClient } from "../api/finance-nominals-client";
 import { FinancePostingReview } from "./finance-posting-review";
+import { FinanceNominalRow } from "../components/finance-master-row";
 
 const selectClass =
   "h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -59,6 +62,7 @@ interface FinanceNominalsProps {
   approvals?: boolean;
   title?: string;
   onOpen: (id: string) => void;
+  onEdit?: (id: string) => void;
   onCreate: () => void;
   onCentralTemplate?: () => void;
 }
@@ -77,6 +81,7 @@ function CompanyNominalDirectory({
   approvals = false,
   title = "Nominal accounts",
   onOpen,
+  onEdit,
   onCreate,
   onCentralTemplate,
 }: FinanceNominalsProps) {
@@ -87,11 +92,18 @@ function CompanyNominalDirectory({
   const [search, setSearch] = useState(""),
     [state, setState] = useState(""),
     [sort, setSort] = useState<FinanceNominalDirectoryQuery["sort_by"]>("code");
+  const [workPageSize, setWorkPageSize] = useState(25);
+  const [cursorHistory, setCursorHistory] = useState<(string | undefined)[]>([undefined]);
   const [cursor, setCursor] = useState<string | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [refresh, setRefresh] = useState(0);
   const canRead = !!session?.user.permissions.includes("finance.nominal.read");
+  const canEdit =
+    !!session?.user.roles.includes("super_administrator") &&
+    session.user.permissions.includes("platform.approval.override") &&
+    session.user.permissions.includes("finance.nominal.update") &&
+    !session.impersonation;
   const requestVersion = useRef(0);
   function resetDirectory(willLoad = Boolean(company)) {
     requestVersion.current += 1;
@@ -134,7 +146,7 @@ function CompanyNominalDirectory({
           search,
           sort_by: sort,
           sort_direction: "asc",
-          limit: 50,
+          limit: workPageSize,
           ...(approvals ? { nominal_kind: "bank" as const } : {}),
           ...(approvals
             ? { state: "pending_approval" as const }
@@ -155,11 +167,12 @@ function CompanyNominalDirectory({
         if (version === requestVersion.current) setLoading(false);
       }
     },
-    [client, company, search, sort, state, approvals],
+    [client, company, search, sort, state, approvals, workPageSize],
   );
   useEffect(() => {
     if (!company || !canRead) return;
     const timer = setTimeout(() => {
+      setCursorHistory([undefined]);
       void fetchRows();
     }, 250);
     return () => {
@@ -180,7 +193,6 @@ function CompanyNominalDirectory({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <CardTitle>{approvals ? "Pending Bank Nominal approvals" : title}</CardTitle>
-            <CardDescription>Chart of Accounts · Company master data · Currency Master</CardDescription>
           </div>
           {!approvals && onCentralTemplate && (
             <Button variant="outline" onClick={onCentralTemplate}>
@@ -275,9 +287,30 @@ function CompanyNominalDirectory({
           <Notice
             text={company ? "No records match this selection." : "The company chosen at sign-in is not available."}
           />
+        ) : !approvals ? (
+          <div className="flex flex-col gap-5" aria-label="Nominal directory">
+            {Array.from(groups, ([group, items]) => (
+              <section key={group} className="flex flex-col gap-1" aria-label={group}>
+                <h2 className="font-bold text-foreground">{group}</h2>
+                {items.map((row) => (
+                  <FinanceNominalRow
+                    key={row.id}
+                    nominal={row}
+                    onOpen={onOpen}
+                    onEdit={
+                      canEdit && !["pending_approval", "closed"].includes(row.state ?? row.account_status)
+                        ? onEdit
+                        : undefined
+                    }
+                    showBanking
+                  />
+                ))}
+              </section>
+            ))}
+          </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <WorkTable paging={false} tableId="app/features/finance/views/finance-nominals:1" className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b">
                   <th className="p-3">Code</th>
@@ -319,15 +352,11 @@ function CompanyNominalDirectory({
                   </Fragment>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         )}
-        {cursor && (
-          <Button variant="outline" disabled={loading} onClick={() => void fetchRows(cursor)}>
-            Next page
-          </Button>
-        )}
-      </CardContent>
+
+      </CardContent><WorkPagination size={workPageSize} page={cursorHistory.length - 1} start={rows.length ? (cursorHistory.length - 1) * workPageSize + 1 : 0} end={(cursorHistory.length - 1) * workPageSize + rows.length} total={cursor ? undefined : (cursorHistory.length - 1) * workPageSize + rows.length} hasMore={!!cursor} previous={cursorHistory.length > 1} next={!!cursor} busy={loading} onSizeChange={(size) => {setWorkPageSize(size); setLoading(true); setRows([]);}} onPrevious={() => { const previous=cursorHistory.at(-2); setCursorHistory((current) => current.slice(0,-1)); void fetchRows(previous); }} onNext={() => {if (!cursor) return; setCursorHistory((current) => [...current,cursor]); void fetchRows(cursor);}} />
     </Card>
   );
 }
@@ -335,14 +364,18 @@ function CompanyNominalDirectory({
 export function FinanceNominalForm({
   nominalId,
   bankOnly = false,
+  initialDetail,
   onSaved,
   onCancel,
+  onApproved = onCancel,
   onDirtyChange,
 }: {
   nominalId?: string;
   bankOnly?: boolean;
+  initialDetail?: FinanceNominalDetail;
   onSaved: (id: string) => void;
   onCancel: () => void;
+  onApproved?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { api, csrfToken, session, loading: sessionLoading } = useSession();
@@ -356,33 +389,78 @@ export function FinanceNominalForm({
     [description, setDescription] = useState("");
   const [bankDefinition, setBankDefinition] = useState("");
   const [saved, setSaved] = useState<{ id: string; code: string; version: number } | null>(null);
-  const reason = "Nominal submitted for approval by the authorized user.";
+  const [original, setOriginal] = useState<FinanceNominalDetail | null>(null);
+  const [optionsLoading, setOptionsLoading] = useState(true);
+  const [accountUse, setAccountUse] = useState<"" | "ordinary" | "module_controlled">("");
   const [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
     [notice, setNotice] = useState(""),
     [dirty, setDirty] = useState(false);
-  const [detailLoading, setDetailLoading] = useState(!!nominalId),
-    [editable, setEditable] = useState(!nominalId);
+  const [detailLoading, setDetailLoading] = useState(!!nominalId);
   const retry = useRef<{ fingerprint: string; key: string } | null>(null),
-    submitRetry = useRef<{ fingerprint: string; key: string } | null>(null);
+    classifyRetry = useRef<{ fingerprint: string; key: string } | null>(null),
+    approveRetry = useRef<{ fingerprint: string; key: string } | null>(null);
+  const actionLock = useRef(false);
   const permissions = session?.user.permissions ?? [];
-  const selected = options.sections.find((item) => item.id === section);
-  const isBank = bankOnly || selected?.section_role === "cash_and_bank";
-  const canWrite =
+  const selected =
+    options.sections.find((item) => item.id === section) ??
+    (original?.section?.id === section && original.category
+      ? {
+          ...original.section,
+          category_id: original.category.id,
+          type: original.type,
+          section_role: original.bank_account_id ? ("cash_and_bank" as const) : ("general" as const),
+          creation_enabled: false,
+        }
+      : undefined);
+  const category =
+    options.categories.find((item) => item.id === selected?.category_id) ??
+    (original?.category && original.category.id === selected?.category_id ? original.category : undefined);
+  const isBank = bankOnly || (nominalId ? !!original?.bank_account_id : selected?.section_role === "cash_and_bank");
+  const canManage =
     !!session?.user.roles.includes("super_administrator") &&
     permissions.includes("platform.approval.override") &&
-    !session.impersonation &&
+    !session.impersonation;
+  const canWrite =
+    canManage &&
     permissions.includes(nominalId ? "finance.nominal.update" : "finance.nominal.create") &&
     (!isBank || permissions.includes(nominalId ? "banking.bank_account.update" : "banking.bank_account.create"));
+  const editable = !nominalId || !!original?.capabilities.update;
+  const fieldsDisabled = busy || !editable || !canWrite;
+  const awaitingApproval = !!original && ["draft", "pending_approval"].includes(original.state ?? "");
+  const canClassify =
+    original?.state === "draft" &&
+    !!original.chart_template_id &&
+    permissions.includes("finance.chart_template.classify") &&
+    permissions.includes("finance.nominal.update") &&
+    canManage;
+  const classificationChanged = canClassify && !!accountUse && accountUse !== original?.posting_classification;
+  const formDirty = dirty || classificationChanged;
+  const approvalAllowed =
+    canManage &&
+    awaitingApproval &&
+    !!saved &&
+    ((original.capabilities.decide &&
+      permissions.includes("finance.nominal.approve") &&
+      (!isBank || permissions.includes("banking.bank_account.approve"))) ||
+      (original.capabilities.activate &&
+        permissions.includes("finance.nominal.status") &&
+        (!isBank || permissions.includes("banking.bank_account.status"))) ||
+      (canClassify && permissions.includes("finance.nominal.status")));
+  const classificationBlocksApproval =
+    !!original?.posting_classification &&
+    (canClassify ? accountUse !== "ordinary" : original.posting_classification !== "ordinary");
   useEffect(() => {
     let active = true;
     client
       .options()
       .then((result) => {
         if (active) {
-          setOptions(result);
-          // Only the company chosen at sign-in can receive new nominals.
-          setCompany((current) => current || inActiveCompany({ items: result.companies }).items[0]?.id || "");
+          if (!nominalId) {
+            setOptions(result);
+            // Only the company chosen at sign-in can receive new nominals.
+            setCompany((current) => current || inActiveCompany({ items: result.companies }).items[0]?.id || "");
+          }
           setLoading(false);
         }
       })
@@ -395,22 +473,21 @@ export function FinanceNominalForm({
     return () => {
       active = false;
     };
-  }, [client]);
+  }, [client, nominalId]);
   useEffect(() => {
     if (!nominalId) return;
     let active = true;
-    api
-      .getFinanceNominal(nominalId)
+    (initialDetail ? Promise.resolve(initialDetail) : api.getFinanceNominal(nominalId))
       .then((detail) => {
         if (!active) return;
-        setEditable(detail.capabilities.update);
+        setOriginal(detail);
+        setAccountUse(
+          detail.posting_classification === "ordinary" || detail.posting_classification === "module_controlled"
+            ? detail.posting_classification
+            : "",
+        );
         if (bankOnly && !detail.bank_account_id) {
-          setEditable(false);
           setNotice("This is an ordinary nominal. Edit it from Chart of Accounts, not Bank Account Setup.");
-          return;
-        }
-        if (!detail.capabilities.update) {
-          setNotice("Only an authorized Super Admin can edit this master.");
           return;
         }
         setCompany(detail.company_id);
@@ -418,7 +495,13 @@ export function FinanceNominalForm({
         setCurrency(detail.currency ?? "");
         setDescription(detail.description ?? "");
         setSection(detail.section?.id ?? "");
-        setSaved({ id: detail.id, code: detail.code, version: detail.version! });
+        if (detail.version) setSaved({ id: detail.id, code: detail.code, version: detail.version });
+        if (!detail.capabilities.update && !["draft", "pending_approval"].includes(detail.state ?? ""))
+          setNotice(
+            detail.version === null
+              ? "This legacy record uses its existing controlled workflow."
+              : "This record is read-only in its current state.",
+          );
       })
       .catch((error) => {
         if (active) setNotice(message(error));
@@ -429,7 +512,7 @@ export function FinanceNominalForm({
     return () => {
       active = false;
     };
-  }, [api, nominalId, bankOnly]);
+  }, [api, nominalId, bankOnly, initialDetail]);
   useEffect(() => {
     if (!company) return;
     let active = true;
@@ -439,7 +522,7 @@ export function FinanceNominalForm({
         if (active) {
           setOptions(result);
           setSection((current) =>
-            result.sections.some((item) => item.id === current)
+            nominalId || result.sections.some((item) => item.id === current)
               ? current
               : (result.sections.find(
                   (item) => item.creation_enabled && item.section_role === (bankOnly ? "cash_and_bank" : "general"),
@@ -447,20 +530,23 @@ export function FinanceNominalForm({
                 result.sections.find((item) => item.section_role === "cash_and_bank")?.id ??
                 ""),
           );
-          setCurrency((current) => current || result.currencies[0]?.code || "");
+          setCurrency((current) => (nominalId ? current : current || result.currencies[0]?.code || ""));
         }
       })
       .catch((error) => {
         if (active) setNotice(message(error));
+      })
+      .finally(() => {
+        if (active) setOptionsLoading(false);
       });
     return () => {
       active = false;
     };
-  }, [client, company, bankOnly]);
+  }, [client, company, bankOnly, nominalId]);
   useEffect(() => {
-    onDirtyChange?.(dirty);
+    onDirtyChange?.(formDirty);
     const guard = (event: BeforeUnloadEvent) => {
-      if (dirty) {
+      if (formDirty) {
         event.preventDefault();
         event.returnValue = "";
       }
@@ -470,28 +556,39 @@ export function FinanceNominalForm({
       window.removeEventListener("beforeunload", guard);
       onDirtyChange?.(false);
     };
-  }, [dirty, onDirtyChange]);
-  async function save(submit: boolean) {
-    if (busy) return;
+  }, [formDirty, onDirtyChange]);
+  async function save(approve = false) {
+    if (actionLock.current || busy || optionsLoading || (nominalId && !saved)) return;
+    if (approve ? !approvalAllowed || classificationBlocksApproval : !editable || !canWrite) return;
+    if (bankOnly && original && !original.bank_account_id) return;
+    actionLock.current = true;
     setBusy(true);
     setNotice("");
     try {
-      const parsed = createFinanceNominalRequestSchema.safeParse({
-        nominal_kind: isBank ? "bank" : "general",
-        company_id: company,
-        category_id: selected?.category_id,
-        section_id: section,
-        name,
-        currency,
-        description,
-        ...(!saved && isBank && bankDefinition
-          ? {
-              chart_template_id: options.bank_definitions?.find((item) => item.node_key === bankDefinition)
-                ?.template_id,
-              chart_node_key: bankDefinition,
-            }
-          : {}),
-      });
+      const parsed = saved
+        ? updateFinanceNominalRequestSchema.safeParse({
+            expected_version: saved.version,
+            name,
+            currency,
+            description: description || null,
+            ...(section !== original?.section?.id ? { section_id: section } : {}),
+          })
+        : createFinanceNominalRequestSchema.safeParse({
+            nominal_kind: isBank ? "bank" : "general",
+            company_id: company,
+            category_id: selected?.category_id,
+            section_id: section,
+            name,
+            currency,
+            description,
+            ...(!saved && isBank && bankDefinition
+              ? {
+                  chart_template_id: options.bank_definitions?.find((item) => item.node_key === bankDefinition)
+                    ?.template_id,
+                  chart_node_key: bankDefinition,
+                }
+              : {}),
+          });
       if (!parsed.success) {
         setNotice(parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join(" "));
         document.getElementById("nominal-name")?.focus();
@@ -512,11 +609,16 @@ export function FinanceNominalForm({
                 name: payload.name,
                 currency: payload.currency,
                 description: payload.description ?? null,
+                ...(section !== original?.section?.id ? { section_id: section } : {}),
               },
               csrfToken(),
               retry.current.key,
             )
-          : await api.createFinanceNominal(payload, csrfToken(), retry.current.key);
+          : await api.createFinanceNominal(
+              createFinanceNominalRequestSchema.parse(payload),
+              csrfToken(),
+              retry.current.key,
+            );
         setSaved(current);
         setDirty(false);
         onDirtyChange?.(false);
@@ -530,63 +632,118 @@ export function FinanceNominalForm({
               : "Nominal account updated successfully.",
         );
       }
-      if (submit) {
-        const fingerprint = JSON.stringify({ id: current.id, version: current.version, reason });
-        if (submitRetry.current?.fingerprint !== fingerprint)
-          submitRetry.current = { fingerprint, key: `nominal-submit-${crypto.randomUUID()}` };
-        await api.submitFinanceNominal(
-          current.id,
-          { expected_version: current.version, reason },
-          csrfToken(),
-          submitRetry.current.key,
+      if (classificationChanged && accountUse) {
+        const payload = {
+          expected_version: current.version,
+          classification: accountUse,
+          reason:
+            accountUse === "ordinary"
+              ? "Confirmed as an ordinary nominal from the master form."
+              : "Retained as module-controlled from the master form.",
+        };
+        const fingerprint = JSON.stringify({ id: current.id, payload });
+        if (classifyRetry.current?.fingerprint !== fingerprint)
+          classifyRetry.current = { fingerprint, key: `nominal-classify-${crypto.randomUUID()}` };
+        const classified = await api.classifyChartNominal(current.id, payload, csrfToken(), classifyRetry.current.key);
+        current = { ...current, version: classified.version };
+        setSaved(current);
+        setOriginal((previous) =>
+          previous ? { ...previous, version: classified.version, posting_classification: accountUse } : previous,
         );
-        notify(
-          isBank
-            ? "Bank account submitted for approval successfully."
-            : "Nominal account submitted for approval successfully.",
-        );
+      }
+      if (approve) {
+        const latest = await api.getFinanceNominal(current.id);
+        if (latest.version !== current.version) {
+          setNotice("This nominal changed while the form was open. Close and reopen it before approving.");
+          return;
+        }
+        setOriginal(latest);
+        if (!latest.version) throw new Error("The nominal has no managed version.");
+        setSaved({ id: latest.id, code: latest.code, version: latest.version });
+        const decision = latest.capabilities.decide ? "approve" : latest.capabilities.activate ? "activate" : null;
+        if (!decision || (latest.posting_classification && latest.posting_classification !== "ordinary"))
+          throw new Error("Activation is unavailable for this account.");
+        const payload =
+          decision === "approve"
+            ? { expected_version: latest.version, action: "approve" as const }
+            : {
+                expected_version: latest.version,
+                action: "activate" as const,
+                reason: "Authorized activation from the nominal master form. No financial posting.",
+              };
+        const fingerprint = JSON.stringify({ id: latest.id, payload });
+        if (approveRetry.current?.fingerprint !== fingerprint)
+          approveRetry.current = { fingerprint, key: `nominal-approve-${crypto.randomUUID()}` };
+        if (decision === "approve")
+          await api.decideFinanceNominal(
+            latest.id,
+            { expected_version: latest.version, action: "approve" },
+            csrfToken(),
+            approveRetry.current.key,
+          );
+        else
+          await api.changeFinanceNominalStatus(
+            latest.id,
+            {
+              expected_version: latest.version,
+              action: "activate",
+              reason: "Authorized activation from the nominal master form. No financial posting.",
+            },
+            csrfToken(),
+            approveRetry.current.key,
+          );
+        notify(isBank ? "Bank account approved successfully." : "Nominal account approved successfully.");
+        setDirty(false);
+        onDirtyChange?.(false);
+        onApproved();
+        return;
       }
       onSaved(current.id);
     } catch (error) {
       setNotice(message(error));
     } finally {
+      actionLock.current = false;
       setBusy(false);
     }
   }
   if (sessionLoading || loading || detailLoading) return <Notice text="Loading Nominal master data…" />;
-  if (!canWrite)
+  if (!canWrite && !(nominalId && permissions.includes("finance.nominal.read") && original))
     return (
       <Notice text="You do not have the required Finance permissions (and Banking permissions for Bank accounts)." />
     );
-  if (!editable) return <Notice text={notice || "This nominal cannot be edited."} />;
   return (
-    <Card>
+    <WorkFormLayout><Card className="mx-auto w-full max-w-4xl">
       <CardHeader>
         <CardTitle>
-          {saved ? "Edit" : "New"} {isBank ? "Bank Nominal" : "Nominal Account"}
+          {nominalId ? (editable ? "Edit" : "") : "New"} {isBank ? "Bank Nominal" : "Nominal Account"}
         </CardTitle>
-        <CardDescription>Company Chart of Accounts · Category → Section → Nominal</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {notice && <Notice text={notice} />}
+        {original?.state && (
+          <Badge variant="outline" className="self-start">
+            {original.state.replaceAll("_", " ")}
+          </Badge>
+        )}
         {!company && !nominalId && <Notice text="The company chosen at sign-in is not available." />}
         {!selected?.creation_enabled && !saved && (
           <Notice text="Section setup is required. Configure the company headers and an available nominal code policy before creating accounts." />
         )}
-        <form
+        <WorkForm
           onSubmit={(event) => {
             event.preventDefault();
             void save(false);
           }}
-          className="grid gap-5 md:grid-cols-2"
+          className="grid gap-4 sm:grid-cols-2"
         >
-          <div className="flex flex-col gap-2 md:col-span-2">
+          <div className="flex flex-col gap-2 sm:col-span-2">
             <Label htmlFor="nominal-code">Nominal code</Label>
             <Input
               id="nominal-code"
               readOnly
               value={
                 saved?.code ??
+                original?.code ??
                 options.bank_definitions?.find((item) => item.node_key === bankDefinition)?.code ??
                 "Generated when you save"
               }
@@ -624,44 +781,12 @@ export function FinanceNominalForm({
             </div>
           )}
           <div className="flex flex-col gap-2">
-            <Label htmlFor="nominal-category">Category</Label>
-            <select
-              id="nominal-category"
-              className={selectClass}
-              disabled={!!saved || busy || bankOnly}
-              value={selected?.category_id ?? ""}
-              onChange={(event) => {
-                setSection(
-                  options.sections.find((item) => item.category_id === event.target.value && item.creation_enabled)
-                    ?.id ??
-                    options.sections.find((item) => item.category_id === event.target.value)?.id ??
-                    "",
-                );
-                setDirty(true);
-              }}
-            >
-              <option value="">Select Category</option>
-              {options.categories
-                .filter(
-                  (item) =>
-                    !bankOnly ||
-                    options.sections.some(
-                      (section) => section.category_id === item.id && section.section_role === "cash_and_bank",
-                    ),
-                )
-                .map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="nominal-section">Section</Label>
+            <Label htmlFor="nominal-section">Section *</Label>
             <select
               id="nominal-section"
               className={selectClass}
-              disabled={!!saved || busy}
+              required
+              disabled={fieldsDisabled || optionsLoading || (!!saved && isBank)}
               value={section}
               onChange={(event) => {
                 setSection(event.target.value);
@@ -670,14 +795,37 @@ export function FinanceNominalForm({
               }}
             >
               <option value="">Select Section</option>
+              {selected && !options.sections.some((item) => item.id === section) && (
+                <option value={section}>{selected.name} (current)</option>
+              )}
               {options.sections
-                .filter((item) => !bankOnly || item.section_role === "cash_and_bank")
+                .filter((item) =>
+                  bankOnly || (saved && isBank)
+                    ? item.section_role === "cash_and_bank"
+                    : !saved || (item.section_role === "general" && (!item.type || item.type === original?.type)),
+                )
                 .map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name}
+                    {item.code} · {item.name}
                   </option>
                 ))}
             </select>
+            {!!saved && isBank && (
+              <p className="text-xs text-muted-foreground">Bank accounts retain their Cash &amp; Bank Section.</p>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="nominal-category">Category</Label>
+            <Input
+              id="nominal-category"
+              readOnly
+              value={category?.name ?? ""}
+              placeholder="Set by the selected Section"
+            />
+            <p className="text-xs text-muted-foreground">
+              {selected?.type ? `${selected.type.charAt(0).toUpperCase()}${selected.type.slice(1)} · ` : ""}
+              Assigned automatically from Section.
+            </p>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="nominal-name">Nominal account name *</Label>
@@ -686,7 +834,7 @@ export function FinanceNominalForm({
               readOnly={!saved && !!bankDefinition}
               required
               maxLength={160}
-              disabled={busy}
+              disabled={fieldsDisabled}
               value={name}
               onChange={(event) => {
                 setName(event.target.value);
@@ -701,7 +849,7 @@ export function FinanceNominalForm({
               id="nominal-currency"
               className={selectClass}
               required
-              disabled={busy}
+              disabled={fieldsDisabled}
               value={currency}
               onChange={(event) => {
                 setCurrency(event.target.value);
@@ -709,6 +857,9 @@ export function FinanceNominalForm({
               }}
             >
               <option value="">Select currency</option>
+              {original?.currency && !options.currencies.some((item) => item.code === original.currency) && (
+                <option value={original.currency}>{original.currency} (current)</option>
+              )}
               {options.currencies.map((item) => (
                 <option key={item.code} value={item.code}>
                   {item.code} · {item.name}
@@ -716,12 +867,12 @@ export function FinanceNominalForm({
               ))}
             </select>
           </div>
-          <div className="flex flex-col gap-2 md:col-span-2">
+          <div className="flex flex-col gap-2 sm:col-span-2">
             <Label htmlFor="nominal-description">Description</Label>
             <Textarea
               id="nominal-description"
               maxLength={2000}
-              disabled={busy}
+              disabled={fieldsDisabled}
               value={description}
               onChange={(event) => {
                 setDescription(event.target.value);
@@ -729,17 +880,62 @@ export function FinanceNominalForm({
               }}
             />
           </div>
-          <div className="flex flex-wrap gap-3 md:col-span-2">
-            <Button type="submit" disabled={busy || (!saved && !selected?.creation_enabled)}>
-              {nominalId ? "Save changes" : "Save & Activate"}
-            </Button>
-            <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>
-              Cancel
+          {original?.chart_template_id && original.posting_classification && original.state === "draft" && (
+            <div className="flex flex-col gap-2 sm:col-span-2">
+              <Label htmlFor="nominal-account-use">Account use</Label>
+              <select
+                id="nominal-account-use"
+                className={selectClass}
+                value={accountUse}
+                disabled={busy || !canClassify}
+                onChange={(event) => setAccountUse(event.target.value as "" | "ordinary" | "module_controlled")}
+              >
+                <option value="">Select account use</option>
+                <option value="ordinary">General account</option>
+                <option value="module_controlled">Managed by another module</option>
+              </select>
+              {accountUse === "module_controlled" && (
+                <p className="text-sm text-muted-foreground">This account is activated through its owning module.</p>
+              )}
+            </div>
+          )}
+          {original?.super_admin_override_allowed && original.self_decision_requires_override && awaitingApproval && (
+            <div className="sm:col-span-2">
+              <SuperAdminOverrideWarning reasonRequired={false} />
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2 border-t border-border pt-4 sm:col-span-2">
+            {editable && canWrite && (
+              <Button type="submit" disabled={busy || optionsLoading || (!saved && !selected?.creation_enabled)}>
+                {busy ? "Saving…" : nominalId ? "Save changes" : "Save & Activate"}
+              </Button>
+            )}
+            {approvalAllowed && (
+              <Button
+                type="button"
+                disabled={busy || optionsLoading || classificationBlocksApproval}
+                onClick={() => void save(true)}
+              >
+                {busy ? "Saving…" : "Approve & Close"}
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => {
+                if (formDirty && !window.confirm("Discard unsaved Nominal changes?")) return;
+                setDirty(false);
+                onDirtyChange?.(false);
+                onCancel();
+              }}
+            >
+              Close
             </Button>
           </div>
-        </form>
+        </WorkForm>
       </CardContent>
-    </Card>
+    </Card></WorkFormLayout>
   );
 }
 
@@ -747,10 +943,12 @@ export function FinanceNominalDetail({
   nominalId,
   onBack,
   onEdit,
+  onDirtyChange,
 }: {
   nominalId: string;
   onBack: () => void;
   onEdit: (id: string) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { api, csrfToken } = useSession();
   const notify = useActionFeedback();
@@ -818,35 +1016,53 @@ export function FinanceNominalDetail({
       notify(detail.bank_account_id ? messages[action] : messages[action].replace("Bank account", "Nominal account"));
       setAction(null);
       setReason("");
-      setRefresh((value) => value + 1);
+      if (action === "approve") onBack();
+      else setRefresh((value) => value + 1);
     } catch (error) {
       setError(message(error));
     } finally {
       setBusy(false);
     }
   }
+  if (detail && ["draft", "pending_approval"].includes(detail.state ?? ""))
+    return (
+      <FinanceNominalForm
+        nominalId={detail.id}
+        initialDetail={detail}
+        onSaved={() => setRefresh((value) => value + 1)}
+        onApproved={onBack}
+        onCancel={onBack}
+        onDirtyChange={onDirtyChange}
+      />
+    );
   return (
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <CardTitle>{detail ? `${detail.code} · ${detail.name}` : "Nominal detail"}</CardTitle>
-            <CardDescription>Persisted Finance and Banking master data</CardDescription>
           </div>
-          <Button variant="outline" onClick={onBack}>
-            Back
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {detail?.capabilities.update && (
+              <Button disabled={busy} onClick={() => onEdit(detail.id)}>
+                Edit nominal
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setRefresh((value) => value + 1)} disabled={busy}>
+              Refresh
+            </Button>
+            <Button variant="outline" size="sm" disabled={busy} onClick={onBack}>
+              Close
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {error && <Notice text={error} />}
-        <Button variant="outline" onClick={() => setRefresh((value) => value + 1)} disabled={busy}>
-          Refresh
-        </Button>
         {!detail && !error && <Notice text="Loading Nominal…" />}
         {detail && (
           <>
-            <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <dl className="m-0 grid gap-x-6 gap-y-3 rounded-md border border-border p-4 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 ["Category", detail.category?.name ?? "—"],
                 ["Section", detail.section?.name ?? "—"],
@@ -864,7 +1080,7 @@ export function FinanceNominalDetail({
               ].map(([label, value]) => (
                 <div key={label}>
                   <dt className="text-sm text-muted-foreground">{label}</dt>
-                  <dd className="font-medium">{value}</dd>
+                  <dd className="m-0 text-sm font-medium">{value}</dd>
                 </div>
               ))}
             </dl>
@@ -886,11 +1102,6 @@ export function FinanceNominalDetail({
             />
             <div className="flex flex-wrap gap-3">
               {detail.capabilities.activate && <Button onClick={() => setAction("activate")}>Activate now</Button>}
-              {detail.capabilities.update && (
-                <Button variant="outline" onClick={() => onEdit(detail.id)}>
-                  Edit nominal
-                </Button>
-              )}
               {detail.capabilities.submit && <Button onClick={() => setAction("submit")}>Submit for approval</Button>}
               {detail.capabilities.decide && (
                 <>
@@ -989,10 +1200,12 @@ export function BankNominalDetailBridge({
   accountId,
   onBack,
   onEdit,
+  onDirtyChange,
 }: {
   accountId: string | null;
   onBack: () => void;
   onEdit: (id: string) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { api } = useSession();
   const [nominal, setNominal] = useState<string | null>(null),
@@ -1017,8 +1230,9 @@ export function BankNominalDetailBridge({
     };
   }, [api, accountId]);
   if (accountId?.startsWith("nominal-"))
-    return <FinanceNominalDetail nominalId={accountId} onBack={onBack} onEdit={onEdit} />;
-  if (nominal) return <FinanceNominalDetail nominalId={nominal} onBack={onBack} onEdit={onEdit} />;
+    return <FinanceNominalDetail nominalId={accountId} onBack={onBack} onEdit={onEdit} onDirtyChange={onDirtyChange} />;
+  if (nominal)
+    return <FinanceNominalDetail nominalId={nominal} onBack={onBack} onEdit={onEdit} onDirtyChange={onDirtyChange} />;
   if (legacy) return <BankAccountDetailWorkspace accountId={accountId ?? ""} onBack={onBack} />;
   return (
     <Notice text={error || (!accountId ? "Select a Bank Account from Account Balances." : "Loading Bank Account…")} />

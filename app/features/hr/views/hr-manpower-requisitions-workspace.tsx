@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
@@ -13,6 +15,7 @@ import type {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
@@ -444,7 +447,7 @@ export function HrManpowerRequisitionsWorkspace() {
       ) : (
         <div className="grid min-w-0 items-start gap-4 ">
           <div className="relative min-w-0 overflow-x-auto rounded-lg border bg-card border-border">
-            <table className="w-full min-w-210 text-sm">
+            <WorkTable tableId="app/features/hr/views/hr-manpower-requisitions-workspace:1" className="w-full min-w-210 text-sm">
               <thead className="border-b bg-muted/60 border-border">
                 <tr>
                   <th className="px-4 py-3 text-left">Reference</th>
@@ -512,7 +515,7 @@ export function HrManpowerRequisitionsWorkspace() {
                   </tr>
                 ) : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           {editor ? (
             <HrRecordDrawer
@@ -746,18 +749,18 @@ export function HrManpowerRequisitionsWorkspace() {
                     <div className="grid grid-cols-2 gap-3">
                       <label className="grid content-start min-w-0 gap-1 text-sm">
                         Minimum salary
-                        <Input
-                          inputMode="decimal"
+                        <AmountInput
+                          decimals={4}
                           value={editor.minimum}
-                          onChange={(event) => setEditor({ ...editor, minimum: event.target.value })}
+                          onValueChange={(raw) => setEditor({ ...editor, minimum: raw })}
                         />
                       </label>
                       <label className="grid content-start min-w-0 gap-1 text-sm">
                         Maximum salary
-                        <Input
-                          inputMode="decimal"
+                        <AmountInput
+                          decimals={4}
                           value={editor.maximum}
-                          onChange={(event) => setEditor({ ...editor, maximum: event.target.value })}
+                          onValueChange={(raw) => setEditor({ ...editor, maximum: raw })}
                         />
                       </label>
                     </div>

@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -272,7 +273,7 @@ export function OrganisationMastersDemo() {
                   <p className="text-xs text-muted-foreground">Select a name to preview</p>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-120 text-left text-sm">
+                  <WorkTable tableId="app/features/hr/views/organisation-masters-demo:1" className="w-full min-w-120 text-left text-sm">
                     <thead className="bg-muted/50 text-muted-foreground">
                       <tr>
                         <th className="px-5 py-3 font-medium">Code</th>
@@ -314,7 +315,7 @@ export function OrganisationMastersDemo() {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </WorkTable>
                 </div>
               </div>
             </>

@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { BankAccountState, BankAccountSummary, BankingCompanyDirectory } from "@nexora/contracts";
@@ -7,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
+import { LabeledField } from "@/shared/ui/labeled-field";
 import { BankingApiClient } from "../api/banking-client";
+import { BankAccountCapsule } from "../components/bank-account-capsule";
 
 const accountStates: readonly BankAccountState[] = [
   "draft",
@@ -131,7 +134,10 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const banks = useMemo(() => [...new Set(rows.map((row) => row.bank_name).filter((name): name is string => name !== null))].sort(), [rows]);
+  const banks = useMemo(
+    () => [...new Set(rows.map((row) => row.bank_name).filter((name): name is string => name !== null))].sort(),
+    [rows],
+  );
   const currencies = useMemo(() => [...new Set(rows.map((row) => row.currency))].sort(), [rows]);
 
   if (!sessionLoading && !session) {
@@ -147,31 +153,27 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
   }
 
   return (
-    <div className="space-y-5" aria-busy={loading}>
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-4 shadow-sm">
-        {!loading && !error && companies.length === 0 ? (
-          <p role="alert" className="w-full text-sm font-medium text-destructive">
+    <div className="space-y-4" aria-busy={loading}>
+      {!loading && !error && companies.length === 0 ? (
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+          <p role="alert" className="m-0 text-sm font-medium text-destructive">
             Your session has no authorized company for bank accounts.
           </p>
-        ) : null}
-        <p className="text-sm text-muted-foreground">
-          Balances are calculated from posted journal lines. Available and reconciliation values remain unavailable
-          until those production workflows are delivered.
-        </p>
-      </div>
+        </div>
+      ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Bank account currency totals">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Bank account currency totals">
         {loading && summary.length === 0
           ? Array.from({ length: 4 }, (_, index) => (
               <div key={index} className="h-32 animate-pulse rounded-lg border border-border bg-muted/50" />
             ))
           : summary.map((total) => (
-              <article key={total.currency} className="rounded-lg border border-border bg-card p-5 shadow-sm">
+              <article key={total.currency} className="rounded-lg border border-border bg-card p-4 shadow-sm">
                 <span className="text-sm text-muted-foreground">Total held · {total.currency}</span>
-                <strong className="mt-3 block text-2xl font-semibold text-foreground">
+                <strong className="mt-2 block text-2xl font-semibold text-foreground">
                   {money(total.ledger_balance, total.currency)}
                 </strong>
-                <small className="mt-2 block text-muted-foreground">
+                <small className="mt-1 block text-muted-foreground">
                   {total.account_count} active account{total.account_count === 1 ? "" : "s"}
                 </small>
               </article>
@@ -179,18 +181,26 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
       </section>
 
       <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-        <div className="flex flex-wrap gap-3 border-b border-border bg-muted/30 p-4">
-          <Input
-            className="min-w-64 flex-1"
-            aria-label="Search bank accounts"
-            placeholder="Search bank, account or reference..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
+        <div className="grid gap-3 border-b border-border bg-muted/30 p-3 sm:grid-cols-2 sm:items-end xl:grid-cols-[minmax(15rem,1.6fr)_repeat(4,minmax(8rem,1fr))_auto_auto]">
+          <LabeledField label="Search">
+            <Input
+              aria-label="Search bank accounts"
+              placeholder="Bank, account or reference"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </LabeledField>
+          <Filter label="Bank" emptyLabel="All banks" value={bank} onChange={setBank} options={banks} />
+          <Filter
+            label="Currency"
+            emptyLabel="All currencies"
+            value={currency}
+            onChange={setCurrency}
+            options={currencies}
           />
-          <Filter label="Bank" value={bank} onChange={setBank} options={banks} />
-          <Filter label="Currency" value={currency} onChange={setCurrency} options={currencies} />
           <Filter
             label="Status"
+            emptyLabel="All statuses"
             value={state}
             onChange={(value) => setState(value as BankAccountState | "")}
             options={accountStates.map(label)}
@@ -198,12 +208,14 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
           />
           <Filter
             label="Sort"
+            emptyLabel="Default order"
             value={sortBy}
             onChange={(value) => setSortBy(value as typeof sortBy)}
             options={["Account name", "Bank name", "Currency", "Ledger balance", "Last movement"]}
             optionValues={["account_name", "bank_name", "currency", "ledger_balance", "last_movement_on"]}
           />
           <Button
+            className="size-10"
             variant="outline"
             type="button"
             onClick={() => setSortDirection((current) => (current === "asc" ? "desc" : "asc"))}
@@ -238,7 +250,7 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
 
         {rows.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1050px] border-collapse text-left text-sm">
+            <WorkTable continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loading || loadingMore),loadMore:() => void load(nextCursor ?? undefined, true)}} tableId="app/features/banking/views/banking-account-balances:1" className="w-full min-w-[1050px] border-collapse text-left text-sm">
               <thead className="bg-muted/50 text-xs uppercase tracking-[0.08em] text-muted-foreground">
                 <tr>
                   {[
@@ -261,54 +273,52 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
               <tbody>
                 {rows.map((account) => (
                   <tr key={account.id} className="border-b border-border/70 transition-colors hover:bg-muted/35">
-                    <td className="px-4 py-4">
-                      <button
-                        className="font-semibold text-primary hover:underline"
-                        type="button"
+                    <td className="px-4 py-3 align-top">
+                      <BankAccountCapsule
+                        aria-label={`Open ${account.bank_name ?? account.ledger_account_code}`}
                         onClick={() => onOpenAccount(account.id)}
                       >
                         {account.bank_name ?? account.ledger_account_code}
-                      </button>
+                      </BankAccountCapsule>
                       <small className="mt-1 block text-muted-foreground">
                         {account.branch || "Branch not recorded"}
                       </small>
                     </td>
-                    <td className="px-4 py-4">
-                      <button
-                        className="font-semibold text-primary hover:underline"
-                        type="button"
+                    <td className="px-4 py-3 align-top">
+                      <BankAccountCapsule
+                        aria-label={`Open ${account.account_name}`}
                         onClick={() => onOpenAccount(account.id)}
                       >
                         {account.account_name}
-                      </button>
+                      </BankAccountCapsule>
                       <small className="mt-1 block text-muted-foreground">
                         {account.account_number_masked ?? account.ledger_account_code}
                       </small>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-3 align-top">
                       {account.ledger_account_code}
                       <small className="mt-1 block text-muted-foreground">{account.ledger_account_name}</small>
                     </td>
-                    <td className="px-4 py-4">{account.currency}</td>
-                    <td className="px-4 py-4 text-right font-semibold tabular-nums">
+                    <td className="px-4 py-3 align-top">{account.currency}</td>
+                    <td className="px-4 py-3 text-right align-top font-semibold tabular-nums">
                       {money(account.ledger_balance, account.currency)}
                     </td>
-                    <td className="px-4 py-4 text-right tabular-nums">
+                    <td className="px-4 py-3 text-right align-top tabular-nums">
                       {account.available_balance === null ? (
                         <span className="text-muted-foreground">Unavailable</span>
                       ) : (
                         money(account.available_balance, account.currency)
                       )}
                     </td>
-                    <td className="px-4 py-4 text-right">
+                    <td className="px-4 py-3 text-right align-top">
                       {account.unreconciled_count === null ? (
                         <span className="text-muted-foreground">Unavailable</span>
                       ) : (
                         `${account.unreconciled_count} items`
                       )}
                     </td>
-                    <td className="px-4 py-4">{account.last_movement_on ?? "No posted movement"}</td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-3 align-top">{account.last_movement_on ?? "No posted movement"}</td>
+                    <td className="px-4 py-3 align-top">
                       <span className="inline-flex rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-medium text-foreground">
                         {label(account.state)}
                       </span>
@@ -316,19 +326,15 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         ) : null}
 
-        <div className="flex items-center justify-between gap-3 p-4 text-sm text-muted-foreground">
+        <div className="flex items-center justify-between gap-3 p-3 text-sm text-muted-foreground">
           <span>
             Showing {rows.length} persisted account{rows.length === 1 ? "" : "s"}
           </span>
-          {nextCursor ? (
-            <Button variant="outline" type="button" disabled={loadingMore} onClick={() => void load(nextCursor, true)}>
-              {loadingMore ? "Loading…" : "Load more"}
-            </Button>
-          ) : null}
+
         </div>
       </section>
     </div>
@@ -337,40 +343,41 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
 
 function Filter({
   label: fieldLabel,
+  emptyLabel,
   value,
   onChange,
   options,
   optionValues,
 }: {
   label: string;
+  emptyLabel: string;
   value: string;
   onChange: (value: string) => void;
   options: readonly string[];
   optionValues?: readonly string[];
 }) {
   return (
-    <label className="contents">
-      <span className="sr-only">{fieldLabel}</span>
+    <LabeledField label={fieldLabel}>
       <select
-        className="h-10 min-w-36 rounded-md border border-input bg-background px-3 text-sm"
+        className="h-10 min-w-0 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         aria-label={fieldLabel}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
-        <option value="">{fieldLabel}: All</option>
+        <option value="">{emptyLabel}</option>
         {options.map((option, index) => (
           <option key={optionValues?.[index] ?? option} value={optionValues?.[index] ?? option}>
             {option}
           </option>
         ))}
       </select>
-    </label>
+    </LabeledField>
   );
 }
 
 function StateCard({ title, detail }: { title: string; detail: string }) {
   return (
-    <div className="m-4 rounded-lg border border-dashed border-border bg-muted/25 p-10 text-center" role="status">
+    <div className="m-3 rounded-lg border border-dashed border-border bg-muted/25 p-8 text-center" role="status">
       <strong className="block text-lg text-foreground">{title}</strong>
       <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
     </div>

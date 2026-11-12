@@ -74,6 +74,7 @@ export const financeNominalOptionsSchema = z.strictObject({
   sections: z.array(
     hierarchyAccount.extend({
       category_id: identifier,
+      type: z.enum(["asset", "liability", "equity", "revenue", "expense"]).optional(),
       section_role: z.enum(["cash_and_bank", "general"]).nullable(),
       creation_enabled: z.boolean(),
     }),
@@ -173,9 +174,14 @@ export const updateFinanceNominalRequestSchema = z
     name: nominalName.optional(),
     currency: currency.optional(),
     description: description.nullable().optional(),
+    section_id: identifier.optional(),
   })
   .refine(
-    (value) => value.name !== undefined || value.currency !== undefined || value.description !== undefined,
+    (value) =>
+      value.name !== undefined ||
+      value.currency !== undefined ||
+      value.description !== undefined ||
+      value.section_id !== undefined,
     "At least one nominal field is required.",
   );
 

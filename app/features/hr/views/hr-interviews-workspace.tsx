@@ -1,4 +1,7 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
@@ -91,7 +94,7 @@ function ScheduleForm({
     if (await run(payload)) close();
   };
   return (
-    <form onSubmit={submit} className="grid min-w-0 gap-4 rounded-xl border border-primary/30 bg-card p-5 shadow-sm">
+    <WorkForm onSubmit={submit} className="grid min-w-0 gap-4 rounded-xl border border-primary/30 bg-card p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="m-0 text-lg font-semibold">
@@ -212,7 +215,7 @@ function ScheduleForm({
           {busy ? "Saving…" : interview ? "Save new schedule" : "Schedule interview"}
         </Button>
       </HrDrawerActions>
-    </form>
+    </WorkForm>
   );
 }
 
@@ -244,7 +247,7 @@ function EvaluationForm({
     });
   };
   return (
-    <form onSubmit={submit} className="grid min-w-0 gap-5">
+    <WorkForm onSubmit={submit} className="grid min-w-0 gap-5">
       <HrDetailSummary status={interview.status} statusLabel={label(interview.status)}>
         Round {interview.round} · {label(interview.kind)} · {time(interview.starts_at)}
       </HrDetailSummary>
@@ -307,7 +310,7 @@ function EvaluationForm({
       >
         Submit my evaluation
       </Button>
-    </form>
+    </WorkForm>
   );
 }
 
@@ -327,7 +330,7 @@ function StatusForm({
     ),
     [reason, setReason] = useState("");
   return (
-    <form
+    <WorkForm
       className="grid gap-5"
       onSubmit={async (e) => {
         e.preventDefault();
@@ -367,7 +370,7 @@ function StatusForm({
       <Button type="submit" variant="outline" disabled={busy}>
         Save outcome
       </Button>
-    </form>
+    </WorkForm>
   );
 }
 
@@ -385,7 +388,7 @@ function AssessmentDecision({
   const [outcome, setOutcome] = useState<"passed" | "failed">("passed"),
     [reason, setReason] = useState("");
   return (
-    <form
+    <WorkForm
       className="grid gap-5"
       onSubmit={async (e) => {
         e.preventDefault();
@@ -420,7 +423,7 @@ function AssessmentDecision({
       <Button type="submit" variant="outline" disabled={busy}>
         Record final decision
       </Button>
-    </form>
+    </WorkForm>
   );
 }
 
@@ -756,7 +759,7 @@ export function HrInterviewsWorkspace() {
           <AlertDescription>Company access must be granted before interviews can be reviewed.</AlertDescription>
         </Alert>
       ) : null}
-      <form
+      <WorkForm
         className="grid items-end gap-3 rounded-xl border border-border bg-card p-4"
         onSubmit={(e) => {
           e.preventDefault();
@@ -774,9 +777,9 @@ export function HrInterviewsWorkspace() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
-      </form>
+      </WorkForm>
       <div className="relative min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
-        <table className="w-full min-w-160 text-left text-sm">
+        <WorkTable tableId="app/features/hr/views/hr-interviews-workspace:1" className="w-full min-w-160 text-left text-sm">
           <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Candidate</th>
@@ -820,7 +823,7 @@ export function HrInterviewsWorkspace() {
               </tr>
             ) : null}
           </tbody>
-        </table>
+        </WorkTable>
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2">
           <span className="text-xs text-muted-foreground">{apps.total} applications</span>
           <div className="flex gap-1.5">
@@ -993,7 +996,7 @@ export function HrInterviewsWorkspace() {
                   error={error}
                   notice={notice}
                 >
-                  <form
+                  <WorkForm
                     className="grid gap-5"
                     onSubmit={async (e) => {
                       e.preventDefault();
@@ -1043,7 +1046,7 @@ export function HrInterviewsWorkspace() {
                       <Plus className="size-4" />
                       Add assessment
                     </Button>
-                  </form>
+                  </WorkForm>
                 </HrRecordDrawer>
               ) : null}
             </HrDetailSection>
@@ -1073,7 +1076,7 @@ export function HrInterviewsWorkspace() {
                   error={error}
                   notice={notice}
                 >
-                  <form
+                  <WorkForm
                     className="grid gap-5"
                     onSubmit={async (e) => {
                       e.preventDefault();
@@ -1104,7 +1107,7 @@ export function HrInterviewsWorkspace() {
                     >
                       Confirm selection
                     </Button>
-                  </form>
+                  </WorkForm>
                 </HrRecordDrawer>
               ) : (
                 <p className="text-xs text-muted-foreground">

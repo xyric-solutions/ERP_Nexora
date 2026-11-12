@@ -1,4 +1,5 @@
 "use client";
+import { cn } from "cn";
 import { useEffect, useState } from "react";
 import type { BankWorkflowOptions, BankWorkflowOptionQuery } from "@nexora/contracts";
 import { useSession } from "@/lib/session/session-provider";
@@ -24,7 +25,9 @@ export function BankWorkflowControls({
   disabled,
   onChange,
   onSelfApprovalChange,
+  className,
 }: {
+  className?: string;
   transaction: "payments" | "receipts" | "transfers";
   company: string;
   value: BankWorkflowSelection;
@@ -36,7 +39,7 @@ export function BankWorkflowControls({
   return (
     <section
       aria-label="Workflow context"
-      className="grid gap-4 rounded-lg border border-border bg-card p-4 md:grid-cols-3"
+      className={cn("grid items-start gap-3 rounded-lg border border-border bg-card p-3 sm:grid-cols-3", className)}
     >
       {(
         [
@@ -140,9 +143,9 @@ export function WorkflowSelect({
     onSelfApprovalChange?.(selectedSelfAllowed);
   }, [onSelfApprovalChange, selectedSelfAllowed]);
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <label className="flex flex-col gap-1">
-        <span className="text-sm font-medium">
+        <span className="text-xs font-semibold">
           {label}
           {kind === "approver" ? " *" : ""}
         </span>
@@ -227,9 +230,8 @@ export function WorkflowSelect({
         </p>
       )}
       {kind === "approver" && (
-        <p className="text-xs text-muted-foreground">
-          Assignment does not grant permission. The server rechecks approval authority; approval never posts
-          automatically.
+        <p className="m-0 text-xs text-muted-foreground">
+          Assignment grants no permission. Approval authority is rechecked; approval does not post.
         </p>
       )}
     </div>

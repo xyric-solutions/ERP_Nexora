@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { HrDetailGroup, HrDetailSummary, HrDetailTile } from "../components/hr-detail-tile";
@@ -428,7 +430,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
       {canApproveDraft && kind === "drafts" && state === "ready" && (
         <div className="grid gap-4 ">
           <div className="relative overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-            <table className="w-full min-w-160 text-left text-sm">
+            <WorkTable tableId="app/features/hr/views/hr-employee-approvals-workspace:1" className="w-full min-w-160 text-left text-sm">
               <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="w-px whitespace-nowrap px-4 py-3">Employee no.</th>
@@ -469,7 +471,7 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
                   </tr>
                 )}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           <HrPagination
             label="Employee approval pages"

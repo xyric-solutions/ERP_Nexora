@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -542,7 +543,7 @@ function ReportDetail({ context, onNavigate, onAction }: HrReportingWorkspacePro
           </label>
         </header>
         <div>
-          <table>
+          <WorkTable tableId="app/features/hr/views/hr-reporting-workspace:1">
             <thead>
               <tr>
                 {snapshot.columns.map((column) => (
@@ -576,7 +577,7 @@ function ReportDetail({ context, onNavigate, onAction }: HrReportingWorkspacePro
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
         <footer>
           <span>

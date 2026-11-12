@@ -9,8 +9,9 @@ export class CoaMasterError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
   }
 }
 function canonical(value: unknown): unknown {
@@ -35,7 +36,8 @@ export async function changeCoaMaster(
   action: "created" | "updated" | "activated" | "deactivated",
   expectedVersion: number,
   correlation: string,
-  fields: Pick<UpdateFinanceNominalRequest, "name" | "description" | "currency"> = {},
+  fields: Pick<UpdateFinanceNominalRequest, "name" | "description" | "currency" | "section_id"> = {},
+  hierarchyAudit?: { reason: string; approvalReference: string | null },
 ): Promise<FinanceNominalMutationResult> {
   const { rows } = await client.query<{
     id: string;
@@ -49,9 +51,16 @@ export async function changeCoaMaster(
     managed_bank_nominal: boolean;
     coa_version: string;
     parent_id: string | null;
+    type: string;
   }>("select * from account where tenant_id=$1 and id=$2 for update", [context.tenantId, id]);
   const account = rows[0];
   if (!account) throw new CoaMasterError(404, "COA_MASTER_NOT_FOUND", "Company master account was not found.");
+  if (hierarchyAudit && !account.is_header)
+    throw new CoaMasterError(
+      409,
+      "COA_HEADER_REQUIRED",
+      "Hierarchy audit context is valid only for Categories and Sections.",
+    );
   if (!(await hasLiveCoaMasterAuthority(client, context, account.company_id)))
     throw new CoaMasterError(
       403,
@@ -101,6 +110,49 @@ export async function changeCoaMaster(
     );
   const name = fields.name ?? account.name,
     currency = fields.currency ?? profile?.currency ?? null;
+  const parentId = fields.section_id ?? account.parent_id;
+  if (parentId !== account.parent_id) {
+    if (
+      action !== "updated" ||
+      account.is_header ||
+      !general ||
+      account.managed_bank_nominal ||
+      state === "pending_approval"
+    )
+      throw new CoaMasterError(
+        409,
+        "COA_SECTION_RESTRICTED",
+        "This account cannot change Section in its current workflow.",
+      );
+    const target = await client.query(
+      `select 1 from finance_general_nominal_policy p
+       join account s on s.tenant_id=p.tenant_id and s.company_id=p.company_id and s.id=p.section_id
+       join account c on c.tenant_id=s.tenant_id and c.company_id=s.company_id and c.id=s.parent_id and c.id=p.category_id
+       where p.tenant_id=$1 and p.company_id=$2 and p.section_id=$3 and p.status='active'
+       and s.is_header and c.is_header and c.parent_id is null and s.status='active' and c.status='active'
+       and s.type=$4 and c.type=$4 for share of s,c,p`,
+      [context.tenantId, account.company_id, parentId, account.type],
+    );
+    if (!target.rowCount)
+      throw new CoaMasterError(
+        409,
+        "COA_SECTION_INVALID",
+        "Select an active ordinary Section with the same account type in this company.",
+      );
+    const used = await client.query(
+      `select 1 where exists(select 1 from journal_line where tenant_id=$1 and account_id=$2)
+       or exists(select 1 from bank_payment_line where tenant_id=$1 and nominal_account_id=$2)
+       or exists(select 1 from bank_receipt_line where tenant_id=$1 and nominal_account_id=$2)
+       or exists(select 1 from manual_journal_line where tenant_id=$1 and account_id=$2)`,
+      [context.tenantId, id],
+    );
+    if (used.rowCount)
+      throw new CoaMasterError(
+        409,
+        "COA_SECTION_IN_USE",
+        "This nominal is used in financial transactions. Its Section cannot be changed here.",
+      );
+  }
   if (action === "activated" && account.parent_id) {
     const parent = await client.query(
       "select 1 from account s left join account c on c.tenant_id=s.tenant_id and c.company_id=s.company_id and c.id=s.parent_id where s.tenant_id=$1 and s.company_id=$2 and s.id=$3 and s.is_header and s.status='active' and (s.parent_id is null or (c.is_header and c.status='active')) for share of s",
@@ -114,10 +166,11 @@ export async function changeCoaMaster(
       );
   }
   await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
-    `nexora:coa-name:${context.tenantId}:${account.company_id}:${account.parent_id ?? "root"}:${name.trim().toLowerCase()}`,
+    `nexora:coa-name:${context.tenantId}:${account.company_id}:${parentId ?? "root"}:${name.trim().toLowerCase()}`,
   ]);
   if (
     name !== account.name &&
+    (account.is_header || !general) &&
     (
       await client.query(
         "select 1 from finance_chart_company_node where tenant_id=$1 and company_id=$2 and account_id=$3",
@@ -134,7 +187,7 @@ export async function changeCoaMaster(
     (
       await client.query(
         "select 1 from account where tenant_id=$1 and company_id=$2 and parent_id is not distinct from $3 and id<>$4 and lower(btrim(name))=lower(btrim($5))",
-        [context.tenantId, account.company_id, account.parent_id, id, name],
+        [context.tenantId, account.company_id, parentId, id, name],
       )
     ).rowCount
   )
@@ -198,10 +251,12 @@ export async function changeCoaMaster(
   const accountState = nextState === "active" ? "active" : "inactive";
   const eventId = `coa-${randomUUID()}`,
     next = version + 1,
-    reason = `Super Admin directly ${action} the Chart of Accounts master. No approval or posting was performed.`;
+    reason =
+      hierarchyAudit?.reason ??
+      `Super Admin directly ${action} the Chart of Accounts master. No approval or posting was performed.`;
   const before = { ...account, state, currency: profile?.currency ?? null };
   await client.query(
-    `insert into finance_coa_master_change(tenant_id,company_id,id,account_id,actor_id,action,record_version,resulting_state,profile_state,account_name,currency,reason,before_state) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+    `insert into finance_coa_master_change(tenant_id,company_id,id,account_id,actor_id,action,record_version,resulting_state,profile_state,account_name,currency,reason,before_state,section_id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
     [
       context.tenantId,
       account.company_id,
@@ -216,10 +271,11 @@ export async function changeCoaMaster(
       currency,
       reason,
       JSON.stringify(before),
+      general ? parentId : null,
     ],
   );
   await client.query(
-    "update account set name=$3,description=$4,status=$5,coa_version=$6,coa_change_id=$7 where tenant_id=$1 and id=$2",
+    "update account set name=$3,description=$4,status=$5,coa_version=$6,coa_change_id=$7,parent_id=$8 where tenant_id=$1 and id=$2",
     [
       context.tenantId,
       id,
@@ -228,6 +284,7 @@ export async function changeCoaMaster(
       accountState,
       next,
       eventId,
+      parentId,
     ],
   );
   if (!account.is_header) {
@@ -277,6 +334,7 @@ export async function changeCoaMaster(
     currency,
     state: nextState,
     version: next,
+    section_id: parentId,
   };
   await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
     `nexora:platform:audit:${context.tenantId}`,
@@ -298,7 +356,7 @@ export async function changeCoaMaster(
     before_hash: hash(before),
     after_hash: hash(after),
     source_reference: "finance.coa_master",
-    approval_reference: null,
+    approval_reference: hierarchyAudit?.approvalReference ?? null,
     occurred_at: new Date().toISOString(),
     sequence: Number(latest?.sequence ?? 0) + 1,
     previous_event_hash: latest?.event_hash ?? hash({ genesis: context.tenantId }),
@@ -316,7 +374,7 @@ export async function changeCoaMaster(
       audit.before_hash,
       audit.after_hash,
       audit.source_reference,
-      null,
+      hierarchyAudit?.approvalReference ?? null,
       audit.occurred_at,
       audit.sequence,
       audit.previous_event_hash,

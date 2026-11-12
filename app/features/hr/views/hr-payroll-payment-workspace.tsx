@@ -1,4 +1,7 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useId, useMemo, useRef, useState } from "react";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -175,7 +178,7 @@ export function HrPayrollPaymentWorkspace({
         </p>
       )}
       <div className="relative overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-        <table className="w-full border-collapse text-left text-sm">
+        <WorkTable tableId="app/features/hr/views/hr-payroll-payment-workspace:1" className="w-full border-collapse text-left text-sm">
           <caption className="sr-only">Salary payment batch for the selected company and payroll month</caption>
           <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <tr>
@@ -216,7 +219,7 @@ export function HrPayrollPaymentWorkspace({
               </tr>
             )}
           </tbody>
-        </table>
+        </WorkTable>
       </div>
       {w && detail && (
         <HrRecordDrawer
@@ -253,7 +256,7 @@ export function HrPayrollPaymentWorkspace({
           }
         >
           {review ? (
-            <form id={formId} onSubmit={act} className="space-y-4" aria-label="Salary payment review">
+            <WorkForm id={formId} onSubmit={act} className="space-y-4" aria-label="Salary payment review">
               {review.action === "confirm" && (
                 <>
                   <HrDetailGroup title="Salary obligation">
@@ -331,7 +334,7 @@ export function HrPayrollPaymentWorkspace({
                   disabled={busy}
                 />
               </Field>
-            </form>
+            </WorkForm>
           ) : (
             <>
               <HrDetailSummary code={w.batch?.reference ?? "Not prepared"} status={w.batch?.state ?? "not prepared"}>

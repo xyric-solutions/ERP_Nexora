@@ -6,6 +6,7 @@ import { FinanceNominals } from "../../app/features/finance/views/finance-nomina
 
 const harness = vi.hoisted(() => ({
   tenant: "tenant-one",
+  roles: new Array<string>(),
   permissions: ["finance.nominal.read"],
   api: { listFinanceNominalOptions: vi.fn(), listFinanceNominals: vi.fn() },
 }));
@@ -13,7 +14,10 @@ vi.mock("@/lib/session/session-provider", () => ({
   useSession: () => ({
     api: harness.api,
     loading: false,
-    session: { tenant_id: harness.tenant, user: { id: "reader", roles: [], permissions: harness.permissions } },
+    session: {
+      tenant_id: harness.tenant,
+      user: { id: "reader", roles: harness.roles, permissions: harness.permissions },
+    },
   }),
 }));
 function deferred<T>() {
@@ -48,6 +52,7 @@ beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.clearAllMocks();
   harness.tenant = "tenant-one";
+  harness.roles.splice(0);
   harness.permissions.splice(0, harness.permissions.length, "finance.nominal.read");
   harness.api.listFinanceNominalOptions.mockResolvedValue({
     companies: [
@@ -66,6 +71,32 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("Company Chart of Accounts directory isolation", () => {
+  it("opens and edits a Nominal from the matching master-row controls", async () => {
+    harness.roles.push("super_administrator");
+    harness.permissions.push("platform.approval.override", "finance.nominal.update");
+    harness.api.listFinanceNominals.mockResolvedValue(directory("Operating account"));
+    const open = vi.fn(),
+      edit = vi.fn();
+    act(() => root.render(<FinanceNominals onCreate={vi.fn()} onOpen={open} onEdit={edit} />));
+    await settle(0);
+    await settle();
+    act(() => container.querySelector<HTMLButtonElement>("[data-finance-master-trigger]")!.click());
+    expect(open).toHaveBeenCalledWith("Operating account");
+    expect(edit).not.toHaveBeenCalled();
+    act(() => [...container.querySelectorAll("button")].find((button) => button.textContent === "Review")!.click());
+    expect(open).toHaveBeenCalledWith("Operating account");
+    act(() => [...container.querySelectorAll("button")].find((button) => button.textContent === "Edit")!.click());
+    expect(edit).toHaveBeenCalledWith("Operating account");
+  });
+
+  it("keeps Nominal viewing available without exposing unauthorized edit controls", async () => {
+    harness.api.listFinanceNominals.mockResolvedValue(directory("Viewable nominal"));
+    act(() => root.render(<FinanceNominals onCreate={vi.fn()} onOpen={vi.fn()} onEdit={vi.fn()} />));
+    await settle(0);
+    await settle();
+    expect(container.querySelector("[data-finance-master-trigger]")).not.toBeNull();
+    expect([...container.querySelectorAll("button")].some((button) => button.textContent === "Edit")).toBe(false);
+  });
   it("works in the company chosen at sign-in without a company picker", async () => {
     harness.api.listFinanceNominals.mockResolvedValue(directory("Company nominal", "next-page"));
     act(render);
@@ -86,7 +117,7 @@ describe("Company Chart of Accounts directory isolation", () => {
     act(render);
     await settle(0);
     await settle();
-    const button = [...container.querySelectorAll("button")].find((item) => item.textContent === "Next page")!;
+    const button = [...container.querySelectorAll("button")].find((item) => item.getAttribute("aria-label") === "Next page")!;
     act(() => button.click());
     change("Nominal status", "active");
     await settle();

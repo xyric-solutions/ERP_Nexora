@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { HrDeleteButton, HrEditButton } from "../components/hr-icon-buttons";
@@ -101,6 +104,7 @@ function Overtime({
   /** Search text typed in the page header row. */
   search: string;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const [selected, setSelected] = useState(openFirst),
     [applied, setApplied] = useState(search.trim()),
     [offset, setOffset] = useState(0),
@@ -141,8 +145,8 @@ function Overtime({
     return () => clearTimeout(timer);
   }, [employeeSearch]);
   const listRead = useAttendanceRead<HrOvertimeDirectory>(
-    JSON.stringify([company, month, revision, offset, applied]),
-    () => client.listOvertime({ company_id: company, month, limit: 25, offset, search: applied || undefined }),
+    JSON.stringify([company, month, revision, offset, applied, workPageSize]),
+    () => client.listOvertime({ company_id: company, month, limit: workPageSize, offset, search: applied || undefined }),
   );
   const detailRead = useAttendanceRead<HrOvertimeDetail>(
     selected ? JSON.stringify([company, selected, revision]) : null,
@@ -312,7 +316,7 @@ function Overtime({
             </Button>
           }
         >
-          <form
+          <WorkForm
             id="overtime-request-form"
             className="grid gap-4"
             onSubmit={(e) => {
@@ -436,7 +440,7 @@ function Overtime({
                 onChange={(e) => setReason(e.target.value)}
               />
             </Field>
-          </form>
+          </WorkForm>
         </HrRecordDrawer>
       )}
       {loading ? (
@@ -478,28 +482,8 @@ function Overtime({
           <p className="text-sm text-muted-foreground">No overtime requests match this month and search.</p>
         </div>
       )}
-      {data && data.total > 25 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span>
-            {offset + 1}–{Math.min(offset + 25, data.total)} of {data.total}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={!offset || loading}
-              onClick={() => setOffset((v) => Math.max(0, v - 25))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              disabled={offset + 25 >= data.total || loading}
-              onClick={() => setOffset((v) => v + 25)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+      {data && (
+        <WorkOffsetPagination busy={!!(loading)} total={data.total} offset={offset} size={workPageSize} previousDisabled={!!(!offset || loading)} nextDisabled={!!(offset + workPageSize >= data.total || loading)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
       )}
       <HrRecordDrawer
         title={detail?.reference ?? "Overtime request"}
@@ -580,7 +564,7 @@ function Overtime({
               </Button>
             </div>
             {decision && (
-              <form
+              <WorkForm
                 className="grid gap-4 rounded-lg border border-border bg-background p-4"
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -633,7 +617,7 @@ function Overtime({
                     {decision === "cancel" ? "Cancel request" : "Confirm decision"}
                   </Button>
                 </div>
-              </form>
+              </WorkForm>
             )}
             <History items={detail.history} />
           </section>
@@ -666,6 +650,7 @@ function CloseAndInputs({
   csrf: () => string;
   onNavigate: Navigate;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const [error, setError] = useState(""),
     [offset, setOffset] = useState(0),
     [periodOpen, setPeriodOpen] = useState(false),
@@ -676,8 +661,8 @@ function CloseAndInputs({
     [reviewVersion, setReviewVersion] = useState(0),
     [reviewHash, setReviewHash] = useState<string | undefined>();
   const periodRead = useAttendanceRead<HrAttendancePeriodWorkspace>(
-    JSON.stringify([company, month, revision, offset]),
-    () => client.periodWorkspace({ company_id: company, month, limit: 25, offset }),
+    JSON.stringify([company, month, revision, offset, workPageSize]),
+    () => client.periodWorkspace({ company_id: company, month, limit: workPageSize, offset }),
   );
   const data = periodRead.data,
     loading = periodRead.loading,
@@ -763,28 +748,21 @@ function CloseAndInputs({
           </p>
         </div>
       )}
-      {data && data.total > 25 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span className="text-xs text-muted-foreground">
-            {offset + 1}–{Math.min(offset + 25, data.total)} of {data.total} employees
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={!offset || loading}
-              onClick={() => setOffset((v) => Math.max(0, v - 25))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              disabled={offset + 25 >= data.total || loading}
-              onClick={() => setOffset((v) => v + 25)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+      {data && (
+        <WorkOffsetPagination
+          busy={loading}
+          total={data.total}
+          offset={offset}
+          size={workPageSize}
+          previousDisabled={!offset || loading}
+          nextDisabled={offset + workPageSize >= data.total || loading}
+          onSizeChange={(size) => {
+            setWorkPageSize(size);
+            setOffset(0);
+          }}
+          onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))}
+          onNext={() => setOffset((v) => v + workPageSize)}
+        />
       )}
       {workspace ? (
         <section className={panel} aria-label="Period history">
@@ -815,7 +793,7 @@ function CloseAndInputs({
       >
         <AttendancePeriodDetails month={month} period={period} />
         {action ? (
-          <form
+          <WorkForm
             className="grid gap-4 rounded-lg border border-border bg-background p-4"
             onSubmit={(e) => {
               e.preventDefault();
@@ -860,7 +838,7 @@ function CloseAndInputs({
                 {busy ? "Processing…" : periodActionLabel(action)}
               </Button>
             </div>
-          </form>
+          </WorkForm>
         ) : null}
       </HrRecordDrawer>
       <HrRecordDrawer

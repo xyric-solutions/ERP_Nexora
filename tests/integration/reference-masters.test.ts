@@ -120,6 +120,53 @@ run("Company reporting reference masters", () => {
       code: "MASTER_VERSION_CONFLICT",
     });
   });
+  it("allocates company-scoped codes across inactive records, concurrent creates and retries", async () => {
+    for (const [kind, prefix] of [
+      ["projects", "PRJ"],
+      ["locations", "LOC"],
+    ] as const) {
+      const legacy = await repo.create(
+        actor,
+        kind,
+        { company_id: company, code: `${prefix.toLowerCase()}-009`, name: "Existing code" },
+        key(),
+        key(),
+      );
+      await repo.status(
+        actor,
+        kind,
+        legacy.record.id,
+        { company_id: company, expected_version: 1, status: "inactive" },
+        key(),
+        key(),
+      );
+      const input = { company_id: company, name: "Automatic code" };
+      const retry = key();
+      const first = await repo.create(actor, kind, input, retry, key());
+      expect(first.record).toMatchObject({ code: `${prefix}-010`, status: "active", version: 1 });
+      expect(await repo.create(actor, kind, input, retry, key())).toEqual(first);
+      await expect(repo.create(actor, kind, { ...input, name: "Changed" }, retry, key())).rejects.toMatchObject({
+        code: "IDEMPOTENCY_CONFLICT",
+      });
+      const concurrent = await Promise.all([
+        repo.create(actor, kind, input, key(), key()),
+        repo.create(actor, kind, input, key(), key()),
+      ]);
+      expect(concurrent.map((result) => result.record.code).sort()).toEqual([`${prefix}-011`, `${prefix}-012`]);
+      const separate = await repo.create(actor, kind, { ...input, company_id: other }, key(), key());
+      expect(separate.record.code).toBe(`${prefix}-001`);
+      const updated = await repo.update(
+        actor,
+        kind,
+        first.record.id,
+        { company_id: company, expected_version: 1, name: "Renamed" },
+        key(),
+        key(),
+      );
+      expect(updated.record.code).toBe(first.record.code);
+      expect(await repo.get(actor, kind, company, first.record.id)).toEqual(updated.record);
+    }
+  });
   it("enforces case-insensitive company codes without deduplicating names or mixing companies", async () => {
     const code = `CASE-${key()}`,
       name = "Same display name";

@@ -1,4 +1,7 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { payrollNavigationContext } from "../components/payroll-navigation";
 import { useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -204,7 +207,7 @@ export function HrPayrollJournalWorkspace({
         </p>
       )}
       <div className="relative overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-        <table className="w-full border-collapse text-left text-sm" aria-label="Payroll journals">
+        <WorkTable tableId="app/features/hr/views/hr-payroll-journal-workspace:1" className="w-full border-collapse text-left text-sm" aria-label="Payroll journals">
           <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className={th}>Payroll month</th>
@@ -257,7 +260,7 @@ export function HrPayrollJournalWorkspace({
               </tr>
             )}
           </tbody>
-        </table>
+        </WorkTable>
       </div>
       {shown && (
         <HrRecordDrawer
@@ -300,7 +303,7 @@ export function HrPayrollJournalWorkspace({
             {shown.proposal ? "Version " + shown.proposal.version : "No journal has been created"}
           </HrDetailSummary>
           {review && (
-            <form
+            <WorkForm
               id={REVIEW_FORM_ID}
               className="grid gap-4 rounded-lg border border-primary/30 bg-muted/20 p-4"
               onSubmit={act}
@@ -376,7 +379,7 @@ export function HrPayrollJournalWorkspace({
                   Confirming creates the General Ledger journal and marks this Payroll period posted.
                 </p>
               )}
-            </form>
+            </WorkForm>
           )}
           {shown.blocked.length > 0 && shown.proposal?.state !== "posted" && (
             <div
@@ -417,7 +420,7 @@ export function HrPayrollJournalWorkspace({
           </HrDetailGroup>
           <HrDetailSection title={"Journal lines (" + shown.lines.length + ")"}>
             <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full border-collapse text-left text-sm">
+              <WorkTable tableId="app/features/hr/views/hr-payroll-journal-workspace:2" className="w-full border-collapse text-left text-sm">
                 <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className={th}>Account</th>
@@ -456,7 +459,7 @@ export function HrPayrollJournalWorkspace({
                     </tr>
                   )}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           </HrDetailSection>
           <HrDetailSection title={"Decision history (" + shown.history.length + ")"}>

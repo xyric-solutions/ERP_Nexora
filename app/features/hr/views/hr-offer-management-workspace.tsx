@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination, WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
@@ -15,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/generated";
@@ -103,7 +107,7 @@ function OfferEditor({
     (decimalUnits(terms.proposed_gross)! < decimalUnits(context.salary_minimum)! ||
       decimalUnits(terms.proposed_gross)! > decimalUnits(context.salary_maximum)!);
   return (
-    <form
+    <WorkForm
       className="grid min-w-0 gap-4"
       onSubmit={async (e) => {
         e.preventDefault();
@@ -128,12 +132,11 @@ function OfferEditor({
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid content-start gap-1.5 text-sm">
             Proposed monthly gross ({context.currency_code})
-            <Input
+            <AmountInput
               required
-              inputMode="decimal"
-              pattern="[0-9]+(\.[0-9]{1,4})?"
+              decimals={4}
               value={terms.proposed_gross}
-              onChange={(e) => field("proposed_gross", e.target.value)}
+              onValueChange={(raw) => field("proposed_gross", raw)}
             />
           </label>
           <label className="grid content-start gap-1.5 text-sm">
@@ -248,7 +251,7 @@ function OfferEditor({
           {busy ? "Saving…" : "Save offer draft"}
         </Button>
       </HrDrawerActions>
-    </form>
+    </WorkForm>
   );
 }
 
@@ -269,7 +272,7 @@ function OfferDecisionForm({
   const [reason, setReason] = useState(""),
     [exception, setException] = useState(false);
   return (
-    <form
+    <WorkForm
       id="offer-decision"
       className="grid gap-3"
       onSubmit={(e) => {
@@ -303,7 +306,7 @@ function OfferDecisionForm({
         {action === "approve" ? "Approval note" : action === "submit" ? "Submission note" : "Reason"}
         <Textarea id="offer-decision-reason" maxLength={1000} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)} />
       </label>
-    </form>
+    </WorkForm>
   );
 }
 
@@ -360,12 +363,13 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
       cancel = true;
     };
   }, [client, sessionLoading, canRead, session?.tenant_id, session?.user.id]);
+  const [workPageSize, setWorkPageSize] = useState(25);
   const loadList = useCallback(async () => {
     if (!companyId || !canRead) return;
     const seq = ++listSeq.current;
     setLoading(true);
     try {
-      const r = await client.offers({ companyId, ...filter, stage: "preparation" });
+      const r = await client.offers({ companyId, ...filter, stage: "preparation", limit: workPageSize });
       if (seq === listSeq.current) {
         setDirectory(r);
         setSelectedId((id) => (r.items.some((item) => item.id === id) ? id : ""));
@@ -378,7 +382,7 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
     } finally {
       if (seq === listSeq.current) setLoading(false);
     }
-  }, [client, companyId, canRead, filter]);
+  }, [client, companyId, canRead, filter, workPageSize]);
   useEffect(() => {
     void loadList();
     return () => {
@@ -588,7 +592,7 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
           <AlertDescription>Ask your administrator to review company access.</AlertDescription>
         </Alert>
       ) : null}
-      <form
+      <WorkForm
         className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-[minmax(0,1fr)_auto]"
         onSubmit={(e) => {
           e.preventDefault();
@@ -622,7 +626,7 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
             Prepare offer
           </Button>
         ) : null}
-      </form>
+      </WorkForm>
       <HrMasterStatusFilter<PreparationOfferFilter>
         label="Offer status"
         value={stateFilter}
@@ -698,7 +702,7 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-160 border-collapse text-left text-sm" aria-label="Offer register">
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-offer-management-workspace:1" className="w-full min-w-160 border-collapse text-left text-sm" aria-label="Offer register">
               <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="whitespace-nowrap px-4 py-3">Candidate</th>
@@ -740,36 +744,31 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
                   </tr>
                 )}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         )}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2">
-          <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            {directory.total} matching offers · {directory.items.length} on this page
-            <Badge variant="outline">
-              <ShieldCheck className="size-3" />
-              Approval before employee creation
-            </Badge>
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={busy || loading || filter.offset === 0}
-              onClick={() => setFilter((current) => ({ ...current, offset: Math.max(0, current.offset - 50) }))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={busy || loading || filter.offset + 50 >= directory.total}
-              onClick={() => setFilter((current) => ({ ...current, offset: current.offset + 50 }))}
-            >
-              Next
-            </Button>
-          </div>
+        <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-2 text-xs text-muted-foreground">
+          <Badge variant="outline">
+            <ShieldCheck className="size-3" />
+            Approval before employee creation
+          </Badge>
         </div>
+        <WorkOffsetPagination
+          busy={busy || loading}
+          total={directory.total}
+          offset={filter.offset}
+          size={workPageSize}
+          previousDisabled={busy || loading || filter.offset === 0}
+          nextDisabled={busy || loading || filter.offset + workPageSize >= directory.total}
+          onSizeChange={(size) => {
+            setWorkPageSize(size);
+            setFilter((current) => ({ ...current, offset: 0 }));
+          }}
+          onPrevious={() =>
+            setFilter((current) => ({ ...current, offset: Math.max(0, current.offset - workPageSize) }))
+          }
+          onNext={() => setFilter((current) => ({ ...current, offset: current.offset + workPageSize }))}
+        />
       </div>
       <HrMasterSheet
         open={Boolean(selectedId)}

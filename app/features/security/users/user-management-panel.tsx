@@ -1,4 +1,7 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { IdentitySheet } from "../identity-sheet";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
@@ -354,7 +357,7 @@ export default function UserManagementPanel({
   return (
     <div className="min-h-105 min-w-0 text-foreground">
       <div className="flex flex-wrap justify-between gap-4 border-b border-border bg-muted/60 px-5 py-4">
-        <form
+        <WorkForm
           className="flex min-w-0 flex-1 flex-wrap gap-2"
           onSubmit={(event: FormEvent) => {
             event.preventDefault();
@@ -411,7 +414,7 @@ export default function UserManagementPanel({
           <Button type="submit" variant="outline" disabled={loading}>
             Search
           </Button>
-        </form>
+        </WorkForm>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => void load(selected?.id)} disabled={loading}>
             Refresh
@@ -477,7 +480,7 @@ export default function UserManagementPanel({
         onClose={() => setPendingAction(null)}
       >
         {pendingAction ? (
-          <form
+          <WorkForm
             className="mx-5 my-4 rounded-lg border border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] p-4"
             aria-label="Confirm user action"
             onSubmit={(event) => void confirmUserAction(event)}
@@ -516,7 +519,7 @@ export default function UserManagementPanel({
                 Confirm action
               </Button>
             </div>
-          </form>
+          </WorkForm>
         ) : null}
       </IdentitySheet>
       <div className="grid min-w-0 grid-cols-1">
@@ -527,7 +530,7 @@ export default function UserManagementPanel({
           ) : null}
           {users.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-190 border-collapse text-left text-sm">
+              <WorkTable tableId="app/features/security/users/user-management-panel:1" className="w-full min-w-190 border-collapse text-left text-sm">
                 <caption className="sr-only">
                   User accounts. Select a name to open account details and controls.
                 </caption>
@@ -634,7 +637,7 @@ export default function UserManagementPanel({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           ) : null}
         </div>

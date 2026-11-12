@@ -25,6 +25,9 @@ export interface PrototypeMenuGroup {
   id: string;
   label: string;
   pages: readonly PrototypePage[];
+  hiddenFromNavigation?: boolean;
+  /** Renders the pages directly under the module, without a group header. */
+  inline?: boolean;
 }
 
 export interface PrototypeModule {
@@ -46,7 +49,14 @@ const p = (
   status: PrototypePageStatus = "prototype",
   hiddenFromNavigation = false,
 ): PrototypePage => ({ id, label, archetype, status, hiddenFromNavigation });
-const g = (id: string, label: string, pages: readonly PrototypePage[]): PrototypeMenuGroup => ({ id, label, pages });
+const g = (
+  id: string,
+  label: string,
+  pages: readonly PrototypePage[],
+  hiddenFromNavigation = false,
+  /** Renders the pages directly under the module, without a group header. */
+  inline = false,
+): PrototypeMenuGroup => ({ id, label, pages, hiddenFromNavigation, inline });
 
 export const prototypeModules = [
   {
@@ -100,37 +110,52 @@ export const prototypeModules = [
         p("import-statement", "Import Statement", "form"),
         p("revaluation", "Revaluation", "form"),
       ]),
-      g("bank-entry", "Transaction Entry", [
-        p("add-bank-payment", "Add Bank Payment", "form"),
-        p("add-bank-receipt", "Add Bank Receipt", "form"),
-        p("add-transfer", "Add Bank Transfer", "form"),
-        p("add-bank-charge", "Add Bank Charge", "form"),
-        p("add-bank-interest", "Add Bank Interest", "form"),
-        p("issue-cheque", "Issue Cheque", "form"),
-        p("receive-cheque", "Receive Cheque", "form"),
-        p("add-deposit", "Add Bank Deposit", "form"),
-        p("transaction-detail", "Bank Transaction Detail", "detail"),
-      ]),
-      g("bank-accounts", "Bank Accounts", [
-        p("bank-accounts", "Bank & Cash Accounts"),
-        p("add-bank-account", "Bank Account Setup", "form"),
-        p("bank-account-approvals", "Bank Account Approvals", "approval"),
-        p("bank-account-detail", "Bank Account Detail", "detail"),
-        p("bank-statement", "Bank Statement", "report"),
-      ]),
-      g("instruments", "Treasury & Instruments", [
-        p("overview", "Treasury Overview", "dashboard"),
-        p("cash-forecast", "Cash Forecast", "report"),
-        p("statement-matching", "Statement Matching", "workflow"),
-        p("bank-charges", "Bank Charges"),
-        p("bank-interest", "Bank Interest"),
-        p("cheques", "Cheques"),
-        p("post-dated-cheques", "Post-dated Cheques"),
-        p("deposit-slips", "Deposit Slips"),
-        p("bank-guarantees", "Bank Guarantees"),
-        p("letters-of-credit", "Letters of Credit"),
-        p("treasury-reports", "Treasury Reports", "report"),
-      ]),
+      g(
+        "bank-entry",
+        "Transaction Entry",
+        [
+          p("add-bank-payment", "Add Bank Payment", "form"),
+          p("add-bank-receipt", "Add Bank Receipt", "form"),
+          p("add-transfer", "Add Bank Transfer", "form"),
+          p("add-bank-charge", "Add Bank Charge", "form"),
+          p("add-bank-interest", "Add Bank Interest", "form"),
+          p("issue-cheque", "Issue Cheque", "form"),
+          p("receive-cheque", "Receive Cheque", "form"),
+          p("add-deposit", "Add Bank Deposit", "form"),
+          p("transaction-detail", "Bank Transaction Detail", "detail"),
+        ],
+        true,
+      ),
+      g(
+        "bank-accounts",
+        "Bank Accounts",
+        [
+          p("bank-accounts", "Bank & Cash Accounts"),
+          p("add-bank-account", "Bank Account Setup", "form"),
+          p("bank-account-approvals", "Bank Account Approvals", "approval"),
+          p("bank-account-detail", "Bank Account Detail", "detail"),
+          p("bank-statement", "Bank Statement", "report"),
+        ],
+        true,
+      ),
+      g(
+        "instruments",
+        "Treasury & Instruments",
+        [
+          p("overview", "Treasury Overview", "dashboard"),
+          p("cash-forecast", "Cash Forecast", "report"),
+          p("statement-matching", "Statement Matching", "workflow"),
+          p("bank-charges", "Bank Charges"),
+          p("bank-interest", "Bank Interest"),
+          p("cheques", "Cheques"),
+          p("post-dated-cheques", "Post-dated Cheques"),
+          p("deposit-slips", "Deposit Slips"),
+          p("bank-guarantees", "Bank Guarantees"),
+          p("letters-of-credit", "Letters of Credit"),
+          p("treasury-reports", "Treasury Reports", "report"),
+        ],
+        true,
+      ),
     ],
   },
   {
@@ -138,224 +163,106 @@ export const prototypeModules = [
     code: "SL",
     label: "Sales & Billing",
     shortLabel: "Sales",
-    description: "Quotation-to-cash workspace for orders, fulfilment, invoicing, adjustments and commercial reporting.",
+    description: "Quotation-to-cash: quotations, sales orders, delivery, invoices and customer receipts.",
     category: "Finance & trade",
     modes: allModes,
+    // Simplified flow approved on 10 Nov 2026 and revised in the review of 11 Nov 2026
+    // (see docs/architecture/sales-simplified-workflow.md). Returns & Control was removed:
+    // Sale Return sits on the opened invoice, approvals on the quotation itself.
     groups: [
-      g("quotations", "Quotations", [
-        p("quotations", "All Quotations"),
-        p("add-quotation", "Add Quotation", "form"),
-        p("quotation-detail", "Quotation Detail", "detail"),
-      ]),
-      g("orders", "Sales Orders", [
-        p("sales-orders", "All Sales Orders"),
-        p("add-sales-order", "Add Sales Order", "form"),
-        p("sales-order-detail", "Sales Order Detail", "detail"),
-        p("pick-pack-delivery", "Pick, Pack & Delivery", "workflow"),
-      ]),
-      g("invoices", "Invoices", [
-        p("invoices", "All Invoices"),
-        p("add-invoice", "Add Invoice", "form"),
-        p("invoice-detail", "Invoice Detail", "detail"),
-        p("credit-note", "Credit Note", "form"),
-        p("debit-note", "Debit Note", "form"),
-        p("batch-invoice", "Batch Invoice", "form"),
-        p("proforma-invoice", "Proforma Invoice", "form"),
-      ]),
-      g("sales-control", "Returns & Control", [
-        p("sales-returns", "Sales Returns"),
-        p("pricing", "Pricing & Discounts", "settings"),
-        p("sales-approvals", "Sales Approvals", "approval"),
-        p("sales-reports", "Sales Reports", "report"),
-      ]),
+      g(
+        "selling",
+        "Sales",
+        [
+          p("quotations", "Quotations"),
+          p("sales-orders", "Sales Orders"),
+          p("pick-pack-delivery", "Pick, Pack & Delivery"),
+          p("invoices", "Invoices"),
+          p("receipts", "Receipts"),
+        ],
+        true,
+      ),
     ],
   },
   {
     id: "revenue",
     code: "RV",
-    label: "Revenue & Subscriptions",
+    label: "Revenue",
     shortLabel: "Revenue",
-    description: "Combined contract revenue, recurring billing, usage, renewals and revenue recognition prototype.",
+    description: "Recurring bills that create normal sales invoices on a fixed schedule.",
     category: "Finance & trade",
     modes: ["service", "trading"],
-    groups: [
-      g("revenue-contracts", "Revenue Contracts", [
-        p("revenue-contracts", "Contract Workspace"),
-        p("add-revenue-contract", "Add Revenue Contract", "form"),
-        p("performance-obligations", "Performance Obligations", "detail"),
-        p("transaction-price", "Transaction Price Allocation", "form"),
-        p("fulfilment-evidence", "Fulfilment Evidence", "detail"),
-      ]),
-      g("recognition", "Recognition", [
-        p("recognition-schedules", "Recognition Schedules"),
-        p("recognition-run", "Recognition Run", "workflow"),
-        p("recognition-exceptions", "Exceptions & Holds", "approval"),
-        p("contract-modifications", "Contract Modifications", "form"),
-        p("revenue-rollforward", "Revenue Roll-forward", "report"),
-      ]),
-      g("subscriptions", "Subscriptions", [
-        p("plans", "Plan Catalogue"),
-        p("plan-editor", "Plan Editor", "form"),
-        p("subscriptions", "Subscription Contracts"),
-        p("subscription-detail", "Subscription Detail", "detail"),
-        p("amend-subscription", "Amend, Pause or Cancel", "form"),
-        p("usage-ingestion", "Usage Validation", "workflow"),
-      ]),
-      g("recurring-billing", "Recurring Billing", [
-        p("billing-schedules", "Billing Schedules"),
-        p("billing-run", "Billing Run", "workflow"),
-        p("dunning", "Dunning & Recovery", "workflow"),
-        p("renewals", "Renewal & Churn Workspace"),
-        p("subscription-analytics", "MRR, ARR & Cohorts", "report"),
-      ]),
-    ],
+    groups: [g("recurring-billing", "Recurring Bills", [p("recurring-bills", "Recurring Bills")], false, true)],
   },
   {
     id: "customers",
     code: "AR",
-    label: "Customers / Accounts Receivable",
+    label: "Customers",
     shortLabel: "Customers",
-    description: "Customer master data, credit, open items, collections, statements and receivable control.",
+    description: "One customer list and one customer form with contact, tax, payment terms, credit limit and bank details.",
     category: "Finance & trade",
     modes: allModes,
-    groups: [
-      g("customer-master", "Customers", [
-        p("customers", "Customer Directory"),
-        p("add-customer", "Add Customer", "form"),
-        p("customer-profile", "Customer Financial Profile", "detail"),
-        p("credit-limit-review", "Credit Limit Review", "approval"),
-      ]),
-      g("receivables", "Receivables", [
-        p("open-items", "Open-item Ledger"),
-        p("customer-receipts", "Customer Receipts"),
-        p("add-customer-receipt", "Add Customer Receipt", "form"),
-        p("receipt-allocation", "Receipt & Credit Allocation", "workflow"),
-        p("refund-writeoff", "Refunds & Write-offs", "form"),
-      ]),
-      g("collections", "Collections", [
-        p("ar-ageing", "AR Ageing", "report"),
-        p("collections-disputes", "Collections & Disputes"),
-        p("customer-statements", "Customer Statements", "report"),
-        p("ar-reconciliation", "AR to GL Reconciliation", "workflow"),
-      ]),
-    ],
+    groups: [g("customer-master", "Customers", [p("customers", "Customers")], false, true)],
   },
   {
     id: "purchases",
     code: "PR",
-    label: "Purchases & Procurement",
+    label: "Purchases",
     shortLabel: "Purchases",
-    description: "Request-to-pay sourcing, ordering, receiving, quality, matching and procurement analytics.",
+    description: "Purchase requests, supplier quotations, orders, receipts, bills and supplier payments.",
     category: "Finance & trade",
     modes: allModes,
     groups: [
-      g("requisitions", "Purchase Requisitions", [
-        p("purchase-requisitions", "All Requisitions"),
-        p("add-requisition", "Add Requisition", "form"),
-        p("requisition-detail", "Requisition Detail", "detail"),
-        p("requisition-approval", "Requisition Approval", "approval"),
-        p("budget-check", "Budget & Commitment Check", "workflow"),
+      g("purchase-workflow", "Purchases", [
+        p("purchase-requisitions", "Purchase Request", "list", "live"),
+        p("rfqs", "Request for Quotation", "list", "live"),
+        p("purchase-orders", "Purchase Order", "list", "live"),
+        p("goods-receipts", "Receive Products", "list", "live"),
+        p("purchase-bills", "Bills", "list", "live"),
+        p("payments", "Payment", "list", "live"),
+        p("multi-vendor-payments", "Multi-vendor Payment", "list", "live"),
+        p("suppliers", "Suppliers", "list", "live"),
       ]),
-      g("sourcing", "Sourcing", [
-        p("rfqs", "Requests for Quotation"),
-        p("add-rfq", "Add RFQ", "form"),
-        p("supplier-quotations", "Supplier Quotations"),
-        p("bid-comparison", "Bid Comparison", "report"),
-        p("supplier-evaluation", "Supplier Evaluation", "approval"),
-        p("award-recommendation", "Award Recommendation", "approval"),
-      ]),
-      g("orders-receipts", "Orders & Receipts", [
-        p("purchase-orders", "Purchase Orders"),
-        p("add-purchase-order", "Add Purchase Order", "form"),
-        p("purchase-order-detail", "Purchase Order Detail", "detail"),
-        p("purchase-order-approval", "PO Approval", "approval"),
-        p("gate-inward-pass", "Gate Inward Pass", "form"),
-        p("goods-receipts", "Goods Receipts"),
-        p("add-goods-receipt", "Add Goods Receipt", "form"),
-        p("quality-handoff", "Quality Inspection Handoff", "workflow"),
-      ]),
-      g("bills-match", "Bills & Match", [
-        p("service-entry", "Service Entry", "form"),
-        p("purchase-bills", "Purchase Bills"),
-        p("add-purchase-bill", "Add Purchase Bill", "form"),
-        p("three-way-match", "2 / 3-way Match", "workflow"),
-        p("match-exceptions", "Match Exceptions", "approval"),
-        p("supplier-returns", "Supplier Returns", "form"),
-        p("procurement-reports", "Procurement Reports", "report"),
-      ]),
-    ],
-  },
-  {
-    id: "suppliers",
-    code: "AP",
-    label: "Suppliers / Accounts Payable",
-    shortLabel: "Suppliers",
-    description: "Supplier onboarding, payable controls, payment proposals, holds, statements and reconciliation.",
-    category: "Finance & trade",
-    modes: allModes,
-    groups: [
-      g("supplier-master", "Suppliers", [
-        p("suppliers", "Supplier Directory"),
-        p("add-supplier", "Add Supplier", "form"),
-        p("supplier-profile", "Supplier Financial Profile", "detail"),
-        p("supplier-onboarding", "Onboarding & KYC", "workflow"),
-        p("bank-verification", "Bank Detail Verification", "approval"),
-      ]),
-      g("payables", "Payables", [
-        p("payable-bills", "Payable Bills"),
-        p("ap-open-items", "AP Open-item Ledger"),
-        p("duplicate-bill-review", "Duplicate Bill Review", "approval"),
-        p("supplier-advances", "Advances & Credits", "form"),
-        p("holds-disputes", "Holds & Disputes"),
-      ]),
-      g("payments", "Payments", [
-        p("payment-proposals", "Payment Proposals"),
-        p("payment-request", "Payment Request", "form"),
-        p("payment-approval", "Payment Approval", "approval"),
-        p("supplier-statements", "Supplier Statements", "report"),
-        p("ap-ageing", "AP Ageing", "report"),
-        p("ap-reconciliation", "AP to GL Reconciliation", "workflow"),
-      ]),
+      g(
+        "purchase-records",
+        "Purchase Records",
+        [
+          p("add-requisition", "Purchase Request", "form", "live", true),
+          p("add-rfq", "Request for Quotation", "form", "live", true),
+          p("add-purchase-order", "Purchase Order", "form", "live", true),
+          p("add-goods-receipt", "Receive Products", "form", "live", true),
+          p("add-purchase-bill", "Bill", "form", "live", true),
+          p("add-payment", "Payment", "form", "live", true),
+          p("add-multi-vendor-payment", "Multi-vendor Payment", "form", "live", true),
+          p("add-supplier", "Add Supplier", "form", "live", true),
+        ],
+        true,
+      ),
     ],
   },
   {
     id: "inventory",
     code: "IN",
-    label: "Inventory & Warehousing",
+    label: "Inventory",
     shortLabel: "Inventory",
-    description: "Item, warehouse and stock control from receipt through reservation, movement, count and valuation.",
+    description: "Company product catalog, pricing, supplier and stock settings.",
     category: "Operations & people",
     modes: ["trading", "manufacturing"],
     groups: [
-      g("masters", "Inventory Masters", [
-        p("items", "Item Master"),
-        p("add-item", "Add Item", "form"),
-        p("item-detail", "Item Detail", "detail"),
-        p("warehouses", "Warehouses, Locations & Bins"),
-        p("warehouse-editor", "Warehouse Editor", "form"),
+      g("products", "Products", [
+        p("products", "Products"),
+        p("stock-transfers", "Stock Transfer"),
+        p("warehouses", "Warehouse"),
       ]),
-      g("stock-control", "Stock Control", [
-        p("stock-position", "Stock Position", "dashboard"),
-        p("stock-ledger", "Stock Ledger", "report"),
-        p("reservations", "Reservations"),
-        p("pick-tasks", "Pick Tasks"),
-        p("pack-dispatch", "Pack & Dispatch", "workflow"),
-        p("stock-issues", "Stock Issues", "form"),
-        p("stock-transfers", "Stock Transfers", "form"),
-        p("replenishment", "Replenishment"),
-      ]),
-      g("counts-traceability", "Counts & Traceability", [
-        p("cycle-counts", "Cycle Counts"),
-        p("inventory-adjustments", "Inventory Adjustments", "approval"),
-        p("batch-serial", "Batch, Serial & Expiry"),
-        p("genealogy", "Movement Genealogy", "detail"),
-        p("quarantine-recall", "Quarantine & Recall", "workflow"),
-      ]),
-      g("valuation", "Valuation", [
-        p("inventory-valuation", "Inventory Valuation", "report"),
-        p("inventory-revaluation", "Inventory Revaluation", "form"),
-        p("inventory-reports", "Inventory Reports", "report"),
-      ]),
+      {
+        ...g("product-forms", "Product", [
+          p("add-product", "Add Product", "form"),
+          p("product-detail", "Product Details", "detail"),
+          p("add-warehouse", "Add Warehouse", "form"),
+          p("add-stock-transfer", "Add Stock Transfer", "form"),
+        ]),
+        hiddenFromNavigation: true,
+      },
     ],
   },
   {
@@ -395,12 +302,16 @@ export const prototypeModules = [
     modes: allModes,
     groups: [
       g("chart-of-accounts", "Chart of Accounts", [
-        p("chart-of-accounts", "Chart of Accounts Overview"),
+        p("coa-categories", "Categories"),
+        p("coa-sections", "Sections"),
         p("nominals", "Nominals"),
-        p("central-chart-template", "Central Master Data"),
-        p("section-management", "Section Management"),
-        p("nominal-detail", "Nominal Account Detail", "detail"),
-        p("add-nominal", "Add Nominal", "form"),
+        p("chart-of-accounts", "Chart of Accounts Overview", "list", "prototype", true),
+        p("central-chart-template", "Central Master Data", "list", "prototype", true),
+        p("section-management", "Section Management", "list", "prototype", true),
+        p("add-coa-category", "Category Form", "form", "prototype", true),
+        p("add-coa-section", "Section Form", "form", "prototype", true),
+        p("nominal-detail", "Nominal Account Detail", "detail", "prototype", true),
+        p("add-nominal", "Add Nominal", "form", "prototype", true),
       ]),
       g("reporting-master-data", "Reporting Master Data", [
         p("reporting-projects", "Projects"),
@@ -1533,6 +1444,7 @@ export interface FlattenedPrototypePage extends PrototypePage {
   moduleDescription: string;
   groupId: string;
   groupLabel: string;
+  groupHiddenFromNavigation: boolean;
 }
 
 export const prototypePageIndex: readonly FlattenedPrototypePage[] = prototypeModules.flatMap((module) =>
@@ -1545,17 +1457,105 @@ export const prototypePageIndex: readonly FlattenedPrototypePage[] = prototypeMo
       moduleDescription: module.description,
       groupId: group.id,
       groupLabel: group.label,
+      groupHiddenFromNavigation: group.hiddenFromNavigation ?? false,
     })),
   ),
 );
 
-export const PROTOTYPE_PAGE_COUNT = prototypePageIndex.filter((page) => !page.hiddenFromNavigation).length;
+export const PROTOTYPE_PAGE_COUNT = prototypePageIndex.filter(
+  (page) => !page.hiddenFromNavigation && !page.groupHiddenFromNavigation,
+).length;
 
 export function findPrototypeModule(moduleId: string) {
   return prototypeModules.find((module) => module.id === moduleId) ?? prototypeModules[0];
 }
 
-export function findPrototypePage(moduleId: string, pageId?: string) {
+/**
+ * Pages retired by the simplified sales flow (10 Nov 2026). Old deep links
+ * from dashboards, AI insights and bookmarks open the page that replaced them
+ * instead of silently falling back to a module's first page.
+ */
+const retiredPageRedirects: Record<string, readonly [moduleId: string, pageId: string, recordRef?: string]> = {
+  "sales:add-quotation": ["sales", "quotations", "new"],
+  "sales:quotation-detail": ["sales", "quotations"],
+  "sales:add-sales-order": ["sales", "sales-orders", "new"],
+  "sales:sales-order-detail": ["sales", "sales-orders"],
+  "sales:add-invoice": ["sales", "invoices", "new"],
+  "sales:invoice-detail": ["sales", "invoices"],
+  "sales:credit-note": ["sales", "invoices"],
+  "sales:debit-note": ["sales", "invoices"],
+  "sales:batch-invoice": ["sales", "invoices"],
+  "sales:proforma-invoice": ["sales", "invoices"],
+  "customers:add-customer": ["customers", "customers", "new"],
+  "customers:customer-profile": ["customers", "customers"],
+  "customers:credit-limit-review": ["customers", "customers"],
+  "customers:open-items": ["sales", "invoices"],
+  // Customer receipts: listed and entered on Sales → Receipts (also saved from the invoice panel).
+  "sales:customer-receipts": ["sales", "receipts"],
+  "customers:customer-receipts": ["sales", "receipts"],
+  "customers:add-customer-receipt": ["sales", "receipts", "new"],
+  "customers:receipt-allocation": ["sales", "receipts"],
+  "customers:refund-writeoff": ["sales", "invoices"],
+  // Returns & Control removed in the sales review of 11 Nov 2026.
+  "sales:sales-returns": ["sales", "invoices"],
+  "sales:pricing": ["sales", "quotations"],
+  "sales:sales-approvals": ["sales", "quotations"],
+  "sales:sales-reports": ["reports", "sales-invoice-detail-report"],
+  "customers:ar-ageing": ["reports", "sales-invoice-detail-report"],
+  "customers:collections-disputes": ["reports", "sales-invoice-detail-report"],
+  "customers:collections-workbench": ["reports", "sales-invoice-detail-report"],
+  "customers:customer-statements": ["reports", "sales-invoice-detail-report"],
+  "customers:ar-reconciliation": ["reports", "sales-invoice-detail-report"],
+};
+
+export function findPrototypePage(
+  moduleId: string,
+  pageId?: string,
+): { module: PrototypeModule; group: PrototypeMenuGroup; page: PrototypePage; redirectRecordRef?: string } {
+  const redirect = pageId ? retiredPageRedirects[`${moduleId}:${pageId}`] : undefined;
+  if (redirect) return { ...findPrototypePage(redirect[0], redirect[1]), redirectRecordRef: redirect[2] };
+  if (moduleId === "suppliers") {
+    moduleId = "purchases";
+    pageId = ["suppliers", "add-supplier", "supplier-profile", "supplier-onboarding", "bank-verification"].includes(
+      pageId ?? "",
+    )
+      ? "suppliers"
+      : ["payment-proposals", "payment-approval"].includes(pageId ?? "")
+        ? "multi-vendor-payments"
+        : pageId === "payment-request"
+          ? "add-payment"
+          : "purchase-bills";
+  }
+  if (moduleId === "inventory") {
+    const aliases: Record<string, string> = {
+      items: "products",
+      "add-item": "add-product",
+      "item-detail": "product-detail",
+      "warehouse-editor": "add-warehouse",
+    };
+    pageId = aliases[pageId ?? ""] ?? pageId;
+  }
+  if (moduleId === "purchases") {
+    const aliases: Record<string, string> = {
+      "requisition-detail": "add-requisition",
+      "requisition-approval": "purchase-requisitions",
+      "budget-check": "purchase-requisitions",
+      "supplier-quotations": "rfqs",
+      "bid-comparison": "rfqs",
+      "supplier-evaluation": "rfqs",
+      "award-recommendation": "rfqs",
+      "purchase-order-detail": "add-purchase-order",
+      "purchase-order-approval": "purchase-orders",
+      "gate-inward-pass": "add-goods-receipt",
+      "quality-handoff": "goods-receipts",
+      "service-entry": "add-goods-receipt",
+      "three-way-match": "purchase-bills",
+      "match-exceptions": "purchase-bills",
+      "supplier-returns": "goods-receipts",
+      "procurement-reports": "purchase-orders",
+    };
+    pageId = aliases[pageId ?? ""] ?? pageId;
+  }
   const selectedModule = findPrototypeModule(moduleId);
   const page =
     selectedModule.groups.flatMap((group) => group.pages).find((item) => item.id === pageId) ??

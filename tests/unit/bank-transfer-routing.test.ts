@@ -1,8 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { isPersistedBankTransferId } from "../../app/features/banking/model/bank-transfer-routing.js";
+import {
+  bankTransferEntryKind,
+  isPersistedBankTransferId,
+} from "../../app/features/banking/model/bank-transfer-routing.js";
 
 describe("Bank Transfer route discrimination", () => {
+  it("recognizes creation choices without treating them as persisted records", () => {
+    for (const kind of ["transfer", "fx"] as const) {
+      expect(bankTransferEntryKind(kind)).toBe(kind);
+      expect(isPersistedBankTransferId(kind)).toBe(false);
+    }
+    expect(bankTransferEntryKind(undefined)).toBeUndefined();
+    expect(bankTransferEntryKind("bank-transfer-123e4567-e89b-42d3-a456-426614174000")).toBeUndefined();
+  });
   it("accepts only persisted Bank Transfer identifiers", () => {
     expect(isPersistedBankTransferId("bank-transfer-123e4567-e89b-42d3-a456-426614174000")).toBe(true);
     expect(isPersistedBankTransferId("bank-transfer-123e4567-e89b-02d3-a456-426614174000")).toBe(false);

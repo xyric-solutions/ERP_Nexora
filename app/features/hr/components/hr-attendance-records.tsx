@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 import { useMemo } from "react";
 import type {
   HrAttendanceRecord,
@@ -158,7 +159,7 @@ export function AttendanceRecordTable({
       </h3>
       {records.length ? (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-200 border-collapse text-left text-sm">
+          <WorkTable tableId="app/features/hr/components/hr-attendance-records:1" className="w-full min-w-200 border-collapse text-left text-sm">
             <thead className="border-b border-border text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 {["Date", "Check in", "Check out", "Total", "Status", "Arrival", "Mode", "Notes"].map((h) => (
@@ -190,7 +191,7 @@ export function AttendanceRecordTable({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       ) : (
         <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">

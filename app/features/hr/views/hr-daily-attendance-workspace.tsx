@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination, WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useHrOperationsScope } from "../components/hr-operations-scope";
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import {
@@ -6,7 +9,7 @@ import {
   type HrDailyAttendanceDirectory,
   type HrDailyAttendanceRow,
 } from "@nexora/contracts";
-import { Users, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -53,6 +56,7 @@ export function HrDailyAttendanceWorkspace({
   onNavigate: (moduleId: string, pageId: string, recordRef?: string) => void;
   initialReference?: string;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const initial = useMemo(() => readInitialReference(initialReference), [initialReference]);
   const { api, session, loading: sessionLoading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]);
@@ -108,7 +112,7 @@ export function HrDailyAttendanceWorkspace({
     setData(null);
     setSelected("");
     client
-      .dailyAttendance({ company_id: company, on_date: date, search: applied || undefined, limit: 50, offset })
+      .dailyAttendance({ company_id: company, on_date: date, search: applied || undefined, limit: workPageSize, offset })
       .then((result) => {
         if (active) setData(result);
       })
@@ -121,7 +125,7 @@ export function HrDailyAttendanceWorkspace({
     return () => {
       active = false;
     };
-  }, [client, company, date, applied, offset, revision, canRead]);
+  }, [client, company, date, applied, offset, revision, canRead, workPageSize]);
   const detail = data?.items.find((r) => r.employee_id === selected);
   const openRow = (row: HrDailyAttendanceRow) => ({
     role: "button" as const,
@@ -146,7 +150,7 @@ export function HrDailyAttendanceWorkspace({
   return (
     <section
       aria-label="Daily attendance workspace"
-      className="grid min-w-0 gap-5 font-sans text-foreground [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_td]:font-sans!"
+      className="grid min-w-0 gap-4 font-sans text-foreground [&_label]:gap-1.5 [&_label]:leading-tight [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_td]:font-sans!"
     >
       {error && (
         <Alert variant="destructive">
@@ -160,7 +164,7 @@ export function HrDailyAttendanceWorkspace({
           <AlertDescription>Company access must be granted before daily attendance can be reviewed.</AlertDescription>
         </Alert>
       ) : null}
-      <form
+      <WorkForm
         className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[0.7fr_1fr] sm:p-5"
         onSubmit={(e) => {
           e.preventDefault();
@@ -189,7 +193,7 @@ export function HrDailyAttendanceWorkspace({
             placeholder="Name or employee number"
           />
         </label>
-      </form>
+      </WorkForm>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>{data?.total ?? 0} employees match the date and search.</span>
         <span>
@@ -210,7 +214,7 @@ export function HrDailyAttendanceWorkspace({
           </div>
         ) : data?.items.length ? (
           <div className="hidden max-h-[38rem] overflow-y-auto md:block">
-            <table className="w-full text-left text-sm">
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-daily-attendance-workspace:1" className="w-full text-left text-sm">
               <thead className="sticky top-0 z-10 bg-muted">
                 <tr>
                   {["Employee", "Shift / department", "In / out", "Worked", "Late", "Status"].map((h) => (
@@ -252,7 +256,7 @@ export function HrDailyAttendanceWorkspace({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         ) : (
           <div className="grid justify-items-center gap-2 px-5 py-12 text-center">
@@ -302,29 +306,20 @@ export function HrDailyAttendanceWorkspace({
           ))}
         </div>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-xs text-muted-foreground">
-          {data?.total ? `${offset + 1}–${offset + data.items.length} of ${data.total}` : "0 results"}
-        </span>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            disabled={loading || offset === 0}
-            onClick={() => setOffset((v) => Math.max(0, v - 50))}
-          >
-            <ChevronLeft className="size-4" />
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            disabled={loading || !data || offset + 50 >= data.total}
-            onClick={() => setOffset((v) => v + 50)}
-          >
-            Next
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
-      </div>
+      <WorkOffsetPagination
+        busy={loading}
+        total={data?.total ?? 0}
+        offset={offset}
+        size={workPageSize}
+        previousDisabled={loading || offset === 0}
+        nextDisabled={loading || !data || offset + workPageSize >= data.total}
+        onSizeChange={(size) => {
+          setWorkPageSize(size);
+          setOffset(0);
+        }}
+        onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))}
+        onNext={() => setOffset((v) => v + workPageSize)}
+      />
       <HrMasterSheet
         open={Boolean(detail)}
         onOpenChange={(open) => {

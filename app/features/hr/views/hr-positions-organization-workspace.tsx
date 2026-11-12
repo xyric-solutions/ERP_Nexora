@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -171,7 +172,7 @@ export function HrPositionsOrganizationWorkspace({ onNavigate }: { onNavigate: N
               {sample ? <HrStatusPill status="sample" tone="info" label="Sample data" /> : null}
             </header>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-160 text-left text-sm">
+              <WorkTable tableId="app/features/hr/views/hr-positions-organization-workspace:1" className="w-full min-w-160 text-left text-sm">
                 <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className={`${th} sm:pl-5`}>Department</th>
@@ -212,7 +213,7 @@ export function HrPositionsOrganizationWorkspace({ onNavigate }: { onNavigate: N
                     </tr>
                   ) : null}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           </article>
 
@@ -242,7 +243,7 @@ export function HrPositionsOrganizationWorkspace({ onNavigate }: { onNavigate: N
               </div>
             </header>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-240 text-left text-sm">
+              <WorkTable tableId="app/features/hr/views/hr-positions-organization-workspace:2" className="w-full min-w-240 text-left text-sm">
                 <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className={`${th} sm:pl-5`}>Employee</th>
@@ -283,7 +284,7 @@ export function HrPositionsOrganizationWorkspace({ onNavigate }: { onNavigate: N
                     </tr>
                   ) : null}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           </article>
           <p className="m-0! text-right text-xs text-muted-foreground">

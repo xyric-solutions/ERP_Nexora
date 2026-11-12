@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination, WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { useRef, useState } from "react";
 import { Download, Printer, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,6 +29,7 @@ export function HrPayslipsWorkspace({
 }: {
   onNavigate: (module: string, page: string, reference?: string) => void;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const { api, session, csrfToken, loading } = useSession(),
     client = new HrApiClient(api),
     canRead = ["hr.payroll.payslip.read", "hr.payroll.result.read"].every((p) => session?.user.permissions.includes(p));
@@ -45,7 +49,7 @@ export function HrPayslipsWorkspace({
     retry = useRef<{ fingerprint: string; key: string } | null>(null);
   const companies = useAttendanceRead(canRead ? "payslip-companies" : null, () => client.companies()),
     company = companies.data?.items[0]?.id ?? "";
-  const query = { company_id: company, month: month + "-01", search, state, limit: 25, offset };
+  const query = { company_id: company, month: month + "-01", search, state, limit: workPageSize, offset };
   const data = useAttendanceRead(canRead && company ? JSON.stringify([query, revision]) : null, () =>
     client.payslipWorkspace(query),
   );
@@ -237,7 +241,7 @@ export function HrPayslipsWorkspace({
             )}
           </div>
           <div className={tableWrap} role="region" aria-label="Employee payslips">
-            <table className={tableClass + " min-w-[760px]"}>
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-payslips-workspace:1" className={tableClass + " min-w-[760px]"}>
               <caption className="sr-only">Posted employee salary results and publication status</caption>
               <thead className={theadClass}>
                 <tr>
@@ -305,39 +309,31 @@ export function HrPayslipsWorkspace({
                   ))
                 )}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <p className="text-muted-foreground">
-              {w.total ? offset + 1 : 0}–{Math.min(offset + 25, w.total)} of {w.total}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={offset === 0 || !!review}
-                onClick={() => {
-                  setOffset((v) => Math.max(0, v - 25));
-                  setSelected([]);
-                }}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={offset + 25 >= w.total || !!review}
-                onClick={() => {
-                  setOffset((v) => v + 25);
-                  setSelected([]);
-                }}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <WorkOffsetPagination
+            busy={!!review}
+            total={w.total}
+            offset={offset}
+            size={workPageSize}
+            previousDisabled={offset === 0 || !!review}
+            nextDisabled={offset + workPageSize >= w.total || !!review}
+            onSizeChange={(size) => {
+              setWorkPageSize(size);
+              setOffset(0);
+              setSelected([]);
+            }}
+            onPrevious={() => {
+              setOffset((v) => Math.max(0, v - workPageSize));
+              setSelected([]);
+            }}
+            onNext={() => {
+              setOffset((v) => v + workPageSize);
+              setSelected([]);
+            }}
+          />
           <div className={tableWrap} role="region" aria-label="Publication history">
-            <table className={tableClass}>
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-payslips-workspace:2" className={tableClass}>
               <caption className="sr-only">Publication history for this period</caption>
               <thead className={theadClass}>
                 <tr>
@@ -373,7 +369,7 @@ export function HrPayslipsWorkspace({
                   ))
                 )}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         </>
       )}
@@ -391,12 +387,12 @@ export function HrPayslipsWorkspace({
         }
       >
         {review && (
-          <form id={releaseFormId} className="grid gap-4" onSubmit={release} aria-label="Release payslips review">
+          <WorkForm id={releaseFormId} className="grid gap-4" onSubmit={release} aria-label="Release payslips review">
             <p className="text-sm">
               Release {selected.length} employee payslip(s) for {review.month.slice(0, 7)}.
             </p>
             <div className={tableWrap}>
-              <table className={tableClass}>
+              <WorkTable paging={false} tableId="app/features/hr/views/hr-payslips-workspace:3" className={tableClass}>
                 <caption className="sr-only">Payslips selected for release</caption>
                 <thead className={theadClass}>
                   <tr>
@@ -422,7 +418,7 @@ export function HrPayslipsWorkspace({
                       </tr>
                     ))}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
             <Field title="Publication reason">
               <Textarea
@@ -432,7 +428,7 @@ export function HrPayslipsWorkspace({
                 disabled={busy}
               />
             </Field>
-          </form>
+          </WorkForm>
         )}
       </HrRecordDrawer>
       <HrRecordDrawer
@@ -478,7 +474,7 @@ export function HrPayslipsWorkspace({
                   : "Preview only; labels freeze on release."}
             </p>
             <div className={tableWrap}>
-              <table className={tableClass}>
+              <WorkTable paging={false} tableId="app/features/hr/views/hr-payslips-workspace:4" className={tableClass}>
                 <caption className="sr-only">Payslip component breakdown</caption>
                 <thead className={theadClass}>
                   <tr>
@@ -504,7 +500,7 @@ export function HrPayslipsWorkspace({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
             <dl className="grid gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
               <div>

@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+
 import { FilterBar } from "./filter-bar";
 import { featuredMetricClass } from "./metric-appearance";
 import { ArrowUpRight } from "lucide-react";
@@ -16,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "./amount-input";
 import { Label } from "@/components/ui/label";
 import type { ModuleChart, ModuleColumn, ModuleKpi, ModuleRow, ModuleUnit } from "../types/module-profile-types";
 import {
@@ -181,8 +184,8 @@ export function AdvancedListFilters({
       ) : null}
       {onDocumentNumberChange ? <Label className="grid gap-1.5 text-xs text-muted-foreground"><span>Document number</span><Input value={documentNumber ?? ""} onChange={(event) => onDocumentNumberChange(event.target.value)} placeholder="Contains…" /></Label> : null}
       {onReferenceChange ? <Label className="grid gap-1.5 text-xs text-muted-foreground"><span>Reference contains</span><Input value={reference ?? ""} onChange={(event) => onReferenceChange(event.target.value)} placeholder="Source or external ref…" /></Label> : null}
-      {onMinAmountChange ? <Label className="grid gap-1.5 text-xs text-muted-foreground"><span>Minimum amount</span><Input inputMode="decimal" value={minAmount ?? ""} onChange={(event) => onMinAmountChange(event.target.value)} placeholder="0.00" /></Label> : null}
-      {onMaxAmountChange ? <Label className="grid gap-1.5 text-xs text-muted-foreground"><span>Maximum amount</span><Input inputMode="decimal" value={maxAmount ?? ""} onChange={(event) => onMaxAmountChange(event.target.value)} placeholder="No limit" /></Label> : null}
+      {onMinAmountChange ? <Label className="grid gap-1.5 text-xs text-muted-foreground"><span>Minimum amount</span><AmountInput value={minAmount ?? ""} onValueChange={(raw) => onMinAmountChange(raw)} placeholder="0.00" /></Label> : null}
+      {onMaxAmountChange ? <Label className="grid gap-1.5 text-xs text-muted-foreground"><span>Maximum amount</span><AmountInput value={maxAmount ?? ""} onValueChange={(raw) => onMaxAmountChange(raw)} placeholder="No limit" /></Label> : null}
       <Button className="self-end" variant="outline" type="button" onClick={onClear}>Clear filters</Button>
     </div>
   );
@@ -353,7 +356,7 @@ export function ModuleDataTable({
   const isInteractiveTarget = (target: EventTarget | null) => target instanceof HTMLElement && Boolean(target.closest("button, input, select, textarea, a, label"));
   return (
     <div className="relative min-w-0 overflow-x-auto">
-      <table className="w-full min-w-180 border-collapse text-left text-sm">
+      <WorkTable tableId="app/shared/ui/module-views:1" className="w-full min-w-180 border-collapse text-left text-sm">
         <thead>
           <tr className="border-y border-border bg-muted/50">
             <th className="px-4 py-3"><Checkbox aria-label="Select all rows" /></th>
@@ -392,7 +395,7 @@ export function ModuleDataTable({
             </tr>
           ))}
         </tbody>
-      </table>
+      </WorkTable>
     </div>
   );
 }

@@ -80,10 +80,8 @@ async function render(onOpenReceipt = vi.fn(), onCreateReceipt: (() => void) | u
 }
 
 function control<T extends HTMLInputElement | HTMLSelectElement>(label: string): T {
-  const field = [...container.querySelectorAll("label")].find((item) =>
-    item.querySelector("span")?.textContent?.includes(label),
-  );
-  const result = field?.querySelector("input, select");
+  const field = [...container.querySelectorAll("label")].find((item) => item.textContent?.trim() === label);
+  const result = field?.control ?? field?.querySelector("input, select");
   if (!result) throw new Error(`Missing control: ${label}`);
   return result as T;
 }
@@ -96,7 +94,7 @@ async function change(element: HTMLInputElement | HTMLSelectElement, value: stri
 }
 
 async function click(label: string) {
-  const button = [...container.querySelectorAll("button")].find((item) => item.textContent?.trim() === label);
+  const button = [...container.querySelectorAll("button")].find((item) => item.textContent?.trim() === label || item.getAttribute("aria-label") === label);
   if (!button) throw new Error(`Missing button: ${label}`);
   await act(async () => button.click());
   await settle();
@@ -145,7 +143,8 @@ describe("BankingReceipts", () => {
     expect(container.textContent).toContain("Atlas Customer");
     expect(container.textContent).toContain("Service Revenue");
     expect(container.querySelector("caption")?.textContent).toContain("Persisted bank receipts");
-    expect(container.textContent).toContain("Export is disabled because no governed receipt export endpoint");
+    expect(container.textContent).not.toContain("Export unavailable");
+    expect(container.textContent).not.toContain("Review persisted incoming funds");
     await click("BR-2026-00000001");
     expect(onOpenReceipt).toHaveBeenCalledWith(receipt.id);
     await click("Add bank receipt");
@@ -176,7 +175,7 @@ describe("BankingReceipts", () => {
       "sort_direction=asc",
     ])
       expect(filtered).toContain(part);
-    await click("Load more");
+    await click("Next page");
     expect(state.api.listBankReceipts.mock.calls.at(-1)?.[0]).toContain("cursor=cursor-2");
   });
 

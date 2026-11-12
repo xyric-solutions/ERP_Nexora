@@ -136,6 +136,7 @@ interface ResolvedLine {
   to_bank_account_id: string;
   details: string | null;
   source_amount: string;
+  conversion_rate: string | null;
   bank_charge_amount: string;
   source_currency: string;
   destination_currency: string;
@@ -277,7 +278,7 @@ export class SourceBankTransferRepository {
   }
   private async header(client: PoolClient, context: BankingActorContext, id: string, lock = false) {
     const result = await client.query<TransferHeaderRow>(
-      `select * from bank_transfer where tenant_id=$1 and id=$2${lock ? " for update" : ""}`,
+      `select *,posting_date::text as posting_date,value_date::text as value_date from bank_transfer where tenant_id=$1 and id=$2${lock ? " for update" : ""}`,
       [context.tenantId, id],
     );
     const row = result.rows[0];
@@ -386,8 +387,20 @@ export class SourceBankTransferRepository {
     correlation: string,
     audit: { id: string; occurred: string },
   ) {
+    const fxEvidence = (await this.storedLines(client, context.tenantId, row.company_id, row.id)).map((line) => ({
+      line_order: line.line_order,
+      from_bank_account_id: line.from_bank_account_id,
+      to_bank_account_id: line.to_bank_account_id,
+      source_currency: line.source_currency,
+      destination_currency: line.destination_currency,
+      source_amount: line.source_amount,
+      conversion_rate: line.conversion_rate,
+      destination_amount: line.destination_amount,
+      source_rate: line.source_rate,
+      destination_rate: line.destination_rate,
+    }));
     await client.query(
-      "insert into bank_transfer_event(tenant_id,company_id,id,transfer_id,event_type,actor_id,record_version,reason,correlation_id,occurred_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+      "insert into bank_transfer_event(tenant_id,company_id,id,transfer_id,event_type,actor_id,record_version,reason,correlation_id,occurred_at,fx_evidence) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
       [
         context.tenantId,
         row.company_id,
@@ -399,6 +412,7 @@ export class SourceBankTransferRepository {
         reason,
         correlation,
         audit.occurred,
+        JSON.stringify(fxEvidence),
       ],
     );
   }
@@ -447,7 +461,11 @@ export class SourceBankTransferRepository {
     } catch (error) {
       if (!(error instanceof CompanyCurrencyAuthorityError)) throw error;
       if (error.code === "COMPANY_CURRENCY_RATE_MISSING")
-        throw new BankingApiError(400, "TRANSFER_FX_RATE_UNAVAILABLE", error.message);
+        throw new BankingApiError(
+          400,
+          "TRANSFER_FX_RATE_UNAVAILABLE",
+          `No company valuation rate is configured for ${currency} to ${base} on or before ${date}. Open Finance → Currencies & Transfer FX, select the same company, and add an approved valuation rate for this currency and date. The transaction exchange rate does not replace the company valuation rate.`,
+        );
       if (error.code === "COMPANY_CURRENCY_INACTIVE")
         throw new BankingApiError(400, "TRANSFER_CURRENCY_INVALID", error.message);
       throw new BankingApiError(409, "TRANSFER_BASE_CURRENCY_INVALID", error.message);
@@ -493,28 +511,20 @@ export class SourceBankTransferRepository {
           "TRANSFER_BANKS_MUST_DIFFER",
           "Source and destination Bank Accounts must differ.",
         );
-      const sourceRate = await this.rate(
-          client,
-          context.tenantId,
-          company,
-          from.currency,
-          base,
-          input.document_date,
-        ),
-        destinationRate = await this.rate(
-          client,
-          context.tenantId,
-          company,
-          to.currency,
-          base,
-          input.document_date,
+      if (input.conversion_rate != null && from.currency === to.currency)
+        throw new BankingApiError(
+          400,
+          "TRANSFER_CONVERSION_RATE_NOT_APPLICABLE",
+          "An exchange rate is only available for Bank Accounts in different currencies.",
         );
-      const source = parseFinanceDecimal(input.source_amount, {
+      const sourceRate = await this.rate(client, context.tenantId, company, from.currency, base, input.document_date),
+        destinationRate = await this.rate(client, context.tenantId, company, to.currency, base, input.document_date);
+      const source = parseFinanceDecimal(compactDecimal(input.source_amount), {
           fractionalDigits: amountScale,
           integerDigits: 30,
           allowZero: false,
         }),
-        charge = parseFinanceDecimal(input.bank_charge_amount, {
+        charge = parseFinanceDecimal(compactDecimal(input.bank_charge_amount), {
           fractionalDigits: amountScale,
           integerDigits: 30,
           allowZero: true,
@@ -535,10 +545,26 @@ export class SourceBankTransferRepository {
           integerDigits: 20,
           allowZero: false,
         });
+      const conversionRate =
+        input.conversion_rate == null
+          ? null
+          : parseFinanceDecimal(input.conversion_rate, {
+              fractionalDigits: rateScale,
+              integerDigits: 20,
+              allowZero: false,
+            });
       const sourceBase = convertFinanceAmountToBase(source.scaled, sourceRateValue.scaled, baseDecimals),
         chargeBase = convertFinanceAmountToBase(charge.scaled, sourceRateValue.scaled, baseDecimals),
-        destination = roundNativeFromBase(sourceBase, destinationRateValue.scaled, to.decimal_places),
+        destination = conversionRate
+          ? convertFinanceAmountToBase(source.scaled, conversionRate.scaled, to.decimal_places)
+          : roundNativeFromBase(sourceBase, destinationRateValue.scaled, to.decimal_places),
         destinationBase = convertFinanceAmountToBase(destination, destinationRateValue.scaled, baseDecimals);
+      if (destination <= 0n || sourceBase <= 0n || destinationBase <= 0n)
+        throw new BankingApiError(
+          400,
+          "TRANSFER_CONVERTED_AMOUNT_TOO_SMALL",
+          "The converted amount rounds to zero. Increase the amount or check the exchange rate.",
+        );
       output.push({
         id: `transfer-line-${randomUUID()}`,
         line_order: input.line_order,
@@ -549,6 +575,7 @@ export class SourceBankTransferRepository {
         to_bank_account_id: to.id,
         details: input.details ?? null,
         source_amount: source.canonical,
+        conversion_rate: conversionRate?.canonical ?? null,
         bank_charge_amount: charge.canonical,
         source_currency: from.currency,
         destination_currency: to.currency,
@@ -607,7 +634,7 @@ export class SourceBankTransferRepository {
   ) {
     for (const line of lines)
       await client.query(
-        `insert into bank_transfer_line(tenant_id,company_id,id,transfer_id,line_order,document_date,from_bank_account_id,to_bank_account_id,external_reference,mode,details,source_currency,destination_currency,source_amount,destination_amount,source_rate_id,source_rate_value,source_rate_effective_date,destination_rate_id,destination_rate_value,destination_rate_effective_date,source_base_amount,destination_base_amount,bank_charge_amount,bank_charge_base_amount,fx_difference,source_control_nominal_id,destination_control_nominal_id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)`,
+        `insert into bank_transfer_line(tenant_id,company_id,id,transfer_id,line_order,document_date,from_bank_account_id,to_bank_account_id,external_reference,mode,details,source_currency,destination_currency,source_amount,destination_amount,source_rate_id,source_rate_value,source_rate_effective_date,destination_rate_id,destination_rate_value,destination_rate_effective_date,source_base_amount,destination_base_amount,bank_charge_amount,bank_charge_base_amount,fx_difference,source_control_nominal_id,destination_control_nominal_id,conversion_rate) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)`,
         [
           context.tenantId,
           company,
@@ -637,6 +664,7 @@ export class SourceBankTransferRepository {
           line.fx_difference,
           line.from_control_account_id,
           line.to_control_account_id,
+          line.conversion_rate,
         ],
       );
   }
@@ -678,8 +706,13 @@ export class SourceBankTransferRepository {
         `select bank.id,bank.reference,bank.account_name,nullif(bank.bank_name,'') as bank_name,bank.account_number_masked,bank.currency,ledger.code as ledger_account_code,ledger.name as ledger_account_name from bank_account bank join account ledger on ledger.tenant_id=bank.tenant_id and ledger.id=bank.account_id where bank.tenant_id=$1 and bank.company_id=$2 and bank.status='active' and ledger.status='active' order by bank.account_name,bank.id limit 200`,
         [context.tenantId, query.company_id],
       );
+      const policy = await client.query<{ configured: boolean }>(
+        "select exists(select 1 from bank_transfer_fx_policy where tenant_id=$1 and company_id=$2) as configured",
+        [context.tenantId, query.company_id],
+      );
       return bankTransferOptionsSchema.parse({
         bank_accounts: rows.rows,
+        fx_policy_configured: policy.rows[0]!.configured,
         transfer_modes: [
           { value: "internal", label: "Internal transfer" },
           { value: "local_bank", label: "Local bank" },
@@ -771,7 +804,7 @@ export class SourceBankTransferRepository {
   ): Promise<BankTransferLineInput[]> {
     return (
       await client.query<BankTransferLineInput>(
-        "select line_order,document_date::text,from_bank_account_id,external_reference,mode as transfer_mode,to_bank_account_id,details,source_amount::text,bank_charge_amount::text from bank_transfer_line where tenant_id=$1 and company_id=$2 and transfer_id=$3 order by line_order",
+        "select line_order,document_date::text,from_bank_account_id,external_reference,mode as transfer_mode,to_bank_account_id,details,source_amount::text,bank_charge_amount::text,conversion_rate::text from bank_transfer_line where tenant_id=$1 and company_id=$2 and transfer_id=$3 order by line_order",
         [tenant, company, id],
       )
     ).rows;
@@ -1087,7 +1120,7 @@ export class SourceBankTransferRepository {
 
   private async storedLines(client: PoolClient, tenant: string, company: string, id: string): Promise<ResolvedLine[]> {
     const rows = await client.query(
-      `select line.id,line.line_order,line.document_date::text,line.from_bank_account_id,line.external_reference,line.mode as transfer_mode,line.to_bank_account_id,line.details,line.source_amount::text,line.bank_charge_amount::text,line.source_currency,line.destination_currency,line.destination_amount::text,line.source_rate_id,line.source_rate_value::text as source_rate,line.source_rate_effective_date::text,line.destination_rate_id,line.destination_rate_value::text as destination_rate,line.destination_rate_effective_date::text,line.source_base_amount::text,line.destination_base_amount::text,line.bank_charge_base_amount::text,line.fx_difference::text,line.source_control_nominal_id as from_control_account_id,source.code as from_control_account_code,source.name as from_control_account_name,line.destination_control_nominal_id as to_control_account_id,destination.code as to_control_account_code,destination.name as to_control_account_name from bank_transfer_line line join account source on source.tenant_id=line.tenant_id and source.id=line.source_control_nominal_id join account destination on destination.tenant_id=line.tenant_id and destination.id=line.destination_control_nominal_id where line.tenant_id=$1 and line.company_id=$2 and line.transfer_id=$3 order by line.line_order`,
+      `select line.id,line.line_order,line.document_date::text,line.from_bank_account_id,line.external_reference,line.mode as transfer_mode,line.to_bank_account_id,line.details,line.source_amount::text,line.conversion_rate::text,line.bank_charge_amount::text,line.source_currency,line.destination_currency,line.destination_amount::text,line.source_rate_id,line.source_rate_value::text as source_rate,line.source_rate_effective_date::text,line.destination_rate_id,line.destination_rate_value::text as destination_rate,line.destination_rate_effective_date::text,line.source_base_amount::text,line.destination_base_amount::text,line.bank_charge_base_amount::text,line.fx_difference::text,line.source_control_nominal_id as from_control_account_id,source.code as from_control_account_code,source.name as from_control_account_name,line.destination_control_nominal_id as to_control_account_id,destination.code as to_control_account_code,destination.name as to_control_account_name from bank_transfer_line line join account source on source.tenant_id=line.tenant_id and source.id=line.source_control_nominal_id join account destination on destination.tenant_id=line.tenant_id and destination.id=line.destination_control_nominal_id where line.tenant_id=$1 and line.company_id=$2 and line.transfer_id=$3 order by line.line_order`,
       [tenant, company, id],
     );
     return rows.rows as ResolvedLine[];
@@ -1102,7 +1135,7 @@ export class SourceBankTransferRepository {
     const grouped = new Map<string, ResolvedLine[]>();
     if (ids.length === 0) return grouped;
     const rows = await client.query<StoredTransferLineRow>(
-      `select line.transfer_id,line.id,line.line_order,line.document_date::text,line.from_bank_account_id,line.external_reference,line.mode as transfer_mode,line.to_bank_account_id,line.details,line.source_amount::text,line.bank_charge_amount::text,line.source_currency,line.destination_currency,line.destination_amount::text,line.source_rate_id,line.source_rate_value::text as source_rate,line.source_rate_effective_date::text,line.destination_rate_id,line.destination_rate_value::text as destination_rate,line.destination_rate_effective_date::text,line.source_base_amount::text,line.destination_base_amount::text,line.bank_charge_base_amount::text,line.fx_difference::text,line.source_control_nominal_id as from_control_account_id,source.code as from_control_account_code,source.name as from_control_account_name,line.destination_control_nominal_id as to_control_account_id,destination.code as to_control_account_code,destination.name as to_control_account_name from bank_transfer_line line join account source on source.tenant_id=line.tenant_id and source.id=line.source_control_nominal_id join account destination on destination.tenant_id=line.tenant_id and destination.id=line.destination_control_nominal_id where line.tenant_id=$1 and line.company_id=$2 and line.transfer_id=any($3::text[]) order by line.transfer_id,line.line_order`,
+      `select line.transfer_id,line.id,line.line_order,line.document_date::text,line.from_bank_account_id,line.external_reference,line.mode as transfer_mode,line.to_bank_account_id,line.details,line.source_amount::text,line.conversion_rate::text,line.bank_charge_amount::text,line.source_currency,line.destination_currency,line.destination_amount::text,line.source_rate_id,line.source_rate_value::text as source_rate,line.source_rate_effective_date::text,line.destination_rate_id,line.destination_rate_value::text as destination_rate,line.destination_rate_effective_date::text,line.source_base_amount::text,line.destination_base_amount::text,line.bank_charge_base_amount::text,line.fx_difference::text,line.source_control_nominal_id as from_control_account_id,source.code as from_control_account_code,source.name as from_control_account_name,line.destination_control_nominal_id as to_control_account_id,destination.code as to_control_account_code,destination.name as to_control_account_name from bank_transfer_line line join account source on source.tenant_id=line.tenant_id and source.id=line.source_control_nominal_id join account destination on destination.tenant_id=line.tenant_id and destination.id=line.destination_control_nominal_id where line.tenant_id=$1 and line.company_id=$2 and line.transfer_id=any($3::text[]) order by line.transfer_id,line.line_order`,
       [tenant, company, ids],
     );
     for (const { transfer_id: transferId, ...line } of rows.rows) {
@@ -1136,6 +1169,7 @@ export class SourceBankTransferRepository {
         line_order: line.line_order,
         from_bank_account_id: line.from_bank_account_id,
         to_bank_account_id: line.to_bank_account_id,
+        conversion_rate: line.conversion_rate,
       };
       result.push(
         {
@@ -1506,7 +1540,7 @@ export class SourceBankTransferRepository {
         }[query.sort_by];
       values.push(query.limit + 1, Number.isSafeInteger(start) && start >= 0 ? start : 0);
       const rows = await client.query<TransferHeaderRow>(
-          `select * from bank_transfer where ${filters.join(" and ")} order by ${sort} ${query.sort_direction},id ${query.sort_direction} limit $${values.length - 1} offset $${values.length}`,
+          `select *,posting_date::text as posting_date,value_date::text as value_date from bank_transfer where ${filters.join(" and ")} order by bank_transfer.${sort} ${query.sort_direction},id ${query.sort_direction} limit $${values.length - 1} offset $${values.length}`,
           values,
         ),
         page = rows.rows.slice(0, query.limit),

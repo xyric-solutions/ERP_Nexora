@@ -49,7 +49,7 @@ async function render(query: string) {
   await act(async () => root.render(createElement(IdentityWorkspace)));
 }
 async function click(label: string) {
-  const button = [...container.querySelectorAll("button")].find((item) => item.textContent?.trim() === label);
+  const button = [...container.querySelectorAll("button")].find((item) => item.textContent?.trim() === label || item.getAttribute("aria-label") === label);
   if (!button) throw new Error(`Missing button: ${label}`);
   await act(async () => button.click());
   await act(async () => Promise.resolve());
@@ -94,7 +94,7 @@ describe("Users and Roles administrative workspace", () => {
   });
   it("lets a checker reach all queues without selecting a user or role", async () => {
     await render("tab=users&section=approvals");
-    expect(state.api.listSecurityApprovals).toHaveBeenLastCalledWith("?cursor=0&resource_type=user");
+    expect(state.api.listSecurityApprovals).toHaveBeenLastCalledWith("?cursor=0&limit=25&resource_type=user");
     expect(container.textContent).toContain("Governed approvals records");
     const select = container.querySelector<HTMLSelectElement>('select[aria-label="Approval resource type"]')!;
     await act(async () => {
@@ -102,22 +102,22 @@ describe("Users and Roles administrative workspace", () => {
       select.dispatchEvent(new Event("change", { bubbles: true }));
     });
     await render(window.location.search);
-    expect(state.api.listSecurityApprovals).toHaveBeenLastCalledWith("?cursor=0&resource_type=assignment");
+    expect(state.api.listSecurityApprovals).toHaveBeenLastCalledWith("?cursor=0&limit=25&resource_type=assignment");
     await render("tab=roles&section=approvals");
-    expect(state.api.listSecurityApprovals).toHaveBeenLastCalledWith("?cursor=0&resource_type=role");
+    expect(state.api.listSecurityApprovals).toHaveBeenLastCalledWith("?cursor=0&limit=25&resource_type=role");
   });
   it("preserves contextual history and pagination without frontend-only filtering", async () => {
     state.api.listSecurityAudit.mockResolvedValue({ items: [{ id: "evidence" }], next_cursor: "50" });
     await render("tab=users&section=audit&user=target");
-    expect(state.api.listSecurityAudit).toHaveBeenLastCalledWith("?cursor=0&user_id=target&workspace=users");
-    await click("Next");
-    expect(state.api.listSecurityAudit).toHaveBeenLastCalledWith("?cursor=50&user_id=target&workspace=users");
+    expect(state.api.listSecurityAudit).toHaveBeenLastCalledWith("?cursor=0&limit=25&user_id=target&workspace=users");
+    await click("Next page");
+    expect(state.api.listSecurityAudit).toHaveBeenLastCalledWith("?cursor=50&limit=25&user_id=target&workspace=users");
     await click("Show all users");
-    expect(state.api.listSecurityAudit).toHaveBeenLastCalledWith("?cursor=0&workspace=users");
+    expect(state.api.listSecurityAudit).toHaveBeenLastCalledWith("?cursor=0&limit=25&workspace=users");
   });
   it("maps legacy links and handles backend access denial explicitly", async () => {
     await render("tab=assignments&role_policy_id=policy");
-    expect(state.api.listSecurityAssignments).toHaveBeenLastCalledWith("?cursor=0&role_policy_id=policy");
+    expect(state.api.listSecurityAssignments).toHaveBeenLastCalledWith("?cursor=0&limit=25&role_policy_id=policy");
     state.api.listSecurityAudit.mockRejectedValue(new Error("Forbidden"));
     await render("tab=roles&section=audit&role=policy");
     expect(container.textContent).toContain("not authorized");

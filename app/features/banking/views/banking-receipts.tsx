@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { BankReceiptOptions, BankReceiptState, BankReceiptSummary } from "@nexora/contracts";
@@ -8,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
+import { LabeledField } from "@/shared/ui/labeled-field";
 import { BankingApiClient } from "../api/banking-client";
+import { BankAccountCapsule } from "../components/bank-account-capsule";
 
 const receiptStates: readonly BankReceiptState[] = ["draft", "submitted", "approved", "rejected", "posted", "reversed"];
 type ReceiptSort = "posting_date" | "reference" | "total_amount" | "state";
@@ -230,35 +233,19 @@ export function BankingReceipts({ onOpenReceipt, onCreateReceipt }: BankingRecei
     return <StateCard title="Permission required" detail="Your account does not have banking.receipt.read." />;
 
   return (
-    <div className="space-y-5" aria-busy={loadingCompanies || loading || loadingMore}>
-      <header className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5 shadow-sm lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-4" aria-busy={loadingCompanies || loading || loadingMore}>
+      <header className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-sm lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Banking &amp; Treasury</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Bank Receipts</h1>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Review persisted incoming funds, payer snapshots, approval state and posting dates for the selected company.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Bank Receipts</h1>
         </div>
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled
-              aria-describedby="bank-receipts-export-note"
-              title="Export is not available until a governed receipt export is delivered."
-            >
-              Export unavailable
-            </Button>
             {canCreate && onCreateReceipt ? (
               <Button type="button" onClick={onCreateReceipt}>
                 Add bank receipt
               </Button>
             ) : null}
           </div>
-          <p id="bank-receipts-export-note" className="max-w-sm text-xs text-muted-foreground sm:text-right">
-            Export is disabled because no governed receipt export endpoint is available yet.
-          </p>
         </div>
       </header>
 
@@ -408,7 +395,7 @@ export function BankingReceipts({ onOpenReceipt, onCreateReceipt }: BankingRecei
 
         {rows.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1240px] border-collapse text-left text-sm">
+            <WorkTable continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loading || loadingMore),loadMore:() => void load(nextCursor ?? undefined, true)}} tableId="app/features/banking/views/banking-receipts:1" className="w-full min-w-[1240px] border-collapse text-left text-sm">
               <caption className="sr-only">Persisted bank receipts for the selected company</caption>
               <thead className="bg-muted/50 text-xs uppercase tracking-[0.08em] text-muted-foreground">
                 <tr>
@@ -432,7 +419,7 @@ export function BankingReceipts({ onOpenReceipt, onCreateReceipt }: BankingRecei
               <tbody>
                 {rows.map((receipt) => (
                   <tr key={receipt.id} className="border-b border-border/70 transition-colors hover:bg-muted/35">
-                    <td className="px-4 py-3.5">
+                    <td className="px-4 py-3">
                       <button
                         className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         type="button"
@@ -442,48 +429,44 @@ export function BankingReceipts({ onOpenReceipt, onCreateReceipt }: BankingRecei
                       </button>
                       <small className="mt-1 block text-muted-foreground">Version {receipt.version}</small>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3.5">
+                    <td className="whitespace-nowrap px-4 py-3">
                       <span className="block font-medium">Posted {date(receipt.posting_date)}</span>
                       <small className="mt-1 block text-muted-foreground">
                         Value {receipt.value_date ? date(receipt.value_date) : "not set"}
                       </small>
                     </td>
-                    <td className="px-4 py-3.5">
-                      <span className="block font-medium text-foreground">{receipt.bank_account_name}</span>
+                    <td className="px-4 py-3">
+                      <BankAccountCapsule>{receipt.bank_account_name}</BankAccountCapsule>
                       <small className="mt-1 block text-muted-foreground">
                         {[receipt.bank_name, receipt.account_number_masked].filter(Boolean).join(" · ") ||
                           "Nominal account"}
                       </small>
                     </td>
-                    <td className="max-w-64 px-4 py-3.5 text-muted-foreground">
+                    <td className="max-w-64 px-4 py-3 text-muted-foreground">
                       {receipt.payer_summary ?? "Payer not recorded"}
                     </td>
-                    <td className="max-w-72 px-4 py-3.5 text-muted-foreground">
+                    <td className="max-w-72 px-4 py-3 text-muted-foreground">
                       {receipt.nominal_account_summary ?? receipt.narration_summary ?? "No nominal summary"}
                     </td>
-                    <td className="px-4 py-3.5 font-medium">{receipt.currency}</td>
-                    <td className="px-4 py-3.5 text-right tabular-nums">{receipt.line_count}</td>
-                    <td className="px-4 py-3.5 text-right font-semibold tabular-nums">
+                    <td className="px-4 py-3 font-medium">{receipt.currency}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{receipt.line_count}</td>
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums">
                       {money(receipt.total_amount, receipt.currency)}
                     </td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-4 py-3">
                       <Badge variant={stateVariant(receipt.state)}>{label(receipt.state)}</Badge>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         ) : null}
-        <footer className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm text-muted-foreground">
+        <footer className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm text-muted-foreground">
           <span aria-live="polite">
             Showing {rows.length} persisted receipt{rows.length === 1 ? "" : "s"}
           </span>
-          {nextCursor ? (
-            <Button variant="outline" type="button" disabled={loadingMore} onClick={() => void load(nextCursor, true)}>
-              {loadingMore ? "Loading…" : "Load more"}
-            </Button>
-          ) : null}
+
         </footer>
       </section>
     </div>
@@ -500,18 +483,15 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label
-      className={`block text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground ${className ?? ""}`}
-    >
-      <span className="mb-1.5 block">{fieldLabel}</span>
+    <LabeledField label={fieldLabel} className={className}>
       {children}
-    </label>
+    </LabeledField>
   );
 }
 
 function StateCard({ title, detail }: { title: string; detail: string }) {
   return (
-    <div className="m-4 rounded-lg border border-dashed border-border bg-muted/25 p-10 text-center" role="status">
+    <div className="m-3 rounded-lg border border-dashed border-border bg-muted/25 p-8 text-center" role="status">
       <strong className="block text-lg text-foreground">{title}</strong>
       <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
     </div>

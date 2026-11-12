@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   adoptCurrencyRequestSchema,
   changeFinanceNominalStatusRequestSchema,
+  changeFinanceHierarchyRequestSchema,
   correctCurrencyRateRequestSchema,
   createCurrencyRateRequestSchema,
+  createFinanceHierarchyRequestSchema,
   createFinanceNominalRequestSchema,
   decideFinanceNominalRequestSchema,
   financeNominalDirectoryQuerySchema,
@@ -26,6 +28,69 @@ const draft = {
 };
 
 describe("Finance Nominal contracts", () => {
+  it("accepts hierarchy lifecycle commands, requires rejection evidence and rejects mixed edits/decisions", () => {
+    for (const action of ["submit", "approve", "activate", "deactivate"])
+      expect(changeFinanceHierarchyRequestSchema.safeParse({ expected_version: 3, action }).success).toBe(true);
+    expect(changeFinanceHierarchyRequestSchema.safeParse({ expected_version: 3, action: "reject" }).success).toBe(
+      false,
+    );
+    expect(
+      changeFinanceHierarchyRequestSchema.safeParse({
+        expected_version: 3,
+        action: "reject",
+        reason: "Reviewed duplicate",
+      }).success,
+    ).toBe(true);
+    expect(
+      changeFinanceHierarchyRequestSchema.safeParse({
+        expected_version: 3,
+        action: "approve",
+        name: "Changed while pending",
+      }).success,
+    ).toBe(false);
+    expect(
+      changeFinanceHierarchyRequestSchema.safeParse({
+        expected_version: 3,
+        action: "approve",
+        reason: "Unneeded approval text",
+      }).success,
+    ).toBe(false);
+  });
+  it("accepts server-allocated Category and Section codes while retaining controlled explicit Section codes", () => {
+    expect(
+      createFinanceHierarchyRequestSchema.parse({
+        company_id: "company-a",
+        name: "Current Assets",
+        type: "asset",
+      }),
+    ).toEqual({ company_id: "company-a", name: "Current Assets", type: "asset" });
+    expect(
+      createFinanceHierarchyRequestSchema.parse({
+        company_id: "company-a",
+        name: "Cash and Bank",
+        type: "asset",
+        parent_id: "current-assets",
+      }),
+    ).toEqual({ company_id: "company-a", name: "Cash and Bank", type: "asset", parent_id: "current-assets" });
+    expect(
+      createFinanceHierarchyRequestSchema.safeParse({
+        company_id: "company-a",
+        name: "Controlled import Section",
+        type: "asset",
+        parent_id: "current-assets",
+        code: "2309",
+      }).success,
+    ).toBe(true);
+    expect(
+      createFinanceHierarchyRequestSchema.safeParse({
+        company_id: "company-a",
+        name: "Invalid root code",
+        type: "asset",
+        code: "2309",
+      }).success,
+    ).toBe(false);
+  });
+
   it("accepts the approved minimal form without external bank identifiers", () => {
     expect(createFinanceNominalRequestSchema.parse(draft)).toEqual(draft);
     expect(createFinanceNominalRequestSchema.parse({ ...draft, name: "  Payroll USD  " }).name).toBe("Payroll USD");
@@ -60,12 +125,16 @@ describe("Finance Nominal contracts", () => {
     expect(createFinanceNominalRequestSchema.safeParse({ ...draft, ...invalid }).success).toBe(false);
   });
 
-  it("requires versioned draft changes and forbids code or hierarchy reassignment", () => {
+  it("accepts versioned section edits while protecting code, company and derived category", () => {
     expect(updateFinanceNominalRequestSchema.safeParse({ name: "Payroll" }).success).toBe(false);
     expect(updateFinanceNominalRequestSchema.safeParse({ expected_version: 1 }).success).toBe(false);
     expect(updateFinanceNominalRequestSchema.safeParse({ expected_version: 1, description: null }).success).toBe(true);
     expect(updateFinanceNominalRequestSchema.safeParse({ expected_version: 1, name: "Payroll" }).success).toBe(true);
-    for (const key of ["code", "category_id", "section_id", "company_id"]) {
+    expect(
+      updateFinanceNominalRequestSchema.safeParse({ expected_version: 1, section_id: "section-two" }).success,
+    ).toBe(true);
+    expect(updateFinanceNominalRequestSchema.safeParse({ expected_version: 1, section_id: "" }).success).toBe(false);
+    for (const key of ["code", "category_id", "company_id", "type"]) {
       expect(updateFinanceNominalRequestSchema.safeParse({ expected_version: 1, [key]: "changed" }).success).toBe(
         false,
       );
@@ -171,8 +240,9 @@ describe("Finance Nominal contracts", () => {
         effective_date: "2026-10-22",
       }),
     ).toEqual({ source_currency: "EUR", rate: "305.800000000000000000", effective_date: "2026-10-22" });
-    expect(correctCurrencyRateRequestSchema.safeParse({ expected_version: 1, rate: "0", reason: "Bad quote" }).success)
-      .toBe(false);
+    expect(
+      correctCurrencyRateRequestSchema.safeParse({ expected_version: 1, rate: "0", reason: "Bad quote" }).success,
+    ).toBe(false);
   });
 
   it("requires a complete version-aware Transfer FX policy", () => {

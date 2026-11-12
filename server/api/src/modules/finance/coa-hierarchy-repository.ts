@@ -9,8 +9,92 @@ import {
 } from "@nexora/contracts";
 import type { FinanceNominalActorContext } from "./nominals/source-repository.js";
 import { isCoaSuperAdministrator, hasLiveCoaMasterAuthority } from "./coa-master-authority.js";
-import { changeCoaMaster, CoaMasterError } from "./coa-master-change.js";
-const projection = "select id,company_id,code,name,type,parent_id,status,coa_version::integer as version from account";
+import { CoaMasterError } from "./coa-master-change.js";
+import { changeHierarchyMaster, hierarchyAction } from "./coa-hierarchy-workflow.js";
+import { ApprovalOverrideWriterError } from "../security/approval-override-writer.js";
+const projection = (actorParameter: "$4" | "$5") => `select a.id,a.company_id,a.code,a.name,a.type,a.parent_id,a.status,
+ coalesce((select w.state from finance_coa_hierarchy_workflow w where w.tenant_id=a.tenant_id and w.account_id=a.id order by w.record_version desc limit 1),a.status) as state,
+ exists(select 1 from finance_coa_hierarchy_workflow w where w.tenant_id=a.tenant_id and w.account_id=a.id and w.action in ('created','submitted') and w.actor_id=${actorParameter}) as self_decision_requires_override,
+ a.coa_version::integer as version,
+ case when a.parent_id is null then (
+   select count(*)::integer from account section
+   where section.tenant_id=a.tenant_id and section.company_id=a.company_id
+     and section.parent_id=a.id and section.is_header
+ ) else 0 end as section_count,
+ case when a.parent_id is null then (
+   select count(*)::integer from account nominal
+   join account section on section.tenant_id=nominal.tenant_id
+     and section.company_id=nominal.company_id and section.id=nominal.parent_id
+   where nominal.tenant_id=a.tenant_id and nominal.company_id=a.company_id
+     and not nominal.is_header and section.parent_id=a.id and section.is_header
+ ) else (
+   select count(*)::integer from account nominal
+   where nominal.tenant_id=a.tenant_id and nominal.company_id=a.company_id
+     and nominal.parent_id=a.id and not nominal.is_header
+ ) end as nominal_count
+ from account a`;
+
+const sectionCodeBands = {
+  liability: [1000, 1999],
+  asset: [2000, 2999],
+  equity: [3000, 3999],
+  revenue: [4000, 4999],
+  expense: [5000, 7999],
+} as const satisfies Record<CreateFinanceHierarchyRequest["type"], readonly [number, number]>;
+
+async function allocateCategoryCode(c: PoolClient, tenantId: string, companyId: string) {
+  await c.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+    `nexora:coa-category-code:${tenantId}:${companyId}`,
+  ]);
+  const result = await c.query<{ max_value: string }>(
+    `select coalesce(max((substring(code from '^CAT-([0-9]+)$'))::numeric),0)::text as max_value
+     from account
+     where tenant_id=$1 and company_id=$2 and parent_id is null and is_header and code ~ '^CAT-[0-9]+$'`,
+    [tenantId, companyId],
+  );
+  const next = BigInt(result.rows[0]?.max_value ?? "0") + 1n;
+  const code = `CAT-${next.toString().padStart(3, "0")}`;
+  if (code.length > 128)
+    throw new CoaMasterError(409, "COA_CATEGORY_CODE_EXHAUSTED", "The Category code sequence is exhausted.");
+  return code;
+}
+
+async function allocateSectionCode(
+  c: PoolClient,
+  tenantId: string,
+  companyId: string,
+  type: CreateFinanceHierarchyRequest["type"],
+) {
+  const [first, last] = sectionCodeBands[type];
+  await lockSectionCodeAllocation(c, tenantId, companyId, type);
+  const result = await c.query<{ max_code: number | null }>(
+    `select max(code::integer)::integer as max_code
+     from account
+     where tenant_id=$1 and company_id=$2 and parent_id is not null and is_header and type=$3
+       and code ~ '^[0-9]{4}$' and code::integer between $4 and $5`,
+    [tenantId, companyId, type, first, last],
+  );
+  const next = result.rows[0]?.max_code == null ? first + 1 : result.rows[0].max_code + 1;
+  if (next > last)
+    throw new CoaMasterError(
+      409,
+      "COA_SECTION_CODE_EXHAUSTED",
+      `No automatic ${type} Section codes remain in the ${first}-${last} band.`,
+    );
+  return String(next).padStart(4, "0");
+}
+
+async function lockSectionCodeAllocation(
+  c: PoolClient,
+  tenantId: string,
+  companyId: string,
+  type: CreateFinanceHierarchyRequest["type"],
+) {
+  await c.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+    `nexora:coa-section-code:${tenantId}:${companyId}:${type}`,
+  ]);
+}
+
 export class SourceCoaHierarchyRepository {
   constructor(private readonly pool: Pool) {}
   private async run<T>(
@@ -53,6 +137,8 @@ export class SourceCoaHierarchyRepository {
     } catch (e) {
       await c.query("rollback");
       if (e instanceof CoaMasterError) throw e;
+      if (e instanceof ApprovalOverrideWriterError)
+        throw new CoaMasterError(403, e.code, "Live approval override authority is required for this decision.");
       if (
         e &&
         typeof e === "object" &&
@@ -63,6 +149,7 @@ export class SourceCoaHierarchyRepository {
           409,
           "COA_HIERARCHY_CONFLICT",
           "Hierarchy dependencies, identity, duplicates or concurrent changes prevent this operation.",
+          { cause: e },
         );
       throw e;
     } finally {
@@ -92,8 +179,8 @@ export class SourceCoaHierarchyRepository {
         }
       }
       const r = await c.query(
-        `${projection} where tenant_id=$1 and company_id=$2 and is_header and id>$3 order by id limit $4`,
-        [ctx.tenantId, q.company_id, last, q.limit + 1],
+        `${projection("$5")} where a.tenant_id=$1 and a.company_id=$2 and a.is_header and a.id>$3 order by a.id limit $4`,
+        [ctx.tenantId, q.company_id, last, q.limit + 1, ctx.actor.userId],
       );
       const items = r.rows.slice(0, q.limit).map((v) => financeHierarchyItemSchema.parse(v));
       return {
@@ -120,7 +207,13 @@ export class SourceCoaHierarchyRepository {
         ? "finance.nominal.create"
         : "name" in input
           ? "finance.nominal.update"
-          : "finance.nominal.status";
+          : input.action === "submit"
+            ? "finance.nominal.submit"
+            : input.action === "approve" || input.action === "reject"
+              ? "finance.nominal.approve"
+              : "finance.nominal.status";
+    if (create && input.company_id !== company)
+      throw new CoaMasterError(400, "COA_COMPANY_MISMATCH", "The requested company does not match the record.");
     return this.run(ctx, company, permission, async (c) => {
       if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,254}$/.test(key))
         throw new CoaMasterError(400, "INVALID_IDEMPOTENCY_KEY", "A request key is required.");
@@ -170,17 +263,15 @@ export class SourceCoaHierarchyRepository {
         )
           throw new CoaMasterError(409, "NOMINAL_DUPLICATE", "This hierarchy name already exists.");
         accountId = `coa-header-${randomUUID()}`;
-        const code = input.code ?? `CAT-${randomUUID().slice(0, 12)}`;
+        if (input.parent_id && input.code) await lockSectionCodeAllocation(c, ctx.tenantId, company, input.type);
+        const code = input.parent_id
+          ? (input.code ?? (await allocateSectionCode(c, ctx.tenantId, company, input.type)))
+          : await allocateCategoryCode(c, ctx.tenantId, company);
         await c.query(
-          "insert into account(tenant_id,company_id,id,code,name,type,parent_id,is_header,status,manual_posting_allowed,created_at) values($1,$2,$3,$4,$5,$6,$7,true,'active',false,clock_timestamp())",
+          "insert into account(tenant_id,company_id,id,code,name,type,parent_id,is_header,status,manual_posting_allowed,created_at) values($1,$2,$3,$4,$5,$6,$7,true,'inactive',false,clock_timestamp())",
           [ctx.tenantId, company, accountId, code, input.name, input.type, input.parent_id ?? null],
         );
-        if (input.parent_id)
-          await c.query(
-            "insert into finance_general_nominal_policy(tenant_id,company_id,section_id,category_id,prefix,code_width,next_value,last_value) values($1,$2,$3,$4,$5,2,1,99)",
-            [ctx.tenantId, company, accountId, input.parent_id, code],
-          );
-        await changeCoaMaster(c, ctx, accountId, "created", 1, correlation);
+        await changeHierarchyMaster(c, ctx, accountId, "created", 1, correlation, {}, { idempotencyKey: key });
       } else {
         if (
           !(
@@ -192,22 +283,24 @@ export class SourceCoaHierarchyRepository {
           ).rowCount
         )
           throw new CoaMasterError(404, "COA_MASTER_NOT_FOUND", "The company hierarchy master was not found.");
-        await changeCoaMaster(
+        await changeHierarchyMaster(
           c,
           ctx,
           id!,
-          input.action === "activate" ? "activated" : input.action === "deactivate" ? "deactivated" : "updated",
+          hierarchyAction(input.action),
           input.expected_version,
           correlation,
           input.name ? { name: input.name } : {},
+          { idempotencyKey: key, ...(input.reason ? { reason: input.reason } : {}) },
         );
       }
       const item = financeHierarchyItemSchema.parse(
         (
-          await c.query(`${projection} where tenant_id=$1 and company_id=$2 and id=$3`, [
+          await c.query(`${projection("$4")} where a.tenant_id=$1 and a.company_id=$2 and a.id=$3`, [
             ctx.tenantId,
             company,
             accountId,
+            ctx.actor.userId,
           ])
         ).rows[0],
       );

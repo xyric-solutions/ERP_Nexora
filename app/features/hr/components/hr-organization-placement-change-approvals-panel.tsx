@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 import { HrPagination, matchesSearch, useHrPage } from "./hr-list-controls";
 import { HrDrawerActions } from "./hr-drawer-context";
 import { HrRecordDrawer } from "./hr-record-drawer";
@@ -204,7 +205,7 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
       )}
       {!loading && !loadError && queue.length > 0 && (
         <div className="relative min-w-0 overflow-x-auto rounded-md border border-border">
-          <table className="w-full min-w-160 text-left text-sm">
+          <WorkTable paging={false} tableId="app/features/hr/components/hr-organization-placement-change-approvals-panel:1" className="w-full min-w-160 text-left text-sm">
             <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3">Employee</th>
@@ -239,7 +240,7 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
                 </tr>
               )}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       )}
       {!loading && !loadError && queue.length > 0 && (

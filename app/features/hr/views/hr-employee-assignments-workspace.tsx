@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -178,7 +179,7 @@ export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialE
       {employeeId && assignmentState === "ready" && (
         <>
           <div className="min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
-            <table className="w-full text-left text-sm">
+            <WorkTable tableId="app/features/hr/views/hr-employee-assignments-workspace:1" className="w-full text-left text-sm">
               <thead className="border-b border-border bg-muted/60 font-semibold">
                 <tr>
                   <th className="px-4 py-3">Effective period</th>
@@ -219,7 +220,7 @@ export function HrEmployeeAssignmentsWorkspace({ initialEmployeeId }: { initialE
                   </tr>
                 )}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           <div className="flex min-w-0 flex-wrap gap-2">
             <HrHireMakerPanel

@@ -1,4 +1,12 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useSession } from "@/lib/session/session-provider";
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import {
@@ -12,12 +20,7 @@ import {
 import { Check } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
-import { useSession } from "@/lib/session/session-provider";
 import { SearchableSelect } from "@/shared/ui/searchable-select";
 
 import { HrApiClient } from "../api/hr-client";
@@ -286,7 +289,7 @@ function LifecycleCaseForm({
   const dateLabel = kind === "onboarding" ? "Due date" : kind === "probation" ? "Review date" : "Last working day";
 
   return (
-    <form
+    <WorkForm
       className="grid min-w-0 gap-4"
       aria-label={`${singular[section]} form`}
       onSubmit={(event) => {
@@ -453,7 +456,7 @@ function LifecycleCaseForm({
           {busy ? "Saving…" : initial ? "Save changes" : "Save draft"}
         </Button>
       </HrDrawerActions>
-    </form>
+    </WorkForm>
   );
 }
 
@@ -704,7 +707,7 @@ export function HrLifecycleCasesWorkspace({
       {w ? (
         <>
           <div className="min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
-            <table className="w-full text-left text-sm">
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-lifecycle-cases-workspace:2" className="w-full text-left text-sm">
               <caption className="sr-only">{singular[section]} cases</caption>
               <thead className="border-b border-border bg-muted/60">
                 <tr>
@@ -779,7 +782,7 @@ export function HrLifecycleCasesWorkspace({
                   </tr>
                 ) : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           {w.total > PAGE_SIZE ? (
             <nav
@@ -863,7 +866,7 @@ export function HrLifecycleCasesWorkspace({
             <div className="grid min-w-0 gap-4">
               <CaseDetail record={record} w={w} />
               {decision ? (
-                <form
+                <WorkForm
                   className="grid min-w-0 gap-3"
                   aria-label={decisionLabels[decision]}
                   onSubmit={(event) => {
@@ -894,7 +897,7 @@ export function HrLifecycleCasesWorkspace({
                       {busy ? "Saving…" : decisionLabels[decision]}
                     </Button>
                   </HrDrawerActions>
-                </form>
+                </WorkForm>
               ) : (
                 <HrDrawerActions>
                   {allowsCancel ? (

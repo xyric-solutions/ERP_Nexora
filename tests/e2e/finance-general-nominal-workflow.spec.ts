@@ -37,6 +37,7 @@ test("creates an ordinary nominal, approves it, and saves a Bank Payment using i
   const nominal = await response.json();
   expect(nominal.bank_account_id).toBeNull();
   await expect(page).toHaveURL(/finance\/nominal-detail\/nominal-/);
+  const detailUrl = page.url();
   await page.getByRole("button", { name: "Approve", exact: true }).click();
   const approval = page.getByRole("dialog");
   await expect(approval.getByRole("textbox")).toHaveCount(0);
@@ -46,6 +47,8 @@ test("creates an ordinary nominal, approves it, and saves a Bank Payment using i
       .getByRole("region", { name: "Action notifications" })
       .getByText("Nominal account approved successfully.", { exact: true }),
   ).toBeVisible();
+  await expect(page).toHaveURL(/finance\/nominals$/);
+  await page.goto(detailUrl);
   await page.reload();
   await expect(page.getByText(nominal.code + " · " + name, { exact: true })).toBeVisible();
   await page.goto("/#/banking/add-bank-payment");

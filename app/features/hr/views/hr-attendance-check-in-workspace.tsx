@@ -1,4 +1,5 @@
 "use client";
+import { WorkForm } from "@/shared/ui/work-form";
 import { useEffect, useRef, useState } from "react";
 import type { HrAttendanceRecord, HrAttendanceWorkMode, HrSelfAttendance } from "@nexora/contracts";
 import { saveHrSelfAttendanceDaySchema } from "@nexora/contracts";
@@ -263,7 +264,7 @@ export function HrAttendanceCheckInWorkspace() {
         <Skeleton className="h-96 w-full" />
       ) : data && head ? (
         <>
-          <form
+          <WorkForm
             className="grid gap-4 rounded-xl border border-border bg-muted/30 p-4 sm:p-5"
             aria-label="Today's attendance"
             onSubmit={(e) => {
@@ -396,7 +397,7 @@ export function HrAttendanceCheckInWorkspace() {
                 {busy ? "Saving…" : "Save"}
               </Button>
             </div>
-          </form>
+          </WorkForm>
           <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
             <AttendanceRecordTable records={data.records} range={`${data.from} to ${data.to}`} />
           </div>

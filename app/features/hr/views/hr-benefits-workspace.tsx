@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -204,7 +206,7 @@ function LoanForm({
   }
 
   return (
-    <form
+    <WorkForm
       className="grid min-w-0 gap-4"
       aria-label={`${editing ? "Edit" : "New"} ${label[kind].one.toLowerCase()}`}
       onSubmit={submit}
@@ -310,7 +312,7 @@ function LoanForm({
           {busy ? "Saving…" : editing ? "Save changes" : "Save draft"}
         </Button>
       </HrDrawerActions>
-    </form>
+    </WorkForm>
   );
 }
 
@@ -487,7 +489,7 @@ function LoanDetail({
       <HrDetailAudit items={[{ label: "Version", value: String(record.version) }]} />
 
       {decision ? (
-        <form
+        <WorkForm
           className="grid min-w-0 gap-3"
           aria-label={decisionLabel[decision]}
           onSubmit={(event) => {
@@ -562,7 +564,7 @@ function LoanDetail({
               {busy ? "Saving…" : decisionLabel[decision]}
             </Button>
           </HrDrawerActions>
-        </form>
+        </WorkForm>
       ) : (
         <HrDrawerActions>
           {canDelete ? (
@@ -707,7 +709,7 @@ function LoanRegister({ kind, onNavigate }: { kind: LoanKind; onNavigate: Naviga
       {result.data ? (
         <>
           <div className="min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
-            <table className="w-full text-left text-sm">
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-benefits-workspace:1" className="w-full text-left text-sm">
               <caption className="sr-only">{label[kind].many}</caption>
               <thead className="border-b border-border bg-muted/60">
                 <tr>
@@ -758,7 +760,7 @@ function LoanRegister({ kind, onNavigate }: { kind: LoanKind; onNavigate: Naviga
                   </tr>
                 ) : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           {total > PAGE_SIZE ? (
             <nav

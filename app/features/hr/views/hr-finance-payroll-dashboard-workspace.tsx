@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -135,7 +136,7 @@ export function HrFinancePayrollDashboardWorkspace({ onNavigate }: { onNavigate:
               {sample ? <HrStatusPill status="sample" tone="info" label="Sample data" /> : null}
             </header>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-200 text-left text-sm">
+              <WorkTable tableId="app/features/hr/views/hr-finance-payroll-dashboard-workspace:1" className="w-full min-w-200 text-left text-sm">
                 <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 sm:pl-5">Period</th>
@@ -195,7 +196,7 @@ export function HrFinancePayrollDashboardWorkspace({ onNavigate }: { onNavigate:
                     </tr>
                   ) : null}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           </article>
           <p className="m-0! text-right text-xs text-muted-foreground">

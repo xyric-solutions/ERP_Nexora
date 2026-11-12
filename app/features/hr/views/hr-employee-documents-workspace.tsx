@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -152,7 +153,7 @@ export function HrEmployeeDocumentsWorkspace({ initialEmployeeId }: { initialEmp
       )}
       {employeeId && documentState === "ready" && (
         <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-          <table className="w-full min-w-190 text-left text-sm">
+          <WorkTable tableId="app/features/hr/views/hr-employee-documents-workspace:1" className="w-full min-w-190 text-left text-sm">
             <thead className="border-b bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3">Document</th>
@@ -190,7 +191,7 @@ export function HrEmployeeDocumentsWorkspace({ initialEmployeeId }: { initialEmp
                 </tr>
               )}
             </tbody>
-          </table>
+          </WorkTable>
         </div>
       )}
     </section>

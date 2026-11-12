@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 /**
  * Interactive bank reconciliation and statement-matching workspace for the
@@ -259,7 +260,7 @@ export function BankingReconciliation({
         <div className="min-w-0 overflow-hidden rounded-md border border-border bg-card shadow-xs">
           <header className="flex justify-between gap-3 border-b border-border bg-muted px-4 py-3 [&_span]:text-xs [&_span]:font-bold [&_span]:uppercase [&_span]:tracking-wider [&_span]:text-muted-foreground [&_h2]:mb-0 [&_h2]:mt-1 [&_h2]:text-sm [&_h2]:font-bold [&>small]:max-w-70 [&>small]:text-right [&>small]:text-xs [&>small]:text-muted-foreground"><div><span>Imported bank statement</span><h2>{tab === "Review" ? "Lines requiring review" : tab}</h2></div><small>Select a line to inspect its best ledger candidates.</small></header>
           <div className="nx-table-wrap">
-            <table className="nx-data-table">
+            <WorkTable tableId="app/features/banking/views/banking-reconciliation:1" className="nx-data-table">
               <thead><tr><th>Date</th><th>Bank reference</th><th>Narrative</th><th className="amount">Amount</th><th>Match</th></tr></thead>
               <tbody>
                 {visibleLines.length === 0 ? (
@@ -274,7 +275,7 @@ export function BankingReconciliation({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         </div>
 

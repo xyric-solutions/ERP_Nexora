@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CreateHrJobGradeRequest, HrJobGradeDirectory } from "@nexora/contracts";
@@ -6,6 +7,7 @@ import type { CreateHrJobGradeRequest, HrJobGradeDirectory } from "@nexora/contr
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
@@ -182,13 +184,13 @@ export function HrJobGradesWorkspace() {
       {loading ? <Skeleton className="h-72 w-full" /> : (
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(38rem,1.5fr)_minmax(21rem,.8fr)]">
           <div className="overflow-x-auto rounded-lg border bg-card">
-            <table className="w-full text-sm">
+            <WorkTable tableId="app/features/hr/views/hr-job-grades-workspace:1" className="w-full text-sm">
               <thead className="border-b bg-muted/60"><tr><th className="px-4 py-3 text-left">Level</th><th className="px-4 py-3 text-left">Code</th><th className="px-4 py-3 text-left">Job grade</th><th className="px-4 py-3 text-left">Compensation band</th><th className="px-4 py-3 text-left">Status</th></tr></thead>
               <tbody>
                 {filtered.map((record) => <tr className={`cursor-pointer border-b last:border-0 ${selectedId === record.id ? "bg-accent" : ""}`} key={record.id} onClick={() => { setSelectedId(record.id); setEditor(null); }}><td className="px-4 py-3 font-semibold">{record.grade_level}</td><td className="px-4 py-3">{record.code}</td><td className="px-4 py-3">{record.name}</td><td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{record.band_minimum === null ? "Not configured" : `${amount(record.band_minimum, record.currency_code)} – ${amount(record.band_maximum, record.currency_code)}`}</td><td className="px-4 py-3"><span className={`nx-status nx-status-${record.status}`}>{record.status}</span></td></tr>)}
                 {filtered.length === 0 ? <tr><td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>No job grades are configured for this company.</td></tr> : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           {editor ? (
             <aside className="grid gap-3 rounded-lg border bg-card p-4">
@@ -197,7 +199,7 @@ export function HrJobGradesWorkspace() {
               <label className="grid content-start gap-1 text-sm">Name<Input maxLength={160} value={editor.name} onChange={(event) => setEditor({ ...editor, name: event.target.value })} /></label>
               <label className="grid content-start gap-1 text-sm">Description<textarea className="min-h-20 rounded-md border border-input bg-background p-2" maxLength={1000} value={editor.description} onChange={(event) => setEditor({ ...editor, description: event.target.value })} /></label>
               <label className="grid content-start gap-1 text-sm">Currency<Input maxLength={3} value={editor.currencyCode} onChange={(event) => setEditor({ ...editor, currencyCode: event.target.value.toUpperCase() })} /></label>
-              <fieldset className="grid gap-2 rounded-md border p-3"><legend className="px-1 text-sm font-medium">Optional compensation band</legend><label className="grid content-start gap-1 text-sm">Minimum<Input inputMode="decimal" value={editor.bandMinimum} onChange={(event) => setEditor({ ...editor, bandMinimum: event.target.value })} /></label><label className="grid content-start gap-1 text-sm">Midpoint<Input inputMode="decimal" value={editor.bandMidpoint} onChange={(event) => setEditor({ ...editor, bandMidpoint: event.target.value })} /></label><label className="grid content-start gap-1 text-sm">Maximum<Input inputMode="decimal" value={editor.bandMaximum} onChange={(event) => setEditor({ ...editor, bandMaximum: event.target.value })} /></label></fieldset>
+              <fieldset className="grid gap-2 rounded-md border p-3"><legend className="px-1 text-sm font-medium">Optional compensation band</legend><label className="grid content-start gap-1 text-sm">Minimum<AmountInput decimals={4} value={editor.bandMinimum} onValueChange={(raw) => setEditor({ ...editor, bandMinimum: raw })} /></label><label className="grid content-start gap-1 text-sm">Midpoint<AmountInput decimals={4} value={editor.bandMidpoint} onValueChange={(raw) => setEditor({ ...editor, bandMidpoint: raw })} /></label><label className="grid content-start gap-1 text-sm">Maximum<AmountInput decimals={4} value={editor.bandMaximum} onValueChange={(raw) => setEditor({ ...editor, bandMaximum: raw })} /></label></fieldset>
               <div className="flex gap-2"><Button disabled={saving} onClick={() => void save()}>{saving ? "Saving..." : "Save"}</Button><Button variant="outline" onClick={() => setEditor(null)}>Cancel</Button></div>
             </aside>
           ) : selected ? (

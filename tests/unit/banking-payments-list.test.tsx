@@ -86,10 +86,8 @@ async function render(onOpenPayment = vi.fn(), onCreatePayment: (() => void) | u
 }
 
 function control<T extends HTMLInputElement | HTMLSelectElement>(label: string): T {
-  const field = [...container.querySelectorAll("label")].find((item) =>
-    item.querySelector("span")?.textContent?.includes(label),
-  );
-  const result = field?.querySelector("input, select");
+  const field = [...container.querySelectorAll("label")].find((item) => item.textContent?.trim() === label);
+  const result = field?.control ?? field?.querySelector("input, select");
   if (!result) throw new Error(`Missing control: ${label}`);
   return result as T;
 }
@@ -103,7 +101,7 @@ async function change(element: HTMLInputElement | HTMLSelectElement, value: stri
 }
 
 async function click(label: string) {
-  const button = [...container.querySelectorAll("button")].find((item) => item.textContent?.trim() === label);
+  const button = [...container.querySelectorAll("button")].find((item) => item.textContent?.trim() === label || item.getAttribute("aria-label") === label);
   if (!button) throw new Error(`Missing button: ${label}`);
   await act(async () => button.click());
   await settle();
@@ -157,8 +155,8 @@ describe("BankingPayments", () => {
     expect(container.textContent).toContain("USD");
     expect(container.textContent).toContain("Approved");
     expect(container.querySelector("caption")?.textContent).toContain("Persisted bank payments");
-    expect(container.textContent).toContain("Export is disabled because no governed payment export endpoint");
-    expect(container.querySelector<HTMLButtonElement>("button[disabled]")?.textContent).toContain("Export unavailable");
+    expect(container.textContent).not.toContain("Export unavailable");
+    expect(container.textContent).not.toContain("Review persisted payment instructions");
 
     await click("BP-2026-0001");
     expect(onOpenPayment).toHaveBeenCalledWith("payment-id-1");
@@ -200,7 +198,7 @@ describe("BankingPayments", () => {
     expect(filtered).toContain("sort_by=total_amount");
     expect(filtered).toContain("sort_direction=asc");
 
-    await click("Load more");
+    await click("Next page");
     expect(state.api.listBankPayments.mock.calls.at(-1)?.[0]).toContain("cursor=cursor-2");
   });
 

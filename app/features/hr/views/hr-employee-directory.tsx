@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
 
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 
@@ -135,7 +137,7 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
   return (
     <section className="grid min-w-0 gap-4" aria-label="Employee directory">
       <div className="flex flex-wrap items-end justify-between gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
-        <form
+        <WorkForm
           className="flex min-w-0 flex-1 flex-wrap items-end gap-2 sm:min-w-65"
           onSubmit={(event) => {
             event.preventDefault();
@@ -167,7 +169,7 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
           >
             Clear
           </Button>
-        </form>
+        </WorkForm>
       </div>
 
       {notice ? (
@@ -202,7 +204,7 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
 
       {directoryState === "ready" ? (
         <div className="relative overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-          <table className="w-full min-w-160 border-collapse text-left text-sm">
+          <WorkTable tableId="app/features/hr/views/hr-employee-directory:1" className="w-full min-w-160 border-collapse text-left text-sm">
             <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3">Employee</th>
@@ -248,7 +250,7 @@ export function HrEmployeeDirectory({ onNavigate }: { onNavigate: Navigate }) {
                 </tr>
               ) : null}
             </tbody>
-          </table>
+          </WorkTable>
           <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
             Live, permission-scoped HR directory · showing up to 50 records
           </p>

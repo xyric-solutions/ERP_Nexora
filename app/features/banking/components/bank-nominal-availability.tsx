@@ -22,8 +22,22 @@ export function BankNominalAvailability({
   const noEligible = availability ? availability.eligible_count === 0 : empty && !search.trim();
   const noMatches = !!search.trim() && (availability ? availability.matching_count === 0 : empty);
   if (!noEligible && !noMatches && !availability?.has_more) return null;
+  if (!noEligible && !noMatches) {
+    return (
+      <div
+        role="status"
+        aria-label="Nominal account availability"
+        className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border px-4 py-2 text-xs text-muted-foreground"
+      >
+        <p className="m-0">More nominal accounts available. Search by account code or name to find another account.</p>
+        <Button type="button" variant="ghost" size="sm" onClick={onRefresh}>
+          Refresh nominal accounts
+        </Button>
+      </div>
+    );
+  }
   return (
-    <Alert role="status" aria-label="Nominal account availability">
+    <Alert role="status" aria-label="Nominal account availability" className="rounded-none border-x-0 border-t-0 px-4">
       <AlertTitle>
         {noEligible
           ? "No eligible nominal accounts"
@@ -31,7 +45,7 @@ export function BankNominalAvailability({
             ? "No matching nominal accounts"
             : "More nominal accounts available"}
       </AlertTitle>
-      <AlertDescription className="flex flex-col gap-2">
+      <AlertDescription className="flex flex-col gap-2 text-xs [&_p]:m-0!">
         {noEligible ? (
           <>
             <p>

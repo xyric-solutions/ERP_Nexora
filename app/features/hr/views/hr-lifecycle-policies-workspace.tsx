@@ -1,4 +1,7 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -311,7 +314,7 @@ export function HrLifecyclePoliciesWorkspace() {
       {state === "ready" && companyId ? (
         <>
           <div className="min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
-            <table className="w-full table-fixed text-left text-sm">
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-lifecycle-policies-workspace:1" className="w-full table-fixed text-left text-sm">
               <caption className="sr-only">Lifecycle policies</caption>
               <thead className="border-b border-border bg-muted/60">
                 <tr>
@@ -358,7 +361,7 @@ export function HrLifecyclePoliciesWorkspace() {
                   </tr>
                 ) : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
           <HrPagination
             label="Lifecycle policy pages"
@@ -378,7 +381,7 @@ export function HrLifecyclePoliciesWorkspace() {
         error={editor ? error : undefined}
         onClose={() => setEditor(null)}
       >
-        <form
+        <WorkForm
           className="grid min-w-0 gap-4"
           onSubmit={(event) => {
             event.preventDefault();
@@ -424,7 +427,7 @@ export function HrLifecyclePoliciesWorkspace() {
               {busy ? "Saving…" : editor === "new" ? "Create policy" : "Save changes"}
             </Button>
           </HrDrawerActions>
-        </form>
+        </WorkForm>
       </HrRecordDrawer>
 
       <HrRecordDrawer
@@ -471,7 +474,7 @@ export function HrLifecyclePoliciesWorkspace() {
             ) : null}
             <HrDetailAudit items={[{ label: "Created", value: hrDisplayDate(opened.effective_from) }]} />
             {decision ? (
-              <form
+              <WorkForm
                 className="grid min-w-0 gap-3"
                 aria-label={decisionLabel[decision]}
                 onSubmit={(event) => {
@@ -501,7 +504,7 @@ export function HrLifecyclePoliciesWorkspace() {
                     {busy ? "Saving…" : decisionLabel[decision]}
                   </Button>
                 </HrDrawerActions>
-              </form>
+              </WorkForm>
             ) : (
               <HrDrawerActions>
                 {canManage ? (

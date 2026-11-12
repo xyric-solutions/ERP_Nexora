@@ -1,4 +1,5 @@
 "use client";
+import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CreateHrJobGradeRequest, HrJobGradeCurrency, HrJobGradeDirectory } from "@nexora/contracts";
@@ -6,6 +7,7 @@ import type { CreateHrJobGradeRequest, HrJobGradeCurrency, HrJobGradeDirectory }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/shared/ui/amount-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
@@ -340,7 +342,7 @@ export function HrJobGradesSheetWorkspace() {
       ) : (
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="overflow-x-auto">
-            <table className="min-w-225 w-full text-sm">
+            <WorkTable tableId="app/features/hr/views/hr-job-grades-sheet-workspace:1" className="min-w-225 w-full text-sm">
               <thead className="border-b border-border bg-muted/60">
                 <tr>
                   <th className="px-4 py-3 text-left">Level</th>
@@ -392,7 +394,7 @@ export function HrJobGradesSheetWorkspace() {
                   </tr>
                 ) : null}
               </tbody>
-            </table>
+            </WorkTable>
           </div>
         </div>
       )}
@@ -605,7 +607,7 @@ function Money({ label, value, set }: { label: string; value: string; set: (valu
   return (
     <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={id}>
       {label}
-      <Input id={id} inputMode="decimal" value={value} onChange={(event) => set(event.target.value)} />
+      <AmountInput id={id} decimals={4} value={value} onValueChange={(raw) => set(raw)} />
     </label>
   );
 }

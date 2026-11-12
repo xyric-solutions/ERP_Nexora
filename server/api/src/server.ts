@@ -1,3 +1,4 @@
+import { SourceInventoryRepository } from "./modules/inventory/source-repository.js";
 import { createServer } from "node:http";
 
 import { Redis } from "ioredis";
@@ -37,11 +38,14 @@ import { SourceFinanceJournalRepository } from "./modules/finance/journals/sourc
 import { SourceCoaHierarchyRepository } from "./modules/finance/coa-hierarchy-repository.js";
 import { SourceChartTemplateRepository } from "./modules/finance/templates/source-repository.js";
 import { SourceReferenceMasterRepository } from "./modules/master-data/source-repository.js";
+import { SourceProcurementRepository } from "./modules/procurement/source-repository.js";
+import { SupplierProfileCrypto } from "./modules/procurement/supplier-profile-crypto.js";
 import { SourceFiscalCalendarRepository } from "./modules/master-data/fiscal-calendars/source-repository.js";
 import { SourceFinancePeriodRepository } from "./modules/finance/periods/source-repository.js";
 import { SourceBankSelfApprovalRepository } from "./modules/security/bank-self-approval-repository.js";
 import { SourceSecurityAdministrationRepository } from "./modules/security/source-administration-repository.js";
 import { SourceHrRepository } from "./modules/hr/source-repository.js";
+import { createHrFoundationReadiness } from "./modules/hr/readiness.js";
 
 const config = loadConfig();
 const logger = createLogger();
@@ -125,9 +129,20 @@ const app = createApp({
   financePeriodRepository: new SourceFinancePeriodRepository(pool),
   chartTemplateRepository: new SourceChartTemplateRepository(pool),
   referenceMasterRepository: new SourceReferenceMasterRepository(pool),
+  procurementRepository: new SourceProcurementRepository(
+    pool,
+    new SupplierProfileCrypto(config.bankingDataEncryptionKey, config.bankingDataEncryptionKeyVersion),
+  ),
+  inventoryRepository: new SourceInventoryRepository(pool),
   bankSelfApprovalRepository: new SourceBankSelfApprovalRepository(pool),
   hrRepository: new SourceHrRepository(pool, "production", objectStorage),
   readiness: {
+    inventory_foundation: async () => {
+      const result = await pool.query<{ available: boolean }>(
+        "select to_regclass('public.inventory_product') is not null and to_regclass('public.inventory_warehouse') is not null and to_regclass('public.inventory_transfer') is not null and to_regclass('public.inventory_transfer_line') is not null and to_regclass('public.inventory_operation_change') is not null and exists(select 1 from nexora_schema_migration where module_name='inventory' and version=2) as available",
+      );
+      if (!result.rows[0]?.available) throw new Error("Inventory product migrations are required");
+    },
     master_data_foundation: async () => {
       const result = await pool.query<{ available: boolean }>(
         `select to_regclass('public.erp_project') is not null
@@ -145,12 +160,7 @@ const app = createApp({
       await redis.ping();
     },
     object_storage: () => objectStorage.checkReady(),
-    hr_foundation: async () => {
-      const result = await pool.query<{ available: boolean }>(
-        "select to_regclass('public.employee') is not null and to_regclass('public.hr_master_record') is not null and to_regclass('public.hr_employee_draft_scope') is not null as available",
-      );
-      if (!result.rows[0]?.available) throw new Error("The current HR foundation migration is required");
-    },
+    hr_foundation: createHrFoundationReadiness(pool),
     banking_foundation: createBankingFoundationReadiness(pool),
   },
 });

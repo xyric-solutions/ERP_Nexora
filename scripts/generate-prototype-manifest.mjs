@@ -71,7 +71,14 @@ export function buildManifest() {
       groups: module.groups.map((group) => ({
         id: group.id,
         label: group.label,
-        pages: group.pages.map((page) => ({ ...page })),
+        ...(group.hiddenFromNavigation ? { hiddenFromNavigation: true } : {}),
+        pages: group.pages.map((page) => ({
+          id: page.id,
+          label: page.label,
+          archetype: page.archetype,
+          status: page.status,
+          ...(page.hiddenFromNavigation ? { hiddenFromNavigation: true } : {}),
+        })),
       })),
     })),
   };

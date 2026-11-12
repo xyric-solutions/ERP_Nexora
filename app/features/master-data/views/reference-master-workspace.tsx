@@ -1,4 +1,6 @@
 "use client";
+import { WorkTable, WorkPagination } from "@/shared/ui/work-table";
+import { WorkForm, WorkFormLayout } from "@/shared/ui/work-form";
 import { inActiveCompany } from "@/lib/session/active-company";
 
 import { useEffect, useRef, useState } from "react";
@@ -9,6 +11,14 @@ import { ApiError } from "@/lib/api/generated";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
@@ -50,6 +60,7 @@ function Directory({ kind, onDirtyChange }: Props) {
   const [company, setCompany] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [workPageSize, setWorkPageSize] = useState(25);
   const [history, setHistory] = useState<string[]>([""]);
   const [page, setPage] = useState<ReferenceMasterDirectory>({ items: [], next_cursor: null });
   const [loading, setLoading] = useState(true);
@@ -89,7 +100,7 @@ function Directory({ kind, onDirtyChange }: Props) {
     const timer = setTimeout(() => {
       const query = new URLSearchParams({
         company_id: company,
-        limit: "50",
+        limit: String(workPageSize),
         ...(search ? { search } : {}),
         ...(status ? { status } : {}),
         ...(cursor ? { cursor } : {}),
@@ -110,7 +121,7 @@ function Directory({ kind, onDirtyChange }: Props) {
       active = false;
       clearTimeout(timer);
     };
-  }, [api, canRead, company, kind, search, status, cursor, refresh]);
+  }, [api, canRead, company, kind, search, status, cursor, refresh, workPageSize]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   function reset() {
     setPage({ items: [], next_cursor: null });
@@ -150,9 +161,6 @@ function Directory({ kind, onDirtyChange }: Props) {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle>{title}</CardTitle>
-              <CardDescription>
-                Company reporting master data · shared with Banking, separate from HR statutory locations
-              </CardDescription>
             </div>
             <Button
               disabled={!canManage || !company || selection !== null}
@@ -161,7 +169,7 @@ function Directory({ kind, onDirtyChange }: Props) {
                 setDetail(null);
               }}
             >
-              Add {kind === "projects" ? "Project" : "Location"}
+              Add new
             </Button>
           </div>
         </CardHeader>
@@ -217,7 +225,7 @@ function Directory({ kind, onDirtyChange }: Props) {
             </Notice>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <WorkTable paging={false} tableId="app/features/master-data/views/reference-master-workspace:1" className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b">
                     <th className="p-3">Code</th>
@@ -244,31 +252,16 @@ function Directory({ kind, onDirtyChange }: Props) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           )}
         </CardContent>
-        <CardFooter className="flex flex-wrap justify-between gap-3">
-          <span className="text-sm text-muted-foreground">
-            Page {history.length} · {page.items.length} records · PostgreSQL persisted
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={loading || history.length === 1}
-              onClick={() => {
+        <WorkPagination size={workPageSize} start={page.items.length ? (history.length - 1) * workPageSize + 1 : 0} end={(history.length - 1) * workPageSize + page.items.length} page={history.length - 1} total={page.next_cursor ? undefined : (history.length - 1) * workPageSize + page.items.length} hasMore={!!page.next_cursor} previous={history.length > 1} next={!!page.next_cursor} busy={loading} onPrevious={() => {
                 setPage({ items: [], next_cursor: null });
                 setLoading(true);
                 setError("");
                 setHistory((value) => value.slice(0, -1));
-              }}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              disabled={loading || !page.next_cursor}
-              onClick={() => {
+              }} onNext={() => {
                 const next = page.next_cursor;
                 if (next) {
                   setPage({ items: [], next_cursor: null });
@@ -276,12 +269,7 @@ function Directory({ kind, onDirtyChange }: Props) {
                   setError("");
                   setHistory((value) => [...value, next]);
                 }
-              }}
-            >
-              Next
-            </Button>
-          </div>
-        </CardFooter>
+              }} onSizeChange={(size) => { setWorkPageSize(size); setLoading(true); setPage({items: [], next_cursor: null}); setHistory([""]); }} />
       </Card>
       {selection !== null &&
         (detailLoading ? (
@@ -329,14 +317,14 @@ function ReferenceEditor({
   const { api, csrfToken } = useSession(),
     notify = useActionFeedback();
   const [editing, setEditing] = useState(!record),
-    [code, setCode] = useState(record?.code ?? ""),
     [name, setName] = useState(record?.name ?? "");
+  const nameInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [confirmStatus, setConfirmStatus] = useState(false);
   const retry = useRef<{ fingerprint: string; key: string } | null>(null);
   const locked = useRef(false);
-  const dirty = code !== (record?.code ?? "") || name !== (record?.name ?? "");
+  const dirty = name !== (record?.name ?? "");
   useEffect(() => {
     onDirtyChange?.(dirty);
     return () => onDirtyChange?.(false);
@@ -353,8 +341,8 @@ function ReferenceEditor({
   }, [dirty]);
   async function save(statusOnly = false) {
     if (!canManage || locked.current) return;
-    if (!statusOnly && !createReferenceMasterRequestSchema.safeParse({ company_id: company, code, name }).success) {
-      setError("Enter a valid code and name. Codes use letters, numbers, dots, underscores or hyphens.");
+    if (!statusOnly && !createReferenceMasterRequestSchema.safeParse({ company_id: company, name }).success) {
+      setError("Enter a name of up to 200 characters.");
       return;
     }
     const payload =
@@ -366,7 +354,7 @@ function ReferenceEditor({
           }
         : record
           ? { company_id: company, expected_version: record.version, name: name.trim() }
-          : { company_id: company, code: code.trim(), name: name.trim() };
+          : { company_id: company, name: name.trim() };
     const fingerprint = JSON.stringify({ kind, id: record?.id, statusOnly, payload });
     if (retry.current?.fingerprint !== fingerprint)
       retry.current = { fingerprint, key: `reference-${crypto.randomUUID()}` };
@@ -397,7 +385,7 @@ function ReferenceEditor({
       else
         await api.createReferenceMaster(
           kind,
-          { company_id: company, code: code.trim(), name: name.trim() },
+          { company_id: company, name: name.trim() },
           csrfToken(),
           retry.current.key,
         );
@@ -412,8 +400,63 @@ function ReferenceEditor({
       setBusy(false);
     }
   }
+  if (!record) {
+    return (
+      <WorkFormLayout><Dialog
+        open
+        onOpenChange={(open) => {
+          if (!open && !locked.current) onClose();
+        }}
+      >
+        <DialogContent initialFocus={nameInput} showCloseButton={!busy}>
+          <WorkForm
+            onSubmit={(event) => {
+              event.preventDefault();
+              void save();
+            }}
+            className="flex flex-col gap-4"
+          >
+            <DialogHeader>
+              <DialogTitle>{kind === "projects" ? "New Project" : "New Location / City"}</DialogTitle>
+              <DialogDescription>
+                Enter a name. A permanent {kind === "projects" ? "PRJ" : "LOC"} code is generated automatically when you
+                save.
+              </DialogDescription>
+            </DialogHeader>
+            {error && <Notice error>{error}</Notice>}
+            <fieldset disabled={busy} className="flex min-w-0 flex-col gap-3">
+              <legend className="sr-only">New reference fields</legend>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="reference-code">Code</Label>
+                <Input id="reference-code" readOnly value="Generated on save" tabIndex={-1} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="reference-name">Name</Label>
+                <Input
+                  ref={nameInput}
+                  id="reference-name"
+                  required
+                  maxLength={200}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </div>
+            </fieldset>
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={busy || !canManage || !name.trim()}>
+                {busy ? "Creating…" : kind === "projects" ? "Create Project" : "Create Location"}
+              </Button>
+            </DialogFooter>
+          </WorkForm>
+        </DialogContent>
+      </Dialog></WorkFormLayout>
+    );
+  }
   return (
-    <Card aria-label="Reference detail">
+    <WorkFormLayout><Card aria-label="Reference detail">
       <CardHeader>
         <CardTitle>
           {record
@@ -434,13 +477,7 @@ function ReferenceEditor({
           <legend className="sr-only">Reference fields</legend>
           <div className="flex flex-col gap-1">
             <Label htmlFor="reference-code">Code</Label>
-            <Input
-              id="reference-code"
-              value={code}
-              maxLength={64}
-              readOnly={!!record || !editing}
-              onChange={(event) => setCode(event.target.value)}
-            />
+            <Input id="reference-code" value={record.code} maxLength={64} readOnly />
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="reference-name">Name</Label>
@@ -471,7 +508,7 @@ function ReferenceEditor({
         </Button>
         {canManage &&
           (editing ? (
-            <Button disabled={busy || !name.trim() || !code.trim()} onClick={() => void save()}>
+            <Button disabled={busy || !name.trim()} onClick={() => void save()}>
               Save reference
             </Button>
           ) : (
@@ -489,6 +526,6 @@ function ReferenceEditor({
             </>
           ))}
       </CardFooter>
-    </Card>
+    </Card></WorkFormLayout>
   );
 }

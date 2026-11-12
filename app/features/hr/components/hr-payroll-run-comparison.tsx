@@ -1,7 +1,8 @@
 "use client";
+import { WorkOffsetPagination } from "@/shared/ui/work-table";
 
 import { useState } from "react";
-import { ArrowLeftRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeftRight } from "lucide-react";
 import type { HrPayrollRunComparisonQuery, HrPayrollRunWorkspace } from "@nexora/contracts";
 import { Button } from "@/components/ui/button";
 import type { HrApiClient } from "../api/hr-client";
@@ -33,6 +34,7 @@ export function HrPayrollRunComparison({
   revision: number;
   disabled: boolean;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const [baseline, setBaseline] = useState(""),
     [filter, setFilter] = useState<HrPayrollRunComparisonQuery["filter"]>("changed"),
     [offset, setOffset] = useState(0);
@@ -42,7 +44,7 @@ export function HrPayrollRunComparison({
     expected_run_number: data.period!.run_number,
     ...(baseline ? { baseline_run_number: Number(baseline) } : {}),
     filter,
-    limit: 25,
+    limit: workPageSize,
     offset,
   };
   const state = useAttendanceRead(JSON.stringify([query, data.period!.version, revision]), () =>
@@ -266,33 +268,7 @@ export function HrPayrollRunComparison({
                 ))}
               </div>
             )}
-            <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-              <span className="text-muted-foreground">
-                {comparison.total ? Math.min(comparison.offset + 1, comparison.total) : 0}–
-                {Math.min(comparison.offset + comparison.items.length, comparison.total)} of {comparison.total} matching
-                employee(s)
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  aria-label="Previous comparison page"
-                  disabled={disabled || offset === 0}
-                  onClick={() => setOffset((v) => Math.max(0, v - 25))}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  aria-label="Next comparison page"
-                  disabled={disabled || offset + comparison.limit >= comparison.total}
-                  onClick={() => setOffset((v) => v + 25)}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+            <WorkOffsetPagination busy={!!(disabled)} total={comparison.total} offset={offset} size={workPageSize} previousDisabled={!!(disabled || offset === 0)} nextDisabled={!!(disabled || offset + comparison.limit >= comparison.total)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
           </>
         )
       )}

@@ -1,8 +1,11 @@
 "use client";
+import { WorkOffsetPagination, WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import type { HrMonthlyAttendanceDirectory, HrMonthlyAttendanceRow } from "@nexora/contracts";
-import { Users, ChevronLeft, ChevronRight, ArrowUpRight, Download } from "lucide-react";
+import { Users, ArrowUpRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -272,6 +275,7 @@ export function HrMonthlyAttendanceWorkspace({
   initialReference?: string;
   onNavigate: Navigate;
 }) {
+  const [workPageSize, setWorkPageSize] = useState(25);
   const initialScope = useMemo(() => readHrOperationsScope(initialReference), [initialReference]);
   const { api, session, loading: sessionLoading } = useSession(),
     client = useMemo(() => new HrApiClient(api), [api]),
@@ -330,7 +334,7 @@ export function HrMonthlyAttendanceWorkspace({
     setError("");
     setLoading(true);
     client
-      .monthlyAttendance({ company_id: company, month: month + "-01", search: applied || undefined, limit: 25, offset })
+      .monthlyAttendance({ company_id: company, month: month + "-01", search: applied || undefined, limit: workPageSize, offset })
       .then((result) => {
         if (active) setData(result);
       })
@@ -344,7 +348,7 @@ export function HrMonthlyAttendanceWorkspace({
     return () => {
       active = false;
     };
-  }, [client, company, month, applied, offset, revision, canRead]);
+  }, [client, company, month, applied, offset, revision, canRead, workPageSize]);
   const detail = data?.items.find((r) => r.employee_id === selected);
   if (sessionLoading) return <Skeleton className="h-64 w-full" />;
   if (!canRead)
@@ -369,7 +373,7 @@ export function HrMonthlyAttendanceWorkspace({
   return (
     <section
       aria-label="Monthly attendance workspace"
-      className="grid min-w-0 gap-5 font-sans text-foreground [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_td]:font-sans!"
+      className="grid min-w-0 gap-4 font-sans text-foreground [&_label]:gap-1.5 [&_label]:leading-tight [&_p]:mb-0 [&_h2]:mb-0 [&_h3]:mb-0 [&_dd]:font-sans! [&_td]:font-sans!"
     >
       {error && (
         <Alert variant="destructive">
@@ -383,7 +387,7 @@ export function HrMonthlyAttendanceWorkspace({
           <AlertDescription>Ask your administrator to review company access.</AlertDescription>
         </Alert>
       )}
-      <form
+      <WorkForm
         className="grid min-w-0 gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-[0.7fr_1fr] sm:p-5"
         onSubmit={(e) => {
           e.preventDefault();
@@ -415,7 +419,7 @@ export function HrMonthlyAttendanceWorkspace({
             placeholder="Name or employee number"
           />
         </label>
-      </form>
+      </WorkForm>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>{data?.total ?? 0} employees match this month and search.</span>
         <span>
@@ -434,7 +438,7 @@ export function HrMonthlyAttendanceWorkspace({
         <>
           <div className="hidden min-w-0 overflow-hidden rounded-xl border border-border bg-card md:block">
             <div className="max-h-[38rem] overflow-y-auto">
-              <table className="w-full text-left text-sm">
+              <WorkTable paging={false} tableId="app/features/hr/views/hr-monthly-attendance-workspace:1" className="w-full text-left text-sm">
                 <thead className="sticky top-0 z-10 bg-muted">
                   <tr>
                     {[
@@ -474,7 +478,7 @@ export function HrMonthlyAttendanceWorkspace({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </WorkTable>
             </div>
           </div>
           <div className="grid gap-3 md:hidden">
@@ -517,29 +521,20 @@ export function HrMonthlyAttendanceWorkspace({
           </p>
         </div>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-xs text-muted-foreground">
-          {data?.items.length ? `${offset + 1}–${offset + data.items.length} of ${data.total}` : "0 results"}
-        </span>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            disabled={loading || offset === 0}
-            onClick={() => setOffset((v) => Math.max(0, v - 25))}
-          >
-            <ChevronLeft className="size-4" />
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            disabled={loading || !data || offset + 25 >= data.total}
-            onClick={() => setOffset((v) => v + 25)}
-          >
-            Next
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
-      </div>
+      <WorkOffsetPagination
+        busy={loading}
+        total={data?.total ?? 0}
+        offset={offset}
+        size={workPageSize}
+        previousDisabled={loading || offset === 0}
+        nextDisabled={loading || !data || offset + workPageSize >= data.total}
+        onSizeChange={(size) => {
+          setWorkPageSize(size);
+          setOffset(0);
+        }}
+        onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))}
+        onNext={() => setOffset((v) => v + workPageSize)}
+      />
       <Dialog
         open={Boolean(detail && data)}
         onOpenChange={(open) => {

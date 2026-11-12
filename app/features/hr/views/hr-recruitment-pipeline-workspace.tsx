@@ -1,4 +1,7 @@
 "use client";
+import { WorkOffsetPagination, WorkTable } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
@@ -101,6 +104,7 @@ export function HrRecruitmentPipelineWorkspace() {
     };
   }, [client, sessionLoading, canRead]);
 
+  const [workPageSize, setWorkPageSize] = useState(25);
   const load = useCallback(async () => {
     if (!companyId || !canRead) return;
     const sequence = ++requestSequence.current;
@@ -112,7 +116,7 @@ export function HrRecruitmentPipelineWorkspace() {
         search: filter.search,
         stage: filter.stage || undefined,
         offset: filter.offset,
-        limit: 50,
+        limit: workPageSize,
       });
       if (sequence !== requestSequence.current) return;
       setData(result);
@@ -125,7 +129,7 @@ export function HrRecruitmentPipelineWorkspace() {
     } finally {
       if (sequence === requestSequence.current) setLoading(false);
     }
-  }, [client, companyId, canRead, filter]);
+  }, [client, companyId, canRead, filter, workPageSize]);
   useEffect(() => {
     void load();
     return () => {
@@ -280,7 +284,7 @@ export function HrRecruitmentPipelineWorkspace() {
           <AlertDescription>Ask your administrator to review company access.</AlertDescription>
         </Alert>
       ) : null}
-      <form
+      <WorkForm
         className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[1.2fr_.7fr_auto]"
         onSubmit={(event) => {
           event.preventDefault();
@@ -327,7 +331,7 @@ export function HrRecruitmentPipelineWorkspace() {
             Add application
           </Button>
         ) : null}
-      </form>
+      </WorkForm>
       {editor ? (
         <HrRecordDrawer
           title="Add application"
@@ -338,7 +342,7 @@ export function HrRecruitmentPipelineWorkspace() {
           notice={notice}
           description="Choose an active candidate and an open vacancy in this company."
         >
-          <form
+          <WorkForm
             onSubmit={create}
             className="grid min-w-0 gap-4 rounded-2xl border border-primary/30 bg-card p-5 shadow-sm"
           >
@@ -404,7 +408,7 @@ export function HrRecruitmentPipelineWorkspace() {
                 {saving ? "Saving…" : "Create application"}
               </Button>
             </HrDrawerActions>
-          </form>
+          </WorkForm>
         </HrRecordDrawer>
       ) : null}
       <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by stage">
@@ -434,7 +438,7 @@ export function HrRecruitmentPipelineWorkspace() {
         <Skeleton className="h-64 w-full" />
       ) : (
         <div className="relative min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
-          <table className="w-full min-w-160 text-left text-sm">
+          <WorkTable paging={false} tableId="app/features/hr/views/hr-recruitment-pipeline-workspace:1" className="w-full min-w-160 text-left text-sm">
             <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3">Candidate</th>
@@ -487,31 +491,27 @@ export function HrRecruitmentPipelineWorkspace() {
                 </tr>
               ) : null}
             </tbody>
-          </table>
+          </WorkTable>
           <p className="m-0! border-t border-border px-4 py-2 text-xs text-muted-foreground">
             {data.total} applications · showing {data.items.length ? filter.offset + 1 : 0}–
             {filter.offset + data.items.length}
           </p>
         </div>
       )}
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={loading || saving || filter.offset === 0}
-          onClick={() => setFilter((current) => ({ ...current, offset: Math.max(0, current.offset - 50) }))}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={loading || saving || filter.offset + 50 >= data.total}
-          onClick={() => setFilter((current) => ({ ...current, offset: current.offset + 50 }))}
-        >
-          Next
-        </Button>
-      </div>
+      <WorkOffsetPagination
+        busy={loading || saving}
+        total={data.total}
+        offset={filter.offset}
+        size={workPageSize}
+        previousDisabled={loading || saving || filter.offset === 0}
+        nextDisabled={loading || saving || filter.offset + workPageSize >= data.total}
+        onSizeChange={(size) => {
+          setWorkPageSize(size);
+          setFilter((current) => ({ ...current, offset: 0 }));
+        }}
+        onPrevious={() => setFilter((current) => ({ ...current, offset: Math.max(0, current.offset - workPageSize) }))}
+        onNext={() => setFilter((current) => ({ ...current, offset: current.offset + workPageSize }))}
+      />
       <HrMasterSheet
         open={Boolean(selected)}
         onOpenChange={(open) => {
@@ -546,7 +546,7 @@ export function HrRecruitmentPipelineWorkspace() {
               </p>
             ) : null}
             {stageEditing ? (
-              <form className="grid gap-5" onSubmit={move}>
+              <WorkForm className="grid gap-5" onSubmit={move}>
                 <HrDetailSummary code={selected.reference} status={selected.stage} statusLabel={labels[selected.stage]}>
                   {selected.candidate_name} · {selected.opening_title}
                 </HrDetailSummary>
@@ -586,7 +586,7 @@ export function HrRecruitmentPipelineWorkspace() {
                     {saving ? "Saving…" : "Save changes"}
                   </Button>
                 </HrDrawerActions>
-              </form>
+              </WorkForm>
             ) : (
               <>
                 <HrDetailSummary code={selected.reference} status={selected.stage} statusLabel={labels[selected.stage]}>
