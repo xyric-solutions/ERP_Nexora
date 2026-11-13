@@ -27,6 +27,7 @@ import { EmptyState, Field, salesLayer, selectClass, StatusPill, tableClass } fr
 import { useDiscardGuard, useIsDirty } from "./discard-guard";
 import { PaymentFields } from "./payment-fields";
 import { CurrencyFields } from "./currency-fields";
+import { ProjectLocationFields } from "./project-location-fields";
 import { BASE_CURRENCY, currencyDefaults, docCurrency, docMoney, normalizeCurrency } from "../model/sales-currency";
 import type { SalesNav } from "./sales-nav";
 import { moneyDocMeta, PAYMENT_PURPOSES, RECEIPT_ACCOUNTS, RECEIPT_METHODS } from "../model/sales-constants";
@@ -35,6 +36,8 @@ import { commitSales, useSalesState } from "../model/sales-store";
 import {
   applyOffset,
   autoAllocate,
+  contextErrors,
+  contextOf,
   batchInvoiceReceipts,
   batchPayments,
   batchReceipts,
@@ -58,13 +61,13 @@ import {
   type FieldErrors,
   type MoneyInput,
 } from "../model/sales-workflow";
-import type { MoneyDocType, ReceiptAllocation, SalesState } from "../model/sales-types";
+import type { MoneyDocType, ReceiptAllocation, SalesContextFields, SalesState } from "../model/sales-types";
 
 export const moneySheetClass = "w-full gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-3xl";
 
 const round2 = (value: number) => Math.round((Number(value) || 0) * 100) / 100;
 
-function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
+export function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
   return (
     <section className="border-b border-border">
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3.5">
@@ -90,7 +93,7 @@ function run(nav: SalesNav, change: () => string): boolean {
  * Side sheet whose close (Cancel, ×, Escape, overlay) goes through the
  * discard prompt while the body reports unsaved changes.
  */
-function GuardedSheet({
+export function GuardedSheet({
   open,
   title,
   description,
@@ -131,7 +134,7 @@ function GuardedSheet({
 }
 
 /** Reports a form's unsaved state to its GuardedSheet. */
-function useReportDirty<T>(value: T, setDirty: (dirty: boolean) => void) {
+export function useReportDirty<T>(value: T, setDirty: (dirty: boolean) => void) {
   const dirty = useIsDirty(value);
   useEffect(() => setDirty(dirty), [dirty, setDirty]);
   useEffect(() => () => setDirty(false), [setDirty]);
@@ -169,7 +172,8 @@ function initialInput(state: SalesState, preset: MoneyFormPreset): MoneyInput {
     if (invoice) {
       const balance = invoiceBalance(state, invoice);
       return {
-        ...newMoneyInput("Receipt", invoice.customerId),
+        // A receipt for an invoice takes its project and location until changed.
+        ...newMoneyInput("Receipt", invoice.customerId, undefined, invoice),
         // A receipt for an invoice is in the invoice currency, at the invoice rate until changed.
         ...normalizeCurrency(invoice),
         amount: balance,
@@ -181,7 +185,7 @@ function initialInput(state: SalesState, preset: MoneyFormPreset): MoneyInput {
     const original = findMoneyDoc(state, preset.against);
     if (original)
       return {
-        ...newMoneyInput(preset.type, original.customerId),
+        ...newMoneyInput(preset.type, original.customerId, undefined, original),
         ...normalizeCurrency(original),
         against: original.code,
         amount: returnableOf(state, original),
@@ -252,7 +256,13 @@ function MoneyDocBody({
   // A return is in the currency of the receipt or payment it returns.
   const chooseAgainst = (code: string) => {
     const original = findMoneyDoc(state, code);
-    update({ against: code, amount: original ? returnableOf(state, original) : 0, ...(original ? normalizeCurrency(original) : {}) });
+    update({
+      against: code,
+      amount: original ? returnableOf(state, original) : 0,
+      ...(original ? normalizeCurrency(original) : {}),
+      // A return starts with the project and location of what it returns, unless already chosen.
+      ...(original ? { ...contextOf(original), ...contextOf(input) } : {}),
+    });
   };
   const fmt = (value: number) => docMoney(value, input);
 
@@ -326,6 +336,7 @@ function MoneyDocBody({
                 {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.display} · {customer.code}</option>)}
               </select>
             </Field>
+            <ProjectLocationFields value={input} errors={errors} onChange={update} />
             {input.type === "Customer payment" ? (
               <Field label="Paid for" required error={errors.purpose}>
                 <select className={selectClass} value={input.purpose} onChange={(event) => update({ purpose: event.target.value })}>
@@ -571,6 +582,7 @@ function InvoiceReceiptsBatch({ nav, onDone, close, setDirty }: { nav: SalesNav;
     }
     if (!common.date) found.date = "Enter the date.";
     if (common.method !== "Cash" && !common.reference.trim()) found.reference = "Enter the transaction reference.";
+    Object.assign(found, contextErrors(common));
     if (Object.keys(found).length) {
       setErrors(found);
       return;
@@ -597,6 +609,14 @@ function InvoiceReceiptsBatch({ nav, onDone, close, setDirty }: { nav: SalesNav;
               onChange={(patch) => {
                 setCommon((current) => ({ ...current, ...patch }));
                 setErrors((current) => ({ ...current, date: "", reference: "" }));
+              }}
+            />
+            <ProjectLocationFields
+              value={common}
+              errors={errors}
+              onChange={(patch) => {
+                setCommon((current) => ({ ...current, ...patch }));
+                setErrors((current) => ({ ...current, ...Object.fromEntries(Object.keys(patch).map((key) => [key, ""])) }));
               }}
             />
           </div>
@@ -667,7 +687,10 @@ function RowsBatch({ kind, nav, onDone, close, setDirty }: { kind: "receipts" | 
   const state = useSalesState();
   const [rows, setRows] = useState<BatchRow[]>(() => [blankRow(kind), blankRow(kind)]);
   const [errors, setErrors] = useState<Record<number, string>>({});
-  useReportDirty(rows, setDirty);
+  // Project and location apply to every line of the batch.
+  const [context, setContext] = useState<SalesContextFields>({});
+  const [contextProblems, setContextProblems] = useState<FieldErrors>({});
+  useReportDirty({ rows, context }, setDirty);
   const type: MoneyDocType = kind === "receipts" ? "Receipt" : "Customer payment";
   const customers = state.customers.filter((customer) => customer.status === "Active");
   const used = rows.filter((row) => row.customerId || row.amount > 0);
@@ -684,6 +707,7 @@ function RowsBatch({ kind, nav, onDone, close, setDirty }: { kind: "receipts" | 
       const input: MoneyInput = {
         ...newMoneyInput(type, row.customerId),
         ...row,
+        ...context,
         purpose: row.purpose ?? "",
         alloc: type === "Receipt" ? autoAllocate(state, row.customerId, row.amount, BASE_CURRENCY) : [],
       };
@@ -692,12 +716,19 @@ function RowsBatch({ kind, nav, onDone, close, setDirty }: { kind: "receipts" | 
       if (first) found[index] = first;
     });
     if (!used.length) found[0] = "Add at least one line.";
-    if (Object.keys(found).length) {
+    const missing = contextErrors(context);
+    setContextProblems(missing);
+    if (Object.keys(missing).length) {
+      // Line errors about the project or location are shown once, on the batch fields.
+      for (const index of Object.keys(found)) if (/project|location/i.test(found[Number(index)])) delete found[Number(index)];
+    }
+    if (Object.keys(found).length || Object.keys(missing).length) {
       setErrors(found);
       return;
     }
+    const withContext = rows.map((row) => ({ ...row, ...context }));
     const ok = run(nav, () => {
-      const codes = commitSales((sales) => (kind === "receipts" ? batchReceipts(sales, rows, nav.actor) : batchPayments(sales, rows, nav.actor)));
+      const codes = commitSales((sales) => (kind === "receipts" ? batchReceipts(sales, withContext, nav.actor) : batchPayments(sales, withContext, nav.actor)));
       return `${codes.length} ${kind === "receipts" ? "receipt(s)" : "customer payment(s)"} posted: ${codes.join(", ")}.`;
     });
     if (ok) {
@@ -709,6 +740,17 @@ function RowsBatch({ kind, nav, onDone, close, setDirty }: { kind: "receipts" | 
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div className="mb-4 grid gap-3 sm:grid-cols-2">
+          <ProjectLocationFields
+            value={context}
+            errors={contextProblems}
+            onChange={(patch) => {
+              setContext((current) => ({ ...current, ...patch }));
+              setContextProblems((current) => ({ ...current, ...Object.fromEntries(Object.keys(patch).map((key) => [key, ""])) }));
+            }}
+          />
+          <p className="m-0 text-xs text-muted-foreground sm:col-span-2">Applies to every line. Use a separate batch for another project or location.</p>
+        </div>
         <div className="relative overflow-x-auto">
           <table className={cn(tableClass, "min-w-215 [&_td]:px-1.5 [&_td]:py-1.5 [&_th]:px-1.5")}>
             <thead>

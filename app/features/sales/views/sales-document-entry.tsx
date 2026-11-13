@@ -1,14 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AmountInput } from "@/shared/ui/amount-input";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "cn";
 import { SearchableSelect } from "@/shared/ui/searchable-select";
-import { currencyDigits } from "@/shared/constants/countries";
 import {
   Card,
   EntryActionBar,
@@ -18,28 +14,29 @@ import {
   ReadField,
   selectClass,
   StatusPill,
-  tableClass,
   TotalsSummary,
 } from "../components/sales-ui";
+import { LineItemsEditor } from "../components/line-items-editor";
+import { ProjectLocationFields } from "../components/project-location-fields";
 import type { SalesNav } from "../components/sales-nav";
 import { CurrencyFields } from "../components/currency-fields";
 import { currencyDefaults, docCurrency, docMoney, docRate, toBase } from "../model/sales-currency";
 import { useDiscardGuard, useIsDirty } from "../components/discard-guard";
 import { approverDirectory } from "../model/sales-approvers";
-import { SALES_CATALOG, SALES_KINDS, SALES_TERM_DAYS, SALES_TERMS, SALES_WAREHOUSES, SALESPEOPLE } from "../model/sales-constants";
+import { SALES_KINDS, SALES_TERM_DAYS, SALES_TERMS, SALES_WAREHOUSES, SALESPEOPLE } from "../model/sales-constants";
 import { documentTermsFor, onCreditHold } from "../model/customer-model";
-import { addDays, money, moneyWhole } from "../model/sales-format";
+import { addDays, formatDate, money, moneyWhole } from "../model/sales-format";
 import { commitSales, useSalesState } from "../model/sales-store";
 import {
-  blankLine,
   deliveryAddress,
   displayStatus,
   exposure,
   findDocument,
+  findRecurring,
   invoiceDraftFromOrder,
-  lineAmount,
   lineTotals,
   newDocumentDraft,
+  recurringInvoiceDraft,
   saveDocument,
   validateDocument,
   type FieldErrors,
@@ -52,6 +49,7 @@ export function DocumentEntry({
   kind,
   customerCode,
   fromOrder,
+  fromTemplate,
   existing,
   nav,
   onSaved,
@@ -61,6 +59,11 @@ export function DocumentEntry({
   customerCode?: string;
   /** Invoices only: delivered sales order whose values prefill the form. Nothing is saved until Save. */
   fromOrder?: string;
+  /**
+   * Invoices only: recurring template (RB-) and, for a batch template, the
+   * customer to bill. The form opens prefilled; Save and Post issues it.
+   */
+  fromTemplate?: { code: string; customerId?: string };
   existing?: SalesDocument;
   nav: SalesNav;
   onSaved: (code: string) => void;
@@ -69,7 +72,15 @@ export function DocumentEntry({
   const state = useSalesState();
   const meta = SALES_KINDS[kind];
   const [source] = useState<{ draft?: SalesDocument; error?: string }>(() => {
-    if (kind !== "invoice" || !fromOrder) return {};
+    if (kind !== "invoice") return {};
+    if (fromTemplate) {
+      try {
+        return { draft: recurringInvoiceDraft(state, fromTemplate.code, nav.actor, fromTemplate.customerId) };
+      } catch (error) {
+        return { error: error instanceof Error ? error.message : `${fromTemplate.code} cannot be invoiced.` };
+      }
+    }
+    if (!fromOrder) return {};
     try {
       return { draft: invoiceDraftFromOrder(state, fromOrder, nav.actor) };
     } catch (error) {
@@ -88,6 +99,9 @@ export function DocumentEntry({
   const customer = state.customers.find((item) => item.id === draft.customerId);
   // An invoice raised from a delivered order stays with that order's customer.
   const sourceOrder = kind === "invoice" && isNew ? findDocument(state, "order", draft.links.order) : undefined;
+  // An invoice raised from a recurring template stays with the template's customer.
+  const sourceTemplate = kind === "invoice" && isNew ? findRecurring(state, draft.links.recurring) : undefined;
+  const sourceCode = sourceOrder?.code ?? sourceTemplate?.code;
   const totals = lineTotals(draft.lines);
   const { guard, dialog } = useDiscardGuard(useIsDirty(draft));
   const cancel = () => guard(onCancel ?? nav.back);
@@ -124,21 +138,13 @@ export function DocumentEntry({
     });
   };
 
-  const updateLine = (index: number, patch: Partial<SalesLine>) => {
-    setDraft((current) => ({ ...current, lines: current.lines.map((item, i) => (i === index ? { ...item, ...patch } : item)) }));
+  const updateLines = (change: (lines: SalesLine[]) => SalesLine[]) => {
+    setDraft((current) => ({ ...current, lines: change(current.lines) }));
     setErrors((current) => {
       const next = { ...current };
       delete next.lines;
       return next;
     });
-  };
-
-  const chooseItem = (index: number, sku: string) => {
-    const item = SALES_CATALOG.find((candidate) => candidate.sku === sku);
-    // The price list is in PKR; a foreign-currency document converts it at the entered rate.
-    const fx = docRate(draft);
-    const rate = item && fx > 0 ? Number((item.rate / fx).toFixed(currencyDigits(docCurrency(draft)))) : 0;
-    updateLine(index, item ? { sku, desc: item.name, rate, tax: item.tax, uom: item.uom } : { sku: "", uom: "Each" });
   };
 
   const save = () => {
@@ -158,7 +164,9 @@ export function DocumentEntry({
     nav.notify(
       isNew
         ? kind === "invoice"
-          ? `Invoice ${code} saved${sourceOrder ? ` from ${sourceOrder.code}` : ""}. Click it in the list to record payments.`
+          ? sourceTemplate
+            ? `Invoice ${code} posted from ${sourceTemplate.code}. Record its payment in Receipts.`
+            : `Invoice ${code} saved${sourceOrder ? ` from ${sourceOrder.code}` : ""}. Click it in the list to record payments.`
           : kind === "quotation"
             ? `Quotation ${code} saved as draft. Next: ${draft.approver ? `Submit for Approval to ${draft.approver}` : "Approve"}.`
             : `${meta.label} ${code} saved. Next: Confirm Order.`
@@ -185,7 +193,9 @@ export function DocumentEntry({
         <Card>
           <div className="grid gap-1 p-5" role="alert">
             <strong className="text-sm font-bold">This invoice cannot be created</strong>
-            <p className="m-0 text-[0.8125rem] text-muted-foreground">{source.error} It may already have been invoiced, or its delivery is not saved yet.</p>
+            <p className="m-0 text-[0.8125rem] text-muted-foreground">
+              {source.error}{fromTemplate ? "" : " It may already have been invoiced, or its delivery is not saved yet."}
+            </p>
           </div>
         </Card>
       </div>
@@ -196,11 +206,11 @@ export function DocumentEntry({
     <div className="grid min-w-0 grid-cols-1 gap-3.5 text-foreground">
       <PageHead
         eyebrow={`Sales · ${meta.label}`}
-        title={sourceOrder ? `Create Invoice · ${sourceOrder.code}` : isNew ? `New ${meta.label}` : `Edit ${draft.code}`}
+        title={sourceCode ? `Create Invoice · ${sourceCode}` : isNew ? `New ${meta.label}` : `Edit ${draft.code}`}
         actions={<Button type="button" variant="outline" onClick={cancel}>Close</Button>}
       />
       <EntryActionBar
-        saveLabel={meta.saveLabel}
+        saveLabel={sourceTemplate ? "Save & Post" : meta.saveLabel}
         lifecycle={meta.lifecycle}
         state={isNew ? "Not saved yet" : "Unsaved changes"}
         error={errorCount ? "Fix the highlighted fields, then save again." : undefined}
@@ -213,7 +223,9 @@ export function DocumentEntry({
             <span className="text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted-foreground">{meta.label}</span>
             <h2 className="m-0 mt-0.5 text-lg font-bold">{isNew ? `New ${meta.label}` : draft.code}</h2>
             <p className="m-0 mt-0.5 text-xs text-muted-foreground">
-              {sourceOrder
+              {sourceTemplate
+                ? `Prefilled from recurring template ${sourceTemplate.code} for the ${formatDate(sourceTemplate.next)} period. Review, then Save & Post; the invoice number is assigned then.`
+                : sourceOrder
                 ? `Prefilled from ${sourceOrder.code}. Review and edit any field; the invoice number is assigned when you save.`
                 : isNew
                   ? "The number is assigned when you save."
@@ -228,8 +240,8 @@ export function DocumentEntry({
 
         <section className="grid grid-cols-1 gap-x-6 gap-y-3.5 border-b border-border p-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
           <div className="grid min-w-0 content-start gap-3 sm:grid-cols-2 [&>*:first-child]:sm:col-span-2">
-            <Field label="Customer" required error={errors.customerId} hint={sourceOrder ? `Billed to the customer of ${sourceOrder.code}.` : undefined}>
-              <select className={selectClass} value={draft.customerId} disabled={Boolean(sourceOrder)} aria-invalid={Boolean(errors.customerId)} onChange={(event) => chooseCustomer(event.target.value)}>
+            <Field label="Customer" required error={errors.customerId} hint={sourceCode ? `Billed to the customer of ${sourceCode}.` : undefined}>
+              <select className={selectClass} value={draft.customerId} disabled={Boolean(sourceCode)} aria-invalid={Boolean(errors.customerId)} onChange={(event) => chooseCustomer(event.target.value)}>
                 <option value="">Select customer</option>
                 {state.customers
                   .filter((item) => item.status === "Active" || item.id === draft.customerId)
@@ -238,6 +250,7 @@ export function DocumentEntry({
                   ))}
               </select>
             </Field>
+            <ProjectLocationFields value={draft} errors={errors} onChange={update} />
             {kind === "quotation" ? (
               <Field label="Approver" hint={draft.approver ? `Saved as draft, then submitted to ${draft.approver} for approval.` : "Optional. Leave empty when no manager approval is needed; you approve it yourself."}>
                 <SearchableSelect
@@ -251,6 +264,10 @@ export function DocumentEntry({
                   valueLabel={(option) => (option.value ? option.value : "No approver")}
                 />
               </Field>
+            ) : sourceTemplate ? (
+              <ReadField label="From recurring template">
+                {sourceTemplate.code} · {sourceTemplate.name} · {sourceTemplate.frequency}
+              </ReadField>
             ) : (
               <ReadField label={kind === "order" ? "From quotation" : "From sales order"}>
                 {(kind === "order" ? draft.links.quotation : draft.links.order) ?? "Direct, no source document"}
@@ -320,69 +337,14 @@ export function DocumentEntry({
         <div className="min-w-0 px-4 py-3.5" role="tabpanel">
           {tab === "lines" ? (
             <>
-              <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground">{docCurrency(draft) === "PKR"
-                    ? "Prices come from the Standard price list."
-                    : `Prices come from the Standard price list (PKR), converted to ${docCurrency(draft)} at the exchange rate.`}{" "}
-                  Sales tax: 18% goods, 16% services.</span>
-                <Button type="button" size="sm" variant="outline" onClick={() => setDraft((current) => ({ ...current, lines: [...current.lines, blankLine()] }))}>
-                  + Add line
-                </Button>
-              </div>
-              {errors.lines ? <p className="mt-0 mb-2 text-xs font-semibold text-[var(--nx-danger)]">{errors.lines}</p> : null}
-              <div className="relative overflow-x-auto">
-                <table className={cn(tableClass, "min-w-210 [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2")}>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Product / service</th>
-                      <th>Description</th>
-                      <th className="text-right!">Qty</th>
-                      <th>Unit</th>
-                      <th className="text-right!">Rate</th>
-                      <th className="text-right!">Tax %</th>
-                      <th className="text-right!">Amount</th>
-                      <th><span className="sr-only">Remove</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {draft.lines.length ? (
-                      draft.lines.map((item, index) => (
-                        <tr key={index}>
-                          <td className="text-muted-foreground">{index + 1}</td>
-                          <td className="min-w-55">
-                            <select className={cn(selectClass, "h-8.5")} value={item.sku} aria-label={`Product, line ${index + 1}`} onChange={(event) => chooseItem(index, event.target.value)}>
-                              <option value="">Other charge</option>
-                              {SALES_CATALOG.map((option) => <option key={option.sku} value={option.sku}>{option.sku} · {option.name}</option>)}
-                            </select>
-                          </td>
-                          <td className="min-w-45">
-                            <Input className="h-8.5" value={item.desc} aria-label={`Description, line ${index + 1}`} onChange={(event) => updateLine(index, { desc: event.target.value })} />
-                          </td>
-                          <td className="w-22">
-                            <Input className="h-8.5 text-right" type="number" min={0} step={1} value={item.qty} aria-label={`Quantity, line ${index + 1}`} onChange={(event) => updateLine(index, { qty: Number(event.target.value) })} />
-                          </td>
-                          <td className="text-muted-foreground">{item.uom || "Each"}</td>
-                          <td className="w-32">
-                            <AmountInput className="h-8.5" value={item.rate} aria-label={`Rate, line ${index + 1}`} onValueChange={(_, rate) => updateLine(index, { rate })} />
-                          </td>
-                          <td className="w-20">
-                            <Input className="h-8.5 text-right" type="number" min={0} max={100} step={1} value={item.tax} aria-label={`Tax percent, line ${index + 1}`} onChange={(event) => updateLine(index, { tax: Number(event.target.value) })} />
-                          </td>
-                          <td className="text-right font-semibold tabular-nums whitespace-nowrap">{docAmount(lineAmount(item))}</td>
-                          <td>
-                            <Button type="button" size="icon-sm" variant="ghost" aria-label={`Remove line ${index + 1}`} onClick={() => setDraft((current) => ({ ...current, lines: current.lines.filter((_, i) => i !== index) }))}>
-                              <X />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr><td colSpan={9} className="text-muted-foreground">No lines. Use + Add line.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <LineItemsEditor
+                lines={draft.lines}
+                onChange={updateLines}
+                currency={docCurrency(draft)}
+                fxRate={docRate(draft)}
+                error={errors.lines}
+                formatAmount={docAmount}
+              />
             </>
           ) : (
             <div className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
@@ -401,7 +363,9 @@ export function DocumentEntry({
         <footer className="grid grid-cols-1 gap-4 rounded-b-lg border-t border-border bg-muted p-4 md:grid-cols-[minmax(0,1fr)_minmax(15rem,20rem)]">
           <p className="m-0 text-xs text-muted-foreground">
             {kind === "invoice"
-              ? sourceOrder
+              ? sourceTemplate
+                ? `Save & Post issues the invoice and marks this customer as billed on ${sourceTemplate.code} for the ${formatDate(sourceTemplate.next)} period. Close without saving to leave it unbilled.`
+                : sourceOrder
                 ? `Saving issues the invoice, links it to ${sourceOrder.code}${draft.links.quotation ? ` and ${draft.links.quotation}` : ""}, and returns to Invoices, where payments are recorded. Close without saving to leave the order uninvoiced.`
                 : "Saving issues the invoice and opens it in the invoice panel, where payments are recorded."
               : kind === "quotation"

@@ -23,6 +23,8 @@ import {
   type TenantSelectionApiService,
   type TenantSessionApiService,
 } from "./modules/auth/tenant-router.js";
+import { createAdministrationCatalogueRouter, createAdministrationRouter } from "./modules/administration/router.js";
+import type { AdministrationCredentialMailer, AdministrationRepository } from "./modules/administration/repository.js";
 import { createJobsRouter, type JobPublisher } from "./modules/jobs/router.js";
 import {
   createBankingRouter,
@@ -44,6 +46,10 @@ import {
   type FinanceNominalRepository,
 } from "./modules/finance/router.js";
 import { createCompanyCurrencyRouter } from "./modules/finance/currencies/company-router.js";
+import { createTaxRouter } from "./modules/finance/taxes/router.js";
+import type { SourceTaxRepository } from "./modules/finance/taxes/source-repository.js";
+import { createSubledgerRouter } from "./modules/finance/subledger/router.js";
+import type { SourceSubledgerRepository } from "./modules/finance/subledger/source-repository.js";
 import { createChartTemplateRouter } from "./modules/finance/templates/router.js";
 import type { ChartTemplateRepository } from "./modules/finance/templates/service.js";
 import { createReferenceMasterRouter } from "./modules/master-data/router.js";
@@ -74,6 +80,12 @@ export interface AppDependencies {
   /** Lists the companies a user can choose after sign-in. */
   sessionCompanies?: SessionCompanyApiService;
   securityRepository?: SecurityAdministrationApiRepository;
+  /**
+   * Administration persistence (plan Phase 2, not built yet). Without it only `GET /api/v1/admin/modules` is
+   * mounted; with it the full `/api/v1/admin` API is.
+   */
+  administrationRepository?: AdministrationRepository;
+  administrationMailer?: AdministrationCredentialMailer;
   invalidateSecurityPolicy?: (tenantId: string) => void;
   bankingRepository?: BankingRepository;
   bankingPaymentRepository?: BankingPaymentRepository;
@@ -87,6 +99,8 @@ export interface AppDependencies {
   financeNominalRepository?: FinanceNominalRepository;
   financeCurrencyRepository?: FinanceCurrencyRepository;
   financeJournalRepository?: FinanceJournalRepository;
+  subledgerRepository?: SourceSubledgerRepository;
+  taxRepository?: SourceTaxRepository;
   financeHierarchyRepository?: import("./modules/finance/coa-hierarchy-repository.js").SourceCoaHierarchyRepository;
   chartTemplateRepository?: ChartTemplateRepository;
   referenceMasterRepository?: ReferenceMasterRepository;
@@ -406,6 +420,18 @@ export function createApp(dependencies: AppDependencies): Express {
     );
   }
 
+  if (dependencies.taxRepository && dependencies.authService && dependencies.sessionService) {
+    app.use("/api/v1/finance/taxes", createTaxRouter({ repository: dependencies.taxRepository,
+      authentication: dependencies.authService, sessions: dependencies.sessionService,
+      secureCookies: dependencies.config.nodeEnv === "production", allowedOrigins: dependencies.config.allowedOrigins }));
+  }
+
+  if (dependencies.subledgerRepository && dependencies.authService && dependencies.sessionService) {
+    app.use("/api/v1/finance/subledger", createSubledgerRouter({ repository: dependencies.subledgerRepository,
+      authentication: dependencies.authService, sessions: dependencies.sessionService,
+      secureCookies: dependencies.config.nodeEnv === "production", allowedOrigins: dependencies.config.allowedOrigins }));
+  }
+
   if (dependencies.financeCurrencyRepository && dependencies.authService && dependencies.sessionService) {
     app.use(
       "/api/v1",
@@ -492,6 +518,24 @@ export function createApp(dependencies: AppDependencies): Express {
           ? { invalidateSecurityPolicy: dependencies.invalidateSecurityPolicy }
           : {}),
       }),
+    );
+  }
+  if (dependencies.authService && dependencies.sessionService) {
+    const administration = {
+      authentication: dependencies.authService,
+      sessions: dependencies.sessionService,
+      secureCookies: dependencies.config.nodeEnv === "production",
+      allowedOrigins: dependencies.config.allowedOrigins,
+    };
+    app.use(
+      "/api/v1/admin",
+      dependencies.administrationRepository
+        ? createAdministrationRouter({
+            ...administration,
+            repository: dependencies.administrationRepository,
+            ...(dependencies.administrationMailer ? { mailer: dependencies.administrationMailer } : {}),
+          })
+        : createAdministrationCatalogueRouter(administration),
     );
   }
   if (dependencies.hrRepository && dependencies.authService && dependencies.sessionService) {

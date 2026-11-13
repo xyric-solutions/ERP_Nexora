@@ -11,6 +11,8 @@
 
 import { useSyncExternalStore } from "react";
 import { createSalesSeed } from "./sales-fixtures";
+import { todayIso } from "./sales-format";
+import { recurringDue } from "./sales-workflow";
 import type { SalesState } from "./sales-types";
 
 let state: SalesState = createSalesSeed();
@@ -36,13 +38,14 @@ export function commitSales<T>(change: (draft: SalesState) => T): T {
   return result;
 }
 
-/** Counts shown in the menu: quotations waiting for approval, orders to deliver and draft receipts. */
+/** Counts shown in the menu: quotations waiting for approval, orders to deliver, draft receipts and recurring templates due today. */
 export function useSalesNavigationCounts(): Record<string, number> {
   const current = useSalesState();
   return {
     quotations: current.quotation.filter((quotation) => quotation.status === "Pending approval").length,
     "pick-pack-delivery": current.order.filter((order) => order.status === "Confirmed" && !order.delivery).length,
     receipts: current.receipt.filter((doc) => doc.status === "Draft").length,
+    "recurring-bills": recurringDue(current, todayIso()).length,
   };
 }
 

@@ -945,6 +945,12 @@ run("Bank Revaluation preview and draft authority", () => {
       periodId,
     ]);
     const reversalRepository = new PostgresBankRevaluationReversalRepository(pool);
+    // This disposable schedule is exercised with an injected historical clock.
+    // Align its first attempt too; the production schedule correctly uses the DB clock.
+    await pool.query(
+      `update bank_revaluation_reversal_schedule set next_attempt_at=$3,updated_at=clock_timestamp() where tenant_id=$1 and revaluation_id=$2`,
+      [sourceTestTenantId, created.id, new Date("2026-10-26T11:59:00.000Z")],
+    );
     const workerOptions: BankRevaluationReversalOptions = {
       now: new Date("2026-10-26T12:00:00.000Z"),
       actorId: "r06.target",

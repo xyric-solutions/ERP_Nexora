@@ -24,6 +24,7 @@ export default function Home() {
   return (
     <PrototypeShell
       headerControls={<DashboardHeaderControls />}
+      permissions={session.user.permissions}
       identityContent={
         <Suspense fallback={<main>Loading Identity &amp; Access&hellip;</main>}>
           <IdentityWorkspace embedded />

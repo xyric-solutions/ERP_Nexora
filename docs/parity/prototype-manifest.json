@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "source": "app/prototype-data.ts",
   "counts": {
-    "modules": 34,
-    "groups": 127,
-    "pages": 720
+    "modules": 30,
+    "groups": 118,
+    "pages": 667
   },
   "modules": [
     {
@@ -392,7 +392,6 @@
         {
           "id": "selling",
           "label": "Sales",
-          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "quotations",
@@ -408,7 +407,7 @@
             },
             {
               "id": "pick-pack-delivery",
-              "label": "Pick, Pack & Delivery",
+              "label": "Delivery",
               "archetype": "list",
               "status": "prototype"
             },
@@ -416,62 +415,31 @@
               "id": "invoices",
               "label": "Invoices",
               "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "recurring-bills",
+              "label": "Recurring Bills",
+              "archetype": "list",
               "status": "prototype"
             },
             {
               "id": "receipts",
               "label": "Receipts",
               "archetype": "list",
-              "status": "prototype"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "revenue",
-      "code": "RV",
-      "label": "Revenue",
-      "category": "Finance & trade",
-      "modes": [
-        "service",
-        "trading"
-      ],
-      "groups": [
-        {
-          "id": "recurring-billing",
-          "label": "Recurring Bills",
-          "pages": [
-            {
-              "id": "recurring-bills",
-              "label": "Recurring Bills",
-              "archetype": "list",
-              "status": "prototype"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "customers",
-      "code": "AR",
-      "label": "Customers",
-      "category": "Finance & trade",
-      "modes": [
-        "service",
-        "trading",
-        "manufacturing"
-      ],
-      "groups": [
-        {
-          "id": "customer-master",
-          "label": "Customers",
-          "pages": [
+              "status": "live"
+            },
             {
               "id": "customers",
               "label": "Customers",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
+            },
+            {
+              "id": "currency-balances",
+              "label": "Currency Accounts",
+              "archetype": "list",
+              "status": "live"
             }
           ]
         }
@@ -537,6 +505,12 @@
             {
               "id": "suppliers",
               "label": "Suppliers",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "supplier-currency-accounts",
+              "label": "Supplier Currency Accounts",
               "archetype": "list",
               "status": "live"
             }
@@ -675,105 +649,9 @@
       ]
     },
     {
-      "id": "costing",
-      "code": "CS",
-      "label": "Costing & Landed Cost",
-      "category": "Finance & trade",
-      "modes": [
-        "trading",
-        "manufacturing"
-      ],
-      "groups": [
-        {
-          "id": "landed-cost",
-          "label": "Landed Cost",
-          "pages": [
-            {
-              "id": "costing-overview",
-              "label": "Costing Overview",
-              "archetype": "dashboard",
-              "status": "prototype"
-            },
-            {
-              "id": "cost-policies",
-              "label": "Cost Policies",
-              "archetype": "settings",
-              "status": "prototype"
-            },
-            {
-              "id": "landed-cost-shipments",
-              "label": "Landed-cost Shipments",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "charge-capture",
-              "label": "Charge Capture",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "allocation-preview",
-              "label": "Allocation Preview",
-              "archetype": "detail",
-              "status": "prototype"
-            },
-            {
-              "id": "allocation-approval",
-              "label": "Allocation Approval & Posting",
-              "archetype": "approval",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "item-costs",
-          "label": "Item Costs",
-          "pages": [
-            {
-              "id": "item-cost-history",
-              "label": "Item Cost History",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "standard-cost",
-              "label": "Standard Cost Versions",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "standard-cost-editor",
-              "label": "Standard Cost Editor",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "cost-variance",
-              "label": "Cost Variance",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "cost-gl-reconciliation",
-              "label": "Cost to GL Reconciliation",
-              "archetype": "workflow",
-              "status": "prototype"
-            },
-            {
-              "id": "costing-reports",
-              "label": "Costing Reports",
-              "archetype": "report",
-              "status": "prototype"
-            }
-          ]
-        }
-      ]
-    },
-    {
       "id": "finance",
       "code": "FN",
-      "label": "Finance & Accounting",
+      "label": "Accounting",
       "category": "Finance & trade",
       "modes": [
         "service",
@@ -855,6 +733,32 @@
           ]
         },
         {
+          "id": "taxes",
+          "label": "Taxes",
+          "pages": [
+            {
+              "id": "taxes",
+              "label": "Taxes",
+              "archetype": "list",
+              "status": "live"
+            }
+          ]
+        },
+        {
+          "id": "retired",
+          "label": "Unavailable",
+          "hiddenFromNavigation": true,
+          "pages": [
+            {
+              "id": "retired-module",
+              "label": "Module unavailable",
+              "archetype": "detail",
+              "status": "live",
+              "hiddenFromNavigation": true
+            }
+          ]
+        },
+        {
           "id": "reporting-master-data",
           "label": "Reporting Master Data",
           "pages": [
@@ -874,7 +778,7 @@
               "id": "currencies-fx",
               "label": "Currencies & Transfer FX",
               "archetype": "settings",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         },
@@ -922,187 +826,6 @@
               "archetype": "list",
               "status": "prototype",
               "hiddenFromNavigation": true
-            }
-          ]
-        },
-        {
-          "id": "ledgers-close",
-          "label": "Ledgers & Close",
-          "pages": [
-            {
-              "id": "accounting-events",
-              "label": "Accounting Event Ledger",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "general-ledger",
-              "label": "General Ledger",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "fiscal-periods",
-              "label": "Fiscal Periods",
-              "archetype": "settings",
-              "status": "prototype"
-            },
-            {
-              "id": "period-close",
-              "label": "Period-close Workbench",
-              "archetype": "workflow",
-              "status": "prototype"
-            },
-            {
-              "id": "finance-revaluation",
-              "label": "FX Revaluation",
-              "archetype": "form",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "group-reporting",
-          "label": "Group & Reporting",
-          "pages": [
-            {
-              "id": "intercompany",
-              "label": "Intercompany Transactions",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "consolidation",
-              "label": "Consolidation Workbench",
-              "archetype": "workflow",
-              "status": "prototype"
-            },
-            {
-              "id": "trial-balance",
-              "label": "Trial Balance",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "financial-statements",
-              "label": "Financial Statements",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "finance-drilldown",
-              "label": "Finance Drill-down",
-              "archetype": "detail",
-              "status": "prototype"
-            },
-            {
-              "id": "finance-audit",
-              "label": "Finance Audit Trail",
-              "archetype": "report",
-              "status": "prototype"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "tax",
-      "code": "TX",
-      "label": "Taxation & Compliance",
-      "category": "Finance & trade",
-      "modes": [
-        "service",
-        "trading",
-        "manufacturing"
-      ],
-      "groups": [
-        {
-          "id": "setup",
-          "label": "Tax Setup",
-          "pages": [
-            {
-              "id": "tax-overview",
-              "label": "Tax Overview",
-              "archetype": "dashboard",
-              "status": "prototype"
-            },
-            {
-              "id": "jurisdictions",
-              "label": "Jurisdictions & Registrations",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "tax-rules",
-              "label": "Tax Rule Catalogue",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "tax-code-editor",
-              "label": "Tax Code Editor",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "withholding-setup",
-              "label": "Withholding Setup",
-              "archetype": "settings",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "transaction-tax",
-          "label": "Transaction Tax",
-          "pages": [
-            {
-              "id": "tax-preview",
-              "label": "Transaction Tax Preview",
-              "archetype": "detail",
-              "status": "prototype"
-            },
-            {
-              "id": "tax-exceptions",
-              "label": "Tax Exception Queue",
-              "archetype": "approval",
-              "status": "prototype"
-            },
-            {
-              "id": "einvoice-monitor",
-              "label": "E-invoice Monitor",
-              "archetype": "workflow",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "returns",
-          "label": "Returns & Evidence",
-          "pages": [
-            {
-              "id": "tax-returns",
-              "label": "Return Workbench",
-              "archetype": "workflow",
-              "status": "prototype"
-            },
-            {
-              "id": "tax-reconciliation",
-              "label": "Tax Reconciliation",
-              "archetype": "workflow",
-              "status": "prototype"
-            },
-            {
-              "id": "tax-certificates",
-              "label": "Certificates & Evidence",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "tax-reports",
-              "label": "Tax Reports",
-              "archetype": "report",
-              "status": "prototype"
             }
           ]
         }
@@ -3213,12 +2936,6 @@
               "status": "prototype"
             },
             {
-              "id": "sales-tax-report",
-              "label": "Sales Tax Analysis",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
               "id": "sales-return-report",
               "label": "Returns, Credit Notes & Adjustments",
               "archetype": "report",
@@ -3431,44 +3148,8 @@
           ]
         },
         {
-          "id": "costing-reports",
-          "label": "Costing Reports",
-          "pages": [
-            {
-              "id": "cost-centre-report",
-              "label": "Cost Centre Performance",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "job-cost-report",
-              "label": "Job & Work Order Cost",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "standard-actual-cost-report",
-              "label": "Standard vs Actual Cost",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "overhead-absorption-report",
-              "label": "Overhead Absorption",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "cost-variance-report",
-              "label": "Material, Labour & Overhead Variance",
-              "archetype": "report",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
           "id": "finance-reports",
-          "label": "Finance Reports",
+          "label": "Accounting Reports",
           "pages": [
             {
               "id": "general-ledger-detail-report",
@@ -3515,42 +3196,6 @@
             {
               "id": "financial-ratio-report",
               "label": "Financial Ratios & Trends",
-              "archetype": "report",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "tax-reports",
-          "label": "Tax Reports",
-          "pages": [
-            {
-              "id": "sales-tax-return-report",
-              "label": "Sales Tax Return Detail",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "input-output-tax-report",
-              "label": "Input vs Output Tax Reconciliation",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "withholding-tax-report",
-              "label": "Withholding Tax Register",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "tax-liability-report",
-              "label": "Tax Liability & Payment Schedule",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "tax-exception-report",
-              "label": "Tax Exceptions & Missing Evidence",
               "archetype": "report",
               "status": "prototype"
             }
@@ -4029,12 +3674,6 @@
               "status": "prototype"
             },
             {
-              "id": "tax-summary-report",
-              "label": "Tax Summary",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
               "id": "overtime-payroll-report",
               "label": "Overtime Payroll",
               "archetype": "report",
@@ -4085,12 +3724,6 @@
             {
               "id": "salary-payable-report",
               "label": "Salary Payable",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "tax-payable-report",
-              "label": "Tax Payable",
               "archetype": "report",
               "status": "prototype"
             },
@@ -4660,7 +4293,7 @@
     {
       "id": "administration",
       "code": "AD",
-      "label": "Administration & Multi-Tenancy",
+      "label": "Administration",
       "category": "Platform & governance",
       "modes": [
         "service",
@@ -4669,114 +4302,60 @@
       ],
       "groups": [
         {
-          "id": "organisation",
-          "label": "Organisation",
+          "id": "overview",
+          "label": "Overview",
           "pages": [
             {
               "id": "admin-dashboard",
-              "label": "Administration Dashboard",
+              "label": "Dashboard",
               "archetype": "dashboard",
               "status": "prototype"
             },
             {
               "id": "tenants",
               "label": "Tenant Directory",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "companies",
-              "label": "Companies & Organisation",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "company-detail",
-              "label": "Company Detail",
-              "archetype": "detail",
+              "archetype": "settings",
               "status": "prototype"
             }
           ]
         },
         {
-          "id": "identity-access",
-          "label": "Identity & Access",
+          "id": "organisation",
+          "label": "Organisation",
+          "pages": [
+            {
+              "id": "companies",
+              "label": "Companies",
+              "archetype": "list",
+              "status": "read-only"
+            },
+            {
+              "id": "structure",
+              "label": "Structure",
+              "archetype": "list",
+              "status": "live"
+            }
+          ]
+        },
+        {
+          "id": "users-access",
+          "label": "Users & Access",
           "pages": [
             {
               "id": "users",
-              "label": "User Directory",
+              "label": "Users",
               "archetype": "list",
               "status": "prototype"
             },
             {
-              "id": "add-user",
-              "label": "Add User",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "user-detail",
-              "label": "User Detail & Access",
-              "archetype": "detail",
-              "status": "prototype"
-            },
-            {
-              "id": "roles-permissions",
-              "label": "Role & Permission Designer",
-              "archetype": "settings",
-              "status": "prototype"
-            },
-            {
-              "id": "company-role-assignments",
-              "label": "Company-role Assignments",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "access-review",
-              "label": "Access Review",
-              "archetype": "approval",
-              "status": "prototype"
-            },
-            {
-              "id": "delegation",
-              "label": "Delegation & Impersonation",
-              "archetype": "settings",
-              "status": "prototype"
-            },
-            {
-              "id": "security-policies",
-              "label": "Security & Session Policies",
-              "archetype": "settings",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "entitlements",
-          "label": "Entitlements",
-          "pages": [
-            {
-              "id": "editions",
-              "label": "Editions & Entitlements",
-              "archetype": "settings",
-              "status": "prototype"
-            },
-            {
-              "id": "module-visibility",
-              "label": "Module Visibility",
-              "archetype": "settings",
-              "status": "prototype"
-            },
-            {
-              "id": "prototype-environment",
-              "label": "Prototype Environment",
-              "archetype": "settings",
-              "status": "prototype"
+              "id": "access-levels",
+              "label": "Access Levels",
+              "archetype": "report",
+              "status": "live"
             },
             {
               "id": "admin-audit",
-              "label": "Administration Audit",
+              "label": "Activity Log",
               "archetype": "report",
               "status": "prototype"
             }
@@ -4807,9 +4386,9 @@
             },
             {
               "id": "company-fiscal-currency",
-              "label": "Company, Fiscal & Currency",
+              "label": "Company Setup",
               "archetype": "settings",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "numbering-sequences",

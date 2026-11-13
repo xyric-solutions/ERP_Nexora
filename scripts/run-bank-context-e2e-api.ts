@@ -388,6 +388,25 @@ try {
         );
       }
   }
+  if (process.env.NEXORA_SUBLEDGER_E2E === "true") {
+    const { setupSubledgerFixture, subledgerActor } = await import("../tests/integration/subledger-fixture.js");
+    const currencyFixture = await setupSubledgerFixture(fixture, "nexora-currency-browser", "PKR");
+    const currencyReadPermissions = ["finance.company_currency_profile.read", "finance.company_currency.read", "finance.company_currency_rate.read", "finance.transfer_fx_policy.read"];
+    await fixture.query("insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,'r06-uat-policy-maker',p,'all' from unnest($2::text[]) p on conflict do nothing", [sourceTestTenantId,currencyReadPermissions]);
+    await fixture.query("insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,'r06-uat-policy-maker',p,'company',$3 from unnest($2::text[]) p on conflict do nothing", [sourceTestTenantId,currencyReadPermissions,currencyFixture.company]);
+    await currencyFixture.rate("USD", "285", "2026-10-01");
+    await currencyFixture.rate("USD", "287", "2026-11-01");
+    await currencyFixture.repository.createParty(subledgerActor(), { company_id: currencyFixture.company, kind: "customer", name: "Currency Browser Customer", default_currency: "USD" }, "browser-party-setup");
+  }
+  if(process.env.NEXORA_TAX_E2E === "true") {
+    const company="nexora-currency-browser";
+    await fixture.query("insert into security_user_company_access(tenant_id,access_id,user_id,company_id,is_default,granted_by,source_kind,source_reference) values($1,'tax-browser-admin','r06.override-admin',$2,false,'r06.last-admin-a','governed_administration','isolated-tax-browser')",[sourceTestTenantId,company]);
+    for(const [policy,keys] of [["r06-uat-policy-maker",["finance.tax.read"]],["r06-uat-policy-approval-override",["finance.tax.read","finance.tax.manage","finance.tax_mapping.admin"]]] as const) {
+      await fixture.query("insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,$2,p,'all' from unnest($3::text[]) p on conflict do nothing",[sourceTestTenantId,policy,keys]);
+      await fixture.query("insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,$2,p,'company',$4 from unnest($3::text[]) p on conflict do nothing",[sourceTestTenantId,policy,keys,company]);
+    }
+    for(const type of ["asset","liability"])await fixture.query("insert into account(id,tenant_id,company_id,code,name,type,is_header,status,created_at) values($1,$2,$3,$4,$5,$6,false,'active',now())",[`tax-browser-${type}`,sourceTestTenantId,company,type==="asset"?"1410":"2210",type==="asset"?"Recoverable Input Tax":"WHT Payable - Supplies",type]);
+  }
   // Authentication deliberately verifies the compatibility projection against
   // normalized grants. Keep both fixture projections in parity; never bypass it.
   await fixture.query(

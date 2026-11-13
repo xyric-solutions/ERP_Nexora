@@ -1,3 +1,5 @@
+import { payrollTaxBindings } from "../finance/taxes/payroll.js";
+import { TaxError } from "../finance/taxes/resolver.js";
 import {
   loanRecoveries,
   recordedLoanRecoveries,
@@ -798,6 +800,17 @@ export class PayrollRuns {
     if (loans.some((a) => !payloads.some((p) => p.employee_id === a.employee_id)))
       conflict("An active loan employee has no published attendance input for this period.");
     const hashes = [];
+    const taxBindings = await payrollTaxBindings(client, {
+      tenant: c.tenantId,
+      company: q.company_id,
+      date: q.month,
+      currency: String(p.currency_code),
+      precision: Number(p.money_scale),
+      components: components.map((component) => String(component.id)),
+    }).catch((error) => {
+      if (error instanceof TaxError) throw new HrApiError(error.status, error.code, error.message);
+      throw error;
+    });
     for (const [index, payload] of payloads.entries()) {
       const sourceSalaries = salaries
         .filter((s) => s.employee_id === payload.employee_id)
@@ -812,7 +825,13 @@ export class PayrollRuns {
       try {
         calculated = calculateMonthlyPayroll({
           days: payload.days,
-          salaries: sourceSalaries as PayrollCalculationSalary[],
+          salaries: sourceSalaries.map((salary) => ({
+            ...salary,
+            components: salary.components.map((component: PayrollCalculationSalary["components"][number]) => ({
+              ...component,
+              ...(taxBindings.has(String(component.id)) ? { tax: taxBindings.get(String(component.id)) } : {}),
+            })),
+          })) as PayrollCalculationSalary[],
           month: q.month,
           currency_code: String(p.currency_code),
           money_scale: Number(p.money_scale),
@@ -892,14 +911,20 @@ export class PayrollRuns {
         Number(p.money_scale),
         this.d.statutoryMode ?? "production",
       );
+      const unifiedTaxComponents = new Set(
+        calculated.lines.filter((line) => line.tax_snapshot).map((line) => line.component_id),
+      );
+      if (statutory.lines.some((line) => unifiedTaxComponents.has(line.component_id)))
+        conflict(
+          "A Payroll component cannot combine a unified flat-rate tax and a published statutory deduction. Configure separate components.",
+        );
       calculated.lines.push(...statutory.lines);
       calculated.gross = statutory.gross;
       calculated.deductions = statutory.deductions;
       calculated.net = statutory.net;
       const placement = placements.get(payload.employee_id) ?? null,
         nominal = placement?.default_nominal ? (nominals.get(placement.default_nominal) ?? null) : null;
-      if (nominal)
-        for (const line of calculated.lines) if (line.kind === "earning") line.expense_account_id = nominal;
+      if (nominal) for (const line of calculated.lines) if (line.kind === "earning") line.expense_account_id = nominal;
       const costing = {
         payment_route: placement?.payment_route ?? null,
         cost_center_id: placement?.cost_center_id ?? null,
@@ -958,7 +983,7 @@ export class PayrollRuns {
         const lineId = "payroll-line-" + randomUUID();
         lineIds.set(line.source, lineId);
         await client.query(
-          `insert into hr_payroll_result_item(id,tenant_id,result_id,component_id,component_code,component_name,kind,amount,expense_account_id,liability_account_id,source,position) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+          `insert into hr_payroll_result_item(id,tenant_id,result_id,component_id,component_code,component_name,kind,amount,expense_account_id,liability_account_id,source,position,tax_snapshot) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
           [
             lineId,
             c.tenantId,
@@ -972,6 +997,7 @@ export class PayrollRuns {
             line.liability_account_id,
             line.source,
             position + 1,
+            line.tax_snapshot ? JSON.stringify(line.tax_snapshot) : null,
           ],
         );
       }

@@ -1,5 +1,49 @@
 # Nexora ERP Master Menu & Responsive Sidebar
 
+## 2026-11-12 Accounting navigation and company setup
+
+Removed **Ledgers & Close** and **Group & Reporting**, including their children,
+from Accounting. The remaining visible groups are Chart of Accounts, Taxes,
+Reporting Master Data and Journals. General Ledger, Trial Balance and financial
+statement bookmarks resolve to the existing Reports pages. Intercompany and
+Consolidation bookmarks open the Report Catalogue because dedicated equivalents
+are not currently available there; this change does not implement new reports.
+
+Fiscal setup is now **Configuration > Core Setup > Company Setup**, opening
+**Fiscal year & periods** by default. Start date is editable; end date is derived
+from the existing twelve-month calendar rule. Company currencies remain available
+inside Company Setup. Old fiscal-period and period-close links open this setup
+page; FX Revaluation opens the consolidated currency workspace's valuation view.
+This relocates existing company configuration; a new account-registration wizard
+is outside this navigation change. Period permissions, server validation, audit
+history and financial posting rules are preserved.
+
+## 2026-11-12 Single currency workspace
+
+Accounting now has one **Reporting Master Data > Currencies & Transfer FX**
+entry at `/#/finance/currencies-fx`. The opening view preserves the existing
+company currency/rate forms and Bank Transfer FX policy. **Balances & transactions**
+opens the existing customer/supplier accounting workflows inside the same page,
+including invoices, settlement, valuation, reports and account setup. Its view
+address is `/#/finance/currencies-fx/accounting`. The separate **Multi-currency
+Accounting** sidebar entry is removed. Its old bookmark remains a compatible alias
+that opens the accounting view of this page; changing views uses the canonical
+address. General Ledger, Trial Balance, customer/supplier and report entry points
+remain unchanged. No financial calculations or posting controls were replaced.
+
+## 2026-11-12 Accounting and unified Taxes update
+
+The active Next.js shell is defined in `app/shell/config/prototype-data.ts` and
+`app/shell/prototype-shell.tsx`. Visible Finance is now **Accounting**; stable
+`finance` route and permission identifiers remain compatible. **Taxes** is one
+Accounting submenu leaf at `/#/finance/taxes` and opens the persistent Unified
+Tax Management Console. All former standalone Tax pages normalize to this console.
+Costing and its dedicated report group are removed; retired costing bookmarks
+show an unavailable page. Dashboard and AI launchers no longer target Costing.
+Unrelated cost-centre, inventory and manufacturing calculations remain intact.
+The sections below retain the earlier historical navigation contract.
+
+
 - Version: 1.2
 - Date: 2026-08-27
 - Status: implemented; Demo acceptance required

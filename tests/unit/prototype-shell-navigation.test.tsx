@@ -44,6 +44,44 @@ afterEach(() => {
 });
 
 describe("Prototype shell module navigation", () => {
+  it("removes ledger and group-reporting groups while keeping Reports and company setup destinations", () => {
+    const accounting = prototypeModules.find((module) => module.id === "finance");
+    const groups = accounting?.groups.filter((group) => !group.hiddenFromNavigation).map((group) => group.id);
+    expect(groups).toEqual(["chart-of-accounts", "taxes", "reporting-master-data", "journals"]);
+    for (const [oldPage, reportPage] of [
+      ["general-ledger", "general-ledger-detail-report"],
+      ["trial-balance", "trial-balance-report"],
+      ["financial-statements", "balance-sheet-report"],
+      ["finance-audit", "journal-register-report"],
+    ]) {
+      const target = findPrototypePage("finance", oldPage);
+      expect(target.module.id).toBe("reports");
+      expect(target.page.id).toBe(reportPage);
+    }
+    for (const oldPage of ["fiscal-periods", "period-close"]) {
+      const target = findPrototypePage("finance", oldPage);
+      expect(target.module.id).toBe("configuration");
+      expect(target.page.id).toBe("company-fiscal-currency");
+      expect(target.redirectRecordRef).toBe("fiscal");
+    }
+    const valuation = findPrototypePage("finance", "finance-revaluation");
+    expect(valuation.page.id).toBe("currencies-fx");
+    expect(valuation.redirectRecordRef).toBe("revaluation");
+  });
+
+  it("has one currency submenu and redirects old multicurrency links into it", () => {
+    const finance = prototypeModules.find((module) => module.id === "finance");
+    const currencyPages = finance?.groups
+      .flatMap((group) => group.pages)
+      .filter((page) => ["currencies-fx", "multi-currency"].includes(page.id) && !page.hiddenFromNavigation);
+    expect(currencyPages?.map((page) => page.label)).toEqual(["Currencies & Transfer FX"]);
+    const legacy = findPrototypePage("finance", "multi-currency");
+    expect(legacy.page.id).toBe("currencies-fx");
+    expect(legacy.group.id).toBe("reporting-master-data");
+    expect(legacy.redirectRecordRef).toBe("accounting");
+    expect(findPrototypePage("finance", "general-ledger").page.id).toBe("general-ledger-detail-report");
+  });
+
   it("keeps useful navigation without duplicated context chips or breadcrumb groups", () => {
     expect(container.querySelector(".nx-context-summary")).toBeNull();
     expect([...container.querySelectorAll(".nx-breadcrumbs li")].map((item) => item.textContent)).toEqual([
@@ -52,7 +90,11 @@ describe("Prototype shell module navigation", () => {
       "Account Balances",
     ]);
   });
-  it("renders every visible page in the active group exactly once", () => {
+  it("renders every visible page in the active group exactly once after expanding it", async () => {
+    const groupButton = [...container.querySelectorAll<HTMLButtonElement>(".nx-submenu-button")].find(
+      (button) => button.querySelector("span")?.textContent === "Bank",
+    );
+    await act(async () => groupButton?.click());
     const banking = prototypeModules.find((module) => module.id === "banking");
     const bankGroup = banking?.groups.find((group) => group.id === "bank");
     const expectedLabels = (bankGroup?.pages ?? [])

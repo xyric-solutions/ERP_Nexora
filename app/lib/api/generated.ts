@@ -1,3 +1,15 @@
+import type { TaxInput, TaxUpdate, TaxStatus, TaxDirectory, TaxDetail, TaxOptions } from "@nexora/contracts";
+import type {
+  SubledgerWorkspace,
+  SubledgerReport,
+  SubledgerParty,
+  SubledgerPartyInput,
+  SubledgerPolicy,
+  SubledgerPolicyInput,
+  SubledgerInput,
+  SubledgerOperation,
+  SubledgerAction,
+} from "@nexora/contracts";
 import type { HrLearningWorkspace, HrLearningAction, HrLearningCertificate } from "@nexora/contracts";
 import type {
   CreateHrPersonalCorrection,
@@ -61,6 +73,8 @@ import type {
   ChangeReferenceMasterStatusRequest,
   AuthenticationCompletionResponse,
   ChangeInitialPasswordRequest,
+  ChangePasswordRequest,
+  AdminModuleCatalogueResponse,
   HealthStatus,
   ImportChartTemplateRequest,
   PublishChartTemplateRequest,
@@ -534,6 +548,7 @@ export class NexoraApiClient {
           "/api/v1/auth/select-tenant",
           "/api/v1/auth/session/rotate",
           "/api/v1/auth/change-initial-password",
+          "/api/v1/auth/change-password",
         ].includes(path)
       )
         this.authenticationGeneration++;
@@ -565,6 +580,13 @@ export class NexoraApiClient {
   changeInitialPassword(payload: ChangeInitialPasswordRequest): Promise<SessionResponse> {
     return this.request("/api/v1/auth/change-initial-password", { method: "POST", body: JSON.stringify(payload) });
   }
+  changePassword(payload: ChangePasswordRequest, csrfToken: string): Promise<SessionResponse> {
+    return this.request("/api/v1/auth/change-password", {
+      method: "POST",
+      headers: { "x-csrf-token": csrfToken },
+      body: JSON.stringify(payload),
+    });
+  }
   cancelTenantSelection(payload: CancelTenantSelectionRequest): Promise<void> {
     return this.request("/api/v1/auth/cancel-tenant-selection", { method: "POST", body: JSON.stringify(payload) });
   }
@@ -592,6 +614,9 @@ export class NexoraApiClient {
   }
   logoutAll(csrfToken: string): Promise<void> {
     return this.request("/api/v1/auth/logout-all", { method: "POST", headers: { "x-csrf-token": csrfToken } });
+  }
+  adminModules(): Promise<AdminModuleCatalogueResponse> {
+    return this.request("/api/v1/admin/modules");
   }
   listSecurityPermissions(): Promise<SecurityPage> {
     return this.request("/api/v1/security/permissions");
@@ -4231,5 +4256,102 @@ export class NexoraApiClient {
   }
   enqueueSampleJob(payload: SampleJobPayload): Promise<JobReceipt> {
     return this.request("/api/v1/jobs/sample", { method: "POST", body: JSON.stringify(payload) });
+  }
+  getTaxes(query: string): Promise<TaxDirectory> {
+    return this.request("/api/v1/finance/taxes" + query);
+  }
+  getTaxOptions(query: string): Promise<TaxOptions> {
+    return this.request("/api/v1/finance/taxes/options" + query);
+  }
+  getTax(id: string, query: string): Promise<TaxDetail> {
+    return this.request("/api/v1/finance/taxes/" + encodeURIComponent(id) + query);
+  }
+  createTax(payload: TaxInput, csrfToken: string, idempotencyKey: string): Promise<TaxDetail> {
+    return this.request("/api/v1/finance/taxes", {
+      method: "POST",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+  }
+  updateTax(id: string, payload: TaxUpdate, csrfToken: string, idempotencyKey: string): Promise<TaxDetail> {
+    return this.request("/api/v1/finance/taxes/" + encodeURIComponent(id), {
+      method: "PATCH",
+      headers: {
+        "x-csrf-token": csrfToken,
+        "idempotency-key": idempotencyKey,
+        "if-match": '"' + payload.expected_version + '"',
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+  changeTaxStatus(id: string, payload: TaxStatus, csrfToken: string, idempotencyKey: string): Promise<TaxDetail> {
+    return this.request("/api/v1/finance/taxes/" + encodeURIComponent(id) + "/status", {
+      method: "POST",
+      headers: {
+        "x-csrf-token": csrfToken,
+        "idempotency-key": idempotencyKey,
+        "if-match": '"' + payload.expected_version + '"',
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+  getSubledgerWorkspace(query: string): Promise<SubledgerWorkspace> {
+    return this.request("/api/v1/finance/subledger/workspace" + query);
+  }
+  getSubledgerReport(query: string): Promise<SubledgerReport> {
+    return this.request("/api/v1/finance/subledger/reports" + query);
+  }
+  createSubledgerParty(
+    payload: SubledgerPartyInput,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<SubledgerParty> {
+    return this.request("/api/v1/finance/subledger/parties", {
+      method: "POST",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+  }
+  configureSubledgerPolicy(
+    payload: SubledgerPolicyInput,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<SubledgerPolicy> {
+    return this.request("/api/v1/finance/subledger/policy", {
+      method: "POST",
+      headers: {
+        "x-csrf-token": csrfToken,
+        "idempotency-key": idempotencyKey,
+        "if-match": '"' + payload.expected_version + '"',
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+  createSubledgerOperation(
+    payload: SubledgerInput,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<SubledgerOperation> {
+    return this.request("/api/v1/finance/subledger/operations", {
+      method: "POST",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+  }
+  actOnSubledgerOperation(
+    id: string,
+    payload: SubledgerAction,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<SubledgerOperation> {
+    return this.request("/api/v1/finance/subledger/operations/" + encodeURIComponent(id) + "/actions", {
+      method: "POST",
+      headers: {
+        "x-csrf-token": csrfToken,
+        "idempotency-key": idempotencyKey,
+        "if-match": '"' + payload.expected_version + '"',
+      },
+      body: JSON.stringify(payload),
+    });
   }
 }

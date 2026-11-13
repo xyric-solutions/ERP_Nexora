@@ -10,6 +10,7 @@ import {
   type SavePurchaseRequest,
   type PurchaseDocument,
   type PurchaseKind,
+  type TaxDefinition,
   type PurchaseLine,
   type ProcurementOptions,
   type Supplier,
@@ -93,6 +94,31 @@ export function PurchaseDocumentForm({
     allocations: [],
     payment_details: payment ? { bank_account_id: "", entries: [] } : null,
   });
+  const [taxChoices, setTaxChoices] = useState<TaxDefinition[]>([]),
+    [taxSearch, setTaxSearch] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    if (!session?.user.permissions.includes("finance.tax.read")) return;
+    const timer = setTimeout(
+      () =>
+        api
+          .getTaxes(
+            `?${new URLSearchParams({ company_id: company, status: "active", module: "purchases", search: taxSearch, limit: "100" })}`,
+          )
+          .then((value) => {
+            if (!cancelled)
+              setTaxChoices(value.items.filter((t) => t.treatment === "recoverable" && t.trigger === "recognition"));
+          })
+          .catch(() => {
+            if (!cancelled) setTaxChoices([]);
+          }),
+      150,
+    );
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [api, company, session, taxSearch]);
   const [sources, setSources] = useState<PurchaseDocument[]>([]),
     [sourceCursors, setSourceCursors] = useState<Partial<Record<PurchaseKind, string | null>>>({});
   const [sourceSearch, setSourceSearch] = useState("");
@@ -630,29 +656,36 @@ export function PurchaseDocumentForm({
         />
       </div>
     ) : null;
-  if (loading) return <WorkFormLayout><p role="status">Loading the persisted Purchase form…</p></WorkFormLayout>;
+  if (loading)
+    return (
+      <WorkFormLayout>
+        <p role="status">Loading the persisted Purchase form…</p>
+      </WorkFormLayout>
+    );
   if (loadFailed)
     return (
-      <WorkFormLayout><Alert variant="destructive">
-        <AlertDescription>
-          {error}{" "}
-          <Button
-            type="button"
-            variant="link"
-            onClick={() => {
-              setLoading(true);
-              setLoadFailed(false);
-              setError("");
-              setReload((value) => value + 1);
-            }}
-          >
-            Retry loading record
-          </Button>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Close
-          </Button>
-        </AlertDescription>
-      </Alert></WorkFormLayout>
+      <WorkFormLayout>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {error}{" "}
+            <Button
+              type="button"
+              variant="link"
+              onClick={() => {
+                setLoading(true);
+                setLoadFailed(false);
+                setError("");
+                setReload((value) => value + 1);
+              }}
+            >
+              Retry loading record
+            </Button>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Close
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </WorkFormLayout>
     );
   return (
     <WorkForm
@@ -1520,11 +1553,47 @@ export function PurchaseDocumentForm({
                       <td className="p-2">
                         <Input
                           aria-label={`Line ${index + 1} tax percent`}
-                          disabled={sourceLocked}
+                          disabled={sourceLocked || !!line.tax_definition_id}
                           inputMode="decimal"
                           value={line.tax_percent}
                           onChange={(event) => updateLine(index, { tax_percent: event.target.value })}
                         />
+                        {index === 0 && session?.user.permissions.includes("finance.tax.read") && (
+                          <Input
+                            aria-label="Search purchase tax definitions"
+                            placeholder="Search taxes"
+                            value={taxSearch}
+                            onChange={(e) => setTaxSearch(e.target.value)}
+                          />
+                        )}
+                        {session?.user.permissions.includes("finance.tax.read") && (
+                          <select
+                            aria-label={`Line ${index + 1} tax definition`}
+                            className={purchaseSelectClass}
+                            disabled={sourceLocked}
+                            value={line.tax_definition_id ?? ""}
+                            onChange={(e) => {
+                              const tax = taxChoices.find((t) => t.id === e.target.value);
+                              updateLine(index, {
+                                tax_definition_id: tax?.id,
+                                tax_snapshot: undefined,
+                                ...(tax ? { tax_percent: tax.rate } : {}),
+                              });
+                            }}
+                          >
+                            <option value="">Manual tax (legacy)</option>
+                            {line.tax_definition_id && !taxChoices.some((t) => t.id === line.tax_definition_id) && (
+                              <option value={line.tax_definition_id}>
+                                {line.tax_snapshot?.code ?? "Retained tax"}
+                              </option>
+                            )}
+                            {taxChoices.map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.code} / {t.name} / {t.rate}%
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </td>
                       <td className="p-2 print:hidden">
                         <Button
@@ -1577,6 +1646,18 @@ export function PurchaseDocumentForm({
             : "Approval matches this bill to the approved order and products already received. It does not post an accounts-payable journal."}
         </p>
       ) : null}
+      {record?.kind === "bill" &&
+        record.state === "approved" &&
+        session?.user.permissions.includes("finance.subledger.manage") && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy || dirty}
+            onClick={() => onNavigate("supplier-currency-accounts", record.id)}
+          >
+            Prepare bill accounting
+          </Button>
+        )}
       {payment ? (
         <p className="m-0 text-xs text-muted-foreground">
           This is a payment instruction. Approval reserves these allocations; it does not transfer funds or mark the

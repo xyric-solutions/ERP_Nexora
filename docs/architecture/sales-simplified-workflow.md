@@ -16,9 +16,43 @@ action on every record.
 
 | Module | Items |
 |---|---|
-| Sales | Quotations, Sales Orders, Pick, Pack & Delivery, Invoices, Receipts (no group header) |
-| Revenue | Recurring Bills |
-| Customers | Customers |
+| Sales | Quotations, Sales Orders, Delivery, Invoices, Recurring Bills, Receipts, Customers (no group header) |
+
+The Revenue and Customers modules were retired on 12 Nov 2026; Recurring Bills
+and Customers moved into Sales. Old `revenue:*` and `customers:*` links open
+the moved pages.
+
+## Project and Location (12 Nov 2026)
+
+Every Sales transaction requires a **Project** and a **Location**, chosen from the
+company's active Master Data projects and locations: quotations, sales orders,
+invoices, recurring templates, receipts, customer payments and their returns,
+batch receipts/payments, sale returns and deliveries. Documents
+created from another inherit both (and can change them). Records saved before
+the rule must be given both before they are posted or used.
+
+## Recurring Bills (12 Nov 2026)
+
+Recurring invoice templates (`RB-` codes) for customers billed **weekly** or
+**monthly** (existing Quarterly/Annually schedules keep working).
+
+- **+ New Template ▾** › *Single customer template* or *Batch template ·
+  multiple customers*. The template holds what is billed, the customer(s),
+  frequency, next invoice date, currency, reference, notes and the same
+  Products & services lines as the invoice form (shared `LineItemsEditor`).
+- **Create Invoice** (single) opens the existing invoice form prefilled from
+  the template, with the customer locked; **Save & Post** issues the invoice
+  and moves the template on by one week or month.
+- **Create Invoices (n)** (batch) opens a sheet listing each customer for the
+  period: **Save & Post all** issues one invoice per customer (each with its own
+  payment terms and due date), or **Review in invoice form** opens one customer
+  in the invoice form first. The period advances once every customer is invoiced;
+  a customer cannot be invoiced twice for one period.
+- **Bill everything due in 30 days** posts every outstanding template invoice
+  directly. Pause/Resume and the activity history are on the template sheet;
+  the menu badge counts templates due today.
+- Mock only: nothing is generated automatically. The live flow must generate
+  on the server with idempotency per template, customer and period.
 
 **Returns & Control was removed** (review of 11 Nov 2026): Sale Return is an
 option under **Add New** on the Invoices page, quotation approval happens on the quotation itself, price
@@ -36,7 +70,7 @@ Limit Review pages and Receivables and Collections. Old `customer-receipts`,
 
 ## Filter on every Sales screen
 
-Every Sales list (Quotations, Sales Orders, Pick, Pack & Delivery, Invoices,
+Every Sales list (Quotations, Sales Orders, Delivery, Invoices,
 Receipts, Recurring Bills, Customers) has a **Filter** button beside its
 actions (`app/features/sales/components/list-view-options.tsx`). It lists every
 field as a tick box (the necessary ones are ticked by default; required ones
@@ -61,7 +95,7 @@ sheet, and the Sale Return dialog. The customer panel keeps its own prompt.
 
 ```
 Quotation (Draft) → optional Approver → Approved → Confirm Order → Sales Order (Confirmed)
-  → Pick & Pack → Delivery → Create Invoice → Receipts (allocation) → Payment history
+  → Delivery → Create Invoice → Receipts (allocation) → Payment history
 ```
 
 | Record | Status | Actions |
@@ -74,8 +108,7 @@ Quotation (Draft) → optional Approver → Approved → Confirm Order → Sales
 | Quotation | Rejected | Reset to Draft, or start a new quotation |
 | Quotation | Ordered | None (links to its order) |
 | Sales order | Draft (direct order only) | **Confirm Order** (no approval), Edit, Delete |
-| Sales order | Confirmed · fulfilment *Not started* | Pick & Pack (side panel) |
-| Sales order | Confirmed · *Packed* | Save Delivery (same panel) |
+| Sales order | Confirmed · fulfilment *Not started* | Delivery (side panel) → **Confirm Delivery** |
 | Sales order | Confirmed · *Delivered* | Create Invoice (opens the editable invoice form prefilled from the order; saved and linked to order and quotation on Save) |
 | Invoice | Unpaid / Partially paid / Overdue / Paid | Read-only, no header actions. **Receive Payment** opens a receipt. Returns via Invoices › Add New › Sale Return |
 
@@ -105,13 +138,15 @@ active employees from the shared HR fixture plus the sample reviewers).
 - Approval is blocked while the customer's credit status is On hold or
   Blocked; going over the credit limit shows a warning only.
 
-### Sales orders and Pick, Pack & Delivery
+### Sales orders and Delivery
 
-A sales order only shows **Draft** or **Confirmed**. Picking, packing,
-delivery and invoicing are fulfilment progress (*Not started → Packed →
+Items are delivered directly, so there is no separate pick & pack step
+(removed 12 Nov 2026; the page keeps its `pick-pack-delivery` route id so
+existing links still work). A sales order only shows **Draft** or
+**Confirmed**. Delivery and invoicing are fulfilment progress (*Not started →
 Delivered → Invoiced*), shown as a separate pill/column and filter, not as
-order statuses. Confirmed orders appear in Pick, Pack & Delivery; the side
-panel saves pick & pack and delivery and then offers **Create Invoice**. The
+order statuses. Confirmed orders appear in Delivery; the side panel records
+the delivery with **Confirm Delivery** and then offers **Create Invoice**. The
 invoice is created once the order is delivered: Create Invoice (from the
 panel, the Delivered tab or the order record) opens the full invoice form at
 `new:<order code>` prefilled from the order — invoice date, due date, payment
@@ -215,7 +250,7 @@ the API is built.
 - Over-limit quotations are approved with a warning; there is no second, credit-limit approval.
 - One delivery per order; part deliveries can be added later.
 - Sale returns credit the invoice but do not move stock or post a credit note.
-- How recurring bills are settled is still being researched.
+- How recurring bills are settled is still being researched (templates create normal invoices; payment is recorded in Receipts).
 
 ## Next steps (backend)
 

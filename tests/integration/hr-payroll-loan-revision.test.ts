@@ -12,7 +12,7 @@ import { createLoanFixture, loanActor } from "./hr-payroll-loans-fixture.js";
 const url = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL,
   run = url ? describe : describe.skip;
 
-run("Draft loan and advance revision (HR152)", () => {
+run("Draft loan and advance revision (HR153)", () => {
   let pool: DatabasePool;
   let f: Awaited<ReturnType<typeof createLoanFixture>>;
   beforeAll(async () => {

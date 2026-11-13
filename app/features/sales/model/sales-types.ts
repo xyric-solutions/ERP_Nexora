@@ -15,13 +15,12 @@ export type SalesDocumentKind = "quotation" | "order" | "invoice";
  */
 export type QuotationStatus = "Draft" | "Pending approval" | "Changes requested" | "Approved" | "Rejected" | "Ordered";
 /**
- * A sales order only shows whether the customer's order is confirmed. Picking,
- * packing, delivery and invoicing are fulfilment progress (see FulfilmentStage),
- * not order statuses.
+ * A sales order only shows whether the customer's order is confirmed. Delivery
+ * and invoicing are fulfilment progress (see FulfilmentStage), not order statuses.
  */
 export type OrderStatus = "Draft" | "Confirmed";
-/** Fulfilment progress of a confirmed order, derived from its pick & pack, delivery and invoice. */
-export type FulfilmentStage = "Not started" | "Packed" | "Delivered" | "Invoiced";
+/** Fulfilment progress of a confirmed order, derived from its delivery and invoice. Items are delivered directly; there is no separate pick & pack. */
+export type FulfilmentStage = "Not started" | "Delivered" | "Invoiced";
 export type InvoiceStatus = "Unpaid" | "Partially paid" | "Paid";
 export type SalesDocumentStatus = QuotationStatus | OrderStatus | InvoiceStatus;
 
@@ -55,16 +54,28 @@ export interface ApprovalEntry {
   note: string;
 }
 
-/** Pick & pack record for an order, saved before (or together with) the delivery. */
-export interface SalesPickPack {
-  packages: number;
-  packedBy: string;
-  notes: string;
-  at: string;
-  by: string;
+/**
+ * A company Project or Location master record (Master Data › Projects /
+ * Locations, `/api/v1/master-data/{projects|locations}`), with the code and name
+ * captured when it was chosen so lists and documents can show it later.
+ */
+export interface SalesReference {
+  id: string;
+  code: string;
+  name: string;
 }
 
-export interface SalesDelivery {
+/**
+ * Project and Location required on every Sales transaction (12 Nov 2026).
+ * Records created before the rule have neither; they must be given both
+ * before they are saved, posted or used to create another transaction.
+ */
+export interface SalesContextFields {
+  project?: SalesReference;
+  location?: SalesReference;
+}
+
+export interface SalesDelivery extends SalesContextFields {
   no: string;
   date: string;
   warehouse: string;
@@ -81,7 +92,7 @@ export interface SalesDocumentLinks {
   recurring?: string;
 }
 
-export interface SalesDocument {
+export interface SalesDocument extends SalesContextFields {
   id: string;
   code: string;
   kind: SalesDocumentKind;
@@ -102,7 +113,6 @@ export interface SalesDocument {
   notes: string;
   status: SalesDocumentStatus;
   links: SalesDocumentLinks;
-  pickPack?: SalesPickPack;
   delivery?: SalesDelivery;
   /** Quotations only: optional named approver. Empty means the creator approves it. */
   approver?: string;
@@ -253,7 +263,7 @@ export type ReceiptSource = "Invoice" | "Manual" | "Batch";
 export type MoneyDocType = "Receipt" | "Customer payment" | "Return receipt" | "Return payment";
 export type MoneyDocStatus = "Draft" | "Posted";
 
-export interface CustomerReceipt {
+export interface CustomerReceipt extends SalesContextFields {
   id: string;
   code: string;
   type: MoneyDocType;
@@ -300,7 +310,7 @@ export interface SalesReturnLine {
 }
 
 /** Sale Return recorded from an opened invoice. Its value is credited to that invoice. */
-export interface SalesReturn {
+export interface SalesReturn extends SalesContextFields {
   id: string;
   code: string;
   customerId: string;
@@ -312,18 +322,44 @@ export interface SalesReturn {
   history: SalesHistoryEntry[];
 }
 
-export interface RecurringBill {
+/**
+ * New templates are Weekly or Monthly. Quarterly and Annually remain only so
+ * existing schedules keep working.
+ */
+export type RecurringFrequency = "Weekly" | "Monthly" | "Quarterly" | "Annually";
+/** Single: one customer. Batch: one template invoicing several customers with the same lines. */
+export type RecurringScope = "Single" | "Batch";
+
+/**
+ * Recurring invoice template (RB-). Create Invoice opens the normal invoice
+ * form prefilled from it; Save and Post issues the invoice. When every
+ * customer on the template has been invoiced for the current period, the
+ * next invoice date moves on by one week or month.
+ */
+export interface RecurringBill extends SalesContextFields {
   id: string;
   code: string;
-  customerId: string;
-  desc: string;
-  sku: string;
-  qty: number;
-  rate: number;
-  tax: number;
-  frequency: "Monthly" | "Quarterly" | "Annually";
+  scope: RecurringScope;
+  /** What is billed, e.g. "Maintenance contract · monthly instalment". */
+  name: string;
+  /** One customer for a Single template; one or more for a Batch template. */
+  customerIds: string[];
+  lines: SalesLine[];
+  /** ISO 4217 currency of the line rates. Missing means the base currency (PKR). */
+  currency?: string;
+  /** PKR per 1 unit of `currency` (1 for PKR). */
+  fxRate?: number;
+  /** Copied to each invoice's customer reference, followed by the period date. */
+  reference: string;
+  /** Printed on each invoice. */
+  notes: string;
+  frequency: RecurringFrequency;
+  /** Invoice date of the current (next due) period, ISO. */
   next: string;
   status: "Active" | "Paused";
+  /** Customers already invoiced for the current period: customer id → invoice code. */
+  billed: Record<string, string>;
+  history: SalesHistoryEntry[];
 }
 
 export interface SalesNotification {

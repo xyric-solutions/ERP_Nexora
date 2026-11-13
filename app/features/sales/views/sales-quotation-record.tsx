@@ -32,6 +32,7 @@ import {
 } from "../components/sales-ui";
 import { DeleteDraftDialog, QuotationDecisionButtons, QuotationDecisionDialog } from "../components/sales-dialogs";
 import { InvoicePdfViewer } from "../components/invoice-viewer";
+import { contextRows, ProjectLocationDialog } from "../components/project-location-fields";
 import type { SalesNav } from "../components/sales-nav";
 import { downloadInvoicePdf } from "../model/invoice-pdf";
 import { moneyWhole } from "../model/sales-format";
@@ -50,6 +51,7 @@ import {
   EDITABLE_QUOTATION_STATUSES,
   findCustomer,
   findDocument,
+  hasContext,
   isApproverOf,
   lineAmount,
   lineTotals,
@@ -60,7 +62,7 @@ import {
   submitQuotation,
   type QuotationStage,
 } from "../model/sales-workflow";
-import type { ApprovalDecision } from "../model/sales-types";
+import type { ApprovalDecision, SalesContextFields } from "../model/sales-types";
 import { DocumentEntry } from "./sales-document-entry";
 
 const STAGE_MARK: Record<QuotationStage["state"], string> = {
@@ -118,6 +120,7 @@ export function QuotationRecord({ code, nav }: { code: string; nav: SalesNav }) 
   const [deciding, setDeciding] = useState<ApprovalDecision | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [pdf, setPdf] = useState<"view" | "print" | null>(null);
+  const [choosingContext, setChoosingContext] = useState(false);
 
   if (!doc) {
     return (
@@ -169,12 +172,18 @@ export function QuotationRecord({ code, nav }: { code: string; nav: SalesNav }) 
         return `${doc.code} approved. Click Confirm Order when the customer orders.`;
       });
     } else if (next.action === "confirmOrder") {
-      run(() => {
-        const orderCode = commitSales((sales) => confirmQuotation(sales, doc.code, nav.actor));
-        return `Order confirmed. Sales order ${orderCode} is now in Pick, Pack & Delivery.`;
-      });
+      // Quotations saved before Project and Location were required ask for them first.
+      if (!hasContext(doc)) setChoosingContext(true);
+      else confirmWith();
     }
   };
+
+  const confirmWith = (chosen?: SalesContextFields) =>
+    run(() => {
+      const orderCode = commitSales((sales) => confirmQuotation(sales, doc.code, nav.actor, chosen));
+      setChoosingContext(false);
+      return `Order confirmed. Sales order ${orderCode} is now in Delivery.`;
+    });
 
   const decide = (note: string) => {
     if (!deciding) return;
@@ -267,7 +276,7 @@ export function QuotationRecord({ code, nav }: { code: string; nav: SalesNav }) 
         </NextActionBar>
       )}
 
-      <Card title="Workflow" aside={<span className="text-xs text-muted-foreground">Quotation → Approval → Confirm Order → Pick & pack → Delivery → Invoice → Payment</span>}>
+      <Card title="Workflow" aside={<span className="text-xs text-muted-foreground">Quotation → Approval → Confirm Order → Delivery → Invoice → Payment</span>}>
         <ol className="m-0 grid list-none grid-cols-1 gap-3 p-3.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6" aria-label="Quotation workflow">
           {stages.map((stage, index) => (
             <StageCard key={stage.key} stage={stage} index={index} onOpen={openStage(stage)} />
@@ -313,6 +322,7 @@ export function QuotationRecord({ code, nav }: { code: string; nav: SalesNav }) 
             )}
             <TotalsSummary
               rows={[
+                ...contextRows(doc),
                 ["Currency", currencySummary(doc)],
                 ["Untaxed amount", docMoney(totals.sub, doc)],
                 ["Sales tax", docMoney(totals.tax, doc)],
@@ -357,6 +367,16 @@ export function QuotationRecord({ code, nav }: { code: string; nav: SalesNav }) 
         onConfirm={decide}
       />
       <DeleteDraftDialog code={deleting ? doc.code : null} onClose={() => setDeleting(false)} onConfirm={remove} />
+      {choosingContext ? (
+        <ProjectLocationDialog
+          open
+          title={`Confirm Order · ${doc.code}`}
+          description={`${doc.code} was saved before Project and Location were required. Choose them for the sales order.`}
+          confirmLabel="Confirm Order"
+          onClose={() => setChoosingContext(false)}
+          onConfirm={confirmWith}
+        />
+      ) : null}
       {pdf ? (
         <InvoicePdfViewer input={pdfInput} customerLabel={customer?.display ?? ""} autoPrint={pdf === "print"} onClose={() => setPdf(null)} />
       ) : null}

@@ -1,3 +1,4 @@
+import { calculateTax, type TaxSnapshot } from "@nexora/contracts";
 /** Server-only exact Payroll arithmetic. No floating-point monetary operations or executable administrator code. */
 export class PayrollCalculationError extends Error {}
 const invalid = (message: string): never => {
@@ -78,7 +79,8 @@ export function evaluatePayrollFormula(
   expression: string,
   variables: Readonly<Record<string, ExactPayrollAmount>>,
 ): ExactPayrollAmount {
-  const tokens = expression.match(/\[[A-Za-z][A-Za-z0-9_-]*\]|\d+(?:\.\d{1,4})?|[A-Za-z][A-Za-z0-9_]*|[+*/(),-]/g) ?? [];
+  const tokens =
+    expression.match(/\[[A-Za-z][A-Za-z0-9_-]*\]|\d+(?:\.\d{1,4})?|[A-Za-z][A-Za-z0-9_]*|[+*/(),-]/g) ?? [];
   if (tokens.join("") !== expression.replace(/\s/g, "") || tokens.length < 1 || tokens.length > 200)
     invalid("The Payroll formula contains unsupported syntax.");
   let cursor = 0,
@@ -149,6 +151,7 @@ export function evaluatePayrollFormula(
   return result;
 }
 export type PayrollCalculationComponent = {
+  tax?: { definition: TaxSnapshot; basis_component_id: string };
   id: string;
   code: string;
   name: string;
@@ -171,6 +174,7 @@ export type PayrollCalculationSalary = {
 };
 export type PayrollCalculationDay = { on_date: string; paid_days: string; unpaid_days: string };
 export type PayrollCalculationLine = {
+  tax_snapshot?: TaxSnapshot;
   component_id: string;
   component_code: string;
   component_name: string;
@@ -253,8 +257,16 @@ export function calculateMonthlyPayroll(input: {
       if (components.has(component.id) || Object.hasOwn(variables, component.code))
         invalid("Salary components or variable names are duplicated.");
       components.add(component.id);
-      const raw =
-        component.method === "fixed"
+      const taxBasisComponent = component.tax
+        ? salary.components.find((item) => item.id === component.tax!.basis_component_id)
+        : undefined;
+      const raw = component.tax
+        ? taxBasisComponent && variables[taxBasisComponent.code]
+          ? variables[taxBasisComponent.code]!.multiply(ExactPayrollAmount.parse(component.tax.definition.rate)).divide(
+              new ExactPayrollAmount(100n),
+            )
+          : invalid("A governed tax needs its preceding earning variable.")
+        : component.method === "fixed"
           ? component.amount !== null && component.formula === null
             ? ExactPayrollAmount.parse(component.amount)
             : invalid("A fixed salary component needs an amount.")
@@ -263,10 +275,24 @@ export function calculateMonthlyPayroll(input: {
             : invalid("A formula salary component needs a formula.");
       if (raw.compare(new ExactPayrollAmount(0n)) < 0) invalid("Salary components cannot produce negative amounts.");
       variables[component.code] = raw;
-      const amount = raw
-          .multiply(component.prorated ? paid : new ExactPayrollAmount(BigInt(days.length)))
-          .divide(new ExactPayrollAmount(BigInt(calendarDays)))
-          .decimal(input.money_scale, input.rounding),
+      let taxSnapshot: TaxSnapshot | undefined;
+      if (component.tax) {
+        const basis =
+          segmentLines.find(
+            (line) => line.component_id === component.tax!.basis_component_id && line.kind === "earning",
+          ) ?? invalid("A governed tax requires its earlier earning basis in the same salary segment.");
+        taxSnapshot = {
+          ...component.tax.definition,
+          basis: basis.amount,
+          amount: calculateTax(basis.amount, component.tax.definition.rate, input.money_scale),
+        };
+      }
+      const amount =
+          taxSnapshot?.amount ??
+          raw
+            .multiply(component.prorated ? paid : new ExactPayrollAmount(BigInt(days.length)))
+            .divide(new ExactPayrollAmount(BigInt(calendarDays)))
+            .decimal(input.money_scale, input.rounding),
         rounded = ExactPayrollAmount.parse(amount);
       if (component.kind === "earning") {
         if (!component.expense_account_id) invalid("An earning component needs an expense account.");
@@ -275,7 +301,8 @@ export function calculateMonthlyPayroll(input: {
         if (!component.liability_account_id) invalid("A deduction component needs a liability account.");
         segmentDeductions = segmentDeductions.add(rounded);
       }
-      const line = {
+      const line: PayrollCalculationLine = {
+        ...(taxSnapshot ? { tax_snapshot: taxSnapshot } : {}),
         component_id: component.id,
         component_code: component.code,
         component_name: component.name,

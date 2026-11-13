@@ -12,6 +12,26 @@ structures — nothing here writes a journal entry or defines a posting rule;
 that separation (`architecture.md` ADR-6: "separate analytics read models...
 protects transaction performance") is deliberate, not an oversight.
 
+## Implemented multicurrency scope — 2026-11-12
+
+`server/api/src/modules/finance/subledger/reports.ts` supplies live dated party
+statements, original-currency ageing/balances, realized/unrealized FX, general
+ledger with opening/running balances, TB, P&L and balance sheet through
+`/api/v1/finance/subledger`. These bounded reports read posted journals and
+immutable open-item events in a consistent snapshot. The broader analytics,
+cash-flow, budget and consolidation requirements below remain future work.
+
+Exact filter totals cover the complete result, independent of paging. Company
+financial reports include all parties/currencies; party/currency restrictions
+apply to statements and FX. Control reconciliation compares the whole subledger
+with posted GL controls at the same date.
+
+Presentation balance sheets translate assets/liabilities at closing rate, equity
+and accumulated income at historical dates, and disclose a translation reserve.
+P&L uses transaction-date translation. Other translated reports are labelled
+management convenience views. All preserve the functional books. See the approved
+multicurrency specification for limits and acceptance.
+
 ## Business analysis
 
 Finance reporting exists to answer "what happened" (Trial Balance, GL,
@@ -96,3 +116,15 @@ number on every report here is already backed by S1.2's hash-chained
 `AuditEvent` trail and S2.1/S2.2's source-document traceability. S2.3 adds
 a **report-of-the-audit-trail** view (filterable `AuditEvent` list scoped to
 finance actions) rather than a second audit mechanism.
+
+
+## Unified company tax register (2026-11-12)
+
+Accounting > Taxes replaces the standalone Tax prototype module with persistent
+versioned definitions and module/trigger/nominal mappings. Exact tax applications
+are retained with real source postings and reconciled to the mapped journal lines;
+existing GL, trial balance, statements and multicurrency reports include those
+postings through the shared ledger. The console provides current configuration,
+filtering, revision history and status controls. It does not claim to implement
+statutory return filing or the former generic Tax Reports pages. See the Finance
+migration guide for permissions, supported source flows and activation boundaries.

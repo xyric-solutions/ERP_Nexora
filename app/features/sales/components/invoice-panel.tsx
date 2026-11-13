@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "cn";
 import { KeyValues, LinkButton, salesLayer, StatusPill, tableClass } from "./sales-ui";
+import { contextRows } from "./project-location-fields";
 import { InvoicePdfViewer } from "./invoice-viewer";
 import { sidePanelClass } from "./fulfilment-panel";
 import type { SalesNav } from "./sales-nav";
@@ -104,6 +105,7 @@ function InvoiceBody({ invoice, nav }: { invoice: SalesDocument; nav: SalesNav }
               ["Invoice date", formatDate(invoice.date)],
               ["Due date", formatDate(invoice.date2)],
               ["Terms", invoice.terms],
+              ...contextRows(invoice),
               ["Currency", currencySummary(invoice)],
               ["Payment status", <StatusPill key="s" status={displayStatus(invoice)} />],
               ["Last payment", lastReceipt ? `${formatDate(lastReceipt.date)} · ${lastReceipt.method}` : "—"],

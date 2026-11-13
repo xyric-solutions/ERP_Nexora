@@ -40,6 +40,7 @@ import {
 } from "../components/sales-ui";
 import { ActionMenu, type ActionMenuOption } from "../components/action-menu";
 import { ListPager, ListTable, ListViewMenu, usePagedRows, useListView, type ListColumn } from "../components/list-view-options";
+import { contextRows } from "../components/project-location-fields";
 import { BatchSheet, MoneyDocSheet, moneySheetClass, type BatchKind, type MoneyFormPreset } from "../components/money-forms";
 import { MoneyVoucherViewer } from "../components/money-voucher";
 import { DeleteDraftDialog } from "../components/sales-dialogs";
@@ -65,6 +66,7 @@ import {
   returnableOf,
   returnsAgainst,
   unallocatedOf,
+  referenceLabel,
 } from "../model/sales-workflow";
 import type { CustomerReceipt, MoneyDocType, SalesState } from "../model/sales-types";
 
@@ -145,6 +147,8 @@ function columnsFor(state: SalesState, nav: SalesNav): ListColumn<CustomerReceip
     { id: "settlement", label: "Settlement", cell: (doc) => <StatusPill status={settlementOf(state, doc)} /> },
     { id: "status", label: "Status", required: true, cell: (doc) => <StatusPill status={doc.status} /> },
     { id: "source", label: "Source", optional: true, cell: (doc) => SOURCE_LABEL[receiptSource(doc)] },
+    { id: "project", label: "Project", optional: true, cell: (doc) => referenceLabel(doc.project) || "—" },
+    { id: "location", label: "Location", optional: true, cell: (doc) => referenceLabel(doc.location) || "—" },
     { id: "owner", label: "Recorded by", cell: (doc) => doc.owner || "—" },
   ];
 }
@@ -312,6 +316,7 @@ function MoneyDocPanel({
               rows={[
                 ["Type", meta.label],
                 ["Customer", customer ? <LinkButton key="c" onClick={() => nav.open(customer.code)}>{customer.display}</LinkButton> : "—"],
+                ...contextRows(doc),
                 ["Payment method", doc.method],
                 ["Currency", currencySummary(doc)],
                 [incoming ? "Received into" : "Paid from", doc.account || "—"],

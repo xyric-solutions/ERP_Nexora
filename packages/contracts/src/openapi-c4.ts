@@ -167,6 +167,8 @@ import { bankRevaluationPaths } from "./banking/revaluations-openapi.js";
 import { companyCurrencyPaths } from "./finance/company-currencies-openapi.js";
 import { financeCurrencyPaths } from "./finance/currencies-openapi.js";
 import { journalPaths } from "./finance/journals-openapi.js";
+import { taxPaths } from "./finance/taxes-openapi.js";
+import { subledgerPaths } from "./finance/subledger-openapi.js";
 import { bankWorkflowOptionsSchema, reassignBankApproverRequestSchema } from "./banking/workflow-context.js";
 import { bankGovernancePaths } from "./security/bank-self-approval-openapi.js";
 import {
@@ -224,6 +226,7 @@ import {
   sessionResponseSchema,
   tenantSelectionRequiredResponseSchema,
 } from "./auth/index.js";
+import { adminModuleCatalogueResponseSchema, changePasswordRequestSchema } from "./administration/index.js";
 import {
   bankAccountCurrencySummarySchema,
   bankAccountDetailSchema,
@@ -1031,6 +1034,8 @@ export function buildOpenApiDocument() {
       ...financeCurrencyPaths(),
       ...companyCurrencyPaths(),
       ...journalPaths(),
+      ...subledgerPaths(),
+      ...taxPaths(),
       ...bankTransferPaths(),
       ...bankRevaluationPaths(),
       ...bankStatementAndReconciliationPaths(),
@@ -1186,6 +1191,31 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/auth/change-password": {
+        post: {
+          operationId: "changePassword",
+          security: [{ cookieAuth: [] }],
+          parameters: [csrfParameter],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ChangePasswordRequest" } },
+            },
+          },
+          responses: {
+            "200": {
+              description:
+                "Password changed; every existing session was ended and a fresh server-side session is returned",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/SessionResponse" } } },
+            },
+            "400": problemResponse,
+            "401": problemResponse,
+            "403": problemResponse,
+            "429": problemResponse,
+            "503": problemResponse,
+          },
+        },
+      },
       "/auth/select-tenant": {
         post: {
           operationId: "selectTenant",
@@ -1310,6 +1340,23 @@ export function buildOpenApiDocument() {
             "204": { description: "All sessions for the current tenant account revoked" },
             "401": problemResponse,
             "403": problemResponse,
+          },
+        },
+      },
+      "/admin/modules": {
+        get: {
+          operationId: "adminModules",
+          security: [{ cookieAuth: [] }],
+          responses: {
+            "200": {
+              description: "Administration module catalogue and access level descriptions",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/AdminModuleCatalogueResponse" } },
+              },
+            },
+            "401": problemResponse,
+            "403": problemResponse,
+            "503": problemResponse,
           },
         },
       },
@@ -8048,6 +8095,8 @@ export function buildOpenApiDocument() {
         PasswordChangeRequiredResponse: schema(passwordChangeRequiredResponseSchema),
         AuthenticationCompletionResponse: schema(authenticationCompletionResponseSchema),
         ChangeInitialPasswordRequest: schema(changeInitialPasswordRequestSchema),
+        ChangePasswordRequest: schema(changePasswordRequestSchema),
+        AdminModuleCatalogueResponse: schema(adminModuleCatalogueResponseSchema),
         TenantSelectionRequiredResponse: schema(tenantSelectionRequiredResponseSchema),
         SelectTenantRequest: schema(selectTenantRequestSchema),
         CancelTenantSelectionRequest: schema(cancelTenantSelectionRequestSchema),

@@ -42,7 +42,7 @@ BEGIN
   RETURN NEW;
  END IF;
 
- -- HR152: a draft loan/advance may have its terms revised while it remains a draft.
+ -- HR153: a draft loan/advance may have its terms revised while it remains a draft.
  IF TG_TABLE_NAME='hr_employee_loan' AND OLD.workflow_managed AND to_jsonb(OLD)->>'state'='draft' AND to_jsonb(NEW)->>'state'='draft' THEN
   IF NEW.workflow_managed IS DISTINCT FROM true OR NEW.version<>OLD.version+1 THEN RAISE EXCEPTION 'Payroll version must advance exactly once'; END IF;
   IF (to_jsonb(NEW)-ARRAY['version','employee_id','principal','currency_code','start_month','instalment_count','component_id'])
@@ -61,4 +61,4 @@ BEGIN
  END IF; RETURN NEW;
 END $$;
 
-INSERT INTO nexora_schema_migration(module_name,version,name) VALUES('hr',152,'draft_loan_revision');
+INSERT INTO nexora_schema_migration(module_name,version,name) VALUES('hr',153,'draft_loan_revision');

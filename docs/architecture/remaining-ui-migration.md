@@ -1,5 +1,442 @@
 # Remaining UI migration checklist
 
+## 2026-11-12 - Accounting menu cleanup and company fiscal setup
+
+- Removed the complete Ledgers & Close and Group & Reporting navigation groups
+  from `app/shell/config/prototype-data.ts`. Remaining Accounting groups are
+  Chart of Accounts, Taxes, Reporting Master Data and Journals. Existing GL,
+  trial balance, statement, audit and drill-down bookmarks resolve to Reports;
+  Intercompany/Consolidation open the Report Catalogue because exact equivalents
+  are not implemented there. No new report functionality is claimed.
+- Added `company-financial-setup.tsx` under Finance views, routed through
+  Configuration > Core Setup > Company Setup. Default view embeds the existing
+  fiscal calendar controls; the other view retains company currency setup.
+  Removed obsolete direct Accounting render branches and fiscal-page shell flag.
+  Old fiscal/period-close bookmarks resolve here. FX Revaluation resolves to the
+  unified currency workspace's valuation view.
+- Fiscal form shows editable start and read-only end derived from the existing
+  twelve-month rule. Reused semantic tokens/shared controls; its confirmation
+  dialog is bounded and layered above the shell. Reviewed desktop/mobile and
+  light/dark screenshots under `tmp/accounting-menu-evidence/`. No CSS retired.
+- Preserved tenant/company scoping, server calendar validation, creation,
+  period controls, immutable history, lifecycle and financial posting safeguards.
+  No live data, permissions, schema, API contracts, API or worker services changed
+  as part of this navigation work. This is company configuration, not a newly
+  implemented account-registration wizard.
+- Verification: focused unit command with `company-financial-setup`,
+  `prototype-shell-navigation`, `company-currency-live-routing`,
+  `finance-currency-console` and `fiscal-calendars` passed 5 files/26 tests.
+  `npm.cmd run test:e2e:fiscal-setup` passed 1 Chromium test against a disposable
+  migrated database: real create of twelve monthly periods, persisted selection
+  after reload, calculated July-June year end, Reports routing, removed menu
+  groups, narrow-screen overflow, both themes and restricted-user read guard.
+  The harness provisions and cleans its own synthetic company data. Initial
+  attempts exposed fixture currency prerequisites and login/company-transition
+  waits; the harness now uses its existing currency-aware fixture and explicitly
+  restores the selected company session before checking the workspace.
+- Focused ESLint, `catalogue:check`, `git diff --check`, theme `--write`/`--check`
+  passed. Theme audit: 120 feature views with zero direct font/colour exceptions;
+  the one existing HR print exception remains.
+- `npm.cmd run build:web` with
+  `NEXT_DIST_DIR=tmp/accounting-menu-cleanup-20261112-build` and
+  `npm.cmd run typecheck` passed. Restored generated `next-env.d.ts` staging paths;
+  verified no diff in that file. Focused Prettier check passed.
+- Verified canary port 3018, then activated this build on localhost:3000 and
+  repeated accounting, tax and unified-currency browser probes. All passed with
+  no browser/static-asset errors. Build ID `HaRzqiwFZeacd0GIalEnC`; only the web
+  process restarted. Release probes use intercepted read-only session/API
+  fixtures and make no real financial writes; database-backed persistence was
+  separately verified by the isolated E2E test above. Evidence:
+  `tmp/accounting-menu-evidence/release-{3018,3000}.json` and matching desktop/
+  mobile light/dark screenshots. API/worker PIDs and live business data unchanged.
+  Safe resume: future account-registration onboarding can reuse Company Setup;
+  irregular year lengths and dedicated group-consolidation reports remain
+  separate feature work.
+
+## 2026-11-12 - Single Currencies & Transfer FX workspace
+
+- Added `finance-currency-console.tsx` under Finance views. Retained one sidebar
+  item at Accounting > Reporting Master Data > Currencies & Transfer FX; removed
+  the separate Multi-currency Accounting item. The existing `currencies-fx`
+  address opens currency setup, with an internal Balances & transactions view at
+  `currencies-fx/accounting`. Old `finance/multi-currency` bookmarks resolve to
+  that accounting view. Canonical addresses are used after explicit view changes.
+- Preserved `FinanceCurrencies` forms, rate maintenance, status handling and Bank
+  Transfer FX policy. Added an embedded option to this view and
+  `MultiCurrencyWorkspace` that removes only duplicate headings while retaining
+  actions and transaction state. Customer/supplier and GL/report entry points
+  remain unchanged. Currency dialogs now use bounded sizing above the shell.
+  Screenshot review found an existing white-on-pale currency table header;
+  replaced its conflicting colours with shared muted/foreground tokens.
+- Preserved domain calculations, generated API contracts, company isolation,
+  approval/posting lifecycle, idempotency and reconciled reporting. No backend
+  implementation or database migrations changed in this consolidation.
+- With explicit recipient/scope approval, added only the five missing
+  `finance.subledger.*` permissions to Shoaib's existing Super Administrator role
+  in the same two approved UAT companies. Updated normalized/compatibility
+  projections together and verified actual workspace reads in both companies
+  (base USD), plus live company authority for all five keys. Audit event:
+  `992cb330-b5a8-44af-9940-73a7741e5315`. Other roles, passwords, unrelated grants,
+  rates, mappings and financial records were not changed. Evidence:
+  `tmp/currency-access-repair.json`. Initial automatic approval review required
+  specific multicurrency approval; no grant ran until the user supplied it.
+- Verification: 18 focused unit tests across four files cover one currency menu,
+  legacy aliases, internal view switching and the existing embedded activation
+  form. The real isolated multicurrency browser workflow passed (59.3s): setup
+  view access, legacy entry, three actors, invoice, partial/final settlement,
+  valuation, historical/reconciled reports and responsive themes. Initial browser
+  assertions incorrectly expected legacy hashes to rewrite immediately and
+  counted a collapsed menu group; corrected these assumptions and reran the
+  complete workflow successfully. The isolated fixture gained read-only setup
+  grants; no live operator roles were modified.
+- Changed-file ESLint, Prettier, navigation catalogue, theme audit write/check
+  (119 feature views, zero direct font/colour exceptions; existing HR print
+  exception retained), typecheck, production builds and diff checks passed.
+  Production UI probes use synthetic read-only session/API fixtures; the complete
+  acceptance test uses real isolated APIs. Probe checks include one menu, both
+  internal views, the retained form, light/dark mobile/desktop bounds and 4.5:1
+  minimum table-header contrast. Evidence is in `tmp/unified-currency-evidence/`;
+  transaction evidence remains in `tmp/multi-currency-evidence/`.
+- Local web activation uses a separate immutable release directory and canary
+  checks on port 3018 before switching port 3000, with rollback metadata in
+  `tmp/unified-currency-runtime-before.json`. API/worker were not restarted.
+  Active release metadata is in `tmp/localhost-postpull-runtime-20261112.json`.
+  Reload the browser for the consolidated menu. No source styling migration
+  remains for this requested surface.
+
+
+## 2026-11-12 - Tax theme alignment and bounded form
+
+- Matched the Taxes console and form to the ERP's existing neutral surfaces and
+  amber primary/brand tokens. Removed the tax-only blue/glow overrides and their
+  15 unused token declarations after confirming no active consumers remained.
+  No feature stylesheet was added or retired; shared global typography and
+  Dialog/Input/Button primitives remain unchanged.
+- Reproduced the overlap on the previously served production build: dialog layer
+  50 was below sidebar layer 60, and the submit button bottom was at 1036px in a
+  720px viewport. The form now uses popup/backdrop layers 161/160, a viewport-bound
+  width/height, fixed header/actions and an independently scrolling field area.
+  Status/history dialogs also sit above the shell. Nested field grids, wrapping
+  account navigation and full-width native selects prevent narrow-screen overflow.
+  Initial focus uses Base UI's supported `initialFocus` reference on Tax Name;
+  the generated read-only code is removed from the tab order.
+- Preserved tax create/edit/deactivate/reactivate/history, validation, account
+  eligibility and context clearing, retry keys, effective dates, company isolation,
+  administrator-only writes and all financial posting behavior.
+- Expanded `tests/e2e/tax-management.spec.ts`: eight light/dark form checks across
+  desktop 1440x1000, tablet 900x1100, mobile 390x844 and landscape 844x390. Verify
+  bounded geometry, visible action buttons, dialog/backdrop/sidebar ordering,
+  no horizontal form overflow and primary-action colour consistency. Existing
+  real create/edit/deactivate/reload/history/read-only and API denial flows pass.
+- Verification passed: `npm.cmd run test:e2e:taxes` (one complete browser workflow,
+  28.3s); targeted ESLint and Prettier checks; `npm.cmd run build:web` with
+  `NEXT_DIST_DIR=tmp/tax-theme-form-20261112-build`; `npm.cmd run typecheck`;
+  theme audit write/check (118 views, zero direct font/colour exceptions; existing
+  HR print exception retained); and `git diff --check`. Initial checks caught the
+  lint-disallowed autoFocus prop and an inert-background test locator; replaced
+  them with the dialog focus API and an explicitly hidden-inclusive colour probe,
+  then reran the affected checks successfully.
+- Inspected desktop/mobile screenshots in `tmp/tax-layout-evidence/`. Activated
+  the separately built release on localhost:3000 only after canary checks on 3018,
+  with prior-build rollback metadata preserved. Six additional read-only browser
+  checks on each served build cover light/dark desktop, mobile and 150% root text
+  sizing; all passed. Release UI probes use an intercepted synthetic session and
+  directory, while the complete browser acceptance flow uses real isolated APIs.
+  Evidence: `release-3000.json` and `release-3000-*.png` in the same directory.
+  API/worker, live permissions and business data were unchanged. Restore point:
+  `tmp/tax-runtime-before.json`; active release is recorded in
+  `tmp/localhost-postpull-runtime-20261112.json`. Reload the browser for new assets.
+
+
+## 2026-11-12 - Local tax API and access activation repair
+
+- Investigated the real company-tax permission denial after activating the web
+  build. The local database had five pending source migrations and the existing
+  Super Administrator role had none of the three new tax permissions. The
+  previous web-only activation did not complete backend rollout.
+- Created and validated a PostgreSQL custom-format backup before applying the
+  additive migrations: Security 21/22, Finance 37/38 and HR 152. Confirmed no
+  migrations remain pending. Backup metadata is `tmp/tax-activation-backup.json`.
+- Compiled the API (`npm.cmd run build --workspace @nexora/api`), verified it on
+  temporary port 4018, then restarted only the repository's local API on port
+  4000 with its existing runtime configuration. Readiness returns HTTP 200;
+  anonymous access to the new tax directory returns HTTP 401. Web/worker and
+  existing sign-in configuration were preserved. No tax rates, mappings,
+  journals or credentials were created or changed.
+- Prepared `tmp/repair-local-tax-access.mjs` and verified its default read-only
+  planning mode. Proposed recipient: Shoaib's existing Super Administrator role
+  (`policy-super-administrator`) in tenant `nexora-r06-uat`; only tax read/manage
+  and nominal mapping administration, scoped to its existing two UAT companies.
+  Normalized grants and compatibility permissions are updated together, with
+  immutable audit evidence and authenticated-account/company checks after apply.
+- Access grant status: **applied after explicit user approval** confirming
+  Shoaib's existing Super Administrator authority. Added only `finance.tax.read`,
+  `finance.tax.manage` and `finance.tax_mapping.admin` to that existing policy,
+  with company scopes for `nexora-r06-uat-company` and
+  `nexora-r06-uat-company-two`. Preserved other grants, assignments and passwords.
+  Updated compatibility permissions alongside normalized grants; immutable audit
+  event: `a3f31647-06d1-4d0a-b7ba-524dcc06e1b0`.
+- Verified the real authenticated-account projection includes all three keys and
+  the Super Administrator role. Actual tax repository reads and mapping-admin
+  options succeed in both companies (`can_manage=true`); the first has 16
+  eligible nominals, while the second needs company nominal setup before a tax
+  can be mapped. No tax definitions or financial entries were created.
+- Verification: `python tmp/run-local-api-task.py
+  tmp/repair-local-tax-access.mjs --apply` and
+  `python tmp/run-local-api-task.py tmp/verify-local-tax-access.mjs` passed.
+  Wrong company, wrong tenant and missing-read-permission checks remain HTTP-403
+  equivalent domain denials; only the six approved company-scope rows exist.
+  `npm.cmd run test:integration -- tests/integration/tax-management.test.ts`
+  passed all 11 tests in disposable databases. `git diff --check` passed. Evidence
+  is recorded in `tmp/tax-access-repair.json`, `tax-access-verification.json` and
+  `tax-api-activation.json`. Reloading the web page restores fresh permissions
+  through the normal session endpoint; no password reset or sign-in bypass was
+  introduced.
+
+
+## 2026-11-12 - Localhost menu runtime activation
+
+- Investigated the user's unchanged sidebar on `http://localhost:3000`. The web
+  process was explicitly serving `tmp/localhost-postpull-20261112-build`, so new
+  builds in `.next` did not update the running application.
+- Verified `.next` on temporary port 3018, then replaced only the repository's
+  port-3000 web process using its existing runtime configuration. Preserved the
+  previous build and rollback metadata in `tmp/tax-runtime-before.json`; updated
+  the local runtime manifest to the new PID/build. API and worker were not
+  restarted, and no database or permission changes were made.
+- Browser smoke checks passed on both ports: Accounting module visible; no
+  Costing, Finance or standalone Tax module; exactly one Taxes leaf opens the
+  Unified Tax Management Console. No page errors or failed Next assets. These
+  checks use an intercepted synthetic read-only session/directory to verify the
+  actual served web build, not live tax persistence or company grants.
+- Evidence: `tmp/tax-runtime-evidence/localhost-3000-accounting-taxes.png` and
+  `localhost-3000.json`. Commands: `python tmp/refresh-tax-web-runtime.py canary`
+  and `python tmp/refresh-tax-web-runtime.py activate`. Existing API readiness
+  endpoint remained HTTP 200. Tax API/migration activation requirements below
+  remain unchanged. An already-open browser must reload to load the new assets.
+
+
+## 2026-11-12 ? Accounting and unified Tax Management Console
+
+- Renamed the Finance module's visible shell labels to Accounting, retained stable
+  internal route/permission identifiers, removed standalone Costing/Tax registries
+  and dedicated report groups, and added one direct Taxes leaf. Legacy Tax links
+  normalize to the console; retired Costing links show an unavailable state.
+  Dashboard/AI Costing launchers are retired. Existing Banking, Sales, Purchases,
+  HR, cost-centre and inventory behavior is preserved.
+- Added `tax-management-console.tsx` and `tax-definition-form.tsx`, shared labelled
+  fields, server pagination/search, administrator-only configuration controls,
+  versioned history, active/inactive state, searchable company nominals and explicit
+  module/treatment/trigger controls. Added shared semantic console-blue tokens;
+  no feature stylesheet was added or retired. Global typography remains unchanged.
+- Purchase line entry and live currency accounting now expose governed tax selection;
+  independent review remains required for financial posting. Payroll configuration
+  links explicit components and preserves existing statutory calculation/review.
+- Browser evidence: `tmp/tax-management-evidence/{desktop-light,desktop-dark,
+  tablet-dark,mobile-light,mobile-dark}.png`. Desktop 1440?1000, tablet 900?1100,
+  mobile 390?844. Browser tests exercise create, edit, deactivate, reload, history,
+  read-only role restrictions, API cross-company denial and CSRF enforcement.
+  Screenshot review caught native table spacing/overflow, corrected using a
+  horizontally scrolling table and semantic Tailwind spacing. A page-overflow
+  assertion is included. An initial exact-label selection failure was corrected
+  using the shared labelled-field primitive; the complete browser flow then passed.
+- Source audit covers 118 feature views (not a menu-screen percentage), with zero
+  direct font/colour exceptions; the existing HR monochrome print exception remains.
+  Resolved dialog-portal font inheritance with the global sans token and reset
+  native fieldset chrome. The modal evidence is `definition-form.png`.
+- Verification passed: full unit suite (175 files / 1,346 tests), then 60 focused
+  tax/Payroll unit checks after the final formula change; 22 contract tests;
+  11 tax configuration/posting/security integration checks, one real Payroll tax
+  accrual test and the existing 19 multicurrency integration tests; existing
+  Payroll journal/run regressions; eight currency database security checks;
+  tax-console and multicurrency browser workflows; typecheck, production build,
+  generated API parity, navigation catalogue, changed-file lint/format and theme
+  audit. Direct tax isolation uses a non-owner database role. Tax browser coverage
+  includes dynamic module/account clearing and retaining a selected nominal while
+  searching. Initial test failures were fixed and the relevant checks rerun.
+- Activation remains environment-specific: source migrations Security 22, Finance
+  38 and HR 152, explicit company grants and actual nominal/rate configuration.
+  Only synthetic disposable local data was changed. Fixed Assets posting and
+  statutory filing are outside this change; see the Finance migration guide.
+
+
+## 2026-11-12 — Persistent multicurrency financial workflows
+
+- Added `app/features/finance/views/multi-currency-workspace.tsx`: currency-separated
+  customer/vendor balances and ageing, invoices/credits/advances, partial and batch
+  allocations, bank conversion evidence/fees/rounding, AR/AP valuation, independent
+  approval/posting/reversal, policy setup, statements, FX, GL, TB, P&L and balance
+  sheet. All authoritative calculations and posting occur in the independent API.
+- Finance/report routes, Sales financial defaults and customer/vendor currency
+  accounts now use the generated API client. Approved Purchase bills can prepare
+  linked accounting drafts. Original Sales quotation/order/profile demonstrations
+  remain available in explicitly labelled sample routes; their forms and navigation
+  are preserved. Sample actions never change posted balances. Existing Banking
+  FX valuation and its next-period reversal policy are preserved.
+- Reused Tailwind semantic colours/fonts and shared shadcn controls/WorkTable.
+  No stylesheet was added or retired. Corrected label associations, stale-company
+  data guards, table keys, full-filter totals and server pagination. Company financial
+  reports explain their complete-ledger scope. Company rate entry/correction now
+  preserves exact typed decimal text instead of normalizing invalid rates.
+- Browser evidence: `tmp/multi-currency-evidence/desktop-light.png`,
+  `desktop-dark.png`, `tablet-dark.png`, `mobile-dark.png`, `mobile-light.png`.
+  Reviewed desktop/tablet/mobile light/dark output; the closed mobile drawer must
+  finish its transition before capture. Tables scroll horizontally at narrow widths.
+  Development screenshots can contain the Next development indicator. The initial
+  duplicate-cell keys were corrected and the browser console was rechecked.
+- Verified: full unit suite (`npm.cmd run test:unit -- --maxWorkers=2`), contracts
+  (`npm.cmd run test:contract`), generated-client parity (`npm.cmd run api:check`),
+  disposable integration/security suites, real browser lifecycle with maker/checker/
+  poster and reload/history/reconciliation, preserved Banking revaluation browser
+  lifecycle, changed-file ESLint/Prettier, root type checking, production web build,
+  catalogue generate/check, theme audit write/check and `git diff --check`.
+  The default-concurrency unit run timed out under concurrent browser/build load;
+  the bounded run passed all 1,343 tests. Multicurrency integration has 19 cases;
+  Banking revaluation has 10; currency database security has 8; contracts have 20.
+- Theme audit: 117 feature view sources, zero direct font/colour exceptions.
+  The existing monochrome HR print candidate remains outside this change. This is
+  a source audit count, not a percentage of all menu screens.
+- Activation remains environment-specific: apply security 0021/Finance 0037,
+  grant governed company permissions, map accounts and reconcile opening data.
+  No shared database, real financial data, environment secret or deployment was
+  changed. See `docs/migrations/FIN-PG-01-finance-postgresql.md`. Consolidation,
+  cash-flow/budget analytics and automatic migration of legacy Sales samples are
+  outside this approved multicurrency scope.
+## 2026-11-12 — Administration UI review pass
+
+- Audited every Administration screen, the user/tenant drawers, the one-time password
+  dialog, the no-access panel and `/register` at 1440 / 820 / 390 px in light and dark
+  (84 screenshots, `tmp/admin-ui-audit/shots/`, script `tmp/admin-ui-audit/capture.spec.ts`).
+- Fixed: tables rendered unstyled (bare `WorkTable` with `tools={false}`) → shared
+  `AdminTable`/`AdminPanel`/`EmptyRow` in `components/admin-page.tsx`; page double-indented
+  against the breadcrumb (frame padding removed); oversized search icon and ragged filter
+  row on Users; KPI cards borrowed from module dashboards ("Open source detail") → plain
+  `StatTile`s; Access Levels module list overflowing at tablet → grouped single-column lists;
+  Users and Activity Log become card lists below `lg`; dashboard table fits 390 px; an
+  `sr-only` header label widened the page at tablet (scroll wrapper now `relative`);
+  drawers and dialogs opened under the tablet sidebar → `z-[1300/1301]` like other features;
+  register selects lost their background to the unlayered `.nx-prototype :where(select)`
+  rule and the Super Admin section was cramped.
+- Prototype notice is now one compact warning line. No horizontal page overflow at any
+  captured size. Theme audit 0 exceptions; no literal colours.
+- Not covered by screenshots: hover/focus states were checked in code only (shadcn
+  primitives and `focus-visible` rings), not visually.
+
+## 2026-11-12 — Simplified Administration module (prototype data)
+
+- Administration menu replaced with Dashboard, Tenant Directory, Organisation
+  (Companies, Structure) and Users & Access (Users, Access Levels, Activity Log).
+  Retired pages redirect; `/admin/identity` opens Administration → Users. The
+  Identity & Access sidebar button and its now-unused `.nx-sidebar__section--identity`
+  rule were removed (selector verified unused with `rg`). The governed security panels
+  stay in code behind `#/identity/access`.
+- New `app/features/administration/` built with Tailwind + shadcn primitives only, no
+  feature stylesheet. Users, access, tenant profile and activity log are **prototype**
+  browser-session data (notice shown on each screen); Companies and Structure are live.
+- Navigation now hides modules the session has no permission for and shows a
+  "You don't have access" panel for direct URLs. Mock modules stay visible.
+- Finance label → "Accounting" (id `finance` kept). `/register` page and account-menu
+  Change password added; login layout helpers moved to `app/login/auth-layout.tsx`.
+- Verification: see `docs/plans/administration-module-plan.md` §8 (typecheck, build,
+  theme audit 0 exceptions, unit + e2e). Manual light/dark and tablet/mobile visual
+  review not yet done.
+- Resume point: Administration API repository + migrations (plan Phase 2/3), then switch
+  `administration-client.ts` from the prototype store to the generated client.
+
+## 2026-11-12 — Required Project and Location on every Sales transaction
+
+- New `components/project-location-fields.tsx`: required Project and Location
+  searchable selects loading the signed-in company's **active** masters from
+  `/api/v1/master_data/{projects|locations}` (same records as Banking/HR), cached
+  per company, with loading, no-access (401/403) and retry states; a read-only
+  variant, `contextRows` for detail panels and a dialog for one-click actions.
+- Added to: quotation/order/invoice form (incl. from order and from template),
+  recurring template form, receipt/customer payment/return sheet, Batch › Invoice
+  Receipts, Batch › Receipts and Payments (one pair per batch), Sale Return
+  dialog, Pick & Pack / Delivery panel, and a prompt on Confirm Order for older
+  approved quotations. Derived records inherit from their source and stay editable.
+- Rules enforced in `sales-workflow.ts` (`contextErrors`/`requireContext`) on
+  every save, post, batch, confirm, delivery, return and template invoice, so no
+  path skips them. Records store `{ id, code, name }`. Shown on invoice, receipt,
+  order and quotation details and as optional list columns.
+- Not given the fields (no new transaction is created): Combined Accounts Offset
+  batches, approval decision and delete dialogs, and the Customer master form.
+- Seed records predate the rule: editable drafts/templates must be completed
+  before posting; Confirm Order on an approved seed quotation asks for both.
+- Verification: `tsc --noEmit`, ESLint, theme audit write/check, `git diff --check`,
+  `catalogue:check`, `npm.cmd run build:web` passed. Sales unit tests 29/29 (4 new
+  rule tests). `tests/e2e/sales-project-location.spec.ts` (10) and the updated
+  `sales-recurring-bills.spec.ts` (8) pass against dev server 3005 with installed
+  Chrome; screenshots in `tmp/project-location-evidence/`. Pre-existing axe findings
+  outside this change and excluded in the spec: shell AI trigger name, avatar,
+  search-shortcut and breadcrumb contrast, scrollable Document lifecycle strip.
+  Full `test:unit`: the 3 failures already present on HEAD, plus
+  `import-boundaries` timing out at 5 s under full-suite load (passes alone in <1 s).
+- Live API work still needed: the Sales API must re-validate both ids as active
+  masters of the company on the server.
+
+## 2026-11-12 — Recurring invoice templates (Sales › Recurring Bills)
+
+- `sales-recurring-view.tsx` rebuilt: template list with Due now / Active /
+  Batch / Paused tiles, + New Template (single or batch), template side sheet
+  (create, edit, Pause/Resume, activity) and a batch Create Invoices sheet.
+  Tailwind and shared primitives only; no new stylesheet.
+- `RecurringBill` now holds scope, customer list, lines, currency, reference,
+  notes, Weekly/Monthly frequency and per-period billed customers. The four
+  seeded templates (RB-001…004, including a batch) keep the old values.
+- Invoice form (`sales-document-entry.tsx`) gains a `fromTemplate` prefill
+  (route `sales/invoices/new:RB-…[@customerId]`) with a Save & Post button. Its
+  line table moved unchanged into `components/line-items-editor.tsx`, shared with
+  the template form. `saveDocument` marks template customers billed and advances
+  the period. `GuardedSheet`, `Section` and `useReportDirty` are now exported
+  from `money-forms.tsx` for reuse; Receipts behaviour is unchanged.
+- Verification: `tsc --noEmit`, ESLint on sales/shell/tests, theme audit
+  write/check, `git diff --check`, `catalogue:check` and `npm.cmd run build:web`
+  passed. `tests/unit/sales-recurring.test.ts` (8) and the existing sales workflow
+  tests pass. `tests/e2e/sales-recurring-bills.spec.ts` passed all 8 cases against
+  the dev server on 3005 with installed Chrome (single and batch flows; light/dark
+  at 1440/768/390 px with axe and overflow checks; no API writes). Screenshots:
+  `tmp/recurring-evidence/`. Full `test:unit` has 3 failures
+  (`prototype-shell-navigation` Banking group, two `finance-currencies-view`) that
+  fail identically on HEAD `eab35f7`; not caused by this batch.
+
+## 2026-11-12 — Recurring Bills and Customers moved into Sales
+
+- Sales menu is now: Quotations, Sales Orders, Pick, Pack & Delivery, Invoices,
+  Recurring Bills, Receipts, Customers. The Revenue and Customers modules were
+  removed from `prototype-data.ts`; page ids and views are unchanged.
+- `findPrototypePage` aliases `revenue:*` to `sales:recurring-bills` and
+  `customers:*` to `sales:customers` (after the retired-page redirect table, whose
+  customer entries now point at `sales`). `SALES_MODULE_PAGES`, `ROUTE_BY_KIND`
+  and the Sales workspace `go`/`openNew` now route both pages to `sales`.
+- Behaviour notes: Recurring Bills was limited to service/trading companies by the
+  old Revenue module; it now follows Sales (all company modes). Save toasts on these
+  pages read "Sales updated successfully".
+- `git diff --check`, `tsc --noEmit`, `catalogue:check`, theme audit `--check`,
+  route-resolution script `tmp/nav-audit/routes.cjs` and `npm.cmd run build:web` passed.
+  Not yet verified in a browser.
+
+## 2026-11-12 — Sales menu restored after the branch merge
+
+- Merge `eab35f7` changed `g()` in `app/shell/config/prototype-data.ts` to
+  `(id, label, pages, hiddenFromNavigation, inline)`. Revenue and Customers were
+  converted to `false, true`, but the Sales "selling" group kept a single `true`,
+  which now meant hidden. Quotations, Sales Orders, Pick, Pack & Delivery,
+  Invoices and Receipts therefore vanished from the sidebar, module drawer and
+  search (still reachable by URL). The group is now `false, true` (visible, inline).
+- `docs/parity/prototype-manifest.json` regenerated; only the Sales group's
+  `hiddenFromNavigation` flag changed.
+- Audit: a script (`tmp/nav-audit/audit.cjs`) compared navigation-visible pages
+  across merge bases, both branch parents and HEAD. Every other page that is no
+  longer visible was removed or hidden deliberately on its owning branch (Banking
+  sub-groups and the Chart of Accounts pages hidden in main, Sales/Revenue/Customers
+  sub-pages retired by the simplified Sales workflow, Purchases/Suppliers/Inventory
+  consolidated in main, HR Performance/Learning/Settlement removed on the HR branch).
+  No file present in either merge parent is missing from HEAD except those 20 HR files,
+  which `7010cad` had deleted.
+- `git diff --check`, `tsc --noEmit`, `catalogue:check`, theme audit `--check` and
+  `npm.cmd run build:web` passed.
+
 ## 2026-11-11 — One continuous payment form
 
 - `purchase-payment-details.tsx` now uses one Payment details heading and a
@@ -7316,50 +7753,6 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Pre-existing/unrelated failures left as found: recruitment fixtures lack an
   HR136 project/hiring basis; drafts-status and transfer-status filters from
   parallel uncommitted work; master-delete message/org-unit cases.
-
-## 2026-11-11 — Employee Lifecycle status filters
-
-- Onboarding: removed the "Offer" status tab (hired offers are still listed
-  first in the create picker); onboarding has no Cancelled outcome, so the
-  draft delete (cancel) action is hidden and legacy cancelled cases are not
-  listed — an unwanted case is Rejected instead. API unchanged.
-- Resignation / Termination / Exit Clearance: added a Submitted tab
-  (All, Draft, Submitted, Approved, Cancelled).
-- Lifecycle Policies: tabs are All records, Pending (draft, pending approval,
-  approved-not-activated), Active, Deactivated.
-- Verification: `build:web`, eslint on both views, theme audit `--check`,
-  `git diff --check`. Data checked via the API repositories; no browser pass yet.
-- Known gap (not fixed): DEMO employee assignments still reference archived
-  Employment Setup ES-001 (HR149), so approving any promotion or transfer fails
-  in `validate_hr_assignment_scope()` with a generic "context is no longer
-  valid" message. Assignments need re-pointing (or the approval path must stop
-  copying `employment_setup_id`).
-- Remaining: Termination and Exit Clearance have no Rejected tab, although
-  rejected cases exist (visible under All).
-
-## 2026-11-11 — Loan / Advance Requests: edit drafts, status tabs (HR152)
-
-- Backend: migration `hr/0152_draft_loan_revision` lets a draft loan/advance
-  change employee, principal, currency, start month, instalments and recovery
-  component while it stays a draft (version +1); code, kind, creator and
-  approval evidence stay immutable, and approved/active/settled loans remain
-  locked. New `POST /api/v1/hr/payroll_records/{recordId}/revision`
-  (`reviseHrPayrollLoanSchema`, preparer only, idempotent, audited as
-  `revise`). `GET /hr/payroll_workspace` accepts `state`
-  (draft/submitted/approved/rejected; loans only; approved includes
-  active/settled). Contract, OpenAPI JSON and generated client regenerated.
-- UI (`hr-benefits-workspace.tsx`): status tabs All / Draft / Submitted /
-  Approved / Rejected; edit icon beside delete on drafts opens the same form
-  pre-filled; edit and delete are enabled only for the request's preparer
-  (delete previously showed for everyone and failed on the server).
-- Verification: HR152 applied locally and on a fresh test DB; integration
-  `hr-payroll-loan-revision` (new, 4), `hr-payroll-loans`, `hr-payroll-workspace`
-  40/40; unit `hr-payroll-api` 37/37; `api:check`; API + web `tsc`;
-  `build:web`; theme audit; `git diff --check`. No browser pass yet.
-- Pre-existing/unrelated: `tests/contract/openapi.test.ts` snapshot lists 204
-  paths vs 352 generated (finance journals etc. missing); 24 unused-import
-  lint errors in `app/features/hr/api/hr-client.ts`.
-
 ## Sales quotations approval pass (10 Nov 2026)
 
 - Changed: `app/features/sales` model (types, constants, fixtures, workflow,
@@ -7413,3 +7806,67 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Not yet run: full `npm run typecheck`, unit/integration tests, `npm run build:web` and a
   browser pass. Resume point: install dependencies, run those checks, then browser-check
   HR lists (page-size switching), banking/finance company scope and the Sales menu.
+
+## 2026-11-11 — Employee Lifecycle status filters
+
+- Onboarding: removed the "Offer" status tab (hired offers are still listed
+  first in the create picker); onboarding has no Cancelled outcome, so the
+  draft delete (cancel) action is hidden and legacy cancelled cases are not
+  listed — an unwanted case is Rejected instead. API unchanged.
+- Resignation / Termination / Exit Clearance: added a Submitted tab
+  (All, Draft, Submitted, Approved, Cancelled).
+- Lifecycle Policies: tabs are All records, Pending (draft, pending approval,
+  approved-not-activated), Active, Deactivated.
+- Verification: `build:web`, eslint on both views, theme audit `--check`,
+  `git diff --check`. Data checked via the API repositories; no browser pass yet.
+- Known gap (not fixed): DEMO employee assignments still reference archived
+  Employment Setup ES-001 (HR149), so approving any promotion or transfer fails
+  in `validate_hr_assignment_scope()` with a generic "context is no longer
+  valid" message. Assignments need re-pointing (or the approval path must stop
+  copying `employment_setup_id`).
+- Remaining: Termination and Exit Clearance have no Rejected tab, although
+  rejected cases exist (visible under All).
+
+## 2026-11-11 — Loan / Advance Requests: edit drafts, status tabs (HR152)
+
+- Backend: migration `hr/0152_draft_loan_revision` lets a draft loan/advance
+  change employee, principal, currency, start month, instalments and recovery
+  component while it stays a draft (version +1); code, kind, creator and
+  approval evidence stay immutable, and approved/active/settled loans remain
+  locked. New `POST /api/v1/hr/payroll_records/{recordId}/revision`
+  (`reviseHrPayrollLoanSchema`, preparer only, idempotent, audited as
+  `revise`). `GET /hr/payroll_workspace` accepts `state`
+  (draft/submitted/approved/rejected; loans only; approved includes
+  active/settled). Contract, OpenAPI JSON and generated client regenerated.
+- UI (`hr-benefits-workspace.tsx`): status tabs All / Draft / Submitted /
+  Approved / Rejected; edit icon beside delete on drafts opens the same form
+  pre-filled; edit and delete are enabled only for the request's preparer
+  (delete previously showed for everyone and failed on the server).
+- Verification: HR152 applied locally and on a fresh test DB; integration
+  `hr-payroll-loan-revision` (new, 4), `hr-payroll-loans`, `hr-payroll-workspace`
+  40/40; unit `hr-payroll-api` 37/37; `api:check`; API + web `tsc`;
+  `build:web`; theme audit; `git diff --check`. No browser pass yet.
+- Pre-existing/unrelated: `tests/contract/openapi.test.ts` snapshot lists 204
+  paths vs 352 generated (finance journals etc. missing); 24 unused-import
+  lint errors in `app/features/hr/api/hr-client.ts`.
+
+## 2026-11-13 — Second branch integration into shoaib_nexora
+
+- Merged the latest `abdullah_nexora` (Administration module, direct Sales delivery) and
+  `hr-employment-setup` (editable draft loans/advances, lifecycle status tabs) on top of
+  main's unified taxes and multi-currency accounting. All branches are contained in
+  `shoaib_nexora`; the feature branches were deleted after the merge.
+- Sales: Recurring Bills, Customers and main's new Currency Accounts page all sit in the
+  Sales module; old `revenue:*` and `customers:*` links redirect, and
+  `customers:currency-balances` still opens Currency Accounts.
+- Migration numbering: main's `hr/0152_unified_tax_components` keeps 0152; the HR branch's
+  draft loan revision is renumbered to `hr/0153_draft_loan_revision` (records version 153).
+  A database that already applied the HR branch's version 152 must be recreated or have that
+  ledger row corrected before migrating. `postgres-migrations` expectations now match the
+  files on disk (finance 38, security 22, hr 153).
+- Shell: the sidebar module search removed on the HR branch stays removed (the header
+  "Search transactions and pages" remains); main's permission-based module visibility is kept.
+- Verified without installing dependencies: no conflict markers, no-lib TypeScript
+  parse/undeclared-name check of changed files, `git diff --check`, theme audit `--check`,
+  prototype manifest `--check`, OpenAPI JSON validity. Not yet run: `npm run typecheck`,
+  unit/integration tests, `npm run build:web`, browser pass.

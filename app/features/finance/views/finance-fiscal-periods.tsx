@@ -90,8 +90,8 @@ export function FinanceFiscalPeriods({ closeWorkbench = false }: { closeWorkbenc
   return (
     <section className="flex min-w-0 flex-col gap-5" aria-label="Finance fiscal calendar workspace">
       <header>
-        <p className="text-sm text-muted-foreground">Finance · Company controls</p>
-        <h2 className="font-serif text-2xl">Fiscal years &amp; periods</h2>
+        <p className="text-sm text-muted-foreground">Company Setup · Financial controls</p>
+        <h2 className="text-xl font-semibold">Fiscal years &amp; periods</h2>
         <p className="text-sm text-muted-foreground">
           Independent company calendars. Only Open periods allow operational submission and posting.
         </p>
@@ -329,18 +329,24 @@ function CompanyPeriods({ company }: { company: string }) {
               Choose the first day of any month. January–December, July–June and other monthly starts are supported.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex max-w-xl flex-col gap-2">
-            <Label htmlFor="fiscal-start">Fiscal year start</Label>
-            <Input
-              id="fiscal-start"
-              type="date"
-              value={start}
-              disabled={busy}
-              onChange={(e) => setStart(e.target.value)}
-            />
-            <p className="text-sm text-muted-foreground">
+          <CardContent className="grid max-w-xl gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="fiscal-start">Fiscal year start</Label>
+              <Input
+                id="fiscal-start"
+                type="date"
+                value={start}
+                disabled={busy}
+                onChange={(e) => setStart(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="fiscal-end">Fiscal year end</Label>
+              <Input id="fiscal-end" type="date" readOnly value={preview.at(-1)?.period_end ?? ""} />
+            </div>
+            <p className="text-sm text-muted-foreground sm:col-span-2">
               {preview.length
-                ? `${start} → ${preview[11]!.period_end} · 12 monthly periods`
+                ? `${start} → ${preview[11]!.period_end} · 12 monthly periods; end date is calculated automatically`
                 : "Choose a first-of-month date within 1900–2999."}
             </p>
           </CardContent>
@@ -408,7 +414,11 @@ function CompanyPeriods({ company }: { company: string }) {
                 </Alert>
               )}
               <div className="overflow-x-auto">
-                <WorkTable continuation={{cursor:cursor,hasMore:!!(cursor),busy:!!(busy),loadMore:() => void more()}} tableId="app/features/finance/views/finance-fiscal-periods:1" className="w-full min-w-[620px] text-left text-sm">
+                <WorkTable
+                  continuation={{ cursor: cursor, hasMore: !!cursor, busy: !!busy, loadMore: () => void more() }}
+                  tableId="app/features/finance/views/finance-fiscal-periods:1"
+                  className="w-full min-w-[620px] text-left text-sm"
+                >
                   <caption className="sr-only">Persisted monthly Finance periods</caption>
                   <thead>
                     <tr>
@@ -508,7 +518,11 @@ function CompanyPeriods({ company }: { company: string }) {
           if (!open && !busy) setAction(null);
         }}
       >
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl" showCloseButton={!busy}>
+        <DialogContent
+          className="z-[161] max-h-[calc(100dvh-2rem)] overflow-y-auto font-sans sm:max-w-xl"
+          overlayClassName="z-[160]"
+          showCloseButton={!busy}
+        >
           <DialogHeader>
             <DialogTitle>
               {action === "create"

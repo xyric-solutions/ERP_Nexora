@@ -18,7 +18,7 @@ const financialHeadline = [
   { label: "Total income", value: "$8.56M", detail: "Revenue plus other income", tone: "positive", moduleId: "reports" },
   { label: "Major income", value: "$3.28M", detail: "Manufacturing · 38.3%", tone: "info", moduleId: "sales" },
   { label: "Total expenses", value: "$7.34M", detail: "Direct and indirect cost", tone: "warning", moduleId: "finance" },
-  { label: "Major expense", value: "$4.98M", detail: "Direct cost of sales · 67.8%", tone: "danger", moduleId: "costing" },
+  { label: "Major expense", value: "$4.98M", detail: "Direct cost of sales · 67.8%", tone: "danger", moduleId: "finance" },
 ] as const;
 
 const rankings = [
@@ -93,11 +93,11 @@ export function ExecutiveDashboardIntelligence({ roleId, onDrill }: ExecutiveDas
         <ComboChart labels={["Karachi", "Lahore", "Islamabad", "Faisalabad", "Multan"]} barSeries={{ label: "Cost", values: [1860000, 1420000, 1040000, 720000, 540000], tone: "teal" }} lineSeries={{ label: "Income", values: [2480000, 1940000, 1480000, 930000, 710000], tone: "indigo" }} formatValue={money} accessibleSummary="All five locations remain contribution-positive; Karachi has the highest income and cost base while Faisalabad has the narrowest margin." />
       </ChartPanel>
 
-      <ChartPanel chartId="department-income-cost" eyebrow="Departments" title="Department-wise income and cost" subtitle="Responsibility-centre comparison for revenue owners and support functions." badge="Department view" onDrill={() => onDrill("Department-wise income and cost", "costing")}>
+      <ChartPanel chartId="department-income-cost" eyebrow="Departments" title="Department-wise income and cost" subtitle="Responsibility-centre comparison for revenue owners and support functions." badge="Department view" onDrill={() => onDrill("Department-wise income and cost", "finance")}>
         <ComboChart labels={["Sales", "Production", "Projects", "Service", "Corporate"]} barSeries={{ label: "Cost", values: [640000, 2840000, 1180000, 520000, 780000], tone: "violet" }} lineSeries={{ label: "Attributed income", values: [1770000, 3280000, 2270000, 1100000, 138000], tone: "blue" }} formatValue={money} accessibleSummary="Production creates the largest income and cost base; corporate is shown as a support centre with other income attribution rather than operating revenue." />
       </ChartPanel>
 
-      <ChartPanel chartId="product-unit-cost" eyebrow="Product costing" title="Per-product cost composition" subtitle="Direct material, labour and allocated overhead per finished unit." badge="Standard cost" onDrill={() => onDrill("Per-product cost", "costing")}>
+      <ChartPanel chartId="product-unit-cost" eyebrow="Product costing" title="Per-product cost composition" subtitle="Direct material, labour and allocated overhead per finished unit." badge="Standard cost" onDrill={() => onDrill("Per-product cost", "finance")}>
         <StackedBarChart labels={["Servo", "PLC", "Hydraulic", "Panel", "Sensor"]} series={[{ label: "Material", tone: "blue", values: [11200, 7600, 5840, 3180, 1640] }, { label: "Labour", tone: "cyan", values: [2780, 1940, 1480, 820, 460] }, { label: "Overhead", tone: "teal", values: [1640, 1180, 920, 540, 310] }]} formatValue={money} accessibleSummary="Industrial Servo has the highest standard unit cost, driven primarily by direct material." />
       </ChartPanel>
 

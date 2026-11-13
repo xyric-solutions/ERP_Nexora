@@ -111,7 +111,7 @@ export const SALES_KINDS: Record<SalesDocumentKind, SalesKindMeta> = {
     lifecycle: ["Draft", "Confirmed"],
     saveLabel: "Save",
     statuses: ["Draft", "Confirmed"],
-    description: "Orders the customer has confirmed. Confirm Order on an approved quotation creates one; direct orders are confirmed here. Fulfilment then moves through Pick & Pack, Delivery and Invoice.",
+    description: "Orders the customer has confirmed. Confirm Order on an approved quotation creates one; direct orders are confirmed here. Fulfilment then moves through Delivery and Invoice.",
   },
   invoice: {
     label: "Invoice",
@@ -136,14 +136,14 @@ export const SALES_MODULE_PAGES: Record<string, readonly string[]> = {
     "sales-orders",
     "pick-pack-delivery",
     "invoices",
+    "recurring-bills",
     "receipts",
+    "customers",
   ],
-  revenue: ["recurring-bills"],
-  customers: ["customers"],
 };
 
 /** Fulfilment progress of a confirmed sales order, shown beside its order status. */
-export const FULFILMENT_STAGES = ["Not started", "Packed", "Delivered", "Invoiced"] as const;
+export const FULFILMENT_STAGES = ["Not started", "Delivered", "Invoiced"] as const;
 
 /* ---------------------------------------------------- receipts & payments */
 
