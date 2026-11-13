@@ -1,6 +1,7 @@
 import { isSuperAdmin, type SessionResponse } from "@nexora/contracts";
 
 import type { AdminState } from "./admin-workflow";
+import { readOrganisationSetup, tenantProfileFromSetup } from "./organisation-setup";
 
 /**
  * Prototype seed: the signed-in user plus a few sample employees so the matrix,
@@ -9,6 +10,8 @@ import type { AdminState } from "./admin-workflow";
 export function createAdminSeed(session: SessionResponse, now: string): AdminState {
   const company = session.active_company ?? { id: "company", code: "CO-001", name: "Head office" };
   const companies = [{ id: company.id, code: company.code, name: company.name }];
+  // First-login organisation setup (saved in this browser) answers the tenant profile.
+  const setup = readOrganisationSetup(session.tenant_id);
   const companyAccess = [{ company_id: company.id, company_name: company.name, is_default: true }];
   const base = {
     employee_id: null,
@@ -34,6 +37,7 @@ export function createAdminSeed(session: SessionResponse, now: string): AdminSta
       financial_year_start_month: 7,
       base_currency: null,
       registered_at: null,
+      ...(setup ? tenantProfileFromSetup(setup) : {}),
       row_version: 1,
     },
     companies,

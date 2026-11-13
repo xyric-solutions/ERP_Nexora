@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type {
-  PasswordChangeRequiredResponse,
-  SessionCompany,
-  TenantSelectionRequiredResponse,
+import {
+  isSuperAdmin,
+  type PasswordChangeRequiredResponse,
+  type SessionCompany,
+  type TenantSelectionRequiredResponse,
 } from "@nexora/contracts";
 import { ArrowLeft, Building2, Check, ChevronRight, Eye, EyeOff, Loader2 } from "lucide-react";
 
@@ -14,7 +15,9 @@ import { useSession } from "../lib/session/session-provider";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Skeleton } from "../components/ui/skeleton";
+import { readOrganisationSetup } from "../features/administration/model/organisation-setup";
 import { AuthLayout, BrandPitch, FieldLabel, LoginError, Title, fieldClass, primaryButtonClass } from "./auth-layout";
+import { OrganisationSetupForm } from "./organisation-setup-form";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,11 +44,23 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const identifierRef = useRef<HTMLInputElement>(null);
   const selectionHeadingRef = useRef<HTMLHeadingElement>(null);
+  /** The password typed on this page, kept in memory only so first-login setup can apply a new one. */
+  const [signInPassword, setSignInPassword] = useState<string | null>(null);
+  const [setupCompletedFor, setSetupCompletedFor] = useState<string | null>(null);
+
+  // A Super Admin whose organisation has not been set up completes setup before entering the ERP.
+  const needsSetup =
+    !loading &&
+    !!session &&
+    !session.impersonation &&
+    isSuperAdmin(session.user.permissions) &&
+    setupCompletedFor !== session.tenant_id &&
+    !readOrganisationSetup(session.tenant_id);
 
   // Signed in with a company already chosen: go straight to the ERP.
   useEffect(() => {
-    if (!loading && session && activeCompany) router.replace("/");
-  }, [activeCompany, loading, router, session]);
+    if (!loading && session && activeCompany && !needsSetup) router.replace("/");
+  }, [activeCompany, loading, needsSetup, router, session]);
 
   useEffect(() => {
     if (selection) selectionHeadingRef.current?.focus();
@@ -61,6 +76,7 @@ export default function LoginPage() {
     setError("");
     try {
       const result = await login({ identifier, password });
+      setSignInPassword(result.status === "password_change_required" ? null : password);
       setPassword("");
       if (result.status === "tenant_selection_required") setSelection(result);
       else if (result.status === "password_change_required") setPasswordChange(result);
@@ -114,6 +130,7 @@ export default function LoginPage() {
     setError("");
     try {
       await changeInitialPassword({ ticket: passwordChange.ticket, new_password: newPassword });
+      setSignInPassword(newPassword);
       setNewPassword("");
       setConfirmPassword("");
       setPasswordChange(null);
@@ -139,12 +156,26 @@ export default function LoginPage() {
   /** Back arrow on the company list: sign out completely and return to username and password. */
   async function backToSignIn() {
     setError("");
+    setSignInPassword(null);
     try {
       await logout();
     } finally {
       queueMicrotask(() => identifierRef.current?.focus());
     }
   }
+
+  if (needsSetup && session && !passwordChange && !selection)
+    return (
+      <OrganisationSetupForm
+        session={session}
+        currentPassword={signInPassword}
+        onBack={() => void backToSignIn()}
+        onCompleted={() => {
+          setSignInPassword(null);
+          setSetupCompletedFor(session.tenant_id);
+        }}
+      />
+    );
 
   const choosingCompany = !loading && !!session && !activeCompany && !passwordChange && !selection;
 
