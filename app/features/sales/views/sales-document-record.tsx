@@ -43,8 +43,9 @@ import {
 } from "../model/sales-workflow";
 import type { SalesDocument, SalesState } from "../model/sales-types";
 import { DocumentEntry } from "./sales-document-entry";
+import { contextRows } from "../components/project-location-fields";
 
-/** New Quotation → Management Approval → Pick & Pack → Delivery → Invoice → Payment. */
+/** New Quotation → Management Approval → Delivery → Invoice → Payment. */
 function flowSteps(state: SalesState, order: SalesDocument, open: (code: string) => void): FlowStep[] {
   const { quotation, invoice } = documentChain(state, order);
   const approved = quotation ? approvalOf(quotation) : undefined;
@@ -57,7 +58,6 @@ function flowSteps(state: SalesState, order: SalesDocument, open: (code: string)
       done: order.status !== "Draft",
       detail: approved ? approvalSummary(quotation!).replace("Approved by ", "") : historyTime(order, "Confirmed"),
     },
-    { label: "Picked & packed", done: Boolean(order.pickPack), detail: order.pickPack ? `${order.pickPack.packages} pkg · ${order.pickPack.packedBy}` : "" },
     { label: "Delivered", done: Boolean(order.delivery), detail: order.delivery ? `${order.delivery.no} · ${formatDate(order.delivery.date)}` : "" },
     { label: "Invoiced", done: Boolean(invoice), link: link(invoice?.code), detail: invoice ? historyTime(invoice, "Issued") : "" },
     {
@@ -120,7 +120,7 @@ export function DocumentRecord({ code, nav }: { code: string; nav: SalesNav }) {
     if (next.action === "confirm") {
       run(() => {
         commitSales((sales) => confirmOrder(sales, doc.code, nav.actor));
-        return `${doc.code} confirmed. It is now in Pick, Pack & Delivery.`;
+        return `${doc.code} confirmed. It is now in Delivery.`;
       });
     } else if (next.action === "delivery") setFulfilling(true);
     // Opens the invoice form prefilled from this order; the invoice is saved from that form.
@@ -144,7 +144,7 @@ export function DocumentRecord({ code, nav }: { code: string; nav: SalesNav }) {
             {doc.status === "Draft" ? <Button type="button" variant="outline" onClick={() => setEditing(true)}>Edit</Button> : null}
             {doc.status === "Draft" ? <Button type="button" variant="destructive" onClick={() => setDeleting(true)}><Trash2 /> Delete</Button> : null}
             {doc.status === "Confirmed" && stage !== "Invoiced" ? (
-              <Button type="button" variant="outline" onClick={() => setFulfilling(true)}>Pick, Pack & Delivery</Button>
+              <Button type="button" variant="outline" onClick={() => setFulfilling(true)}>Delivery</Button>
             ) : null}
           </>
         }
@@ -223,18 +223,16 @@ export function DocumentRecord({ code, nav }: { code: string; nav: SalesNav }) {
         </Card>
 
         <aside className="grid min-w-0 content-start gap-3.5 md:grid-cols-2 xl:grid-cols-1">
-          {doc.pickPack || doc.delivery ? (
-            <Card title="Pick, pack & delivery" aside={<StatusPill status={stage} />}>
+          {doc.delivery ? (
+            <Card title="Delivery" aside={<StatusPill status={stage} />}>
               <KeyValues
                 rows={[
-                  ...(doc.pickPack
-                    ? ([["Packed by", doc.pickPack.packedBy], ["Packages", String(doc.pickPack.packages)]] as [string, string][])
-                    : []),
                   ...(doc.delivery
                     ? ([
                         ["Delivery no.", doc.delivery.no],
                         ["Delivered on", formatDate(doc.delivery.date)],
                         ["Received by", doc.delivery.receivedBy || "—"],
+                        ...contextRows(doc.delivery).map(([label, text]) => [`Delivery ${label.toLowerCase()}`, text] as [string, string]),
                       ] as [string, string][])
                     : []),
                 ]}
@@ -250,6 +248,7 @@ export function DocumentRecord({ code, nav }: { code: string; nav: SalesNav }) {
                 ["Terms", doc.terms],
                 ["Currency", currencySummary(doc)],
                 ["Ship from", doc.warehouse],
+                ...contextRows(doc),
               ]}
             />
           </Card>

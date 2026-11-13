@@ -6,7 +6,7 @@
  * Follows the Purchase module pattern: one list per document with a single
  * New button, a form with one Save, and one next action on every record.
  * Flow (meeting of 11 Nov 2026): Quotation (optional approver) → Approved →
- * Confirm Order → Pick & Pack → Delivery → Create Invoice → Receipts. Sale
+ * Confirm Order → Delivery → Create Invoice → Receipts. Sale
  * Return is recorded from an opened invoice; the separate Returns & Control
  * pages were removed. Data is session-only mock data; no Sales, Customer or
  * Revenue API exists yet.
@@ -44,7 +44,8 @@ export function SalesWorkspace(props: SalesWorkspaceProps) {
   const { context, onNavigate } = props;
   const financial =
     (context.moduleId === "sales" && ["invoices", "receipts"].includes(context.pageId)) ||
-    (context.moduleId === "customers" && context.pageId === "customers");
+    // Customers moved into the Sales module; old Customers-module links stay recognised.
+    (["sales", "customers"].includes(context.moduleId) && context.pageId === "customers");
   const prototype = context.recordRef?.startsWith("prototype:") ?? false;
   if (financial && !prototype)
     return (
@@ -73,7 +74,7 @@ export function SalesWorkspace(props: SalesWorkspaceProps) {
   const prototypeNavigate: SalesWorkspaceProps["onNavigate"] = (moduleId, pageId, reference, options) => {
     const targetFinancial =
       (moduleId === "sales" && ["invoices", "receipts"].includes(pageId)) ||
-      (moduleId === "customers" && pageId === "customers");
+      (["sales", "customers"].includes(moduleId) && pageId === "customers");
     onNavigate(moduleId, pageId, targetFinancial ? `prototype:${reference ?? ""}` : reference, options);
   };
   return (
@@ -105,11 +106,10 @@ function PrototypeSalesWorkspace({ context, onNavigate }: SalesWorkspaceProps) {
     () => ({
       actor: session?.user.display_name ?? "You",
       notify,
-      go: (target) =>
-        onNavigate(target === "customers" ? "customers" : target === "recurring-bills" ? "revenue" : "sales", target),
+      // Recurring Bills and Customers live in the Sales module (12 Nov 2026).
+      go: (target) => onNavigate("sales", target),
       back: () => onNavigate(moduleId, pageId),
-      openNew: (target, preset) =>
-        onNavigate(target === "customers" ? "customers" : "sales", target, preset ? `new:${preset}` : "new"),
+      openNew: (target, preset) => onNavigate("sales", target, preset ? `new:${preset}` : "new"),
       open: (code, keepPage) => {
         const kind = kindOfCode(code);
         if (!kind) return;
@@ -135,6 +135,26 @@ function PrototypeSalesWorkspace({ context, onNavigate }: SalesWorkspaceProps) {
       const preset = recordRef.slice(4) || undefined;
       // Add New / Batch / Receive Payment open a sheet over the Receipts list.
       if (pageId === "receipts") return <ReceiptList nav={nav} creating preset={preset} onSaved={replaceWithList} />;
+      // Recurring Bills: new / new:batch open the template form; new:RB-… opens Create Invoices for a batch template.
+      if (pageId === "recurring-bills") {
+        if (preset && kindOfCode(preset) === "recurring") return <RecurringBillsView nav={nav} generating={preset} />;
+        return <RecurringBillsView nav={nav} creating={preset === "batch" ? "Batch" : "Single"} />;
+      }
+      // Create Invoice on a recurring template opens the invoice form prefilled from it (new:RB-… or new:RB-…@customerId).
+      const [templateCode, templateCustomer] = (preset ?? "").split("@");
+      if (pageId === "invoices" && templateCode && kindOfCode(templateCode) === "recurring") {
+        const backToTemplates = () => onNavigate("sales", "recurring-bills", undefined, { replace: true });
+        return (
+          <DocumentEntry
+            key={recordRef}
+            kind="invoice"
+            fromTemplate={{ code: templateCode, customerId: templateCustomer || undefined }}
+            nav={nav}
+            onSaved={backToTemplates}
+            onCancel={() => onNavigate("sales", "recurring-bills")}
+          />
+        );
+      }
       if (pageId in NEW_KIND_BY_PAGE) {
         const kind = NEW_KIND_BY_PAGE[pageId as keyof typeof NEW_KIND_BY_PAGE];
         // Create Invoice on a delivered order opens the invoice form prefilled from it (new:SO-…).
@@ -162,6 +182,8 @@ function PrototypeSalesWorkspace({ context, onNavigate }: SalesWorkspaceProps) {
     if (kind === "invoice") return <DocumentList kind="invoice" nav={nav} selected={recordRef} />;
     // Receipts open in the right-side receipt panel over the Receipts list.
     if (kind === "receipt") return <ReceiptList nav={nav} selected={recordRef} onSaved={replaceWithList} />;
+    // Recurring templates open in the template side sheet over the Recurring Bills list.
+    if (kind === "recurring") return <RecurringBillsView nav={nav} selected={recordRef} />;
   }
 
   switch (pageId) {

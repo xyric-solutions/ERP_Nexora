@@ -2,7 +2,8 @@
  * Sales workflow rules for the prototype (meeting of 11 Nov 2026).
  *
  * Quotation (Draft) → optional named approver → Approved → Confirm Order →
- * Sales Order (Confirmed) → Pick & Pack → Delivery → Invoice → Receipts.
+ * Sales Order (Confirmed) → Delivery → Invoice → Receipts. Items are
+ * delivered directly; there is no separate pick & pack step.
  * Without an approver the creator approves the quotation. Payments are
  * recorded on the Receipts page (receipts, customer payments and their
  * returns) and allocated against outstanding invoices; Sale Return is
@@ -11,7 +12,7 @@
  * authorization, audit and idempotency.
  */
 
-import { moneyDocMeta, RECEIPT_ACCOUNTS, RECEIPT_METHODS, SALES_CATALOG, SALES_KINDS, SALES_TERM_DAYS, SALES_WAREHOUSES } from "./sales-constants";
+import { moneyDocMeta, RECEIPT_ACCOUNTS, RECEIPT_METHODS, SALES_KINDS, SALES_TERM_DAYS, SALES_WAREHOUSES } from "./sales-constants";
 import { addDays, addMonths, BASE_CURRENCY, formatDate, money, stamp, todayIso } from "./sales-format";
 import { addressLines, blankCustomer, documentTermsFor, normalizeCustomer, onCreditHold, shippingAddress } from "./customer-model";
 import { approverTitle, samePerson } from "./sales-approvers";
@@ -25,11 +26,15 @@ import type {
   ReceiptAllocation,
   ReceiptSource,
   RecurringBill,
+  RecurringFrequency,
+  RecurringScope,
+  SalesContextFields,
   SalesCustomer,
   SalesDocument,
   SalesDocumentKind,
   SalesLine,
   SalesNotification,
+  SalesReference,
   SalesReturn,
   SalesReturnLine,
   SalesState,
@@ -405,7 +410,6 @@ export function deleteOrder(state: SalesState, code: string) {
 export function fulfilmentStage(order: SalesDocument): FulfilmentStage {
   if (order.links.invoice) return "Invoiced";
   if (order.delivery) return "Delivered";
-  if (order.pickPack) return "Packed";
   return "Not started";
 }
 
@@ -446,12 +450,10 @@ export function nextActionFor(state: SalesState, doc: SalesDocument): NextAction
   }
   if (doc.kind === "order") {
     if (doc.status === "Draft")
-      return { type: "action", action: "confirm", label: "Confirm Order", text: "Confirms this direct order. It then appears in Pick, Pack & Delivery." };
+      return { type: "action", action: "confirm", label: "Confirm Order", text: "Confirms this direct order. It then appears in Delivery." };
     const stage = fulfilmentStage(doc);
     if (stage === "Not started")
-      return { type: "action", action: "delivery", label: "Pick & Pack", text: "Pick the items, pack them and save the delivery from one panel." };
-    if (stage === "Packed")
-      return { type: "action", action: "delivery", label: "Save Delivery", text: "The order is picked and packed. Record who received it and save the delivery." };
+      return { type: "action", action: "delivery", label: "Delivery", text: "Record the delivery details and confirm the delivery from one panel." };
     if (stage === "Delivered")
       return { type: "action", action: "createInvoice", label: "Create Invoice", text: "Delivered. Opens the invoice form prefilled from this order; review and edit it, then save." };
     return {
@@ -527,13 +529,6 @@ export function quotationStages(state: SalesState, quotation: SalesDocument): Qu
   }
 
   const confirmed = order?.status === "Confirmed";
-  const packStage: QuotationStage = order?.pickPack
-    ? {
-        key: "pack", label: "Pick & pack", status: "Packed", state: "done", code: order.code,
-        details: [["Packed by", order.pickPack.packedBy], ["Packages", String(order.pickPack.packages)], ["Packed on", order.pickPack.at]],
-      }
-    : { key: "pack", label: "Pick & pack", ...later(confirmed, "Ready to pick"), code: order?.code, details: order ? [["Ship from", order.warehouse]] : [] };
-
   const deliveryStage: QuotationStage = order?.delivery
     ? {
         key: "delivery", label: "Delivery", status: "Delivered", state: "done", code: order.delivery.no,
@@ -544,7 +539,7 @@ export function quotationStages(state: SalesState, quotation: SalesDocument): Qu
         ],
       }
     : {
-        key: "delivery", label: "Delivery", ...later(Boolean(order?.pickPack), "Ready to deliver"),
+        key: "delivery", label: "Delivery", ...later(confirmed, "Ready to deliver"),
         details: order ? [["Planned", formatDate(order.date2)], ["Ship to", deliveryAddress(customer) || "—"]] : [],
       };
 
@@ -578,7 +573,6 @@ export function quotationStages(state: SalesState, quotation: SalesDocument): Qu
       ],
     },
     approvalStage,
-    packStage,
     deliveryStage,
     invoiceStage,
     paymentStage,
@@ -618,6 +612,39 @@ function setStatus(doc: SalesDocument, status: SalesDocument["status"], actor: s
   log(doc, status, actor, note);
 }
 
+/* ------------------------------------- project and location (required) */
+
+/**
+ * Every Sales transaction needs a Project and a Location (12 Nov 2026). The
+ * forms check this, and every save, post and one-click action checks it again
+ * here, so no path creates a transaction without both. Mock only: the live
+ * Sales API must re-validate that both are active masters of the company.
+ */
+export function contextErrors(value: SalesContextFields | undefined): FieldErrors {
+  const errors: FieldErrors = {};
+  if (!value?.project?.id) errors.project = "Select a project.";
+  if (!value?.location?.id) errors.location = "Select a location.";
+  return errors;
+}
+
+export const hasContext = (value: SalesContextFields | undefined) => Object.keys(contextErrors(value)).length === 0;
+
+/** Copies a record's project and location (only the ones it has). */
+export function contextOf(value: SalesContextFields | undefined): SalesContextFields {
+  return {
+    ...(value?.project ? { project: { ...value.project } } : {}),
+    ...(value?.location ? { location: { ...value.location } } : {}),
+  };
+}
+
+/** Throws unless both are set; returns copies of them. */
+function requireContext(value: SalesContextFields | undefined, what: string): Required<SalesContextFields> {
+  if (!value?.project?.id || !value.location?.id) throw new Error(`Select a project and a location for ${what} first.`);
+  return { project: { ...value.project }, location: { ...value.location } };
+}
+
+export const referenceLabel = (reference: SalesReference | undefined) => (reference ? `${reference.code} · ${reference.name}` : "");
+
 /* ---------------------------------------------------------------- drafts */
 
 export function blankLine(): SalesLine {
@@ -652,7 +679,7 @@ export function newDocumentDraft(state: SalesState, kind: SalesDocumentKind, cus
 
 export function validateDocument(draft: SalesDocument): FieldErrors {
   const meta = SALES_KINDS[draft.kind];
-  const errors: FieldErrors = {};
+  const errors: FieldErrors = contextErrors(draft);
   if (!draft.customerId) errors.customerId = "Select a customer.";
   if (!draft.date) errors.date = "Enter the date.";
   if (draft.date && draft.date2 && draft.date2 < draft.date)
@@ -668,6 +695,7 @@ export function validateDocument(draft: SalesDocument): FieldErrors {
 /** Saves a new or edited quotation, order or invoice. Returns the saved code. */
 export function saveDocument(state: SalesState, draft: SalesDocument, actor: string): string {
   const meta = SALES_KINDS[draft.kind];
+  const context = requireContext(draft, draft.code || `this ${meta.label.toLowerCase()}`);
   const lines = draft.lines.filter((item) => item.desc.trim() && Number(item.qty) > 0);
   const list = state[draft.kind];
   const approver = draft.kind === "quotation" ? (draft.approver ?? "").trim() : undefined;
@@ -675,6 +703,7 @@ export function saveDocument(state: SalesState, draft: SalesDocument, actor: str
     const doc: SalesDocument = {
       ...draft,
       ...normalizeCurrency(draft),
+      ...context,
       lines,
       id: uid(),
       code: nextCode(meta.prefix, list.map((item) => item.code)),
@@ -685,7 +714,17 @@ export function saveDocument(state: SalesState, draft: SalesDocument, actor: str
     if (doc.kind === "invoice") {
       doc.status = "Unpaid";
       if (doc.links.order) linkInvoiceToOrder(state, doc, actor);
-      log(doc, "Issued", actor, doc.links.order ? `From ${doc.links.order}${doc.links.quotation ? ` · ${doc.links.quotation}` : ""}` : "");
+      if (doc.links.recurring) markRecurringBilled(state, doc, actor);
+      log(
+        doc,
+        "Issued",
+        actor,
+        doc.links.order
+          ? `From ${doc.links.order}${doc.links.quotation ? ` · ${doc.links.quotation}` : ""}`
+          : doc.links.recurring
+            ? `From ${doc.links.recurring}`
+            : "",
+      );
     } else {
       doc.status = "Draft";
       log(doc, "Saved", actor, approver ? `Approver: ${approver}` : "");
@@ -702,6 +741,7 @@ export function saveDocument(state: SalesState, draft: SalesDocument, actor: str
   const updated: SalesDocument = {
     ...draft,
     ...normalizeCurrency(draft),
+    ...context,
     lines,
     status: current.status,
     links: current.links,
@@ -716,10 +756,15 @@ export function saveDocument(state: SalesState, draft: SalesDocument, actor: str
 
 /* ------------------------------------------------------------ the actions */
 
-/** Confirm Order on an approved quotation: creates the confirmed sales order. No approval. */
-export function confirmQuotation(state: SalesState, code: string, actor: string): string {
+/**
+ * Confirm Order on an approved quotation: creates the confirmed sales order. No
+ * approval. The order takes the quotation's project and location; a quotation
+ * saved before they were required needs them passed in (chosen by the user).
+ */
+export function confirmQuotation(state: SalesState, code: string, actor: string, chosen?: SalesContextFields): string {
   const quotation = findDocument(state, "quotation", code);
   if (!quotation || quotation.status !== "Approved") throw new Error(`${code} must be approved before the order is confirmed.`);
+  const context = requireContext(hasContext(quotation) ? quotation : chosen, "the sales order");
   const customer = findCustomer(state, quotation.customerId);
   if (customer && onCreditHold(customer))
     throw new Error(`${customer.display} is ${customer.creditStatus.toLowerCase()}. Change the customer's credit status first.`);
@@ -732,6 +777,7 @@ export function confirmQuotation(state: SalesState, code: string, actor: string)
     date: today,
     date2: addDays(today, SALES_KINDS.order.date2Days),
     warehouse: SALES_WAREHOUSES[0],
+    ...context,
     status: "Confirmed",
     links: { quotation: quotation.code },
     approver: undefined,
@@ -750,6 +796,7 @@ export function confirmQuotation(state: SalesState, code: string, actor: string)
 export function confirmOrder(state: SalesState, code: string, actor: string) {
   const order = findDocument(state, "order", code);
   if (!order || order.status !== "Draft") throw new Error(`${code} cannot be confirmed.`);
+  requireContext(order, code);
   const customer = findCustomer(state, order.customerId);
   if (customer && onCreditHold(customer))
     throw new Error(`${customer.display} is ${customer.creditStatus.toLowerCase()}. Change the customer's credit status first.`);
@@ -760,46 +807,21 @@ export function nextDeliveryNumber(state: SalesState): string {
   return nextCode("DLV", state.order.flatMap((order) => (order.delivery ? [order.delivery.no] : [])));
 }
 
-export interface PickPackInput {
-  /** Indexes of the order lines that have been picked. */
-  picked: readonly number[];
-  packages: number;
-  packedBy: string;
-  notes: string;
-}
-
-export function validatePickPack(order: SalesDocument, input: PickPackInput): FieldErrors {
-  const errors: FieldErrors = {};
-  if (order.lines.some((_, index) => !input.picked.includes(index))) errors.picked = "Tick every item once it has been picked.";
-  if (!(Number(input.packages) >= 1)) errors.packages = "Enter at least one package.";
-  if (!input.packedBy.trim()) errors.packedBy = "Enter who packed the order.";
-  return errors;
-}
-
-/** Confirmed order → packed. The order status stays Confirmed. */
-export function savePickPack(state: SalesState, code: string, actor: string, input: PickPackInput) {
-  const order = findDocument(state, "order", code);
-  if (!order || order.status !== "Confirmed" || order.pickPack) throw new Error(`${code} is not ready to pick and pack.`);
-  const errors = validatePickPack(order, input);
-  if (Object.keys(errors).length) throw new Error(Object.values(errors)[0]);
-  order.pickPack = { packages: Number(input.packages), packedBy: input.packedBy.trim(), notes: input.notes.trim(), at: stamp(), by: actor };
-  log(order, "Picked & packed", actor, `${order.pickPack.packages} package(s) · packed by ${order.pickPack.packedBy}`);
-}
-
-export interface DeliveryInput {
+export interface DeliveryInput extends SalesContextFields {
   date: string;
   warehouse: string;
   receivedBy: string;
   notes: string;
 }
 
-/** Packed → delivered. No approval follows a delivery. */
+/** Confirmed → delivered. Items are delivered directly; no pick & pack or approval is needed. */
 export function recordDelivery(state: SalesState, code: string, actor: string, input: DeliveryInput): string {
   const order = findDocument(state, "order", code);
-  if (!order || !order.pickPack || order.delivery) throw new Error(`${code} must be picked and packed before delivery.`);
+  if (!order || order.status !== "Confirmed" || order.delivery) throw new Error(`${code} is not ready for delivery.`);
   if (!input.date) throw new Error("Enter the delivery date.");
+  const context = requireContext(input, "the delivery");
   const no = nextDeliveryNumber(state);
-  order.delivery = { no, ...input, receivedBy: input.receivedBy.trim(), notes: input.notes.trim(), at: stamp(), by: actor };
+  order.delivery = { no, ...input, ...context, receivedBy: input.receivedBy.trim(), notes: input.notes.trim(), at: stamp(), by: actor };
   log(order, "Delivered", actor, `Delivery ${no}`);
   return no;
 }
@@ -829,7 +851,7 @@ export function invoiceDraftFromOrder(state: SalesState, code: string, actor: st
     date2: addDays(today, SALES_TERM_DAYS[order.terms] ?? 30),
     status: "Unpaid",
     links: { order: order.code, ...(order.links.quotation ? { quotation: order.links.quotation } : {}) },
-    pickPack: undefined,
+    ...contextOf(hasContext(order) ? order : order.delivery),
     delivery: undefined,
     approver: undefined,
     approval: undefined,
@@ -865,7 +887,7 @@ export function openInvoices(state: SalesState, customerId?: string, currency?: 
 /** Receipt source shown in lists; records saved before sources existed came from an invoice. */
 export const receiptSource = (receipt: CustomerReceipt): ReceiptSource => receipt.source ?? "Invoice";
 
-export interface MoneyInput {
+export interface MoneyInput extends SalesContextFields {
   type: MoneyDocType;
   customerId: string;
   date: string;
@@ -886,9 +908,10 @@ export interface MoneyInput {
   note: string;
 }
 
-export function newMoneyInput(type: MoneyDocType, customerId = "", currency?: string): MoneyInput {
+export function newMoneyInput(type: MoneyDocType, customerId = "", currency?: string, context?: SalesContextFields): MoneyInput {
   return {
     ...currencyDefaults(currency),
+    ...contextOf(context),
     type,
     customerId,
     date: todayIso(),
@@ -912,6 +935,7 @@ export function moneyInputFrom(doc: CustomerReceipt): MoneyInput {
     account: doc.account,
     reference: doc.reference,
     ...normalizeCurrency(doc),
+    ...contextOf(doc),
     amount: doc.amount,
     alloc: doc.type === "Receipt" ? doc.alloc.map((item) => ({ ...item })) : [],
     against: doc.against ?? "",
@@ -963,7 +987,7 @@ export function returnableDocs(state: SalesState, type: "Return receipt" | "Retu
 }
 
 export function validateMoney(state: SalesState, input: MoneyInput): FieldErrors {
-  const errors: FieldErrors = {};
+  const errors: FieldErrors = contextErrors(input);
   const amount = round2(input.amount);
   if (!input.customerId) errors.customerId = "Choose the customer.";
   if (!input.date) errors.date = "Enter the date.";
@@ -1049,6 +1073,7 @@ export function saveMoneyDoc(
     account: input.method === "Cash" ? "Cash in hand" : input.account,
     reference: input.reference.trim(),
     ...normalizeCurrency(input),
+    ...requireContext(input, `this ${meta.label.toLowerCase()}`),
     amount: round2(input.amount),
     alloc,
     against: input.type === "Return receipt" || input.type === "Return payment" ? input.against : undefined,
@@ -1084,6 +1109,7 @@ export function saveMoneyDoc(
 export function postMoneyDoc(state: SalesState, code: string, actor: string) {
   const doc = findMoneyDoc(state, code);
   if (!doc || doc.status !== "Draft") throw new Error(`${code} is not a draft.`);
+  requireContext(doc, `${code} (edit the draft)`);
   preparePosting(state, doc);
   doc.status = "Posted";
   const target = doc.type === "Receipt" ? doc.alloc.map((item) => item.inv).join(", ") : doc.against ?? "";
@@ -1113,7 +1139,7 @@ export function deleteMoneyDraft(state: SalesState, code: string) {
 
 /* ------------------------------------------------------------------ batch */
 
-export interface BatchCommon {
+export interface BatchCommon extends SalesContextFields {
   date: string;
   method: string;
   account: string;
@@ -1137,6 +1163,7 @@ export function batchInvoiceReceipts(state: SalesState, rows: readonly ReceiptAl
     groups.set(key, group);
   }
   if (!groups.size) throw new Error("Tick at least one invoice and enter an amount.");
+  requireContext(common, "the batch");
   return [...groups.values()].map(({ customerId, invoice, alloc }) =>
     saveMoneyDoc(
       state,
@@ -1158,6 +1185,7 @@ export interface BatchRow extends BatchCommon {
 export function batchReceipts(state: SalesState, rows: readonly BatchRow[], actor: string): string[] {
   const usable = rows.filter((row) => row.customerId || round2(row.amount) > 0);
   if (!usable.length) throw new Error("Add at least one receipt line.");
+  usable.forEach((row) => requireContext(row, "the batch"));
   return usable.map((row) =>
     saveMoneyDoc(state, { ...newMoneyInput("Receipt", row.customerId), ...row, alloc: autoAllocate(state, row.customerId, row.amount) }, actor, { post: true, source: "Batch" }),
   );
@@ -1167,6 +1195,7 @@ export function batchReceipts(state: SalesState, rows: readonly BatchRow[], acto
 export function batchPayments(state: SalesState, rows: readonly BatchRow[], actor: string): string[] {
   const usable = rows.filter((row) => row.customerId || round2(row.amount) > 0);
   if (!usable.length) throw new Error("Add at least one payment line.");
+  usable.forEach((row) => requireContext(row, "the batch"));
   return usable.map((row) =>
     saveMoneyDoc(state, { ...newMoneyInput("Customer payment", row.customerId), ...row, purpose: row.purpose || "Security deposit" }, actor, { post: true, source: "Batch" }),
   );
@@ -1259,7 +1288,7 @@ export function saveCustomer(state: SalesState, draft: SalesCustomer, actor: str
 
 /* ----------------------------------------------------------- sales returns */
 
-export interface ReturnInput {
+export interface ReturnInput extends SalesContextFields {
   invoice: string;
   date: string;
   /** Quantity returned per invoice line, by line index. */
@@ -1268,13 +1297,14 @@ export interface ReturnInput {
 }
 
 export function newReturnInput(invoice: SalesDocument): ReturnInput {
-  return { invoice: invoice.code, date: todayIso(), qty: invoice.lines.map(() => 0), reason: "" };
+  return { invoice: invoice.code, date: todayIso(), qty: invoice.lines.map(() => 0), reason: "", ...contextOf(invoice) };
 }
 
 export function validateReturn(state: SalesState, input: ReturnInput): FieldErrors {
   const errors: FieldErrors = {};
   const invoice = findDocument(state, "invoice", input.invoice);
   if (!invoice) return { invoice: "Invoice not found." };
+  Object.assign(errors, contextErrors(input));
   if (!input.date) errors.date = "Enter the return date.";
   else if (input.date < invoice.date) errors.date = "A return cannot be dated before the invoice.";
   if (!input.reason.trim()) errors.reason = "Enter the reason for the return.";
@@ -1305,6 +1335,7 @@ export function addReturn(state: SalesState, input: ReturnInput, actor: string):
     customerId: invoice.customerId,
     invoice: invoice.code,
     date: input.date,
+    ...requireContext(input, "the sale return"),
     lines,
     reason: input.reason.trim(),
     status: "Recorded",
@@ -1318,42 +1349,204 @@ export function addReturn(state: SalesState, input: ReturnInput, actor: string):
 
 /* ------------------------------------------------------- recurring bills */
 
-const FREQUENCY_MONTHS: Record<RecurringBill["frequency"], number> = { Monthly: 1, Quarterly: 3, Annually: 12 };
+/**
+ * Recurring invoice templates (Sales › Recurring Bills).
+ *
+ * A Single template bills one customer; a Batch template bills several
+ * customers with the same lines. Create Invoice prefills the normal invoice
+ * form (recurringInvoiceDraft) and Save and Post issues it through
+ * saveDocument, which records the customer as billed for the period. When
+ * every customer is billed the template moves to the next week or month.
+ * Mock only: when the Sales API exists, generation must run server-side with
+ * idempotency per template, customer and period.
+ */
 
-export const recurringTotal = (bill: RecurringBill) => bill.qty * bill.rate * (1 + bill.tax / 100);
+/** Frequencies offered for new templates. */
+export const RECURRING_FREQUENCIES = ["Weekly", "Monthly"] as const satisfies readonly RecurringFrequency[];
 
-export function invoiceFromRecurring(state: SalesState, id: string, actor: string): string {
-  const bill = state.recurring.find((item) => item.id === id);
-  if (!bill || bill.status !== "Active") throw new Error("This recurring bill is not active.");
-  const customer = findCustomer(state, bill.customerId);
-  const terms = documentTermsFor(customer);
-  const today = todayIso();
-  const invoice: SalesDocument = {
-    id: uid(),
-    code: nextCode("INV", state.invoice.map((item) => item.code)),
-    kind: "invoice",
-    customerId: bill.customerId,
-    owner: actor,
-    date: today,
-    date2: addDays(today, SALES_TERM_DAYS[terms] ?? 30),
-    terms,
-    reference: `${bill.code} · ${formatDate(bill.next)}`,
-    warehouse: SALES_WAREHOUSES[0],
-    lines: [{
-      sku: bill.sku,
-      desc: `${bill.desc} · ${formatDate(bill.next)}`,
-      qty: bill.qty,
-      rate: bill.rate,
-      tax: bill.tax,
-      uom: SALES_CATALOG.find((item) => item.sku === bill.sku)?.uom ?? "Each",
-    }],
-    notes: "",
-    status: "Unpaid",
+export function nextPeriod(iso: string, frequency: RecurringFrequency): string {
+  if (frequency === "Weekly") return addDays(iso, 7);
+  return addMonths(iso, frequency === "Monthly" ? 1 : frequency === "Quarterly" ? 3 : 12);
+}
+
+export const findRecurring = (state: SalesState, code: string | undefined) =>
+  code ? state.recurring.find((item) => item.code === code) : undefined;
+
+/** Value of one invoice raised from the template (per customer), in the template currency. */
+export const recurringTotal = (bill: RecurringBill) => lineTotals(bill.lines).total;
+
+/** Customers on the template still to be invoiced for the current period. */
+export function recurringPending(bill: RecurringBill): string[] {
+  return bill.customerIds.filter((id) => !bill.billed[id]);
+}
+
+/** Active templates whose current period is on or before the given date and still has customers to invoice. */
+export function recurringDue(state: SalesState, onOrBefore: string): RecurringBill[] {
+  return state.recurring.filter((bill) => bill.status === "Active" && bill.next <= onOrBefore && recurringPending(bill).length > 0);
+}
+
+function advanceRecurring(bill: RecurringBill, actor: string) {
+  const from = bill.next;
+  bill.next = nextPeriod(bill.next, bill.frequency);
+  bill.billed = {};
+  log(bill, "Period complete", actor, `All invoices for ${formatDate(from)} issued · next on ${formatDate(bill.next)}`);
+}
+
+/**
+ * Unsaved invoice prefilled from a template for one of its customers. The
+ * invoice form opens it for review; nothing is stored until Save and Post.
+ */
+export function recurringInvoiceDraft(state: SalesState, code: string, actor: string, customerId?: string): SalesDocument {
+  const bill = findRecurring(state, code);
+  if (!bill) throw new Error(`${code} no longer exists.`);
+  if (bill.status !== "Active") throw new Error(`${code} is paused. Resume it to create invoices.`);
+  const target = customerId ?? (bill.scope === "Single" ? bill.customerIds[0] : undefined);
+  if (!target || !bill.customerIds.includes(target)) throw new Error(`Choose a customer on ${code}.`);
+  if (bill.billed[target]) throw new Error(`${customerLabel(state, target)} is already invoiced for ${formatDate(bill.next)} (${bill.billed[target]}).`);
+  const customer = findCustomer(state, target);
+  if (!customer) throw new Error(`The customer on ${code} no longer exists.`);
+  const context = requireContext(bill, code);
+  const draft = newDocumentDraft(state, "invoice", target);
+  const period = formatDate(bill.next);
+  return {
+    ...draft,
+    owner: customer.salesperson || actor,
+    reference: bill.reference.trim() ? `${bill.reference.trim()} · ${period}` : `${bill.code} · ${period}`,
+    ...normalizeCurrency(bill),
+    lines: bill.lines.map((line) => ({ ...line, desc: `${line.desc} · ${period}` })),
+    notes: bill.notes,
+    ...context,
     links: { recurring: bill.code },
-    history: [],
   };
-  log(invoice, "Issued", actor, `From ${bill.code}`);
-  state.invoice.push(invoice);
-  bill.next = addMonths(bill.next, FREQUENCY_MONTHS[bill.frequency]);
-  return invoice.code;
+}
+
+/** Called by saveDocument for a new invoice that came from a template. */
+function markRecurringBilled(state: SalesState, invoice: SalesDocument, actor: string) {
+  const bill = findRecurring(state, invoice.links.recurring);
+  if (!bill) return;
+  if (!bill.customerIds.includes(invoice.customerId)) throw new Error(`The invoice customer is not on ${bill.code}.`);
+  if (bill.billed[invoice.customerId]) throw new Error(`${customerLabel(state, invoice.customerId)} is already invoiced for ${formatDate(bill.next)} (${bill.billed[invoice.customerId]}).`);
+  bill.billed[invoice.customerId] = invoice.code;
+  log(bill, "Invoiced", actor, `${invoice.code} · ${customerLabel(state, invoice.customerId)} · ${formatDate(bill.next)}`);
+  if (!recurringPending(bill).length) advanceRecurring(bill, actor);
+}
+
+/** One-click invoice for one customer on the template, with the template's values unchanged. */
+export function invoiceFromRecurring(state: SalesState, code: string, actor: string, customerId?: string): string {
+  return saveDocument(state, recurringInvoiceDraft(state, code, actor, customerId), actor);
+}
+
+/** Save and Post all: invoices every customer still to be billed on the template for the current period. */
+export function postRecurringBatch(state: SalesState, code: string, actor: string): string[] {
+  const bill = findRecurring(state, code);
+  if (!bill) throw new Error(`${code} no longer exists.`);
+  const pending = recurringPending(bill);
+  if (!pending.length) throw new Error(`Every customer on ${code} is already invoiced for this period.`);
+  return pending.map((customerId) => invoiceFromRecurring(state, code, actor, customerId));
+}
+
+export interface RecurringInput extends SalesContextFields {
+  code: string;
+  scope: RecurringScope;
+  name: string;
+  customerIds: string[];
+  lines: SalesLine[];
+  currency: string;
+  fxRate: number;
+  reference: string;
+  notes: string;
+  frequency: RecurringFrequency;
+  next: string;
+}
+
+export function newRecurringInput(scope: RecurringScope): RecurringInput {
+  return {
+    code: "",
+    scope,
+    name: "",
+    customerIds: [],
+    lines: [blankLine()],
+    ...currencyDefaults(undefined),
+    reference: "",
+    notes: "",
+    frequency: "Monthly",
+    next: todayIso(),
+  };
+}
+
+export function recurringInputFrom(bill: RecurringBill): RecurringInput {
+  return {
+    code: bill.code,
+    scope: bill.scope,
+    name: bill.name,
+    customerIds: [...bill.customerIds],
+    lines: structuredClone(bill.lines),
+    ...normalizeCurrency(bill),
+    ...contextOf(bill),
+    reference: bill.reference,
+    notes: bill.notes,
+    frequency: bill.frequency,
+    next: bill.next,
+  };
+}
+
+export function validateRecurring(state: SalesState, input: RecurringInput): FieldErrors {
+  const errors: FieldErrors = contextErrors(input);
+  if (!input.name.trim()) errors.name = "Enter what is billed, e.g. Monthly maintenance.";
+  if (input.scope === "Single" && input.customerIds.length !== 1) errors.customerIds = "Select a customer.";
+  if (input.scope === "Batch" && input.customerIds.length < 2) errors.customerIds = "Select at least two customers. Use a single-customer template for one.";
+  const inactive = input.customerIds.filter((id) => findCustomer(state, id)?.status !== "Active");
+  if (!errors.customerIds && inactive.length) errors.customerIds = `${inactive.map((id) => customerLabel(state, id)).join(", ")} ${inactive.length === 1 ? "is" : "are"} inactive.`;
+  if (!input.next) errors.next = "Enter the next invoice date.";
+  const rateError = fxRateError(input);
+  if (rateError) errors.fxRate = rateError;
+  const usable = input.lines.filter((item) => item.desc.trim() && Number(item.qty) > 0);
+  if (!usable.length) errors.lines = "Add at least one line with a description and a quantity above zero.";
+  else if (usable.some((item) => !(Number(item.rate) > 0))) errors.lines = "Every line needs a rate above zero.";
+  return errors;
+}
+
+/** Creates or updates a template. Returns its code. */
+export function saveRecurring(state: SalesState, input: RecurringInput, actor: string): string {
+  const fields = {
+    name: input.name.trim(),
+    customerIds: [...new Set(input.customerIds)],
+    lines: input.lines.filter((item) => item.desc.trim() && Number(item.qty) > 0),
+    ...normalizeCurrency(input),
+    ...requireContext(input, "the template"),
+    reference: input.reference.trim(),
+    notes: input.notes.trim(),
+    frequency: input.frequency,
+    next: input.next,
+  };
+  if (!input.code) {
+    const bill: RecurringBill = {
+      id: uid(),
+      code: nextCode("RB", state.recurring.map((item) => item.code)),
+      scope: input.scope,
+      ...fields,
+      status: "Active",
+      billed: {},
+      history: [],
+    };
+    log(bill, "Created", actor, `${bill.scope === "Batch" ? `${bill.customerIds.length} customers · ` : ""}${bill.frequency} from ${formatDate(bill.next)}`);
+    state.recurring.push(bill);
+    return bill.code;
+  }
+  const bill = findRecurring(state, input.code);
+  if (!bill) throw new Error(`${input.code} no longer exists.`);
+  const periodChanged = bill.next !== fields.next;
+  Object.assign(bill, fields);
+  // A new period date starts a fresh period; otherwise keep invoices already issued for customers still on it.
+  bill.billed = periodChanged ? {} : Object.fromEntries(Object.entries(bill.billed).filter(([id]) => bill.customerIds.includes(id)));
+  log(bill, "Edited", actor);
+  if (Object.keys(bill.billed).length && !recurringPending(bill).length) advanceRecurring(bill, actor);
+  return bill.code;
+}
+
+export function setRecurringStatus(state: SalesState, code: string, status: RecurringBill["status"], actor: string) {
+  const bill = findRecurring(state, code);
+  if (!bill) throw new Error(`${code} no longer exists.`);
+  bill.status = status;
+  log(bill, status === "Active" ? "Resumed" : "Paused", actor);
 }

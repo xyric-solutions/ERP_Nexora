@@ -41,12 +41,6 @@ async function settle() {
   });
 }
 
-function button(name: string): HTMLButtonElement {
-  const match = [...container.querySelectorAll("button")].find((candidate) => candidate.textContent?.includes(name));
-  if (!(match instanceof HTMLButtonElement)) throw new Error(`Missing button: ${name}`);
-  return match;
-}
-
 beforeEach(async () => {
   harness.contentProps = null;
   window.history.replaceState(null, "", "#/banking/add-bank-payment");
@@ -64,11 +58,16 @@ afterEach(() => {
 });
 
 describe("Bank Payment shell navigation", () => {
-  it("keeps sidebar and Identity navigation on the entry page when discard is declined", () => {
+  it("keeps Identity and sidebar navigation on the entry page when discard is declined", () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
     act(() => harness.contentProps?.onPaymentEntryDirtyChange?.(true));
 
-    act(() => button("Identity & Access").click());
+    // The Identity & Access sidebar button was retired (Administration plan D11); its
+    // hidden route remains and is still guarded.
+    act(() => {
+      window.history.pushState(null, "", "#/identity/access");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
     expect(window.location.hash).toBe("#/banking/add-bank-payment");
     expect(confirm).toHaveBeenCalledTimes(1);
 

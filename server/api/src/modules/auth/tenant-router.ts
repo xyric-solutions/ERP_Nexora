@@ -11,6 +11,7 @@ import type {
 import {
   cancelTenantSelectionRequestSchema,
   changeInitialPasswordRequestSchema,
+  changePasswordRequestSchema,
   passwordLoginRequestSchema,
   selectSessionCompanyRequestSchema,
   selectTenantRequestSchema,
@@ -30,6 +31,8 @@ export interface TenantAuthApiService {
   loadPasswordVerifiedAccount: TenantAuthenticationService["loadPasswordVerifiedAccount"];
   recordTrustedAuthenticationEvent: TenantAuthenticationService["recordTrustedAuthenticationEvent"];
   changeInitialPassword: TenantAuthenticationService["changeInitialPassword"];
+  /** Self-service password change; absent in older test doubles, in which case the route answers 503. */
+  changePassword?: TenantAuthenticationService["changePassword"];
 }
 
 export interface TenantSelectionApiService {
@@ -198,6 +201,13 @@ function requireTrustedOrigin(req: Request, allowedOrigins: ReadonlySet<string>)
   if (origin && !allowedOrigins.has(origin)) {
     throw new HttpError(403, "ORIGIN_VALIDATION_FAILED", "Request origin validation failed.");
   }
+}
+
+/** Violations of a `PasswordPolicyError` (matched structurally so duplicate module copies still map to a 400). */
+function passwordPolicyViolations(error: unknown): string[] | null {
+  if (!(error instanceof Error) || (error as { code?: unknown }).code !== "PASSWORD_POLICY_REJECTED") return null;
+  const violations = (error as { violations?: unknown }).violations;
+  return Array.isArray(violations) ? violations.filter((value): value is string => typeof value === "string") : [];
 }
 
 function handleMutationFailure(status: "invalid_session" | "invalid_csrf"): never {
@@ -402,6 +412,75 @@ export function createTenantAuthRouter(dependencies: TenantAuthRouterDependencie
     }
     res.setHeader("set-cookie", serializeSessionCookie(issued.token, issued.idleExpiresAt, new Date(), secureCookies));
     res.json(responseForSession(issued, account));
+  });
+
+  /**
+   * Any signed-in user changes their own password. Requires a trusted origin, the session cookie and its CSRF token.
+   * A successful change bumps the user's session version, which ends every existing session (including this one),
+   * so a fresh session is issued and returned in its place.
+   */
+  router.post("/change-password", async (req, res) => {
+    requireTrustedOrigin(req, allowedOrigins);
+    const token = requireSessionToken(req, secureCookies);
+    const authorized = await sessions.authorizeMutation(token, req.get("x-csrf-token") ?? "");
+    if (authorized.status !== "ok") handleMutationFailure(authorized.status);
+    if (!authorized.session) handleMutationFailure("invalid_session");
+    const session = authorized.session;
+    if (session.impersonation) {
+      throw new HttpError(403, "IMPERSONATION_FORBIDDEN", "Passwords cannot be changed while impersonating a user.");
+    }
+    const input = changePasswordRequestSchema.parse(req.body);
+    if (!authentication.changePassword) {
+      throw new HttpError(503, "AUTH_UNAVAILABLE", "Password change is not available.");
+    }
+    const correlationId = currentRequestContext().correlationId;
+    let result: Awaited<ReturnType<NonNullable<TenantAuthApiService["changePassword"]>>>;
+    try {
+      result = await authentication.changePassword({
+        tenantId: session.tenantId,
+        userId: session.userId,
+        currentPassword: input.current_password,
+        newPassword: input.new_password,
+        correlationId,
+      });
+    } catch (error) {
+      const violations = passwordPolicyViolations(error);
+      if (violations) {
+        throw new HttpError(
+          400,
+          "PASSWORD_POLICY_REJECTED",
+          `The new password does not meet the security policy (${violations.join(", ")}).`,
+        );
+      }
+      throw error;
+    }
+    if (result.status === "throttled") {
+      res.setHeader("retry-after", String(result.retryAfterSeconds));
+      throw new HttpError(429, "PASSWORD_CHANGE_THROTTLED", "Too many password-change attempts. Try again later.");
+    }
+    if (result.status === "invalid_current_password") {
+      throw new HttpError(400, "INVALID_CURRENT_PASSWORD", "The current password is incorrect.");
+    }
+    await sessions.revokeAllForUser(session.tenantId, session.userId);
+    const issued = await sessions.issue(session.tenantId, session.userId, sessionContext(req));
+    try {
+      await authentication.recordTrustedAuthenticationEvent({
+        tenantId: session.tenantId,
+        userId: session.userId,
+        correlationId,
+        eventType: "session_issued",
+      });
+    } catch (error) {
+      await sessions.revokeToken(issued.token);
+      throw error;
+    }
+    let current: TenantSessionView = issued;
+    if (session.activeCompanyId && sessions.setActiveCompany) {
+      const kept = await sessions.setActiveCompany(issued.token, issued.csrfToken, session.activeCompanyId);
+      if (kept.status === "ok" && kept.session) current = kept.session;
+    }
+    res.setHeader("set-cookie", serializeSessionCookie(issued.token, issued.idleExpiresAt, new Date(), secureCookies));
+    res.json(responseForSession(current, result.account, result.account, await activeCompanyOf(current)));
   });
 
   router.get("/session", async (req, res) => {

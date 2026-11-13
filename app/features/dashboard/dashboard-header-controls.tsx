@@ -6,6 +6,7 @@ import { DashboardAppearanceMenu } from "@prototype/shared/theme/provider";
 import { Button } from "../../components/ui/button";
 
 import { useSession } from "../../lib/session/session-provider";
+import { ChangePasswordDialog } from "../administration/components/change-password-dialog";
 
 function initials(name: string) {
   return name
@@ -21,6 +22,7 @@ export function DashboardHeaderControls() {
   const router = useRouter();
   const { activeCompany, logout, session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   if (!session) return null;
 
@@ -50,11 +52,31 @@ export function DashboardHeaderControls() {
             <small>{user.email}</small>
             {activeCompany ? <small>{activeCompany.name}</small> : null}
           </span>
-          <Button variant="ghost" size="sm" type="button" role="menuitem" disabled={signingOut} onClick={() => void signOut()}>
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            role="menuitem"
+            onClick={(event) => {
+              event.currentTarget.closest("details")?.removeAttribute("open");
+              setChangingPassword(true);
+            }}
+          >
+            Change password
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            role="menuitem"
+            disabled={signingOut}
+            onClick={() => void signOut()}
+          >
             {signingOut ? "Signing out…" : "Sign out"}
           </Button>
         </div>
       </details>
+      <ChangePasswordDialog open={changingPassword} onOpenChange={setChangingPassword} />
     </>
   );
 }

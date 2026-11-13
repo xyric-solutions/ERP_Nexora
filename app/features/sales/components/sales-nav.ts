@@ -15,7 +15,7 @@ export interface SalesNav {
   notify: (message: string) => void;
 }
 
-export type SalesRecordKind = SalesDocumentKind | "customer" | "receipt";
+export type SalesRecordKind = SalesDocumentKind | "customer" | "receipt" | "recurring";
 
 export const KIND_BY_PREFIX: Record<string, SalesRecordKind> = {
   QTN: "quotation",
@@ -27,14 +27,17 @@ export const KIND_BY_PREFIX: Record<string, SalesRecordKind> = {
   CPY: "receipt",
   RRC: "receipt",
   RPY: "receipt",
+  // Recurring invoice templates (Sales › Recurring Bills).
+  RB: "recurring",
 };
 
 export const ROUTE_BY_KIND: Record<SalesRecordKind, [moduleId: string, pageId: string]> = {
   quotation: ["sales", "quotations"],
   order: ["sales", "sales-orders"],
   invoice: ["sales", "invoices"],
-  customer: ["customers", "customers"],
+  customer: ["sales", "customers"],
   receipt: ["sales", "receipts"],
+  recurring: ["sales", "recurring-bills"],
 };
 
 export function kindOfCode(code: string) {

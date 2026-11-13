@@ -37,6 +37,7 @@ import {
   returnedOn,
   returnedQty,
   type ReturnInput,
+  referenceLabel,
 } from "../model/sales-workflow";
 import type { SalesDocument, SalesDocumentKind, SalesState } from "../model/sales-types";
 
@@ -65,8 +66,7 @@ function metricsFor(kind: SalesDocumentKind, state: SalesState, actor: string, m
     const confirmed = all.filter((doc) => doc.status === "Confirmed");
     return [
       { label: "Confirmed orders", value: confirmed.length, hint: `${all.length - confirmed.length} draft(s)` },
-      { label: "Ready to pick & pack", value: confirmed.filter((doc) => fulfilmentStage(doc) === "Not started").length, hint: "Next: Pick & Pack" },
-      { label: "Packed", value: confirmed.filter((doc) => fulfilmentStage(doc) === "Packed").length, hint: "Next: Save Delivery" },
+      { label: "Ready to deliver", value: confirmed.filter((doc) => fulfilmentStage(doc) === "Not started").length, hint: "Next: Confirm Delivery" },
       { label: "Delivered, not invoiced", value: confirmed.filter((doc) => fulfilmentStage(doc) === "Delivered").length, hint: "Next: Create Invoice" },
     ];
   }
@@ -127,6 +127,8 @@ function columnsFor(kind: SalesDocumentKind, state: SalesState): ListColumn<Sale
       },
     },
     { id: "terms", label: "Payment terms", optional: true, cell: (doc) => doc.terms },
+    { id: "project", label: "Project", optional: true, cell: (doc) => referenceLabel(doc.project) || "—" },
+    { id: "location", label: "Location", optional: true, cell: (doc) => referenceLabel(doc.location) || "—" },
     kind === "order" && { id: "warehouse", label: "Ship from", optional: true, cell: (doc) => doc.warehouse },
     { id: "lines", label: "Items", optional: true, cell: (doc) => `${doc.lines.length} line(s)` },
     { id: "amount", label: "Amount", align: "right", required: true, cell: (doc) => <span className="font-semibold">{docMoney(documentTotal(doc), doc)}</span> },

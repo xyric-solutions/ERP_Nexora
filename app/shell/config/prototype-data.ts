@@ -176,33 +176,19 @@ export const prototypeModules = [
         [
           p("quotations", "Quotations"),
           p("sales-orders", "Sales Orders"),
-          p("pick-pack-delivery", "Pick, Pack & Delivery"),
+          p("pick-pack-delivery", "Delivery"),
           p("invoices", "Invoices", "list", "live"),
+          // Moved from the retired Revenue module (12 Nov 2026).
+          p("recurring-bills", "Recurring Bills"),
           p("receipts", "Receipts", "list", "live"),
+          // Moved from the retired Customers module (12 Nov 2026).
+          p("customers", "Customers", "list", "live"),
+          p("currency-balances", "Currency Accounts", "list", "live"),
         ],
+        false,
         true,
       ),
     ],
-  },
-  {
-    id: "revenue",
-    code: "RV",
-    label: "Revenue",
-    shortLabel: "Revenue",
-    description: "Recurring bills that create normal sales invoices on a fixed schedule.",
-    category: "Finance & trade",
-    modes: ["service", "trading"],
-    groups: [g("recurring-billing", "Recurring Bills", [p("recurring-bills", "Recurring Bills")], false, true)],
-  },
-  {
-    id: "customers",
-    code: "AR",
-    label: "Customers",
-    shortLabel: "Customers",
-    description: "One customer list and one customer form with contact, tax, payment terms, credit limit and bank details.",
-    category: "Finance & trade",
-    modes: allModes,
-    groups: [g("customer-master", "Customers", [p("customers", "Customers", "list", "live"), p("currency-balances", "Currency Accounts", "list", "live")], false, true)],
   },
   {
     id: "purchases",
@@ -1100,33 +1086,30 @@ export const prototypeModules = [
   {
     id: "administration",
     code: "AD",
-    label: "Administration & Multi-Tenancy",
+    label: "Administration",
     shortLabel: "Administration",
-    description: "Tenants, companies, users, access, entitlements, module visibility and administration audit.",
+    description: "Organisation profile, companies and structure, users and module access levels.",
     category: "Platform & governance",
     modes: allModes,
     groups: [
+      g(
+        "overview",
+        "Overview",
+        [
+          p("admin-dashboard", "Dashboard", "dashboard", "prototype"),
+          p("tenants", "Tenant Directory", "settings", "prototype"),
+        ],
+        false,
+        true,
+      ),
       g("organisation", "Organisation", [
-        p("admin-dashboard", "Administration Dashboard", "dashboard"),
-        p("tenants", "Tenant Directory"),
-        p("companies", "Companies & Organisation"),
-        p("company-detail", "Company Detail", "detail"),
+        p("companies", "Companies", "list", "read-only"),
+        p("structure", "Structure", "list", "live"),
       ]),
-      g("identity-access", "Identity & Access", [
-        p("users", "User Directory"),
-        p("add-user", "Add User", "form"),
-        p("user-detail", "User Detail & Access", "detail"),
-        p("roles-permissions", "Role & Permission Designer", "settings"),
-        p("company-role-assignments", "Company-role Assignments"),
-        p("access-review", "Access Review", "approval"),
-        p("delegation", "Delegation & Impersonation", "settings"),
-        p("security-policies", "Security & Session Policies", "settings"),
-      ]),
-      g("entitlements", "Entitlements", [
-        p("editions", "Editions & Entitlements", "settings"),
-        p("module-visibility", "Module Visibility", "settings"),
-        p("prototype-environment", "Prototype Environment", "settings"),
-        p("admin-audit", "Administration Audit", "report"),
+      g("users-access", "Users & Access", [
+        p("users", "Users", "list", "prototype"),
+        p("access-levels", "Access Levels", "report", "live"),
+        p("admin-audit", "Activity Log", "report", "prototype"),
       ]),
     ],
   },
@@ -1404,6 +1387,19 @@ const retiredPageRedirects: Record<string, readonly [moduleId: string, pageId: s
   "finance:period-close": ["configuration", "company-fiscal-currency", "fiscal"],
   "finance:finance-revaluation": ["finance", "currencies-fx", "revaluation"],
   "finance:multi-currency": ["finance", "currencies-fx", "accounting"],
+  // Administration simplified (plan D11, 12 Nov 2026). The governed Identity & Access
+  // panels stay in code and keep their API; they are no longer reachable from the menu.
+  "administration:add-user": ["administration", "users", "new"],
+  "administration:user-detail": ["administration", "users"],
+  "administration:company-role-assignments": ["administration", "users"],
+  "administration:access-review": ["administration", "users"],
+  "administration:delegation": ["administration", "users"],
+  "administration:security-policies": ["administration", "users"],
+  "administration:roles-permissions": ["administration", "access-levels"],
+  "administration:editions": ["administration", "access-levels"],
+  "administration:module-visibility": ["administration", "access-levels"],
+  "administration:prototype-environment": ["administration", "admin-dashboard"],
+  "administration:company-detail": ["administration", "companies"],
   "sales:add-quotation": ["sales", "quotations", "new"],
   "sales:quotation-detail": ["sales", "quotations"],
   "sales:add-sales-order": ["sales", "sales-orders", "new"],
@@ -1414,9 +1410,9 @@ const retiredPageRedirects: Record<string, readonly [moduleId: string, pageId: s
   "sales:debit-note": ["sales", "invoices"],
   "sales:batch-invoice": ["sales", "invoices"],
   "sales:proforma-invoice": ["sales", "invoices"],
-  "customers:add-customer": ["customers", "customers", "new"],
-  "customers:customer-profile": ["customers", "customers"],
-  "customers:credit-limit-review": ["customers", "customers"],
+  "customers:add-customer": ["sales", "customers", "new"],
+  "customers:customer-profile": ["sales", "customers"],
+  "customers:credit-limit-review": ["sales", "customers"],
   "customers:open-items": ["sales", "invoices"],
   // Customer receipts: listed and entered on Sales → Receipts (also saved from the invoice panel).
   "sales:customer-receipts": ["sales", "receipts"],
@@ -1448,6 +1444,17 @@ export function findPrototypePage(
   }
   const redirect = pageId ? retiredPageRedirects[`${moduleId}:${pageId}`] : undefined;
   if (redirect) return { ...findPrototypePage(redirect[0], redirect[1]), redirectRecordRef: redirect[2] };
+  // Revenue and Customers modules retired on 12 Nov 2026: Recurring Bills and
+  // Customers now sit in Sales. Old links and bookmarks open the moved page.
+  if (moduleId === "revenue") {
+    moduleId = "sales";
+    pageId = "recurring-bills";
+  }
+  if (moduleId === "customers") {
+    moduleId = "sales";
+    // Currency Accounts moved with Customers; every other old page opens the customer list.
+    pageId = pageId === "currency-balances" ? "currency-balances" : "customers";
+  }
   if (moduleId === "suppliers") {
     moduleId = "purchases";
     pageId = ["suppliers", "add-supplier", "supplier-profile", "supplier-onboarding", "bank-verification"].includes(

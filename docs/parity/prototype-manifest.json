@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "source": "app/prototype-data.ts",
   "counts": {
-    "modules": 32,
-    "groups": 120,
-    "pages": 676
+    "modules": 30,
+    "groups": 118,
+    "pages": 667
   },
   "modules": [
     {
@@ -392,7 +392,6 @@
         {
           "id": "selling",
           "label": "Sales",
-          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "quotations",
@@ -408,7 +407,7 @@
             },
             {
               "id": "pick-pack-delivery",
-              "label": "Pick, Pack & Delivery",
+              "label": "Delivery",
               "archetype": "list",
               "status": "prototype"
             },
@@ -419,54 +418,17 @@
               "status": "live"
             },
             {
-              "id": "receipts",
-              "label": "Receipts",
-              "archetype": "list",
-              "status": "live"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "revenue",
-      "code": "RV",
-      "label": "Revenue",
-      "category": "Finance & trade",
-      "modes": [
-        "service",
-        "trading"
-      ],
-      "groups": [
-        {
-          "id": "recurring-billing",
-          "label": "Recurring Bills",
-          "pages": [
-            {
               "id": "recurring-bills",
               "label": "Recurring Bills",
               "archetype": "list",
               "status": "prototype"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "customers",
-      "code": "AR",
-      "label": "Customers",
-      "category": "Finance & trade",
-      "modes": [
-        "service",
-        "trading",
-        "manufacturing"
-      ],
-      "groups": [
-        {
-          "id": "customer-master",
-          "label": "Customers",
-          "pages": [
+            },
+            {
+              "id": "receipts",
+              "label": "Receipts",
+              "archetype": "list",
+              "status": "live"
+            },
             {
               "id": "customers",
               "label": "Customers",
@@ -4331,7 +4293,7 @@
     {
       "id": "administration",
       "code": "AD",
-      "label": "Administration & Multi-Tenancy",
+      "label": "Administration",
       "category": "Platform & governance",
       "modes": [
         "service",
@@ -4340,114 +4302,60 @@
       ],
       "groups": [
         {
-          "id": "organisation",
-          "label": "Organisation",
+          "id": "overview",
+          "label": "Overview",
           "pages": [
             {
               "id": "admin-dashboard",
-              "label": "Administration Dashboard",
+              "label": "Dashboard",
               "archetype": "dashboard",
               "status": "prototype"
             },
             {
               "id": "tenants",
               "label": "Tenant Directory",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "companies",
-              "label": "Companies & Organisation",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "company-detail",
-              "label": "Company Detail",
-              "archetype": "detail",
+              "archetype": "settings",
               "status": "prototype"
             }
           ]
         },
         {
-          "id": "identity-access",
-          "label": "Identity & Access",
+          "id": "organisation",
+          "label": "Organisation",
+          "pages": [
+            {
+              "id": "companies",
+              "label": "Companies",
+              "archetype": "list",
+              "status": "read-only"
+            },
+            {
+              "id": "structure",
+              "label": "Structure",
+              "archetype": "list",
+              "status": "live"
+            }
+          ]
+        },
+        {
+          "id": "users-access",
+          "label": "Users & Access",
           "pages": [
             {
               "id": "users",
-              "label": "User Directory",
+              "label": "Users",
               "archetype": "list",
               "status": "prototype"
             },
             {
-              "id": "add-user",
-              "label": "Add User",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "user-detail",
-              "label": "User Detail & Access",
-              "archetype": "detail",
-              "status": "prototype"
-            },
-            {
-              "id": "roles-permissions",
-              "label": "Role & Permission Designer",
-              "archetype": "settings",
-              "status": "prototype"
-            },
-            {
-              "id": "company-role-assignments",
-              "label": "Company-role Assignments",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "access-review",
-              "label": "Access Review",
-              "archetype": "approval",
-              "status": "prototype"
-            },
-            {
-              "id": "delegation",
-              "label": "Delegation & Impersonation",
-              "archetype": "settings",
-              "status": "prototype"
-            },
-            {
-              "id": "security-policies",
-              "label": "Security & Session Policies",
-              "archetype": "settings",
-              "status": "prototype"
-            }
-          ]
-        },
-        {
-          "id": "entitlements",
-          "label": "Entitlements",
-          "pages": [
-            {
-              "id": "editions",
-              "label": "Editions & Entitlements",
-              "archetype": "settings",
-              "status": "prototype"
-            },
-            {
-              "id": "module-visibility",
-              "label": "Module Visibility",
-              "archetype": "settings",
-              "status": "prototype"
-            },
-            {
-              "id": "prototype-environment",
-              "label": "Prototype Environment",
-              "archetype": "settings",
-              "status": "prototype"
+              "id": "access-levels",
+              "label": "Access Levels",
+              "archetype": "report",
+              "status": "live"
             },
             {
               "id": "admin-audit",
-              "label": "Administration Audit",
+              "label": "Activity Log",
               "archetype": "report",
               "status": "prototype"
             }

@@ -13,6 +13,7 @@ import { ChevronsLeft, ChevronsRight, X, Menu, Search, ListChecks, Sparkles, Cir
 import { NexoraMark } from "../shared/ui/nexora-mark";
 import { application } from "../shared/constants/application";
 import { ModuleIcon } from "./config/module-icons";
+import { isModuleVisible } from "./config/module-access";
 import { findPrototypePage, prototypeModules, prototypePageIndex, type PrototypeModule } from "./config/prototype-data";
 import {
   companies,
@@ -256,9 +257,12 @@ function writePreferences(prefs: Preferences): void {
 export function PrototypeShell({
   headerControls,
   identityContent,
+  permissions,
 }: {
   headerControls?: ReactNode;
   identityContent?: ReactNode;
+  /** Signed-in user's permission keys. Hides modules the user cannot use; omitted = no filtering. */
+  permissions?: readonly string[];
 }) {
   const [route, setRoute] = useState<RouteState>(initialRoute);
   // The sidebar starts fully collapsed after sign-in/reload; menus open only when the user expands them or navigates.
@@ -289,6 +293,8 @@ export function PrototypeShell({
   }, []);
 
   const current = useMemo(() => findPrototypePage(route.moduleId, route.pageId), [route]);
+  const permissionSet = useMemo(() => (permissions ? new Set(permissions) : undefined), [permissions]);
+  const currentModuleAllowed = isModuleVisible(current.module.id, permissionSet);
   const isCompactHrWorkspace = current.module.id === "hr" && Object.hasOwn(compactHrWorkspaces, current.group.id);
   const currentNavigationPageId = navigationPageId(current.module.id, current.page.id);
   const salesNavigationCounts = useSalesNavigationCounts();
@@ -346,14 +352,19 @@ export function PrototypeShell({
             .filter((group) => !group.hiddenFromNavigation)
             .flatMap((group) => group.pages.filter((page) => !page.hiddenFromNavigation).map((page) => page.label)),
         ].some((value) => value.toLowerCase().includes(query));
-      return roleMatch && modeMatch && searchMatch;
+      return roleMatch && modeMatch && searchMatch && isModuleVisible(module.id, permissionSet);
     });
-  }, [companyMode, currentRole.visibleModuleIds, modeScoped, roleScoped, sidebarQuery]);
+  }, [companyMode, currentRole.visibleModuleIds, modeScoped, permissionSet, roleScoped, sidebarQuery]);
 
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     const pageResults: GlobalSearchResult[] = prototypePageIndex
-      .filter((page) => !page.hiddenFromNavigation && !page.groupHiddenFromNavigation)
+      .filter(
+        (page) =>
+          !page.hiddenFromNavigation &&
+          !page.groupHiddenFromNavigation &&
+          isModuleVisible(page.moduleId, permissionSet),
+      )
       .map((page) => ({
         kind: "page",
         key: `page:${page.moduleId}:${page.id}`,
@@ -379,10 +390,12 @@ export function PrototypeShell({
     if (!query) return pageResults.slice(0, 12);
     const terms = query.split(/\s+/).filter(Boolean);
     const matches = (item: GlobalSearchResult) => terms.every((term) => item.searchable.includes(term));
-    const exactRecords = [...bankingRecordSearchIndex, ...genericRecordSearchIndex].filter(matches);
+    const exactRecords = [...bankingRecordSearchIndex, ...genericRecordSearchIndex].filter(
+      (item) => isModuleVisible(item.moduleId, permissionSet) && matches(item),
+    );
     const pages = pageResults.filter(matches);
     return [...exactRecords.slice(0, 12), ...pages.slice(0, Math.max(0, 18 - exactRecords.length))].slice(0, 18);
-  }, [searchQuery]);
+  }, [permissionSet, searchQuery]);
 
   const confirmPaymentEntryDiscard = useCallback((bypass = false) => {
     if (bypass || !paymentEntryDirtyRef.current || typeof window === "undefined") return true;
@@ -421,21 +434,6 @@ export function PrototypeShell({
     },
     [confirmPaymentEntryDiscard],
   );
-
-  const openIdentityWorkspace = useCallback(() => {
-    if (!confirmPaymentEntryDiscard()) return;
-    paymentEntryDirtyRef.current = false;
-    setPaymentEntryDirty(false);
-    setActiveWorkspace("identity");
-    setMobileOpen(false);
-    setDrawerModuleId(null);
-    setSearchOpen(false);
-    setIntelligenceSurface(null);
-    if (typeof window !== "undefined") {
-      window.history.pushState(null, "", "#/identity/access");
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    }
-  }, [confirmPaymentEntryDiscard]);
 
   const pushToast = useCallback((tone: Toast["tone"], title: string, message: string) => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -919,27 +917,6 @@ export function PrototypeShell({
                   </section>
                 );
               })}
-              <section className="nx-sidebar__section nx-sidebar__section--identity">
-                <ul className="nx-module-list">
-                  <li className="nx-module-item">
-                    <button
-                      className="nx-module-button"
-                      type="button"
-                      title="Identity & Access"
-                      aria-current={activeWorkspace === "identity" ? "page" : undefined}
-                      onClick={openIdentityWorkspace}
-                    >
-                      <span className="nx-module-button__icon size-6! rounded-none! bg-transparent! text-[13px]! shadow-none!">
-                        <ModuleIcon moduleId="identity" />
-                      </span>
-                      <span className="nx-module-button__label text-[13px]!">Identity &amp; Access</span>
-                      <span className="nx-module-button__meta" aria-hidden="true">
-                        <i className="nx-module-button__chevron" />
-                      </span>
-                    </button>
-                  </li>
-                </ul>
-              </section>
             </nav>
           </div>
         </aside>
@@ -1156,13 +1133,19 @@ export function PrototypeShell({
                           ? "Purchases updated successfully"
                           : isLiveFinanceChartPage
                             ? "Finance updated successfully"
-                            : ["sales", "revenue", "customers"].includes(current.module.id)
+                            : ["sales", "revenue", "customers", "administration"].includes(current.module.id)
                               ? `${current.module.shortLabel} updated successfully`
                               : "Bank updated successfully",
                       message,
                     )
                   }
                 >
+                  {!currentModuleAllowed ? (
+                    <NoModuleAccess
+                      moduleLabel={current.module.label}
+                      onHome={() => navigate("dashboard", currentRole.dashboardPageId)}
+                    />
+                  ) : (
                   <PrototypeContent
                     context={{
                       moduleId: current.module.id,
@@ -1189,6 +1172,7 @@ export function PrototypeShell({
                     onPaymentEntryDirtyChange={reportEntryDirty}
                     onReceiptEntryDirtyChange={setPaymentEntryDirty}
                   />
+                  )}
                 </ActionFeedbackProvider>
               </>
             )}
@@ -1575,5 +1559,25 @@ export function PrototypeShell({
         ))}
       </div>
     </div>
+  );
+}
+
+/** Shown when a direct link opens a module the signed-in user was not given. */
+function NoModuleAccess({ moduleLabel, onHome }: { moduleLabel: string; onHome: () => void }) {
+  return (
+    <section
+      role="alert"
+      className="mx-auto my-10 grid max-w-lg gap-3 rounded-[var(--nx-radius-lg)] border border-border bg-card p-6 text-center"
+    >
+      <h1 className="m-0 text-lg font-semibold text-foreground">You don&rsquo;t have access</h1>
+      <p className="m-0 text-sm text-muted-foreground">
+        {moduleLabel} has not been assigned to your account. Ask a Super Admin if you need it.
+      </p>
+      <div>
+        <Button type="button" onClick={onHome}>
+          Go to dashboard
+        </Button>
+      </div>
+    </section>
   );
 }

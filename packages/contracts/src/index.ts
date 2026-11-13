@@ -1,3 +1,4 @@
+export * from "./administration/index.js";
 export * from "./auth/index.js";
 export * from "./banking/index.js";
 export * from "./finance/index.js";

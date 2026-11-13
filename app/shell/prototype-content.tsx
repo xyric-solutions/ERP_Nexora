@@ -82,6 +82,10 @@ import { ReferenceMasterWorkspace } from "@/features/master-data/views/reference
 import { BankingReconciliationWorkspace } from "@prototype/features/banking/views/banking-reconciliation-live";
 import { BankingReconciliationRegister } from "@prototype/features/banking/views/banking-reconciliation-register";
 import { HrOrganizationStructureSheetWorkspace as HrOrganizationStructureWorkspace } from "@prototype/features/hr/views/hr-organization-structure-sheet-workspace";
+import {
+  AdministrationWorkspace,
+  isAdministrationPage,
+} from "@prototype/features/administration/views/administration-workspace";
 import { HrMasterCatalogueSheetWorkspace as HrMasterCatalogueWorkspace } from "@prototype/features/hr/views/hr-master-catalogue-sheet-workspace";
 import { HrJobGradesSheetWorkspace as HrJobGradesWorkspace } from "@prototype/features/hr/views/hr-job-grades-sheet-workspace";
 import { HrOrganisationMastersWorkspace } from "@prototype/features/hr/views/hr-organisation-masters-workspace";
@@ -2960,6 +2964,16 @@ function PrototypeContentBody(props: PrototypeContentProps) {
       />
     );
   }
+  if (context.moduleId === "administration" && isAdministrationPage(context.pageId)) {
+    return (
+      <AdministrationWorkspace
+        pageId={context.pageId}
+        recordRef={context.recordRef}
+        onNavigate={(moduleId, pageId) => props.onNavigate(moduleId, pageId)}
+      />
+    );
+  }
+
   if (context.moduleId === "ai" && isNexoraAiWorkspacePage(context.pageId)) {
     return <NexoraAiWorkspace context={context} onAction={onAction} onNavigate={props.onNavigate} />;
   }
@@ -3140,7 +3154,7 @@ function PrototypeContentBody(props: PrototypeContentProps) {
   if (context.moduleId === "reports" && currencyReport) {
     return <MultiCurrencyWorkspace key={context.pageId} initialTab={context.pageId.includes("ageing") ? "balances" : "reports"} initialSide={context.pageId.startsWith("supplier") ? "payable" : "receivable"} initialReport={currencyReport} />;
   }
-  if ((context.moduleId === "customers" && context.pageId === "currency-balances") || (context.moduleId === "purchases" && context.pageId === "supplier-currency-accounts")) {
+  if ((["sales", "customers"].includes(context.moduleId) && context.pageId === "currency-balances") || (context.moduleId === "purchases" && context.pageId === "supplier-currency-accounts")) {
     return <MultiCurrencyWorkspace key={`${context.pageId}:${context.recordRef ?? ""}`} initialSide={context.moduleId === "purchases" ? "payable" : "receivable"} initialTab={context.recordRef ? "documents" : "balances"} sourceDocumentId={context.moduleId === "purchases" ? context.recordRef : undefined} />;
   }
 

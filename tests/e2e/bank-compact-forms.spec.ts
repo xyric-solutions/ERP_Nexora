@@ -174,7 +174,8 @@ for (const theme of ["light", "dark"] as const) {
                 email: "maker@example.invalid",
                 display_name: "Bank Maker",
                 roles: ["bank_maker"],
-                permissions: [],
+                // Banking must be assigned for its menu and pages to show (Administration plan D7).
+                permissions: ["banking.payment.read"],
               },
             },
           });

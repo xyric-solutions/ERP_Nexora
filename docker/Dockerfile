@@ -27,6 +27,10 @@ WORKDIR /app
 COPY --from=production-dependencies /app/package.json /app/package-lock.json ./
 COPY --from=production-dependencies /app/node_modules ./node_modules
 COPY --from=build /app/server/worker/dist ./server/worker/dist
+# The worker imports @nexora/api/finance-posting; node_modules/@nexora/api is a
+# workspace link to server/api, so its manifest and build output must be present.
+COPY --from=build /app/server/api/package.json ./server/api/package.json
+COPY --from=build /app/server/api/dist ./server/api/dist
 COPY --from=build /app/packages ./packages
 CMD ["node", "server/worker/dist/worker.js"]
 
