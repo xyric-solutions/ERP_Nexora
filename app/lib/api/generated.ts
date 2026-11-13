@@ -164,6 +164,7 @@ import type {
   HrPayrollOptions,
   CreateHrPayrollRecord,
   HrPayrollRecordAction,
+  ReviseHrPayrollLoan,
   HrPayrollMutationResult,
   CreateHrLocalization,
   HrLocalizationDecision,
@@ -2970,6 +2971,18 @@ export class NexoraApiClient {
     key: string,
   ): Promise<HrPayrollMutationResult> {
     return this.request("/api/v1/hr/payroll_records/" + encodeURIComponent(id) + "/actions", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key },
+      body: JSON.stringify(input),
+    });
+  }
+  revisePayrollLoan(
+    id: string,
+    input: ReviseHrPayrollLoan,
+    csrf: string,
+    key: string,
+  ): Promise<HrPayrollMutationResult> {
+    return this.request("/api/v1/hr/payroll_records/" + encodeURIComponent(id) + "/revision", {
       method: "POST",
       headers: { "x-csrf-token": csrf, "idempotency-key": key },
       body: JSON.stringify(input),

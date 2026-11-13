@@ -38,13 +38,13 @@ describe("production PostgreSQL source migrations", () => {
     await expect(migrateSourceSchema(pool)).resolves.toEqual([]);
     await expect(inspectSourceMigrationState(pool)).resolves.toEqual({
       platform: 11,
-      security: 20,
+      security: 22,
       workflow: 1,
       master_data: 2,
-      finance: 36,
+      finance: 38,
       procurement: 5,
       inventory: 2,
-      hr: 151,
+      hr: 153,
       runtime: 1,
     });
   });
@@ -60,8 +60,8 @@ describe("production PostgreSQL source migrations", () => {
       await migrateSourceSchema(fresh);
       await expect(inspectSourceMigrationState(fresh)).resolves.toMatchObject({
         platform: 11,
-        security: 20,
-        finance: 36,
+        security: 22,
+        finance: 38,
       });
       const columns = await fresh.query<{ column_name: string }>(
         `select column_name from information_schema.columns
@@ -309,14 +309,14 @@ describe("production PostgreSQL source migrations", () => {
        order by module_name`,
     );
     expect(result.rows).toEqual([
-      { module_name: "finance", migration_count: "36", latest: 36 },
-      { module_name: "hr", migration_count: "151", latest: 151 },
+      { module_name: "finance", migration_count: "38", latest: 38 },
+      { module_name: "hr", migration_count: "153", latest: 153 },
       { module_name: "inventory", migration_count: "2", latest: 2 },
       { module_name: "master_data", migration_count: "2", latest: 2 },
       { module_name: "platform", migration_count: "11", latest: 11 },
       { module_name: "procurement", migration_count: "5", latest: 5 },
       { module_name: "runtime", migration_count: "1", latest: 1 },
-      { module_name: "security", migration_count: "20", latest: 20 },
+      { module_name: "security", migration_count: "22", latest: 22 },
       { module_name: "workflow", migration_count: "1", latest: 1 },
     ]);
     const bankingMigrations = await pool.query<{ module_name: string; version: number; name: string }>(

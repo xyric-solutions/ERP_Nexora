@@ -7806,3 +7806,67 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Not yet run: full `npm run typecheck`, unit/integration tests, `npm run build:web` and a
   browser pass. Resume point: install dependencies, run those checks, then browser-check
   HR lists (page-size switching), banking/finance company scope and the Sales menu.
+
+## 2026-11-11 — Employee Lifecycle status filters
+
+- Onboarding: removed the "Offer" status tab (hired offers are still listed
+  first in the create picker); onboarding has no Cancelled outcome, so the
+  draft delete (cancel) action is hidden and legacy cancelled cases are not
+  listed — an unwanted case is Rejected instead. API unchanged.
+- Resignation / Termination / Exit Clearance: added a Submitted tab
+  (All, Draft, Submitted, Approved, Cancelled).
+- Lifecycle Policies: tabs are All records, Pending (draft, pending approval,
+  approved-not-activated), Active, Deactivated.
+- Verification: `build:web`, eslint on both views, theme audit `--check`,
+  `git diff --check`. Data checked via the API repositories; no browser pass yet.
+- Known gap (not fixed): DEMO employee assignments still reference archived
+  Employment Setup ES-001 (HR149), so approving any promotion or transfer fails
+  in `validate_hr_assignment_scope()` with a generic "context is no longer
+  valid" message. Assignments need re-pointing (or the approval path must stop
+  copying `employment_setup_id`).
+- Remaining: Termination and Exit Clearance have no Rejected tab, although
+  rejected cases exist (visible under All).
+
+## 2026-11-11 — Loan / Advance Requests: edit drafts, status tabs (HR152)
+
+- Backend: migration `hr/0152_draft_loan_revision` lets a draft loan/advance
+  change employee, principal, currency, start month, instalments and recovery
+  component while it stays a draft (version +1); code, kind, creator and
+  approval evidence stay immutable, and approved/active/settled loans remain
+  locked. New `POST /api/v1/hr/payroll_records/{recordId}/revision`
+  (`reviseHrPayrollLoanSchema`, preparer only, idempotent, audited as
+  `revise`). `GET /hr/payroll_workspace` accepts `state`
+  (draft/submitted/approved/rejected; loans only; approved includes
+  active/settled). Contract, OpenAPI JSON and generated client regenerated.
+- UI (`hr-benefits-workspace.tsx`): status tabs All / Draft / Submitted /
+  Approved / Rejected; edit icon beside delete on drafts opens the same form
+  pre-filled; edit and delete are enabled only for the request's preparer
+  (delete previously showed for everyone and failed on the server).
+- Verification: HR152 applied locally and on a fresh test DB; integration
+  `hr-payroll-loan-revision` (new, 4), `hr-payroll-loans`, `hr-payroll-workspace`
+  40/40; unit `hr-payroll-api` 37/37; `api:check`; API + web `tsc`;
+  `build:web`; theme audit; `git diff --check`. No browser pass yet.
+- Pre-existing/unrelated: `tests/contract/openapi.test.ts` snapshot lists 204
+  paths vs 352 generated (finance journals etc. missing); 24 unused-import
+  lint errors in `app/features/hr/api/hr-client.ts`.
+
+## 2026-11-13 — Second branch integration into shoaib_nexora
+
+- Merged the latest `abdullah_nexora` (Administration module, direct Sales delivery) and
+  `hr-employment-setup` (editable draft loans/advances, lifecycle status tabs) on top of
+  main's unified taxes and multi-currency accounting. All branches are contained in
+  `shoaib_nexora`; the feature branches were deleted after the merge.
+- Sales: Recurring Bills, Customers and main's new Currency Accounts page all sit in the
+  Sales module; old `revenue:*` and `customers:*` links redirect, and
+  `customers:currency-balances` still opens Currency Accounts.
+- Migration numbering: main's `hr/0152_unified_tax_components` keeps 0152; the HR branch's
+  draft loan revision is renumbered to `hr/0153_draft_loan_revision` (records version 153).
+  A database that already applied the HR branch's version 152 must be recreated or have that
+  ledger row corrected before migrating. `postgres-migrations` expectations now match the
+  files on disk (finance 38, security 22, hr 153).
+- Shell: the sidebar module search removed on the HR branch stays removed (the header
+  "Search transactions and pages" remains); main's permission-based module visibility is kept.
+- Verified without installing dependencies: no conflict markers, no-lib TypeScript
+  parse/undeclared-name check of changed files, `git diff --check`, theme audit `--check`,
+  prototype manifest `--check`, OpenAPI JSON validity. Not yet run: `npm run typecheck`,
+  unit/integration tests, `npm run build:web`, browser pass.

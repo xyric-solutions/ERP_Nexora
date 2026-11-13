@@ -16,7 +16,7 @@ import type {HrPayrollPaymentQuery,HrPayrollPaymentAction,HrPayrollPaymentWorksp
 import type {HrPayrollJournalQuery,HrPayrollJournalAction,HrPayrollJournalWorkspace} from '@nexora/contracts';
 import type {HrLocalizationQuery,CreateHrLocalization,HrLocalizationDecision,HrLocalizationWorkspace,HrOvertimeMoneyQuery,CreateHrOvertimeMoney,HrOvertimeMoneyDecision,HrOvertimeMoneyWorkspace} from '@nexora/contracts';
 import type {HrPayrollRunComparisonQuery,HrPayrollRunComparison,HrPayrollRunQuery,HrPayrollRunAction,HrPayrollRunWorkspace} from '@nexora/contracts';
-import type {HrPayrollSection,HrPayrollWorkspaceQuery,HrPayrollWorkspace,HrPayrollItem,HrPayrollOptionsQuery,HrPayrollOptions,CreateHrPayrollRecord,HrPayrollRecordAction,HrPayrollMutationResult} from '@nexora/contracts';
+import type {HrPayrollSection,HrPayrollWorkspaceQuery,HrPayrollWorkspace,HrPayrollItem,HrPayrollOptionsQuery,HrPayrollOptions,CreateHrPayrollRecord,HrPayrollRecordAction,ReviseHrPayrollLoan,HrPayrollMutationResult} from '@nexora/contracts';
 import type {HrLeaveQuery,HrLeavePolicyInput,CreateHrLeaveTypeRequest,UpdateHrLeavePolicyRequest,HrLeaveTypeStatusRequest,HrLeavePolicy,HrLeaveType,HrLeaveTypeDirectory,HrLeaveAllocation,HrLeaveContextQuery,HrLeaveBalance,HrLeaveBalanceQuery,HrLeaveBalanceDirectory,HrLeaveLedgerQuery,HrLeaveLedger,HrLeaveBalancePostingRequest,HrLeaveContext,CreateHrLeaveRequest,HrLeaveRequestActionRequest,HrLeaveRequestQuery,HrLeaveRequestSummary,HrLeaveRequestDirectory,HrLeaveRequestDetail} from '@nexora/contracts';
 import type {HrOvertimeQuery,HrOvertimeContextQuery,HrOvertimeRuleRequest,HrOvertimeRule,HrOvertimeEvidence,HrOvertimeContext,CreateHrOvertimeRequest,ReplaceHrOvertimeRequest,HrOvertimeActionRequest,HrAttendanceCompletionResult,HrOvertimeSummary,HrOvertimeDetail,HrOvertimeDirectory,HrAttendancePeriodQuery,HrAttendancePeriodActionRequest,HrAttendanceCloseDay,HrAttendanceCloseEmployee,HrAttendancePeriod,HrAttendancePeriodWorkspace,HrAttendancePayrollInputs} from '@nexora/contracts';
 import type {
@@ -278,6 +278,7 @@ export class HrApiClient {
   payrollOptions(input:HrPayrollOptionsQuery):Promise<HrPayrollOptions>{return this.api.payrollOptions(query(input));}
   createPayrollRecord(input:CreateHrPayrollRecord,csrf:string,key:string):Promise<HrPayrollMutationResult>{return this.api.createPayrollRecord(input,csrf,key);}
   actOnPayrollRecord(id:string,input:HrPayrollRecordAction,csrf:string,key:string):Promise<HrPayrollMutationResult>{return this.api.actOnPayrollRecord(id,input,csrf,key);}
+  revisePayrollLoan(id:string,input:ReviseHrPayrollLoan,csrf:string,key:string):Promise<HrPayrollMutationResult>{return this.api.revisePayrollLoan(id,input,csrf,key);}
   corrections(input:HrCorrectionQuery):Promise<HrCorrectionDirectory>{ return readWorkPage(input, (bounded) => this.api.listHrCorrections(query(bounded)), (first, second) => ({...first,...("limit" in first ? {limit: input.limit} : {}),items:[...first.items,...second.items]})); }
   correctionContext(input:HrCorrectionContextQuery):Promise<HrCorrectionContext>{return this.api.getHrCorrectionContext(query(input));}
   correction(companyId:string,id:string):Promise<HrCorrectionDetail>{return this.api.getHrCorrection(id,query({company_id:companyId}));}

@@ -196,6 +196,7 @@ export interface AppDependencies {
     | "getPayrollOptions"
     | "createPayrollRecord"
     | "actOnPayrollRecord"
+    | "revisePayrollLoan"
     | "listOvertime"
     | "overtimeContext"
     | "getOvertime"

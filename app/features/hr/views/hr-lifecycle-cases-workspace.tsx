@@ -53,8 +53,7 @@ export const lifecycleCasePages = {
 
 type Section = (typeof lifecycleCasePages)[keyof typeof lifecycleCasePages];
 type CaseState = HrLifecycleCaseQuery["state"];
-type Filter = CaseState | "offer";
-type Offer = HrLifecycleCaseWorkspace["offers"][number];
+type Filter = CaseState;
 
 const PAGE_SIZE = 25;
 
@@ -88,13 +87,15 @@ const stateLabel: Record<string, string> = {
 const exitFilters: readonly { value: Filter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "draft", label: "Draft" },
+  { value: "submitted", label: "Submitted" },
   { value: "approved", label: "Approved" },
   { value: "cancelled", label: "Cancelled" },
 ];
+/** Onboarding has no Cancelled outcome: a case that should not proceed is Rejected. */
+const sectionsWithoutCancel: readonly Section[] = ["onboarding"];
 const filters: Record<Section, readonly { value: Filter; label: string }[]> = {
   onboarding: [
     { value: "all", label: "All" },
-    { value: "offer", label: "Offer" },
     { value: "draft", label: "Draft" },
     { value: "submitted", label: "Submitted" },
     { value: "approved", label: "Approved" },
@@ -582,13 +583,12 @@ export function HrLifecycleCasesWorkspace({
     return () => window.clearTimeout(handle);
   }, [search]);
 
-  const showOffers = filter === "offer";
   const q: HrLifecycleCaseQuery = {
     company_id: company,
     section,
-    state: showOffers ? "all" : filter,
+    state: filter,
     search: query,
-    offset: showOffers ? 0 : offset,
+    offset,
     limit: PAGE_SIZE,
   };
   const result = useAttendanceRead(company && canRead ? JSON.stringify([q, revision]) : null, () =>
@@ -650,14 +650,15 @@ export function HrLifecycleCasesWorkspace({
   const canCreate = !!w?.can_create;
   const decisions = record?.allowed_actions.filter((action) => action in decisionLabels) ?? [];
   const canEdit = record?.allowed_actions.includes("edit") ?? false;
-  const canDelete = record?.allowed_actions.includes("cancel") ?? false;
+  const allowsCancel = !sectionsWithoutCancel.includes(section);
+  const canDelete = allowsCancel && (record?.allowed_actions.includes("cancel") ?? false);
+  const rows = (w?.items ?? []).filter((item) => allowsCancel || item.state !== "cancelled");
   const startCase = (relationship = "") => {
     setError("");
     setNotice("");
     setPreset(relationship);
     setEditor("new");
   };
-  const offers: Offer[] = w?.offers ?? [];
 
   return (
     <section className="grid min-w-0 gap-3" aria-label={`${singular[section]} cases`} data-lifecycle-workspace={section}>
@@ -703,52 +704,7 @@ export function HrLifecycleCasesWorkspace({
 
       {result.loading && !w ? <Skeleton className="h-40 w-full" /> : null}
 
-      {w && showOffers ? (
-        <div className="min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
-          <WorkTable paging={false} tableId="app/features/hr/views/hr-lifecycle-cases-workspace:1" className="w-full text-left text-sm">
-            <caption className="sr-only">Employees hired from an offer awaiting onboarding</caption>
-            <thead className="border-b border-border bg-muted/60">
-              <tr>
-                <th scope="col" className={`${hrCell} font-semibold`}>
-                  Employee
-                </th>
-                <th scope="col" className={`${hrCell} font-semibold max-sm:hidden`}>
-                  Hired
-                </th>
-                <th scope="col" className={`${hrCell} font-semibold`}>
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {offers.map((offer) => (
-                <HrClickableRow
-                  key={offer.relationship_id}
-                  disabled={!canCreate}
-                  onOpen={() => startCase(offer.relationship_id)}
-                >
-                  <td className={`${hrCell} font-medium wrap-anywhere`}>{offer.employee_name}</td>
-                  <td className={`${hrCell} text-muted-foreground max-sm:hidden`}>
-                    {hrDisplayDate(offer.hired_on, false)}
-                  </td>
-                  <td className={hrCell}>
-                    <HrStatusPill status="offer" label="Offer accepted" tone="info" />
-                  </td>
-                </HrClickableRow>
-              ))}
-              {!offers.length ? (
-                <tr>
-                  <td colSpan={3} className="px-4 py-10 text-center text-muted-foreground">
-                    No hired offers are waiting for onboarding.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </WorkTable>
-        </div>
-      ) : null}
-
-      {w && !showOffers ? (
+      {w ? (
         <>
           <div className="min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
             <WorkTable paging={false} tableId="app/features/hr/views/hr-lifecycle-cases-workspace:2" className="w-full text-left text-sm">
@@ -779,7 +735,7 @@ export function HrLifecycleCasesWorkspace({
                 </tr>
               </thead>
               <tbody>
-                {w.items.map((item) => {
+                {rows.map((item) => {
                   const date = caseDate(item.terms);
                   const progress = taskProgress(item.terms);
                   return (
@@ -815,7 +771,7 @@ export function HrLifecycleCasesWorkspace({
                     </HrClickableRow>
                   );
                 })}
-                {!w.items.length ? (
+                {!rows.length ? (
                   <tr>
                     <td
                       colSpan={section === "probation" ? 5 : 4}
@@ -944,22 +900,24 @@ export function HrLifecycleCasesWorkspace({
                 </WorkForm>
               ) : (
                 <HrDrawerActions>
-                  <HrConfirmDeleteButton
-                    label={canDelete ? `Delete ${singular[section].toLowerCase()}` : "Only drafts can be deleted"}
-                    title={`Delete this ${singular[section].toLowerCase()}?`}
-                    description="The draft is cancelled and kept in the history under Cancelled."
-                    variant="outline"
-                    disabled={busy || !canDelete}
-                    onConfirm={() =>
-                      command({
-                        action: "cancel",
-                        company_id: company,
-                        id: record.id,
-                        expected_version: record.version,
-                        reason: "",
-                      })
-                    }
-                  />
+                  {allowsCancel ? (
+                    <HrConfirmDeleteButton
+                      label={canDelete ? `Delete ${singular[section].toLowerCase()}` : "Only drafts can be deleted"}
+                      title={`Delete this ${singular[section].toLowerCase()}?`}
+                      description="The draft is cancelled and kept in the history under Cancelled."
+                      variant="outline"
+                      disabled={busy || !canDelete}
+                      onConfirm={() =>
+                        command({
+                          action: "cancel",
+                          company_id: company,
+                          id: record.id,
+                          expected_version: record.version,
+                          reason: "",
+                        })
+                      }
+                    />
+                  ) : null}
                   <HrEditButton
                     label={canEdit ? `Edit ${singular[section].toLowerCase()}` : "Only drafts can be edited"}
                     disabled={busy || !canEdit}

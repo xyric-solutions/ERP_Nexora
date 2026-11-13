@@ -86,7 +86,7 @@ import type {
   BankPaymentReversalResult,
 HrOvertimeRuleRequest,HrOvertimeContext,CreateHrOvertimeRequest,ReplaceHrOvertimeRequest,HrOvertimeActionRequest,HrAttendanceCompletionResult,HrOvertimeDetail,HrOvertimeDirectory,HrAttendancePeriodActionRequest,HrAttendancePeriodWorkspace,HrAttendancePayrollInputs,
 CreateHrLeaveTypeRequest,UpdateHrLeavePolicyRequest,HrLeaveTypeStatusRequest,HrLeaveTypeDirectory,HrLeaveBalanceDirectory,HrLeaveLedger,HrLeaveBalancePostingRequest,HrLeaveContext,CreateHrLeaveRequest,HrLeaveRequestActionRequest,HrLeaveRequestDirectory,HrLeaveRequestDetail,
-HrPayrollWorkspace,HrPayrollOptions,CreateHrPayrollRecord,HrPayrollRecordAction,HrPayrollMutationResult,
+HrPayrollWorkspace,HrPayrollOptions,CreateHrPayrollRecord,HrPayrollRecordAction,ReviseHrPayrollLoan,HrPayrollMutationResult,
 CreateHrLocalization,HrLocalizationDecision,HrLocalizationWorkspace,CreateHrOvertimeMoney,HrOvertimeMoneyDecision,HrOvertimeMoneyWorkspace,HrPayrollPaymentAction,HrPayrollPaymentWorkspace,HrPayslipRelease,HrPayslipWorkspace,HrPayslipDetail,HrPerformanceCommand,HrPerformanceWorkspace,HrPayrollJournalAction,HrPayrollJournalWorkspace,HrPayrollRunComparison,HrPayrollRunAction,HrPayrollRunWorkspace,
   BankReceiptDirectory,
   BankReceiptDetail,
@@ -938,6 +938,7 @@ export class NexoraApiClient {
   payrollOptions(query:string):Promise<HrPayrollOptions>{return this.request('/api/v1/hr/payroll_options'+query);}
   createPayrollRecord(input:CreateHrPayrollRecord,csrf:string,key:string):Promise<HrPayrollMutationResult>{return this.request('/api/v1/hr/payroll_records',{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key},body:JSON.stringify(input)});}
   actOnPayrollRecord(id:string,input:HrPayrollRecordAction,csrf:string,key:string):Promise<HrPayrollMutationResult>{return this.request('/api/v1/hr/payroll_records/'+encodeURIComponent(id)+'/actions',{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key},body:JSON.stringify(input)});}
+  revisePayrollLoan(id:string,input:ReviseHrPayrollLoan,csrf:string,key:string):Promise<HrPayrollMutationResult>{return this.request('/api/v1/hr/payroll_records/'+encodeURIComponent(id)+'/revision',{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key},body:JSON.stringify(input)});}
   listHrCorrections(query:string):Promise<HrCorrectionDirectory>{return this.request(\`/api/v1/hr/attendance_corrections\${query}\`);}
   getHrCorrectionContext(query:string):Promise<HrCorrectionContext>{return this.request(\`/api/v1/hr/attendance_correction_context\${query}\`);}
   getHrCorrection(id:string,query:string):Promise<HrCorrectionDetail>{return this.request(\`/api/v1/hr/attendance_corrections/\${encodeURIComponent(id)}\${query}\`);}

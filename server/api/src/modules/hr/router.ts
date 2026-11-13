@@ -12,7 +12,7 @@ import {hrPayrollJournalQuerySchema,hrPayrollJournalActionSchema} from '@nexora/
 import {hrLocalizationQuerySchema,createHrLocalizationSchema,hrLocalizationDecisionSchema} from '@nexora/contracts';
 import {hrOvertimeMoneyQuerySchema,createHrOvertimeMoneySchema,hrOvertimeMoneyDecisionSchema} from '@nexora/contracts';
 import {hrPayrollRunComparisonQuerySchema,hrPayrollRunComparisonSchema,hrPayrollRunQuerySchema,hrPayrollRunActionSchema} from '@nexora/contracts';
-import {hrPayrollWorkspaceQuerySchema,hrPayrollOptionsQuerySchema,createHrPayrollRecordSchema,hrPayrollRecordActionSchema,hrPayrollMutationResultSchema} from '@nexora/contracts';
+import {hrPayrollWorkspaceQuerySchema,hrPayrollOptionsQuerySchema,createHrPayrollRecordSchema,hrPayrollRecordActionSchema,reviseHrPayrollLoanSchema,hrPayrollMutationResultSchema} from '@nexora/contracts';
 import {hrLeaveQuerySchema,createHrLeaveTypeRequestSchema,updateHrLeavePolicyRequestSchema,hrLeaveTypeStatusRequestSchema,hrLeaveBalanceQuerySchema,hrLeaveLedgerQuerySchema,hrLeaveBalancePostingRequestSchema,hrLeaveContextQuerySchema,hrLeaveContextSchema,hrLeaveRequestQuerySchema,hrLeaveRequestDetailSchema,createHrLeaveRequestSchema,hrLeaveRequestActionRequestSchema} from '@nexora/contracts';
 import {hrOvertimeQuerySchema,hrOvertimeContextQuerySchema,createHrOvertimeRequestSchema,hrOvertimeRuleRequestSchema,hrOvertimeActionRequestSchema,replaceHrOvertimeRequestSchema,hrAttendancePeriodQuerySchema,hrAttendancePeriodActionRequestSchema} from '@nexora/contracts';
 import {hrPersonalCorrectionQuerySchema,createHrPersonalCorrectionSchema,hrPersonalCorrectionActionSchema,hrPersonalCorrectionWorkspaceSchema,hrReportGovernanceQuerySchema,hrReportGovernanceActionSchema,hrReportGovernanceWorkspaceSchema,hrReportGovernanceResultSchema} from '@nexora/contracts';
@@ -174,6 +174,7 @@ export interface HrRouterDependencies {
     | "getPayrollOptions"
     | "createPayrollRecord"
     | "actOnPayrollRecord"
+    | "revisePayrollLoan"
     | "listOvertime"
     | "overtimeContext"
     | "getOvertime"
@@ -380,6 +381,7 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
   router.get('/payroll_workspace',async(req,res)=>{const input=hrPayrollWorkspaceQuerySchema.parse(req.query);res.json(await handle(async()=>{const context=await loadHrSessionContext(req,dependencies);return dependencies.repository.getPayrollWorkspace(context,input);}));});
   router.get('/payroll_options',async(req,res)=>{const input=hrPayrollOptionsQuerySchema.parse(req.query);res.json(await handle(async()=>{const context=await loadHrSessionContext(req,dependencies);return dependencies.repository.getPayrollOptions(context,input);}));});
   router.post('/payroll_records',async(req,res)=>{trustedOrigin(req,dependencies.allowedOrigins);const input=createHrPayrollRecordSchema.parse(req.body);res.json(await handle(async()=>{const context=await loadHrSessionContext(req,dependencies,true);return dependencies.repository.createPayrollRecord(context,input,idempotencyKey(req),currentRequestContext().correlationId);}));});
+  router.post('/payroll_records/:recordId/revision',async(req,res)=>{trustedOrigin(req,dependencies.allowedOrigins);const input=reviseHrPayrollLoanSchema.parse(req.body);const id=z.string().trim().min(1).max(128).parse(req.params.recordId);res.json(await handle(async()=>{const context=await loadHrSessionContext(req,dependencies,true);return dependencies.repository.revisePayrollLoan(context,id,input,idempotencyKey(req),currentRequestContext().correlationId);}));});
   router.post('/payroll_records/:recordId/actions',async(req,res)=>{trustedOrigin(req,dependencies.allowedOrigins);const input=hrPayrollRecordActionSchema.parse(req.body);const id=z.string().trim().min(1).max(128).parse(req.params.recordId);res.json(await handle(async()=>{const context=await loadHrSessionContext(req,dependencies,true);return dependencies.repository.actOnPayrollRecord(context,id,input,idempotencyKey(req),currentRequestContext().correlationId);}));});
   router.get('/payroll_localization',async(req,res)=>{const q=hrLocalizationQuerySchema.parse(req.query);res.json(await handle(async()=>dependencies.repository.getPayrollLocalization(await loadHrSessionContext(req,dependencies),q)));});
   router.post('/payroll_localization',async(req,res)=>{trustedOrigin(req,dependencies.allowedOrigins);const input=createHrLocalizationSchema.parse(req.body);res.json(await handle(async()=>dependencies.repository.createPayrollLocalization(await loadHrSessionContext(req,dependencies,true),input,idempotencyKey(req),currentRequestContext().correlationId)));});

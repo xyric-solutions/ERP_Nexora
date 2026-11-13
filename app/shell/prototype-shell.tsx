@@ -270,7 +270,6 @@ export function PrototypeShell({
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [sidebarQuery, setSidebarQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleId, setRoleId] = useState("chief-executive");
@@ -330,7 +329,6 @@ export function PrototypeShell({
   const rows = useMemo(() => rowsFor(current.module.id, current.module.label, current.page.label), [current]);
 
   const visibleModules = useMemo(() => {
-    const query = sidebarQuery.trim().toLowerCase();
     const allowedByRole = currentRole.visibleModuleIds;
     return prototypeModules.filter((module) => {
       const allowedModuleIds: readonly string[] = allowedByRole === "all" ? [] : allowedByRole;
@@ -341,20 +339,9 @@ export function PrototypeShell({
         allowedModuleIds.includes(module.id) ||
         (module.id === "purchases" && allowedModuleIds.includes("suppliers"));
       const modeMatch = !modeScoped || supportedModes.includes(companyMode);
-      const searchMatch =
-        !query ||
-        [
-          module.label,
-          module.shortLabel,
-          module.code,
-          ...module.groups.filter((group) => !group.hiddenFromNavigation).map((group) => group.label),
-          ...module.groups
-            .filter((group) => !group.hiddenFromNavigation)
-            .flatMap((group) => group.pages.filter((page) => !page.hiddenFromNavigation).map((page) => page.label)),
-        ].some((value) => value.toLowerCase().includes(query));
-      return roleMatch && modeMatch && searchMatch && isModuleVisible(module.id, permissionSet);
+      return roleMatch && modeMatch && isModuleVisible(module.id, permissionSet);
     });
-  }, [companyMode, currentRole.visibleModuleIds, modeScoped, permissionSet, roleScoped, sidebarQuery]);
+  }, [companyMode, currentRole.visibleModuleIds, modeScoped, permissionSet, roleScoped]);
 
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -748,37 +735,6 @@ export function PrototypeShell({
               <X className="h-[1em] w-[1em]" aria-hidden="true" />
             </button>
           </div>
-          {sidebarCollapsed ? (
-            <Button
-              type="button"
-              variant="ghost"
-              className="nx-sidebar__search justify-center! px-0! text-[var(--nx-sidebar-text)]!"
-              aria-label="Search modules"
-              title="Search modules"
-              onClick={() => {
-                setSidebarCollapsed(false);
-                window.setTimeout(() => document.getElementById("erp-module-search")?.focus(), 0);
-              }}
-            >
-              <Search className="h-[1em] w-[1em] text-[var(--nx-sidebar-text)]!" aria-hidden="true" />
-            </Button>
-          ) : (
-            <label className="nx-sidebar__search" htmlFor="erp-module-search">
-              <Search className="h-[1em] w-[1em] shrink-0 text-[var(--nx-sidebar-text)]!" aria-hidden="true" />
-              <Input
-                id="erp-module-search"
-                autoComplete="off"
-                name="nexora-navigation-filter"
-                spellCheck={false}
-                className="h-auto! rounded-none! bg-transparent! p-0! text-[var(--nx-sidebar-text)]! [-webkit-text-fill-color:var(--nx-sidebar-text)]! shadow-none! focus-visible:ring-0! focus-visible:outline-none! placeholder:text-[var(--nx-sidebar-muted)]! placeholder:[-webkit-text-fill-color:var(--nx-sidebar-muted)]!"
-                value={sidebarQuery}
-                onChange={(event) => setSidebarQuery(event.target.value)}
-                aria-label="Search prototype modules"
-                placeholder="Search modules"
-              />
-              <kbd>Ctrl K</kbd>
-            </label>
-          )}
           <div className="nx-sidebar__scroll pb-12">
             <nav className="nx-sidebar__nav" aria-label="All Nexora modules">
               {["Command centre", "Finance & trade", "Operations & people", "Platform & governance"].map((category) => {
