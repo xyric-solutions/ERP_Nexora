@@ -1,3 +1,4 @@
+import { allocateNewHrCode } from "./record-codes.js";
 import {
   isJurisdictionSetup,
   requireJurisdictionSetupAuthority,
@@ -415,7 +416,7 @@ export class PayrollLocalizationSetup {
         const id = "localization-" + randomUUID();
         const row = (
           await client.query(
-            `insert into hr_payroll_localization_request(tenant_id,company_id,id,kind,terms,source_reference,created_by) values($1,$2,$3,$4,$5::jsonb,$6,$7) returning *`,
+            `insert into hr_payroll_localization_request(tenant_id,company_id,id,kind,terms,source_reference,created_by,code) values($1,$2,$3,$4,$5::jsonb,$6,$7,$8) returning *`,
             [
               c.tenantId,
               input.company_id,
@@ -424,6 +425,7 @@ export class PayrollLocalizationSetup {
               JSON.stringify(input.terms),
               input.source_reference,
               c.actor.userId,
+              await allocateNewHrCode(client, c.tenantId, input.company_id, "statutory_setup"),
             ],
           )
         ).rows[0];

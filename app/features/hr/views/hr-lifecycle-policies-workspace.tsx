@@ -34,6 +34,7 @@ import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrPagination, HrSearchField, matchesSearch, useHrPage } from "../components/hr-list-controls";
 import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrRecordCodeField } from "../components/hr-create-form";
 import { hrCell } from "../components/hr-table";
 
 type LoadState = "loading" | "ready" | "error";
@@ -388,15 +389,13 @@ export function HrLifecyclePoliciesWorkspace() {
             void savePolicy();
           }}
         >
-          <label htmlFor="lifecycle-policy-code" className="grid min-w-0 content-start gap-1.5 text-sm font-medium">
-            Code
-            <Input
-              id="lifecycle-policy-code"
-              readOnly
-              className="font-mono read-only:bg-muted/40"
-              value={editor && editor !== "new" ? editor.code : "Assigned on save · LCP-001…"}
-            />
-          </label>
+          <HrRecordCodeField
+            kind="lifecycle"
+            companyId={companyId || undefined}
+            value={editor && editor !== "new" ? editor.code : null}
+            id="lifecycle-policy-code"
+            refreshKey={refreshKey}
+          />
           <label htmlFor="lifecycle-policy-name" className="grid min-w-0 content-start gap-1.5 text-sm font-medium">
             Policy name
             <Input

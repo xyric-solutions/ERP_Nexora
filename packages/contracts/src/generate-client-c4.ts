@@ -260,6 +260,7 @@ CreateHrLocalization,HrLocalizationDecision,HrLocalizationWorkspace,CreateHrOver
   HrEmployeeEmploymentHistoryDirectory,
   HrEmployeeEmploymentHistoryRequest,
   HrEmployeeNumberPreview,
+  HrRecordCodePreview,
   WithdrawHrEmployeeDraftRequest,
   HrEmployeeAssignmentDirectory,
   HrEmployeeStatusHistoryDirectory,
@@ -1038,6 +1039,7 @@ export class NexoraApiClient {
     return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(id)}/remove\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
   getHrEmployeeNumberPreview(query: string): Promise<HrEmployeeNumberPreview> { return this.request(\`/api/v1/hr/employee_number_preview\${query}\`); }
+  getHrRecordCodePreview(query: string): Promise<HrRecordCodePreview> { return this.request(\`/api/v1/hr/record_code_preview\${query}\`); }
   withdrawHrEmployeeDraft(employeeId: string, payload: WithdrawHrEmployeeDraftRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
     return this.request(\`/api/v1/hr/employee_drafts/\${encodeURIComponent(employeeId)}/withdraw\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }

@@ -5,6 +5,8 @@ import { WorkForm } from "@/shared/ui/work-form";
 import { useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { HrDeleteButton, HrEditButton } from "../components/hr-icon-buttons";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
+import { HrPayrollOvertimeSetup } from "./hr-payroll-overtime-setup";
 import {
   AttendanceEmployeeDetails,
   AttendanceEmployeeTable,
@@ -67,7 +69,9 @@ type Save = (
   input: unknown,
   operation: (key: string) => Promise<HrAttendanceCompletionResult>,
 ) => Promise<HrAttendanceCompletionResult | undefined>;
-type OvertimeEditor = { mode: "new" } | { mode: "edit"; id: string; version: number; employeeName: string };
+type OvertimeEditor =
+  | { mode: "new" }
+  | { mode: "edit"; id: string; version: number; employeeName: string; reference: string };
 
 function Overtime({
   client,
@@ -278,7 +282,13 @@ function Overtime({
   };
   const startEdit = () => {
     if (!detail) return;
-    setEditor({ mode: "edit", id: detail.id, version: detail.version, employeeName: detail.display_name });
+    setEditor({
+      mode: "edit",
+      id: detail.id,
+      version: detail.version,
+      employeeName: detail.display_name,
+      reference: detail.reference,
+    });
     setEmployee(detail.employee_id);
     setDate(detail.work_date);
     setRequested(String(detail.requested_minutes));
@@ -324,19 +334,14 @@ function Overtime({
               void saveRequest();
             }}
           >
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field title="Working date">
-                <Input
-                  type="date"
-                  className="box-border! min-w-0! max-w-full!"
-                  value={date}
-                  onChange={(e) => {
-                    setDate(e.target.value);
-                    if (!editing) setEmployee("");
-                  }}
-                  required
-                />
-              </Field>
+            <HrFormRows>
+              <HrRecordCodeField
+                kind="overtime_request"
+                companyId={company}
+                value={editing ? editing.reference : null}
+                id="hr-overtime-request-code"
+                refreshKey={revision}
+              />
               {editing ? (
                 <Field title="Employee">
                   <Input value={editing.employeeName} readOnly disabled />
@@ -359,6 +364,18 @@ function Overtime({
                   />
                 </div>
               )}
+              <Field title="Working date">
+                <Input
+                  type="date"
+                  className="box-border! min-w-0! max-w-full!"
+                  value={date}
+                  onChange={(e) => {
+                    setDate(e.target.value);
+                    if (!editing) setEmployee("");
+                  }}
+                  required
+                />
+              </Field>
               <Field title="Requested overtime minutes">
                 <Input
                   type="number"
@@ -369,7 +386,7 @@ function Overtime({
                   required
                 />
               </Field>
-            </div>
+            </HrFormRows>
             {evidenceBusy ? (
               <Skeleton className="h-24" />
             ) : (
@@ -403,7 +420,15 @@ function Overtime({
                   {!evidence.rule && context?.can_manage_rules && (
                     <div className="mt-4 grid gap-3 rounded-lg border border-border bg-card p-3">
                       <strong className="text-sm">Add {label(evidence.category).toLowerCase()} overtime rule</strong>
-                      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                      <HrFormRows>
+                        <HrRecordCodeField
+                          kind="overtime_rule"
+                          companyId={company}
+                          value={null}
+                          id="hr-overtime-rule-code"
+                          label="Rule code"
+                          refreshKey={revision}
+                        />
                         <Field title="Minimum minutes">
                           <Input
                             type="number"
@@ -424,10 +449,16 @@ function Overtime({
                             onChange={(e) => setRuleCap(e.target.value)}
                           />
                         </Field>
-                        <Button type="button" variant="outline" disabled={busy} onClick={() => void addRule(evidence.category)}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="justify-self-start"
+                          disabled={busy}
+                          onClick={() => void addRule(evidence.category)}
+                        >
                           Add rule
                         </Button>
-                      </div>
+                      </HrFormRows>
                     </div>
                   )}
                 </div>
@@ -984,6 +1015,7 @@ export function HrAttendanceCompletionWorkspace({
       ) : !company ? (
         <div className={panel}>No authorized company is available.</div>
       ) : mode === "overtime" ? (
+        <>
         <Overtime
           key={company + month}
           client={client}
@@ -1005,6 +1037,13 @@ export function HrAttendanceCompletionWorkspace({
             if (target !== month) setMonth(target);
           }}
         />
+        {/* Overtime policy (moved from Payroll › Pay Components): how approved overtime is paid. */}
+        {permissions.includes("hr.payroll.setup.read") || permissions.includes("hr.payroll.salary.read") ? (
+          <section className={panel} aria-label="Overtime policy">
+            <HrPayrollOvertimeSetup key={company} company={company} onDate={month} />
+          </section>
+        ) : null}
+        </>
       ) : (
         <CloseAndInputs
           key={company + month + mode}

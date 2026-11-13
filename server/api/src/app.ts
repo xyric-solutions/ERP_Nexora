@@ -253,6 +253,7 @@ export interface AppDependencies {
     | "listJobGradeCurrencies"
     | "listRequisitionProjects"
     | "employeeNumberPreview"
+    | "previewRecordCode"
     | "updateManpowerRequisition"
     | "changeManpowerRequisitionState"
     | "deleteManpowerRequisition"

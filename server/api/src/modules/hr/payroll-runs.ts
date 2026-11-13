@@ -1,3 +1,4 @@
+import { allocateNewHrCode } from "./record-codes.js";
 import { payrollTaxBindings } from "../finance/taxes/payroll.js";
 import { TaxError } from "../finance/taxes/resolver.js";
 import {
@@ -543,7 +544,7 @@ export class PayrollRuns {
           status = "active";
           version = 1;
           await client.query(
-            `insert into hr_payroll_policy(id,tenant_id,company_id,currency_code,money_scale,net_payable_account_id,created_by,workflow_managed,rounding_mode) values($1,$2,$3,$4,$5,$6,$7,true,$8)`,
+            `insert into hr_payroll_policy(id,tenant_id,company_id,currency_code,money_scale,net_payable_account_id,created_by,workflow_managed,rounding_mode,code) values($1,$2,$3,$4,$5,$6,$7,true,$8,$9)`,
             [
               id,
               c.tenantId,
@@ -553,6 +554,7 @@ export class PayrollRuns {
               input.net_payable_account_id,
               c.actor.userId,
               input.rounding_mode,
+              await allocateNewHrCode(client, c.tenantId, input.company_id, "payroll_policy"),
             ],
           );
         } else if (input.action === "open") {
@@ -569,7 +571,7 @@ export class PayrollRuns {
           version = 1;
           status = "open";
           await client.query(
-            `insert into hr_payroll_period(id,tenant_id,company_id,attendance_period_id,policy_id,month,source_hash,created_by,workflow_managed) values($1,$2,$3,$4,$5,$6,$7,$8,true)`,
+            `insert into hr_payroll_period(id,tenant_id,company_id,attendance_period_id,policy_id,month,source_hash,created_by,workflow_managed,code) values($1,$2,$3,$4,$5,$6,$7,$8,true,$9)`,
             [
               id,
               c.tenantId,
@@ -579,6 +581,7 @@ export class PayrollRuns {
               input.month,
               state.attendance!.source_hash,
               c.actor.userId,
+              await allocateNewHrCode(client, c.tenantId, input.company_id, "payroll_period"),
             ],
           );
         } else {

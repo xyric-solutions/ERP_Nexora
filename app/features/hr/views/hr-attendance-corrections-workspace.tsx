@@ -5,6 +5,7 @@ import { WorkForm } from "@/shared/ui/work-form";
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createHrCorrectionRequestSchema,
@@ -312,7 +313,39 @@ function Editor({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+      <HrFormRows>
+        <HrRecordCodeField
+          kind="correction"
+          companyId={companyId}
+          value={initial?.reference ?? null}
+          id="hr-correction-code"
+          refreshKey={revision}
+        />
+        <div className="grid content-start min-w-0 gap-2 text-sm font-medium">
+          <label htmlFor="hr-correction-employee">Employee</label>
+          <SearchableSelect
+            id="hr-correction-employee"
+            label="Employee"
+            value={employee}
+            placeholder="Select an operational employee"
+            searchPlaceholder="Search by name or employee number…"
+            disabled={busy || !!initial}
+            loading={loading && !context}
+            required
+            search={search}
+            onSearchChange={setSearch}
+            options={[
+              ...(employee && initial && !context?.employees.some((v) => v.id === employee)
+                ? [{ value: employee, label: initial.display_name }]
+                : []),
+              ...(context?.employees.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` })) ?? []),
+            ]}
+            onValueChange={(next) => {
+              setEmployee(next);
+              initialized.current = false;
+            }}
+          />
+        </div>
         <label className="grid content-start min-w-0 gap-2 text-sm font-medium">
           Working date
           <Input
@@ -341,46 +374,21 @@ function Editor({
             ))}
           </select>
         </label>
-      </div>
-      <div className="grid content-start min-w-0 gap-2 text-sm font-medium">
-        <label htmlFor="hr-correction-employee">Employee</label>
-        <SearchableSelect
-          id="hr-correction-employee"
-          label="Employee"
-          value={employee}
-          placeholder="Select an operational employee"
-          searchPlaceholder="Search by name or employee number…"
-          disabled={busy || !!initial}
-          loading={loading && !context}
-          required
-          search={search}
-          onSearchChange={setSearch}
-          options={[
-            ...(employee && initial && !context?.employees.some((v) => v.id === employee)
-              ? [{ value: employee, label: initial.display_name }]
-              : []),
-            ...(context?.employees.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` })) ?? []),
-          ]}
-          onValueChange={(next) => {
-            setEmployee(next);
-            initialized.current = false;
-          }}
-        />
-      </div>
+      </HrFormRows>
       {loading ? (
         <Skeleton className="h-40 w-full" />
       ) : evidence ? (
         <Evidence value={evidence} />
       ) : null}
       {kind !== "official_duty" && (
-        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+        <HrFormRows>
           {(kind === "missing_in" || kind === "incorrect_attendance") && (
             <TimestampField name="Check in" value={start} disabled={busy} onValue={setStart} />
           )}
           {(kind === "missing_out" || kind === "incorrect_attendance") && (
             <TimestampField name="Check out" value={end} disabled={busy} onValue={setEnd} />
           )}
-        </div>
+        </HrFormRows>
       )}
       <label className="grid content-start gap-2 text-sm font-medium">
         Correction reason

@@ -1,3 +1,4 @@
+import { allocateNewHrCode } from "./record-codes.js";
 import {
   isSettlementExecution,
   requireSettlementExecutionAuthority,
@@ -164,6 +165,7 @@ export class LifecycleCases {
       void_blockers:
         r.kind === "settlement" && r.state === "approved" ? await settlementVoidBlockers(client, c, r) : [],
       id: r.id,
+      code: (r as { code?: string | null }).code ?? null,
       kind: r.kind,
       relationship_id: r.relationship_id,
       employee_id: r.employee_id,
@@ -1051,7 +1053,7 @@ export class LifecycleCases {
         );
       else
         await client.query(
-          "insert into hr_lifecycle_case(tenant_id,company_id,id,relationship_id,employee_id,parent_id,kind,terms,evidence,created_by,updated_by) values($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$10)",
+          "insert into hr_lifecycle_case(tenant_id,company_id,id,relationship_id,employee_id,parent_id,kind,terms,evidence,created_by,updated_by,code) values($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$10,$11)",
           [
             c.tenantId,
             input.company_id,
@@ -1063,6 +1065,7 @@ export class LifecycleCases {
             JSON.stringify(terms),
             JSON.stringify(evidence),
             c.actor.userId,
+            await allocateNewHrCode(client, c.tenantId, input.company_id, terms.kind),
           ],
         );
       const after = await this.load(client, c, input.company_id, id);

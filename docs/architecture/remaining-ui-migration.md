@@ -7870,3 +7870,26 @@ Company Chart adoption/review checkpoint (2026-10-20):
   parse/undeclared-name check of changed files, `git diff --check`, theme audit `--check`,
   prototype manifest `--check`, OpenAPI JSON validity. Not yet run: `npm run typecheck`,
   unit/integration tests, `npm run build:web`, browser pass.
+
+## 2026-11-13 — Payroll: row lists, overtime policy move, loans de-duplicated
+
+- Pay Components, Salary Revisions and Payroll Inputs (`hr-payroll-workspace.tsx`) now list
+  records as standard HR rows (`WorkTable` + `HrClickableRow` + `HrStatusPill`); the row opens
+  the existing record drawer. Salary Structures keeps its card list and New Structure form.
+- Overtime policy (`HrPayrollOvertimeSetup`: policies + employee assignments) moved from Pay
+  Components to Attendance & Leave › Overtime, below the request list, and converted to rows.
+  Shown when the user holds `hr.payroll.setup.read` or `hr.payroll.salary.read`.
+- Payroll Runs: Payroll policy is its own section with a "New payroll policy" button, placed
+  before the period actions. Employee results and "Required before final approval" were removed
+  from Payroll Runs only; Payroll Review & Approval (same component, `review`) is unchanged.
+- Payroll › Loans & Advances removed from navigation; `hr:employee-loans` redirects to Employee
+  Lifecycle › Loan Requests, which already covers create/revise/submit/approve/reject/cancel and
+  Banking disbursement confirmation. Loan/advance recovery reports now link there.
+- Reason fields reworded by context (e.g. "Purpose", "Basis for the salary change", "Note for
+  the approver", "Why is it rejected?"); history rows hide the stored default "No reason was
+  entered." API contracts unchanged (reasons remain optional).
+- Verification: web `tsc`, eslint on changed files, `git diff --check`, theme audit
+  `--write`/`--check`, vitest unit (8 files / 96 tests: payroll workspace, loans, overtime,
+  attendance completion, landing summaries, shell navigation), `npm run build:web`.
+  No browser pass yet. Legacy `tests/*.test.mjs` HR suites fail before and after (they import
+  retired `app/hr-*-data.ts` paths).

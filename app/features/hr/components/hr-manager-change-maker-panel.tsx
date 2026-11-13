@@ -1,4 +1,5 @@
 "use client";
+import { HrFormRows, HrRecordCodeField } from "./hr-create-form";
 import { HrRecordDrawer } from "./hr-record-drawer";
 
 import { useRef, useState } from "react";
@@ -138,6 +139,7 @@ export function HrManagerChangeMakerPanel({
             <AlertDescription>{notice}</AlertDescription>
           </Alert>
         )}
+        <HrRecordCodeField kind="manager_change" id="manager-change-code" companyId={companyId || undefined} value={null} refreshKey={notice} />
         <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-2">
           <ContextField
             label="Current reporting manager"
@@ -148,7 +150,7 @@ export function HrManagerChangeMakerPanel({
             value={employees.find((employee) => employee.id === employeeId)?.display_name ?? employeeId}
           />
         </dl>
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+        <HrFormRows>
           <label
             htmlFor="manager-change-proposed-manager"
             className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
@@ -180,7 +182,7 @@ export function HrManagerChangeMakerPanel({
             Effective date
             <Input id="manager-change-effective-on" type="date" value={effectiveOn} disabled readOnly />
           </label>
-        </div>
+        </HrFormRows>
         <label
           htmlFor="manager-change-request-reason"
           className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"

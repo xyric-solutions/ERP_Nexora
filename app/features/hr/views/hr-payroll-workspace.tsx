@@ -1,13 +1,15 @@
 "use client";
-import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkOffsetPagination, WorkTable } from "@/shared/ui/work-table";
 import { WorkForm } from "@/shared/ui/work-form";
 
 import { payrollNavigationContext } from "../components/payroll-navigation";
+import { HrClickableRow } from "../components/hr-clickable-row";
+import { HrStatusPill } from "../components/hr-detail-tile";
+import { hrCell } from "../components/hr-table";
 import { HrPayrollLocalizationSetup } from "./hr-payroll-localization-setup";
-import { HrPayrollOvertimeSetup } from "./hr-payroll-overtime-setup";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchableSelect } from "@/shared/ui/searchable-select";
-import { Wallet, Plus, ArrowRight, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
+import { Wallet, Plus, ArrowRight, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AmountInput } from "@/shared/ui/amount-input";
@@ -15,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrDeleteButton } from "../components/hr-icon-buttons";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import {
   Field,
@@ -25,6 +28,7 @@ import {
   localDate,
 } from "../components/hr-workspace-controls";
 import {
+  HR_DEFAULT_REASON,
   createHrPayrollRecordSchema,
   hrPayrollRecordActionSchema,
   type HrPayrollSection,
@@ -38,7 +42,7 @@ export const payrollPages = {
   "salary-structures": ["structures", "Salary structures", "salary"],
   "salary-revisions": ["salaries", "Salary revisions", "salary"],
   "payroll-inputs": ["adjustments", "Payroll inputs", "adjustment"],
-  "employee-loans": ["loans", "Loans & advances", "loan"],
+  // Loans & advances are managed only in Employee Lifecycle (Loan Requests / Advance Requests).
   "payroll-runs": ["runs", "Payroll runs", "period"],
   "payroll-validation": ["review", "Review & approval", "period"],
   "payroll-journal": ["journals", "Payroll journal", "report"],
@@ -81,6 +85,26 @@ const titles: Record<string, string> = {
   confirmed_on: "Transfer confirmed on",
 };
 const name = (value: string) => titles[value] ?? value.replaceAll("_", " ").replace(/^./, (v) => v.toUpperCase());
+/** Note field on a new record, worded for what the record is. Notes are optional. */
+const recordNote: Record<keyof typeof kinds, { title: string; hint: string }> = {
+  components: { title: "Purpose", hint: "What this component pays or deducts" },
+  structures: { title: "Reason", hint: "Explain the business reason for this record" },
+  salaries: { title: "Basis for the salary change", hint: "For example: promotion to G1, annual increment" },
+  adjustments: { title: "Basis for this input", hint: "For example: Q3 performance bonus, uniform deduction" },
+  loans: { title: "Purpose of the loan", hint: "What the employee needs the funds for" },
+};
+/** Note field on a workflow decision, worded for the chosen action. */
+const decisionNote: Record<HrPayrollRecordAction["action"], string> = {
+  submit: "Note for the approver",
+  approve: "Approval note",
+  reject: "Why is it rejected?",
+  cancel: "Why is it cancelled?",
+  activate: "Why is it reactivated?",
+  deactivate: "Why is it deactivated?",
+  confirm_disbursement: "Disbursement note",
+};
+/** History rows recorded without a note show only the action. */
+const historyNote = (reason: string) => (reason && reason !== HR_DEFAULT_REASON ? reason : "");
 function Message({ error }: { error: string }) {
   return error ? (
     <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
@@ -195,8 +219,6 @@ function RecordEditor({
   }, [typedEmployee, setSearch]);
   const change = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const automatic = (key: string) => key === "code" || key === "reference";
-  const preview =
-    options?.code_previews?.[section === "components" ? "component" : section === "structures" ? "structure" : "loan"];
   // Currency on a salary revision comes from the chosen structure and cannot be typed.
   const locked = (key: string) => automatic(key) || (section === "salaries" && key === "currency_code");
   const field = (key: string, title: string, type = "text", required = true) => (
@@ -215,7 +237,7 @@ function RecordEditor({
         <Input
           className="box-border! w-full min-w-0! max-w-full! font-normal! read-only:bg-muted/40"
           type={type}
-          value={automatic(key) ? (preview ?? "") : form[key]}
+          value={form[key]}
           readOnly={locked(key)}
           aria-readonly={locked(key) || undefined}
           required={required && !locked(key)}
@@ -304,12 +326,33 @@ function RecordEditor({
   return (
     <section className="grid min-w-0" aria-label="New Payroll record">
       <WorkForm className="grid gap-5" onSubmit={submit}>
-        <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0! md:grid-cols-2">
-          {["components", "structures"].includes(section) && (
-            <>
-              {field("code", "Code")}
-              {field("name", "Name", "text", section !== "structures")}
-            </>
+        <fieldset disabled={busy} className="m-0! min-w-0 border-0! p-0!">
+          <HrFormRows>
+          <HrRecordCodeField
+            kind={kinds[section]}
+            companyId={company}
+            value={null}
+            id="hr-payroll-record-code"
+            label={section === "loans" ? "Loan reference" : "Code"}
+          />
+          {["components", "structures"].includes(section) && field("name", "Name", "text", section !== "structures")}
+          {["salaries", "adjustments", "loans"].includes(section) && (
+            <div className="grid min-w-0 content-start gap-2 text-sm font-medium">
+              <label htmlFor="hr-payroll-employee">Employee</label>
+              <SearchableSelect
+                id="hr-payroll-employee"
+                label="Employee"
+                value={form.employee_id}
+                placeholder="Choose employee"
+                searchPlaceholder="Search by name or employee number…"
+                loading={available.loading && !options}
+                required
+                search={typedEmployee}
+                onSearchChange={setTypedEmployee}
+                options={(options?.employees ?? []).map((e) => ({ value: e.id, label: e.label }))}
+                onValueChange={(v) => change("employee_id", v)}
+              />
+            </div>
           )}
           {section === "components" && (
             <>
@@ -365,29 +408,12 @@ function RecordEditor({
               />
             </>
           )}
-          {["structures", "salaries", "loans"].includes(section) &&
-            field("currency_code", "Currency (ISO code)", "text", section !== "structures")}
-          {["salaries", "adjustments", "loans"].includes(section) && (
+          {section === "structures" && (
             <>
-              <div className="grid min-w-0 content-start gap-2 text-sm font-medium">
-                <label htmlFor="hr-payroll-employee">Employee</label>
-                <SearchableSelect
-                  id="hr-payroll-employee"
-                  label="Employee"
-                  value={form.employee_id}
-                  placeholder="Choose employee"
-                  searchPlaceholder="Search by name or employee number…"
-                  loading={available.loading && !options}
-                  required
-                  search={typedEmployee}
-                  onSearchChange={setTypedEmployee}
-                  options={(options?.employees ?? []).map((e) => ({ value: e.id, label: e.label }))}
-                  onValueChange={(v) => change("employee_id", v)}
-                />
-              </div>
+              {field("currency_code", "Currency (ISO code)", "text", false)}
+              {field("description", "Description", "text", false)}
             </>
           )}
-          {section === "structures" && field("description", "Description", "text", false)}
           {section === "salaries" && (
             <>
               <Pick
@@ -428,6 +454,7 @@ function RecordEditor({
                 change={(v) => change("payment_basis", v)}
                 options={enumOptions(["hourly", "daily", "weekly", "monthly", "annual", "custom"])}
               />
+              {field("currency_code", "Currency (ISO code)")}
             </>
           )}
           {["adjustments", "loans"].includes(section) && (
@@ -448,12 +475,13 @@ function RecordEditor({
           )}
           {section === "loans" && (
             <>
-              {field("reference", "Loan reference")}
+              {field("currency_code", "Currency (ISO code)")}
               {field("principal", "Principal")}
               {field("start_month", "First recovery month (first day)", "date")}
               {field("instalment_count", "Number of instalments", "number")}
             </>
           )}
+          </HrFormRows>
         </fieldset>
         {section === "structures" && (
           <fieldset disabled={busy} className="m-0! grid min-w-0 gap-3 border-0! p-0!">
@@ -462,7 +490,7 @@ function RecordEditor({
               const method = options?.components.find((c) => c.id === item.component_id)?.method;
               return (
                 <div
-                  className="grid min-w-0 gap-3 rounded-lg border border-border bg-background p-3 sm:grid-cols-[1fr_1fr_auto]"
+                  className="grid min-w-0 gap-3 rounded-lg border border-border bg-background p-3"
                   key={index}
                 >
                   <Pick
@@ -495,7 +523,7 @@ function RecordEditor({
                   <HrDeleteButton
                     label={`Remove component ${index + 1}`}
                     variant="outline"
-                    className="self-end"
+                    className="justify-self-end"
                     disabled={items.length === 1}
                     onClick={() => setItems((s) => s.filter((_, n) => n !== index))}
                   />
@@ -513,13 +541,13 @@ function RecordEditor({
             </Button>
           </fieldset>
         )}
-        <Field title="Reason">
+        <Field title={recordNote[section].title}>
           <Textarea
             maxLength={500}
             value={form.reason}
             disabled={busy}
             onChange={(e) => change("reason", e.target.value)}
-            placeholder="Explain the business reason for this record"
+            placeholder={recordNote[section].hint}
           />
         </Field>
         <Message error={error || available.error} />
@@ -689,7 +717,9 @@ function RecordDetail({
                 <strong>{name(h.action)}</strong>
                 <span className="text-xs text-muted-foreground">{new Date(h.occurred_at).toLocaleString()}</span>
               </div>
-              <p className="mt-1 break-words text-sm text-muted-foreground">{h.reason}</p>
+              {historyNote(h.reason) ? (
+                <p className="mt-1 break-words text-sm text-muted-foreground">{historyNote(h.reason)}</p>
+              ) : null}
               <p className="mt-1 break-all text-xs text-muted-foreground">
                 {h.actor_id}
                 {h.override ? " · Audited administrator override" : ""}
@@ -716,14 +746,14 @@ function RecordDetail({
             <ShieldCheck className="h-4 w-4 text-primary" />
             Controlled action
           </div>
-          <div className="grid min-w-0 gap-4 md:grid-cols-2">
+          <div className="grid min-w-0 grid-cols-1 gap-4">
             <Pick
               title="Action"
               value={chosen}
               change={(v) => setAction(v as HrPayrollRecordAction["action"])}
               options={enumOptions(actions)}
             />
-            <Field title="Decision reason">
+            <Field title={decisionNote[chosen]}>
               <Textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -733,7 +763,7 @@ function RecordDetail({
             </Field>
           </div>
           {chosen === "confirm_disbursement" && (
-            <div className="grid min-w-0 grid-cols-1 gap-4 rounded-lg border border-border bg-muted/30 p-4 md:grid-cols-2">
+            <div className="grid min-w-0 grid-cols-1 gap-4 rounded-lg border border-border bg-muted/30 p-4">
               {(record.disbursement_options?.length ?? 0) > 0 && (
                 <Pick
                   title="Matching posted Bank Payment"
@@ -823,6 +853,90 @@ function RecordDetail({
         </WorkForm>
       )}
     </section>
+  );
+}
+type RowColumn = {
+  title: string;
+  cell: (r: HrPayrollItem) => React.ReactNode;
+  className?: string;
+};
+const amountCell = (r: HrPayrollItem) => (r.amount ? `${r.amount} ${r.currency_code ?? ""}`.trim() : "—");
+const periodCell = (r: HrPayrollItem) =>
+  r.effective_from ? r.effective_from + (r.effective_to ? " → " + r.effective_to : " → open") : "—";
+const rowColumns = (section: HrPayrollSection): RowColumn[] => {
+  if (section === "components")
+    return [
+      { title: "Code", cell: (r) => r.reference, className: "font-mono text-[13px]" },
+      { title: "Name", cell: (r) => r.title, className: "font-medium wrap-anywhere" },
+      { title: "Type", cell: (r) => name(r.details.kind ?? "—"), className: "max-sm:hidden" },
+      { title: "Calculation", cell: (r) => name(r.details.method ?? "fixed"), className: "max-md:hidden" },
+    ];
+  if (section === "salaries")
+    return [
+      { title: "Reference", cell: (r) => r.reference, className: "font-mono text-[13px]" },
+      { title: "Employee", cell: (r) => r.employee_name ?? r.title, className: "font-medium wrap-anywhere" },
+      { title: "Amount", cell: amountCell, className: "tabular-nums max-sm:hidden" },
+      { title: "Effective", cell: periodCell, className: "text-muted-foreground max-md:hidden" },
+    ];
+  if (section === "adjustments")
+    return [
+      { title: "Reference", cell: (r) => r.reference, className: "font-mono text-[13px]" },
+      { title: "Employee", cell: (r) => r.employee_name ?? r.title, className: "font-medium wrap-anywhere" },
+      { title: "Amount", cell: amountCell, className: "tabular-nums max-sm:hidden" },
+      { title: "Payroll month", cell: (r) => r.effective_from?.slice(0, 7) ?? "—", className: "max-md:hidden" },
+    ];
+  return [
+    { title: "Reference", cell: (r) => r.reference, className: "font-mono text-[13px]" },
+    { title: "Record", cell: (r) => r.employee_name ?? r.title, className: "font-medium wrap-anywhere" },
+    { title: "Amount", cell: amountCell, className: "tabular-nums max-sm:hidden" },
+    { title: "Effective", cell: periodCell, className: "text-muted-foreground max-md:hidden" },
+  ];
+};
+/** Standard HR row list: one compact row per record, the row opens the record drawer. */
+function PayrollRecordRows({
+  section,
+  items,
+  disabled,
+  onOpen,
+}: {
+  section: HrPayrollSection;
+  items: HrPayrollItem[];
+  disabled: boolean;
+  onOpen: (record: HrPayrollItem) => void;
+}) {
+  const columns = rowColumns(section);
+  return (
+    <div className="min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
+      <WorkTable paging={false} tableId={`app/features/hr/views/hr-payroll-workspace:${section}`} className="w-full text-left text-sm">
+        <caption className="sr-only">Payroll records</caption>
+        <thead className="border-b border-border bg-muted/60">
+          <tr>
+            {columns.map((c) => (
+              <th key={c.title} scope="col" className={`${hrCell} font-semibold ${c.className?.match(/max-\w+:hidden/)?.[0] ?? ""}`}>
+                {c.title}
+              </th>
+            ))}
+            <th scope="col" className={`${hrCell} font-semibold`}>
+              Status
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((r) => (
+            <HrClickableRow key={r.id} disabled={disabled} onOpen={() => onOpen(r)}>
+              {columns.map((c) => (
+                <td key={c.title} className={`${hrCell} ${c.className ?? ""}`}>
+                  {c.cell(r)}
+                </td>
+              ))}
+              <td className={hrCell}>
+                <HrStatusPill status={r.status} />
+              </td>
+            </HrClickableRow>
+          ))}
+        </tbody>
+      </WorkTable>
+    </div>
   );
 }
 export function HrPayrollWorkspace({
@@ -1008,6 +1122,16 @@ export function HrPayrollWorkspace({
               : "This view shows persisted Payroll records when their workflow has produced them."}
           </p>
         </div>
+      ) : section !== "structures" ? (
+        <PayrollRecordRows
+          section={section}
+          items={records.data.items}
+          disabled={editing || busy}
+          onOpen={(r) => {
+            setSelected(r);
+            setError("");
+          }}
+        />
       ) : (
         <div className="grid min-w-0 gap-3 lg:grid-cols-2">
           {records.data.items.map((r) => (
@@ -1021,15 +1145,9 @@ export function HrPayrollWorkspace({
               </header>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-xs text-muted-foreground">
-                    {r.amount ? "Amount" : section === "components" ? "Calculation" : "Components"}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{r.amount ? "Amount" : "Components"}</p>
                   <p className="mt-1 break-words font-mono tabular-nums">
-                    {r.amount
-                      ? r.amount + " " + (r.currency_code ?? "")
-                      : section === "components"
-                        ? name(r.details.method ?? "fixed")
-                        : r.lines.length || "—"}
+                    {r.amount ? r.amount + " " + (r.currency_code ?? "") : r.lines.length || "—"}
                   </p>
                 </div>
                 <div>
@@ -1058,11 +1176,6 @@ export function HrPayrollWorkspace({
       )}
       {records.data && (
         <WorkOffsetPagination busy={!!(busy || records.loading)} total={records.data.total} offset={offset} size={workPageSize} previousDisabled={!!(offset === 0 || busy || records.loading)} nextDisabled={!!(offset + workPageSize >= records.data.total || busy || records.loading)} onSizeChange={(size) => { setWorkPageSize(size); setOffset(0); }} onPrevious={() => setOffset((v) => Math.max(0, v - workPageSize))} onNext={() => setOffset((v) => v + workPageSize)} />
-      )}
-      {section === "components" && company && (
-        <section className={panel} aria-label="Overtime pay">
-          <HrPayrollOvertimeSetup key={company} company={company} onDate={month} />
-        </section>
       )}
       {section === "components" && company && (
         <details className={panel}>

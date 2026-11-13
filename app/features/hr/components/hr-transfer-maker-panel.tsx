@@ -1,4 +1,5 @@
 "use client";
+import { HrFormRows, HrRecordCodeField } from "./hr-create-form";
 import { HrRecordDrawer } from "./hr-record-drawer";
 
 import { useEffect, useRef, useState } from "react";
@@ -171,13 +172,14 @@ export function HrTransferMakerPanel({
 
         {state === "ready" && (
           <div className="grid gap-4">
+            <HrRecordCodeField kind="transfer" id="transfer-code" companyId={companyId || undefined} value={null} refreshKey={notice} />
             <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-2">
               <ContextField label="Current job" value={source.job || source.designation} />
               <ContextField label="Designation" value={source.designation} />
               <ContextField label="Grade" value={source.job_grade} />
               <ContextField label="Work location" value={source.work_location} />
             </dl>
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+            <HrFormRows>
               <PlacementSelect
                 label="Proposed project"
                 value={branchId}
@@ -206,7 +208,7 @@ export function HrTransferMakerPanel({
                 Effective date
                 <Input id="transfer-effective-on" type="date" value={effectiveOn} disabled readOnly />
               </label>
-            </div>
+            </HrFormRows>
             <label
               htmlFor="transfer-request-reason"
               className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"

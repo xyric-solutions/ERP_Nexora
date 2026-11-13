@@ -203,6 +203,8 @@ export const hrEmployeeDraftDetailSchema = hrEmployeeDraftSummarySchema.extend({
 export const hrEmployeeContactSchema = z.strictObject({
   id: identifier,
   employee_id: identifier,
+  /** Automatic record code (HR154); null for records created before codes were introduced. */
+  code: z.string().nullable().default(null),
   channel: z.enum(["email", "phone"]),
   contact_usage: z.enum(["work", "personal", "other"]),
   contact_value: z.string().min(1).max(320),
@@ -234,6 +236,8 @@ export const hrEmployeeContactResultSchema = z.strictObject({
 export const hrEmployeeEmergencyContactSchema = z.strictObject({
   id: identifier,
   employee_id: identifier,
+  /** Automatic record code (HR154); null for records created before codes were introduced. */
+  code: z.string().nullable().default(null),
   name: z.string().min(1).max(160),
   relationship: z.string().min(1).max(80),
   phone: z.string().min(1).max(40),
@@ -265,6 +269,8 @@ export const hrEmployeeEmergencyContactResultSchema = z.strictObject({
 export const hrEmployeeDocumentSchema = z.strictObject({
   id: identifier,
   employee_id: identifier,
+  /** Automatic record code (HR154); null for records created before codes were introduced. */
+  code: z.string().nullable().default(null),
   document_type: z.string().min(1).max(80),
   title: z.string().min(1).max(200),
   reference: z.string().max(120),
@@ -328,6 +334,8 @@ export const removeHrEmployeeRecordRequestSchema = z.strictObject({
 export const hrEmployeeEmploymentHistorySchema = z.strictObject({
   id: identifier,
   employee_id: identifier,
+  /** Automatic record code (HR154); null for records created before codes were introduced. */
+  code: z.string().nullable().default(null),
   company_name: z.string().min(1).max(200),
   job_title: z.string().min(1).max(160),
   start_on: isoDate,
@@ -364,6 +372,24 @@ export const hrEmployeeEmploymentHistoryRequestSchema = z
 
 /** Next automatic employee number, shown before saving; the server reserves the final code on create. */
 export const hrEmployeeNumberPreviewSchema = z.strictObject({ employee_number: z.string().min(1).max(32) });
+
+/**
+ * Record kinds whose Add / New / Create forms show an automatically generated code (HR154).
+ * The server reserves the final code inside the create transaction; the preview is read-only.
+ */
+export const hrRecordCodeKindSchema = z.enum([
+  "employee", "shift", "leave", "component", "structure", "loan", "advance", "lifecycle", "programme", "overtime",
+  "designation", "job_grade", "job", "cost_center", "work_location", "employment_setup", "employment_type", "employee_category",
+  "business_unit", "division", "branch", "department", "warehouse",
+  "requisition", "opening", "candidate", "application", "offer", "interview", "assessment",
+  "shift_allocation", "leave_request", "leave_posting", "correction", "overtime_request", "overtime_rule",
+  "transfer", "promotion", "manager_change", "work_location_change", "placement_change", "assignment", "hire",
+  "onboarding", "probation", "resignation", "termination", "clearance", "settlement",
+  "contact", "emergency_contact", "document", "employment_history",
+  "salary", "adjustment", "ot_arrangement", "statutory_setup", "payroll_policy", "payroll_period",
+]);
+export const hrRecordCodePreviewQuerySchema = z.strictObject({ company_id: identifier, kind: hrRecordCodeKindSchema });
+export const hrRecordCodePreviewSchema = z.strictObject({ kind: hrRecordCodeKindSchema, code: z.string().min(1).max(32) });
 export const withdrawHrEmployeeDraftRequestSchema = z.strictObject({
   reason: z.string().trim().max(500).default(""),
 });
@@ -854,7 +880,7 @@ export const hrInterviewActionRequestSchema = z.discriminatedUnion("action",[
 const evidenceTimestamp = z.string().datetime({offset:true});
 export const hrInterviewWorkspaceSchema = z.strictObject({
   application:z.strictObject({id:identifier,reference:z.string(),candidate_name:z.string(),opening_title:z.string(),stage:hrApplicationStageSchema}),
-  interviews:z.array(z.strictObject({id:identifier,kind:hrInterviewKindSchema,round:z.number().int(),starts_at:evidenceTimestamp,duration_minutes:z.number().int(),mode:z.enum(["on_site","video","telephone"]),location:z.string(),status:z.enum(["scheduled","completed","cancelled","no_show"]),version:z.number().int(),
+  interviews:z.array(z.strictObject({id:identifier,code:z.string().nullable().default(null),kind:hrInterviewKindSchema,round:z.number().int(),starts_at:evidenceTimestamp,duration_minutes:z.number().int(),mode:z.enum(["on_site","video","telephone"]),location:z.string(),status:z.enum(["scheduled","completed","cancelled","no_show"]),version:z.number().int(),
     template:z.array(z.strictObject({id:z.string(),label:z.string(),weight:z.number()})),panel:z.array(z.strictObject({user_id:identifier,name:z.string()})),
     evaluations:z.array(z.strictObject({id:identifier,user_id:identifier,scores:z.record(z.string(),z.number()),weighted_score:z.number(),recommendation:z.enum(["strong_hire","hire","hold","no_hire"]),strengths:z.string(),concerns:z.string(),submitted_at:evidenceTimestamp})),
   })),
@@ -2045,6 +2071,9 @@ export type HrEmployeeEmploymentHistory = z.infer<typeof hrEmployeeEmploymentHis
 export type HrEmployeeEmploymentHistoryDirectory = z.infer<typeof hrEmployeeEmploymentHistoryDirectorySchema>;
 export type HrEmployeeEmploymentHistoryRequest = z.input<typeof hrEmployeeEmploymentHistoryRequestSchema>;
 export type HrEmployeeNumberPreview = z.infer<typeof hrEmployeeNumberPreviewSchema>;
+export type HrRecordCodeKind = z.infer<typeof hrRecordCodeKindSchema>;
+export type HrRecordCodePreviewQuery = z.infer<typeof hrRecordCodePreviewQuerySchema>;
+export type HrRecordCodePreview = z.infer<typeof hrRecordCodePreviewSchema>;
 export type WithdrawHrEmployeeDraftRequest = z.input<typeof withdrawHrEmployeeDraftRequestSchema>;
 export type HrEmployeeEmergencyContactResult = z.infer<typeof hrEmployeeEmergencyContactResultSchema>;
 export type HrEmployeeDocumentDirectory = z.infer<typeof hrEmployeeDocumentDirectorySchema>;
@@ -2669,7 +2698,7 @@ export type HrSettlementCountryEvidence=z.infer<typeof hrSettlementCountryEviden
 export const hrSettlementCorrectionExecutionRecordSchema=z.strictObject({id:identifier,correction_id:identifier,state:z.enum(['calculated','approved','rejected','posted']),version:z.number().int().positive(),source_hash:z.string(),posting_date:isoDate,created_by:z.string(),approved_by:z.string().nullable(),posted_by:z.string().nullable(),journal_id:z.string().nullable(),entry_number:z.string().nullable(),reason:z.string(),decision_reason:z.string().nullable(),net_delta:z.string(),taxable_lines:z.array(z.number().int()),leave_changes:z.array(z.strictObject({source_id:identifier,leave_type_id:identifier,original_days:z.string(),corrected_days:z.string(),delta_days:z.string()})).max(30).default([]),months:z.array(z.strictObject({month:isoDate,result_id:identifier,before_gross:z.string(),after_gross:z.string(),before_deductions:z.string(),after_deductions:z.string(),before_net:z.string(),after_net:z.string()})).max(120),journal_lines:z.array(z.strictObject({account_id:identifier,debit:z.string(),credit:z.string()})).max(1000),allowed_actions:z.array(z.string())});
 export const hrSettlementCorrectionWorkspaceSchema=z.strictObject({can_calculate:z.boolean().default(false),base_lines:z.array(z.strictObject({line_index:z.number().int(),amount_minor:z.string(),leave_days:z.string().optional()})).max(30).default([]),executions:z.array(hrSettlementCorrectionExecutionRecordSchema).max(25).default([]),source_hash:z.string(),can_request:z.boolean(),records:z.array(z.strictObject({id:identifier,state:z.enum(['submitted','approved','rejected','processed']),source_hash:z.string(),lines:z.array(z.strictObject({line_index:z.number().int(),original_minor:z.string(),corrected_minor:z.string(),delta_minor:z.string(),original_leave_days:z.string().optional(),corrected_leave_days:z.string().optional()})).min(1).max(30),net_delta_minor:z.string(),authority_reference:z.string(),reason:z.string(),requested_by:z.string(),decided_by:z.string().nullable(),decision_reason:z.string().nullable(),created_at:z.string(),decided_at:z.string().nullable(),can_approve:z.boolean(),can_reject:z.boolean(),stale:z.boolean()})).max(25)});
 export type HrSettlementCorrectionWorkspace=z.infer<typeof hrSettlementCorrectionWorkspaceSchema>;
-export const hrLifecycleCaseRecordSchema=z.strictObject({financial_corrections:hrSettlementCorrectionWorkspaceSchema.nullable().default(null),country_sources:z.array(z.strictObject({source_id:identifier,family:z.enum(['benefit','encashment']),evidence:hrSettlementCountryEvidenceSchema})).max(30).default([]),void_requests:z.array(hrSettlementVoidRecordSchema).max(25).default([]),void_blockers:z.array(z.string()).default([]),payroll_links:z.array(hrSettlementPayrollLinkSchema).max(30).default([]),can_prepare_payroll:z.boolean().default(false),id:identifier,kind:z.string(),relationship_id:identifier,employee_id:identifier,employee_name:z.string(),state:z.string(),version:z.number().int(),terms:hrLifecycleCaseTermsSchema,evidence:z.record(z.string(),z.unknown()),created_by:z.string(),updated_by:z.string(),submitted_by:z.string().nullable(),decided_by:z.string().nullable(),updated_at:z.string(),allowed_actions:z.array(z.string())});
+export const hrLifecycleCaseRecordSchema=z.strictObject({financial_corrections:hrSettlementCorrectionWorkspaceSchema.nullable().default(null),country_sources:z.array(z.strictObject({source_id:identifier,family:z.enum(['benefit','encashment']),evidence:hrSettlementCountryEvidenceSchema})).max(30).default([]),void_requests:z.array(hrSettlementVoidRecordSchema).max(25).default([]),void_blockers:z.array(z.string()).default([]),payroll_links:z.array(hrSettlementPayrollLinkSchema).max(30).default([]),can_prepare_payroll:z.boolean().default(false),id:identifier,code:z.string().nullable().default(null),kind:z.string(),relationship_id:identifier,employee_id:identifier,employee_name:z.string(),state:z.string(),version:z.number().int(),terms:hrLifecycleCaseTermsSchema,evidence:z.record(z.string(),z.unknown()),created_by:z.string(),updated_by:z.string(),submitted_by:z.string().nullable(),decided_by:z.string().nullable(),updated_at:z.string(),allowed_actions:z.array(z.string())});
 export const hrLifecycleCaseWorkspaceSchema=z.strictObject({payroll_components:z.array(z.strictObject({id:identifier,code:z.string(),name:z.string(),kind:z.enum(['earning','deduction'])})).max(200).default([]),company_id:identifier,section:hrLifecycleCaseQuerySchema.shape.section,items:z.array(hrLifecycleCaseRecordSchema).max(50),total:z.number().int(),limit:z.number().int(),offset:z.number().int(),can_create:z.boolean(),relationships:z.array(z.strictObject({id:identifier,employee_id:identifier,label:z.string(),status:z.string(),policy_id:z.string().nullable()})).max(200),offers:z.array(z.strictObject({relationship_id:identifier,employee_id:identifier,employee_name:z.string(),offer_id:identifier,hired_on:z.string()})).max(200).default([]),exits:z.array(hrLifecycleCaseRecordSchema).max(200),currencies:z.array(z.strictObject({code:z.string(),decimal_places:z.number().int()})).max(200),history:z.array(z.strictObject({record_id:identifier,action:z.string(),reason:z.string(),actor_id:z.string(),created_at:z.string()})).max(100),truncated:z.boolean()});
 export type HrLifecycleCaseTerms=z.infer<typeof hrLifecycleCaseTermsSchema>;
 export type HrLifecycleCaseQuery=z.infer<typeof hrLifecycleCaseQuerySchema>;

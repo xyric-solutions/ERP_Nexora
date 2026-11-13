@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { createDatabasePool, type DatabasePool } from "../../packages/db/src/index.js";
-import { allocateHrCode, type HrCodeKind } from "../../server/api/src/modules/hr/record-codes.js";
+import { allocateHrCode, hrCodeKinds, previewHrCode, type HrCodeKind } from "../../server/api/src/modules/hr/record-codes.js";
 import { SourceHrRepository, type HrActorContext } from "../../server/api/src/modules/hr/source-repository.js";
 import { ensureSourceAuthorizationFixture, sourceTestTenantId } from "./source-security-fixture.js";
 
@@ -60,8 +60,8 @@ run("Transactional HR automatic record codes", () => {
     ["employment_type", "ET"],
     ["employee_category", "EC"],
     ["business_unit", "BU"],
-    ["division", "DIV"],
-    ["branch", "BR"],
+    ["division", "LCN"],
+    ["branch", "PRJ"],
     ["department", "DEPT"],
     ["warehouse", "WH"],
   ])("reads all historical %s identifiers when allocating", async (kind, prefix) => {
@@ -131,11 +131,18 @@ run("Transactional HR automatic record codes", () => {
         sessionVersion: 1,
       },
     };
+    // Hierarchy (HR140): company → division (Location) → branch (Project) → department.
+    const division = await repo.createOrganizationUnit(
+      context,
+      { company_id: company, parent_id: company, type: "division", code: "AUTO", name: `Automatic location ${randomUUID()}` },
+      `division-code-${randomUUID()}`,
+      "hr-auto-division-code-test",
+    );
     const branch = await repo.createOrganizationUnit(
       context,
       {
         company_id: company,
-        parent_id: company,
+        parent_id: division.id,
         type: "branch",
         code: "AUTO",
         name: `Automatic branch ${randomUUID()}`,
@@ -161,7 +168,7 @@ run("Transactional HR automatic record codes", () => {
     );
     expect(rows.rows).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: branch.id, code: expect.stringMatching(/^BR-\d{3,}$/), parent_id: company }),
+        expect.objectContaining({ id: branch.id, code: expect.stringMatching(/^PRJ-\d{3,}$/), parent_id: division.id }),
         expect.objectContaining({
           id: department.id,
           code: expect.stringMatching(/^DEPT-\d{3,}$/),
@@ -185,5 +192,73 @@ run("Transactional HR automatic record codes", () => {
       await client.query("rollback");
       client.release();
     }
+  });
+  // HR154: every Add / New / Create form allocates a sequential, unique code.
+  it.each([
+    ["requisition", "MRQ"], ["opening", "JOP"], ["candidate", "CAN"], ["application", "APL"], ["offer", "OFR"],
+    ["interview", "INT"], ["assessment", "ASM"], ["shift_allocation", "SAS"], ["leave_request", "LVR"],
+    ["leave_posting", "LBP"], ["correction", "ACR"], ["overtime_request", "OT"], ["overtime_rule", "OTR"],
+    ["transfer", "TRF"], ["promotion", "PRM"], ["manager_change", "RMC"], ["work_location_change", "WLC"],
+    ["placement_change", "OPC"], ["assignment", "ASG"], ["hire", "HIR"], ["onboarding", "ONB"], ["probation", "PRB"],
+    ["resignation", "RSG"], ["termination", "TRM"], ["clearance", "CLR"], ["settlement", "STL"], ["contact", "CON"],
+    ["emergency_contact", "EMC"], ["document", "DOC"], ["employment_history", "EMH"], ["salary", "SLA"],
+    ["adjustment", "ADJ"], ["ot_arrangement", "OTA"], ["statutory_setup", "STS"], ["payroll_policy", "PPL"],
+    ["payroll_period", "PRD"],
+  ])("previews and allocates sequential %s codes", async (kind, prefix) => {
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [sourceTestTenantId]);
+      const preview = await previewHrCode(client, sourceTestTenantId, company, kind as HrCodeKind);
+      expect(preview).toMatch(new RegExp(`^${prefix}-[0-9]{3,}$`));
+      const first = await allocateHrCode(client, sourceTestTenantId, company, kind as HrCodeKind, "AUTO");
+      expect(first).toBe(preview);
+      const second = await allocateHrCode(client, sourceTestTenantId, company, kind as HrCodeKind, "AUTO");
+      expect(Number(second.split("-")[1])).toBe(Number(first.split("-")[1]) + 1);
+    } finally {
+      await client.query("rollback");
+      client.release();
+    }
+  });
+
+  it("covers every record code kind exposed to the forms", () => {
+    expect(hrCodeKinds.length).toBeGreaterThanOrEqual(59);
+    expect(new Set(hrCodeKinds).size).toBe(hrCodeKinds.length);
+  });
+
+  it("ignores historical random references when numbering new requisitions", async () => {
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      await client.query("select set_config('nexora.tenant_id',$1,true)", [sourceTestTenantId]);
+      const scope = `codes-${randomUUID()}`;
+      // A legacy year-random reference never looks like a sequence number.
+      expect(await allocateHrCode(client, sourceTestTenantId, scope, "requisition", "AUTO")).toBe("MRQ-001");
+      expect(await allocateHrCode(client, sourceTestTenantId, scope, "overtime_request", "AUTO")).toBe("OT-001");
+    } finally {
+      await client.query("rollback");
+      client.release();
+    }
+  });
+
+  it("serves the read-only code preview through the authorized repository", async () => {
+    const repo = new SourceHrRepository(pool);
+    const context: HrActorContext = {
+      tenantId: sourceTestTenantId,
+      actor: {
+        tenantId: sourceTestTenantId,
+        userId: "r06.maker",
+        email: "r06.maker@example.test",
+        displayName: "Maker",
+        organizationName: "Code tests",
+        roles: ["hr_manager"],
+        permissions: ["hr.employee.read"],
+        sessionVersion: 1,
+      },
+    };
+    const preview = await repo.previewRecordCode(context, { company_id: company, kind: "requisition" });
+    expect(preview).toEqual({ kind: "requisition", code: expect.stringMatching(/^MRQ-\d{3,}$/) });
+    const outsider: HrActorContext = { ...context, actor: { ...context.actor, permissions: ["finance.journal.read"] } };
+    await expect(repo.previewRecordCode(outsider, { company_id: company, kind: "requisition" })).rejects.toMatchObject({ status: 403 });
   });
 });

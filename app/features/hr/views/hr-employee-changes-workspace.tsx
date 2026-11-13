@@ -25,6 +25,7 @@ import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warn
 import { HrApiClient } from "../api/hr-client";
 import { approvalOverrideReviewState } from "../approval-override-ui";
 import { HrClickableRow } from "../components/hr-clickable-row";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import {
   HrDetailGroup,
   HrDetailNote,
@@ -654,6 +655,7 @@ function NewChangeForm({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
+      <HrRecordCodeField kind={kind} id={`${kind}-code`} companyId={companyId || undefined} value={null} />
       <div className={labelClass}>
         <span id={`${kind}-employee-label`}>Employee</span>
         <SearchableSelect
@@ -691,7 +693,7 @@ function NewChangeForm({
             <HrDetailTile label="Job" value={source.job} />
             <HrDetailTile label="Job grade" value={source.job_grade} />
           </HrDetailGroup>
-          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <HrFormRows>
             {kind === "transfer" ? (
               <>
                 <label htmlFor="transfer-new-project" className={labelClass}>
@@ -759,7 +761,7 @@ function NewChangeForm({
               Effective date
               <Input id={`${kind}-effective-on`} type="date" value={effectiveOn} readOnly disabled />
             </label>
-          </div>
+          </HrFormRows>
           <label htmlFor={`${kind}-reason`} className={labelClass}>
             Reason
             <Textarea

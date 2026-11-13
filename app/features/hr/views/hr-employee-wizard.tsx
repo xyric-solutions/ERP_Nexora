@@ -23,6 +23,7 @@ import { useSession } from "@/lib/session/session-provider";
 
 import { HrApiClient } from "../api/hr-client";
 import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
+import { HrRecordCodeField } from "../components/hr-create-form";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
@@ -49,6 +50,8 @@ type Basic = {
 type Row<T> = {
   key: string;
   serverId?: string;
+  /** Saved record code (HR154); new rows receive theirs when saved. */
+  code?: string | null;
   value: T;
   change: "none" | "new" | "edited" | "removed";
   /** The change a removed row had before, restored by Undo. */
@@ -93,20 +96,22 @@ const documentTypeSuggestions = ["National ID", "Passport", "Resume / CV", "Educ
 const acceptedFiles = hrEmployeeDocumentFileTypes.map((type) => `.${type.extension}`).join(",");
 const selectClass =
   "h-10 w-full min-w-0 rounded-[var(--nx-radius-md)] border border-input bg-card px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50";
-/** Currency half of the joined salary field: same as selectClass, squared on the right. */
-const currencySelectClass =
-  "h-10 w-full min-w-0 rounded-l-[var(--nx-radius-md)] border border-r-0 border-input bg-muted px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50";
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const rowKey = () => crypto.randomUUID();
 const failure = (error: unknown, fallback: string) => (error instanceof ApiError && error.message ? error.message : fallback);
 const fileSize = (bytes?: number | null) =>
   !bytes ? "" : bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 const live = <T,>(rows: Row<T>[]) => rows.filter((row) => row.change !== "removed");
+/** Code props for a sub-record form: the saved code when editing a stored row, else the next-code preview. */
+const rowCode = <T,>(rows: Row<T>[], key: string | undefined) => {
+  const row = key ? rows.find((item) => item.key === key) : undefined;
+  return { value: row?.code ?? null, existing: Boolean(row?.serverId) };
+};
 const pendingCount = (rows: Row<unknown>[]) => rows.filter((row) => row.change !== "none").length;
 
-function Field({ label, children, wide = false }: { label: string; children: ReactNode; wide?: boolean }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className={`grid content-start min-w-0 gap-1.5 text-sm font-medium text-foreground ${wide ? "sm:col-span-2" : ""}`}>
+    <label className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground">
       {label}
       {children}
     </label>
@@ -122,8 +127,8 @@ function RowPill({ tone, children }: { tone: "success" | "brand"; children: Reac
   return <span className={`shrink-0 rounded-full border px-2 text-[11px] font-semibold leading-[18px] ${toneClass}`}>{children}</span>;
 }
 
-/** Two equal columns where every row is filled; one column on narrow screens. */
-const formGrid = "grid items-start gap-3.5 sm:grid-cols-2";
+/** HR create-form standard: one full-width field per row. */
+const formGrid = "grid min-w-0 grid-cols-1 items-start gap-3.5";
 
 /** A step section: uppercase title with a rule, an optional count, then its content. */
 function StepSection({ title, count, label, children }: { title: string; count?: number; label?: string; children: ReactNode }) {
@@ -140,15 +145,15 @@ function StepSection({ title, count, label, children }: { title: string; count?:
   );
 }
 
-/** Heading of an inline add/edit form; spans both columns. */
+/** Heading of an inline add/edit form. */
 function FormHeading({ children }: { children: ReactNode }) {
-  return <p className="m-0! text-sm font-semibold text-foreground sm:col-span-2">{children}</p>;
+  return <p className="m-0! text-sm font-semibold text-foreground">{children}</p>;
 }
 
 /** Last row of an add form: an option on the left (if any), actions on the right. */
 function FormEnd({ start, children }: { start?: ReactNode; children: ReactNode }) {
   return (
-    <div className={`flex flex-wrap items-center gap-x-4 gap-y-2.5 sm:col-span-2 ${start ? "justify-between" : "justify-end"}`}>
+    <div className={`flex flex-wrap items-center gap-x-4 gap-y-2.5 ${start ? "justify-between" : "justify-end"}`}>
       {start}
       <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>
@@ -364,6 +369,7 @@ export function HrEmployeeWizard({
           contactList.items.map((item) => ({
             key: rowKey(),
             serverId: item.id,
+            code: item.code,
             change: "none",
             value: { channel: item.channel, usage: item.contact_usage, value: item.contact_value, label: item.label, primary: item.is_primary },
           })),
@@ -372,6 +378,7 @@ export function HrEmployeeWizard({
           emergencyList.items.map((item) => ({
             key: rowKey(),
             serverId: item.id,
+            code: item.code,
             change: "none",
             value: { name: item.name, relationship: item.relationship, phone: item.phone, email: item.email, primary: item.is_primary, priority: item.priority },
           })),
@@ -382,6 +389,7 @@ export function HrEmployeeWizard({
             .map((item) => ({
               key: rowKey(),
               serverId: item.id,
+              code: item.code,
               change: "none",
               value: {
                 type: item.document_type,
@@ -399,6 +407,7 @@ export function HrEmployeeWizard({
           historyList.items.map((item) => ({
             key: rowKey(),
             serverId: item.id,
+            code: item.code,
             change: "none",
             value: {
               company: item.company_name,
@@ -740,13 +749,11 @@ export function HrEmployeeWizard({
         </div>
       ) : (
         <div className="grid gap-4">
-          <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
-            <span>Employee number</span>
-            <span aria-readonly className="rounded-md border border-border bg-muted px-2 py-0.5 font-mono text-[12.5px] font-semibold text-foreground">
-              {employeeNumber || "Generated on create"}
-            </span>
-            {mode.kind !== "create" ? <Badge variant="outline">{mode.kind === "draft" ? "Draft" : "Approved employee"}</Badge> : null}
-          </div>
+          {mode.kind !== "create" ? (
+            <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
+              <Badge variant="outline">{mode.kind === "draft" ? "Draft" : "Approved employee"}</Badge>
+            </div>
+          ) : null}
           <ol className="-mx-6! my-0! grid list-none grid-cols-4 border-y border-border px-6! py-3.5!" aria-label="Steps">
             {steps.map((label, index) => (
               <li
@@ -786,6 +793,25 @@ export function HrEmployeeWizard({
           {step === 0 ? (
             profileEditable ? (
               <div className={formGrid}>
+                <HrRecordCodeField
+                  kind="employee"
+                  id="hr-wizard-employee-number"
+                  label="Employee number"
+                  companyId={basic.companyId || undefined}
+                  value={mode.kind === "create" ? null : employeeNumber || null}
+                />
+                <Field label="First name">
+                  <Input required maxLength={100} disabled={busy} value={basic.firstName} onChange={(event) => setBasic({ ...basic, firstName: event.target.value })} />
+                </Field>
+                <Field label="Middle name">
+                  <Input maxLength={100} disabled={busy} value={basic.middleName} onChange={(event) => setBasic({ ...basic, middleName: event.target.value })} />
+                </Field>
+                <Field label="Last name">
+                  <Input required maxLength={100} disabled={busy} value={basic.lastName} onChange={(event) => setBasic({ ...basic, lastName: event.target.value })} />
+                </Field>
+                <Field label="Preferred name">
+                  <Input maxLength={100} disabled={busy} value={basic.preferredName} onChange={(event) => setBasic({ ...basic, preferredName: event.target.value })} />
+                </Field>
                 <Field label="Location">
                   <select
                     className={selectClass}
@@ -830,18 +856,6 @@ export function HrEmployeeWizard({
                 <Field label="Joining date">
                   <Input required type="date" disabled={busy} value={basic.joinedOn} onChange={(event) => setBasic({ ...basic, joinedOn: event.target.value })} />
                 </Field>
-                <Field label="First name">
-                  <Input required maxLength={100} disabled={busy} value={basic.firstName} onChange={(event) => setBasic({ ...basic, firstName: event.target.value })} />
-                </Field>
-                <Field label="Middle name">
-                  <Input maxLength={100} disabled={busy} value={basic.middleName} onChange={(event) => setBasic({ ...basic, middleName: event.target.value })} />
-                </Field>
-                <Field label="Last name">
-                  <Input required maxLength={100} disabled={busy} value={basic.lastName} onChange={(event) => setBasic({ ...basic, lastName: event.target.value })} />
-                </Field>
-                <Field label="Preferred name">
-                  <Input maxLength={100} disabled={busy} value={basic.preferredName} onChange={(event) => setBasic({ ...basic, preferredName: event.target.value })} />
-                </Field>
                 <Field label="Email">
                   <Input type="email" maxLength={320} disabled={busy} value={basic.workEmail} onChange={(event) => setBasic({ ...basic, workEmail: event.target.value })} />
                 </Field>
@@ -851,6 +865,7 @@ export function HrEmployeeWizard({
               </div>
             ) : (
               <div className="grid gap-3">
+                <HrRecordCodeField kind="employee" id="hr-wizard-employee-number" label="Employee number" companyId={basic.companyId || undefined} value={employeeNumber || null} />
                 <dl className="m-0! grid">
                   {[
                     ["Name", [basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(" ")],
@@ -904,6 +919,10 @@ export function HrEmployeeWizard({
               {!contactsReadOnly ? (
                 <div className={formGrid} role="group" aria-label={contactForm.key ? "Edit contact" : "Add contact"}>
                   <FormHeading>{contactForm.key ? "Edit contact" : "Add contact"}</FormHeading>
+                  <HrRecordCodeField kind="contact" id="hr-wizard-contact-code" companyId={basic.companyId || undefined} {...rowCode(contacts, contactForm.key)} />
+                  <Field label={contactForm.value.channel === "email" ? "Email address" : "Phone number"}>
+                    <Input maxLength={320} type={contactForm.value.channel === "email" ? "email" : "tel"} value={contactForm.value.value} onChange={(event) => setContactForm({ ...contactForm, value: { ...contactForm.value, value: event.target.value } })} />
+                  </Field>
                   <div className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground">
                     <span id="hr-wizard-contact-type">Type</span>
                     <div role="radiogroup" aria-labelledby="hr-wizard-contact-type" className="grid h-10 grid-cols-2 rounded-[10px] border border-input bg-muted p-[3px]">
@@ -937,9 +956,6 @@ export function HrEmployeeWizard({
                       <option value="work">Work</option>
                       <option value="other">Other</option>
                     </select>
-                  </Field>
-                  <Field label={contactForm.value.channel === "email" ? "Email address" : "Phone number"}>
-                    <Input maxLength={320} type={contactForm.value.channel === "email" ? "email" : "tel"} value={contactForm.value.value} onChange={(event) => setContactForm({ ...contactForm, value: { ...contactForm.value, value: event.target.value } })} />
                   </Field>
                   <Field label="Label">
                     <Input maxLength={100} placeholder="Mobile, home, LinkedIn…" value={contactForm.value.label} onChange={(event) => setContactForm({ ...contactForm, value: { ...contactForm.value, label: event.target.value } })} />
@@ -997,6 +1013,7 @@ export function HrEmployeeWizard({
               {!emergencyReadOnly ? (
                 <div className={formGrid} role="group" aria-label={emergencyForm.key ? "Edit emergency contact" : "Add emergency contact"}>
                   <FormHeading>{emergencyForm.key ? "Edit emergency contact" : "Add emergency contact"}</FormHeading>
+                  <HrRecordCodeField kind="emergency_contact" id="hr-wizard-emergency-code" companyId={basic.companyId || undefined} {...rowCode(emergency, emergencyForm.key)} />
                   <Field label="Contact name">
                     <Input maxLength={160} value={emergencyForm.value.name} onChange={(event) => setEmergencyForm({ ...emergencyForm, value: { ...emergencyForm.value, name: event.target.value } })} />
                   </Field>
@@ -1133,7 +1150,11 @@ export function HrEmployeeWizard({
               {!readOnlyRecords ? (
                 <div className={formGrid} role="group" aria-label={documentForm.key ? "Edit document" : "Upload document"}>
                   <FormHeading>{documentForm.key ? "Edit document" : "Upload document"}</FormHeading>
-                  <div className="flex min-w-0 items-center gap-3 rounded-[10px] bg-muted p-3 sm:col-span-2">
+                  <HrRecordCodeField kind="document" id="hr-wizard-document-code" companyId={basic.companyId || undefined} {...rowCode(documents, documentForm.key)} />
+                  <Field label="Title">
+                    <Input maxLength={200} value={documentForm.value.title} onChange={(event) => setDocumentForm({ ...documentForm, value: { ...documentForm.value, title: event.target.value } })} />
+                  </Field>
+                  <div className="flex min-w-0 items-center gap-3 rounded-[10px] bg-muted p-3">
                       <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-background text-muted-foreground">
                         <FileUp className="size-4" />
                       </span>
@@ -1179,9 +1200,6 @@ export function HrEmployeeWizard({
                         <option key={item} value={item} />
                       ))}
                     </datalist>
-                  </Field>
-                  <Field label="Title">
-                    <Input maxLength={200} value={documentForm.value.title} onChange={(event) => setDocumentForm({ ...documentForm, value: { ...documentForm.value, title: event.target.value } })} />
                   </Field>
                   <Field label="Reference number">
                     <Input maxLength={120} value={documentForm.value.reference} onChange={(event) => setDocumentForm({ ...documentForm, value: { ...documentForm.value, reference: event.target.value } })} />
@@ -1234,6 +1252,7 @@ export function HrEmployeeWizard({
               {!readOnlyRecords ? (
                 <div className={formGrid} role="group" aria-label={historyForm.key ? "Edit previous employment" : "Add previous employment"}>
                   <FormHeading>{historyForm.key ? "Edit previous employment" : "Add previous employment"}</FormHeading>
+                  <HrRecordCodeField kind="employment_history" id="hr-wizard-history-code" companyId={basic.companyId || undefined} {...rowCode(history, historyForm.key)} />
                   <Field label="Previous company">
                     <Input maxLength={200} value={historyForm.value.company} onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, company: event.target.value } })} />
                   </Field>
@@ -1246,38 +1265,34 @@ export function HrEmployeeWizard({
                   <Field label="End date">
                     <Input type="date" min={historyForm.value.startOn || undefined} value={historyForm.value.endOn} onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, endOn: event.target.value } })} />
                   </Field>
-                  <div className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground">
-                    <span id="hr-wizard-history-salary">Previous salary</span>
-                    <div className="grid min-w-0 grid-cols-[7.5rem_minmax(0,1fr)]">
-                      <select
-                        aria-label="Salary currency"
-                        className={currencySelectClass}
-                        value={historyForm.value.currency}
-                        onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, currency: event.target.value } })}
-                      >
-                        <option value="">{currencies.length ? "Currency" : "None"}</option>
-                        {[...new Set([...currencies, ...(historyForm.value.currency ? [historyForm.value.currency] : [])])].map((code) => (
-                          <option key={code} value={code}>
-                            {code}
-                          </option>
-                        ))}
-                      </select>
-                      <Input
-                        aria-labelledby="hr-wizard-history-salary"
-                        inputMode="decimal"
-                        className="rounded-l-none"
-                        value={historyForm.value.salary}
-                        onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, salary: event.target.value } })}
-                      />
-                    </div>
-                  </div>
+                  <Field label="Salary currency">
+                    <select
+                      className={selectClass}
+                      value={historyForm.value.currency}
+                      onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, currency: event.target.value } })}
+                    >
+                      <option value="">{currencies.length ? "Currency" : "None"}</option>
+                      {[...new Set([...currencies, ...(historyForm.value.currency ? [historyForm.value.currency] : [])])].map((code) => (
+                        <option key={code} value={code}>
+                          {code}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Previous salary">
+                    <Input
+                      inputMode="decimal"
+                      value={historyForm.value.salary}
+                      onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, salary: event.target.value } })}
+                    />
+                  </Field>
                   <Field label="Skills">
                     <Input value={historyForm.value.skills} onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, skills: event.target.value } })} />
                   </Field>
-                  <Field label="Responsibilities and experience" wide>
+                  <Field label="Responsibilities and experience">
                     <Textarea maxLength={2000} value={historyForm.value.responsibilities} onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, responsibilities: event.target.value } })} />
                   </Field>
-                  <Field label="Reason for leaving" wide>
+                  <Field label="Reason for leaving">
                     <Input maxLength={500} value={historyForm.value.reasonForLeaving} onChange={(event) => setHistoryForm({ ...historyForm, value: { ...historyForm.value, reasonForLeaving: event.target.value } })} />
                   </Field>
                   <FormEnd>

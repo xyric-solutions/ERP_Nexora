@@ -353,7 +353,6 @@ const payrollSummaries: WorkspaceLoaders<typeof payrollWorkspace> = {
   "salary-structures": payrollRecordSummary("structures", "salary structure", { names: true }),
   "salary-revisions": payrollRecordSummary("salaries", "salary record"),
   "payroll-inputs": payrollRecordSummary("adjustments", "adjustment", { month: true }),
-  "employee-loans": payrollRecordSummary("loans", "loan"),
   "payroll-runs": async (context) => {
     const run = await latestPayrollRun(context);
     if (!run) return [];

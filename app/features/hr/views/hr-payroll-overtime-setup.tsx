@@ -1,5 +1,5 @@
 "use client";
-import { WorkOffsetPagination } from "@/shared/ui/work-table";
+import { WorkOffsetPagination, WorkTable } from "@/shared/ui/work-table";
 import { WorkForm } from "@/shared/ui/work-form";
 
 import { useMemo, useRef, useState } from "react";
@@ -18,7 +18,11 @@ import {
 } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
-import { Field, State, panel, selectClass, useAttendanceRead } from "../components/hr-workspace-controls";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
+import { HrClickableRow } from "../components/hr-clickable-row";
+import { HrStatusPill } from "../components/hr-detail-tile";
+import { hrCell } from "../components/hr-table";
+import { Field, selectClass, useAttendanceRead } from "../components/hr-workspace-controls";
 type Form = {
   kind: "policy" | "arrangement";
   row: HrOvertimeMoneyRecord | null;
@@ -175,12 +179,11 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
     }
   }
   const field = (key: string, title: string, type = "text", required = true) => (
-    <Field title={key === "reference" ? `${title} (automatic)` : title}>
+    <Field title={title}>
       <Input
         className="box-border! w-full min-w-0! max-w-full!"
         type={type}
-        value={key === "reference" ? "Assigned on save · OTP-001…" : (form?.values[key] ?? "")}
-        readOnly={key === "reference"}
+        value={form?.values[key] ?? ""}
         onChange={(e) => change(key, e.target.value)}
         required={required}
         maxLength={type === "text" ? 500 : undefined}
@@ -211,8 +214,11 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
         <div>
           <h3 className="flex items-center gap-2 text-lg font-semibold">
             <ShieldCheck className="h-5 w-5 text-primary" />
-            Overtime pay
+            Overtime policy
           </h3>
+          <p className="text-sm text-muted-foreground">
+            How approved overtime hours are paid, and which employees each policy applies to.
+          </p>
         </div>
         {data?.can_create && (
           <Button onClick={() => open(null)} className="text-primary-foreground!">
@@ -283,60 +289,40 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
             : "Create an arrangement against a released policy, then submit it for independent approval."}
         </p>
       ) : (
-        <div className="grid min-w-0 gap-3 lg:grid-cols-2">
-          {data.items.map((row) => (
-            <div
-              key={row.id}
-              role="button"
-              tabIndex={0}
-              aria-label={"Open " + row.reference}
-              onClick={() => open(row)}
-              onKeyDown={(e) => {
-                if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
-                  e.preventDefault();
-                  open(row);
-                }
-              }}
-              className={panel + " grid cursor-pointer gap-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"}
-            >
-              <header className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="break-all text-xs text-muted-foreground">{row.reference}</p>
-                  <h4 className="mt-1 break-words font-semibold">{row.name}</h4>
-                </div>
-                <State value={row.status} />
-              </header>
-              <p className="text-xs text-muted-foreground">
-                {row.effective_from} → {row.effective_to ?? "Open ended"} · version {row.version}
-              </p>
-              {row.terms ? (
-                <dl className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Basis</dt>
-                    <dd className="mt-1">{label(row.terms.basis_source)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Category / currency</dt>
-                    <dd className="mt-1">
-                      {label(row.terms.category)} · {row.terms.currency_code}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Multiplier</dt>
-                    <dd className="mt-1 font-mono">{row.terms.multiplier}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Ordinary hours / direct rate</dt>
-                    <dd className="mt-1 break-all font-mono">
-                      {row.direct_rate ?? row.terms.ordinary_hours ?? "Direct hourly"}
-                    </dd>
-                  </div>
-                </dl>
-              ) : (
-                <p className="text-xs text-muted-foreground">Historical terms retained read-only.</p>
-              )}
-            </div>
-          ))}
+        <div className="min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
+          <WorkTable paging={false} tableId={`app/features/hr/views/hr-payroll-overtime-setup:${section}`} className="w-full text-left text-sm">
+            <caption className="sr-only">{section === "policies" ? "Overtime policies" : "Employee assignments"}</caption>
+            <thead className="border-b border-border bg-muted/60">
+              <tr>
+                <th scope="col" className={`${hrCell} font-semibold`}>Reference</th>
+                <th scope="col" className={`${hrCell} font-semibold`}>{section === "policies" ? "Policy" : "Employee"}</th>
+                <th scope="col" className={`${hrCell} font-semibold max-sm:hidden`}>Category</th>
+                <th scope="col" className={`${hrCell} font-semibold max-md:hidden`}>Multiplier</th>
+                <th scope="col" className={`${hrCell} font-semibold max-lg:hidden`}>Effective</th>
+                <th scope="col" className={`${hrCell} font-semibold`}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.map((row) => (
+                <HrClickableRow key={row.id} onOpen={() => open(row)}>
+                  <td className={`${hrCell} font-mono text-[13px]`}>{row.reference}</td>
+                  <td className={`${hrCell} font-medium wrap-anywhere`}>{row.name}</td>
+                  <td className={`${hrCell} capitalize max-sm:hidden`}>
+                    {row.terms ? `${label(row.terms.category)} · ${row.terms.currency_code}` : "—"}
+                  </td>
+                  <td className={`${hrCell} font-mono tabular-nums max-md:hidden`}>
+                    {row.terms ? `${row.terms.multiplier}×` : "—"}
+                  </td>
+                  <td className={`${hrCell} text-muted-foreground max-lg:hidden`}>
+                    {row.effective_from} → {row.effective_to ?? "open"}
+                  </td>
+                  <td className={hrCell}>
+                    <HrStatusPill status={row.status} />
+                  </td>
+                </HrClickableRow>
+              ))}
+            </tbody>
+          </WorkTable>
         </div>
       )}
       {data && (
@@ -438,13 +424,20 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
                 </details>
               </>
             ) : (
-              <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0! sm:grid-cols-2">
-                {field("effective_from", "Overtime effective from", "date")}
-                {field("effective_to", "Overtime effective to", "date", false)}
+              <fieldset disabled={busy} className="m-0! min-w-0 border-0! p-0!">
+                <HrFormRows>
+                <HrRecordCodeField
+                  kind={form.kind === "policy" ? "overtime" : "ot_arrangement"}
+                  companyId={company || undefined}
+                  value={null}
+                  id={form.kind === "policy" ? "hr-overtime-policy-code" : "hr-overtime-arrangement-code"}
+                  label={form.kind === "policy" ? "Monetary policy reference" : "Assignment reference"}
+                />
                 {form.kind === "policy" ? (
                   <>
-                    {field("reference", "Monetary policy reference")}
                     {field("name", "Monetary policy name")}
+                    {field("effective_from", "Overtime effective from", "date")}
+                    {field("effective_to", "Overtime effective to", "date", false)}
                     {select("category", "Overtime category", enumOptions(["regular", "weekend", "holiday"]))}
                     {select("currency_code", "Monetary currency", form.options.currencies)}
                     {select(
@@ -489,9 +482,9 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
                       enumOptions(["half_up", "half_even", "down", "up"]),
                     )}
                     {field("source_reference", "Monetary policy source reference")}
-                    <details className="sm:col-span-2">
+                    <details>
                       <summary className="cursor-pointer text-sm">Intermediate precision</summary>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      <div className="mt-3 grid grid-cols-1 gap-3">
                         {select(
                           "minute_precision",
                           "Minute precision",
@@ -523,12 +516,15 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
                     )}
                     {form.options.policies.find((p) => p.id === form.values.policy_version_id)?.terms?.basis_source ===
                       "direct_contractual_rate" && field("direct_rate", "Direct contractual hourly rate")}
+                    {field("effective_from", "Overtime effective from", "date")}
+                    {field("effective_to", "Overtime effective to", "date", false)}
                   </>
                 )}
+                </HrFormRows>
               </fieldset>
             )}
             {form.row && !!form.row.allowed_actions.length && (
-              <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0! sm:grid-cols-2">
+              <fieldset disabled={busy} className="m-0! grid min-w-0 grid-cols-1 gap-4 border-0! p-0!">
                 {select("action", "Monetary decision", enumOptions(form.row.allowed_actions))}
                 {permissions.includes("platform.approval.override") &&
                   form.values.action !== "submit" &&
@@ -540,7 +536,15 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
             )}
             {(!form.row || !!form.row.allowed_actions.length) && (
               <>
-                <Field title="Reason">
+                <Field
+                  title={
+                    form.row
+                      ? "Decision note"
+                      : form.kind === "policy"
+                        ? "Why is this policy needed?"
+                        : "Why does this employee get this policy?"
+                  }
+                >
                   <Textarea
                     maxLength={500}
                     disabled={busy}

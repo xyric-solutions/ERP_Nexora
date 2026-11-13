@@ -18,6 +18,7 @@ import {
 } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import { Field, State, panel, selectClass, useAttendanceRead } from "../components/hr-workspace-controls";
 type Kind = HrLocalizationQuery["kind"];
 const titles: Record<Kind, string> = {
@@ -495,6 +496,12 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
               </>
             ) : form.kind === "pack_release" ? (
               <>
+                <HrRecordCodeField
+                  kind="statutory_setup"
+                  companyId={company || undefined}
+                  value={null}
+                  id="hr-statutory-setup-code"
+                />
                 <aside className="rounded-lg border border-border bg-muted/30 p-3 text-sm leading-relaxed text-muted-foreground">
                   <p className="font-medium text-foreground">Rules that change during a Payroll month</p>
                   <p className="mt-2">
@@ -530,7 +537,14 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
                 </Field>
               </>
             ) : (
-              <fieldset disabled={busy} className="m-0! grid min-w-0 grid-cols-1 gap-4 border-0! p-0! sm:grid-cols-2">
+              <fieldset disabled={busy} className="m-0! min-w-0 border-0! p-0!">
+                <HrFormRows>
+                <HrRecordCodeField
+                  kind="statutory_setup"
+                  companyId={company || undefined}
+                  value={null}
+                  id="hr-statutory-setup-code"
+                />
                 {definitions[form.kind].map((d) => {
                   let options = d.options ? form.options[d.options] : [];
                   if (d.options === "jurisdictions" || d.options === "entity_types")
@@ -598,16 +612,15 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
                 {form.kind === "payroll_configuration" && (
                   <p className="text-sm text-muted-foreground">Supported payroll frequency: monthly.</p>
                 )}
-                <div className="sm:col-span-2">
-                  <Field title="Statutory source reference">
-                    <Textarea
-                      required
-                      maxLength={500}
-                      value={form.values.source_reference ?? ""}
-                      onChange={(e) => change("source_reference", e.target.value)}
-                    />
-                  </Field>
-                </div>
+                <Field title="Statutory source reference">
+                  <Textarea
+                    required
+                    maxLength={500}
+                    value={form.values.source_reference ?? ""}
+                    onChange={(e) => change("source_reference", e.target.value)}
+                  />
+                </Field>
+                </HrFormRows>
               </fieldset>
             )}
             {form.kind === "activation" && !form.options.packs.length && (

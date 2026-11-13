@@ -3,6 +3,7 @@ import { WorkTable } from "@/shared/ui/work-table";
 
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { hrRequisitionStateMoves } from "@nexora/contracts";
@@ -48,6 +49,8 @@ type Requisition = HrManpowerRequisitionDirectory["items"][number];
 type Editor = {
   /** Set when editing an existing requisition. */
   id?: string;
+  /** Saved record code (MRQ-001) when editing. */
+  reference?: string;
   state?: Requisition["state"];
   /** Status chosen in Edit; moves follow hrRequisitionStateMoves. */
   nextState?: Requisition["state"];
@@ -196,6 +199,7 @@ export function HrManpowerRequisitionsWorkspace() {
   ];
   const editorFor = (record: Requisition): Editor => ({
     id: record.id,
+    reference: record.reference,
     state: record.state,
     nextState: record.state,
     jobTitle: record.job_title,
@@ -526,26 +530,7 @@ export function HrManpowerRequisitionsWorkspace() {
               notice={message}
             >
               <aside className="grid gap-5 rounded-lg border bg-card p-4 border-border">
-                {editor.id && editor.state ? (
-                  <HrDetailSection title="Status">
-                    <label className="grid content-start gap-1 text-sm">
-                      Status
-                      <select
-                        className={selectClass}
-                        value={editor.nextState}
-                        onChange={(event) =>
-                          setEditor({ ...editor, nextState: event.target.value as Requisition["state"] })
-                        }
-                      >
-                        {statusOptions(editor.state).map((state) => (
-                          <option key={state} value={state}>
-                            {stateLabel(state)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </HrDetailSection>
-                ) : null}
+                <HrRecordCodeField kind="requisition" companyId={companyId || undefined} value={editor.reference ?? null} />
                 {missingSetup.length && editingFields ? (
                   <p
                     role="status"
@@ -560,8 +545,8 @@ export function HrManpowerRequisitionsWorkspace() {
                   className="m-0! grid min-w-0 gap-5 border-0 p-0 disabled:opacity-60"
                 >
                   <HrDetailSection title="Role">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="grid content-start gap-1 text-sm sm:col-span-2">
+                    <HrFormRows className="gap-3">
+                      <label className="grid content-start gap-1 text-sm">
                         Job title
                         <Input
                           value={editor.jobTitle}
@@ -659,10 +644,10 @@ export function HrManpowerRequisitionsWorkspace() {
                           onChange={(event) => setEditor({ ...editor, targetStart: event.target.value })}
                         />
                       </label>
-                    </div>
+                    </HrFormRows>
                   </HrDetailSection>
                   <HrDetailSection title="Where the role works">
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <HrFormRows className="gap-3">
                       <label className="grid content-start gap-1 text-sm">
                         Department
                         <select
@@ -728,7 +713,7 @@ export function HrManpowerRequisitionsWorkspace() {
                           ))}
                         </select>
                       </label>
-                    </div>
+                    </HrFormRows>
                   </HrDetailSection>
                   <HrDetailSection title="Salary range">
                     <label className="grid content-start gap-1 text-sm">
@@ -746,7 +731,7 @@ export function HrManpowerRequisitionsWorkspace() {
                         ))}
                       </select>
                     </label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <HrFormRows className="gap-3">
                       <label className="grid content-start min-w-0 gap-1 text-sm">
                         Minimum salary
                         <AmountInput
@@ -763,7 +748,7 @@ export function HrManpowerRequisitionsWorkspace() {
                           onValueChange={(raw) => setEditor({ ...editor, maximum: raw })}
                         />
                       </label>
-                    </div>
+                    </HrFormRows>
                   </HrDetailSection>
                   <HrDetailSection title="Requirements">
                     <label className="grid content-start gap-1 text-sm">
@@ -783,6 +768,26 @@ export function HrManpowerRequisitionsWorkspace() {
                     </label>
                   </HrDetailSection>
                 </fieldset>
+                {editor.id && editor.state ? (
+                  <HrDetailSection title="Status">
+                    <label className="grid content-start gap-1 text-sm">
+                      Status
+                      <select
+                        className={selectClass}
+                        value={editor.nextState}
+                        onChange={(event) =>
+                          setEditor({ ...editor, nextState: event.target.value as Requisition["state"] })
+                        }
+                      >
+                        {statusOptions(editor.state).map((state) => (
+                          <option key={state} value={state}>
+                            {stateLabel(state)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </HrDetailSection>
+                ) : null}
                 <HrDrawerActions>
                   <Button
                     disabled={saving || (editingFields && (grades.length === 0 || projects.length === 0))}

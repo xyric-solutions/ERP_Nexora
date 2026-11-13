@@ -5,6 +5,7 @@ import { WorkForm } from "@/shared/ui/work-form";
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Plus, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -232,7 +233,7 @@ function PolicyEditor({
     setPolicy({ ...policy, [key]: value });
   return (
     <fieldset disabled={busy} className="m-0! min-w-0 border-0! p-0! grid min-w-0 gap-4">
-      <div className="grid min-w-0 items-start gap-4 sm:grid-cols-2">
+      <HrFormRows>
         <Field title="Effective from">
           <Input
             type="date"
@@ -301,8 +302,8 @@ function PolicyEditor({
             onChange={(e) => update("document_required_after_days", e.target.value || null)}
           />
         </Field>
-      </div>
-      <div className="flex flex-wrap gap-x-6 gap-y-3">
+      </HrFormRows>
+      <div className="grid gap-3">
         <label htmlFor="leave-policy-hr" className="flex items-center gap-2 text-sm">
           <Checkbox
             id="leave-policy-hr"
@@ -505,18 +506,17 @@ function LeaveTypes(props: Shared) {
               void submit();
             }}
           >
+            {editor !== "new" && (
+              <HrRecordCodeField kind="leave" companyId={company} value={editor.code} id="hr-leave-type-code" label="Leave code" />
+            )}
             {editor === "new" && (
               <fieldset
                 disabled={busy}
-                className="m-0! min-w-0 border-0! p-0! grid min-w-0 items-start gap-4 sm:grid-cols-2"
+                className="m-0! min-w-0 border-0! p-0! grid min-w-0 grid-cols-1 items-start gap-4"
               >
-                <div className="sm:col-span-2">
-                  <Field title="Leave name">
-                    <Input value={name} maxLength={160} onChange={(e) => setName(e.target.value)} required />
-                  </Field>
-                </div>
-                <Field title="Leave code (automatic)">
-                  <Input value="Assigned on save · LT-001…" readOnly maxLength={32} required />
+                <HrRecordCodeField kind="leave" companyId={company} value={null} id="hr-leave-type-code" label="Leave code" />
+                <Field title="Leave name">
+                  <Input value={name} maxLength={160} onChange={(e) => setName(e.target.value)} required />
                 </Field>
                 <Field title="Pay treatment">
                   <select
@@ -889,8 +889,9 @@ function LeaveBalances(props: Shared) {
           >
             <fieldset
               disabled={busy}
-              className="m-0! min-w-0 border-0! p-0! grid min-w-0 items-start gap-4 sm:grid-cols-2"
+              className="m-0! min-w-0 border-0! p-0! grid min-w-0 grid-cols-1 items-start gap-4"
             >
+              <HrRecordCodeField kind="leave_posting" companyId={company} value={null} id="hr-leave-posting-code" refreshKey={revision} />
               <Field title="Posting kind">
                 <select className={selectClass} value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
                   <option value="opening">Opening balance</option>
@@ -910,11 +911,9 @@ function LeaveBalances(props: Shared) {
                   required
                 />
               </Field>
-              <div className="sm:col-span-2">
-                <Field title="Days (negative for deductions)">
-                  <Input inputMode="decimal" value={days} onChange={(e) => setDays(e.target.value)} required />
-                </Field>
-              </div>
+              <Field title="Days (negative for deductions)">
+                <Input inputMode="decimal" value={days} onChange={(e) => setDays(e.target.value)} required />
+              </Field>
               <Field title="Source period start">
                 <Input
                   type="date"
@@ -1117,33 +1116,9 @@ function RequestEditor(props: Shared) {
         >
           <fieldset
             disabled={busy}
-            className="m-0! min-w-0 border-0! p-0! grid min-w-0 items-start gap-4 sm:grid-cols-2"
+            className="m-0! min-w-0 border-0! p-0! grid min-w-0 grid-cols-1 items-start gap-4"
           >
-            <Field title="From date">
-              <Input
-                type="date"
-                className={dateClass}
-                value={from}
-                onChange={(e) => {
-                  setFrom(e.target.value);
-                  setChoices({});
-                }}
-                required
-              />
-            </Field>
-            <Field title="To date">
-              <Input
-                type="date"
-                className={dateClass}
-                min={from}
-                value={to}
-                onChange={(e) => {
-                  setTo(e.target.value);
-                  setChoices({});
-                }}
-                required
-              />
-            </Field>
+            <HrRecordCodeField kind="leave_request" companyId={company} value={null} id="hr-leave-request-code" refreshKey={revision} />
             <div className="grid min-w-0 content-start gap-2 text-sm font-medium">
               <label htmlFor="leave-employee">Employee</label>
               <SearchableSelect
@@ -1181,6 +1156,31 @@ function RequestEditor(props: Shared) {
                   </option>
                 ))}
               </select>
+            </Field>
+            <Field title="From date">
+              <Input
+                type="date"
+                className={dateClass}
+                value={from}
+                onChange={(e) => {
+                  setFrom(e.target.value);
+                  setChoices({});
+                }}
+                required
+              />
+            </Field>
+            <Field title="To date">
+              <Input
+                type="date"
+                className={dateClass}
+                min={from}
+                value={to}
+                onChange={(e) => {
+                  setTo(e.target.value);
+                  setChoices({});
+                }}
+                required
+              />
             </Field>
             <Field title="Verified supporting document">
               <select className={selectClass} value={document} onChange={(e) => setDocument(e.target.value)}>

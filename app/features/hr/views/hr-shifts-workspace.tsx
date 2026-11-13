@@ -5,6 +5,7 @@ import { WorkForm } from "@/shared/ui/work-form";
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   createHrShiftRequestSchema,
@@ -247,18 +248,14 @@ function ShiftEditor({
         </Alert>
       )}
       <HrDetailSection title="Shift">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="grid content-start gap-2 text-sm font-medium">
-            Shift code (automatic)
-            <Input
-              required
-              maxLength={32}
-              value={code === "AUTO" ? "Assigned on save · SHF-001…" : code}
-              readOnly
-              disabled={busy}
-              placeholder="GENERAL"
-            />
-          </label>
+        <HrFormRows>
+          <HrRecordCodeField
+            kind="shift"
+            companyId={companyId}
+            value={code === "AUTO" ? null : code}
+            id="hr-shift-code"
+            label="Shift code"
+          />
           <label className="grid content-start gap-2 text-sm font-medium">
             Shift name
             <Input
@@ -318,7 +315,7 @@ function ShiftEditor({
               ))}
             </select>
           </label>
-        </div>
+        </HrFormRows>
       </HrDetailSection>
       <HrDetailSection title="Work location">
         <div className="grid content-start gap-2 text-sm font-medium">
@@ -418,7 +415,7 @@ function ShiftEditor({
       ) : (
         <>
           <HrDetailSection title="Working hours">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <HrFormRows>
               <label className="grid content-start gap-2 text-sm font-medium">
                 Start time
                 <Input required type="time" value={start} disabled={busy} onChange={(e) => setStart(e.target.value)} />
@@ -427,7 +424,7 @@ function ShiftEditor({
                 End time
                 <Input required type="time" value={end} disabled={busy} onChange={(e) => setEnd(e.target.value)} />
               </label>
-            </div>
+            </HrFormRows>
             <label className="flex items-center gap-2 text-sm">
               <Checkbox checked={nextDay} disabled={busy} onCheckedChange={(value) => setNextDay(value === true)} />
               Ends on the following day
@@ -449,7 +446,7 @@ function ShiftEditor({
             {breaks.map((b, index) => (
               <div
                 key={index}
-                className="grid min-w-0 items-end gap-3 rounded-lg bg-muted/40 p-3 sm:grid-cols-[minmax(0,1fr)_6rem_auto_auto]"
+                className="grid min-w-0 grid-cols-1 gap-3 rounded-lg bg-muted/40 p-3"
               >
                 <label className="grid content-start gap-2 text-xs font-medium">
                   Break {index + 1} name
@@ -493,6 +490,7 @@ function ShiftEditor({
                   type="button"
                   variant="outline"
                   size="icon"
+                  className="justify-self-end"
                   aria-label={`Remove break ${index + 1}`}
                   disabled={busy}
                   onClick={() => setBreaks((values) => values.filter((_, i) => i !== index))}
@@ -503,7 +501,7 @@ function ShiftEditor({
             ))}
           </HrDetailSection>
           <HrDetailSection title="Attendance rules">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <HrFormRows>
               <label className="grid content-start gap-2 text-sm font-medium">
                 Required work (minutes)
                 <Input
@@ -528,7 +526,7 @@ function ShiftEditor({
                   {numeric("Departure grace (minutes)", graceOut, setGraceOut)}
                 </>
               )}
-            </div>
+            </HrFormRows>
           </HrDetailSection>
           <HrDetailSection title="Weekly off days">
             <fieldset className="m-0 min-w-0 border-0 p-0">

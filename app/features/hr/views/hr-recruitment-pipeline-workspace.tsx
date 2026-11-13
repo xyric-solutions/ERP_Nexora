@@ -4,6 +4,7 @@ import { WorkForm } from "@/shared/ui/work-form";
 
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrRecordCodeField } from "../components/hr-create-form";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { hrApplicationTransitions, type HrApplicationDirectory, type HrApplicationStage } from "@nexora/contracts";
@@ -347,6 +348,7 @@ export function HrRecruitmentPipelineWorkspace() {
             className="grid min-w-0 gap-4 rounded-2xl border border-primary/30 bg-card p-5 shadow-sm"
           >
             <HrDetailSection title="Application">
+              <HrRecordCodeField kind="application" companyId={companyId || undefined} value={null} />
               <label className="grid content-start gap-1.5 text-sm font-medium">
                 Candidate
                 <select

@@ -40,6 +40,7 @@ import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrSearchField } from "../components/hr-list-controls";
 import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import { hrCell } from "../components/hr-table";
 import { Field, selectClass, useAttendanceRead, localDate } from "../components/hr-workspace-controls";
 
@@ -302,6 +303,13 @@ function LifecycleCaseForm({
           {missing}
         </p>
       ) : null}
+      <HrRecordCodeField
+        kind={kind}
+        companyId={w.company_id}
+        value={initial?.code ?? null}
+        existing={Boolean(initial)}
+        id={`hr-lifecycle-case-code-${kind}`}
+      />
       {kind === "clearance" ? (
         <Field title="Approved exit">
           <SearchableSelect
@@ -333,7 +341,7 @@ function LifecycleCaseForm({
       )}
 
       {kind !== "clearance" ? (
-        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+        <HrFormRows>
           <Field title={dateLabel}>
             <Input type="date" value={date} required disabled={busy} onChange={(event) => setDate(event.target.value)} />
           </Field>
@@ -389,7 +397,7 @@ function LifecycleCaseForm({
               />
             </Field>
           ) : null}
-        </div>
+        </HrFormRows>
       ) : null}
 
       {kind === "onboarding" || kind === "clearance" ? (

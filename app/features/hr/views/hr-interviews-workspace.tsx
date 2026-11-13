@@ -4,6 +4,7 @@ import { WorkForm } from "@/shared/ui/work-form";
 
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -116,7 +117,8 @@ function ScheduleForm({
         </Button>
       </div>
       <HrDetailSection title="Interview">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <HrFormRows className="gap-3">
+          <HrRecordCodeField kind="interview" companyId={scope.company_id || undefined} value={interview?.code ?? null} existing={Boolean(interview)} />
           {!interview ? (
             <label className="grid content-start gap-1.5 text-sm">
               Interview type
@@ -154,7 +156,7 @@ function ScheduleForm({
               ))}
             </select>
           </label>
-          <label className="grid content-start gap-1.5 text-sm sm:col-span-2">
+          <label className="grid content-start gap-1.5 text-sm">
             Location or meeting reference
             <Input
               required
@@ -164,7 +166,7 @@ function ScheduleForm({
               onChange={(e) => setLocation(e.target.value)}
             />
           </label>
-        </div>
+        </HrFormRows>
       </HrDetailSection>
       {!interview ? (
         <HrDetailSection title="Panel members · choose 2–8">
@@ -1015,6 +1017,12 @@ export function HrInterviewsWorkspace() {
                     }}
                   >
                     <HrDetailSection title="Assessment">
+                      <HrRecordCodeField
+                        kind="assessment"
+                        companyId={scope.company_id || undefined}
+                        value={null}
+                        refreshKey={workspace.assessments.length}
+                      />
                       <label className="grid content-start gap-1.5 text-sm">
                         Assessment title
                         <Input

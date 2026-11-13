@@ -1,6 +1,7 @@
 "use client";
 import { WorkTable } from "@/shared/ui/work-table";
 
+import { HrRecordCodeField, HrFormRows } from "../components/hr-create-form";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useEffect, useMemo, useState } from "react";
@@ -272,26 +273,28 @@ export function HrEmployeeEmergencyContactsWorkspace({
           >
             <aside className="rounded-lg border border-border bg-card p-4 shadow-sm">
               {canManage ? (
-                <div className="grid gap-3">
-                  <label className="grid content-start gap-1.5 text-sm font-medium">
+                <HrFormRows>
+                  <HrRecordCodeField kind="emergency_contact" companyId={companyId || undefined} value={null} refreshKey={refreshKey} />
+                  <label htmlFor="hr-emergency-name" className="grid content-start gap-1.5 text-sm font-medium">
                     Name
-                    <Input value={name} onChange={(event) => setName(event.target.value)} />
+                    <Input id="hr-emergency-name" value={name} onChange={(event) => setName(event.target.value)} />
                   </label>
-                  <label className="grid content-start gap-1.5 text-sm font-medium">
+                  <label htmlFor="hr-emergency-relationship" className="grid content-start gap-1.5 text-sm font-medium">
                     Relationship
-                    <Input value={relationship} onChange={(event) => setRelationship(event.target.value)} />
+                    <Input id="hr-emergency-relationship" value={relationship} onChange={(event) => setRelationship(event.target.value)} />
                   </label>
-                  <label className="grid content-start gap-1.5 text-sm font-medium">
+                  <label htmlFor="hr-emergency-phone" className="grid content-start gap-1.5 text-sm font-medium">
                     Phone
-                    <Input value={phone} type="tel" onChange={(event) => setPhone(event.target.value)} />
+                    <Input id="hr-emergency-phone" value={phone} type="tel" onChange={(event) => setPhone(event.target.value)} />
                   </label>
-                  <label className="grid content-start gap-1.5 text-sm font-medium">
+                  <label htmlFor="hr-emergency-email" className="grid content-start gap-1.5 text-sm font-medium">
                     Email
-                    <Input value={email} type="email" onChange={(event) => setEmail(event.target.value)} />
+                    <Input id="hr-emergency-email" value={email} type="email" onChange={(event) => setEmail(event.target.value)} />
                   </label>
-                  <label className="grid content-start gap-1.5 text-sm font-medium">
+                  <label htmlFor="hr-emergency-priority" className="grid content-start gap-1.5 text-sm font-medium">
                     Priority
                     <Input
+                      id="hr-emergency-priority"
                       value={priority}
                       type="number"
                       min={1}
@@ -299,13 +302,13 @@ export function HrEmployeeEmergencyContactsWorkspace({
                       onChange={(event) => setPriority(event.target.value)}
                     />
                   </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={primary} onCheckedChange={setPrimary} /> Primary emergency contact
+                  <label htmlFor="hr-emergency-primary" className="flex items-center gap-2 text-sm">
+                    <Checkbox id="hr-emergency-primary" checked={primary} onCheckedChange={setPrimary} /> Primary emergency contact
                   </label>
                   <Button type="button" disabled={saving} onClick={save}>
                     {saving ? "Saving..." : "Add emergency contact"}
                   </Button>
-                </div>
+                </HrFormRows>
               ) : (
                 <Alert>
                   <AlertTitle>Manage permission required</AlertTitle>

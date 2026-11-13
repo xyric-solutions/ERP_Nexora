@@ -1,4 +1,4 @@
-import { allocateHrCode, previewHrCode } from "./record-codes.js";
+import { allocateHrCode, allocateNewHrCode, previewHrCode } from "./record-codes.js";
 import { requireSettlementPayrollDecision } from "./settlement-payroll.js";
 import { confirmLoanDisbursement, loanDisbursementOptions, requireLoanDisbursementAuthority } from "./payroll-loans.js";
 import { randomUUID } from "node:crypto";
@@ -755,7 +755,7 @@ export class PayrollWorkspace {
           if (!items.length || items.some((r) => r.status !== "active"))
             fail("The salary structure needs active component items.");
           await client.query(
-            `insert into hr_salary_assignment(id,tenant_id,company_id,employee_id,structure_id,currency_code,effective_from,effective_to,reason,created_by,compensation_type,payment_basis,compensation_model_version,workflow_managed,supersedes_id,predecessor_version,predecessor_hash) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1,true,$13,$14,$15)`,
+            `insert into hr_salary_assignment(id,tenant_id,company_id,employee_id,structure_id,currency_code,effective_from,effective_to,reason,created_by,compensation_type,payment_basis,compensation_model_version,workflow_managed,supersedes_id,predecessor_version,predecessor_hash,code) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1,true,$13,$14,$15,$16)`,
             [
               id,
               tenant,
@@ -772,6 +772,7 @@ export class PayrollWorkspace {
               input.supersedes_id,
               predecessor?.version ?? null,
               predecessor?.source_hash ?? null,
+              await allocateNewHrCode(client, tenant, company, "salary"),
             ],
           );
           for (const item of items)
@@ -797,7 +798,7 @@ export class PayrollWorkspace {
           await this.ensureUnfrozen(client, c, company, input.effective_month);
           await this.component(client, c, company, input.component_id);
           await client.query(
-            `insert into hr_payroll_adjustment(id,tenant_id,company_id,employee_id,component_id,effective_month,amount,reason,created_by,workflow_managed) values($1,$2,$3,$4,$5,$6,$7,$8,$9,true)`,
+            `insert into hr_payroll_adjustment(id,tenant_id,company_id,employee_id,component_id,effective_month,amount,reason,created_by,workflow_managed,code) values($1,$2,$3,$4,$5,$6,$7,$8,$9,true,$10)`,
             [
               id,
               tenant,
@@ -808,6 +809,7 @@ export class PayrollWorkspace {
               input.amount,
               input.reason,
               actor,
+              await allocateNewHrCode(client, tenant, company, "adjustment"),
             ],
           );
         } else {

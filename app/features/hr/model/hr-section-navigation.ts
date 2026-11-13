@@ -79,14 +79,9 @@ export const payrollWorkspace = {
     {
       id: "settle",
       label: "Settle & Publish",
-      description: "Manage recoveries, Finance accrual, payment evidence and payslips.",
+      // Loans & advances live only in Employee Lifecycle (Loan Requests / Advance Requests).
+      description: "Manage Finance accrual, payment evidence and payslips.",
       pages: [
-        {
-          id: "employee-loans",
-          label: "Loans & Advances",
-          description: "Maintain approved advances and scheduled payroll recoveries.",
-          icon: HandCoins,
-        },
         {
           id: "payroll-journal",
           label: "Payroll Journal",

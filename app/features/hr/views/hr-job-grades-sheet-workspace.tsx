@@ -22,6 +22,7 @@ import {
 } from "../components/hr-detail-tile";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import { nextMasterCode } from "../model/hr-master-code";
 import { HrMasterStatusBadge } from "../components/hr-master-status-badge";
 import { HrMasterDeleteButton } from "../components/hr-master-delete-button";
@@ -445,10 +446,21 @@ export function HrJobGradesSheetWorkspace() {
         {editor ? (
           <div className="grid gap-5">
             <HrDetailSection title="Grade">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="job-grade-code">
-                  Auto-generated code
-                  <Input id="job-grade-code" value={editor.code} disabled />
+              <HrFormRows>
+                <HrRecordCodeField
+                  id="job-grade-code"
+                  kind="job_grade"
+                  companyId={companyId}
+                  value={editor.mode === "edit" ? editor.code : null}
+                />
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="job-grade-name">
+                  Job grade name
+                  <Input
+                    id="job-grade-name"
+                    maxLength={160}
+                    value={editor.name}
+                    onChange={(event) => setEditor({ ...editor, name: event.target.value })}
+                  />
                 </label>
                 <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="job-grade-level">
                   Grade level
@@ -463,16 +475,6 @@ export function HrJobGradesSheetWorkspace() {
                     onChange={(event) => setEditor({ ...editor, gradeLevel: event.target.value })}
                   />
                 </label>
-              </div>
-              <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="job-grade-name">
-                Name
-                <Input
-                  id="job-grade-name"
-                  maxLength={160}
-                  value={editor.name}
-                  onChange={(event) => setEditor({ ...editor, name: event.target.value })}
-                />
-              </label>
               <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="job-grade-description">
                 Description
                 <Textarea
@@ -483,8 +485,10 @@ export function HrJobGradesSheetWorkspace() {
                   onChange={(event) => setEditor({ ...editor, description: event.target.value })}
                 />
               </label>
+              </HrFormRows>
             </HrDetailSection>
             <HrDetailSection title="Compensation band">
+              <HrFormRows>
               <CurrencySelect
                 currencies={currencies}
                 error={currencyError}
@@ -493,7 +497,7 @@ export function HrJobGradesSheetWorkspace() {
               />
               <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0">
                 <legend className="sr-only">Compensation band</legend>
-                <div className="grid gap-3 sm:grid-cols-3">
+                <HrFormRows>
                   <Money
                     label="Minimum"
                     value={editor.bandMinimum}
@@ -509,8 +513,9 @@ export function HrJobGradesSheetWorkspace() {
                     value={editor.bandMaximum}
                     set={(value) => setEditor({ ...editor, bandMaximum: value })}
                   />
-                </div>
+                </HrFormRows>
               </fieldset>
+              </HrFormRows>
             </HrDetailSection>
           </div>
         ) : selected ? (

@@ -71524,6 +71524,99 @@
         }
       }
     },
+    "/hr/record_code_preview": {
+      "get": {
+        "operationId": "getHrRecordCodePreview",
+        "description": "Next automatic code for an HR & Payroll record kind, shown read-only at the top of Add / New / Create forms. The server reserves the final unique code inside the create transaction. Requires any hr.* permission and company access.",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/HrRecordCodeKind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Next record code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HrRecordCodePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe structured error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/hr/employee_number_preview": {
       "get": {
         "operationId": "getHrEmployeeNumberPreview",
@@ -100626,6 +100719,13 @@
                   "minLength": 1,
                   "maxLength": 128
                 },
+                "code": {
+                  "default": null,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "kind": {
                   "type": "string",
                   "enum": [
@@ -100784,6 +100884,7 @@
               },
               "required": [
                 "id",
+                "code",
                 "kind",
                 "round",
                 "starts_at",
@@ -122074,6 +122175,13 @@
             "minLength": 1,
             "maxLength": 128
           },
+          "code": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "kind": {
             "type": "string"
           },
@@ -122481,6 +122589,7 @@
           "payroll_links",
           "can_prepare_payroll",
           "id",
+          "code",
           "kind",
           "relationship_id",
           "employee_id",
@@ -123307,6 +123416,13 @@
                   "minLength": 1,
                   "maxLength": 128
                 },
+                "code": {
+                  "default": null,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "kind": {
                   "type": "string"
                 },
@@ -123714,6 +123830,7 @@
                 "payroll_links",
                 "can_prepare_payroll",
                 "id",
+                "code",
                 "kind",
                 "relationship_id",
                 "employee_id",
@@ -124581,6 +124698,13 @@
                   "minLength": 1,
                   "maxLength": 128
                 },
+                "code": {
+                  "default": null,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "kind": {
                   "type": "string"
                 },
@@ -124988,6 +125112,7 @@
                 "payroll_links",
                 "can_prepare_payroll",
                 "id",
+                "code",
                 "kind",
                 "relationship_id",
                 "employee_id",
@@ -142105,6 +142230,13 @@
                   "minLength": 1,
                   "maxLength": 128
                 },
+                "code": {
+                  "default": null,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "channel": {
                   "type": "string",
                   "enum": [
@@ -142146,6 +142278,7 @@
               "required": [
                 "id",
                 "employee_id",
+                "code",
                 "channel",
                 "contact_usage",
                 "contact_value",
@@ -142254,6 +142387,13 @@
                   "minLength": 1,
                   "maxLength": 128
                 },
+                "code": {
+                  "default": null,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "name": {
                   "type": "string",
                   "minLength": 1,
@@ -142295,6 +142435,7 @@
               "required": [
                 "id",
                 "employee_id",
+                "code",
                 "name",
                 "relationship",
                 "phone",
@@ -142406,6 +142547,13 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 128
+                },
+                "code": {
+                  "default": null,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "document_type": {
                   "type": "string",
@@ -142533,6 +142681,7 @@
               "required": [
                 "id",
                 "employee_id",
+                "code",
                 "document_type",
                 "title",
                 "reference",
@@ -142852,6 +143001,13 @@
                   "minLength": 1,
                   "maxLength": 128
                 },
+                "code": {
+                  "default": null,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "company_name": {
                   "type": "string",
                   "minLength": 1,
@@ -142932,6 +143088,7 @@
               "required": [
                 "id",
                 "employee_id",
+                "code",
                 "company_name",
                 "job_title",
                 "start_on",
@@ -143028,6 +143185,151 @@
         },
         "required": [
           "employee_number"
+        ],
+        "additionalProperties": false
+      },
+      "HrRecordCodeKind": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "string",
+        "enum": [
+          "employee",
+          "shift",
+          "leave",
+          "component",
+          "structure",
+          "loan",
+          "advance",
+          "lifecycle",
+          "programme",
+          "overtime",
+          "designation",
+          "job_grade",
+          "job",
+          "cost_center",
+          "work_location",
+          "employment_setup",
+          "employment_type",
+          "employee_category",
+          "business_unit",
+          "division",
+          "branch",
+          "department",
+          "warehouse",
+          "requisition",
+          "opening",
+          "candidate",
+          "application",
+          "offer",
+          "interview",
+          "assessment",
+          "shift_allocation",
+          "leave_request",
+          "leave_posting",
+          "correction",
+          "overtime_request",
+          "overtime_rule",
+          "transfer",
+          "promotion",
+          "manager_change",
+          "work_location_change",
+          "placement_change",
+          "assignment",
+          "hire",
+          "onboarding",
+          "probation",
+          "resignation",
+          "termination",
+          "clearance",
+          "settlement",
+          "contact",
+          "emergency_contact",
+          "document",
+          "employment_history",
+          "salary",
+          "adjustment",
+          "ot_arrangement",
+          "statutory_setup",
+          "payroll_policy",
+          "payroll_period"
+        ]
+      },
+      "HrRecordCodePreview": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "employee",
+              "shift",
+              "leave",
+              "component",
+              "structure",
+              "loan",
+              "advance",
+              "lifecycle",
+              "programme",
+              "overtime",
+              "designation",
+              "job_grade",
+              "job",
+              "cost_center",
+              "work_location",
+              "employment_setup",
+              "employment_type",
+              "employee_category",
+              "business_unit",
+              "division",
+              "branch",
+              "department",
+              "warehouse",
+              "requisition",
+              "opening",
+              "candidate",
+              "application",
+              "offer",
+              "interview",
+              "assessment",
+              "shift_allocation",
+              "leave_request",
+              "leave_posting",
+              "correction",
+              "overtime_request",
+              "overtime_rule",
+              "transfer",
+              "promotion",
+              "manager_change",
+              "work_location_change",
+              "placement_change",
+              "assignment",
+              "hire",
+              "onboarding",
+              "probation",
+              "resignation",
+              "termination",
+              "clearance",
+              "settlement",
+              "contact",
+              "emergency_contact",
+              "document",
+              "employment_history",
+              "salary",
+              "adjustment",
+              "ot_arrangement",
+              "statutory_setup",
+              "payroll_policy",
+              "payroll_period"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          }
+        },
+        "required": [
+          "kind",
+          "code"
         ],
         "additionalProperties": false
       },

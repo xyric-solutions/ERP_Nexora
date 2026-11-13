@@ -23,6 +23,7 @@ import { SearchableSelect } from "@/shared/ui/searchable-select";
 import { HrApiClient } from "../api/hr-client";
 import { HrClickableRow } from "../components/hr-clickable-row";
 import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import {
   HrDetailAudit,
   HrDetailList,
@@ -135,7 +136,6 @@ function LoanForm({
   const recoveryComponents = (options.data?.components ?? []).filter(
     (item) => item.kind === "deduction" && item.method === "fixed",
   );
-  const code = record?.reference ?? options.data?.code_previews?.[kind] ?? "";
   // Keep the draft's current employee selectable even when the search list does not include it.
   const employeeOptions = (options.data?.employees ?? []).map((item) => ({ value: item.id, label: item.label }));
   if (record?.employee_id && !employeeOptions.some((item) => item.value === record.employee_id))
@@ -216,9 +216,13 @@ function LoanForm({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
-      <Field title={`${label[kind].one} code`}>
-        <Input readOnly aria-readonly value={code || "Assigned on save"} className="font-mono read-only:bg-muted/40" />
-      </Field>
+      <HrRecordCodeField
+        kind={kind}
+        companyId={company || undefined}
+        value={record?.reference ?? null}
+        id={`hr-${kind}-code`}
+        label={`${label[kind].one} code`}
+      />
       <div className="grid min-w-0 content-start gap-2 text-sm font-medium">
         <label htmlFor={`hr-${kind}-employee`}>Employee</label>
         <SearchableSelect
@@ -258,7 +262,7 @@ function LoanForm({
           ))}
         </select>
       </Field>
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+      <HrFormRows>
         <Field title="Amount">
           <Input
             inputMode="decimal"
@@ -298,7 +302,7 @@ function LoanForm({
             onChange={(event) => setInstalments(event.target.value)}
           />
         </Field>
-      </div>
+      </HrFormRows>
       <Field title="Reason">
         <Textarea rows={2} value={reason} maxLength={500} disabled={busy} onChange={(e) => setReason(e.target.value)} />
       </Field>
@@ -498,7 +502,7 @@ function LoanDetail({
           }}
         >
           {decision === "confirm_disbursement" ? (
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+            <div className="grid min-w-0 grid-cols-1 gap-4">
               <Field title="Bank payment">
                 <select
                   className={selectClass}

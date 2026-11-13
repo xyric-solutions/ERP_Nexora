@@ -19,6 +19,7 @@ import {
 } from "../components/hr-detail-tile";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import { nextGeneratedCode, organizationUnitPrefixes } from "../model/hr-master-code";
 import { HrMasterStatusBadge } from "../components/hr-master-status-badge";
 import { HrMasterDeleteButton } from "../components/hr-master-delete-button";
@@ -436,7 +437,22 @@ export function HrOrganizationStructureSheetWorkspace() {
         {editor ? (
           <div className="grid gap-5">
             <HrDetailSection title="Unit">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <HrFormRows>
+                <HrRecordCodeField
+                  id="organization-code"
+                  kind={editor.type}
+                  companyId={companyId}
+                  value={editor.mode === "edit" ? editor.code : null}
+                />
+                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-name">
+                  {`${typeLabels[editor.type]} name`}
+                  <Input
+                    id="organization-name"
+                    maxLength={200}
+                    value={editor.name}
+                    onChange={(event) => setEditor({ ...editor, name: event.target.value })}
+                  />
+                </label>
                 {editor.mode === "create" ? (
                   <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-unit-type">
                     Unit type
@@ -463,24 +479,11 @@ export function HrOrganizationStructureSheetWorkspace() {
                     </select>
                   </label>
                 ) : null}
-                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-code">
-                  Auto-generated code
-                  <Input id="organization-code" value={editor.code} disabled />
-                </label>
-              </div>
-              <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-name">
-                Name
-                <Input
-                  id="organization-name"
-                  maxLength={200}
-                  value={editor.name}
-                  onChange={(event) => setEditor({ ...editor, name: event.target.value })}
-                />
-              </label>
+              </HrFormRows>
             </HrDetailSection>
             {editor.type === "branch" || editor.type === "department" ? (
               <HrDetailSection title="Hierarchy">
-                <div className="grid gap-3 sm:grid-cols-2">
+                <HrFormRows>
                   <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor="organization-location">
                     Location
                     <select
@@ -537,7 +540,7 @@ export function HrOrganizationStructureSheetWorkspace() {
                       </select>
                     </label>
                   ) : null}
-                </div>
+                </HrFormRows>
               </HrDetailSection>
             ) : editor.type !== "division" ? (
               <HrDetailSection title="Hierarchy">

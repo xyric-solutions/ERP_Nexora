@@ -3,6 +3,7 @@ import { WorkTable } from "@/shared/ui/work-table";
 
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrRecordCodeField } from "../components/hr-create-form";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { HrJobOpeningDirectory } from "@nexora/contracts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -418,23 +419,16 @@ export function HrJobOpeningsWorkspace() {
               notice={message}
             >
               <aside className="grid gap-5 rounded-lg border bg-card p-4 border-border">
-                <HrDetailSection title="Source">
-                  {editingId ? (
-                    <label className="grid content-start gap-1 text-sm">
-                      Status
-                      <select
-                        className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
-                        value={openingState}
-                        onChange={(event) => setOpeningState(event.target.value as Opening["state"])}
-                      >
-                        {(openingState === "cancelled" ? (["open", "on_hold", "closed", "cancelled"] as const) : (["open", "on_hold", "closed"] as const)).map((state) => (
-                          <option key={state} value={state}>
-                            {state === "on_hold" ? "On hold" : state.charAt(0).toUpperCase() + state.slice(1)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : null}
+                <HrDetailSection title="Opening">
+                  <HrRecordCodeField
+                    kind="opening"
+                    companyId={companyId || undefined}
+                    value={editingId ? (items.find((item) => item.id === editingId)?.reference ?? null) : null}
+                  />
+                  <label className="grid content-start gap-1 text-sm">
+                    Opening title
+                    <Input value={title} onChange={(event) => setTitle(event.target.value)} />
+                  </label>
                   {approved.length === 0 && !editingId ? (
                     <Alert>
                       <AlertTitle>Approved requisition required</AlertTitle>
@@ -464,12 +458,6 @@ export function HrJobOpeningsWorkspace() {
                       ))}
                     </select>
                   </label>
-                </HrDetailSection>
-                <HrDetailSection title="Opening">
-                  <label className="grid content-start gap-1 text-sm">
-                    Opening title
-                    <Input value={title} onChange={(event) => setTitle(event.target.value)} />
-                  </label>
                   <label className="grid content-start gap-1 text-sm">
                     Positions to fill
                     <Input
@@ -493,6 +481,24 @@ export function HrJobOpeningsWorkspace() {
                     />
                   </label>
                 </HrDetailSection>
+                {editingId ? (
+                  <HrDetailSection title="Status">
+                    <label className="grid content-start gap-1 text-sm">
+                      Status
+                      <select
+                        className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-2"
+                        value={openingState}
+                        onChange={(event) => setOpeningState(event.target.value as Opening["state"])}
+                      >
+                        {(openingState === "cancelled" ? (["open", "on_hold", "closed", "cancelled"] as const) : (["open", "on_hold", "closed"] as const)).map((state) => (
+                          <option key={state} value={state}>
+                            {state === "on_hold" ? "On hold" : state.charAt(0).toUpperCase() + state.slice(1)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </HrDetailSection>
+                ) : null}
                 <HrDrawerActions>
                   <Button disabled={saving || (!editingId && !approved.length)} onClick={() => void save()}>
                     {editingId ? "Save changes" : "Create opening"}
